@@ -27,13 +27,13 @@ import cartopy.crs as ccrs
 
 
 #%%
-def calculate_corr_maps(filename_exp_design2, map_proj):
+def calculate_corr_maps(ex, map_proj):
     #%%
     # =============================================================================
     # Load 'exp' dictionairy with information of pre-processed data (variables, paths, filenames, etcetera..)
     # and add RGCPD/Tigrimate experiment settings
     # =============================================================================
-    ex = np.load(str(filename_exp_design2)).item()
+#    ex = np.load(str(filename_exp_design2)).item()
     # Response Variable is what we want to predict
     RV = ex[ex['RV_name']]
     ex['time_cycle'] = RV.dates[RV.dates.year == RV.startyear].size # time-cycle of data. total timesteps in one year

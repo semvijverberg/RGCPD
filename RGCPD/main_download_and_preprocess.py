@@ -8,7 +8,7 @@ Created on Mon Jul  9 17:48:31 2018
 import time
 start_time = time.time()
 import os, sys
-os.chdir('/Users/semvijverberg/Surfdrive/Scripts/Tigramite')
+os.chdir('/Users/semvijverberg/Surfdrive/Scripts/RGCPD/RGCPD/RGCPD')
 script_dir = os.getcwd()
 if sys.version[:1] == '3':
     from importlib import reload as rel
@@ -53,8 +53,8 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 ex = dict(
      {'dataset'     :       'ERA-i',
      'grid_res'     :       2.5,
-     'startyear'    :       1979,
-     'endyear'      :       2017,
+     'startyear'    :       1979, # download startyear
+     'endyear'      :       2017, # download endyear
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
      'path_pp'     :       path_pp}
@@ -178,19 +178,8 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # First time: Read Docstring by typing 'functions_pp.preprocessing_ncdf?' in console
     # Solve permission error by giving bash script execution right, read Docstring
-    for var in ex['vars'][0]:
-        var_class = ex[var]
-        outfile, datesstr, var_class = functions_pp.datestr_for_preproc(var_class, ex)
-#        var_class, ex = functions_pp.preprocessing_ncdf(outfile, datesstr, var_class, ex)
-        if os.path.isfile(outfile) == True: 
-            print('looks like you already have done the pre-processing,\n'
-                  'to save time let\'s not do it twice..')
-            # but we will update the dates stored in var_class:
-            var_class, ex = functions_pp.update_dates(var_class, ex)
-            pass
-        else:    
-            var_class, ex = functions_pp.preprocessing_ncdf(outfile, datesstr, var_class, ex)
     
+    functions_pp.perform_post_processing(ex)
     
     # *****************************************************************************  
     # *****************************************************************************
@@ -201,78 +190,12 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # 3.1 Select RV period (which period of the year you want to predict)
     # =============================================================================
-    if importRVts == True:
-        RV_name = 'RV_imp'
-        dicRV = np.load(os.path.join(ex['path_pp'], 'RVts2.5', ex['RVts_filename'])).item()
-    #    dicRV = pickle.load( open(os.path.join(ex['path_pp'],ex['RVts_filename']+'.pkl'), "rb") ) 
-        
-        class RV_seperateclass:
-            RVfullts = dicRV['RVfullts']
-            dates = pd.to_datetime(dicRV['RVfullts'].time.values)
-        RV = RV_seperateclass()
-        RV.startyear = RV.dates.year[0]
-        RV.endyear = RV.dates.year[-1]
-        if RV.startyear != ex['startyear']:
-            print('make sure the dates of the RV match with the actors')
-    
-    elif importRVts == False:
-        RV_name = ex['vars'][0][0]
-        # RV should always be the first variable of the vars list in ex
-        RV = ex[RV_name]
-        RVarray, RV = functions_pp.import_array(RV)
-        
-    one_year = RV.dates.where(RV.dates.year == RV.startyear+1).dropna()
-    months = [6,7,8] # Selecting the timesteps of 14 day mean ts that fall in juli and august
-    RV_period = []
-    for mon in months:
-        # append the indices of each year corresponding to your RV period
-        RV_period.insert(-1, np.where(RV.dates.month == mon)[0] )
-    RV_period = [x for sublist in RV_period for x in sublist]
-    RV_period.sort()
-    ex['RV_period'] = RV_period
-    RV.datesRV = RV.dates[RV_period]
-    months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',
-                    7:'jul',8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
-    RV_name_range = '{}{}-{}{}_'.format(RV.datesRV[0].day, months[RV.datesRV.month[0]], 
-                     RV.datesRV[-1].day, months[RV.datesRV.month[-1]] )
-    
-    # =============================================================================
-    # 3.2 Select spatial mask to create 1D timeseries (e.g. a SREX region)
-    # =============================================================================
-
-    if importRVts == True:
-        i = len(RV_name_range)
-        ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range + 
-                                      ex['RVts_filename'][i:])
-                                              
-    elif importRVts == False:
-        ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range + 
-                                      ex['maskname'] )
     # If you don't have your own timeseries yet, then we assume you want to make
-    # one using the first variable listed in ex['vars']. You can 
-    # load a spatial mask here and use it to create your
-    # full timeseries (of length equal to actor time series)  
-                                                    
-    try:
-        mask_dic = np.load(ex['path_masks'], encoding='latin1').item()
-        RV_array = mask_dic['RV_array']
-    #        nor_lon = mask.longitude
-    #        US_mask = mask.roll(longitude=2)
-    #        mask['longitude'] = nor_lon
-        functions_pp.xarray_plot(RV_array)
-    except IOError as e:
-        print('\n\n**\nSpatial mask not found.\n')
-    #              'Place your spatial mask in folder: \n{}\n'
-    #              'and rerun this section.\n**'.format(ex['path_pp'], 'grids'))
-        raise(e)
-    RVarray.coords['mask'] = RV_array.mask
-    RV.RVfullts = RVarray.where(RVarray.mask==False).mean(dim=['latitude','longitude']).squeeze()
+    # one using the first variable listed in ex['vars']. 
     
-    RV.RV_ts = RV.RVfullts[ex['RV_period']] # extract specific months of MT index 
-    # Store added information in RV class to the exp dictionary
-    ex['RV_name'] = RV_name
-    ex[RV_name] = RV
-    
+    months = [6,7,8]
+    RV, ex, RV_name_range = functions_pp.RV_spatial_temporal_mask(ex, importRVts, months)
+        
     # =============================================================================
     # Test if you're not have a lag that will precede the start date of the year
     # =============================================================================
@@ -291,6 +214,7 @@ for freq in ex['tfreqlist']:
     
     if os.path.isdir(ex['path_exp_periodmask']) != True : os.makedirs(ex['path_exp_periodmask'])
     filename_exp_design1 = os.path.join(ex['path_exp_periodmask'], 'input_dic_part_1.npy')
+    
     
     print('\n\t**\n\tOkay, end of Part 1!\n\t**' )
     print('\nNext time, you can choose to start with part 2 by loading in '
@@ -357,7 +281,7 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # Find precursor fields (potential precursors)
     # =============================================================================
-    ex, outdic_actors = main_RGCPD_tig3.calculate_corr_maps(filename_exp_design2, map_proj)
+    ex, outdic_actors = main_RGCPD_tig3.calculate_corr_maps(ex, map_proj)
     #%% 
     # =============================================================================
     # Run tigramite to extract causal precursors

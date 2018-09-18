@@ -5,6 +5,10 @@ Created on Mon Jul  9 17:48:31 2018
 
 @author: semvijverberg
 """
+import os
+import numpy as np
+import pandas as pd
+
 class Variable:
     from datetime import datetime, timedelta
     import pandas as pd
@@ -166,7 +170,6 @@ def datestr_for_preproc(cls, ex):
     from netCDF4 import num2date
     import pandas as pd
     import numpy as np
-    import calendar
     # check temporal frequency raw data
     file_path = os.path.join(cls.path_raw, cls.filename)
     ncdf = Dataset(file_path)
@@ -421,6 +424,104 @@ def update_dates(cls, ex):
     cls.temporal_freq = '{}days'.format(temporal_freq.astype('timedelta64[D]').astype(int))
     return cls, ex
 
+def perform_post_processing(ex):
+    print('\nPerforming the post processing steps on {}'.format(ex['vars'][0]))
+    for var in ex['vars'][0]:
+        var_class = ex[var]
+        outfile, datesstr, var_class = datestr_for_preproc(var_class, ex)
+#        var_class, ex = functions_pp.preprocessing_ncdf(outfile, datesstr, var_class, ex)
+        if os.path.isfile(outfile) == True: 
+            print('looks like you already have done the pre-processing,\n'
+                  'to save time let\'s not do it twice..')
+            # but we will update the dates stored in var_class:
+            var_class, ex = update_dates(var_class, ex)
+            pass
+        else:    
+            var_class, ex = preprocessing_ncdf(outfile, datesstr, var_class, ex)
+    
+def RV_spatial_temporal_mask(ex, importRVts, months):
+    '''Select months of your Response Variable that you want to predict.
+    RV = the RV class
+    ex = experiment dictionary 
+    months = list of integers 
+    If you select [6,7] you will attempt to correlate precursor gridcells with 
+    lag x versus the response variable values in june and july.
+    
+    The second step is to insert a spatial mask -only if- you inserted a 3D field 
+    as your response variable (time, lats, lons). '''
+    
+    if importRVts == True:
+        print('\nImportRVts is true, so the 1D time serie given with name\n'
+              ' {}\n is imported and inserted as the first entry of '
+              'ex[\'vars\']'.format(ex['RVts_filename']))
+        RV_name = 'RV_imp'
+        dicRV = np.load(os.path.join(ex['path_pp'], 'RVts2.5', ex['RVts_filename'])).item()
+    #    dicRV = pickle.load( open(os.path.join(ex['path_pp'],ex['RVts_filename']+'.pkl'), "rb") ) 
+        
+        class RV_seperateclass:
+            RVfullts = dicRV['RVfullts']
+            dates = pd.to_datetime(dicRV['RVfullts'].time.values)
+        RV = RV_seperateclass()
+        RV.startyear = RV.dates.year[0]
+        RV.endyear = RV.dates.year[-1]
+        if RV.startyear != ex['startyear']:
+            print('make sure the dates of the RV match with the actors')
+    
+    elif importRVts == False:
+        RV_name = ex['vars'][0][0]
+        # RV should always be the first variable of the vars list in ex
+        RV = ex[RV_name]
+        RVarray, RV = import_array(RV)
+        print('The RV variable is the 0th index in ex[\'vars\'], '
+              'i.e. {}'.format(RV_name))
+    
+#    one_year = RV.dates.where(RV.dates.year == RV.startyear+1).dropna()
+     # Selecting the timesteps of 14 day mean ts that fall in juli and august
+    RV_period = []
+    for mon in months:
+        # append the indices of each year corresponding to your RV period
+        RV_period.insert(-1, np.where(RV.dates.month == mon)[0] )
+    RV_period = [x for sublist in RV_period for x in sublist]
+    RV_period.sort()
+    ex['RV_period'] = RV_period
+    RV.datesRV = RV.dates[RV_period]
+    months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',
+                    7:'jul',8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
+    RV_name_range = '{}{}-{}{}_'.format(RV.datesRV[0].day, months[RV.datesRV.month[0]], 
+                     RV.datesRV[-1].day, months[RV.datesRV.month[-1]] )
+    
+    print('\nCreating a folder for the specific spatial mask and RV period')
+    if importRVts == True:
+        i = len(RV_name_range)
+        ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range + 
+                                      ex['RVts_filename'][i:])
+                                              
+    elif importRVts == False:
+        ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range + 
+                                      ex['maskname'] )
+        # =============================================================================
+        # 3.2 Select spatial mask to create 1D timeseries (e.g. a SREX region)
+        # =============================================================================
+        # You can load a spatial mask here and use it to create your
+        # full timeseries (of length equal to actor time series)                                                        
+        try:
+            mask_dic = np.load(ex['path_masks'], encoding='latin1').item()
+            RV_array = mask_dic['RV_array']
+            xarray_plot(RV_array)
+        except IOError as e:
+            print('\n\n**\nSpatial mask not found.\n')
+        #              'Place your spatial mask in folder: \n{}\n'
+        #              'and rerun this section.\n**'.format(ex['path_pp'], 'grids'))
+            raise(e)
+        RVarray.coords['mask'] = RV_array.mask
+        RV.RVfullts = RVarray.where(RVarray.mask==False).mean(dim=['latitude','longitude']).squeeze()
+    
+    RV.RV_ts = RV.RVfullts[ex['RV_period']] # extract specific months of MT index 
+    # Store added information in RV class to the exp dictionary
+    ex['RV_name'] = RV_name
+    ex[RV_name] = RV
+    
+    return RV, ex, RV_name_range 
 
 def import_array(cls, path='pp'):
     import os
