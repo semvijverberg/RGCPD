@@ -292,7 +292,9 @@ def preprocessing_ncdf(outfile, datesstr, cls, ex):
     # Final input and output files
     infile = os.path.join(cls.path_raw, cls.filename)
     # convert to inter annual daily mean to make this faster
-    tmpfile = os.path.join(cls.path_raw, 'tmpfiles', 'tmp')
+    tmpfile = os.path.join(cls.path_raw, 'tmpfiles')
+    if os.path.isdir(tmpfile) == False : os.makedirs(tmpfile)
+    tmpfile = os.path.join(tmpfile, 'tmp')
     # check temporal frequency raw data
     file_path = os.path.join(cls.path_raw, cls.filename)
     ncdf = Dataset(file_path)
@@ -455,7 +457,8 @@ def RV_spatial_temporal_mask(ex, importRVts, months):
               ' {}\n is imported and inserted as the first entry of '
               'ex[\'vars\']'.format(ex['RVts_filename']))
         RV_name = 'RV_imp'
-        dicRV = np.load(os.path.join(ex['path_pp'], 'RVts2.5', ex['RVts_filename'])).item()
+        dicRV = np.load(os.path.join(ex['path_pp'], 'RVts2.5', ex['RVts_filename']), 
+                        encoding='latin1').item()
     #    dicRV = pickle.load( open(os.path.join(ex['path_pp'],ex['RVts_filename']+'.pkl'), "rb") ) 
         
         class RV_seperateclass:
@@ -464,8 +467,10 @@ def RV_spatial_temporal_mask(ex, importRVts, months):
         RV = RV_seperateclass()
         RV.startyear = RV.dates.year[0]
         RV.endyear = RV.dates.year[-1]
-        if RV.startyear != ex['startyear']:
-            print('make sure the dates of the RV match with the actors')
+        RV.filename = ex['RVts_filename']
+        ex['vars'][0].insert(0, RV_name)
+        assert RV.startyear == ex['startyear'], ('Make sure the dates '
+             'of the RV match with the actors')
     
     elif importRVts == False:
         RV_name = ex['vars'][0][0]

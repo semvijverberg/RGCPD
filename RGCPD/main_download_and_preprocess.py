@@ -8,7 +8,7 @@ Created on Mon Jul  9 17:48:31 2018
 import time
 start_time = time.time()
 import os, sys
-os.chdir('/Users/semvijverberg/Surfdrive/Scripts/RGCPD/RGCPD/RGCPD')
+os.chdir('/Users/semvijverberg/Surfdrive/Scripts/RGCPD/RGCPD')
 script_dir = os.getcwd()
 if sys.version[:1] == '3':
     from importlib import reload as rel
@@ -16,12 +16,9 @@ import numpy as np
 import pandas as pd
 import functions_pp
 import matplotlib.pyplot as plt
-from datetime import datetime
 import xarray as xr
 import cartopy.crs as ccrs
-import pickle
 retrieve_ERA_i_field = functions_pp.retrieve_ERA_i_field
-import_array = functions_pp.import_array
 copy_stdout = sys.stdout
 
 # *****************************************************************************
@@ -37,7 +34,8 @@ copy_stdout = sys.stdout
 
 # this will be your basepath, all raw_input and output will stored in subfolder 
 # which will be made when running the code
-base_path = "/Users/semvijverberg/surfdrive/Data_ERAint/"
+base_path = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/tests/Data_ERAint/"
+#base_path = "/Users/semvijverberg/surfdrive/Data_ERAint/"
 exp_folder = ''
 path_raw = os.path.join(base_path, 'input_raw')
 path_pp  = os.path.join(base_path, 'input_pp')
@@ -53,8 +51,8 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 ex = dict(
      {'dataset'     :       'ERA-i',
      'grid_res'     :       2.5,
-     'startyear'    :       1979, # download startyear
-     'endyear'      :       2017, # download endyear
+     'startyear'    :       2010, # download startyear
+     'endyear'      :       2015, # download endyear
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
      'path_pp'     :       path_pp}
@@ -65,14 +63,14 @@ ex = dict(
 # only analytical fields 
 ECMWFdownload = True
 # True if you have your own Response Variable time serie you want to insert
-importRVts = False 
+importRVts = True 
     
 # own ncdfs must have same period, daily data and on same grid
 ex['own_actor_nc_names'] = [[]]
-#ex['own_RV_nc_name'] = []
-ex['own_RV_nc_name'] =  ['t2mmax', ('t2mmax_1979-2017_1_12_daily_'
-                          '{}deg.nc'.format(ex['grid_res']))]
-ex['excludeRV'] = 1 # if 0, then corr fields are calculated vs. first of ex['vars'] 
+ex['own_RV_nc_name'] = []
+#ex['own_RV_nc_name'] =  ['t2mmax', ('t2mmax_1979-2017_1_12_daily_'
+#                          '{}deg.nc'.format(ex['grid_res']))]
+ex['excludeRV'] = 0 # if 0, then corr fields are calculated vs. first of ex['vars'] 
 # =============================================================================
 # Info to download ncdf from ECMWF, atm only analytical fields (no forecasts)
 # =============================================================================
@@ -113,10 +111,10 @@ if ECMWFdownload == True:
 # =============================================================================
 # Downloading data from Era-interim?  
 # =============================================================================
-if ECMWFdownload == True:
-    for var in ex['vars'][0]:
-        var_class = ex[var]
-        retrieve_ERA_i_field(var_class)
+#if ECMWFdownload == True:
+#    for var in ex['vars'][0]:
+#        var_class = ex[var]
+#        retrieve_ERA_i_field(var_class)
         
 if len(ex['own_actor_nc_names'][0]) != 0:
     print(ex['own_actor_nc_names'][0][0])
@@ -226,7 +224,7 @@ for freq in ex['tfreqlist']:
     # Part 2 Configure RGCPD/Tigramite settings
     # *****************************************************************************
     # *****************************************************************************
-    ex = np.load(filename_exp_design1).item()
+    ex = np.load(filename_exp_design1, encoding='latin1').item()
     ex['alpha'] = 0.01 # set significnace level for correlation maps
     ex['alpha_fdr'] = 2*ex['alpha'] # conservative significance level
     ex['FDR_control'] = False # Do you want to use the conservative alpha_fdr or normal alpha?
@@ -266,6 +264,10 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # Save Experiment design
     # =============================================================================
+    assert ex['excludeRV'] == 0 and importRVts == True, ('Are you sure you want '
+             'exclude first index of ex[\'vars\'] since you are importing a seperate '
+             ' time series ') 
+             
     filename_exp_design2 = os.path.join(ex['fig_subpath'], 'input_dic_{}.npy'.format(ex['params']))
     np.save(filename_exp_design2, ex)
     print('\n\t**\n\tOkay, end of Part 2!\n\t**' )
