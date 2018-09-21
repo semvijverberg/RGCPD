@@ -441,7 +441,7 @@ def perform_post_processing(ex):
         else:    
             var_class, ex = preprocessing_ncdf(outfile, datesstr, var_class, ex)
     
-def RV_spatial_temporal_mask(ex, importRVts, months):
+def RV_spatial_temporal_mask(ex, RV, importRVts, months):
     '''Select months of your Response Variable that you want to predict.
     RV = the RV class
     ex = experiment dictionary 
@@ -456,29 +456,25 @@ def RV_spatial_temporal_mask(ex, importRVts, months):
         print('\nImportRVts is true, so the 1D time serie given with name\n'
               ' {}\n is imported and inserted as the first entry of '
               'ex[\'vars\']'.format(ex['RVts_filename']))
-        RV_name = 'RV_imp'
+        RV.name = 'RV_imp'
         dicRV = np.load(os.path.join(ex['path_pp'], 'RVts2.5', ex['RVts_filename']), 
                         encoding='latin1').item()
     #    dicRV = pickle.load( open(os.path.join(ex['path_pp'],ex['RVts_filename']+'.pkl'), "rb") ) 
-        
-        class RV_seperateclass:
-            RVfullts = dicRV['RVfullts']
-            dates = pd.to_datetime(dicRV['RVfullts'].time.values)
-        RV = RV_seperateclass()
+           
+        RV.RVfullts = dicRV['RVfullts']
+        RV.dates = pd.to_datetime(dicRV['RVfullts'].time.values)
         RV.startyear = RV.dates.year[0]
         RV.endyear = RV.dates.year[-1]
         RV.filename = ex['RVts_filename']
-        ex['vars'][0].insert(0, RV_name)
-        assert RV.startyear == ex['startyear'], ('Make sure the dates '
-             'of the RV match with the actors')
+#        ex['vars'][0].insert(0, RV.name)
     
     elif importRVts == False:
-        RV_name = ex['vars'][0][0]
+        RV.name = ex['vars'][0][0]
         # RV should always be the first variable of the vars list in ex
-        RV = ex[RV_name]
+        RV = ex[RV.name]
         RVarray, RV = import_array(RV)
         print('The RV variable is the 0th index in ex[\'vars\'], '
-              'i.e. {}'.format(RV_name))
+              'i.e. {}'.format(RV.name))
     
 #    one_year = RV.dates.where(RV.dates.year == RV.startyear+1).dropna()
      # Selecting the timesteps of 14 day mean ts that fall in juli and august
@@ -523,8 +519,7 @@ def RV_spatial_temporal_mask(ex, importRVts, months):
     
     RV.RV_ts = RV.RVfullts[ex['RV_period']] # extract specific months of MT index 
     # Store added information in RV class to the exp dictionary
-    ex['RV_name'] = RV_name
-    ex[RV_name] = RV
+    ex['RV_name'] = RV.name
     
     return RV, ex, RV_name_range 
 

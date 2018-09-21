@@ -67,7 +67,8 @@ importRVts = True
     
 # own ncdfs must have same period, daily data and on same grid
 ex['own_actor_nc_names'] = [[]]
-ex['own_RV_nc_name'] = []
+ex['own_RV_nc_name'] = ['t2mmax', ('t2mmax_2010-2015_1_12_daily_'
+                          '{}deg.nc'.format(ex['grid_res']))]
 #ex['own_RV_nc_name'] =  ['t2mmax', ('t2mmax_1979-2017_1_12_daily_'
 #                          '{}deg.nc'.format(ex['grid_res']))]
 ex['excludeRV'] = 0 # if 0, then corr fields are calculated vs. first of ex['vars'] 
@@ -136,7 +137,7 @@ if len(ex['own_RV_nc_name']) != 0 and importRVts == False:
 if importRVts == True:
     RV_name = 'tmax_EUS'
     RV_actor_names = RV_name + '_' + "_".join(ex['vars'][0])
-    ex['RVts_filename'] = 't2mmax_1Jun-24Aug_compAggljacc_tf14_n9.npy'
+    ex['RVts_filename'] = 't2mmax_2010-2015_5jun-28aug_averAggljacc_tf7_n8'+'.npy'
     
 elif importRVts == False:
     # if no time series is imported, it will take the first of ex['vars] as the
@@ -146,7 +147,7 @@ elif importRVts == False:
     # if import RVts == False, then a spatial mask is used for the RV
     ex['maskname'] = 'aver_tf14_n6'
     ex['path_masks'] = os.path.join(ex['path_pp'], 'RVts2.5', 
-                          't2mmax_11jun-30aug_averAggljacc_tf14_n6'+'.npy')
+                          't2mmax_2010-2015_5jun-28aug_averAggljacc_tf7_n8'+'.npy')
     
     
 # =============================================================================
@@ -176,7 +177,7 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # First time: Read Docstring by typing 'functions_pp.preprocessing_ncdf?' in console
     # Solve permission error by giving bash script execution right, read Docstring
-    
+
     functions_pp.perform_post_processing(ex)
     
     # *****************************************************************************  
@@ -184,7 +185,13 @@ for freq in ex['tfreqlist']:
     # Step 3 Settings for Response Variable (RV) 
     # *****************************************************************************  
     # *****************************************************************************
+    class RV_seperateclass:
+        def __init__(self):
+            self.name = None
+            self.RVfullts = None
+            self.RVts = None
             
+    RV = RV_seperateclass()
     # =============================================================================
     # 3.1 Select RV period (which period of the year you want to predict)
     # =============================================================================
@@ -192,7 +199,8 @@ for freq in ex['tfreqlist']:
     # one using the first variable listed in ex['vars']. 
     
     months = [6,7,8]
-    RV, ex, RV_name_range = functions_pp.RV_spatial_temporal_mask(ex, importRVts, months)
+    RV, ex, RV_name_range = functions_pp.RV_spatial_temporal_mask(ex, RV, importRVts, months)
+    ex[ex['RV_name']] = RV
         
     # =============================================================================
     # Test if you're not have a lag that will precede the start date of the year
@@ -264,6 +272,8 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # Save Experiment design
     # =============================================================================
+    assert RV.startyear == ex['startyear'], ('Make sure the dates '
+             'of the RV match with the actors')
     assert ex['excludeRV'] == 0 and importRVts == True, ('Are you sure you want '
              'exclude first index of ex[\'vars\'] since you are importing a seperate '
              ' time series ') 
