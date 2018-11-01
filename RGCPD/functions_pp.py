@@ -84,9 +84,9 @@ class Variable:
                 self.filename = ex['own_actor_nc_names'][idx][1]
                 ex['vars'][0].append(self.name)
                 print('t')
-            if len(ex['own_RV_nc_name']) != 0:
-                self.name = ex['own_RV_nc_name'][0]
-                self.filename = ex['own_RV_nc_name'][1]
+            if len(ex['RVnc_name']) != 0:
+                self.name = ex['RVnc_name'][0]
+                self.filename = ex['RVnc_name'][1]
 #                ex['vars'][0].insert(0, self.name)
 
         print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(self.name, self.startyear, self.endyear, self.grid)))
@@ -193,6 +193,9 @@ def datestr_for_preproc(cls, ex):
     fit_steps_yr = (end_day - seldays_pp.min())  / temporal_freq
     # line below: The +1 = include day 1 in counting
     start_day = (end_day - (temporal_freq * np.round(fit_steps_yr, decimals=0))) + 1 
+    # update ex['sstartdate']:
+    ex['sstartdate'] = start_day
+    ex['senddate'] = end_day
     # create datestring that will be used for the cdo selectdate, 
     def make_datestr(dates, start_yr):
         breakyr = dates.year.max()
@@ -267,7 +270,7 @@ def datestr_for_preproc(cls, ex):
     cls.path_pp = ex['path_pp']
     outfile = os.path.join(ex['path_pp'], outfilename)
     print('output file of pp will be saved as: \n' + outfile + '\n')
-    return outfile, datesstr, cls
+    return outfile, datesstr, cls, ex
 
 def preprocessing_ncdf(outfile, datesstr, cls, ex):
     ''' 
@@ -430,7 +433,7 @@ def perform_post_processing(ex):
     print('\nPerforming the post processing steps on {}'.format(ex['vars'][0]))
     for var in ex['vars'][0]:
         var_class = ex[var]
-        outfile, datesstr, var_class = datestr_for_preproc(var_class, ex)
+        outfile, datesstr, var_class, ex = datestr_for_preproc(var_class, ex)
 #        var_class, ex = functions_pp.preprocessing_ncdf(outfile, datesstr, var_class, ex)
         if os.path.isfile(outfile) == True: 
             print('looks like you already have done the pre-processing,\n'
@@ -453,10 +456,9 @@ def RV_spatial_temporal_mask(ex, RV, importRVts, months):
     as your response variable (time, lats, lons). '''
     
     if importRVts == True:
-        print('\nImportRVts is true, so the 1D time serie given with name\n'
-              ' {}\n is imported and inserted as the first entry of '
-              'ex[\'vars\']'.format(ex['RVts_filename']))
-        RV.name = 'RV_imp'
+        print('\nImportRVts is true, so the 1D time serie given with name {}\n'
+              ' {}\n is imported.'.format(ex['RV_name'],ex['RVts_filename']))
+        RV.name = ex['RV_name']
         dicRV = np.load(os.path.join(ex['path_pp'], 'RVts2.5', ex['RVts_filename']), 
                         encoding='latin1').item()
     #    dicRV = pickle.load( open(os.path.join(ex['path_pp'],ex['RVts_filename']+'.pkl'), "rb") ) 
