@@ -15,10 +15,10 @@ from tigramite import data_processing as pp
 from tigramite.pcmci import PCMCI
 from tigramite.independence_tests import ParCorr, GPDC, CMIknn, CMIsymb
 import RGCPD_functions_version_04 as rgcpd
-import functions_tig
 import numpy as np
 import xarray as xr
 import cartopy.crs as ccrs
+import pandas as pd
 # =============================================================================
 #  saving to github
 # =============================================================================
@@ -79,9 +79,9 @@ def calculate_corr_maps(ex, map_proj):
             dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude']
             varnc = [keync for keync in allkeysncdf if keync not in dimensionkeys][0]
             array = ncdf.variables[varnc][:,:,:].squeeze()
-#        numtime = ncdf.variables['time']
-##        timeattr = ncdf.variables['time'].attrs
-#        dates = pd.to_datetime(num2date(numtime[:], units=numtime.units, calendar=numtime.calendar))
+        numtime = ncdf.variables['time']
+#        timeattr = ncdf.variables['time'].attrs
+        dates = pd.to_datetime(num2date(numtime[:], units=numtime.units, calendar=numtime.calendar))
             
         time , nlats, nlons = array.shape # [months , lat, lon]
         # =============================================================================
@@ -104,7 +104,7 @@ def calculate_corr_maps(ex, map_proj):
         # Plot    
         # =============================================================================
         if ex['plotin1fig'] == False:
-            functions_tig.xarray_plot_region([var], outdic_actors, ex, map_proj)
+            xarray_plot_region([var], outdic_actors, ex, map_proj)
             fig_filename = '{}_corr_{}_vs_{}'.format(ex['params'], allvar[0], var) + ex['file_type2']
             plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=200)
             if ex['showplot'] == False:
@@ -113,7 +113,7 @@ def calculate_corr_maps(ex, map_proj):
     
     if ex['plotin1fig'] == True and ex['showplot'] == True:
         variables = list(outdic_actors.keys())
-        functions_tig.xarray_plot_region(variables, outdic_actors, ex, map_proj)
+        xarray_plot_region(variables, outdic_actors, ex, map_proj)
         fig_filename = '{}_corr_all'.format(ex['params'], allvar[0], var) + ex['file_type2']
         plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=200)
         if ex['showplot'] == False:
@@ -334,6 +334,84 @@ def run_PCMCI(ex, outdic_actors, map_proj):
         #%%
     return parents_RV, var_names
 #%%
+
+# =============================================================================
+# 2 Plotting functions for correlation maps (xarray_plot_region) 
+# and causal region maps (plottingfunction)
+# =============================================================================
+
+def xarray_plot_region(print_vars, outdic_actors, ex, map_proj):
+    #%%
+    import cartopy.crs as ccrs
+    import matplotlib.colors as colors
+    import numpy as np
+    import xarray as xr
+    outd = outdic_actors
+    list_Corr = []
+    list_mask = []
+    if print_vars == 'all':
+        variables = list(outd.keys())[:]
+    else:
+        variables = print_vars
+        
+    for var in variables:
+        lags = list(range(ex['lag_min'], ex['lag_max']+1))
+        lags = ['{} ({} days)'.format(l, l*ex['tfreq']) for l in lags]
+        lat = outd[var].lat_grid
+        lon = outd[var].lon_grid
+        list_Corr.append(outd[var].Corr_Coeff.data[None,:,:].reshape(lat.size,lon.size,len(lags)))
+        list_mask.append(outd[var].Corr_Coeff.mask[None,:,:].reshape(lat.size,lon.size,len(lags)))
+    Corr_regvar = np.array(list_Corr)
+    mask_regvar = np.array(list_mask)
+    
+    xrdata = xr.DataArray(data=Corr_regvar, coords=[variables, lat, lon, lags], 
+                        dims=['variable','latitude','longitude','lag'], name='Corr Coeff')
+    xrmask = xr.DataArray(data=mask_regvar, coords=[variables, lat, lon, lags], 
+                        dims=['variable','latitude','longitude','lag'], name='Corr Coeff')
+    g = xr.plot.FacetGrid(xrdata, col='variable', row='lag', subplot_kws={'projection': map_proj},
+                      aspect= (lon.size) / lat.size, size=3)
+    figheight = g.fig.get_figheight()
+    class MidpointNormalize(colors.Normalize):
+        def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+            self.midpoint = midpoint
+            colors.Normalize.__init__(self, vmin, vmax, clip)
+    
+        def __call__(self, value, clip=None):
+            # I'm ignoring masked values and all kinds of edge cases to make a
+            # simple example...
+            x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+            return np.ma.masked_array(np.interp(value, x, y))
+    vmin = np.round(float(xrdata.min())-0.01,decimals=2) ; vmax = np.round(float(xrdata.max())+0.01,decimals=2)
+    clevels = np.linspace(-max(abs(vmin),vmax),max(abs(vmin),vmax),17) # choose uneven number for # steps
+    norm = MidpointNormalize(midpoint=0, vmin=clevels[0],vmax=clevels[-1])
+    cmap = 'RdBu_r'
+    for var in variables[:]:
+        col = variables.index(var)
+        xrdatavar = xrdata.sel(variable=var)
+        xrmaskvar = xrmask.sel(variable=var)
+        for lag in lags:
+            row = lags.index(lag)
+            print('Plotting Corr maps {}, lag {}'.format(var, lag))
+            plotdata = xrdatavar.sel(lag=lag)
+            plotmask = xrmaskvar.sel(lag=lag)
+            plotmask.plot.contour(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
+                                  subplot_kws={'projection': map_proj}, colors=['black'],
+                                  levels=[float(vmin),float(vmax)],add_colorbar=False)
+            im = plotdata.plot.contourf(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
+                                        center=0,
+                                         levels=clevels, norm=norm, cmap=cmap,
+                                         subplot_kws={'projection':map_proj},add_colorbar=False)
+            
+            g.axes[row,col].coastlines()
+            
+    plt.tight_layout()
+    g.axes[row,col].get_position()
+    plt.subplots_adjust(wspace=0.0, hspace=0.0)
+    cbar_ax = g.fig.add_axes([0.25, 0.0, 0.5, figheight/300]) #[left, bottom, width, height]
+    plt.colorbar(im, cax=cbar_ax , orientation='horizontal', norm=norm, 
+                 label='Corr Coefficient', ticks=clevels[::4], extend='neither')
+    #%%
+    return 
 
 def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
     #%%

@@ -79,9 +79,9 @@ class Variable:
     
             self.filename = '{}_{}-{}_{}_{}_{}_{}deg.nc'.format(self.name, self.startyear, self.endyear, self.startmonth, self.endmonth, 'daily', self.grid).replace(' ', '_')
         elif ECMWFdown == False:
-            if len(ex['own_actor_nc_names'][0]) != 0:
-                self.name = ex['own_actor_nc_names'][idx][0]
-                self.filename = ex['own_actor_nc_names'][idx][1]
+            if len(ex['precursor_ncdf'][0]) != 0:
+                self.name = ex['precursor_ncdf'][idx][0]
+                self.filename = ex['precursor_ncdf'][idx][1]
                 ex['vars'][0].append(self.name)
                 print('t')
             if len(ex['RVnc_name']) != 0:
@@ -194,7 +194,7 @@ def datestr_for_preproc(cls, ex):
     # line below: The +1 = include day 1 in counting
     start_day = (end_day - (temporal_freq * np.round(fit_steps_yr, decimals=0))) + 1 
     # update ex['sstartdate']:
-    ex['sstartdate'] = start_day
+    ex['adjstartdate'] = start_day
     ex['senddate'] = end_day
     # create datestring that will be used for the cdo selectdate, 
     def make_datestr(dates, start_yr):
@@ -444,7 +444,7 @@ def perform_post_processing(ex):
         else:    
             var_class, ex = preprocessing_ncdf(outfile, datesstr, var_class, ex)
     
-def RV_spatial_temporal_mask(ex, RV, importRVts, months):
+def RV_spatial_temporal_mask(ex, RV, importRVts, RV_months):
     '''Select months of your Response Variable that you want to predict.
     RV = the RV class
     ex = experiment dictionary 
@@ -481,7 +481,7 @@ def RV_spatial_temporal_mask(ex, RV, importRVts, months):
 #    one_year = RV.dates.where(RV.dates.year == RV.startyear+1).dropna()
      # Selecting the timesteps of 14 day mean ts that fall in juli and august
     RV_period = []
-    for mon in months:
+    for mon in RV_months:
         # append the indices of each year corresponding to your RV period
         RV_period.insert(-1, np.where(RV.dates.month == mon)[0] )
     RV_period = [x for sublist in RV_period for x in sublist]
@@ -501,14 +501,14 @@ def RV_spatial_temporal_mask(ex, RV, importRVts, months):
                                               
     elif importRVts == False:
         ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range + 
-                                      ex['maskname'] )
+                                      ex['spatial_mask_naming'] )
         # =============================================================================
         # 3.2 Select spatial mask to create 1D timeseries (e.g. a SREX region)
         # =============================================================================
         # You can load a spatial mask here and use it to create your
         # full timeseries (of length equal to actor time series)                                                        
         try:
-            mask_dic = np.load(ex['path_masks'], encoding='latin1').item()
+            mask_dic = np.load(ex['spatial_mask_file'], encoding='latin1').item()
             RV_array = mask_dic['RV_array']
             xarray_plot(RV_array)
         except IOError as e:

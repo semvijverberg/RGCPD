@@ -64,9 +64,9 @@ ex = dict(
 # Option 1:
 ECMWFdownload = True
 # Option 2:
-importprecursornc  = False
+import_precursor_ncdf  = False
 # Option 3:
-importRVnc = True
+import_RV_ncdf = True
 # Option 4:
 importRV_1dts = False 
 
@@ -102,18 +102,18 @@ else:
 # Import ncdf lonlat fields to be precursors.
 # 22222222222222222222222222222222222222222222222222222222222222222222222222222
 # Must have same period, daily data and on same grid
-if importprecursornc == True:
-    ex['own_actor_nc_names'] = [['name', 'filename']]
-    ex['own_actor_nc_names'] = [['sst', ('sst_{}-{}_1_12_daily_'
+if import_precursor_ncdf == True:
+    ex['precursor_ncdf'] = [['name', 'filename']]
+    ex['precursor_ncdf'] = [['sst', ('sst_{}-{}_1_12_daily_'
                               '{}deg.nc'.format(ex['startyear'], ex['endyear'],
                                ex['grid_res']))]]
 else:
-    ex['own_actor_nc_names'] = [[]]   
+    ex['precursor_ncdf'] = [[]]   
     
 # 33333333333333333333333333333333333333333333333333333333333333333333333333333
 # Import ncdf field to be Response Variable.
 # 33333333333333333333333333333333333333333333333333333333333333333333333333333
-if importRVnc == True:
+if import_RV_ncdf == True:
     #ex['RVnc_name'] = ['t2mmax', ('t2mmax_2010-2015_1_12_daily_'
     #                          '{}deg.nc'.format(ex['grid_res']))]
     ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_daily_'
@@ -130,8 +130,9 @@ if importRV_1dts == True:
     ex['RVts_filename'] = 't2mmax_1Jun-24Aug_compAggljacc_tf14_n9'+'.npy'
 
 ex['excludeRV'] = 0 # if 0, then corr fields are calculated vs. first of ex['vars'] 
+
 # =============================================================================
-# Note, ex['vars'] is expanded if you have own ncdfs, the first index will 
+# Note, ex['vars'] is expanded if you have own ncdfs, the first element of array will 
 # always be the Response Variable, unless you set importRV_1dts = True
 # =============================================================================
 # =============================================================================
@@ -152,9 +153,9 @@ if ECMWFdownload == True:
         var_class = ex[var]
         retrieve_ERA_i_field(var_class)
         
-if len(ex['own_actor_nc_names'][0]) != 0:
-    print(ex['own_actor_nc_names'][0][0])
-    for idx in range(len(ex['own_actor_nc_names'])):
+if len(ex['precursor_ncdf'][0]) != 0:
+    print(ex['precursor_ncdf'][0][0])
+    for idx in range(len(ex['precursor_ncdf'])):
         ECMWFdownload = False
 #        
         var_class = functions_pp.Variable(ex, idx, ECMWFdownload) 
@@ -180,9 +181,9 @@ elif importRV_1dts == False:
     RV_name = ex['vars'][0][0]
     RV_actor_names = "_".join(ex['vars'][0])
     # if import RVts == False, then a spatial mask is used for the RV
-    ex['maskname'] = 'aver_tf14_n6'
-    ex['path_masks'] = os.path.join(ex['path_pp'], 'RVts2.5', 
-                          't2mmax_1Jun-24Aug_compAggljacc_tf14_n9'+'.npy')
+    ex['spatial_mask_naming'] = 'averAggljacc_tf14_n8'
+    ex['spatial_mask_file'] = os.path.join(ex['path_pp'], 'RVts2.5', 
+                          't2mmax_1979-2017_1jun-24aug_averAggljacc_tf14_n8'+'.npy')
     
     
 # =============================================================================
@@ -190,13 +191,13 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process, 
 # Select temporal frequency:
-ex['tfreqlist'] = [7]# [1,2,4,7,14,21,35]
+ex['tfreqlist'] = [14]# [1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
     lag_min = int(np.timedelta64(2, 'W') / np.timedelta64(ex['tfreq'], 'D')) 
     ex['lag_min'] = max(1, lag_min)
-    ex['lag_max'] = ex['lag_min'] + 2
+    ex['lag_max'] = ex['lag_min'] + 0
     # s(elect)startdate and enddate create the period of year you want to investigate:
     ex['sstartdate'] = '{}-3-1 09:00:00'.format(ex['startyear'])
     ex['senddate']   = '{}-08-31 09:00:00'.format(ex['startyear'])
@@ -233,8 +234,8 @@ for freq in ex['tfreqlist']:
     # If you don't have your own timeseries yet, then we assume you want to make
     # one using the first variable listed in ex['vars']. 
     
-    months = [6,7,8]
-    RV, ex, RV_name_range = functions_pp.RV_spatial_temporal_mask(ex, RV, importRV_1dts, months)
+    RV_months = [6,7,8]
+    RV, ex, RV_name_range = functions_pp.RV_spatial_temporal_mask(ex, RV, importRV_1dts, RV_months)
     ex[ex['RV_name']] = RV
         
     # =============================================================================
@@ -309,9 +310,9 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     assert RV.startyear == ex['startyear'], ('Make sure the dates '
              'of the RV match with the actors')
-#    assert ((ex['excludeRV'] == 0) & (importRV_1dts == True)), ('Are you sure you want '
-#             'exclude first index of ex[\'vars\'] since you are importing a seperate '
-#             ' time series ') 
+    assert ((ex['excludeRV'] == 1) and (importRV_1dts == True))==False, ('Are you sure you want '
+             'exclude first element of array ex[\'vars\'] since you are importing a seperate '
+             ' time series ') 
              
     filename_exp_design2 = os.path.join(ex['fig_subpath'], 'input_dic_{}.npy'.format(ex['params']))
     np.save(filename_exp_design2, ex)
@@ -320,7 +321,7 @@ for freq in ex['tfreqlist']:
     print('\n**\nBegin summary of main experiment settings\n**\n')
     print('Response variable is {} is correlated vs {}'.format(ex['vars'][0][0],
           ex['vars'][0][1:]))
-    start_day = '{}{}'.format(ex['sstartdate'].day, ex['sstartdate'].month_name())
+    start_day = '{}{}'.format(ex['adjstartdate'].day, ex['adjstartdate'].month_name())
     end_day   = '{}{}'.format(ex['senddate'].day, ex['senddate'].month_name())
     print('Part of year investigated: {} - {}'.format(start_day, end_day))
     print('Part of year predicted (RV period): {} '.format(RV_name_range[:-1]))
