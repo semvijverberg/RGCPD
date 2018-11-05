@@ -191,7 +191,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process, 
 # Select temporal frequency:
-ex['tfreqlist'] = [14]# [1,2,4,7,14,21,35]
+ex['tfreqlist'] = [30]# [1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test

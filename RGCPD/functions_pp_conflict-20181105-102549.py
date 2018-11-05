@@ -337,20 +337,27 @@ def preprocessing_ncdf(outfile, datesstr, cls, ex):
 # =============================================================================
 #   # other unused cdo commands
 # =============================================================================
-#    overwrite_taxis = 'cdo settaxis,{},1month {} {}'.format(starttime.strftime('%Y-%m-%d,%H:%M'), tmpfile, tmpfile)
+#    del_days = 'cdo delete,month=12,11 -delete,month=10,day=31,30,29,28 -delete,month=2,day=29 {} {}'.format(infile, tmpfile)
+#    selmon = 'cdo -selmon,{}/{} {} {}'.format(ex['sstartmonth'],ex['sendmonth'], outfile, outfile)#.replace('[','').replace(']','').replace(', ',',')
+#    echo_selmon = 'echo '+selmon
+#    overwrite_taxis =   'cdo settaxis,{},1month {} {}'.format(starttime.strftime('%Y-%m-%d,%H:%M'), tmpfile, tmpfile)
 #    del_leapdays = 'cdo delete,month=2,day=29 {} {}'.format(infile, tmpfile)
-#    # Detrend
-#    # will detrend only annual mean values over years, no seasonality accounted for
-#    # will subtract a*t + b, leaving only anomaly around the linear trend + intercept
-#    detrend = 'cdo -b 32 detrend {} {}'.format(tmpfile+'rmtime.nc', #tmpfile+'hom.nc',
-#                                             tmpfile+'detrend.nc')
-#    # trend = 'cdo -b 32 trend {} {} {}'.format(tmpfile+'homrm.nc', tmpfile+'intercept.nc',
-#    #                                          tmpfile+'trend.nc')
-#    # calculate anomalies w.r.t. interannual daily mean
-#
-#    # clim = 'cdo ydaymean {} {}'.format(outfile, tmpfile)
-#    anom = 'cdo -O -b 32 ydaysub {} -ydayavg {} {}'.format(tmpfile+'detrend.nc', 
-#                              tmpfile+'detrend.nc', outfile)
+# =============================================================================
+#  # detrend
+# =============================================================================
+
+    # will detrend only annual mean values over years, no seasonality accounted for
+    # will subtract a*t + b, leaving only anomaly around the linear trend + intercept
+    detrend = 'cdo -b 32 detrend {} {}'.format(tmpfile+'rmtime.nc', #tmpfile+'hom.nc',
+                                             tmpfile+'detrend.nc')
+#    trend = 'cdo -b 32 trend {} {} {}'.format(tmpfile+'homrm.nc', tmpfile+'intercept.nc',
+#                                             tmpfile+'trend.nc')
+# =============================================================================
+#  # calculate anomalies w.r.t. interannual daily mean
+# =============================================================================
+#    clim = 'cdo ydaymean {} {}'.format(outfile, tmpfile)
+    anom = 'cdo -O -b 32 ydaysub {} -ydayavg {} {}'.format(tmpfile+'detrend.nc', 
+                              tmpfile+'detrend.nc', outfile)
 # =============================================================================
 #   # commands to add some info 
 # =============================================================================
@@ -359,13 +366,11 @@ def preprocessing_ncdf(outfile, datesstr, cls, ex):
     var = [var for var in strvars if var not in ' time time_bnds longitude latitude '][0] 
     var = var.replace(' ', '')
 
-    add_path_raw = 'ncatted -a path_raw,global,c,c,{} {}'.format(str(ncdf.filepath()), tmpfile+'rmtime.nc') 
-    add_units = 'ncatted -a units,global,c,c,{} {}'.format(ncdf.variables[var].units, tmpfile+'rmtime.nc') 
+    add_path_raw = 'ncatted -a path_raw,global,c,c,{} {}'.format(str(ncdf.filepath()), outfile) 
+    add_units = 'ncatted -a units,global,c,c,{} {}'.format(ncdf.variables[var].units, outfile) 
  
-#    echo_end = ("echo data is being detrended w.r.t. global mean trend " 
-#                "and are anomaly versus muli-year daily mean\n")
-    echo_end = ("echo data selection and temporal means are calculated using"
-                " cdo \n")
+    echo_end = ("echo data is being detrended w.r.t. global mean trend " 
+                "and are anomaly versus muli-year daily mean\n")
     ncdf.close()
     # ORDER of commands, --> is important!
 
@@ -373,15 +378,8 @@ def preprocessing_ncdf(outfile, datesstr, cls, ex):
     args = [sel_dates1, sel_dates2]
     kornshell_with_input(args, cls)
     args = [sel_dates3, sel_dates4, concat, convert_time_axis, convert_temp_freq, 
-            rm_timebnds, rm_res_timebnds, add_path_raw, add_units, echo_end] 
-#    args = [detrend, anom, echo_end] 
+            rm_timebnds, rm_res_timebnds, detrend, anom, add_path_raw, add_units, echo_end] 
     kornshell_with_input(args, cls)
-# =============================================================================
-#   Perform detrending and calculation of anomalies with xarray 
-# =============================================================================
-    # This is done outside CDO because CDO is not calculating trend based on 
-    # a specific day of the year, but only for the annual mean.
-    detrend_anom_ncdf3D(tmpfile+'rmtime.nc', outfile)
 # =============================================================================
 #     # update class (more a check if dates are indeed correct)
 # =============================================================================
@@ -582,7 +580,7 @@ def xarray_plot(data, path='default', name = 'default', saving=False):
     import cartopy.crs as ccrs
     import numpy as np
     plt.figure()
-    data = data.squeeze()
+    data = np.squeeze(data)
     if len(data.longitude[np.where(data.longitude > 180)[0]]) != 0:
         data = convert_longitude(data)
     else:
@@ -597,8 +595,7 @@ def xarray_plot(data, path='default', name = 'default', saving=False):
         data = data.where(data.mask==True, drop=True)
     else:
         cen_lon = data.longitude.mean().values
-    proj = ccrs.LambertCylindrical(central_longitude=cen_lon)
-#    proj = ccrs.Orthographic(central_longitude=cen_lon, central_latitude=data.latitude.mean())
+    proj = ccrs.Orthographic(central_longitude=cen_lon.values, central_latitude=data.latitude.mean().values)
     ax = plt.axes(projection=proj)
     ax.coastlines()
     # ax.set_global()
@@ -626,13 +623,11 @@ def convert_longitude(data):
     data['longitude'] = convert_lon
     return data
 
-def detrend_anom_ncdf3D(filename, outfile):
-    #%%
+def detrendncdf3D(filename):
     import xarray as xr
     import pandas as pd
     import numpy as np
-    from netCDF4 import num2date
-#    filename = os.path.join(ex['path_pp'], 'sst_1979-2017_2mar_31aug_dt-1days_2.5deg.nc')
+    import scipy
 #    filename = tmpfile+'an.nc'
     ncdf = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
     variables = list(ncdf.variables.keys())
@@ -642,15 +637,14 @@ def detrend_anom_ncdf3D(filename, outfile):
     numtime = ncdf.variables['time'].values
     timeattr = ncdf.variables['time'].attrs
     dates = pd.to_datetime(num2date(numtime[:], units=timeattr['units'], calendar=timeattr['calendar']))
-    stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
-#    marray = np.squeeze(ncdf.to_array(filename).rename(({filename: var})))
-    marray = np.squeeze(ncdf.to_array(name=var))
+    stepsyr = dates.where(dates.year == 1980).dropna(how='all')
+    marray = np.squeeze(ncdf.to_array(file_path).rename(({file_path: cls.name.replace(' ', '_')})))
     marray['time'] = dates
     
     def _detrendfunc2d(arr_oneday):
         from scipy import signal
-        no_nans = np.nan_to_num(arr_oneday)
-        return signal.detrend(no_nans, axis=0, type='linear')
+    
+        return signal.detrend(arr_oneday, axis=0, type='linear')
     
     
     def detrendfunc2d(arr_oneday):
@@ -658,23 +652,12 @@ def detrend_anom_ncdf3D(filename, outfile):
                               dask='parallelized',
                               output_dtypes=[float])
                 
-    output = np.zeros( (marray.time.size,  marray.latitude.size, marray.longitude.size) )
+    
     for i in range(stepsyr.size):
         sd =(dates[i::stepsyr.size])
         arr_oneday = marray.sel(time=sd)
-        output[i::stepsyr.size] = detrendfunc2d(arr_oneday) 
+        output = detrendfunc2d(arr_oneday)
     
-    output = xr.DataArray(output, name=var, dims=marray.dims, coords=marray.coords)
-    
-    # copy original attributes to xarray
-    output.attrs = ncdf.attrs
-    output = output.drop('variable')
-    
-    # save netcdf
-    output.to_netcdf(outfile, mode='w')
-#    diff = output - abs(marray)
-#    diff.to_netcdf(filename.replace('.nc', 'diff.nc'))
-    #%%
     return 
     
 #    def trendtesting(anom):
