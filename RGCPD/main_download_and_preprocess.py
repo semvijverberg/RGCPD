@@ -64,7 +64,7 @@ ex = dict(
 # Option 1:
 ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf  = False
+import_precursor_ncdf  = False 
 # Option 3:
 import_RV_ncdf = True
 # Option 4:
@@ -103,7 +103,7 @@ else:
 # 22222222222222222222222222222222222222222222222222222222222222222222222222222
 # Must have same period, daily data and on same grid
 if import_precursor_ncdf == True:
-    ex['precursor_ncdf'] = [['name', 'filename']]
+    ex['precursor_ncdf'] = [['name1', 'filename1'],['name2','filename2']]
     ex['precursor_ncdf'] = [['sst', ('sst_{}-{}_1_12_daily_'
                               '{}deg.nc'.format(ex['startyear'], ex['endyear'],
                                ex['grid_res']))]]
@@ -129,7 +129,7 @@ if importRV_1dts == True:
     RV_name = 'tmax_EUS'
     ex['RVts_filename'] = 't2mmax_1Jun-24Aug_compAggljacc_tf14_n9'+'.npy'
 
-ex['excludeRV'] = 0 # if 0, then corr fields are calculated vs. first of ex['vars'] 
+ex['excludeRV'] = 0 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
 
 # =============================================================================
 # Note, ex['vars'] is expanded if you have own ncdfs, the first element of array will 
@@ -143,31 +143,29 @@ ex['excludeRV'] = 0 # if 0, then corr fields are calculated vs. first of ex['var
 if ECMWFdownload == True:
     for idx in range(len(ex['vars'][0]))[:]:
         # class for ECMWF downloads
-        var_class = functions_pp.Variable(ex, idx, ECMWFdownload) 
+        var_class = functions_pp.Var_ECMWF_download(ex, idx) 
         ex[ex['vars'][0][idx]] = var_class
-# =============================================================================
-# Downloading data from Era-interim?  
-# =============================================================================
-if ECMWFdownload == True:
-    for var in ex['vars'][0]:
-        var_class = ex[var]
         retrieve_ERA_i_field(var_class)
-        
-if len(ex['precursor_ncdf'][0]) != 0:
-    print(ex['precursor_ncdf'][0][0])
-    for idx in range(len(ex['precursor_ncdf'])):
-        ECMWFdownload = False
-#        
-        var_class = functions_pp.Variable(ex, idx, ECMWFdownload) 
-        ex[ex['vars'][0][idx]] = var_class
-        
-if len(ex['RVnc_name']) != 0 and importRV_1dts == False:
-    ECMWFdownload = False
+
+#if ECMWFdownload == True:
+#    for var in ex['vars'][0]:
+#        var_class = ex[var]
+#        retrieve_ERA_i_field(var_class)
+
+if import_RV_ncdf == True and importRV_1dts == False:
     RV_name = ex['RVnc_name'][0]
     ex['vars'][0].insert(0, RV_name)
-    var_class = functions_pp.Variable(ex, idx, ECMWFdownload) 
+    var_class = functions_pp.Var_import_RV_netcdf(ex) 
     ex[ex['RVnc_name'][0]] = var_class
     print(('inserted own netcdf as Response Variable {}\n'.format(RV_name)))
+    
+if import_precursor_ncdf == True:
+    print(ex['precursor_ncdf'][0][0])
+    for idx in range(len(ex['precursor_ncdf'])):    
+        var_class = functions_pp.Var_import_precursor_netcdf(ex, idx) 
+        ex[var_class.name] = var_class
+        
+
 # =============================================================================
 # Now we have collected all info on what variables will be analyzed, based on
 # downloading, own netcdfs / importing RV time serie.

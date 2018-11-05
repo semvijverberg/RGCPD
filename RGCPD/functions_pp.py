@@ -9,9 +9,33 @@ import os
 import numpy as np
 import pandas as pd
 
-class Variable:
-    from datetime import datetime, timedelta
-    import pandas as pd
+
+def Variable(self, ex):
+    self.startyear = ex['startyear']
+    self.endyear = ex['endyear']
+    self.startmonth = 1
+    self.endmonth = 12
+    self.grid = ex['grid_res']
+    self.dataset = ex['dataset']
+    self.base_path = ex['base_path']
+    self.path_raw = ex['path_raw']
+    self.path_pp = ex['path_pp']
+    return self
+#    def __init__(self, ex):
+#    # self is the instance of the employee class
+#    # below are listed the instance variables
+#        self.startyear = ex['startyear']
+#        self.endyear = ex['endyear']
+#        self.startmonth = 1
+#        self.endmonth = 12
+#        self.grid = ex['grid_res']
+#        self.dataset = ex['dataset']
+#        self.base_path = ex['base_path']
+#        self.path_raw = ex['path_raw']
+#        self.path_pp = ex['path_pp']
+    
+
+class Var_ECMWF_download():
     """Levtypes: \n surface  :   sfc \n model level  :   ml (1 to 137) \n pressure levels (1000, 850.. etc)
     :   pl \n isentropic level    :   pt
     \n
@@ -21,76 +45,79 @@ class Variable:
     Daily Streams:
     Operational (for surface)   :   oper
     """
-    ecmwf_website = 'http://apps.ecmwf.int/codes/grib/param-db'
-    def __init__(self, ex, idx, ECMWFdown):
-        import calendar
-        import os
-        # self is the instance of the employee class
-        # below are listed the instance variables
-        self.name = ex['vars'][0][idx]
-        self.startyear = ex['startyear']
-        self.endyear = ex['endyear']
-        self.startmonth = 1
-        self.endmonth = 12
-        self.grid = ex['grid_res']
-        self.dataset = ex['dataset']
-        self.base_path = ex['base_path']
-        self.path_raw = ex['path_raw']
-        self.path_pp = ex['path_pp']
-        if ECMWFdown == True:
-            self.var_cf_code = ex['vars'][1][idx]
-            self.levtype = ex['vars'][2][idx]
-            self.lvllist = ex['vars'][3][idx]
-            self.stream = 'oper'
-#            if stream == 'oper':
-            time_ana = "00:00:00/06:00:00/12:00:00/18:00:00"
-#            else:
-#                time_ana = "00:00:00"
-            self.time_ana = time_ana 
-            
-            days_in_month = dict( {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30, 10:31, 11:30, 12:31} )
-            days_in_month_leap = dict( {1:31, 2:29, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 9:30, 10:31, 11:30, 12:31} )
-            start = Variable.datetime(self.startyear, self.startmonth, 1)
-            
-            # creating list of dates that we want to download given the startyear/startmonth to endyear/endmonth
-            datelist_str = [start.strftime('%Y-%m-%d')]
-            if self.stream == 'oper':
-                end = Variable.datetime(self.endyear, self.endmonth, days_in_month[self.endmonth])
-                while start < end:          
-                    start += Variable.timedelta(days=1)
-                    datelist_str.append(start.strftime('%Y-%m-%d'))
-                    if start.month == end.month and start.day == days_in_month[self.endmonth] and start.year != self.endyear:
-                        start = Variable.datetime(start.year+1, self.startmonth, 1)
-                        datelist_str.append(start.strftime('%Y-%m-%d'))  
-            elif self.stream == 'moda' or 'mnth':
-                end = Variable.datetime(self.endyear, self.endmonth, 1)
-                while start < end:          
-                    days = days_in_month[start.month] if calendar.isleap(start.year)==False else days_in_month_leap[start.month]
-                    start += Variable.timedelta(days=days)
-                    datelist_str.append(start.strftime('%Y-%m-%d'))
-                    if start.month == end.month and start.year != self.endyear:
-                        start = Variable.datetime(start.year+1, self.startmonth, 1)
-                        datelist_str.append(start.strftime('%Y-%m-%d'))             
-            self.datelist_str = datelist_str
-
-            # Convert to datetime datelist
-#            self.dates_dt = [Variable.datetime.strptime(date, '%Y-%m-%d').date() for date in datelist_str]
-            self.dates = Variable.pd.to_datetime(datelist_str)
     
-            self.filename = '{}_{}-{}_{}_{}_{}_{}deg.nc'.format(self.name, self.startyear, self.endyear, self.startmonth, self.endmonth, 'daily', self.grid).replace(' ', '_')
-        elif ECMWFdown == False:
-            if len(ex['precursor_ncdf'][0]) != 0:
-                self.name = ex['precursor_ncdf'][idx][0]
-                self.filename = ex['precursor_ncdf'][idx][1]
-                ex['vars'][0].append(self.name)
-                print('t')
-            if len(ex['RVnc_name']) != 0:
-                self.name = ex['RVnc_name'][0]
-                self.filename = ex['RVnc_name'][1]
-#                ex['vars'][0].insert(0, self.name)
+    def __init__(self, ex, idx):
+        from datetime import datetime, timedelta
+        import pandas as pd
+        import calendar
+#        import os
+        vclass = Variable(self, ex)
+        # shared information of ECMWF downloaded variables
+        # variables specific information
+        vclass.name = ex['vars'][0][idx]
+        vclass.var_cf_code = ex['vars'][1][idx]
+        vclass.levtype = ex['vars'][2][idx]
+        vclass.lvllist = ex['vars'][3][idx]
+        vclass.stream = 'oper'
+    #            if stream == 'oper':
+        time_ana = "00:00:00/06:00:00/12:00:00/18:00:00"
+    #            else:
+    #                time_ana = "00:00:00"
+        vclass.time_ana = time_ana 
+        
+        days_in_month = dict( {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 
+                               9:30, 10:31, 11:30, 12:31} )
+        days_in_month_leap = dict( {1:31, 2:29, 3:31, 4:30, 5:31, 6:30, 7:31, 
+                                    8:31, 9:30, 10:31, 11:30, 12:31} )
+        start = datetime(vclass.startyear, vclass.startmonth, 1)
+        
+        # creating list of dates that we want to download given the startyear/
+        # startmonth to endyear/endmonth
+        datelist_str = [start.strftime('%Y-%m-%d')]
+        if vclass.stream == 'oper':
+            end = datetime(vclass.endyear, vclass.endmonth, 
+                                    days_in_month[vclass.endmonth])
+            while start < end:          
+                start += timedelta(days=1)
+                datelist_str.append(start.strftime('%Y-%m-%d'))
+                if start.month == end.month and start.day == days_in_month[vclass.endmonth] and start.year != vclass.endyear:
+                    start = datetime(start.year+1, vclass.startmonth, 1)
+                    datelist_str.append(start.strftime('%Y-%m-%d'))  
+        elif vclass.stream == 'moda' or 'mnth':
+            end = datetime(vclass.endyear, vclass.endmonth, 1)
+            while start < end:          
+                days = days_in_month[start.month] if calendar.isleap(start.year)==False else days_in_month_leap[start.month]
+                start += timedelta(days=days)
+                datelist_str.append(start.strftime('%Y-%m-%d'))
+                if start.month == end.month and start.year != vclass.endyear:
+                    start = datetime(start.year+1, vclass.startmonth, 1)
+                    datelist_str.append(start.strftime('%Y-%m-%d'))             
+        vclass.datelist_str = datelist_str  
+        # Convert to datetime datelist
+        vclass.dates = pd.to_datetime(datelist_str)   
+        vclass.filename = '{}_{}-{}_{}_{}_{}_{}deg.nc'.format(vclass.name, 
+                           vclass.startyear, vclass.endyear, vclass.startmonth, 
+                           vclass.endmonth, 'daily', vclass.grid).replace(' ', '_')
+        
+        print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(vclass.name, 
+               vclass.startyear, vclass.endyear, vclass.grid)))
 
-        print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(self.name, self.startyear, self.endyear, self.grid)))
-#        print("Variable function selected {} \n".format(self.filename))
+class Var_import_RV_netcdf:
+    def __init__(self, ex):
+        vclass = Variable(self, ex)
+        
+        vclass.name = ex['RVnc_name'][0]
+        vclass.filename = ex['RVnc_name'][1]
+        print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(vclass.name, 
+               vclass.startyear, vclass.endyear, vclass.grid))) 
+        
+class Var_import_precursor_netcdf:
+    def __init__(self, ex, idx):
+        vclass = Variable(self, ex)
+        
+        vclass.name = ex['precursor_ncdf'][idx][0]
+        vclass.filename = ex['precursor_ncdf'][idx][1]
+        ex['vars'][0].append(vclass.name)
 
 def retrieve_ERA_i_field(cls):
 #    from functions_pp import kornshell_with_input
