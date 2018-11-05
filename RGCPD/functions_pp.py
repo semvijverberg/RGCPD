@@ -660,7 +660,6 @@ def detrend_anom_ncdf3D(filename, outfile):
     import numpy as np
     from netCDF4 import num2date
 #    filename = os.path.join(ex['path_pp'], 'sst_1979-2017_2mar_31aug_dt-1days_2.5deg.nc')
-#    filename = tmpfile+'an.nc'
     ncdf = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
     variables = list(ncdf.variables.keys())
     strvars = [' {} '.format(var) for var in variables]
@@ -704,27 +703,7 @@ def detrend_anom_ncdf3D(filename, outfile):
     #%%
     return 
     
-#    def trendtesting(anom):
-#        anom = output
-#        anomp = anom.sel(latitude=40, longitude=0)
-##        slope, intercept = np.polyfit(range(39), anomp, deg=1)
-#        slope, intercept = scipy.stats.linregress(range(39), anomp)[:2]
-#        def trend(x, a, b):
-#            y = a*x + b
-#            return y
-#        tren = trend(range(39), slope, intercept)
-#        detrend = anomp - tren + intercept
-#        plt.figure()
-#        plt.title('slope is {}, doy is {}'.format(slope, int(da.time.dt.dayofyear[0])))
-#        plt.plot(tren)
-#        plt.plot(anomp.values)
-#        plt.plot(detrend)
-#    for i in range(0,stepsyr.size, 5):
-#        slopes = np.zeros(len(range(0,stepsyr.size, 5)))
-#        sd =(dates[i::stepsyr.size])
-#        print(sd)
-#        da = marray.sel(time=sd)
-#        trendtesting(da)
+
 
 
 

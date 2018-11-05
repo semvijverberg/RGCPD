@@ -342,21 +342,21 @@ for freq in ex['tfreqlist']:
     # Part 3 Start your experiment by running RGCPD python script with settings
     # *****************************************************************************
     # *****************************************************************************
-    import main_RGCPD_tig3
+    import wrapper_RGCPD_tig3
     # =============================================================================
     # Find precursor fields (potential precursors)
     # =============================================================================
-    ex, outdic_actors = main_RGCPD_tig3.calculate_corr_maps(ex, map_proj)
+    ex, outdic_actors = wrapper_RGCPD_tig3.calculate_corr_maps(ex, map_proj)
     #%% 
     # =============================================================================
     # Run tigramite to extract causal precursors
     # =============================================================================
-    parents_RV, var_names = main_RGCPD_tig3.run_PCMCI(ex, outdic_actors, map_proj)
+    parents_RV, var_names = wrapper_RGCPD_tig3.run_PCMCI(ex, outdic_actors, map_proj)
     #%%
     # =============================================================================
     # Plot final results
     # =============================================================================
-    main_RGCPD_tig3.plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj)
+    wrapper_RGCPD_tig3.plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj)
     print("--- {:.2} minutes ---".format((time.time() - start_time)/60))
     #%%
     
