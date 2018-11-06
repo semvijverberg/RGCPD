@@ -21,11 +21,11 @@ Installation Anaconda3, python 3.6.1 environment
 
 Installing in conda base_root 
 ----------------------
-conda install spyder=3.3.1
-conda config --add channels conda-forge
-conda config --append channels bioconda
-conda install numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict
-conda install -c conda-forge nco
+conda install spyder=3.3.1\
+conda config --add channels conda-forge\
+conda config --append channels bioconda\
+conda install numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict\
+conda install -c conda-forge nco\
 
 
 - If you want to install this package in an environment this will not work since it will automatically install Tigramite to your root site-package e.g. ~anaconda/lib/python2.7/site-packages/. And running Spyder from source activate <env> will point to the site-packages in your env folder ~/anaconda/envs/<env_name>/lib/python3.6/site-packages, not your root (thus it will not find the tigramite module). 
@@ -33,12 +33,12 @@ To solve this you could do:
 
 Installing in conda env 
 ----------------------
-Easy way:
-conda create --name <env_name> --file conda_env.txt 
-More typing way, but probably cleaner:
-conda config --add channels conda-forge
-conda config --append channels bioconda
-conda create --name <env_name> python=3.6 numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict pip
+Easy way:\
+conda create --name <env_name> --file conda_env.txt \
+More typing way, but probably cleaner: \
+conda config --add channels conda-forge \
+conda config --append channels bioconda\
+conda create --name <env_name> python=3.6 numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict pip\
 
 
 
@@ -54,8 +54,8 @@ If you did not have ecmwfapi installed before, you need to create an ecmwf accou
 
 Installing Tigramite
 ----------------
-To install Tigramite, see https://github.com/jakobrunge/tigramite
-- If you install Tigramite on your base_root in conda, it will satisfy to download the tigramite-master folder and run 
+To install Tigramite, see https://github.com/jakobrunge/tigramite\
+If you install Tigramite on your base_root in conda, it will satisfy to download the tigramite-master folder and run 
 python setup.py install
 
 Installing Tigramite in conda env:
