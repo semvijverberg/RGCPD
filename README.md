@@ -55,7 +55,7 @@ Installing Tigramite
 ----------------
 To install Tigramite, see https://github.com/jakobrunge/tigramite \
 If you install Tigramite on your base_root in conda, it will satisfy to download the tigramite-master folder and run \
-python setup.py install \
+python setup.py install .
 
 Installing Tigramite in conda env:
 ----------------
