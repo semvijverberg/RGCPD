@@ -261,6 +261,6 @@ Runge, J., Sejdinovic, D., & Flaxman, S. (2017). Detecting causal associations i
 
 PhD. Sem Vijverberg, who casted Kretschmer's method into a python code that can be applied in a versatile manner. Please give the link in your publication to the Github:
 
-[![DOI](https://zenodo.org/badge/149276373.svg)](https://zenodo.org/badge/latestdoi/149276373)
+https://doi.org/10.5281/zenodo.1478819
  
 This package was created with `Cookiecutter <https://github.com/audreyr/cookiecutter>`_ and the `NLeSC/python-template <https://github.com/NLeSC/python-template>`_.
