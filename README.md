@@ -44,11 +44,11 @@ conda create --name <env_name> python=3.6 numpy pandas matplotlib cartopy xarray
 
 ECWMF MARS API
 ----------------
-If you did not have ecmwfapi installed before, you need to create an ecmwf account and copy your key into the file .ecmwfapirc in your home directory. This will look like this:
+If you did not have ecmwfapi installed before, you need to create an ecmwf account and copy your key into the file .ecmwfapirc in your home directory. This will look like this: \
 {\
     "url"   : "https://api.ecmwf.int/v1",\
-    "key"   : <your key>,\
-    "email" : <your emailadress>\
+    "key"   : <your key>,\
+    "email" : <your emailadress>\
 }\
 
 
