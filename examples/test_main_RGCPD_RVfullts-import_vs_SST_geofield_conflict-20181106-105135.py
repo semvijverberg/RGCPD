@@ -12,13 +12,16 @@ import cartopy.crs as ccrs
 import os, sys
 
 import inspect
+print(inspect.getfile(inspect.currentframe()) ) # script filename (usually with path)
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+
+
 script_dir = os.path.join(curr_dir, '..', 'RGCPD')
 # To link modules in RGCPD folder to this script
 os.chdir(script_dir)
 sys.path.append(script_dir)
 
-filename_exp = os.path.join(curr_dir,
+filename_exp = os.path.join(curr_dir, 
                 'Data_ERAint/ex_t2mmax_sst_30day_pcA_set1a_ac0.01_at0.2.npy')
 
 ex = np.load(filename_exp, encoding='latin1').item()
@@ -28,7 +31,7 @@ map_proj = ccrs.LambertCylindrical(central_longitude=central_lon_plots)
 #%%
 # *****************************************************************************
 # *****************************************************************************
-# Part 3 Start RGCPD python script (settings stored in dictionary 'ex')
+# Part 3 Start your experiment by running RGCPD python script with settings
 # *****************************************************************************
 # *****************************************************************************
 import wrapper_RGCPD_tig3

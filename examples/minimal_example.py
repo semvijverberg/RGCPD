@@ -15,16 +15,18 @@ Created on Mon Jul  9 17:48:31 2018
 """
 import time
 start_time = time.time()
-import os, sys
-os.chdir('/Users/semvijverberg/Surfdrive/Scripts/RGCPD/RGCPD')
+import inspect, os, sys
+curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+script_dir = os.path.join(curr_dir, '..', 'RGCPD')
+# To link modules in RGCPD folder to this script
+os.chdir(script_dir)
+sys.path.append(script_dir)
 script_dir = os.getcwd()
 if sys.version[:1] == '3':
     from importlib import reload as rel
 import numpy as np
 import pandas as pd
 import functions_pp
-import matplotlib.pyplot as plt
-import xarray as xr
 import cartopy.crs as ccrs
 retrieve_ERA_i_field = functions_pp.retrieve_ERA_i_field
 copy_stdout = sys.stdout

@@ -7,9 +7,12 @@ Created on Mon Jul  9 17:48:31 2018
 """
 import time
 start_time = time.time()
-import os, sys
-os.chdir('/Users/semvijverberg/Surfdrive/Scripts/RGCPD/RGCPD')
-script_dir = os.getcwd()
+import inspect, os, sys
+curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+script_dir = os.path.join(curr_dir)
+# To link modules in RGCPD folder to this script
+os.chdir(script_dir)
+sys.path.append(script_dir)
 if sys.version[:1] == '3':
     from importlib import reload as rel
 import numpy as np
@@ -26,15 +29,11 @@ copy_stdout = sys.stdout
 # Part 1 Downloading (opt), preprocessing(opt), choosing general experiment settings
 # *****************************************************************************
 # *****************************************************************************
-# We will be discriminating between actors and the Response Variable (what you want 
-# to predict). 
-# You can choose to download ncdfs through ECMWF MARS, or you can give your own 
-# ncdfs.
-# It is also possible to insert own 1D time serie for both actors and the RV.
+# We will be discriminating between precursors and the Response Variable 
+# (what you want to predict). 
 
 # this will be your basepath, all raw_input and output will stored in subfolder 
 # which will be made when running the code
-#base_path = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/tests/Data_ERAint/"
 base_path = "/Users/semvijverberg/surfdrive/Data_ERAint/"
 exp_folder = ''
 path_raw = os.path.join(base_path, 'input_raw')
@@ -46,8 +45,10 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 # Step 1 Create dictionary and variable class (and optionally download ncdfs)
 # *****************************************************************************
 # The dictionary is used as a container with all information for the experiment
-# The dic is saved at intermediate steps, so you can continue the experiment 
-# from these break points. It also stored as a log in the final output.
+# The dic is saved after the post-processes step, so you can continue the experiment 
+# from this point onward with different configurations. It also stored as a log 
+# in the final output.
+# 
 ex = dict(
      {'dataset'     :       'ERA-i',
      'grid_res'     :       2.5,
@@ -71,7 +72,7 @@ import_RV_ncdf = True
 importRV_1dts = False 
 
 
-# 11111111111111111111111111111111111111111111111111111111111111111111111111111
+# Option 1111111111111111111111111111111111111111111111111111111111111111111111
 # Download ncdf fields (in ex['vars']) through ECMWF MARS?
 # 11111111111111111111111111111111111111111111111111111111111111111111111111111
 # only analytical fields 
@@ -98,7 +99,7 @@ if ECMWFdownload == True:
 else:
     ex['vars']      =       [[]]
 
-# 22222222222222222222222222222222222222222222222222222222222222222222222222222
+# Option 2222222222222222222222222222222222222222222222222222222222222222222222
 # Import ncdf lonlat fields to be precursors.
 # 22222222222222222222222222222222222222222222222222222222222222222222222222222
 # Must have same period, daily data and on same grid
@@ -110,7 +111,7 @@ if import_precursor_ncdf == True:
 else:
     ex['precursor_ncdf'] = [[]]   
     
-# 33333333333333333333333333333333333333333333333333333333333333333333333333333
+# Option 3333333333333333333333333333333333333333333333333333333333333333333333
 # Import ncdf field to be Response Variable.
 # 33333333333333333333333333333333333333333333333333333333333333333333333333333
 if import_RV_ncdf == True:
@@ -122,7 +123,7 @@ if import_RV_ncdf == True:
 else:
     ex['RVnc_name'] = []
 
-# 44444444444444444444444444444444444444444444444444444444444444444444444444444
+# Option 4444444444444444444444444444444444444444444444444444444444444444444444
 # Import Response Variable 1-dimensional time serie?
 # 44444444444444444444444444444444444444444444444444444444444444444444444444444
 if importRV_1dts == True:
@@ -189,7 +190,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process, 
 # Select temporal frequency:
-ex['tfreqlist'] = [30]# [1,2,4,7,14,21,35]
+ex['tfreqlist'] = [14]# [1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
