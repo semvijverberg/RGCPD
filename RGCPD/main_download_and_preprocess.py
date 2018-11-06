@@ -9,6 +9,7 @@ import time
 start_time = time.time()
 import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+curr_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD" # script directory
 script_dir = os.path.join(curr_dir)
 # To link modules in RGCPD folder to this script
 os.chdir(script_dir)
@@ -85,8 +86,8 @@ if ECMWFdownload == True:
 #    ex['vars']      =       [['sst', 'z', 'u'],['34.128','129.128','131.128'],
 #                             ['sfc', 'pl', 'pl'],[0, '500', '500']]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
-    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
-#    ex['vars']      =       [['z'], ['129.128'],['pl'], ['500']]
+#    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
+    ex['vars']      =       [['z'], ['129.128'],['pl'], ['500']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
 #                            ['167.128', '34.128', '131.128', '130.128'],
 #                            ['sfc', 'sfc', 'pl', 'pl'],[0, 0, '500', '100']]
