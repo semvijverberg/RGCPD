@@ -34,10 +34,9 @@ To solve this you could do:
 Installing in conda env 
 ----------------------
 Easy way:
-conda create --name RGCPDspec --file conda_env.txt 
+conda create --name <env_name> --file conda_env.txt 
 More typing way, but probably cleaner:
 conda config --add channels conda-forge
-<<<<<<< HEAD
 conda config --append channels bioconda
 conda create --name <env_name> python=3.6 numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict pip
 
