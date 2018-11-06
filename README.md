@@ -21,77 +21,77 @@ Installation Anaconda3, python 3.6.1 environment
 
 Installing in conda base_root 
 ----------------------
-conda install spyder=3.3.1
-conda config --add channels conda-forge
-conda config --append channels bioconda
-conda install numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict
-conda install -c conda-forge nco
+conda install spyder=3.3.1\
+conda config --add channels conda-forge\
+conda config --append channels bioconda\
+conda install numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict\
+conda install -c conda-forge nco\
 
 
-- If you want to install this package in an environment this will not work since it will automatically install Tigramite to your root site-package e.g. ~anaconda/lib/python2.7/site-packages/. And running Spyder from source activate <env> will point to the site-packages in your env folder ~/anaconda/envs/<env_name>/lib/python3.6/site-packages, not your root (thus it will not find the tigramite module). 
+If you want to install this package in an environment this will not work since it will automatically install Tigramite to your root site-package e.g. ~anaconda/lib/python2.7/site-packages/. And running Spyder from source activate <env> will point to the site-packages in your env folder ~/anaconda/envs/<env_name>/lib/python3.6/site-packages, not your root (thus it will not find the tigramite module). 
 To solve this you could do:
 
 Installing in conda env 
 ----------------------
-Easy way:
-conda create --name RGCPDspec --file conda_env.txt 
-More typing way, but probably cleaner:
-conda config --add channels conda-forge
-<<<<<<< HEAD
-conda config --append channels bioconda
-conda create --name <env_name> python=3.6 numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict pip
-
+Easy way:\
+conda create --name <env_name> --file conda_env.txt \
+More typing way, but probably cleaner: \
+conda config --add channels conda-forge \
+conda config --append channels bioconda\
+conda create --name <env_name> python=3.6 numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict pip 
 
 
 ECWMF MARS API
 ----------------
-If you did not have ecmwfapi installed before, you need to create an ecmwf account and copy your key into the file .ecmwfapirc in your home directory. This will look like this:
-{
-    "url"   : "https://api.ecmwf.int/v1",
-    "key"   : <your key>,
-    "email" : <your emailadress>
+If you did not have ecmwfapi installed before, you need to create an ecmwf account and copy your key into the file .ecmwfapirc in your home directory. This will look like this: \
+{\
+    "url"   : "https://api.ecmwf.int/v1",\
+    "key"   : <your key>,\
+    "email" : <your emailadress>\
 }
 
 
 Installing Tigramite
 ----------------
-To install Tigramite, see https://github.com/jakobrunge/tigramite
-- If you install Tigramite on your base_root in conda, it will satisfy to download the tigramite-master folder and run 
-python setup.py install
+To install Tigramite, see https://github.com/jakobrunge/tigramite \
+If you install Tigramite on your base_root in conda, it will satisfy to download the tigramite-master folder and run \
+python setup.py install .
 
 Installing Tigramite in conda env:
 ----------------
-Source activate <env_name>
-Git clone https://github.com/jakobrunge/tigramite.git 
+Source activate <env_name> \
+Git clone https://github.com/jakobrunge/tigramite.git \
 pip install ./tigramite 
 
 Installing CDO 
 ----------------
-cdo -V
-Climate Data Operators version 1.9.4 (http://mpimet.mpg.de/cdo)
-System: x86_64-apple-darwin17.6.0
-CXX Compiler: /usr/bin/clang++ -std=gnu++11 -pipe -Os -stdlib=libc++ -isysroot/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk -arch x86_64  -D_THREAD_SAFE -pthread
-CXX version : unknown
-C Compiler: /usr/bin/clang -pipe -Os -isysroot/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk -arch x86_64  -D_THREAD_SAFE -pthread -D_THREAD_SAFE -D_THREAD_SAFE -pthread
-C version : unknown
-F77 Compiler:  -pipe -Os
-Features: 16GB C++11 DATA PTHREADS HDF5 NC4/HDF5 OPeNDAP UDUNITS2 PROJ.4 CURL FFTW3 SSE4_1
-Libraries: HDF5/1.10.2 proj/5.1 curl/7.60.0
-Filetypes: srv ext ieg grb1 grb2 nc1 nc2 nc4 nc4c nc5 
-     CDI library version : 1.9.4
-GRIB_API library version : 2.7.0
-  NetCDF library version : 4.4.1.1 of Jun  8 2018 03:07:16 $
-    HDF5 library version : 1.10.2
-    EXSE library version : 1.4.0
-    FILE library version : 1.8.3
+cdo -V \
+Climate Data Operators version 1.9.4 (http://mpimet.mpg.de/cdo) \
+System: x86_64-apple-darwin17.6.0 \
+CXX Compiler: /usr/bin/clang++ -std=gnu++11 -pipe -Os -stdlib=libc++ -isysroot/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk -arch x86_64  -D_THREAD_SAFE -pthread \
+CXX version : unknown \
+C Compiler: /usr/bin/clang -pipe -Os -isysroot/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk -arch x86_64  -D_THREAD_SAFE -pthread -D_THREAD_SAFE -D_THREAD_SAFE -pthread \
+C version : unknown \
+F77 Compiler:  -pipe -Os \
+Features: 16GB C++11 DATA PTHREADS HDF5 NC4/HDF5 OPeNDAP UDUNITS2 PROJ.4 CURL FFTW3 SSE4_1 \
+Libraries: HDF5/1.10.2 proj/5.1 curl/7.60.0 \
+Filetypes: srv ext ieg grb1 grb2 nc1 nc2 nc4 nc4c nc5  \
+     CDI library version : 1.9.4 \
+GRIB_API library version : 2.7.0 \
+  NetCDF library version : 4.4.1.1 of Jun  8 2018 03:07:16 $ \
+    HDF5 library version : 1.10.2 \
+    EXSE library version : 1.4.0 \
+    FILE library version : 1.8.3 \
 
 
 
-You commit to cite RG-CPD in your reports or publications if used:
+
 
 
 User Agreement
 **************
+
+You commit to cite RG-CPD in your reports or publications if used:
 
 Dr. Marlene Kretschmer, who developed the method and used it for studying Polar Vortex dynamics. Please cite: 
 
