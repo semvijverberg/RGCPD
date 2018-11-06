@@ -8,7 +8,7 @@ The basic idea behind RG-CPD was to create a python package which can process 3-
 
 Causal inference metrics has been proven a valuable to go beyond defining a relationship only by looking at e.g. correlation. Tigramite has been applied to 1 dimensional time series in climate science (See Kretschmer et al. 2016 10.1175/JCLI-D-15-0654.1).
 
-Within RG-CPD, the 1-d precursor time series are created by creating point-wise correlation maps and subsequently grouping adjacent significantly correlating gridcells together into precursor regions. These precursor regions are then converted into 1-d time series by taking a spatial mean (see Kretschmer et al. 2017 10.1002/2017GL074696).
+Within RG-CPD, the 1-d precursor time series are obtained by creating point-wise correlation maps and subsequently grouping adjacent significantly correlating gridcells together into precursor regions. These precursor regions are then converted into 1-d time series by taking a spatial mean (see Kretschmer et al. 2017 10.1002/2017GL074696).
 
 The final step is the same, where the 1-d time series are processed by Tigramite to extract the causal relationships. This requires thorough understanding of the method, see Runge et al. 2017 http://arxiv.org/abs/1702.07007) These 1d time series contain more information since they are spatially aggregated. The 1d time series of different precursor regions and subsequently tested for causality using the Tigramite package.  
 
