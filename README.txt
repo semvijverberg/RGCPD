@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 ################################################################################
 RGCPD
 ################################################################################
@@ -12,24 +12,10 @@ Within RG-CPD, the 1-d precursor time series are created by creating point-wise 
 The final step is the same, where the 1-d time series are processed by Tigramite to extract the causal relationships. This requires thorough understanding of the method, see Runge et al. 2017 http://arxiv.org/abs/1702.07007) These 1d time series contain more information since they are spatially aggregated. The 1d time series of different precursor regions and subsequently tested for causality using the Tigramite package.  
 
 
-Credits
-*******
-
-Dr. Marlene Kretschmer, who developed the method and used it for studying Polar Vortex dynamics. Please cite: 
-
-Kretschmer, M., Runge, J., & Coumou, D. (2017). Early prediction of extreme stratospheric polar vortex states based on causal precursors. Geophysical Research Letters, 44(16), 8592–8600. https://doi.org/10.1002/2017GL074696
-
-Dr. Jakob Runge, who developed the causal inference python package Tigramite.
-Runge, J., Sejdinovic, D., & Flaxman, S. (2017). Detecting causal associations in large nonlinear time series datasets. https://doi.org/arXiv:1702.07007
-
-PhD. Sem Vijverberg, who casted Kretschmer's method into a python code that can be applied in a versatile manner. Please give the link in your publication to the Github:
-
-https://doi.org/10.5281/zenodo.1478819
-
-
 Installation
 =======
 ################################################################################
+RGCPD
 ################################################################################
 
 The basic idea behind RG-CPD was to create a python package which can process 3-dimensional data such that relationships based on correlation can be tested for causality.
