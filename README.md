@@ -4,7 +4,7 @@
 Features
 =====
 
-The basic idea behind RG-CPD was to create a python package which can process 3-dimensional data such that relationships based on correlation can be tested for causality.
+The basic idea behind RG-CPD was to create a python package which can process 3-dimensional climate data, such that relationships based on correlation can be tested for causality.
 
 Causal inference metrics has been proven a valuable to go beyond defining a relationship only by looking at e.g. correlation. Tigramite has been applied to 1 dimensional time series in climate science (See Kretschmer et al. 2016 10.1175/JCLI-D-15-0654.1).
 
