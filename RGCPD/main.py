@@ -87,7 +87,7 @@ if ECMWFdownload == True:
 #                             ['sfc', 'pl', 'pl'],[0, '500', '500']]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
 #    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
-    ex['vars']      =       [['z'], ['129.128'],['pl'], ['500']]
+    ex['vars']      =       [['u'], ['131.128'],['pl'], ['800']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
 #                            ['167.128', '34.128', '131.128', '130.128'],
 #                            ['sfc', 'sfc', 'pl', 'pl'],[0, 0, '500', '100']]
@@ -191,7 +191,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [14]# [1,2,4,7,14,21,35]
+ex['tfreqlist'] = [1]# [1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
@@ -199,7 +199,7 @@ for freq in ex['tfreqlist']:
     ex['lag_min'] = max(1, lag_min)
     ex['lag_max'] = ex['lag_min'] + 0
     # s(elect)startdate and enddate create the period of year you want to investigate:
-    ex['sstartdate'] = '{}-3-1 09:00:00'.format(ex['startyear'])
+    ex['sstartdate'] = '{}-1-1 09:00:00'.format(ex['startyear'])
     ex['senddate']   = '{}-08-31 09:00:00'.format(ex['startyear'])
 
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,

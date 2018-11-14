@@ -118,85 +118,87 @@ def corr_new(D, di):
 	
 def calc_corr_coeffs_new(v, V, RVts, time_range_indices, ex):
 #    v = ncdf ; V = array ; time_range_indices = RV.RV_ts
-	"""
-	This function calculates the correlation maps for fied V for different lags. Field significance is applied to test for correltion.
-	v: netcdf element
-	V: array
-	box: list of form [la_min, la_max, lo_min, lo_max]
-	time_range_indices: a list containing the start and the end index, e.g. [0, time_cycle*n_years]
-	lag_steps: number of lags
-	time_cycle: time cycyle of dataset, =12 for monthly data...
-	RV_period: indices that matches the response variable time series
-	alpha: significance level
+    """
+    This function calculates the correlation maps for fied V for different lags. Field significance is applied to test for correltion.
+    v: netcdf element
+    V: array
+    box: list of form [la_min, la_max, lo_min, lo_max]
+    time_range_indices: a list containing the start and the end index, e.g. [0, time_cycle*n_years]
+    lag_steps: number of lags
+    time_cycle: time cycyle of dataset, =12 for monthly data...
+    RV_period: indices that matches the response variable time series
+    alpha: significance level
 
-	"""
-	lag_steps = ex['lag_max'] - ex['lag_min'] +1
+    """
+    lag_steps = ex['lag_max'] - ex['lag_min'] +1
 		
-	d = v
+    d = v
 	
-	if 'latitude' in list(d.variables.keys()):
-	    lat = d.variables['latitude'][:]
-	else:
-	    lat = d.variables['lat'][:]
-	if 'longitude' in list(d.variables.keys()):
-	    lon = d.variables['longitude'][:]
-	else:
-	    lon = d.variables['lon'][:]
+    if 'latitude' in list(d.variables.keys()):
+        lat = d.variables['latitude'][:]
+    else:
+        lat = d.variables['lat'][:]
+    if 'longitude' in list(d.variables.keys()):
+        lon = d.variables['longitude'][:]
+    else:
+        lon = d.variables['lon'][:]
 
-	if lon.min() < 0: 
-	    lon[lon < 0] = 360 + lon[lon < 0]
+    if lon.min() < 0: 
+        lon[lon < 0] = 360 + lon[lon < 0]
 	
-	lat_grid = lat[(lat>=ex['la_min']) & (lat<=ex['la_max'])]
-	lon_grid = lon[(lon>=ex['lo_min']) & (lon<=ex['lo_max'])]
+    lat_grid = lat[(lat>=ex['la_min']) & (lat<=ex['la_max'])]
+    lon_grid = lon[(lon>=ex['lo_min']) & (lon<=ex['lo_max'])]
 	
-	la = lat_grid.shape[0]
-	lo = lon_grid.shape[0]
+    la = lat_grid.shape[0]
+    lo = lon_grid.shape[0]
 	
-	lons, lats = numpy.meshgrid(lon_grid,lat_grid)
+    lons, lats = numpy.meshgrid(lon_grid,lat_grid)
 
-	A1 = numpy.zeros((la,lo))
-	z = numpy.zeros((la*lo,lag_steps))
-	Corr_Coeff = numpy.ma.array(z, mask=z)
+    A1 = numpy.zeros((la,lo))
+    z = numpy.zeros((la*lo,lag_steps))
+    Corr_Coeff = numpy.ma.array(z, mask=z)
 	
 	
-	# extract data	
-	sat = extract_data(v, V, time_range_indices, ex)	
-	# reshape
-	sat = np.reshape(sat, (sat.shape[0],-1))
+    # extract data	
+    sat = extract_data(v, V, time_range_indices, ex)	
+    # reshape
+    sat = np.reshape(sat, (sat.shape[0],-1))
+    
+    allkeysncdf = list(d.variables.keys())
+    dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude']
+    var = [keync for keync in allkeysncdf if keync not in dimensionkeys][0]  
+    print(('calculating correlation maps for {}'.format(var)))
+	
+	
+    for i in range(lag_steps):
 
-	var = [var for var in list(d.variables.keys()) if var not in 'longitude time latitude'][0]   
-	print(('calculating correlation maps for {}'.format(var)))
-	
-	
-	for i in range(lag_steps):
-
-		lag = ex['lag_min'] + i
+        lag = ex['lag_min'] + i
 		
-		print(('lag', lag))
-		months_indices_lagged = [r - lag for r in ex['RV_period']]
+        print(('lag', lag))
+        months_indices_lagged = [r - lag for r in ex['RV_period']]
 		
-		# only winter months 		
-		sat_winter = sat[months_indices_lagged]
+        # only winter months 		
+        sat_winter = sat[months_indices_lagged]
 		
 		# correlation map and pvalue at each grid-point:
-		corr_di_sat, sig_di_sat = corr_new(sat_winter, RVts)
+        corr_di_sat, sig_di_sat = corr_new(sat_winter, RVts)
 		
-		if ex['FDR_control'] == True:
+        if ex['FDR_control'] == True:
 				
 			# test for Field significance and mask unsignificant values			
 			# FDR control:
-			adjusted_pvalues = multicomp.multipletests(sig_di_sat, method='fdr_bh')			
-			ad_p = adjusted_pvalues[1]
+            adjusted_pvalues = multicomp.multipletests(sig_di_sat, method='fdr_bh')			
+            ad_p = adjusted_pvalues[1]
 			
-			corr_di_sat.mask[ad_p> ex['alpha']] = True
+            corr_di_sat.mask[ad_p> ex['alpha']] = True
 
-		else:
-			corr_di_sat.mask[sig_di_sat> ex['alpha']] = True
+        else:
+            corr_di_sat.mask[sig_di_sat> ex['alpha']] = True
 			
 			
-		Corr_Coeff[:,i] = corr_di_sat[:]
+            Corr_Coeff[:,i] = corr_di_sat[:]
 	
-	return Corr_Coeff, lat_grid, lon_grid
+    return Corr_Coeff, lat_grid, lon_grid
 	
 
 def plot_corr_coeffs(Corr_Coeff, m, lag_min, lat_grid, lon_grid, title='Corr Maps for different time lags', Corr_mask=False):	
