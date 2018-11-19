@@ -21,10 +21,14 @@ Installation Anaconda3, python 3.6.1 environment
 
 Installing in conda base_root 
 ----------------------
-conda install spyder=3.3.1\
-conda config --add channels conda-forge\
-conda config --append channels bioconda\
-conda install numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict\
+conda install spyder=3.3.1
+\
+conda config --add channels conda-forge
+\
+conda config --append channels bioconda
+\
+conda install numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict
+\
 conda install -c conda-forge nco
 
 
@@ -34,6 +38,8 @@ To solve this you could do:
 Installing in conda env 
 ----------------------
 Easy way:\
+conda config --add channels conda-forge\
+conda config --append channels bioconda\
 conda create --name <env_name> --file conda_env.txt \
 More typing way, but probably cleaner: \
 conda config --add channels conda-forge \
@@ -43,9 +49,12 @@ conda create --name <env_name> python=3.6 numpy pandas matplotlib cartopy xarray
 
 ECWMF MARS API
 ----------------
-If you did not have ecmwfapi installed before, you need to create an ecmwf account and copy your key into the file .ecmwfapirc in your home directory. This will look like this: \
-{\
-    "url"   : "https://api.ecmwf.int/v1",\
+If you did not have ecmwfapi installed before, you need to create an ecmwf account and copy your key into the file .ecmwfapirc in your home directory. See https://confluence-test.ecmwf.int/display/WEBAPI/Access+MARS#AccessMARS-downloadmars. This will look like this:
+ \
+{
+\
+    "url"   : "https://api.ecmwf.int/v1",
+\
     "key"   : <your key>,\
     "email" : <your emailadress>\
 }
