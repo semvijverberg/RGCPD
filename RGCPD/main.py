@@ -86,8 +86,8 @@ if ECMWFdownload == True:
 #    ex['vars']      =       [['sst', 'z', 'u'],['34.128','129.128','131.128'],
 #                             ['sfc', 'pl', 'pl'],[0, '500', '500']]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
-#    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
-    ex['vars']      =       [['u'], ['131.128'],['pl'], ['800']]
+    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
+#    ex['vars']      =       [['u'], ['131.128'],['pl'], ['800']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
 #                            ['167.128', '34.128', '131.128', '130.128'],
 #                            ['sfc', 'sfc', 'pl', 'pl'],[0, 0, '500', '100']]
@@ -106,9 +106,11 @@ else:
 # Must have same period, daily data and on same grid
 if import_precursor_ncdf == True:
     ex['precursor_ncdf'] = [['name1', 'filename1'],['name2','filename2']]
-    ex['precursor_ncdf'] = [['sst', ('sst_{}-{}_1_12_daily_'
+    ex['precursor_ncdf'] = [['sst', ('sst_NOAA_{}-{}_1_12_daily_'
                               '{}deg.nc'.format(ex['startyear'], ex['endyear'],
                                ex['grid_res']))]]
+#    ex['precursor_ncdf'] = [['z', 'hgt.200mb.daily.1979-2016.del29feb.nc']]
+
 else:
     ex['precursor_ncdf'] = [[]]
 
@@ -116,8 +118,7 @@ else:
 # Import ncdf field to be Response Variable.
 # 33333333333333333333333333333333333333333333333333333333333333333333333333333
 if import_RV_ncdf == True:
-    #ex['RVnc_name'] = ['t2mmax', ('t2mmax_2010-2015_1_12_daily_'
-    #                          '{}deg.nc'.format(ex['grid_res']))]
+#    ex['RVnc_name'] = ['pr', 'prcp_GLB_daily_1979-2016-del29feb.75-88E_18-25N.nc']
     ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_daily_'
                               '{}deg.nc'.format(ex['startyear'], ex['endyear'],
                                ex['grid_res']))]
@@ -199,8 +200,8 @@ for freq in ex['tfreqlist']:
     ex['lag_min'] = max(1, lag_min)
     ex['lag_max'] = ex['lag_min'] + 0
     # s(elect)startdate and enddate create the period of year you want to investigate:
-    ex['sstartdate'] = '{}-1-1 09:00:00'.format(ex['startyear'])
-    ex['senddate']   = '{}-08-31 09:00:00'.format(ex['startyear'])
+    ex['sstartdate'] = '{}-1-1'.format(ex['startyear'])
+    ex['senddate']   = '{}-08-31'.format(ex['startyear'])
 
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
                         ex['sstartdate'].split('-')[1], ex['senddate'].split('-')[1], ex['tfreq'])
@@ -321,8 +322,8 @@ for freq in ex['tfreqlist']:
     print('\n**\nBegin summary of main experiment settings\n**\n')
     print('Response variable is {} is correlated vs {}'.format(ex['vars'][0][0],
           ex['vars'][0][1:]))
-    start_day = '{}{}'.format(ex['adjstartdate'].day, ex['adjstartdate'].month_name())
-    end_day   = '{}{}'.format(ex['senddate'].day, ex['senddate'].month_name())
+    start_day = '{}-{}'.format(int(ex['adjstartdate'][8:10]), int(ex['adjstartdate'][5:7]))
+    end_day   = '{}-{}'.format(int(ex['senddate'][8:10]), int(ex['senddate'][5:7]))
     print('Part of year investigated: {} - {}'.format(start_day, end_day))
     print('Part of year predicted (RV period): {} '.format(RV_name_range[:-1]))
     print('Temporal resolution: {} days'.format(ex['tfreq']))

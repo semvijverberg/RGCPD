@@ -201,11 +201,16 @@ def datestr_for_preproc(cls, ex):
     file_path = os.path.join(cls.path_raw, cls.filename)
     ncdf = Dataset(file_path)
     numtime = ncdf.variables['time']
-    datesnc = pd.to_datetime(num2date(numtime[:], units=numtime.units, calendar=numtime.calendar))
+    dates = num2date(numtime[:], units=numtime.units, calendar=numtime.calendar)
+    if numtime.calendar != 'gregorian':
+        dates = [d.strftime('%Y-%m-%dT%H:%M:%S') for d in dates]
+    datesnc = pd.to_datetime(dates)
     leapdays = ((datesnc.is_leap_year) & (datesnc.month==2) & (datesnc.day==29))==False
     datesnc = datesnc[leapdays].dropna(how='all')
 #    if len(leapdays) != 0:
-
+    # add corresponding time information
+    ex['sstartdate'] += ' {:}:00:00'.format(datesnc.hour[0])
+    ex['senddate']   += ' {:}:00:00'.format(datesnc.hour[0])
 # =============================================================================
 #   # select dates
 # =============================================================================
@@ -221,8 +226,8 @@ def datestr_for_preproc(cls, ex):
     # line below: The +1 = include day 1 in counting
     start_day = (end_day - (temporal_freq * np.round(fit_steps_yr, decimals=0))) + 1 
     # update ex['sstartdate']:
-    ex['adjstartdate'] = start_day
-    ex['senddate'] = end_day
+    ex['adjstartdate'] = start_day.strftime('%Y-%m-%dT%H:%M:%S')
+    ex['senddate'] = end_day.strftime('%Y-%m-%dT%H:%M:%S')
     # create datestring that will be used for the cdo selectdate, 
     def make_datestr(dates, start_yr):
         breakyr = dates.year.max()
@@ -309,7 +314,6 @@ def preprocessing_ncdf(outfile, datesstr, cls, ex):
     - Select time period of interest from daily mean time series
     - Do timesel mean based on your ex['tfreq']
     - Make sure the calenders are the same, dates are used to select data by xarray
-    - Gridpoint detrending
     - Calculate anomalies (w.r.t. multi year daily means)
     - deletes time bonds from the variables
     - stores new relative time axis converted to numpy.datetime64 format in var_class
@@ -329,7 +333,10 @@ def preprocessing_ncdf(outfile, datesstr, cls, ex):
     file_path = os.path.join(cls.path_raw, cls.filename)
     ncdf = Dataset(file_path)
     numtime = ncdf.variables['time']
-    dates = pd.to_datetime(num2date(numtime[:], units=numtime.units, calendar=numtime.calendar))
+    dates = num2date(numtime[:], units=numtime.units, calendar=numtime.calendar)
+    if numtime.calendar != 'gregorian':
+        dates = [d.strftime('%Y-%m-%d') for d in dates]
+    dates = pd.to_datetime(dates)
     timesteps = int(np.timedelta64(ex['tfreq'], 'D')  / (dates[1] - dates[0]))
     temporal_freq = np.timedelta64(ex['tfreq'], 'D') 
     def cdostr(thelist):
@@ -351,7 +358,7 @@ def preprocessing_ncdf(outfile, datesstr, cls, ex):
                              tmpfile+'4.nc', tmpfile+'sd.nc')
     convert_time_axis = 'cdo -O setreftime,1900-01-01,00:00:00 -setcalendar,gregorian {} {}'.format(
             tmpfile+'sd.nc', tmpfile+'cal.nc')
-    convert_temp_freq = 'cdo -O timselmean,{} {} {}'.format(timesteps, tmpfile+'cal.nc', tmpfile+'tf.nc')
+    convert_temp_freq = 'cdo -O timselmean,{} {} {}'.format(timesteps, tmpfile+'sd.nc', tmpfile+'tf.nc')
     rm_timebnds = 'ncks -O -C -x -v time_bnds {} {}'.format(tmpfile+'tf.nc', tmpfile+'rmtime.nc')
     rm_res_timebnds = 'ncpdq -O {} {}'.format(tmpfile+'rmtime.nc', tmpfile+'rmtime.nc')
 # =============================================================================
@@ -399,8 +406,8 @@ def preprocessing_ncdf(outfile, datesstr, cls, ex):
 #    args = [detrend, anom] # splitting string because of a limit to length
     args = [sel_dates1, sel_dates2]
     kornshell_with_input(args, cls)
-    args = [sel_dates3, sel_dates4, concat, convert_time_axis, convert_temp_freq, 
-            rm_timebnds, rm_res_timebnds, add_path_raw, add_units, echo_end] 
+    args = [sel_dates3, sel_dates4, concat, convert_temp_freq, 
+            rm_timebnds, add_path_raw, add_units, echo_end] 
 #    args = [detrend, anom, echo_end] 
     kornshell_with_input(args, cls)
 # =============================================================================
@@ -453,7 +460,10 @@ def update_dates(cls, ex):
     file_path = os.path.join(cls.path_pp, cls.filename_pp)
     ncdf = Dataset(file_path)
     numtime = ncdf.variables['time']
-    dates = pd.to_datetime(num2date(numtime[:], units=numtime.units, calendar=numtime.calendar))
+    dates = num2date(numtime[:], units=numtime.units, calendar=numtime.calendar)
+    if numtime.calendar != 'gregorian':
+        dates = [d.strftime('%Y-%m-%d') for d in dates]
+    dates = pd.to_datetime(dates)
     cls.dates = dates
     cls.temporal_freq = '{}days'.format(temporal_freq.astype('timedelta64[D]').astype(int))
     return cls, ex
@@ -569,6 +579,8 @@ def import_array(cls, path='pp'):
     marray = np.squeeze(ncdf.to_array(file_path).rename(({file_path: cls.name.replace(' ', '_')})))
     numtime = marray['time']
     dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+    if numtime.attrs['calendar'] != 'gregorian':
+        dates = [d.strftime('%Y-%m-%d') for d in dates]
     dates = pd.to_datetime(dates)
 #    print('temporal frequency \'dt\' is: \n{}'.format(dates[1]- dates[0]))
     marray['time'] = dates
@@ -576,17 +588,29 @@ def import_array(cls, path='pp'):
     return marray, cls
 
 def find_region(data, region='EU'):
+    import numpy as np
     if region == 'EU':
         west_lon = -30; east_lon = 40; south_lat = 35; north_lat = 65
 
     elif region ==  'U.S.':
         west_lon = -120; east_lon = -70; south_lat = 20; north_lat = 50
 
+    if type(region) == list:
+        west_lon = region[0]; east_lon = region[1]; 
+        south_lat = region[2]; north_lat = region[3]
     region_coords = [west_lon, east_lon, south_lat, north_lat]
-    import numpy as np
+    
+    lonstep = abs(data.longitude[1] - data.longitude[0])
+    # abs() enforces that all values are positve, if not the case, it will not meet
+    # the conditions 
+    lons = abs(np.arange(data.longitude[0], data.longitude[-1]+lonstep, lonstep))
     def find_nearest(array, value):
         idx = (np.abs(array - value)).argmin()
         return int(idx)
+    
+    if (lons == np.array(data.longitude.values)).all():
+        lats = list(data.latitude.values) ; lons = list(data.longitude.values)
+        all_values = data.sel(latitude=lats, longitude=lons)
     if west_lon <0 and east_lon > 0:
         # left_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(0, east_lon)))
         # right_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360)))
@@ -665,12 +689,18 @@ def detrend_anom_ncdf3D(filename, outfile):
     strvars = [' {} '.format(var) for var in variables]
     var = [var for var in strvars if var not in ' time time_bnds longitude latitude '][0] 
     var = var.replace(' ', '')
-    numtime = ncdf.variables['time'].values
-    timeattr = ncdf.variables['time'].attrs
-    dates = pd.to_datetime(num2date(numtime[:], units=timeattr['units'], calendar=timeattr['calendar']))
+    marray = np.squeeze(ncdf.to_array(name=var))
+    if 'itude' not in marray.dims:
+        marray = marray.rename({'lat':'latitude', 
+                                'lon':'longitude'})
+    numtime = marray['time']
+    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+    if numtime.attrs['calendar'] != 'gregorian':
+        dates = [d.strftime('%Y-%m-%d') for d in dates]
+    dates = pd.to_datetime(dates)
     stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
 #    marray = np.squeeze(ncdf.to_array(filename).rename(({filename: var})))
-    marray = np.squeeze(ncdf.to_array(name=var))
+    
     marray['time'] = dates
     
     def _detrendfunc2d(arr_oneday):
@@ -705,6 +735,16 @@ def detrend_anom_ncdf3D(filename, outfile):
     
 
 
+
+def selbox_to_1dts(cls, latlonbox):
+    latlonbox = [18.25, 24.75, 75.25, 87.75]
+    marray, var_class = import_array(cls, path='pp')
+    selboxmarray = find_region(marray, latlonbox)
+    lats = marray.latitude.values
+    cos_box = np.cos(np.deg2rad(lats))
+    cos_box_array = np.repeat(cos_box[None,:], (marray.longitude.size, 1) )
+    return selboxmarray
+    
 
 
 def detrend1D(da):

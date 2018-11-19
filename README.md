@@ -16,7 +16,7 @@ The final step is the same, where the 1-d time series are processed by Tigramite
 Installation
 ===========
 
-
+If you install all of the dependencies as listed below (python packages, ecmwf-api, Tigramite & CDO), then you should be able to all scripts within this repository.\
 Installation Anaconda3, python 3.6.1 environment
 
 Installing in conda base_root 
@@ -99,7 +99,7 @@ Kretschmer, M., Runge, J., & Coumou, D. (2017). Early prediction of extreme stra
 
 PhD. Sem Vijverberg, who expanded Kretschmer's original python code into a python code that can be applied in a versatile manner. 
 
-Vijverberg, S.P., Kretschmer, M. (2018). Python code for applying the Response Guided - Causal Precursor Detection scheme. https://doi.org/10.5281/zenodo.1478819
+Vijverberg, S.P., Kretschmer, M. (2018). Python code for applying the Response Guided - Causal Precursor Detection scheme. https://doi.org/10.5281/zenodo.1486739
 
 
 Dr. Jakob Runge, who developed the causal inference python package Tigramite (https://github.com/jakobrunge/tigramite).
@@ -125,17 +125,6 @@ This repository is set up with Python versions:
 * 3.4
 * 3.5
 * 3.6
-
-Installation
-------------
-
-To install RGCPD, do:
-
-.. code-block:: console
-
-  git clone https://github.com//RGCPD.git
-  cd RGCPD
-  pip install .
 
 
 
