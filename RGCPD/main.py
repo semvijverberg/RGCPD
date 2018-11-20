@@ -64,9 +64,9 @@ ex = dict(
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = True
+ECMWFdownload = False
 # Option 2:
-import_precursor_ncdf  = False
+import_precursor_ncdf  = True
 # Option 3:
 import_RV_ncdf = True
 # Option 4:
@@ -109,7 +109,7 @@ if import_precursor_ncdf == True:
     ex['precursor_ncdf'] = [['sst', ('sst_NOAA_{}-{}_1_12_daily_'
                               '{}deg.nc'.format(ex['startyear'], ex['endyear'],
                                ex['grid_res']))]]
-#    ex['precursor_ncdf'] = [['z', 'hgt.200mb.daily.1979-2016.del29feb.nc']]
+    ex['precursor_ncdf'] = [['z', 'hgt.200mb.daily.1979-2016.del29feb.nc']]
 
 else:
     ex['precursor_ncdf'] = [[]]

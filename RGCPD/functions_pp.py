@@ -301,7 +301,7 @@ def datestr_for_preproc(cls, ex):
     cls.filename_pp = outfilename
     cls.path_pp = ex['path_pp']
     outfile = os.path.join(ex['path_pp'], outfilename)
-    print('output file of pp will be saved as: \n' + outfile + '\n')
+    print('output file of pp will be saved as: \n' + outfile + '\n\n')
     return outfile, datesstr, cls, ex
 
 def preprocessing_ncdf(outfile, datesstr, cls, ex):
@@ -690,7 +690,7 @@ def detrend_anom_ncdf3D(filename, outfile):
     var = [var for var in strvars if var not in ' time time_bnds longitude latitude '][0] 
     var = var.replace(' ', '')
     marray = np.squeeze(ncdf.to_array(name=var))
-    if 'itude' not in marray.dims:
+    if 'latitude' and 'longitude' not in marray.dims:
         marray = marray.rename({'lat':'latitude', 
                                 'lon':'longitude'})
     numtime = marray['time']
