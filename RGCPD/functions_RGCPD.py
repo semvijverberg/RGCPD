@@ -24,7 +24,7 @@ import cartopy.crs as ccrs
 
 
 
-def extract_data(d, D, index_range, ex):	
+def extract_data(d, D, ex):	
 	"""
 	Extracts the array of variable d for indices index_range over the domain box
 	d: netcdf elements
@@ -33,8 +33,8 @@ def extract_data(d, D, index_range, ex):
 	"""
 	
 	
-	index_0 = index_range[0]
-	index_n = index_range[1]
+	index_0 = ex['time_range_all'][0]
+	index_n = ex['time_range_all'][1]
 
 	if 'latitude' in list(d.variables.keys()):
 	  lat = d.variables['latitude'][:]
@@ -116,14 +116,15 @@ def corr_new(D, di):
 	return corr_di_D, sig_di_D
 
 	
-def calc_corr_coeffs_new(v, V, RVts, time_range_indices, ex):
-#    v = ncdf ; V = array ; time_range_indices = RV.RV_ts
+def calc_corr_coeffs_new(ncdf, precur_arr, RVts, ex):
+#    v = ncdf ; V = array ; RVts = ts of RV, time_range_all = index range of whole ts
     """
     This function calculates the correlation maps for fied V for different lags. Field significance is applied to test for correltion.
-    v: netcdf element
-    V: array
+    This function uses the following variables (in the ex dictionary)
+    ncdf: netcdf element
+    prec_arr: array
     box: list of form [la_min, la_max, lo_min, lo_max]
-    time_range_indices: a list containing the start and the end index, e.g. [0, time_cycle*n_years]
+    time_range_all: a list containing the start and the end index, e.g. [0, time_cycle*n_years]
     lag_steps: number of lags
     time_cycle: time cycyle of dataset, =12 for monthly data...
     RV_period: indices that matches the response variable time series
@@ -132,7 +133,7 @@ def calc_corr_coeffs_new(v, V, RVts, time_range_indices, ex):
     """
     lag_steps = ex['lag_max'] - ex['lag_min'] +1
 		
-    d = v
+    d = ncdf
 	
     if 'latitude' in list(d.variables.keys()):
         lat = d.variables['latitude'][:]
@@ -154,15 +155,15 @@ def calc_corr_coeffs_new(v, V, RVts, time_range_indices, ex):
 	
     lons, lats = numpy.meshgrid(lon_grid,lat_grid)
 
-    A1 = numpy.zeros((la,lo))
+#    A1 = numpy.zeros((la,lo))
     z = numpy.zeros((la*lo,lag_steps))
     Corr_Coeff = numpy.ma.array(z, mask=z)
 	
 	
     # extract data	
-    sat = extract_data(v, V, time_range_indices, ex)	
+    sat = extract_data(ncdf, precur_arr, ex)	
     # reshape
-    sat = np.reshape(sat, (sat.shape[0],-1))
+    sat = numpy.reshape(sat, (sat.shape[0],-1))
     
     allkeysncdf = list(d.variables.keys())
     dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude']
@@ -197,6 +198,8 @@ def calc_corr_coeffs_new(v, V, RVts, time_range_indices, ex):
 			
 			
             Corr_Coeff[:,i] = corr_di_sat[:]
+            
+    Corr_Coeff = numpy.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
 	
     return Corr_Coeff, lat_grid, lon_grid
 	

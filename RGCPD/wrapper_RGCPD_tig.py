@@ -40,7 +40,7 @@ def calculate_corr_maps(ex, map_proj):
     #=====================================================================================
     # Information on period taken for response-variable, already decided in main_download_and_pp
     #=====================================================================================
-    time_range_all = [0, RV.dates.size]
+    ex['time_range_all'] = [0, RV.dates.size]
     #==================================================================================
     # Start of experiment
     #==================================================================================
@@ -71,28 +71,27 @@ def calculate_corr_maps(ex, map_proj):
         #===========================================
         ncdf = Dataset(os.path.join(actor.path_pp, actor.filename_pp), 'r')
         try:
-            array = ncdf.variables[var][:,:,:].squeeze()
+            precur_arr = ncdf.variables[var][:,:,:].squeeze()
         except KeyError:
             print('Name in ex dictionary does not match ncdf, taking variable from'
                   'ncdf unequal to dimensions, only works when ncdf contains only 1 variable')
             allkeysncdf = list(ncdf.variables.keys())
-            dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude']
+            dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude', 'lev']
             varnc = [keync for keync in allkeysncdf if keync not in dimensionkeys][0]
-            array = ncdf.variables[varnc][:,:,:].squeeze()
+            precur_arr = ncdf.variables[varnc][:,:,:].squeeze()
         numtime = ncdf.variables['time']
 #        timeattr = ncdf.variables['time'].attrs
 #        dates = pd.to_datetime(num2date(numtime[:], units=numtime.units, calendar=numtime.calendar))
 
-        time , nlats, nlons = array.shape # [months , lat, lon]
+        time , nlats, nlons = precur_arr.shape # [months , lat, lon]
         # =============================================================================
         # Calculate correlation
         # =============================================================================
-        Corr_Coeff, lat_grid, lon_grid = rgcpd.calc_corr_coeffs_new(ncdf, array, RV.RV_ts, time_range_all, ex)
-        Corr_Coeff = np.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
+        Corr_Coeff, lat_grid, lon_grid = rgcpd.calc_corr_coeffs_new(ncdf, precur_arr, RV.RV_ts, ex)
         # =============================================================================
         # Convert regions in time series
         # =============================================================================
-        actbox = rgcpd.extract_data(ncdf, array, time_range_all, ex)
+        actbox = rgcpd.extract_data(ncdf, precur_arr, ex)
         actbox = np.reshape(actbox, (actbox.shape[0], -1))
         # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
         # stacked on top of each other (from lag_min to lag_max)

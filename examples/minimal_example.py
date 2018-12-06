@@ -215,7 +215,7 @@ np.save(filename_exp_design1, ex)
 # *****************************************************************************
 # *****************************************************************************
 ex = np.load(filename_exp_design1, encoding='latin1').item()
-ex['alpha'] = 0.01 # set significnace level for correlation maps
+ex['alpha'] = 0.05 # set significnace level for correlation maps
 ex['alpha_fdr'] = 2*ex['alpha'] # conservative significance level
 ex['FDR_control'] = False # Do you want to use the conservative alpha_fdr or normal alpha?
 # If your pp data is not a full year, there is Maximum meaningful lag given by: 
@@ -256,24 +256,27 @@ if os.path.isdir(ex['fig_subpath']) != True : os.makedirs(ex['fig_subpath'])
 # =============================================================================
 assert RV.startyear == ex['startyear'], ('Make sure the dates '
          'of the RV match with the actors')
-assert ((ex['excludeRV'] == 1) and (importRV_1dts == True))==False, ('Are you sure you want '
-         'exclude first element of array ex[\'vars\'] since you are importing a seperate '
-         ' time series ') 
+#assert ((ex['excludeRV'] == 1) and (importRV_1dts == True))==False, ('Are you sure you want '
+#         'exclude first element of array ex[\'vars\'] since you are importing a seperate '
+#         ' time series ') 
          
+
+filename_exp_design2 = os.path.join(ex['fig_subpath'], 'input_dic_{}.npy'.format(ex['params']))
+np.save(filename_exp_design2, ex)
 
 print('\n\t**\n\tOkay, end of Part 2!\n\t**' )
 
 print('\n**\nBegin summary of main experiment settings\n**\n')
 print('Response variable is {} is correlated vs {}'.format(ex['vars'][0][0],
       ex['vars'][0][1:]))
-start_day = '{}{}'.format(ex['adjstartdate'].day, ex['adjstartdate'].month_name())
-end_day   = '{}{}'.format(ex['senddate'].day, ex['senddate'].month_name())
+start_day = '{}-{}'.format(int(ex['adjstartdate'][8:10]), int(ex['adjstartdate'][5:7]))
+end_day   = '{}-{}'.format(int(ex['senddate'][8:10]), int(ex['senddate'][5:7]))
 print('Part of year investigated: {} - {}'.format(start_day, end_day))
 print('Part of year predicted (RV period): {} '.format(RV_name_range[:-1]))
 print('Temporal resolution: {} days'.format(ex['tfreq']))
 print('Lags: {} to {}'.format(ex['lag_min'], ex['lag_max']))
 one_year_RV_data = RV.datesRV.where(RV.datesRV.year==RV.startyear).dropna(how='all').values
-print('For example\nPredictant (only one year) is:\n{} at \n{}\n'.format(RV_name, 
+print('For example\nPredictant (only one year) is:\n{} at \n{}\n'.format(RV_name,
       one_year_RV_data))
 print('\tVS\n')
 shift_lag_days = one_year_RV_data - pd.Timedelta(int(ex['lag_min']*ex['tfreq']), unit='d')
@@ -283,31 +286,28 @@ print('\n**\nEnd of summary\n**\n')
 
 print('\nNext time, you\'re able to redo the experiment by loading in the dict '
       '\'filename_exp_design2\'.\n')
-
-filename_exp_design2 = os.path.join(ex['fig_subpath'], 'input_dic_{}.npy'.format(ex['params']))
-np.save(filename_exp_design2, ex)
 #%%
 # *****************************************************************************
 # *****************************************************************************
 # Part 3 Start your experiment by running RGCPD python script with settings
 # *****************************************************************************
 # *****************************************************************************
-import wrapper_RGCPD_tig3
+import wrapper_RGCPD_tig
 # =============================================================================
 # Find precursor fields (potential precursors)
 # =============================================================================
-ex, outdic_actors = wrapper_RGCPD_tig3.calculate_corr_maps(ex, map_proj)
+ex, outdic_actors = wrapper_RGCPD_tig.calculate_corr_maps(ex, map_proj)
 print('\n\nThe plots below make to scientific sense, since they are based on 5 years '
       'of data.\n\n')
 #%% 
 # =============================================================================
 # Run tigramite to extract causal precursors
 # =============================================================================
-parents_RV, var_names = wrapper_RGCPD_tig3.run_PCMCI(ex, outdic_actors, map_proj)
+parents_RV, var_names = wrapper_RGCPD_tig.run_PCMCI(ex, outdic_actors, map_proj)
 #%%
 # =============================================================================
 # Plot final results
 # =============================================================================
-wrapper_RGCPD_tig3.plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj)
+wrapper_RGCPD_tig.plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj)
 print("--- {:.2} minute(s) ---".format((time.time() - start_time)/60))
 

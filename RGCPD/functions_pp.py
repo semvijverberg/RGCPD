@@ -390,7 +390,7 @@ def preprocessing_ncdf(outfile, datesstr, cls, ex):
 # =============================================================================
     variables = list(ncdf.variables.keys())
     strvars = [' {} '.format(var) for var in variables]
-    var = [var for var in strvars if var not in ' time time_bnds longitude latitude '][0] 
+    var = [var for var in strvars if var not in ' time time_bnds longitude latitude lev '][0] 
     var = var.replace(' ', '')
 
     add_path_raw = 'ncatted -a path_raw,global,c,c,{} {}'.format(str(ncdf.filepath()), tmpfile+'rmtime.nc') 
@@ -483,7 +483,7 @@ def perform_post_processing(ex):
         else:    
             var_class, ex = preprocessing_ncdf(outfile, datesstr, var_class, ex)
     
-def RV_spatial_temporal_mask(ex, RV, importRVts, RV_months):
+def RV_spatial_temporal_mask(ex, RV, importRV_1dts, RV_months):
     '''Select months of your Response Variable that you want to predict.
     RV = the RV class
     ex = experiment dictionary 
@@ -494,8 +494,8 @@ def RV_spatial_temporal_mask(ex, RV, importRVts, RV_months):
     The second step is to insert a spatial mask -only if- you inserted a 3D field 
     as your response variable (time, lats, lons). '''
     
-    if importRVts == True:
-        print('\nImportRVts is true, so the 1D time serie given with name {}\n'
+    if importRV_1dts == True:
+        print('\nimportRV_1dts is true, so the 1D time serie given with name {}\n'
               ' {}\n is imported.'.format(ex['RV_name'],ex['RVts_filename']))
         RV.name = ex['RV_name']
         dicRV = np.load(os.path.join(ex['path_pp'], 'RVts2.5', ex['RVts_filename']), 
@@ -509,7 +509,7 @@ def RV_spatial_temporal_mask(ex, RV, importRVts, RV_months):
         RV.filename = ex['RVts_filename']
 #        ex['vars'][0].insert(0, RV.name)
     
-    elif importRVts == False:
+    elif importRV_1dts == False:
         RV.name = ex['vars'][0][0]
         # RV should always be the first variable of the vars list in ex
         RV = ex[RV.name]
@@ -533,30 +533,51 @@ def RV_spatial_temporal_mask(ex, RV, importRVts, RV_months):
                      RV.datesRV[-1].day, months[RV.datesRV.month[-1]] )
     
     print('\nCreating a folder for the specific spatial mask and RV period')
-    if importRVts == True:
+    if importRV_1dts == True:
         i = len(RV_name_range)
         ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range + 
                                       ex['RVts_filename'][i:])
                                               
-    elif importRVts == False:
+    elif importRV_1dts == False:
         ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range + 
                                       ex['spatial_mask_naming'] )
         # =============================================================================
         # 3.2 Select spatial mask to create 1D timeseries (e.g. a SREX region)
         # =============================================================================
         # You can load a spatial mask here and use it to create your
-        # full timeseries (of length equal to actor time series)                                                        
-        try:
-            mask_dic = np.load(ex['spatial_mask_file'], encoding='latin1').item()
-            RV_array = mask_dic['RV_array']
-            xarray_plot(RV_array)
-        except IOError as e:
-            print('\n\n**\nSpatial mask not found.\n')
-        #              'Place your spatial mask in folder: \n{}\n'
-        #              'and rerun this section.\n**'.format(ex['path_pp'], 'grids'))
-            raise(e)
-        RVarray.coords['mask'] = RV_array.mask
-        RV.RVfullts = RVarray.where(RVarray.mask==False).mean(dim=['latitude','longitude']).squeeze()
+        # full timeseries (of length equal to actor time series)  
+        if type(ex['spatial_mask_file']) == type(str()):                                                      
+            try:
+                mask_dic = np.load(ex['spatial_mask_file'], encoding='latin1').item()
+                RV_array = mask_dic['RV_array']
+                xarray_plot(RV_array)
+                
+                lats = RV_array.latitude.values
+                cos_box = np.cos(np.deg2rad(lats))
+                cos_box_array = np.tile(cos_box, (RVarray.longitude.size,1) )
+                weights_box = np.swapaxes(cos_box_array, 1,0)
+                weights_box = weights_box / np.mean(weights_box)
+                RVarray_w = weights_box[None,:,:] * RVarray
+                RV.mask = RV_array.mask
+                RV.RVfullts = (RVarray_w).where(
+                        RV.mask).mean(dim=['latitude','longitude']
+                        ).squeeze()
+#                (RV.RVfullts/RV.RVfullts_w.std()).plot()
+#                RVarray.coords['mask'] = RV_array.mask
+#                RV.RVfullts = (RVarray).where(
+#                        RV_array.mask).mean(dim=['latitude','longitude']
+#                        ).squeeze()
+#                (RV.RVfullts/RV.RVfullts.std()).plot()
+            except IOError as e:
+                print('\n\n**\nSpatial mask not found.\n \n {}'.format(
+                        ex['spatial_mask_file']))
+            #              'Place your spatial mask in folder: \n{}\n'
+            #              'and rerun this section.\n**'.format(ex['path_pp'], 'grids'))
+                raise(e)
+        if type(ex['spatial_mask_file']) == type(list()):   
+            latlonbox = ex['spatial_mask_file']
+            RV.RVfullts = selbox_to_1dts(RV, latlonbox)
+
     
     RV.RV_ts = RV.RVfullts[ex['RV_period']] # extract specific months of MT index 
     # Store added information in RV class to the exp dictionary
@@ -586,46 +607,6 @@ def import_array(cls, path='pp'):
     marray['time'] = dates
     cls.dates = dates
     return marray, cls
-
-def find_region(data, region='EU'):
-    import numpy as np
-    if region == 'EU':
-        west_lon = -30; east_lon = 40; south_lat = 35; north_lat = 65
-
-    elif region ==  'U.S.':
-        west_lon = -120; east_lon = -70; south_lat = 20; north_lat = 50
-
-    if type(region) == list:
-        west_lon = region[0]; east_lon = region[1]; 
-        south_lat = region[2]; north_lat = region[3]
-    region_coords = [west_lon, east_lon, south_lat, north_lat]
-    
-    lonstep = abs(data.longitude[1] - data.longitude[0])
-    # abs() enforces that all values are positve, if not the case, it will not meet
-    # the conditions 
-    lons = abs(np.arange(data.longitude[0], data.longitude[-1]+lonstep, lonstep))
-    def find_nearest(array, value):
-        idx = (np.abs(array - value)).argmin()
-        return int(idx)
-    
-    if (lons == np.array(data.longitude.values)).all():
-        lats = list(data.latitude.values) ; lons = list(data.longitude.values)
-        all_values = data.sel(latitude=lats, longitude=lons)
-    if west_lon <0 and east_lon > 0:
-        # left_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(0, east_lon)))
-        # right_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360)))
-        # all_values = np.concatenate((np.reshape(left_of_meridional, (np.size(left_of_meridional))), np.reshape(right_of_meridional, np.size(right_of_meridional))))
-        lon_idx = np.concatenate(( np.arange(find_nearest(data['longitude'], 360 + west_lon), len(data['longitude'])),
-                              np.arange(0,find_nearest(data['longitude'], east_lon), 1) ))
-        lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
-        all_values = data.sel(latitude=slice(north_lat, south_lat), 
-                              longitude=(data.longitude > 360 + west_lon) | (data.longitude < east_lon))
-    if west_lon < 0 and east_lon < 0:
-        all_values = data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360+east_lon))
-        lon_idx = np.arange(find_nearest(data['longitude'], 360 + west_lon), find_nearest(data['longitude'], 360+east_lon))
-        lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
-
-    return all_values, region_coords
 
 def xarray_plot(data, path='default', name = 'default', saving=False):
     # from plotting import save_figure
@@ -687,7 +668,7 @@ def detrend_anom_ncdf3D(filename, outfile):
     ncdf = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
     variables = list(ncdf.variables.keys())
     strvars = [' {} '.format(var) for var in variables]
-    var = [var for var in strvars if var not in ' time time_bnds longitude latitude '][0] 
+    var = [var for var in strvars if var not in ' time time_bnds longitude latitude lev '][0] 
     var = var.replace(' ', '')
     marray = np.squeeze(ncdf.to_array(name=var))
     if 'latitude' and 'longitude' not in marray.dims:
@@ -734,16 +715,87 @@ def detrend_anom_ncdf3D(filename, outfile):
     return 
     
 
+def find_region(data, region='EU'):
+    import numpy as np
 
+    def find_nearest(array, value):
+        idx = (np.abs(array - value)).argmin()
+        return int(idx)
+    
+    def find_nearest_coords(array, region_coords):
+        for lon_value in region_coords[:2]:
+            region_idx = region_coords.index(lon_value)
+            idx = find_nearest(data['longitude'], lon_value)
+            if region_coords[region_idx] != float(data['longitude'][idx].values):
+                print('longitude value of latlonbox did not match, '
+                      'updating to nearest value')
+            region_coords[region_idx] = float(data['longitude'][idx].values)
+        for lat_value in region_coords[2:]:
+            region_idx = region_coords.index(lat_value)
+            idx = find_nearest(data['latitude'], lat_value)
+            if region_coords[region_idx] != float(data['latitude'][idx].values):
+                print('latitude value of latlonbox did not match, '
+                      'updating to nearest value')
+            region_coords[region_idx] = float(data['latitude'][idx].values)
+        return region_coords
+    
+    if region == 'EU':
+        west_lon = -30; east_lon = 40; south_lat = 35; north_lat = 65
+
+    elif region ==  'U.S.':
+        west_lon = -120; east_lon = -70; south_lat = 20; north_lat = 50
+
+    if type(region) == list:
+        west_lon = region[0]; east_lon = region[1]; 
+        south_lat = region[2]; north_lat = region[3]
+    region_coords = [west_lon, east_lon, south_lat, north_lat]
+    
+    # Update regions coords in case they do not exactly match
+    region_coords = find_nearest_coords(data, region_coords)
+    west_lon = region_coords[0]; east_lon = region_coords[1]; 
+    south_lat = region_coords[2]; north_lat = region_coords[3]
+    
+    
+    lonstep = abs(data.longitude[1] - data.longitude[0])
+    latstep = abs(data.latitude[1] - data.latitude[0])
+    # abs() enforces that all values are positve, if not the case, it will not meet
+    # the conditions 
+    lons = abs(np.arange(data.longitude[0], data.longitude[-1]+lonstep, lonstep))
+
+    
+    
+    if (lons == np.array(data.longitude.values)).all():
+        
+        lons = list(np.arange(west_lon, east_lon+lonstep, lonstep))         
+        lats = list(np.arange(south_lat, north_lat+latstep, latstep)) 
+        
+        all_values = data.sel(latitude=lats, longitude=lons)
+    if west_lon <0 and east_lon > 0:
+        # left_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(0, east_lon)))
+        # right_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360)))
+        # all_values = np.concatenate((np.reshape(left_of_meridional, (np.size(left_of_meridional))), np.reshape(right_of_meridional, np.size(right_of_meridional))))
+        lon_idx = np.concatenate(( np.arange(find_nearest(data['longitude'], 360 + west_lon), len(data['longitude'])),
+                              np.arange(0,find_nearest(data['longitude'], east_lon), 1) ))
+        lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
+        all_values = data.sel(latitude=slice(north_lat, south_lat), 
+                              longitude=(data.longitude > 360 + west_lon) | (data.longitude < east_lon))
+    if west_lon < 0 and east_lon < 0:
+        all_values = data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360+east_lon))
+        lon_idx = np.arange(find_nearest(data['longitude'], 360 + west_lon), find_nearest(data['longitude'], 360+east_lon))
+        lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
+
+    return all_values, region_coords
 
 def selbox_to_1dts(cls, latlonbox):
-    latlonbox = [18.25, 24.75, 75.25, 87.75]
     marray, var_class = import_array(cls, path='pp')
-    selboxmarray = find_region(marray, latlonbox)
-    lats = marray.latitude.values
+    selboxmarray, region_coords = find_region(marray, latlonbox)
+    print('spatial mean over latlonbox {}'.format(region_coords))
+    lats = selboxmarray.latitude.values
     cos_box = np.cos(np.deg2rad(lats))
-    cos_box_array = np.repeat(cos_box[None,:], (marray.longitude.size, 1) )
-    return selboxmarray
+    cos_box_array = np.tile(cos_box, (selboxmarray.longitude.size,1) )
+    weights_box = np.swapaxes(cos_box_array, 1,0)
+    RV_fullts = (selboxmarray*weights_box).mean(dim=('latitude','longitude'))
+    return RV_fullts
     
 
 

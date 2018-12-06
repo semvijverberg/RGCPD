@@ -87,7 +87,7 @@ if ECMWFdownload == True:
 #                             ['sfc', 'pl', 'pl'],[0, '500', '500']]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
     ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
-#    ex['vars']      =       [['u'], ['131.128'],['pl'], ['800']]
+#    ex['vars']      =       [['rv'], ['138.128'],['pl'], ['250']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
 #                            ['167.128', '34.128', '131.128', '130.128'],
 #                            ['sfc', 'sfc', 'pl', 'pl'],[0, 0, '500', '100']]
@@ -106,10 +106,10 @@ else:
 # Must have same period, daily data and on same grid
 if import_precursor_ncdf == True:
     ex['precursor_ncdf'] = [['name1', 'filename1'],['name2','filename2']]
-    ex['precursor_ncdf'] = [['sst', ('sst_NOAA_{}-{}_1_12_daily_'
+    ex['precursor_ncdf'] = [['sst', ('sst_{}-{}_1_12_daily_'
                               '{}deg.nc'.format(ex['startyear'], ex['endyear'],
                                ex['grid_res']))]]
-    ex['precursor_ncdf'] = [['z', 'hgt.200mb.daily.1979-2016.del29feb.nc']]
+#    ex['precursor_ncdf'] = [['z', 'hgt.200mb.daily.1979-2016.del29feb.nc']]
 
 else:
     ex['precursor_ncdf'] = [[]]
@@ -184,7 +184,10 @@ elif importRV_1dts == False:
     # if import RVts == False, then a spatial mask is used for the RV
     ex['spatial_mask_naming'] = 'averAggljacc_tf14_n8'
     ex['spatial_mask_file'] = os.path.join(ex['path_pp'], 'RVts2.5',
-                          't2mmax_1979-2017_1jun-24aug_averAggljacc_tf14_n8'+'.npy')
+                          't2mmax_1979-2017_6apr-24aug_averAggljacc_tf14_n8'+'.npy')
+    # You can also include a latitude longitude box as a spatial mask by just 
+    # giving a list [west_lon, east_lon, south_lat, north_lat] instead of a file
+#    ex['spatial_mask_file'] = [18.25, 24.75, 75.25, 87.75]
 
 
 # =============================================================================
@@ -192,7 +195,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [1]# [1,2,4,7,14,21,35]
+ex['tfreqlist'] = [1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
@@ -200,7 +203,8 @@ for freq in ex['tfreqlist']:
     ex['lag_min'] = max(1, lag_min)
     ex['lag_max'] = ex['lag_min'] + 0
     # s(elect)startdate and enddate create the period of year you want to investigate:
-    ex['sstartdate'] = '{}-1-1'.format(ex['startyear'])
+    # Important! The time cycle of the precursor and Response variable should match!
+    ex['sstartdate'] = '{}-4-1'.format(ex['startyear'])
     ex['senddate']   = '{}-08-31'.format(ex['startyear'])
 
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
@@ -275,7 +279,7 @@ for freq in ex['tfreqlist']:
     ex['FDR_control'] = False # Do you want to use the conservative alpha_fdr or normal alpha?
     # If your pp data is not a full year, there is Maximum meaningful lag given by:
     #ex['lag_max'] = dates[dates.year == 1979].size - ex['RV_oneyr'].size
-    ex['alpha_level_tig'] = 0.2 # Alpha level for final regression analysis by Tigrimate
+    ex['alpha_level_tig'] = 0.05 # Alpha level for final regression analysis by Tigrimate
     ex['pcA_sets'] = dict({   # dict of sets of pc_alpha values
           'pcA_set1a' : [ 0.05], # 0.05 0.01
           'pcA_set1b' : [ 0.01], # 0.05 0.01
