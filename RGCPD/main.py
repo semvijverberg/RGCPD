@@ -52,23 +52,23 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 #
 ex = dict(
      {'dataset'     :       'ERA-i',
-     'grid_res'     :       2.5,
+     'grid_res'     :       0.75,
      'startyear'    :       1979, # download startyear
      'endyear'      :       2017, # download endyear
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
-     'path_pp'     :       path_pp}
+     'path_pp'     :        path_pp}
      )
 
 # =============================================================================
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = False
+ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf  = True
+import_precursor_ncdf = False
 # Option 3:
-import_RV_ncdf = True
+import_RV_ncdf = False
 # Option 4:
 importRV_1dts = False
 
@@ -82,11 +82,15 @@ importRV_1dts = False
 # You need the ecmwf-api-client package for this option.
 if ECMWFdownload == True:
     # See http://apps.ecmwf.int/datasets/.
-#    ex['vars']      =       [['t2m'],['167.128'],['sfc'],[0]]
+    ex['vars']      =       [['t2m'],['167.128'],['sfc'],[0]]
+    ex['vars']      =       [['sm1','sm2', 'sm3'],['39.128', '40.128','41.128'],['sfc','sfc','sfc'],['0','0','0']]
+#    ex['vars']      =       [['sm2'],['40.128'],['sfc'],['0']]
+#    ex['vars']      =       [['st1','st2'],['139.128', '170.128'],['sfc','sfc'],['0','0']]
+#    ex['vars']      =       [['prcp'], ['228.128'], ['sfc'], [0]]
 #    ex['vars']      =       [['sst', 'z', 'u'],['34.128','129.128','131.128'],
 #                             ['sfc', 'pl', 'pl'],[0, '500', '500']]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
-    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
+#    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
 #    ex['vars']      =       [['rv'], ['138.128'],['pl'], ['250']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
 #                            ['167.128', '34.128', '131.128', '130.128'],
@@ -106,9 +110,11 @@ else:
 # Must have same period, daily data and on same grid
 if import_precursor_ncdf == True:
     ex['precursor_ncdf'] = [['name1', 'filename1'],['name2','filename2']]
-    ex['precursor_ncdf'] = [['sst', ('sst_{}-{}_1_12_daily_'
-                              '{}deg.nc'.format(ex['startyear'], ex['endyear'],
-                               ex['grid_res']))]]
+#    ex['precursor_ncdf'] = [['sst', ('sst_{}-{}_1_12_daily_'
+#                              '{}deg.nc'.format(ex['startyear'], ex['endyear'],
+#                               ex['grid_res']))]]
+#    ex['precursor_ncdf'] = [['sst', 'sst_NOAA_mcKbox_det_1982_2017_1_12_daily_0.25deg.nc']]
+    ex['precursor_ncdf'] = [['st12', 'st12_1979-2017_1_12_daily_2.5deg.nc']]
 #    ex['precursor_ncdf'] = [['z', 'hgt.200mb.daily.1979-2016.del29feb.nc']]
 
 else:
@@ -122,6 +128,7 @@ if import_RV_ncdf == True:
     ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_daily_'
                               '{}deg.nc'.format(ex['startyear'], ex['endyear'],
                                ex['grid_res']))]
+#    ex['RVnc_name'] = ['rv', '{}_1979-2017_1_12_daily_2.5deg.nc'.format('rv')]
 else:
     ex['RVnc_name'] = []
 
@@ -130,7 +137,7 @@ else:
 # 44444444444444444444444444444444444444444444444444444444444444444444444444444
 if importRV_1dts == True:
     RV_name = 'tmax_EUS'
-    ex['RVts_filename'] = 't2mmax_1Jun-24Aug_compAggljacc_tf14_n9'+'.npy'
+    ex['RVts_filename'] = 't2mmax_1979-2017_averAggljacc_tf14_n8__to_t2mmax_tf1.npy'
 
 ex['excludeRV'] = 0 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
 
@@ -184,7 +191,7 @@ elif importRV_1dts == False:
     # if import RVts == False, then a spatial mask is used for the RV
     ex['spatial_mask_naming'] = 'averAggljacc_tf14_n8'
     ex['spatial_mask_file'] = os.path.join(ex['path_pp'], 'RVts2.5',
-                          't2mmax_1979-2017_6apr-24aug_averAggljacc_tf14_n8'+'.npy')
+                          't2mmax_1979-2017_averAggljacc_tf14_n8__to_t2mmax_tf1.npy')
     # You can also include a latitude longitude box as a spatial mask by just 
     # giving a list [west_lon, east_lon, south_lat, north_lat] instead of a file
 #    ex['spatial_mask_file'] = [18.25, 24.75, 75.25, 87.75]
@@ -195,7 +202,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [1,2,4,7,14,21,35]
+ex['tfreqlist'] = [1] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
@@ -204,8 +211,8 @@ for freq in ex['tfreqlist']:
     ex['lag_max'] = ex['lag_min'] + 0
     # s(elect)startdate and enddate create the period of year you want to investigate:
     # Important! The time cycle of the precursor and Response variable should match!
-    ex['sstartdate'] = '{}-4-1'.format(ex['startyear'])
-    ex['senddate']   = '{}-08-31'.format(ex['startyear'])
+    ex['sstartdate'] = '{}-01-1'.format(ex['startyear'])
+    ex['senddate']   = '{}-10-31'.format(ex['startyear'])
 
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
                         ex['sstartdate'].split('-')[1], ex['senddate'].split('-')[1], ex['tfreq'])

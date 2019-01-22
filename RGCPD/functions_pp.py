@@ -59,8 +59,15 @@ class Var_ECMWF_download():
         vclass.levtype = ex['vars'][2][idx]
         vclass.lvllist = ex['vars'][3][idx]
         vclass.stream = 'oper'
-    #            if stream == 'oper':
-        time_ana = "00:00:00/06:00:00/12:00:00/18:00:00"
+        
+        if vclass.name != 'pr':
+            time_ana = "00:00:00/06:00:00/12:00:00/18:00:00"
+            vclass.type = 'an'
+            vclass.step = "0"
+        else:
+            time_ana = "00:00:00/12:00:00"
+            vclass.type = 'fc'
+            vclass.step = "3/6/9/12"
     #            else:
     #                time_ana = "00:00:00"
         vclass.time_ana = time_ana 
@@ -155,8 +162,9 @@ def retrieve_ERA_i_field(cls):
                 # "levelist"  :   cls.lvllist,
                 "param"     :   cls.var_cf_code,
                 "stream"    :   cls.stream,
-                 "time"      :  cls.time_ana,
-                "type"      :   "an",
+                "time"      :  cls.time_ana,
+                "type"      :   cls.type,
+                "step"      :   cls.step,
                 "format"    :   "netcdf",
                 "target"    :   file_path_raw,
                 })
@@ -172,7 +180,7 @@ def retrieve_ERA_i_field(cls):
                 "param"     :   cls.var_cf_code,
                 "stream"    :   cls.stream,
                  "time"      :  cls.time_ana,
-                "type"      :   "an",
+                "type"      :   cls.type,
                 "format"    :   "netcdf",
                 "target"    :   file_path_raw,
                 })
@@ -180,6 +188,25 @@ def retrieve_ERA_i_field(cls):
         args = ['cdo daymean {} {}'.format(file_path_raw, file_path)]
         kornshell_with_input(args, cls)
     return
+
+
+def perform_post_processing(ex):
+    print('\nPerforming the post processing steps on {}'.format(ex['vars'][0]))
+    for var in ex['vars'][0]:
+        var_class = ex[var]
+        outfile, datesstr, var_class, ex = datestr_for_preproc(var_class, ex)
+        
+#        var_class, ex = functions_pp.preprocessing_ncdf(outfile, datesstr, var_class, ex)
+        if os.path.isfile(outfile) == True: 
+            print('looks like you already have done the pre-processing,\n'
+                  'to save time let\'s not do it twice..')
+            # but we will update the dates stored in var_class:
+            var_class, ex = update_dates(var_class, ex)
+            pass
+        else:    
+            var_class, ex = preprocessing_ncdf(outfile, datesstr, var_class, ex)
+#        print(ex['sstartdate'], datesstr[0][0])
+
 
 def datestr_for_preproc(cls, ex):
     ''' 
@@ -207,15 +234,16 @@ def datestr_for_preproc(cls, ex):
     datesnc = pd.to_datetime(dates)
     leapdays = ((datesnc.is_leap_year) & (datesnc.month==2) & (datesnc.day==29))==False
     datesnc = datesnc[leapdays].dropna(how='all')
+    cls.nc_hour = datesnc.hour[0]
 #    if len(leapdays) != 0:
     # add corresponding time information
-    ex['sstartdate'] += ' {:}:00:00'.format(datesnc.hour[0])
-    ex['senddate']   += ' {:}:00:00'.format(datesnc.hour[0])
+    ex['adjhrsstartdate'] = ex['sstartdate'] + ' {:}:00:00'.format(cls.nc_hour)
+    ex['adjhrsenddate']   = ex['senddate'] + ' {:}:00:00'.format(cls.nc_hour)
 # =============================================================================
 #   # select dates
 # =============================================================================
     # selday_pp is the period you aim to study
-    seldays_pp = pd.DatetimeIndex(start=ex['sstartdate'], end=ex['senddate'], 
+    seldays_pp = pd.DatetimeIndex(start=ex['adjhrsstartdate'], end=ex['adjhrsenddate'], 
                                 freq=(datesnc[1] - datesnc[0]))
     end_day = seldays_pp.max() 
     # after time averaging over 'tfreq' number of days, you want that each year 
@@ -227,7 +255,7 @@ def datestr_for_preproc(cls, ex):
     start_day = (end_day - (temporal_freq * np.round(fit_steps_yr, decimals=0))) + 1 
     # update ex['sstartdate']:
     ex['adjstartdate'] = start_day.strftime('%Y-%m-%dT%H:%M:%S')
-    ex['senddate'] = end_day.strftime('%Y-%m-%dT%H:%M:%S')
+    ex['adjsenddate'] = end_day.strftime('%Y-%m-%dT%H:%M:%S')
     # create datestring that will be used for the cdo selectdate, 
     def make_datestr(dates, start_yr):
         breakyr = dates.year.max()
@@ -467,21 +495,6 @@ def update_dates(cls, ex):
     cls.dates = dates
     cls.temporal_freq = '{}days'.format(temporal_freq.astype('timedelta64[D]').astype(int))
     return cls, ex
-
-def perform_post_processing(ex):
-    print('\nPerforming the post processing steps on {}'.format(ex['vars'][0]))
-    for var in ex['vars'][0]:
-        var_class = ex[var]
-        outfile, datesstr, var_class, ex = datestr_for_preproc(var_class, ex)
-#        var_class, ex = functions_pp.preprocessing_ncdf(outfile, datesstr, var_class, ex)
-        if os.path.isfile(outfile) == True: 
-            print('looks like you already have done the pre-processing,\n'
-                  'to save time let\'s not do it twice..')
-            # but we will update the dates stored in var_class:
-            var_class, ex = update_dates(var_class, ex)
-            pass
-        else:    
-            var_class, ex = preprocessing_ncdf(outfile, datesstr, var_class, ex)
     
 def RV_spatial_temporal_mask(ex, RV, importRV_1dts, RV_months):
     '''Select months of your Response Variable that you want to predict.
@@ -658,8 +671,13 @@ def convert_longitude(data):
     data['longitude'] = convert_lon
     return data
 
-def detrend_anom_ncdf3D(filename, outfile):
+def detrend_anom_ncdf3D(filename, outfile, encoding=None):
     #%%
+#    filename = '/Users/semvijverberg/surfdrive/MckinRepl/SST/sst_daily_1982_2017_mcKbox.nc'
+#    filename = os.path.join(ex['path_raw'], 'tmpfiles', 'tmprmtime.nc')
+#    outfile = '/Users/semvijverberg/surfdrive/MckinRepl/SST/sst_daily_1982_2017_mcKbox_detrend.nc'
+#    encoding= { 'anom' : {'dtype': 'int16', 'scale_factor': 0.001, '_FillValue': -999}}
+#    encoding = None
     import xarray as xr
     import pandas as pd
     import numpy as np
@@ -668,13 +686,16 @@ def detrend_anom_ncdf3D(filename, outfile):
     ncdf = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
     variables = list(ncdf.variables.keys())
     strvars = [' {} '.format(var) for var in variables]
-    var = [var for var in strvars if var not in ' time time_bnds longitude latitude lev '][0] 
+    var = [var for var in strvars if var not in ' time time_bnds longitude latitude lev lon lat '][0] 
     var = var.replace(' ', '')
-    marray = np.squeeze(ncdf.to_array(name=var))
-    if 'latitude' and 'longitude' not in marray.dims:
-        marray = marray.rename({'lat':'latitude', 
-                                'lon':'longitude'})
-    numtime = marray['time']
+    ds = ncdf[var]
+
+    if 'latitude' and 'longitude' not in ds.dims:
+        ds = ds.rename({'lat':'latitude', 
+                   'lon':'longitude'})
+    
+#    marray = np.squeeze(ncdf.to_array(name=var))
+    numtime = ds['time']
     dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
     if numtime.attrs['calendar'] != 'gregorian':
         dates = [d.strftime('%Y-%m-%d') for d in dates]
@@ -682,33 +703,46 @@ def detrend_anom_ncdf3D(filename, outfile):
     stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
 #    marray = np.squeeze(ncdf.to_array(filename).rename(({filename: var})))
     
-    marray['time'] = dates
+    ds['time'] = dates
     
     def _detrendfunc2d(arr_oneday):
         from scipy import signal
         no_nans = np.nan_to_num(arr_oneday)
-        return signal.detrend(no_nans, axis=0, type='linear')
+        detrended = signal.detrend(no_nans, axis=0, type='linear')
+        nan_true = np.isnan(arr_oneday)
+        detrended[nan_true] = np.nan
+        return detrended
     
     
     def detrendfunc2d(arr_oneday):
-        return xr.apply_ufunc(_detrendfunc2d, arr_oneday.compute(), 
+        return xr.apply_ufunc(_detrendfunc2d, arr_oneday, 
                               dask='parallelized',
                               output_dtypes=[float])
+#        return xr.apply_ufunc(_detrendfunc2d, arr_oneday.compute(), 
+#                              dask='parallelized',
+#                              output_dtypes=[float])
                 
-    output = np.zeros( (marray.time.size,  marray.latitude.size, marray.longitude.size) )
+    output = np.empty( (ds.time.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
+    output[:] = np.nan
     for i in range(stepsyr.size):
         sd =(dates[i::stepsyr.size])
-        arr_oneday = marray.sel(time=sd)
+        arr_oneday = ds.sel(time=sd)#.chunk({'latitude': 100, 'longitude': 100})
         output[i::stepsyr.size] = detrendfunc2d(arr_oneday) 
     
-    output = xr.DataArray(output, name=var, dims=marray.dims, coords=marray.coords)
+
+    output = xr.DataArray(output, name=var, dims=ds.dims, coords=ds.coords)
     
     # copy original attributes to xarray
-    output.attrs = ncdf.attrs
-    output = output.drop('variable')
+    output.attrs = ds.attrs
+    # ensure mask 
+    output = output.where(output.values != 0.).fillna(-9999)
+    encoding = ( {var : {'_FillValue': -9999}} )
+    mask =  (('latitude', 'longitude'), (output.values[0] != -9999) )
+    output.coords['mask'] = mask
+#    xarray_plot(output[0])
     
     # save netcdf
-    output.to_netcdf(outfile, mode='w')
+    output.to_netcdf(outfile, mode='w', encoding=encoding)
 #    diff = output - abs(marray)
 #    diff.to_netcdf(filename.replace('.nc', 'diff.nc'))
     #%%
