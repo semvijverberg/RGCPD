@@ -52,7 +52,7 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 #
 ex = dict(
      {'dataset'     :       'ERA-i',
-     'grid_res'     :       0.75,
+     'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
      'endyear'      :       2017, # download endyear
      'base_path'    :       base_path,
@@ -83,14 +83,14 @@ importRV_1dts = False
 if ECMWFdownload == True:
     # See http://apps.ecmwf.int/datasets/.
     ex['vars']      =       [['t2m'],['167.128'],['sfc'],[0]]
-    ex['vars']      =       [['sm1','sm2', 'sm3'],['39.128', '40.128','41.128'],['sfc','sfc','sfc'],['0','0','0']]
+#    ex['vars']      =       [['sm1','sm2', 'sm3'],['39.128', '40.128','41.128'],['sfc','sfc','sfc'],['0','0','0']]
 #    ex['vars']      =       [['sm2'],['40.128'],['sfc'],['0']]
 #    ex['vars']      =       [['st1','st2'],['139.128', '170.128'],['sfc','sfc'],['0','0']]
 #    ex['vars']      =       [['prcp'], ['228.128'], ['sfc'], [0]]
 #    ex['vars']      =       [['sst', 'z', 'u'],['34.128','129.128','131.128'],
 #                             ['sfc', 'pl', 'pl'],[0, '500', '500']]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
-#    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
+    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
 #    ex['vars']      =       [['rv'], ['138.128'],['pl'], ['250']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
 #                            ['167.128', '34.128', '131.128', '130.128'],
