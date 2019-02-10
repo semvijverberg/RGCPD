@@ -166,7 +166,7 @@ def calc_corr_coeffs_new(ncdf, precur_arr, RVts, ex):
     sat = numpy.reshape(sat, (sat.shape[0],-1))
     
     allkeysncdf = list(d.variables.keys())
-    dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude']
+    dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude', 'mask', 'levels']
     var = [keync for keync in allkeysncdf if keync not in dimensionkeys][0]  
     print(('calculating correlation maps for {}'.format(var)))
 	
@@ -197,7 +197,7 @@ def calc_corr_coeffs_new(ncdf, precur_arr, RVts, ex):
             corr_di_sat.mask[sig_di_sat> ex['alpha']] = True
 			
 			
-            Corr_Coeff[:,i] = corr_di_sat[:]
+        Corr_Coeff[:,i] = corr_di_sat[:]
             
     Corr_Coeff = numpy.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
 	
@@ -500,6 +500,7 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 	
 
 def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
+    #%%
     """
 	Calculates the time-series of the actors based on the correlation coefficients and plots the according regions. 
 	Only caluclates regions with significant correlation coefficients
@@ -525,19 +526,7 @@ def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
 	
 	#test = [len(a) for a in Actors_ts_GPH]
 	#print test
-	
 
-	
-#	fig_GPH = plt.figure(figsize=(4, 2*n_rows))
-#	plt.suptitle(title, fontsize=14)	
-	#cmap_regions = 'Paired' 
-	#cmap_regions = plt.get_cmap('Paired')
-
-    cmap_regions = matplotlib.colors.ListedColormap(sns.color_palette("Set2"))
-    cmap_regions.set_bad('w')
-	
-    colors = ["faded green"]
-    color = sns.xkcd_palette(colors)
 
     Number_regions_per_lag = np.zeros(lag_steps)
     x = 0
@@ -560,36 +549,6 @@ def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
             A_r = numpy.reshape(Regions_lag_i, (la_gph, lo_gph))
             A_r + x
             
-#            A_number_region = numpy.zeros(A_r.shape)
-#            A_number_region[A_r == number_region]=1
-            
-#            xr_A_num_reg = xr.DataArray(data=A_r, coords=[lat_grid, lon_grid], dims=('latitude','longitude'))
-#            map_proj = map_proj
-#            plt.figure(figsize=(6, 4))
-#            ax = plt.axes(projection=map_proj)
-#            im = xr_A_num_reg.plot.pcolormesh(ax=ax, cmap=plt.cm.BuPu,
-#                             transform=ccrs.PlateCarree(), add_colorbar=True)
-#            plt.colorbar(im, ax=ax , orientation='horizontal')
-#            ax.coastlines(color='grey', alpha=0.3)
-#            ax.set_title('lag = -' + str(lag), fontsize=12)
-            
-#			plt.subplot(lag_steps,1, i+1)
-#			lag = ex['lag_min'] +i
-#			plt.title('lag = -' + str(lag), fontsize=12)
-			
-#			plot_basemap_options(m)		
-			#m.contourf(lons_gph,lats_gph, A_r, levels, latlon = True, cmap = cmap_regions)
-			
-			# all in one color:
-#			m.contourf(lons_gph,lats_gph, A_r, levels, latlon = True, colors = color, vmin = 1, vmax = n_regions_lag_i)
-
-			
-			# if colors should be different for each subplot:
-			#m.contourf(lons_gph,lats_gph, A_r, levels, latlon = True, cmap = cmap_regions, vmin = 1, cmax = vmax)
-			
-			
-			#m.colorbar(location="bottom", ticks = numpy.arange(x+1, x+ x_reg+1))
-
             x = A_r.max() 
 
 			# this array will be the time series for each region
@@ -612,7 +571,7 @@ def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
 
     if np.sum(Number_regions_per_lag) ==0:
         print('no regions detected at all')
-        Actors_GPH = np.array([])
+        tsCorr = np.array([])
 	
     else:
         print((np.sum(Number_regions_per_lag), ' regions detected in total'))
@@ -625,21 +584,30 @@ def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
             print(d)
 		
 		# make one array out of it:
-        Actors_GPH = Actors_ts_GPH[d]
+        tsCorr = Actors_ts_GPH[d]
 		
         for i in range(d+1, len(Actors_ts_GPH)):
             if Actors_ts_GPH[i].shape[0]>0:		
 				
-                Actors_GPH = np.concatenate((Actors_GPH, Actors_ts_GPH[i]), axis = 1)		
+                tsCorr = np.concatenate((tsCorr, Actors_ts_GPH[i]), axis = 1)		
 		
 			# if Actors_ts_GPH[i].shape[0]==0:
 				# print i+1
 				
 			# else:
-				# Actors_GPH = np.concatenate((Actors_GPH, Actors_ts_GPH[i]), axis = 1)
+				# tsCorr = np.concatenate((tsCorr, Actors_ts_GPH[i]), axis = 1)
 		
-
-    return Actors_GPH, Number_regions_per_lag#, fig_GPH
+    assert np.where(np.isnan(tsCorr))[1].size < 0.5*tsCorr[:,1].size, ('more '
+                   'then 10% nans found, i.e. {} out of {} datapoints'.format(
+                           np.where(np.isnan(tsCorr))[1].size), tsCorr.size)
+    while np.where(np.isnan(tsCorr))[1].size != 0:
+        nans = np.where(np.isnan(tsCorr))
+        print('{} nans were found in timeseries of regions out of {} datapoints'.format(
+                nans[1].size, tsCorr.size))
+        tsCorr[nans[0],nans[1]] = tsCorr[nans[0]-1,nans[1]]
+        print('taking value of previous timestep')
+    #%%
+    return tsCorr, Number_regions_per_lag#, fig_GPH
 	
 
 	
