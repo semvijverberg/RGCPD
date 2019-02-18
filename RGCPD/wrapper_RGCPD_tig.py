@@ -19,6 +19,7 @@ import numpy as np
 import xarray as xr
 import cartopy.crs as ccrs
 import pandas as pd
+import functions_pp
 # =============================================================================
 #  saving to github
 # =============================================================================
@@ -70,18 +71,26 @@ def calculate_corr_maps(ex, map_proj):
         # 3c) Precursor field = sst
         #===========================================
         ncdf = Dataset(os.path.join(actor.path_pp, actor.filename_pp), 'r')
-        try:
-            precur_arr = ncdf.variables[var][:,:,:].squeeze()
-        except KeyError:
-            print('Name in ex dictionary does not match ncdf, taking variable from'
-                  'ncdf unequal to dimensions, only works when ncdf contains only 1 variable')
-            allkeysncdf = list(ncdf.variables.keys())
-            dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude', 'lev']
-            varnc = [keync for keync in allkeysncdf if keync not in dimensionkeys][0]
-            precur_arr = ncdf.variables[varnc][:,:,:].squeeze()
-        numtime = ncdf.variables['time']
-#        timeattr = ncdf.variables['time'].attrs
-#        dates = pd.to_datetime(num2date(numtime[:], units=numtime.units, calendar=numtime.calendar))
+        precur_arr = functions_pp.import_array(actor)[0].values
+#        try:
+#            precur_arr = ncdf.variables[var].squeeze()
+#            numtime = ncdf.variables['time']
+#            dates = pd.to_datetime(num2date(numtime[:], units=numtime.units, calendar=numtime.calendar))
+#        except KeyError:
+#            print('Name in ex dictionary does not match ncdf, taking variable from'
+#                  'ncdf unequal to dimensions, only works when ncdf contains only 1 variable')
+#            allkeysncdf = list(ncdf.variables.keys())
+#            dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude', 'lev', 'mask']
+#            varnc = [keync for keync in allkeysncdf if keync not in dimensionkeys][0]
+#            try:
+#                precur_arr = ncdf.variables[varnc].squeeze()
+##                numtime = ncdf.variables['time']
+##                dates = pd.to_datetime(num2date(numtime[:], units=numtime.units, calendar=numtime.calendar))
+#            except AttributeError:
+#                precur_arr, actor = functions_pp.import_array(actor)
+#                precur_arr = precur_arr.values
+            
+
 
         time , nlats, nlons = precur_arr.shape # [months , lat, lon]
         # =============================================================================
@@ -96,7 +105,8 @@ def calculate_corr_maps(ex, map_proj):
         # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
         # stacked on top of each other (from lag_min to lag_max)
         tsCorr, n_reg_perlag = rgcpd.calc_actor_ts_and_plot(Corr_Coeff, actbox,
-                                ex, lat_grid, lon_grid, var)
+                                ex, lat_grid, lon_grid, var)           
+                
         # Order of regions: strongest to lowest correlation strength
         outdic_actors[var] = act(var, Corr_Coeff, lat_grid, lon_grid, actbox, tsCorr, n_reg_perlag)
         # =============================================================================

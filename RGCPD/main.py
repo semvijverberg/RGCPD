@@ -55,6 +55,8 @@ ex = dict(
      'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
      'endyear'      :       2017, # download endyear
+     'startperiod'  :       '06-24', # RV period
+     'endperiod'    :       '08-22', # RV period
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
      'path_pp'     :        path_pp}
@@ -114,7 +116,7 @@ if import_precursor_ncdf == True:
 #                              '{}deg.nc'.format(ex['startyear'], ex['endyear'],
 #                               ex['grid_res']))]]
 #    ex['precursor_ncdf'] = [['sst', 'sst_NOAA_mcKbox_det_1982_2017_1_12_daily_0.25deg.nc']]
-    ex['precursor_ncdf'] = [['st12', 'st12_1979-2017_1_12_daily_2.5deg.nc']]
+    ex['precursor_ncdf'] = [['sst', 'era5_sst_1979-2018_1_12_daily_2.5deg.nc']]
 #    ex['precursor_ncdf'] = [['z', 'hgt.200mb.daily.1979-2016.del29feb.nc']]
 
 else:
@@ -128,18 +130,19 @@ if import_RV_ncdf == True:
     ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_daily_'
                               '{}deg.nc'.format(ex['startyear'], ex['endyear'],
                                ex['grid_res']))]
-#    ex['RVnc_name'] = ['rv', '{}_1979-2017_1_12_daily_2.5deg.nc'.format('rv')]
+    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_daily_'
+                              '0.75deg.nc'.format(ex['startyear'], ex['endyear']))]
 else:
     ex['RVnc_name'] = []
 
 # Option 4444444444444444444444444444444444444444444444444444444444444444444444
-# Import Response Variable 1-dimensional time serie?
+# Import Response Variable 1-dimensional time serie.
 # 44444444444444444444444444444444444444444444444444444444444444444444444444444
 if importRV_1dts == True:
     RV_name = 'tmax_EUS'
     ex['RVts_filename'] = 't2mmax_1979-2017_averAggljacc_tf14_n8__to_t2mmax_tf1.npy'
 
-ex['excludeRV'] = 0 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
+ex['excludeRV'] = 1 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
 
 # =============================================================================
 # Note, ex['vars'] is expanded if you have own ncdfs, the first element of array will
@@ -191,14 +194,14 @@ elif importRV_1dts == False:
     # if import RVts == False, then a spatial mask is used for the RV
     ex['spatial_mask_naming'] = 'averAggljacc_tf14_n8'
     ex['spatial_mask_file'] = os.path.join(ex['path_pp'], 'RVts2.5',
-                          't2mmax_1979-2017_averAggljacc_tf14_n8__to_t2mmax_tf1.npy')
+                          't2mmax_1979-2017_averAggljacc0.75d_tf1_n6__to_t2mmax_tf1.npy')
     # You can also include a latitude longitude box as a spatial mask by just 
     # giving a list [west_lon, east_lon, south_lat, north_lat] instead of a file
 #    ex['spatial_mask_file'] = [18.25, 24.75, 75.25, 87.75]
 
 
 # =============================================================================
-# General Temporal Settings, frequency, lags, part of year investigated
+# General Temporal Settings: frequency, lags, part of year investigated
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
@@ -208,7 +211,7 @@ for freq in ex['tfreqlist']:
     # choose lags to test
     lag_min = int(np.timedelta64(2, 'W') / np.timedelta64(ex['tfreq'], 'D'))
     ex['lag_min'] = max(1, lag_min)
-    ex['lag_max'] = ex['lag_min'] + 0
+    ex['lag_max'] = ex['lag_min'] + 2
     # s(elect)startdate and enddate create the period of year you want to investigate:
     # Important! The time cycle of the precursor and Response variable should match!
     ex['sstartdate'] = '{}-01-1'.format(ex['startyear'])
@@ -224,7 +227,7 @@ for freq in ex['tfreqlist']:
     # the created bash script)
     # =============================================================================
     # First time: Read Docstring by typing 'functions_pp.preprocessing_ncdf?' in console
-    # Solve permission error by giving bash script execution right, read Docstring
+    # Solve permission error by giving bash script execution right.
 
     functions_pp.perform_post_processing(ex)
 
@@ -241,13 +244,12 @@ for freq in ex['tfreqlist']:
 
     RV = RV_seperateclass()
     # =============================================================================
-    # 3.1 Select RV period (which period of the year you want to predict)
+    # 3.1 Selecting RV period (which period of the year you want to predict)
     # =============================================================================
     # If you don't have your own timeseries yet, then we assume you want to make
     # one using the first variable listed in ex['vars'].
 
-    RV_months = [6,7,8]
-    RV, ex, RV_name_range = functions_pp.RV_spatial_temporal_mask(ex, RV, importRV_1dts, RV_months)
+    RV, ex, RV_name_range = functions_pp.RV_spatial_temporal_mask(ex, RV, importRV_1dts)
     ex[ex['RV_name']] = RV
 
     # =============================================================================
@@ -283,7 +285,7 @@ for freq in ex['tfreqlist']:
     ex = np.load(filename_exp_design1, encoding='latin1').item()
     ex['alpha'] = 0.01 # set significnace level for correlation maps
     ex['alpha_fdr'] = 2*ex['alpha'] # conservative significance level
-    ex['FDR_control'] = False # Do you want to use the conservative alpha_fdr or normal alpha?
+    ex['FDR_control'] = True # Do you want to use the conservative alpha_fdr or normal alpha?
     # If your pp data is not a full year, there is Maximum meaningful lag given by:
     #ex['lag_max'] = dates[dates.year == 1979].size - ex['RV_oneyr'].size
     ex['alpha_level_tig'] = 0.05 # Alpha level for final regression analysis by Tigrimate
@@ -297,7 +299,7 @@ for freq in ex['tfreqlist']:
           'pcA_none'  : None # default
           })
     ex['pcA_set'] = 'pcA_set1a'
-    ex['la_min'] = -89 # select domain of correlation analysis
+    ex['la_min'] = -20 # select domain of correlation analysis
     ex['la_max'] = 89
     ex['lo_min'] = -180
     ex['lo_max'] = 360
@@ -370,6 +372,7 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # Plot final results
     # =============================================================================
+    #! netcdfs must have same spatial resolution for final plotting function
     wrapper_RGCPD_tig.plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj)
     print("--- {:.2} minutes ---".format((time.time() - start_time)/60))
     #%%
