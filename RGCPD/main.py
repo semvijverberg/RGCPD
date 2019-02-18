@@ -66,11 +66,11 @@ ex = dict(
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = False
+ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf = True
+import_precursor_ncdf = False
 # Option 3:
-import_RV_ncdf = True
+import_RV_ncdf = False
 # Option 4:
 importRV_1dts = False
 
@@ -205,7 +205,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [21] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [1] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
