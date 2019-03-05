@@ -135,5 +135,82 @@ with open(txtfile, "w") as text_file:
 
 
 
+#%%
+def detrend_anom_ncdf3D(xarray):
+    #%%
+#    filename = '/Users/semvijverberg/surfdrive/MckinRepl/SST/sst_daily_1982_2017_mcKbox.nc'
+#    filename = os.path.join(ex['path_raw'], 'tmpfiles', 'tmprmtime.nc')
+#    outfile = '/Users/semvijverberg/surfdrive/MckinRepl/SST/sst_daily_1982_2017_mcKbox_detrend.nc'
+#    encoding= { 'anom' : {'dtype': 'int16', 'scale_factor': 0.001, '_FillValue': -999}}
+#    encoding = None
+    import xarray as xr
+    import pandas as pd
+    import numpy as np
+    from netCDF4 import num2date
+#    filename = os.path.join(ex['path_pp'], 'sst_1979-2017_2mar_31aug_dt-1days_2.5deg.nc')
+    ncdf = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
+    variables = list(ncdf.variables.keys())
+    strvars = [' {} '.format(var) for var in variables]
+    var = [var for var in strvars if var not in ' time time_bnds longitude latitude lev lon lat '][0] 
+    var = var.replace(' ', '')
+    ds = ncdf[var]
+
+    if 'latitude' and 'longitude' not in ds.dims:
+        ds = ds.rename({'lat':'latitude', 
+                   'lon':'longitude'})
+    
+#    marray = np.squeeze(ncdf.to_array(name=var))
+    numtime = ds['time']
+    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+    if numtime.attrs['calendar'] != 'gregorian':
+        dates = [d.strftime('%Y-%m-%d') for d in dates]
+    dates = pd.to_datetime(dates)
+    stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
+    
+    ds['time'] = dates
+    
+    def _detrendfunc2d(arr_oneday):
+        from scipy import signal
+        no_nans = np.nan_to_num(arr_oneday)
+        detrended = signal.detrend(no_nans, axis=0, type='linear')
+        nan_true = np.isnan(arr_oneday)
+        detrended[nan_true] = np.nan
+        return detrended
+    
+    
+    def detrendfunc2d(arr_oneday):
+        return xr.apply_ufunc(_detrendfunc2d, arr_oneday, 
+                              dask='parallelized',
+                              output_dtypes=[float])
+#        return xr.apply_ufunc(_detrendfunc2d, arr_oneday.compute(), 
+#                              dask='parallelized',
+#                              output_dtypes=[float])
+                
+    output = np.empty( (ds.time.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
+    output[:] = np.nan
+    for i in range(stepsyr.size):
+        sd =(dates[i::stepsyr.size])
+        arr_oneday = ds.sel(time=sd)#.chunk({'latitude': 100, 'longitude': 100})
+        output[i::stepsyr.size] = detrendfunc2d(arr_oneday) 
+    
+
+    output = xr.DataArray(output, name=var, dims=ds.dims, coords=ds.coords)
+    
+    # copy original attributes to xarray
+    output.attrs = ds.attrs
+    # ensure mask 
+    output = output.where(output.values != 0.).fillna(-9999)
+    encoding = ( {var : {'_FillValue': -9999}} )
+    mask =  (('latitude', 'longitude'), (output.values[0] != -9999) )
+    output.coords['mask'] = mask
+#    xarray_plot(output[0])
+    
+    # save netcdf
+    output.to_netcdf(outfile, mode='w', encoding=encoding)
+#    diff = output - abs(marray)
+#    diff.to_netcdf(filename.replace('.nc', 'diff.nc'))
+    #%%
+    return 
+
         
 #%%

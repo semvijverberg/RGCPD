@@ -66,9 +66,9 @@ ex = dict(
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = True
+ECMWFdownload = False
 # Option 2:
-import_precursor_ncdf = False
+import_precursor_ncdf = True
 # Option 3:
 import_RV_ncdf = False
 # Option 4:
@@ -84,15 +84,21 @@ importRV_1dts = False
 # You need the ecmwf-api-client package for this option.
 if ECMWFdownload == True:
     # See http://apps.ecmwf.int/datasets/.
-    ex['vars']      =       [['t2m'],['167.128'],['sfc'],[0]]
+#    ex['vars']      =       [['t2m'],['167.128'],['sfc'],[0]]
 #    ex['vars']      =       [['sm1','sm2', 'sm3'],['39.128', '40.128','41.128'],['sfc','sfc','sfc'],['0','0','0']]
 #    ex['vars']      =       [['sm2'],['40.128'],['sfc'],['0']]
 #    ex['vars']      =       [['st1','st2'],['139.128', '170.128'],['sfc','sfc'],['0','0']]
 #    ex['vars']      =       [['prcp'], ['228.128'], ['sfc'], [0]]
-#    ex['vars']      =       [['sst', 'z', 'u'],['34.128','129.128','131.128'],
-#                             ['sfc', 'pl', 'pl'],[0, '500', '500']]
+#    ex['vars']      =       [['u_3d'],['131.128'],
+#                             ['pl'],[['1000', '900', '850', '700', '600', '500','400','200']] ]
+#    ex['vars']      =       [['u_10hpa'],['131.128'],
+#                             ['pl'],['10'] ]
+    ex['vars']      =       [['SLP'],['151.128'],
+                             ['sfc'],['0'] ]
+#    ex['vars']      =       [['t_10hpa'],['130.128'],
+#                             ['pl'],['10'] ]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
-    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
+#    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
 #    ex['vars']      =       [['rv'], ['138.128'],['pl'], ['250']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
 #                            ['167.128', '34.128', '131.128', '130.128'],
@@ -116,8 +122,8 @@ if import_precursor_ncdf == True:
 #                              '{}deg.nc'.format(ex['startyear'], ex['endyear'],
 #                               ex['grid_res']))]]
 #    ex['precursor_ncdf'] = [['sst', 'sst_NOAA_mcKbox_det_1982_2017_1_12_daily_0.25deg.nc']]
-    ex['precursor_ncdf'] = [['sst', 'era5_sst_1979-2018_1_12_daily_2.5deg.nc']]
-#    ex['precursor_ncdf'] = [['z', 'hgt.200mb.daily.1979-2016.del29feb.nc']]
+    ex['precursor_ncdf'] = [['sst', 'prcp_1979-2017_1_12_daily_2.5deg.nc']]
+#    ex['precursor_ncdf'] = [['prcp', 'hgt.200mb.daily.1979-2016.del29feb.nc']]
 
 else:
     ex['precursor_ncdf'] = [[]]
@@ -215,7 +221,7 @@ for freq in ex['tfreqlist']:
     # s(elect)startdate and enddate create the period of year you want to investigate:
     # Important! The time cycle of the precursor and Response variable should match!
     ex['sstartdate'] = '{}-01-1'.format(ex['startyear'])
-    ex['senddate']   = '{}-10-31'.format(ex['startyear'])
+    ex['senddate']   = '{}-12-31'.format(ex['startyear'])
 
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
                         ex['sstartdate'].split('-')[1], ex['senddate'].split('-')[1], ex['tfreq'])
@@ -325,8 +331,8 @@ for freq in ex['tfreqlist']:
     assert RV.startyear == ex['startyear'], ('Make sure the dates '
              'of the RV match with the actors')
     assert ((ex['excludeRV'] == 1) and (importRV_1dts == True))==False, ('Are you sure you want '
-             'exclude first element of array ex[\'vars\'] since you are importing a seperate '
-             ' time series ')
+             'exclude first element of array ex[\'vars\']. You are importing a seperate '
+             ' time series, so you probably do not need to skip the first variable in ex[\'vars\'] ')
 
     filename_exp_design2 = os.path.join(ex['fig_subpath'], 'input_dic_{}.npy'.format(ex['params']))
     np.save(filename_exp_design2, ex)

@@ -8,6 +8,7 @@ Created on Mon Jul  9 17:48:31 2018
 import os
 import numpy as np
 import pandas as pd
+from netCDF4 import num2date
 
 
 def Variable(self, ex):
@@ -209,6 +210,7 @@ def perform_post_processing(ex):
 
 
 def datestr_for_preproc(cls, ex):
+    #%%
     ''' 
     The cdo timselmean that is used in the preprocessing_ncdf() will keep calculating 
     a mean over 10 days and does not care about the date of the years (also logical). 
@@ -250,7 +252,7 @@ def datestr_for_preproc(cls, ex):
     # consists of the same day. For this to be true, you need to make sure that
     # the selday_pp period exactly fits in a integer multiple of 'tfreq'
     temporal_freq = np.timedelta64(ex['tfreq'], 'D') 
-    fit_steps_yr = (end_day - seldays_pp.min())  / temporal_freq
+    fit_steps_yr = (end_day - seldays_pp.min() + np.timedelta64(1, 'D'))  / temporal_freq
     # line below: The +1 = include day 1 in counting
     start_day = (end_day - (temporal_freq * np.round(fit_steps_yr, decimals=0))) + 1 
     # update ex['sstartdate']:
@@ -330,6 +332,7 @@ def datestr_for_preproc(cls, ex):
     cls.path_pp = ex['path_pp']
     outfile = os.path.join(ex['path_pp'], outfilename)
     print('output file of pp will be saved as: \n' + outfile)
+    #%%
     return outfile, datesstr, cls, ex
 
 
@@ -765,19 +768,52 @@ def detrend_anom_ncdf3D(filename, outfile, encoding=None):
     import xarray as xr
     import pandas as pd
     import numpy as np
-    from netCDF4 import num2date
 #    filename = os.path.join(ex['path_pp'], 'sst_1979-2017_2mar_31aug_dt-1days_2.5deg.nc')
     ncdf = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
     variables = list(ncdf.variables.keys())
     strvars = [' {} '.format(var) for var in variables]
-    var = [var for var in strvars if var not in ' time time_bnds longitude latitude lev lon lat '][0] 
+    var = [var for var in strvars if var not in ' time time_bnds longitude latitude lev lon lat level '][0] 
     var = var.replace(' ', '')
     ds = ncdf[var]
 
     if 'latitude' and 'longitude' not in ds.dims:
         ds = ds.rename({'lat':'latitude', 
                    'lon':'longitude'})
+
+    # check if 3D data (lat, lat, lev) or 2D
+    if any([level in ds.dims for level in ['lev', 'level']]):
+        key = ['lev', 'level'][any([level in ds.dims for level in ['lev', 'level']])]
+        levels = ds[key]
+        output = np.empty( (ds.time.size,  ds.level.size, ds.latitude.size, ds.longitude.size), dtype='float32' )
+        output[:] = np.nan
+        for lev_idx, lev in enumerate(levels.values):
+            ds_2D = ds.sel(levels=lev)
+            output[:,lev_idx,:,:] = detrend_xarray_ds_2D(ds_2D)
+            
+    else:
+        output = detrend_xarray_ds_2D(ds)
+        
+    output = xr.DataArray(output, name=var, dims=ds.dims, coords=ds.coords)
+    # copy original attributes to xarray
+    output.attrs = ds.attrs
+        
+    # ensure mask
+    output = output.where(output.values != 0.).fillna(-9999)
+    encoding = ( {var : {'_FillValue': -9999}} )
+    mask =  (('latitude', 'longitude'), (output.values[0] != -9999) )
+    output.coords['mask'] = mask
+#    xarray_plot(output[0])
     
+    # save netcdf
+    output.to_netcdf(outfile, mode='w', encoding=encoding)
+#    diff = output - abs(marray)
+#    diff.to_netcdf(filename.replace('.nc', 'diff.nc'))
+    #%%
+    return 
+
+def detrend_xarray_ds_2D(ds):    
+    import xarray as xr
+    import numpy as np
 #    marray = np.squeeze(ncdf.to_array(name=var))
     numtime = ds['time']
     dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
@@ -812,25 +848,7 @@ def detrend_anom_ncdf3D(filename, outfile, encoding=None):
         arr_oneday = ds.sel(time=sd)#.chunk({'latitude': 100, 'longitude': 100})
         output[i::stepsyr.size] = detrendfunc2d(arr_oneday) 
     
-
-    output = xr.DataArray(output, name=var, dims=ds.dims, coords=ds.coords)
-    
-    # copy original attributes to xarray
-    output.attrs = ds.attrs
-    # ensure mask 
-    output = output.where(output.values != 0.).fillna(-9999)
-    encoding = ( {var : {'_FillValue': -9999}} )
-    mask =  (('latitude', 'longitude'), (output.values[0] != -9999) )
-    output.coords['mask'] = mask
-#    xarray_plot(output[0])
-    
-    # save netcdf
-    output.to_netcdf(outfile, mode='w', encoding=encoding)
-#    diff = output - abs(marray)
-#    diff.to_netcdf(filename.replace('.nc', 'diff.nc'))
-    #%%
-    return 
-    
+    return output 
 
 def find_region(data, region='EU'):
     import numpy as np
