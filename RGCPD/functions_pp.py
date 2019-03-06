@@ -9,7 +9,11 @@ import os
 import numpy as np
 import pandas as pd
 from netCDF4 import num2date
-
+import itertools
+flatten = lambda l: list(set([item for sublist in l for item in sublist]))
+flatten = lambda l: list(itertools.chain.from_iterable(l))
+def get_oneyr(datetime):
+        return datetime.where(datetime.year==datetime.year[0]).dropna()
 
 def Variable(self, ex):
     self.startyear = ex['startyear']
@@ -55,6 +59,7 @@ class Var_ECMWF_download():
         vclass = Variable(self, ex)
         # shared information of ECMWF downloaded variables
         # variables specific information
+        vclass.dataset = ex['dataset']
         vclass.name = ex['vars'][0][idx]
         vclass.var_cf_code = ex['vars'][1][idx]
         vclass.levtype = ex['vars'][2][idx]
@@ -128,10 +133,11 @@ class Var_import_precursor_netcdf:
         ex['vars'][0].append(vclass.name)
 
 def retrieve_ERA_i_field(cls):
-#    from functions_pp import kornshell_with_input
+
     from ecmwfapi import ECMWFDataServer
     import os
     server = ECMWFDataServer()
+    
     file_path = os.path.join(cls.path_raw, cls.filename)
     file_path_raw = file_path.replace('daily','oper')
     datestring = "/".join(cls.datelist_str)
@@ -154,11 +160,11 @@ def retrieve_ERA_i_field(cls):
         # !/usr/bin/python
         if cls.levtype == 'sfc':
             server.retrieve({
-                "dataset"   :   "interim",
+                "dataset"   :   cls.dataset,
                 "class"     :   "ei",
                 "expver"    :   "1",
-                "date"      :   datestring,
                 "grid"      :   '{}/{}'.format(cls.grid,cls.grid),
+                "date"      :   datestring,
                 "levtype"   :   cls.levtype,
                 # "levelist"  :   cls.lvllist,
                 "param"     :   cls.var_cf_code,
@@ -171,7 +177,7 @@ def retrieve_ERA_i_field(cls):
                 })
         elif cls.levtype == 'pl':
             server.retrieve({
-                "dataset"   :   "interim",
+                "dataset"   :   cls.dataset,
                 "class"     :   "ei",
                 "expver"    :   "1",
                 "date"      :   datestring,
@@ -195,130 +201,56 @@ def perform_post_processing(ex):
     print('\nPerforming the post processing steps on {}'.format(ex['vars'][0]))
     for var in ex['vars'][0]:
         var_class = ex[var]
-        outfile, datesstr, var_class, ex = datestr_for_preproc(var_class, ex)
+        outfile, var_class, ex = check_pp_done(var_class, ex)
         
-#        var_class, ex = functions_pp.preprocessing_ncdf(outfile, datesstr, var_class, ex)
         if os.path.isfile(outfile) == True: 
-            print('looks like you already have done the pre-processing,\n'
-                  'to save time let\'s not do it twice..')
-            # but we will update the dates stored in var_class:
-            var_class, ex = update_dates(var_class, ex)
+            print('\nlooks like pre-processing for {} is already done,\n'
+                  'to save time let\'s not do it twice..\n'.format(var))
             pass
         else:    
-            var_class, ex = preprocessing_ncdf(outfile, datesstr, var_class, ex)
-#        print(ex['sstartdate'], datesstr[0][0])
+            infile = os.path.join(var_class.path_raw, var_class.filename)
+            detrend_anom_ncdf3D(infile, outfile, ex)
+        # update the dates stored in var_class:
+        var_class, ex = update_dates(var_class, ex)
+        # store updates
+        ex[var] = var_class
+    
 
 
-def datestr_for_preproc(cls, ex):
+def check_pp_done(cls, ex):
     #%%
     ''' 
-    The cdo timselmean that is used in the preprocessing_ncdf() will keep calculating 
-    a mean over 10 days and does not care about the date of the years (also logical). 
-    This means that after 36 timesteps you have averaged 360 days into steps of 10. 
-    The last 5/6 days of the year do not fit the 10 day mean. It will just continuing 
-    doing timselmean operations, meaning that the second year the first timestep will 
-    be e.g. the first of januari (instead of the fifth of the first year). To ensure 
-    the months and days in each year correspond, we need to adjust the dates that were 
-    given by ex['sstartdate'] - ex['senddate'].
+    Check if pre processed ncdf already exists
     '''
-    import os
-    from netCDF4 import Dataset
-    from netCDF4 import num2date
+    # =============================================================================
+    # load dataset lazy    
+    # =============================================================================
+    import xarray as xr
     import pandas as pd
-    import numpy as np
-    # check temporal frequency raw data
-    file_path = os.path.join(cls.path_raw, cls.filename)
-    ncdf = Dataset(file_path)
-    numtime = ncdf.variables['time']
-    dates = num2date(numtime[:], units=numtime.units, calendar=numtime.calendar)
-    if numtime.calendar != 'gregorian':
-        dates = [d.strftime('%Y-%m-%dT%H:%M:%S') for d in dates]
-    datesnc = pd.to_datetime(dates)
-    leapdays = ((datesnc.is_leap_year) & (datesnc.month==2) & (datesnc.day==29))==False
-    datesnc = datesnc[leapdays].dropna(how='all')
-    cls.nc_hour = datesnc.hour[0]
-#    if len(leapdays) != 0:
-    # add corresponding time information
-    ex['adjhrsstartdate'] = ex['sstartdate'] + ' {:}:00:00'.format(cls.nc_hour)
-    ex['adjhrsenddate']   = ex['senddate'] + ' {:}:00:00'.format(cls.nc_hour)
-# =============================================================================
-#   # select dates
-# =============================================================================
-    # selday_pp is the period you aim to study
-    seldays_pp = pd.DatetimeIndex(start=ex['adjhrsstartdate'], end=ex['adjhrsenddate'], 
-                                freq=(datesnc[1] - datesnc[0]))
-    end_day = seldays_pp.max() 
-    # after time averaging over 'tfreq' number of days, you want that each year 
-    # consists of the same day. For this to be true, you need to make sure that
-    # the selday_pp period exactly fits in a integer multiple of 'tfreq'
-    temporal_freq = np.timedelta64(ex['tfreq'], 'D') 
-    fit_steps_yr = (end_day - seldays_pp.min() + np.timedelta64(1, 'D'))  / temporal_freq
-    # line below: The +1 = include day 1 in counting
-    start_day = (end_day - (temporal_freq * np.round(fit_steps_yr, decimals=0))) + 1 
-    # update ex['sstartdate']:
-    ex['adjstartdate'] = start_day.strftime('%Y-%m-%dT%H:%M:%S')
-    ex['adjsenddate'] = end_day.strftime('%Y-%m-%dT%H:%M:%S')
-    # create datestring that will be used for the cdo selectdate, 
-    def make_datestr(dates, start_yr):
-        breakyr = dates.year.max()
-        datesstr = [str(date).split('.', 1)[0] for date in start_yr.values]
-        nyears = (dates.year[-1] - dates.year[0])+1
-        startday = start_yr[0].strftime('%Y-%m-%dT%H:%M:%S')
-        endday = start_yr[-1].strftime('%Y-%m-%dT%H:%M:%S')
-        firstyear = startday[:4]
-        def plusyearnoleap(curr_yr, startday, endday, incr):
-            startday = startday.replace(firstyear, str(curr_yr+incr))
-            endday = endday.replace(firstyear, str(curr_yr+incr))
-            next_yr = pd.DatetimeIndex(start=startday, end=endday, 
-                            freq=(datesnc[1] - datesnc[0]))
-            # excluding leap year again
-            noleapdays = (((next_yr.month==2) & (next_yr.day==29))==False)
-            next_yr = next_yr[noleapdays].dropna(how='all')
-            return next_yr
-        
-
-        for yr in range(0,nyears-1):
-            curr_yr = yr+dates.year[0]
-            next_yr = plusyearnoleap(curr_yr, startday, endday, 1)
-#            print(len(next_yr))
-            nextstr = [str(date).split('.', 1)[0] for date in next_yr.values]
-            datesstr = datesstr + nextstr
-#            print(nextstr[0])
-            
-            upd_start_yr = plusyearnoleap(next_yr.year[0], startday, endday, 1)
-
-            if next_yr.year[0] == breakyr:
-                break
-            
-        return datesstr, upd_start_yr
-
-# =============================================================================
-#   # sel_dates string is too long for high # of timesteps, so slicing timeseries
-#   # in 2. 
-# =============================================================================
-    dateofslice = datesnc[int(len(datesnc)/4.)]
-    idxsd = np.argwhere(datesnc == dateofslice)[0][0]
-    dates1 = datesnc[:idxsd*1]
-    dates2 = datesnc[idxsd*1:idxsd*2]
-    dates3 = datesnc[idxsd*2:idxsd*3]
-    dates4 = datesnc[idxsd*3:]
-    start_yr = pd.DatetimeIndex(start=start_day, end=end_day, 
-                                freq=(datesnc[1] - datesnc[0]))
-    # exluding leap year from cdo select string
-    noleapdays = (((start_yr.month==2) & (start_yr.day==29))==False)
-    start_yr = start_yr[noleapdays].dropna(how='all')
-#    start_yr = start_yr[(datesnc.month==2) & (datesnc.day==29) == False]
-    datesstr1, next_yr = make_datestr(dates1, start_yr)
-    datesstr2, next_yr = make_datestr(dates2, next_yr)
-    datesstr3, next_yr = make_datestr(dates3, next_yr)
-    datesstr4, next_yr = make_datestr(dates4, next_yr)
-    datesstr = [datesstr1, datesstr2, datesstr3, datesstr4]
-#    datelist = [date.strftime('%Y-%m-%dT%H:%M:%S') for date in list(dates)]
-#    firsthalfts = convert_list_cdo_string(datelist[:idxsd])
-#    seconhalfts = convert_list_cdo_string(datelist[idxsd:])
-# =============================================================================
-#   # give appropriate name to output file    
-# =============================================================================
+    filename = os.path.join(ex['path_raw'], cls.filename)
+    ncdf = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
+    variables = list(ncdf.variables.keys())
+    strvars = [' {} '.format(var) for var in variables]
+    var = [var for var in strvars if var not in ' time time_bnds longitude latitude lev lon lat level '][0] 
+    var = var.replace(' ', '')
+    ds = ncdf[var]
+    # get dates
+    numtime = ds['time']
+    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+    if numtime.attrs['calendar'] != 'gregorian':
+        dates = [d.strftime('%Y-%m-%d') for d in dates]
+    ds['time'] = pd.to_datetime(dates)
+    
+    # =============================================================================
+    # get time series that you request    
+    # =============================================================================
+    dates = timeseries_tofit_bins(ds, ex, seldays='part')[1]
+    start_day = get_oneyr(dates)[0]
+    end_day   = get_oneyr(dates)[-1]
+    
+    # =============================================================================
+    # give appropriate name to output file    
+    # =============================================================================
     outfilename = cls.filename[:-3]+'.nc'
     outfilename = outfilename.replace('daily', 'dt-{}days'.format(ex['tfreq']))
     months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
@@ -331,131 +263,11 @@ def datestr_for_preproc(cls, ex):
     cls.filename_pp = outfilename
     cls.path_pp = ex['path_pp']
     outfile = os.path.join(ex['path_pp'], outfilename)
+    cls.dates_fit_tfreq = dates
     print('output file of pp will be saved as: \n' + outfile)
     #%%
-    return outfile, datesstr, cls, ex
+    return outfile, cls, ex
 
-
-
-
-
-def preprocessing_ncdf(outfile, datesstr, cls, ex):
-    ''' 
-    This function does some python manipulation based on your experiment 
-    to create the corresponding cdo commands. 
-    A kornshell script is created in the folder bash_scripts. First time you
-    run it, it will give execution rights error. Open terminal -> go to 
-    bash_scrips folder -> type 'chmod 755 bash_script.sh' to give exec rights.
-    - Select time period of interest from daily mean time series
-    - Do timesel mean based on your ex['tfreq']
-    - Make sure the calenders are the same, dates are used to select data by xarray
-    - Calculate anomalies (w.r.t. multi year daily means)
-    - deletes time bonds from the variables
-    - stores new relative time axis converted to numpy.datetime64 format in var_class
-    '''
-    import os
-    from netCDF4 import Dataset
-    from netCDF4 import num2date
-    import pandas as pd
-    import numpy as np
-    # Final input and output files
-    infile = os.path.join(cls.path_raw, cls.filename)
-    # convert to inter annual daily mean to make this faster
-    tmpfile = os.path.join(cls.path_raw, 'tmpfiles')
-    if os.path.isdir(tmpfile) == False : os.makedirs(tmpfile)
-    tmpfile = os.path.join(tmpfile, 'tmp')
-    # check temporal frequency raw data
-    file_path = os.path.join(cls.path_raw, cls.filename)
-    ncdf = Dataset(file_path)
-    numtime = ncdf.variables['time']
-    dates = num2date(numtime[:], units=numtime.units, calendar=numtime.calendar)
-    if numtime.calendar != 'gregorian':
-        dates = [d.strftime('%Y-%m-%d') for d in dates]
-    dates = pd.to_datetime(dates)
-    timesteps = int(np.timedelta64(ex['tfreq'], 'D')  / (dates[1] - dates[0]))
-    temporal_freq = np.timedelta64(ex['tfreq'], 'D') 
-    def cdostr(thelist):
-        string = str(thelist)
-        string = string.replace('[','').replace(']','').replace(' ' , '')
-        return string.replace('"','').replace('\'','')
-## =============================================================================
-##   # Select days and temporal frequency 
-## =============================================================================
-#    sel_dates = 'cdo select,date={} {} {}'.format(datesstr, infile, tmpfile)
-#    sel_dates = sel_dates.replace(', ',',').replace('\'','').replace('[','').replace(']','')
-#    convert_temp_freq = 'cdo timselmean,{} {} {}'.format(timesteps, tmpfile, outfile)
-
-    sel_dates1 = 'cdo -O select,date={} {} {}'.format(cdostr(datesstr[0]), infile, tmpfile+'1.nc')
-    sel_dates2 = 'cdo -O select,date={} {} {}'.format(cdostr(datesstr[1]), infile, tmpfile+'2.nc')
-    sel_dates3 = 'cdo -O select,date={} {} {}'.format(cdostr(datesstr[2]), infile, tmpfile+'3.nc')
-    sel_dates4 = 'cdo -O select,date={} {} {}'.format(cdostr(datesstr[3]), infile, tmpfile+'4.nc')
-    concat = 'cdo -O cat {} {} {} {} {}'.format(tmpfile+'1.nc', tmpfile+'2.nc', tmpfile+'3.nc',
-                             tmpfile+'4.nc', tmpfile+'sd.nc')
-    convert_time_axis = 'cdo -O setreftime,1900-01-01,00:00:00 -setcalendar,gregorian {} {}'.format(
-            tmpfile+'sd.nc', tmpfile+'cal.nc')
-    convert_temp_freq = 'cdo -O timselmean,{} {} {}'.format(timesteps, tmpfile+'sd.nc', tmpfile+'tf.nc')
-    rm_timebnds = 'ncks -O -C -x -v time_bnds {} {}'.format(tmpfile+'tf.nc', tmpfile+'rmtime.nc')
-    rm_res_timebnds = 'ncpdq -O {} {}'.format(tmpfile+'rmtime.nc', tmpfile+'rmtime.nc')
-# =============================================================================
-#    # problem with remapping, ruins the time coordinates
-# =============================================================================
-#    gridfile = os.path.join(cls.path_raw, 'grids', 'landseamask_{}deg.nc'.format(ex['grid_res']))
-#    convert_grid = 'ncks -O --map={} {} {}'.format(gridfile, outfile, outfile)
-#    cdo_gridfile = os.path.join(cls.path_raw, 'grids', 'lonlat_{}d_grid.txt'.format(grid_res))
-#    convert_grid = 'cdo remapnn,{} {} {}'.format(cdo_gridfile, outfile, outfile)
-# =============================================================================
-#   # other unused cdo commands
-# =============================================================================
-#    overwrite_taxis = 'cdo settaxis,{},1month {} {}'.format(starttime.strftime('%Y-%m-%d,%H:%M'), tmpfile, tmpfile)
-#    del_leapdays = 'cdo delete,month=2,day=29 {} {}'.format(infile, tmpfile)
-#    # Detrend
-#    # will detrend only annual mean values over years, no seasonality accounted for
-#    # will subtract a*t + b, leaving only anomaly around the linear trend + intercept
-#    detrend = 'cdo -b 32 detrend {} {}'.format(tmpfile+'rmtime.nc', #tmpfile+'hom.nc',
-#                                             tmpfile+'detrend.nc')
-#    # trend = 'cdo -b 32 trend {} {} {}'.format(tmpfile+'homrm.nc', tmpfile+'intercept.nc',
-#    #                                          tmpfile+'trend.nc')
-#    # calculate anomalies w.r.t. interannual daily mean
-#
-#    # clim = 'cdo ydaymean {} {}'.format(outfile, tmpfile)
-#    anom = 'cdo -O -b 32 ydaysub {} -ydayavg {} {}'.format(tmpfile+'detrend.nc', 
-#                              tmpfile+'detrend.nc', outfile)
-# =============================================================================
-#   # commands to add some info 
-# =============================================================================
-    variables = list(ncdf.variables.keys())
-    strvars = [' {} '.format(var) for var in variables]
-    var = [var for var in strvars if var not in ' time time_bnds longitude latitude lev '][0] 
-    var = var.replace(' ', '')
-
-    add_path_raw = 'ncatted -a path_raw,global,c,c,{} {}'.format(str(ncdf.filepath()), tmpfile+'rmtime.nc') 
-    add_units = 'ncatted -a units,global,c,c,{} {}'.format(ncdf.variables[var].units, tmpfile+'rmtime.nc') 
- 
-#    echo_end = ("echo data is being detrended w.r.t. global mean trend " 
-#                "and are anomaly versus muli-year daily mean\n")
-    echo_end = ("echo data selection and temporal means are calculated using"
-                " cdo \n")
-    ncdf.close()
-    # ORDER of commands, --> is important!
-
-#    args = [detrend, anom] # splitting string because of a limit to length
-    args = [sel_dates1, sel_dates2]
-    kornshell_with_input(args, cls)
-    args = [sel_dates3, sel_dates4, concat, convert_temp_freq, 
-            rm_timebnds, add_path_raw, add_units, echo_end] 
-#    args = [detrend, anom, echo_end] 
-    kornshell_with_input(args, cls)
-# =============================================================================
-#   Perform detrending and calculation of anomalies with xarray 
-# =============================================================================
-    # This is done outside CDO because CDO is not calculating trend based on 
-    # a specific day of the year, but only for the annual mean.
-    detrend_anom_ncdf3D(tmpfile+'rmtime.nc', outfile)
-# =============================================================================
-#     # update class (more a check if dates are indeed correct)
-# =============================================================================
-    cls, ex = update_dates(cls, ex)
-    return cls, ex
 
 def kornshell_with_input(args, cls):
 #    stopped working for cdo commands
@@ -504,7 +316,8 @@ def update_dates(cls, ex):
     return cls, ex
     
 def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
-    '''Select months of your Response Variable that you want to predict.
+    '''
+    Select months of your Response Variable that you want to predict.
     RV = the RV class
     ex = experiment dictionary 
     months = list of integers 
@@ -512,11 +325,12 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
     lag x versus the response variable values in june and july.
     
     The second step is to insert a spatial mask -only if- you inserted a 3D field 
-    as your response variable (time, lats, lons). '''
+    as your response variable (time, lats, lons). 
+    '''
     #%%
     if importRV_1dts == True:
-        print('\nimportRV_1dts is true, so the 1D time serie given with name {}\n'
-              ' {}\n is imported.'.format(ex['RV_name'],ex['RVts_filename']))
+        print('\nimportRV_1dts is true, so the 1D time serie given with filename\n'
+              '{} is imported.\n'.format(ex['RVts_filename']))
         RV.name = ex['RV_name']
         dicRV = np.load(os.path.join(ex['path_pp'], 'RVts2.5', ex['RVts_filename']), 
                         encoding='latin1').item()
@@ -527,7 +341,7 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
         RV.startyear = RV.dates.year[0]
         RV.endyear = RV.dates.year[-1]
         RV.filename = ex['RVts_filename']
-#        ex['vars'][0].insert(0, RV.name)
+            
     
     elif importRV_1dts == False:
         RV.name = ex['vars'][0][0]
@@ -548,7 +362,7 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
 #    RV.datesRV = RV.dates[RV_period]
     
         # =============================================================================
-        # 3.2 Select spatial mask to create 1D timeseries (e.g. a SREX region)
+        # 3.2 Select spatial mask to create 1D timeseries (from .npy file)
         # =============================================================================
         # You can load a spatial mask here and use it to create your
         # full timeseries (of length equal to actor time series)  
@@ -579,24 +393,26 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
                 RV.RVfullts = (RVarray_w).where(
                         RV.mask).mean(dim=['latitude','longitude']
                         ).squeeze()
-#                (RV.RVfullts/RV.RVfullts_w.std()).plot()
-#                RVarray.coords['mask'] = RV_array.mask
-#                RV.RVfullts = (RVarray).where(
-#                        RV_array.mask).mean(dim=['latitude','longitude']
-#                        ).squeeze()
-#                (RV.RVfullts/RV.RVfullts.std()).plot()
+
             except IOError as e:
                 print('\n\n**\nSpatial mask not found.\n \n {}'.format(
                         ex['spatial_mask_file']))
-            #              'Place your spatial mask in folder: \n{}\n'
-            #              'and rerun this section.\n**'.format(ex['path_pp'], 'grids'))
                 raise(e)
         if type(ex['spatial_mask_file']) == type(list()):   
             latlonbox = ex['spatial_mask_file']
             RV.RVfullts = selbox_to_1dts(RV, latlonbox)
 
+    if (RV.dates[1] - RV.dates[0]).days != ex['tfreq']:
+        print('tfreq of imported 1d timeseries is unequal to the '
+              'desired ex[tfreq]\nWill convert tfreq')
+              
+        RV.RVfullts, RV.dates, RV.origdates = time_mean_bins(RV.RVfullts, ex)
+       
 
-
+                                                      
+    assert all(np.equal(RV.dates, ex[ex['vars'][0][0]].dates)), ('dates {}'
+        ' not equal to dates in netcdf {}'.format(RV.name, ex['vars'][0][0]))
+                  
     RV.datesRV = make_RVdatestr(pd.to_datetime(RV.RVfullts.time.values), ex, 
                               ex['startyear'], ex['endyear'], lpyr=False)
 
@@ -625,6 +441,142 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
                                       ex['spatial_mask_naming'] )
     #%%
     return RV, ex, RV_name_range 
+
+def time_mean_bins(xarray, ex, seldays = 'part'):
+    #%%
+    import xarray as xr
+    datetime = pd.to_datetime(xarray['time'].values)
+    one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
+    
+    if one_yr.size % ex['tfreq'] != 0 or seldays == 'part':
+        possible = []
+        for i in np.arange(1,20):
+            if 214%i == 0:
+                possible.append(i)
+        if one_yr.size % ex['tfreq'] != 0:
+            print('Note: tfreq {} does not fit in the supplied (sub)year\n'
+                         'adjusting part of year to fit bins.'.format(
+                             ex['tfreq']))   
+#            print('\n Stepsize that do fit are {}'.format(possible))
+#        print('\n Will shorten the \'subyear\', so that the temporal'
+#              ' frequency fits in one year')
+        xarray, datetime = timeseries_tofit_bins(xarray, ex, seldays='part')
+        one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
+          
+    else:
+        pass
+    fit_steps_yr = (one_yr.size)  / ex['tfreq']
+    bins = list(np.repeat(np.arange(0, fit_steps_yr), ex['tfreq']))
+    n_years = (datetime.year[-1] - datetime.year[0]) + 1
+    for y in np.arange(1, n_years):
+        x = np.repeat(np.arange(0, fit_steps_yr), ex['tfreq'])
+        x = x + fit_steps_yr * y
+        [bins.append(i) for i in x]
+    label_bins = xr.DataArray(bins, [xarray.coords['time'][:]], name='time')
+    label_dates = xr.DataArray(xarray.time.values, [xarray.coords['time'][:]], name='time')
+    xarray['bins'] = label_bins
+    xarray['time_dates'] = label_dates
+    xarray = xarray.set_index(time=['bins','time_dates'])
+    
+    half_step = ex['tfreq']/2.
+    newidx = np.arange(half_step, datetime.size, ex['tfreq'], dtype=int)
+    newdate = label_dates[newidx]
+    
+
+    group_bins = xarray.groupby('bins').mean(dim='time', keep_attrs=True)
+    group_bins['bins'] = newdate.values
+    dates = pd.to_datetime(newdate.values)
+    #%%
+    return group_bins.rename({'bins' : 'time'}), dates, datetime
+
+def timeseries_tofit_bins(xarray, ex, seldays='part'):
+    datetime = pd.to_datetime(xarray['time'].values)
+
+    leapdays = ((datetime.is_leap_year) & (datetime.month==2) & (datetime.day==29))==False
+    datetime = datetime[leapdays].dropna(how='all')
+
+# =============================================================================
+#   # select dates
+# =============================================================================
+    # selday_pp is the period you aim to study
+    if seldays == 'part':
+        # add corresponding time information
+        ex['adjhrsstartdate'] = ex['sstartdate'] + ' {:}:00:00'.format(datetime[0].hour)
+        ex['adjhrsenddate']   = ex['senddate'] + ' {:}:00:00'.format(datetime[0].hour)
+        sdate = pd.to_datetime(ex['adjhrsstartdate'])
+        seldays_pp = pd.DatetimeIndex(start=ex['adjhrsstartdate'], end=ex['adjhrsenddate'], 
+                                freq=(datetime[1] - datetime[0]))
+    
+    if seldays == 'all':
+        one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
+        sdate = one_yr[0]
+        seldays_pp = pd.DatetimeIndex(start=one_yr[0], end=one_yr[-1], 
+                                freq=(datetime[1] - datetime[0]))
+
+    end_day = seldays_pp.max() 
+    # after time averaging over 'tfreq' number of days, you want that each year 
+    # consists of the same day. For this to be true, you need to make sure that
+    # the selday_pp period exactly fits in a integer multiple of 'tfreq'   
+    temporal_freq = np.timedelta64(ex['tfreq'], 'D') 
+    fit_steps_yr = (end_day - seldays_pp.min() + np.timedelta64(1, 'D'))  / temporal_freq
+    # line below: The +1 = include day 1 in counting
+    start_day = (end_day - (temporal_freq * np.round(fit_steps_yr, decimals=0))) \
+                + np.timedelta64(1, 'D')  
+    
+    if start_day.dayofyear < sdate.dayofyear:
+        # if startday is before the desired starting period, skip one bin forward in time
+        start_day = (end_day - (temporal_freq * np.round(fit_steps_yr-1, decimals=0))) \
+                + np.timedelta64(1, 'D')  
+
+        
+    def make_datestr_2(datetime, start_yr):
+        breakyr = datetime.year.max()
+        datesstr = [str(date).split('.', 1)[0] for date in start_yr.values]
+        nyears = (datetime.year[-1] - datetime.year[0])+1
+        startday = start_yr[0].strftime('%Y-%m-%dT%H:%M:%S')
+        endday = start_yr[-1].strftime('%Y-%m-%dT%H:%M:%S')
+        firstyear = startday[:4]
+        datesdt = start_yr
+        def plusyearnoleap(curr_yr, startday, endday, incr):
+            startday = startday.replace(firstyear, str(curr_yr+incr))
+            endday = endday.replace(firstyear, str(curr_yr+incr))
+            next_yr = pd.DatetimeIndex(start=startday, end=endday, 
+                            freq=(datetime[1] - datetime[0]))
+            # excluding leap year again
+            noleapdays = (((next_yr.month==2) & (next_yr.day==29))==False)
+            next_yr = next_yr[noleapdays].dropna(how='all')
+            return next_yr
+        
+        for yr in range(0,nyears-1):
+            curr_yr = yr+datetime.year[0]
+            next_yr = plusyearnoleap(curr_yr, startday, endday, 1)
+            datesdt = np.append(datesdt, next_yr)
+#            print(len(next_yr))
+#            nextstr = [str(date).split('.', 1)[0] for date in next_yr.values]
+#            datesstr = datesstr + nextstr
+#            print(nextstr[0])
+            
+            upd_start_yr = plusyearnoleap(next_yr.year[0], startday, endday, 1)
+
+            if next_yr.year[0] == breakyr:
+                break
+        datesdt = pd.to_datetime(datesdt)
+        return datesdt, upd_start_yr
+    
+    start_yr = pd.DatetimeIndex(start=start_day, end=end_day, 
+                                freq=(datetime[1] - datetime[0]))
+    # exluding leap year from cdo select string
+    noleapdays = (((start_yr.month==2) & (start_yr.day==29))==False)
+    start_yr = start_yr[noleapdays].dropna(how='all')
+    datesdt, next_yr = make_datestr_2(datetime, start_yr)
+    months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
+                         8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
+    startdatestr = '{} {}'.format(start_day.day, months[start_day.month])
+    enddatestr   = '{} {}'.format(end_day.day, months[end_day.month])
+    print('Period of year selected: \n{} to {}, tfreq {}'.format(
+                startdatestr, enddatestr, ex['tfreq']))
+    adj_xarray = xarray.sel(time=datesdt)
+    return adj_xarray, datesdt
 
 def make_RVdatestr(dates, ex, startyr, endyr, lpyr=False):
     import calendar
@@ -708,6 +660,155 @@ def import_array(cls, path='pp'):
     cls.dates = dates
     return marray, cls
 
+def detrend_anom_ncdf3D(filename, outfile, ex, encoding=None):
+    ''' 
+    Function for preprocessing
+    - Select time period of interest from daily mean time series
+    - Do timesel mean based on your ex['tfreq']
+    - Calculate anomalies (w.r.t. multi year daily means)
+    - linear detrend
+    '''
+
+    #%%
+#    filename = '/Users/semvijverberg/surfdrive/MckinRepl/SST/sst_daily_1982_2017_mcKbox.nc'
+#    filename = os.path.join(ex['path_raw'], 'tmpfiles', 'tmprmtime.nc')
+#    outfile = '/Users/semvijverberg/surfdrive/MckinRepl/SST/sst_daily_1982_2017_mcKbox_detrend.nc'
+#    encoding= { 'anom' : {'dtype': 'int16', 'scale_factor': 0.001, '_FillValue': -999}}
+#    encoding = None
+    import xarray as xr
+    import pandas as pd
+    import numpy as np
+#    filename = os.path.join(ex['path_raw'], 'u_3d_1979-2017_1_12_daily_2.5deg.nc')
+    ncdf = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
+    variables = list(ncdf.variables.keys())
+    strvars = [' {} '.format(var) for var in variables]
+    var = [var for var in strvars if var not in ' time time_bnds longitude latitude lev lon lat level '][0] 
+    var = var.replace(' ', '')
+    ds = ncdf[var]
+    # get dates
+    numtime = ds['time']
+    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+    if numtime.attrs['calendar'] != 'gregorian':
+        dates = [d.strftime('%Y-%m-%d') for d in dates]
+    ds['time'] = pd.to_datetime(dates)
+    
+    
+    ds, dates, datessel = time_mean_bins(ds, ex, seldays='part')
+
+    if 'latitude' and 'longitude' not in ds.dims:
+        ds = ds.rename({'lat':'latitude', 
+                   'lon':'longitude'})
+
+    # check if 3D data (lat, lat, lev) or 2D
+    if any([level in ds.dims for level in ['lev', 'level']]):
+        key = ['lev', 'level'][any([level in ds.dims for level in ['lev', 'level']])]
+        levels = ds[key]
+        output = np.empty( (ds.time.size,  ds.level.size, ds.latitude.size, ds.longitude.size), dtype='float32' )
+        output[:] = np.nan
+        for lev_idx, lev in enumerate(levels.values):
+            ds_2D = ds.sel(levels=lev)
+            output[:,lev_idx,:,:] = detrend_xarray_ds_2D(ds_2D, ex)
+            
+    else:
+        output = detrend_xarray_ds_2D(ds, ex)
+        
+    output = xr.DataArray(output, name=var, dims=ds.dims, coords=ds.coords)
+    # copy original attributes to xarray
+    output.attrs = ds.attrs
+        
+    # ensure mask
+    output = output.where(output.values != 0.).fillna(-9999)
+    encoding = ( {var : {'_FillValue': -9999}} )
+    mask =  (('latitude', 'longitude'), (output.values[0] != -9999) )
+    output.coords['mask'] = mask
+#    xarray_plot(output[0])
+    
+    # save netcdf
+    output.to_netcdf(outfile, mode='w', encoding=encoding)
+#    diff = output - abs(marray)
+#    diff.to_netcdf(filename.replace('.nc', 'diff.nc'))
+    #%%
+    return 
+
+def detrend_xarray_ds_2D(ds, ex):    
+    #%%
+    import xarray as xr
+    import numpy as np
+#    marray = np.squeeze(ncdf.to_array(name=var))
+    if type(ds.time[0].values) != type(np.datetime64()):
+        numtime = ds['time']
+        dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+        if numtime.attrs['calendar'] != 'gregorian':
+            dates = [d.strftime('%Y-%m-%d') for d in dates]
+        dates = pd.to_datetime(dates)
+    else:
+        dates = pd.to_datetime(ds['time'].values)
+    stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
+    
+    ds['time'] = dates
+    
+    def _detrendfunc2d(arr_oneday):
+        from scipy import signal
+        no_nans = np.nan_to_num(arr_oneday)
+        detrended = signal.detrend(no_nans, axis=0, type='linear')
+        nan_true = np.isnan(arr_oneday)
+        detrended[nan_true] = np.nan
+        return detrended
+    
+    
+    def detrendfunc2d(arr_oneday):
+        return xr.apply_ufunc(_detrendfunc2d, arr_oneday, 
+                              dask='parallelized',
+                              output_dtypes=[float])
+#        return xr.apply_ufunc(_detrendfunc2d, arr_oneday.compute(), 
+#                              dask='parallelized',
+#                              output_dtypes=[float])
+                
+    output = np.empty( (ds.time.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
+    output[:] = np.nan
+    print('Detrending based on interannual trend of specific dayofyear')
+    for i in range(stepsyr.size):
+        sd = (dates[i::stepsyr.size])
+        if ex['tfreq'] <= 7:
+            # select surrounding dates to get better statistics
+            if i == stepsyr.size-1:
+                print('selecting surrounding dates to get better statistics')
+            
+            arr_oneday, sd_surr = get_mean_surrouding_dates(ds, sd, dates)
+            
+        elif ex['tfreq'] >= 8:
+            if i == stepsyr.size-1:
+                print('selecting dayofyear and subtr. interannual mean')
+            arr_oneday = ds.sel(time=sd)#.chunk({'latitude': 100, 'longitude': 100})
+        
+        if ex['abs_or_anom'] == 'anom':
+            # subtract climatology
+            arr_oneday = arr_oneday - arr_oneday.mean(dim='time')
+
+            if i == stepsyr.size-1:
+                print('calculated anomalies w.r.t. clim ')
+        
+        output[i::stepsyr.size] = detrendfunc2d(arr_oneday) 
+    #%%
+    return output 
+
+def get_mean_surrouding_dates(ds, sd, dates):
+    tfreq = dates[1] - dates[0]
+    sd_prior = sd - tfreq
+    sd_post  = sd + tfreq
+    idx_outside_dates = [list(sd_prior).index(d) for d in sd_prior if d not in dates]
+    sd_prior = np.delete(sd_prior, idx_outside_dates)
+    idx_outside_dates = [list(sd_post).index(d) for d in sd_post if d not in dates]
+    sd_post  = np.delete(sd_post, idx_outside_dates)
+    new_sd = sd.append([sd_post, sd_prior])
+    arr_oneday = ds.sel(time=sd)
+    nparr = arr_oneday.values
+    for yr_idx, yr in enumerate(np.unique(new_sd.year.values)):
+#        mean_of_yr = 
+        nparr[yr_idx] = ds.sel(time=new_sd[new_sd.year == yr]).mean(dim='time')
+    arr_oneday.values = nparr
+    return arr_oneday, new_sd
+
 def xarray_plot(data, path='default', name = 'default', saving=False):
     # from plotting import save_figure
     import matplotlib.pyplot as plt
@@ -757,98 +858,6 @@ def convert_longitude(data):
     convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
     data['longitude'] = convert_lon
     return data
-
-def detrend_anom_ncdf3D(filename, outfile, encoding=None):
-    #%%
-#    filename = '/Users/semvijverberg/surfdrive/MckinRepl/SST/sst_daily_1982_2017_mcKbox.nc'
-#    filename = os.path.join(ex['path_raw'], 'tmpfiles', 'tmprmtime.nc')
-#    outfile = '/Users/semvijverberg/surfdrive/MckinRepl/SST/sst_daily_1982_2017_mcKbox_detrend.nc'
-#    encoding= { 'anom' : {'dtype': 'int16', 'scale_factor': 0.001, '_FillValue': -999}}
-#    encoding = None
-    import xarray as xr
-    import pandas as pd
-    import numpy as np
-#    filename = os.path.join(ex['path_pp'], 'sst_1979-2017_2mar_31aug_dt-1days_2.5deg.nc')
-    ncdf = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
-    variables = list(ncdf.variables.keys())
-    strvars = [' {} '.format(var) for var in variables]
-    var = [var for var in strvars if var not in ' time time_bnds longitude latitude lev lon lat level '][0] 
-    var = var.replace(' ', '')
-    ds = ncdf[var]
-
-    if 'latitude' and 'longitude' not in ds.dims:
-        ds = ds.rename({'lat':'latitude', 
-                   'lon':'longitude'})
-
-    # check if 3D data (lat, lat, lev) or 2D
-    if any([level in ds.dims for level in ['lev', 'level']]):
-        key = ['lev', 'level'][any([level in ds.dims for level in ['lev', 'level']])]
-        levels = ds[key]
-        output = np.empty( (ds.time.size,  ds.level.size, ds.latitude.size, ds.longitude.size), dtype='float32' )
-        output[:] = np.nan
-        for lev_idx, lev in enumerate(levels.values):
-            ds_2D = ds.sel(levels=lev)
-            output[:,lev_idx,:,:] = detrend_xarray_ds_2D(ds_2D)
-            
-    else:
-        output = detrend_xarray_ds_2D(ds)
-        
-    output = xr.DataArray(output, name=var, dims=ds.dims, coords=ds.coords)
-    # copy original attributes to xarray
-    output.attrs = ds.attrs
-        
-    # ensure mask
-    output = output.where(output.values != 0.).fillna(-9999)
-    encoding = ( {var : {'_FillValue': -9999}} )
-    mask =  (('latitude', 'longitude'), (output.values[0] != -9999) )
-    output.coords['mask'] = mask
-#    xarray_plot(output[0])
-    
-    # save netcdf
-    output.to_netcdf(outfile, mode='w', encoding=encoding)
-#    diff = output - abs(marray)
-#    diff.to_netcdf(filename.replace('.nc', 'diff.nc'))
-    #%%
-    return 
-
-def detrend_xarray_ds_2D(ds):    
-    import xarray as xr
-    import numpy as np
-#    marray = np.squeeze(ncdf.to_array(name=var))
-    numtime = ds['time']
-    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
-    if numtime.attrs['calendar'] != 'gregorian':
-        dates = [d.strftime('%Y-%m-%d') for d in dates]
-    dates = pd.to_datetime(dates)
-    stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
-    
-    ds['time'] = dates
-    
-    def _detrendfunc2d(arr_oneday):
-        from scipy import signal
-        no_nans = np.nan_to_num(arr_oneday)
-        detrended = signal.detrend(no_nans, axis=0, type='linear')
-        nan_true = np.isnan(arr_oneday)
-        detrended[nan_true] = np.nan
-        return detrended
-    
-    
-    def detrendfunc2d(arr_oneday):
-        return xr.apply_ufunc(_detrendfunc2d, arr_oneday, 
-                              dask='parallelized',
-                              output_dtypes=[float])
-#        return xr.apply_ufunc(_detrendfunc2d, arr_oneday.compute(), 
-#                              dask='parallelized',
-#                              output_dtypes=[float])
-                
-    output = np.empty( (ds.time.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
-    output[:] = np.nan
-    for i in range(stepsyr.size):
-        sd =(dates[i::stepsyr.size])
-        arr_oneday = ds.sel(time=sd)#.chunk({'latitude': 100, 'longitude': 100})
-        output[i::stepsyr.size] = detrendfunc2d(arr_oneday) 
-    
-    return output 
 
 def find_region(data, region='EU'):
     import numpy as np

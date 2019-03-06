@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import numpy
+import numpy as np
 import matplotlib
 matplotlib.rcParams['backend'] = "Qt4Agg"
 from pylab import *
@@ -71,8 +71,8 @@ def plot_basemap_options(m):
 	m.drawmapboundary(fill_color='white', color='gray')
 	#m.drawmapboundary(color='gray')
 	#m.fillcontinents(color='white',lake_color='white')
-	m.drawmeridians(numpy.arange(0, 360, 30), color='lightgray')
-	m.drawparallels(numpy.arange(-90, 90, 30), color='lightgray')
+	m.drawmeridians(np.arange(0, 360, 30), color='lightgray')
+	m.drawparallels(np.arange(-90, 90, 30), color='lightgray')
 
 
 	
@@ -104,9 +104,9 @@ def corr_new(D, di):
 	"""
 	This function calculates the correlation coefficent r  and the the pvalue p for each grid-point of field D with the response-variable di
 	"""
-	x = numpy.ma.zeros(D.shape[1])
-	corr_di_D = numpy.ma.array(data = x, mask =False)	
-	sig_di_D = numpy.array(x)
+	x = np.ma.zeros(D.shape[1])
+	corr_di_D = np.ma.array(data = x, mask =False)	
+	sig_di_D = np.array(x)
 	
 	for i in range(D.shape[1]):
 		r, p = scipy.stats.pearsonr(di,D[:,i])
@@ -153,17 +153,17 @@ def calc_corr_coeffs_new(ncdf, precur_arr, RVts, ex):
     la = lat_grid.shape[0]
     lo = lon_grid.shape[0]
 	
-    lons, lats = numpy.meshgrid(lon_grid,lat_grid)
+    lons, lats = np.meshgrid(lon_grid,lat_grid)
 
-#    A1 = numpy.zeros((la,lo))
-    z = numpy.zeros((la*lo,lag_steps))
-    Corr_Coeff = numpy.ma.array(z, mask=z)
+#    A1 = np.zeros((la,lo))
+    z = np.zeros((la*lo,lag_steps))
+    Corr_Coeff = np.ma.array(z, mask=z)
 	
 	
     # extract data	
     sat = extract_data(ncdf, precur_arr, ex)	
     # reshape
-    sat = numpy.reshape(sat, (sat.shape[0],-1))
+    sat = np.reshape(sat, (sat.shape[0],-1))
     
     allkeysncdf = list(d.variables.keys())
     dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude', 'mask', 'levels']
@@ -199,7 +199,7 @@ def calc_corr_coeffs_new(ncdf, precur_arr, RVts, ex):
 			
         Corr_Coeff[:,i] = corr_di_sat[:]
             
-    Corr_Coeff = numpy.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
+    Corr_Coeff = np.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
 	
     return Corr_Coeff, lat_grid, lon_grid
 	
@@ -235,7 +235,7 @@ def plot_corr_coeffs(Corr_Coeff, m, lag_min, lat_grid, lon_grid, title='Corr Map
 		plt.title('lag = -' + str(lag), fontsize =12)
 		
 		
-		corr_di_sat = numpy.ma.array(data = Corr_Coeff[:,i], mask = Corr_Coeff.mask[:,i])
+		corr_di_sat = np.ma.array(data = Corr_Coeff[:,i], mask = Corr_Coeff.mask[:,i])
 		
 		la = lat_grid.shape[0]
 		lo = lon_grid.shape[0]
@@ -249,8 +249,8 @@ def plot_corr_coeffs(Corr_Coeff, m, lag_min, lat_grid, lon_grid, title='Corr Map
 		
 		
 		# reshape for plotting
-		corr_di_sat = numpy.reshape(corr_di_sat, (la, lo))
-		corr_di_sat_significance = numpy.zeros(corr_di_sat.shape)
+		corr_di_sat = np.reshape(corr_di_sat, (la, lo))
+		corr_di_sat_significance = np.zeros(corr_di_sat.shape)
 		corr_di_sat_significance[corr_di_sat.mask==False]=1				
 		
 		# # make new dimension for plotting
@@ -263,7 +263,7 @@ def plot_corr_coeffs(Corr_Coeff, m, lag_min, lat_grid, lon_grid, title='Corr Map
 		# D[:, -1] = corr_di_sat_significance[:, 0]	
 		
 
-		# if (Corr_mask==True) | (numpy.sum(corr_di_sat_significance)==0):
+		# if (Corr_mask==True) | (np.sum(corr_di_sat_significance)==0):
 		if (Corr_mask==True):
 			# plotting otions:
 			im = m.contourf(lons,lats, corr_di_sat, vmin = vmin, vmax = vmax, latlon=True, levels = levels, cmap="RdBu_r")
@@ -271,7 +271,7 @@ def plot_corr_coeffs(Corr_Coeff, m, lag_min, lat_grid, lon_grid, title='Corr Map
 			plot_basemap_options(m)
 
 
-		elif (numpy.sum(corr_di_sat_significance)==0):
+		elif (np.sum(corr_di_sat_significance)==0):
 			im = m.contourf(lons,lats, corr_di_sat.data, vmin = vmin, vmax = vmax, latlon=True, levels = levels, cmap="RdBu_r")
 			# m.colorbar(location="bottom")
 			plot_basemap_options(m)
@@ -315,7 +315,7 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 	
 	# initialize arrays:
 	# A final return array 
-	A = numpy.ma.copy(Corr_Coeff)
+	A = np.ma.copy(Corr_Coeff)
 	#========================================
 	# STEP 1: mask nodes which were never significantly correlatated to index (= count=0)
 	#========================================
@@ -324,7 +324,7 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 	# STEP 2: define neighbors for everey node which passed Step 1
 	#========================================
 
-	indices_not_masked = numpy.where(A.mask==False)[0].tolist()
+	indices_not_masked = np.where(A.mask==False)[0].tolist()
 
 	lo = lon_grid.shape[0]
 	la = lat_grid.shape[0]
@@ -394,12 +394,12 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 		l=[]
 	
 		cc_i = A.data[i]
-		cc_i_sign = numpy.sign(cc_i)
+		cc_i_sign = np.sign(cc_i)
 		
 	
 		for k in m:
 			cc_k = A.data[k]
-			cc_k_sign = numpy.sign(cc_k)
+			cc_k_sign = np.sign(cc_k)
 		
 
 			if cc_i_sign *cc_k_sign == 1:
@@ -431,19 +431,19 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 	
 
 	# 2) combine 1A+1B 
-	B = numpy.abs(A)
+	B = np.abs(A)
 	
 	# 3) calculate the area size of each region	
 	
 	Area =  [[] for i in range(len(Regions))]
 	
 	for i in range(len(Regions)):
-		indices = numpy.array(list(Regions[i]))
+		indices = np.array(list(Regions[i]))
 		indices_lat_position = indices//lo
 		lat_nodes = lat_grid[indices_lat_position[:]]
-		cos_nodes = numpy.cos(numpy.deg2rad(lat_nodes))		
+		cos_nodes = np.cos(np.deg2rad(lat_nodes))		
 		
-		area_i = [numpy.sum(cos_nodes)]
+		area_i = [np.sum(cos_nodes)]
 		Area[i]= Area[i]+area_i
 	
 	#---------------------------------------
@@ -465,11 +465,11 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 	
 	# 4) calcualte region value:
 	
-	C = numpy.zeros(len(Regions))
+	C = np.zeros(len(Regions))
 	
-	Area = numpy.array(Area)
+	Area = np.array(Area)
 	for i in range(len(Regions)):
-		C[i]=Area[i]*numpy.mean(B[list(Regions[i])])
+		C[i]=Area[i]*np.mean(B[list(Regions[i])])
 
 
 	
@@ -483,7 +483,7 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 	#========================================
 	
 	# rank indices of Regions starting with strongest:
-	sorted_region_strength = numpy.argsort(C)[::-1]
+	sorted_region_strength = np.argsort(C)[::-1]
 	
 	# give ranking number
 	# 1 = strongest..
@@ -515,9 +515,9 @@ def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
 	
     la_gph = lat_grid.shape[0]
     lo_gph = lon_grid.shape[0]
-    lons_gph, lats_gph = numpy.meshgrid(lon_grid, lat_grid)
+    lons_gph, lats_gph = np.meshgrid(lon_grid, lat_grid)
 
-    cos_box_gph = numpy.cos(numpy.deg2rad(lats_gph))
+    cos_box_gph = np.cos(np.deg2rad(lats_gph))
     cos_box_gph_array = np.repeat(cos_box_gph[None,:], actbox.shape[0], 0)
     cos_box_gph_array = np.reshape(cos_box_gph_array, (cos_box_gph_array.shape[0], -1))
 
@@ -543,10 +543,10 @@ def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
         if Regions_lag_i.max()> 0:
             n_regions_lag_i = int(Regions_lag_i.max())
             print(('{} regions detected for lag {}, variable {}'.format(n_regions_lag_i, ex['lag_min']+i,var)))
-            x_reg = numpy.max(Regions_lag_i)
+            x_reg = np.max(Regions_lag_i)
 			
-#            levels = numpy.arange(x, x + x_reg +1)+.5
-            A_r = numpy.reshape(Regions_lag_i, (la_gph, lo_gph))
+#            levels = np.arange(x, x + x_reg +1)+.5
+            A_r = np.reshape(Regions_lag_i, (la_gph, lo_gph))
             A_r + x
             
             x = A_r.max() 
@@ -596,16 +596,16 @@ def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
 				
 			# else:
 				# tsCorr = np.concatenate((tsCorr, Actors_ts_GPH[i]), axis = 1)
-		
-    assert np.where(np.isnan(tsCorr))[1].size < 0.5*tsCorr[:,1].size, ('more '
-                   'then 10% nans found, i.e. {} out of {} datapoints'.format(
-                           np.where(np.isnan(tsCorr))[1].size), tsCorr.size)
-    while np.where(np.isnan(tsCorr))[1].size != 0:
-        nans = np.where(np.isnan(tsCorr))
-        print('{} nans were found in timeseries of regions out of {} datapoints'.format(
-                nans[1].size, tsCorr.size))
-        tsCorr[nans[0],nans[1]] = tsCorr[nans[0]-1,nans[1]]
-        print('taking value of previous timestep')
+    if np.sum(Number_regions_per_lag) != 0:
+        assert np.where(np.isnan(tsCorr))[1].size < 0.5*tsCorr[:,0].size, ('more '
+                       'then 10% nans found, i.e. {} out of {} datapoints'.format(
+                               np.where(np.isnan(tsCorr))[1].size), tsCorr.size)
+        while np.where(np.isnan(tsCorr))[1].size != 0:
+            nans = np.where(np.isnan(tsCorr))
+            print('{} nans were found in timeseries of regions out of {} datapoints'.format(
+                    nans[1].size, tsCorr.size))
+            tsCorr[nans[0],nans[1]] = tsCorr[nans[0]-1,nans[1]]
+            print('taking value of previous timestep')
     #%%
     return tsCorr, Number_regions_per_lag#, fig_GPH
 	
@@ -638,11 +638,11 @@ def print_particular_region(number_region, Corr_Coeff_lag_i, actor, map_proj, ti
 		
         else:	
             n_regions_lag_i = int(Regions_lag_i.max())
-            x_reg = numpy.max(Regions_lag_i)	
-            levels = numpy.arange(x, x + x_reg +1)+.5
+            x_reg = np.max(Regions_lag_i)	
+            levels = np.arange(x, x + x_reg +1)+.5
 
 		
-            A_r = numpy.reshape(Regions_lag_i, (latitudes.size, longitudes.size))
+            A_r = np.reshape(Regions_lag_i, (latitudes.size, longitudes.size))
             A_r = A_r + x			
             x = A_r.max() 
             print(x)
@@ -650,7 +650,7 @@ def print_particular_region(number_region, Corr_Coeff_lag_i, actor, map_proj, ti
 		
         if (x >= number_region) & (x>0):
 					
-            A_number_region = numpy.zeros(A_r.shape)
+            A_number_region = np.zeros(A_r.shape)
             A_number_region[A_r == number_region]=1
             xr_A_num_reg = xr.DataArray(data=A_number_region, coords=[latitudes, longitudes], dims=('latitude','longitude'))
             map_proj = map_proj

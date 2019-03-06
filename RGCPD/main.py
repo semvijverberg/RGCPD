@@ -9,7 +9,7 @@ import time
 start_time = time.time()
 import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-curr_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD" # script directory
+curr_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD_jetlat/RGCPD" # script directory
 script_dir = os.path.join(curr_dir)
 # To link modules in RGCPD folder to this script
 os.chdir(script_dir)
@@ -35,10 +35,12 @@ copy_stdout = sys.stdout
 
 # this will be your basepath, all raw_input and output will stored in subfolder
 # which will be made when running the code
-base_path = "/Users/semvijverberg/surfdrive/Data_ERAint/"
+base_path = "/Users/semvijverberg/surfdrive/RGCPD_jetlat/"
 exp_folder = ''
-path_raw = os.path.join(base_path, 'input_raw')
-path_pp  = os.path.join(base_path, 'input_pp')
+path_raw = os.path.join("/Users/semvijverberg/surfdrive/Data_ERAint/", 
+                        'input_raw')
+path_pp  = os.path.join("/Users/semvijverberg/surfdrive/Data_ERAint/", 
+                        'input_pp')
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 
@@ -51,12 +53,13 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 # in the final output.
 #
 ex = dict(
-     {'dataset'     :       'ERA-i',
+     {'dataset'     :       'era5',
      'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
      'endyear'      :       2017, # download endyear
      'startperiod'  :       '06-24', # RV period
      'endperiod'    :       '08-22', # RV period
+     'abs_or_anom'  :       'anom', # use absolute or anomalies?
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
      'path_pp'     :        path_pp}
@@ -66,13 +69,13 @@ ex = dict(
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = False
+ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf = True
+import_precursor_ncdf = False
 # Option 3:
 import_RV_ncdf = False
 # Option 4:
-importRV_1dts = False
+importRV_1dts = True
 
 
 # Option 1111111111111111111111111111111111111111111111111111111111111111111111
@@ -93,8 +96,8 @@ if ECMWFdownload == True:
 #                             ['pl'],[['1000', '900', '850', '700', '600', '500','400','200']] ]
 #    ex['vars']      =       [['u_10hpa'],['131.128'],
 #                             ['pl'],['10'] ]
-    ex['vars']      =       [['SLP'],['151.128'],
-                             ['sfc'],['0'] ]
+    ex['vars']      =       [ ['z_850hpa', 'sst', 't_850hpa'],['129.128', '34.128', '130.128'],
+                              ['pl', 'sfc', 'pl'],[['850'], '0', ['850']] ]
 #    ex['vars']      =       [['t_10hpa'],['130.128'],
 #                             ['pl'],['10'] ]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
@@ -137,7 +140,7 @@ if import_RV_ncdf == True:
                               '{}deg.nc'.format(ex['startyear'], ex['endyear'],
                                ex['grid_res']))]
     ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_daily_'
-                              '0.75deg.nc'.format(ex['startyear'], ex['endyear']))]
+                              '0.75deg.nc'.format(ex['startyear'], ex['endyear']))]    
 else:
     ex['RVnc_name'] = []
 
@@ -145,10 +148,11 @@ else:
 # Import Response Variable 1-dimensional time serie.
 # 44444444444444444444444444444444444444444444444444444444444444444444444444444
 if importRV_1dts == True:
-    RV_name = 'tmax_EUS'
+    RV_name = 'jetlat'
     ex['RVts_filename'] = 't2mmax_1979-2017_averAggljacc_tf14_n8__to_t2mmax_tf1.npy'
+    ex['RVts_filename'] = 'jetlat_1979-2017_02-27_12-31.npy'
 
-ex['excludeRV'] = 1 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
+ex['excludeRV'] = 0 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
 
 # =============================================================================
 # Note, ex['vars'] is expanded if you have own ncdfs, the first element of array will
@@ -211,16 +215,16 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [1] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [10] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
-    lag_min = int(np.timedelta64(2, 'W') / np.timedelta64(ex['tfreq'], 'D'))
+    lag_min = int(np.timedelta64(5, 'D') / np.timedelta64(ex['tfreq'], 'D'))
     ex['lag_min'] = max(1, lag_min)
     ex['lag_max'] = ex['lag_min'] + 2
     # s(elect)startdate and enddate create the period of year you want to investigate:
     # Important! The time cycle of the precursor and Response variable should match!
-    ex['sstartdate'] = '{}-01-1'.format(ex['startyear'])
+    ex['sstartdate'] = '{}-03-1'.format(ex['startyear'])
     ex['senddate']   = '{}-12-31'.format(ex['startyear'])
 
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
@@ -289,7 +293,7 @@ for freq in ex['tfreqlist']:
     # *****************************************************************************
     # *****************************************************************************
     ex = np.load(filename_exp_design1, encoding='latin1').item()
-    ex['alpha'] = 0.01 # set significnace level for correlation maps
+    ex['alpha'] = 0.05 # set significnace level for correlation maps
     ex['alpha_fdr'] = 2*ex['alpha'] # conservative significance level
     ex['FDR_control'] = True # Do you want to use the conservative alpha_fdr or normal alpha?
     # If your pp data is not a full year, there is Maximum meaningful lag given by:
@@ -341,8 +345,8 @@ for freq in ex['tfreqlist']:
     print('\n**\nBegin summary of main experiment settings\n**\n')
     print('Response variable is {} is correlated vs {}'.format(ex['vars'][0][0],
           ex['vars'][0][1:]))
-    start_day = '{}-{}'.format(int(ex['adjstartdate'][8:10]), int(ex['adjstartdate'][5:7]))
-    end_day   = '{}-{}'.format(int(ex['senddate'][8:10]), int(ex['senddate'][5:7]))
+    start_day = '{}-{}'.format(var_class.dates[0].day, var_class.dates[0].month_name())
+    end_day   = '{}-{}'.format(var_class.dates[-1].day, var_class.dates[-1].month_name())
     print('Part of year investigated: {} - {}'.format(start_day, end_day))
     print('Part of year predicted (RV period): {} '.format(RV_name_range[:-1]))
     print('Temporal resolution: {} days'.format(ex['tfreq']))
