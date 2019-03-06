@@ -105,3 +105,95 @@ class Var_ECMWF_download():
         
         print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(vclass.name, 
                vclass.startyear, vclass.endyear, vclass.grid)))
+
+def retrieve_field(cls):
+
+    from ecmwfapi import ECMWFDataServer
+    import os
+    server = ECMWFDataServer()
+    
+    file_path = os.path.join(cls.path_raw, cls.filename)
+    file_path_raw = file_path.replace('daily','oper')
+    datestring = "/".join(cls.datelist_str)
+#    if cls.stream == "mnth" or cls.stream == "oper":
+#        time = "00:00:00/06:00:00/12:00:00/18:00:00"
+#    elif cls.stream == "moda":
+#        time = "00:00:00"
+#    else:
+#        print("stream is not available")
+
+
+    if os.path.isfile(path=file_path) == True:
+        print("You have already download the variable")
+        print(("to path: {} \n ".format(file_path)))
+        pass
+    else:
+        print(("You WILL download variable {} \n stream is set to {} \n".format \
+            (cls.name, cls.stream)))
+        print(("to path: \n \n {} \n \n".format(file_path_raw)))
+        # !/usr/bin/python
+        if cls.levtype == 'sfc':
+            server.retrieve({
+                "dataset"   :   cls.dataset,
+                "class"     :   "ei",
+                "expver"    :   "1",
+                "grid"      :   '{}/{}'.format(cls.grid,cls.grid),
+                "date"      :   datestring,
+                "levtype"   :   cls.levtype,
+                # "levelist"  :   cls.lvllist,
+                "param"     :   cls.var_cf_code,
+                "stream"    :   cls.stream,
+                "time"      :  cls.time_ana,
+                "type"      :   cls.type,
+                "step"      :   cls.step,
+                "format"    :   "netcdf",
+                "target"    :   file_path_raw,
+                })
+        elif cls.levtype == 'pl':
+            server.retrieve({
+                "dataset"   :   cls.dataset,
+                "class"     :   "ei",
+                "expver"    :   "1",
+                "date"      :   datestring,
+                "grid"      :   '{}/{}'.format(cls.grid,cls.grid),
+                "levtype"   :   cls.levtype,
+                "levelist"  :   cls.lvllist,
+                "param"     :   cls.var_cf_code,
+                "stream"    :   cls.stream,
+                 "time"      :  cls.time_ana,
+                "type"      :   cls.type,
+                "format"    :   "netcdf",
+                "target"    :   file_path_raw,
+                })
+        print("convert operational 6hrly data to daily means")
+        args = ['cdo daymean {} {}'.format(file_path_raw, file_path)]
+        kornshell_with_input(args, cls)
+    return
+
+def kornshell_with_input(args, cls):
+#    stopped working for cdo commands
+    '''some kornshell with input '''
+#    args = [anom]
+    import os
+    import subprocess
+    cwd = os.getcwd()
+    # Writing the bash script:
+    new_bash_script = os.path.join(cwd,'bash_scripts', "bash_script.sh")
+#    arg_5d_mean = 'cdo timselmean,5 {} {}'.format(infile, outfile)
+    #arg1 = 'ncea -d latitude,59.0,84.0 -d longitude,-95,-10 {} {}'.format(infile, outfile)
+    
+    bash_and_args = [new_bash_script]
+    [bash_and_args.append(arg) for arg in args]
+    with open(new_bash_script, "w") as file:
+        file.write("#!/bin/sh\n")
+        file.write("echo bash script output\n")
+        for cmd in range(len(args)):
+
+            print(args[cmd].replace(cls.base_path, 'base_path/')[:300])
+            file.write("${}\n".format(cmd+1)) 
+    p = subprocess.Popen(bash_and_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, 
+                         stderr=subprocess.STDOUT)
+                         
+    out = p.communicate()
+    print(out[0].decode())
+    return

@@ -9,7 +9,7 @@ import time
 start_time = time.time()
 import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-curr_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD_jetlat/RGCPD" # script directory
+curr_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD" # script directory
 script_dir = os.path.join(curr_dir)
 # To link modules in RGCPD folder to this script
 os.chdir(script_dir)
@@ -22,7 +22,7 @@ import functions_pp
 import matplotlib.pyplot as plt
 import xarray as xr
 import cartopy.crs as ccrs
-retrieve_ERA_i_field = functions_pp.retrieve_ERA_i_field
+import download_ERA_interim_API as ERAi
 copy_stdout = sys.stdout
 
 # *****************************************************************************
@@ -56,7 +56,10 @@ ex = dict(
      {'dataset'     :       'era5',
      'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
-     'endyear'      :       2017, # download endyear
+     'endyear'      :       2018, # download endyear
+     'months'       :       list(range(1,12+1)), #downoad months
+     'time'         :       pd.DatetimeIndex(start='00:00', end='23:00', 
+                                freq=(pd.Timedelta(6, unit='h'))),
      'startperiod'  :       '06-24', # RV period
      'endperiod'    :       '08-22', # RV period
      'abs_or_anom'  :       'anom', # use absolute or anomalies?
@@ -64,6 +67,11 @@ ex = dict(
      'path_raw'     :       path_raw,
      'path_pp'     :        path_pp}
      )
+
+if ex['dataset'] == 'interim':
+    import download_ERA_interim_API as ECMWF
+elif ex['dataset'] == 'era5':
+    import download_ERA5_API as ECMWF
 
 # =============================================================================
 # What is the data you want to load / download (4 options)
@@ -166,9 +174,9 @@ ex['excludeRV'] = 0 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
 if ECMWFdownload == True:
     for idx in range(len(ex['vars'][0]))[:]:
         # class for ECMWF downloads
-        var_class = functions_pp.Var_ECMWF_download(ex, idx)
+        var_class = ECMWF.Var_ECMWF_download(ex, idx)
         ex[ex['vars'][0][idx]] = var_class
-        retrieve_ERA_i_field(var_class)
+        ECMWF.retrieve_field(var_class)
 
 #if ECMWFdownload == True:
 #    for var in ex['vars'][0]:
