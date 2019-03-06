@@ -114,7 +114,7 @@ class Var_ECMWF_download():
         
 
         vclass.time = list(ex['time'].strftime('%H:%M'))
-        vclass.filename = '{}_{}-{}_{}_{}_{}_{}deg'.format(vclass.name, 
+        vclass.filename = '{}_{}-{}_{}_{}_{}_{}deg.nc'.format(vclass.name, 
                            vclass.startyear, vclass.endyear, vclass.startmonth, 
                            vclass.endmonth, 'daily', ex['grid_res']).replace(' ', '_')
         vclass.format = '{}'.format('netcdf')
@@ -163,9 +163,8 @@ def retrieve_field(cls):
                 "param"     :   cls.var_cf_code,
                 "time"      :  cls.time,
                 "format"    :   "netcdf",
-#                "target"    :   ,
                 }, 
-                file_path_raw)
+                file_path_raw + '.nc')
         elif cls.levtype == 'pl':
             server.retrieve("reanalysis-era5-pressure-levels",
                 {
@@ -176,13 +175,12 @@ def retrieve_field(cls):
                 "year"      :   cls.years,
                 "month"     :   cls.months,
                 "day"       :   cls.days,
-#                "levtype"   :   cls.levtype,
                 "levelist"  :   cls.lvllist,
                 "param"     :   cls.var_cf_code,
                  "time"      :  cls.time,
                 "format"    :   "netcdf",
                 }, 
-                file_path_raw)
+                file_path_raw + '.nc')
         print("convert operational 6hrly data to daily means")
         args = ['cdo daymean {} {}'.format(file_path_raw, file_path)]
         kornshell_with_input(args, cls)
@@ -191,16 +189,11 @@ def retrieve_field(cls):
 
 
 def kornshell_with_input(args, cls):
-#    stopped working for cdo commands
     '''some kornshell with input '''
-#    args = [anom]
-    import os
     import subprocess
     cwd = os.getcwd()
     # Writing the bash script:
     new_bash_script = os.path.join(cwd,'bash_scripts', "bash_script.sh")
-#    arg_5d_mean = 'cdo timselmean,5 {} {}'.format(infile, outfile)
-    #arg1 = 'ncea -d latitude,59.0,84.0 -d longitude,-95,-10 {} {}'.format(infile, outfile)
     
     bash_and_args = [new_bash_script]
     [bash_and_args.append(arg) for arg in args]

@@ -32,7 +32,7 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 # in the final output.
 
 ex = dict(
-     {'dataset'     :       'interim',
+     {'dataset'     :       'era5',
      'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
      'endyear'      :       2018, # download endyear
