@@ -36,7 +36,7 @@ copy_stdout = sys.stdout
 # which will be made when running the code
 base_path = "/Users/semvijverberg/surfdrive/RGCPD_jetlat/"
 dataset   = 'ERAint' # choose 'era5' or 'ERAint'
-exp_folder = ''
+exp_folder = 'winter'
 path_raw = os.path.join('/Users/semvijverberg/surfdrive/Data_{}/' 
                         'input_raw'.format(dataset))
 path_pp  = os.path.join('/Users/semvijverberg/surfdrive/Data_{}/' 
@@ -60,12 +60,16 @@ ex = dict(
      'months'       :       list(range(1,12+1)), #downoad months
      'time'         :       pd.DatetimeIndex(start='00:00', end='23:00', 
                                 freq=(pd.Timedelta(6, unit='h'))),
-     'startperiod'  :       '06-24', # RV period
-     'endperiod'    :       '08-22', # RV period
+     'startperiod'  :       '11-01', # RV period
+     'endperiod'    :       '12-31', # RV period
+     'la_min'       :       -20, # select domain of correlation analysis
+     'la_max'       :       89,
+     'lo_min'       :       -180,
+     'lo_max'       :       360,
      'abs_or_anom'  :       'anom', # use absolute or anomalies?
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
-     'path_pp'     :        path_pp}
+     'path_pp'      :       path_pp}
      )
 
 if ex['dataset'] == 'ERAint':
@@ -223,7 +227,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [1,2,4,7,14,21,35]
+ex['tfreqlist'] = [2,4,7,14,21,35] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
@@ -232,11 +236,12 @@ for freq in ex['tfreqlist']:
     ex['lag_max'] = ex['lag_min'] + 2
     # s(elect)startdate and enddate create the period of year you want to investigate:
     # Important! The time cycle of the precursor and Response variable should match!
-    ex['sstartdate'] = '{}-03-1'.format(ex['startyear'])
-    ex['senddate']   = '{}-08-31'.format(ex['startyear'])
+    ex['sstartdate'] = '08-1'
+    ex['senddate']   = '12-31'
 
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
-                        ex['sstartdate'].split('-')[1], ex['senddate'].split('-')[1], ex['tfreq'])
+                        ex['sstartdate'].split('-')[0], 
+                        ex['senddate'].split('-')[0], ex['tfreq'])
 
     ex['path_exp'] = os.path.join(base_path, exp_folder, ex['exp_pp'])
     if os.path.isdir(ex['path_exp']) == False : os.makedirs(ex['path_exp'])
@@ -322,14 +327,10 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # (1) significant regions will be grouped together if seperated by 'prec_reg_max_d'
     #     gridcells
-    ex['prec_reg_max_d'] = 1 
+    ex['prec_reg_max_d'] = 1  # max of 1
     # (2) set minimal size of precursor region
-    ex['min_n_gc'] = 5
+    ex['min_n_gc'] = 10
     
-    ex['la_min'] = -20 # select domain of correlation analysis
-    ex['la_max'] = 89
-    ex['lo_min'] = -180
-    ex['lo_max'] = 360
     # Some output settings
     ex['file_type1'] = ".pdf"
     ex['file_type2'] = ".png"

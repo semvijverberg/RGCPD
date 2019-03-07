@@ -120,7 +120,7 @@ def run_PCMCI(ex, outdic_actors, map_proj):
     # 4) PCMCI-algorithm
     #
     #=====================================================================================
-#%%
+
     # save output
     if ex['SaveTF'] == True:
 #        from contextlib import redirect_stdout
@@ -130,10 +130,9 @@ def run_PCMCI(ex, outdic_actors, map_proj):
             sys.stdout = f = io.StringIO()
         elif sys.version[:1] == '2':
             sys.stdout = f = open(os.path.join(ex['fig_subpath'], 'old.txt'), 'w+')
+#%%
 
 
-
-#         = f
     # alpha level for independence test within the pc procedure (finding parents)
     pc_alpha = ex['pcA_sets'][ex['pcA_set']]
     # alpha level for multiple linear regression model while conditining on parents of
@@ -297,7 +296,7 @@ def run_PCMCI(ex, outdic_actors, map_proj):
         else :
             print('Index itself is also causal parent -> skipped')
             print('*******************              ***************************')
-
+#%%
     if ex['SaveTF'] == True:
         if sys.version[:1] == '3':
             file = io.open(os.path.join(ex['fig_subpath'], ex['params']+'.txt'), mode='w+')
@@ -322,7 +321,7 @@ def run_PCMCI(ex, outdic_actors, map_proj):
         sys.stdout = orig_stdout
 
 
-        #%%
+        
     return parents_RV, var_names
 #%%
 
@@ -551,7 +550,8 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
             for col in xrdata.names_col.values:
                 colidx = list(xrdata.names_col.values).index(col)
 
-                plotdata = plotrow.sel(names_col=names_col[colidx])
+
+                plotdata = extend_longitude(plotrow.sel(names_col=names_col[colidx]))
                 if np.sum(plotdata) == 0.:
                     g.axes[rowidx,colidx].text(0.5, 0.5, 'No regions significant',
                                   horizontalalignment='center', fontsize='x-large',
@@ -561,7 +561,7 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
                                                     cmap=cmap, levels=clevels,
                                                     subplot_kws={'projection':map_proj},
                                                     add_colorbar=False)
-                    plotdata = plotrow.sel(names_col=names_col[1])
+                    plotdata = extend_longitude(plotrow.sel(names_col=names_col[1]))
                     if np.sum(plotdata) != 0.:
                         contourmask = np.array(np.nan_to_num(plotdata.where(plotdata > 0.)), dtype=int)
                         plotdata.data = contourmask
@@ -569,7 +569,8 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
                                                             colors=['black'], levels=levels,
                                                             subplot_kws={'projection':map_proj},
                                                             add_colorbar=False)
-
+                g.axes[rowidx,colidx].set_extent([lon[0], lon[-1], 
+                                       lat[0], lat[-1]], ccrs.PlateCarree())
             g.axes[rowidx,0].text(-figwidth/100, 0.5, row,
                       horizontalalignment='center', fontsize='x-large',
                       verticalalignment='center', transform=g.axes[rowidx,0].transAxes)

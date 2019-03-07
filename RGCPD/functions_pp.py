@@ -313,14 +313,13 @@ def time_mean_bins(xarray, ex, seldays = 'part'):
     #%%
     import xarray as xr
     datetime = pd.to_datetime(xarray['time'].values)
-    one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
     
-    if one_yr.size % ex['tfreq'] != 0 or seldays == 'part':
+    if ex['n_oneyr'] % ex['tfreq'] != 0 or seldays == 'part':
         possible = []
         for i in np.arange(1,20):
             if 214%i == 0:
                 possible.append(i)
-        if one_yr.size % ex['tfreq'] != 0:
+        if ex['n_oneyr'] % ex['tfreq'] != 0:
             print('Note: tfreq {} does not fit in the supplied (sub)year\n'
                          'adjusting part of year to fit bins.'.format(
                              ex['tfreq']))   
@@ -328,14 +327,12 @@ def time_mean_bins(xarray, ex, seldays = 'part'):
 #        print('\n Will shorten the \'subyear\', so that the temporal'
 #              ' frequency fits in one year')
         xarray, datetime = timeseries_tofit_bins(xarray, ex, seldays='part')
-        one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
           
     else:
         pass
-    fit_steps_yr = (one_yr.size)  / ex['tfreq']
+    fit_steps_yr = ex['n_oneyr']  / ex['tfreq']
     bins = list(np.repeat(np.arange(0, fit_steps_yr), ex['tfreq']))
-    n_years = (datetime.year[-1] - datetime.year[0]) + 1
-    for y in np.arange(1, n_years):
+    for y in np.arange(1, ex['n_yrs']):
         x = np.repeat(np.arange(0, fit_steps_yr), ex['tfreq'])
         x = x + fit_steps_yr * y
         [bins.append(i) for i in x]
@@ -357,17 +354,25 @@ def time_mean_bins(xarray, ex, seldays = 'part'):
     return group_bins.rename({'bins' : 'time'}), dates, datetime
 
 def timeseries_tofit_bins(xarray, ex, seldays='part'):
+    #%%
     datetime = pd.to_datetime(xarray['time'].values)
 
     leapdays = ((datetime.is_leap_year) & (datetime.month==2) & (datetime.day==29))==False
     datetime = datetime[leapdays].dropna(how='all')
-
+    
 # =============================================================================
 #   # select dates
 # =============================================================================
     # selday_pp is the period you aim to study
     if seldays == 'part':
         # add corresponding time information
+        crossyr = int(ex['sstartdate'].replace('-','')) > int(ex['senddate'].replace('-',''))
+        ex['sstartdate'] = '{}-08-1'.format(ex['startyear'])
+        if crossyr:
+            ex['senddate']   = '{}-12-31'.format(ex['startyear']+1)        
+        else:
+            ex['senddate']   = '{}-12-31'.format(ex['startyear'])
+        
         ex['adjhrsstartdate'] = ex['sstartdate'] + ' {:}:00:00'.format(datetime[0].hour)
         ex['adjhrsenddate']   = ex['senddate'] + ' {:}:00:00'.format(datetime[0].hour)
         sdate = pd.to_datetime(ex['adjhrsstartdate'])
@@ -397,16 +402,17 @@ def timeseries_tofit_bins(xarray, ex, seldays='part'):
 
         
     def make_datestr_2(datetime, start_yr):
-        breakyr = datetime.year.max()
+#        crossyr = (start_yr[-1].year - start_yr[0].year) == 1
+        breakyr = datetime.year.max() 
         datesstr = [str(date).split('.', 1)[0] for date in start_yr.values]
         nyears = (datetime.year[-1] - datetime.year[0])+1
         startday = start_yr[0].strftime('%Y-%m-%dT%H:%M:%S')
         endday = start_yr[-1].strftime('%Y-%m-%dT%H:%M:%S')
-        firstyear = startday[:4]
+        firstyear = (startday[:4], endday[:4])
         datesdt = start_yr
         def plusyearnoleap(curr_yr, startday, endday, incr):
-            startday = startday.replace(firstyear, str(curr_yr+incr))
-            endday = endday.replace(firstyear, str(curr_yr+incr))
+            startday = startday.replace(firstyear[0], str(curr_yr[0]+incr))
+            endday = endday.replace(firstyear[1], str(curr_yr[1]+incr))
             next_yr = pd.DatetimeIndex(start=startday, end=endday, 
                             freq=(datetime[1] - datetime[0]))
             # excluding leap year again
@@ -415,27 +421,35 @@ def timeseries_tofit_bins(xarray, ex, seldays='part'):
             return next_yr
         
         for yr in range(0,nyears-1):
-            curr_yr = yr+datetime.year[0]
+#            if crossyr==False:
+#                curr_yr = (yr+int(firstyear[0]), yr+int(firstyear[1]))
+#            elif crossyr:
+            curr_yr = (yr+int(firstyear[0]), yr+int(firstyear[1]))
+
             next_yr = plusyearnoleap(curr_yr, startday, endday, 1)
             datesdt = np.append(datesdt, next_yr)
 #            print(len(next_yr))
 #            nextstr = [str(date).split('.', 1)[0] for date in next_yr.values]
 #            datesstr = datesstr + nextstr
 #            print(nextstr[0])
-            
-            upd_start_yr = plusyearnoleap(next_yr.year[0], startday, endday, 1)
 
-            if next_yr.year[0] == breakyr:
+            if next_yr.year[-1] == breakyr:
                 break
+        # drop last year data if crossyr == True, othersize years are unequal lenght
+#        datesdt = datesdt[datesdt.year != breakyr]
         datesdt = pd.to_datetime(datesdt)
-        return datesdt, upd_start_yr
+        return datesdt
     
     start_yr = pd.DatetimeIndex(start=start_day, end=end_day, 
                                 freq=(datetime[1] - datetime[0]))
     # exluding leap year from cdo select string
     noleapdays = (((start_yr.month==2) & (start_yr.day==29))==False)
     start_yr = start_yr[noleapdays].dropna(how='all')
-    datesdt, next_yr = make_datestr_2(datetime, start_yr)
+    ex['n_oneyr'] = start_yr.size
+    
+    datesdt = make_datestr_2(datetime, start_yr)
+    
+    ex['n_yrs'] = datesdt.size / ex['n_oneyr']
     months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
                          8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
     startdatestr = '{} {}'.format(start_day.day, months[start_day.month])
@@ -443,6 +457,7 @@ def timeseries_tofit_bins(xarray, ex, seldays='part'):
     print('Period of year selected: \n{} to {}, tfreq {}'.format(
                 startdatestr, enddatestr, ex['tfreq']))
     adj_xarray = xarray.sel(time=datesdt)
+    #%%
     return adj_xarray, datesdt
 
 def make_RVdatestr(dates, ex, startyr, endyr, lpyr=False):
@@ -552,6 +567,11 @@ def detrend_anom_ncdf3D(filename, outfile, ex, encoding=None):
     var = [var for var in strvars if var not in ' time time_bnds longitude latitude lev lon lat level '][0] 
     var = var.replace(' ', '')
     ds = ncdf[var]
+    if 'latitude' and 'longitude' not in ds.dims:
+        ds = ds.rename({'lat':'latitude', 
+                   'lon':'longitude'})
+    ds = ds.sel(latitude=slice(ex['la_max'], ex['la_min']))
+    ds = ds.sel(longitude=slice(ex['lo_min'], ex['lo_max']))
     # get dates
     numtime = ds['time']
     dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
@@ -562,9 +582,7 @@ def detrend_anom_ncdf3D(filename, outfile, ex, encoding=None):
     
     ds, dates, datessel = time_mean_bins(ds, ex, seldays='part')
 
-    if 'latitude' and 'longitude' not in ds.dims:
-        ds = ds.rename({'lat':'latitude', 
-                   'lon':'longitude'})
+
 
     # check if 3D data (lat, lat, lev) or 2D
     if any([level in ds.dims for level in ['lev', 'level']]):

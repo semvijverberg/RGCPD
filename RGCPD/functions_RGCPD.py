@@ -5,22 +5,12 @@ matplotlib.rcParams['backend'] = "Qt4Agg"
 from pylab import *
 import matplotlib.pyplot as plt
 #from mpl_toolkits.basemap import Basemap, shiftgrid, cm
-from netCDF4 import Dataset
-from netcdftime import utime
-from matplotlib.dates import YearLocator, MonthLocator, DateFormatter
-import pandas
-from pandas import DataFrame
 import scipy
-from scipy import signal
-from datetime import datetime 
-import datetime
-from matplotlib.patches import Polygon
-from matplotlib import gridspec
-import seaborn as sns
 from statsmodels.sandbox.stats import multicomp
 import xarray as xr
 import cartopy.crs as ccrs
-
+import itertools
+flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 
 
@@ -168,14 +158,13 @@ def calc_corr_coeffs_new(ncdf, precur_arr, RVts, ex):
     allkeysncdf = list(d.variables.keys())
     dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude', 'mask', 'levels']
     var = [keync for keync in allkeysncdf if keync not in dimensionkeys][0]  
-    print(('calculating correlation maps for {}'.format(var)))
+    print('\ncalculating correlation maps for {}'.format(var))
 	
 	
     for i in range(lag_steps):
 
         lag = ex['lag_min'] + i
 		
-        print(('lag', lag))
         months_indices_lagged = [r - lag for r in ex['RV_period']]
 		
         # only winter months 		
@@ -497,8 +486,8 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid, ex):
 
 	
 	
-	# mask out those nodes which didnot fullfill the neighborhood criterias
-    A.mask[A==0] = True	
+#	 mask out those nodes which didnot fullfill the neighborhood criterias
+#    A.mask[A==0] = True	
 		
 		
 	#========================================
@@ -518,7 +507,8 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid, ex):
         j = list(sorted_region_strength)[i]
         Regions_lag_i[list(Regions[j])]=i+1
     
-    Regions_lag_i = np.ma.array(Regions_lag_i, mask=A.mask, dtype=int)
+    Regions_lag_i = np.array(Regions_lag_i, dtype=int)
+    Regions_lag_i = np.ma.masked_where(Regions_lag_i==0, Regions_lag_i)
     #%%
     return Regions_lag_i
 	
@@ -563,7 +553,8 @@ def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
         else:
             Regions_lag_i = define_regions_and_rank_new(Corr_Coeff[:,i], lat_grid, lon_grid, ex)
 		
-		
+        
+        
         if Regions_lag_i.max()> 0:
             n_regions_lag_i = int(Regions_lag_i.max())
             print(('{} regions detected for lag {}, variable {}'.format(n_regions_lag_i, ex['lag_min']+i,var)))
