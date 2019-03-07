@@ -42,6 +42,7 @@ def calculate_corr_maps(ex, map_proj):
     # Information on period taken for response-variable, already decided in main_download_and_pp
     #=====================================================================================
     ex['time_range_all'] = [0, RV.dates.size]
+    ex['n_tot_regs'] = 0
     #==================================================================================
     # Start of experiment
     #==================================================================================
@@ -88,7 +89,7 @@ def calculate_corr_maps(ex, map_proj):
         # stacked on top of each other (from lag_min to lag_max)
         tsCorr, n_reg_perlag = rgcpd.calc_actor_ts_and_plot(Corr_Coeff, actbox,
                                 ex, lat_grid, lon_grid, var)           
-                
+        ex['n_tot_regs'] += tsCorr.size / time
         # Order of regions: strongest to lowest correlation strength
         outdic_actors[var] = act(var, Corr_Coeff, lat_grid, lon_grid, actbox, tsCorr, n_reg_perlag)
         # =============================================================================
@@ -157,13 +158,14 @@ def run_PCMCI(ex, outdic_actors, map_proj):
     for var in allvar[ex['excludeRV']:]:
         print(var)
         actor = outdic_actors[var]
-        actorlist.append(actor.tsCorr)
-        # create array which numbers the regions
-        var_idx = allvar.index(var) - ex['excludeRV']
-        n_regions = actor.tsCorr.shape[1]
-        actor.var_info = [[i+1, var, var_idx] for i in range(n_regions)]
-        # Array of corresponing regions with var_names (first entry is RV)
-        var_names = var_names + actor.var_info
+        if actor.tsCorr.size != 0:
+            actorlist.append(actor.tsCorr)
+            # create array which numbers the regions
+            var_idx = allvar.index(var) - ex['excludeRV']
+            n_regions = actor.tsCorr.shape[1]
+            actor.var_info = [[i+1, var, var_idx] for i in range(n_regions)]
+            # Array of corresponing regions with var_names (first entry is RV)
+            var_names = var_names + actor.var_info
     # stack actor time-series together:
     fulldata = np.concatenate(tuple(actorlist), axis = 1)
     print(('There are {} regions in total'.format(fulldata.shape[1])))
@@ -335,7 +337,7 @@ def extend_longitude(data):
     import numpy as np
     plottable = xr.concat([data, data.sel(longitude=data.longitude[:1])], dim='longitude').to_dataset(name="ds")
     plottable["longitude"] = np.linspace(0,360, len(plottable.longitude))
-    plottable = plottable.to_array(dim='ds').squeeze().drop('ds')
+    plottable = plottable.to_array(dim='ds').squeeze(dim='ds').drop('ds')
     return plottable
 
 
@@ -388,22 +390,21 @@ def xarray_plot_region(print_vars, outdic_actors, ex, map_proj):
         col = variables.index(var)
         xrdatavar = extend_longitude(xrdata.sel(variable=var))
         xrmaskvar = extend_longitude(xrmask.sel(variable=var))
-        lons = xrdatavar.longitude
-        lats = xrdatavar.latitude
         for lag in lags:
             row = lags.index(lag)
             print('Plotting Corr maps {}, lag {}'.format(var, lag))
             plotdata = xrdatavar.sel(lag=lag)
             plotmask = xrmaskvar.sel(lag=lag)
-            plotmask.plot.contour(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
-                                  subplot_kws={'projection': map_proj}, colors=['black'],
-                                  levels=[float(vmin),float(vmax)],add_colorbar=False)
+            if (plotmask.values==True).all() == False:
+                plotmask.plot.contour(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
+                                      subplot_kws={'projection': map_proj}, colors=['black'],
+                                      levels=[float(vmin),float(vmax)],add_colorbar=False)
             im = plotdata.plot.contourf(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
                                         center=0,
                                          levels=clevels, norm=norm, cmap=cmap,
                                          subplot_kws={'projection':map_proj},add_colorbar=False)
             g.axes[row,col].set_extent([lon[0], lon[-1], 
-                                       lats[0], lats[-1]], ccrs.PlateCarree())
+                                       lat[0], lat[-1]], ccrs.PlateCarree())
             g.axes[row,col].coastlines()
 
     plt.tight_layout()
@@ -584,7 +585,7 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
 #        g.axes[rowidx,0].text(0.5, figwidth/100, 'Black contours are not significant after MCI',
 #                      horizontalalignment='center', fontsize='x-large',
 #                      verticalalignment='center', transform=g.axes[rowidx,0].transAxes)
-        if ex['plotin1fig'] == False:
+        if ex['plotin1fig'] == False and xrdata.sum() != 0:
             cbar_ax = g.fig.add_axes([0.25, (figheight/25)/len(g.row_names),
                                       0.5, (figheight/150)/len(g.row_names)])
             plt.colorbar(im, cax=cbar_ax, orientation='horizontal')

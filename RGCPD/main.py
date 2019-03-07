@@ -227,7 +227,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [2,4,7,14,21,35] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [13] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
@@ -392,16 +392,19 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     ex, outdic_actors = wrapper_RGCPD_tig.calculate_corr_maps(ex, map_proj)
     #%%
-    # =============================================================================
-    # Run tigramite to extract causal precursors
-    # =============================================================================
-    parents_RV, var_names = wrapper_RGCPD_tig.run_PCMCI(ex, outdic_actors, map_proj)
-    #%%
-    # =============================================================================
-    # Plot final results
-    # =============================================================================
-    #! netcdfs must have same spatial resolution for final plotting function
-    wrapper_RGCPD_tig.plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj)
-    print("--- {:.2} minutes ---".format((time.time() - start_time)/60))
-    #%%
+    if ex['n_tot_regs'] != 0:
+        
+        # =============================================================================
+        # Run tigramite to extract causal precursors
+        # =============================================================================
+    
+        parents_RV, var_names = wrapper_RGCPD_tig.run_PCMCI(ex, outdic_actors, map_proj)
+        
+        # =============================================================================
+        # Plot final results
+        # =============================================================================
+        #! netcdfs must have same spatial resolution for final plotting function
+        wrapper_RGCPD_tig.plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj)
+        print("--- {:.2} minutes ---".format((time.time() - start_time)/60))
+        #%%
 

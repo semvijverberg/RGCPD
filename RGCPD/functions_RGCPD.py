@@ -651,13 +651,13 @@ def print_particular_region(ex, number_region, Corr_Coeff_lag_i, actor, map_proj
             Regions_lag_i = define_regions_and_rank_new(Corr_Coeff_lag_i[:,i], 
                                                         latitudes, longitudes, ex)
 		
-        if Regions_lag_i.max()==0:
+        if np.max(Regions_lag_i.data)==0:
             n_regions_lag_i = 0
 		
         else:	
-            n_regions_lag_i = int(Regions_lag_i.max())
-            x_reg = np.max(Regions_lag_i)	
-            levels = np.arange(x, x + x_reg +1)+.5
+            n_regions_lag_i = int(np.max(Regions_lag_i.data))
+#            x_reg = np.max(Regions_lag_i)	
+#            levels = np.arange(x, x + x_reg +1)+.5
 
 		
             A_r = np.reshape(Regions_lag_i, (latitudes.size, longitudes.size))
