@@ -134,7 +134,7 @@ def retrieve_field(cls):
         # !/usr/bin/python
         if cls.levtype == 'sfc':
             server.retrieve({
-                "dataset"   :   cls.dataset,
+                "dataset"   :   'interim',
                 "class"     :   "ei",
                 "expver"    :   "1",
                 "grid"      :   '{}/{}'.format(cls.grid,cls.grid),
@@ -151,7 +151,7 @@ def retrieve_field(cls):
                 })
         elif cls.levtype == 'pl':
             server.retrieve({
-                "dataset"   :   cls.dataset,
+                "dataset"   :   'interim',
                 "class"     :   "ei",
                 "expver"    :   "1",
                 "date"      :   datestring,

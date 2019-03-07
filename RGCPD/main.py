@@ -36,11 +36,12 @@ copy_stdout = sys.stdout
 # this will be your basepath, all raw_input and output will stored in subfolder
 # which will be made when running the code
 base_path = "/Users/semvijverberg/surfdrive/RGCPD_jetlat/"
+dataset   = 'ERAint' # choose 'era5' or 'ERAint'
 exp_folder = ''
-path_raw = os.path.join("/Users/semvijverberg/surfdrive/Data_ERAint/", 
-                        'input_raw')
-path_pp  = os.path.join("/Users/semvijverberg/surfdrive/Data_ERAint/", 
-                        'input_pp')
+path_raw = os.path.join('/Users/semvijverberg/surfdrive/Data_{}/' 
+                        'input_raw'.format(dataset))
+path_pp  = os.path.join('/Users/semvijverberg/surfdrive/Data_{}/' 
+                        'input_pp'.format(dataset))
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 
@@ -53,10 +54,10 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 # in the final output.
 #
 ex = dict(
-     {'dataset'     :       'era5',
+     {'dataset'     :       dataset,
      'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
-     'endyear'      :       2018, # download endyear
+     'endyear'      :       2017, # download endyear
      'months'       :       list(range(1,12+1)), #downoad months
      'time'         :       pd.DatetimeIndex(start='00:00', end='23:00', 
                                 freq=(pd.Timedelta(6, unit='h'))),
@@ -68,7 +69,7 @@ ex = dict(
      'path_pp'     :        path_pp}
      )
 
-if ex['dataset'] == 'interim':
+if ex['dataset'] == 'ERAint':
     import download_ERA_interim_API as ECMWF
 elif ex['dataset'] == 'era5':
     import download_ERA5_API as ECMWF
@@ -104,8 +105,8 @@ if ECMWFdownload == True:
 #                             ['pl'],[['1000', '900', '850', '700', '600', '500','400','200']] ]
 #    ex['vars']      =       [['u_10hpa'],['131.128'],
 #                             ['pl'],['10'] ]
-    ex['vars']      =       [ ['z_850hpa', 'sst', 't_850hpa'],['129.128', '34.128', '130.128'],
-                              ['pl', 'sfc', 'pl'],[['850'], '0', ['850']] ]
+    ex['vars']      =       [ ['z_500hpa', 'sst', 't_850hpa'],['129.128', '34.128', '130.128'],
+                              ['pl', 'sfc', 'pl'],[['500'], '0', ['850']] ]
 #    ex['vars']      =       [['t_10hpa'],['130.128'],
 #                             ['pl'],['10'] ]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
@@ -223,7 +224,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [10] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [5] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test

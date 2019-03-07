@@ -349,6 +349,15 @@ def run_PCMCI(ex, outdic_actors, map_proj):
 # and causal region maps (plottingfunction)
 # =============================================================================
 
+def extend_longitude(data):
+    import xarray as xr
+    import numpy as np
+    plottable = xr.concat([data, data.sel(longitude=data.longitude[:1])], dim='longitude').to_dataset(name="ds")
+    plottable["longitude"] = np.linspace(0,360, len(plottable.longitude))
+    plottable = plottable.to_array(dim='ds').squeeze().drop('ds')
+    return plottable
+
+
 def xarray_plot_region(print_vars, outdic_actors, ex, map_proj):
     #%%
     import cartopy.crs as ccrs
@@ -396,8 +405,10 @@ def xarray_plot_region(print_vars, outdic_actors, ex, map_proj):
     cmap = 'RdBu_r'
     for var in variables[:]:
         col = variables.index(var)
-        xrdatavar = xrdata.sel(variable=var)
-        xrmaskvar = xrmask.sel(variable=var)
+        xrdatavar = extend_longitude(xrdata.sel(variable=var))
+        xrmaskvar = extend_longitude(xrmask.sel(variable=var))
+        lons = xrdatavar.longitude
+        lats = xrdatavar.latitude
         for lag in lags:
             row = lags.index(lag)
             print('Plotting Corr maps {}, lag {}'.format(var, lag))
@@ -410,7 +421,8 @@ def xarray_plot_region(print_vars, outdic_actors, ex, map_proj):
                                         center=0,
                                          levels=clevels, norm=norm, cmap=cmap,
                                          subplot_kws={'projection':map_proj},add_colorbar=False)
-
+            g.axes[row,col].set_extent([lon[0], lon[-1], 
+                                       lats[0], lats[-1]], ccrs.PlateCarree())
             g.axes[row,col].coastlines()
 
     plt.tight_layout()
