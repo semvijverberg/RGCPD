@@ -125,67 +125,82 @@ class Var_ECMWF_download():
             
 def retrieve_field(cls):
 
-    import cdsapi
+
     import os
-    server = cdsapi.Client()
     
     file_path = os.path.join(cls.path_raw, cls.filename)
     file_path_raw = file_path.replace('daily','oper')
-#    if cls.stream == "mnth" or cls.stream == "oper":
-#        time = "00:00:00/06:00:00/12:00:00/18:00:00"
-#    elif cls.stream == "moda":
-#        time = "00:00:00"
-#    else:
-#        print("stream is not available")
-
-
+    
     if os.path.isfile(path=file_path) == True:
         print("You have already download the variable")
         print(("to path: {} \n ".format(file_path)))
         pass
     else:
+        # create temporary folder
+        tmp_folder = os.path.join(cls.path_raw, 
+                  '{}_{}_tmp'.format(cls.name, cls.grid[0]))
+        if os.path.isdir(tmp_folder) == False : os.makedirs(tmp_folder)
+        cls.tmp_folder = tmp_folder
         print(("You WILL download variable {} \n stream is set to {} \n".format \
             (cls.name, cls.stream)))
         print(("to path: \n \n {} \n \n".format(file_path_raw)))
-        # !/usr/bin/python
-        if cls.levtype == 'sfc':
-            server.retrieve("reanalysis-era5-single-levels",
-                {
-                "producttype":  "reanalysis",
-                "class"     :   "ei",
-                "expver"    :   "1",
-                "grid"      :   cls.grid,
-                "year"      :   cls.years,
-                "month"     :   cls.months,
-                "day"       :   cls.days,
-#                "levtype"   :   cls.levtype,
-                # "levelist"  :   cls.lvllist,
-                "param"     :   cls.var_cf_code,
-                "time"      :  cls.time,
-                "format"    :   "netcdf",
-                }, 
-                file_path_raw + '.nc')
-        elif cls.levtype == 'pl':
-            server.retrieve("reanalysis-era5-pressure-levels",
-                {
-                "producttype":  "reanalysis",
-                "class"     :   "ei",
-                "expver"    :   "1",
-                "grid"      :   cls.grid,
-                "year"      :   cls.years,
-                "month"     :   cls.months,
-                "day"       :   cls.days,
-                "levelist"  :   cls.lvllist,
-                "param"     :   cls.var_cf_code,
-                 "time"      :  cls.time,
-                "format"    :   "netcdf",
-                }, 
-                file_path_raw + '.nc')
+        
+        for year in cls.years:
+            retrieval_yr(cls, year)
+        
+    
+    
         print("convert operational 6hrly data to daily means")
-        args = ['cdo daymean {} {}'.format(file_path_raw, file_path)]
+        cat  = 'cdo cat {}*.nc {}'.format(cls.tmp_folder, file_path_raw)
+        daymean = ['cdo daymean {} {}'.format(file_path_raw, file_path)]
+        args = [cat, daymean]
         kornshell_with_input(args, cls)
+        
+        
     return
 
+def retrieval_yr(cls, year):
+    import cdsapi
+    server = cdsapi.Client()
+
+    
+    tmp_output = os.path.join(cls.tmp_folder, '{}_{}.nc'.format(cls.name,
+                              year))
+
+    # !/usr/bin/python
+    if cls.levtype == 'sfc':
+        server.retrieve("reanalysis-era5-single-levels",
+            {
+            "producttype":  "reanalysis",
+            "class"     :   "ei",
+            "expver"    :   "1",
+            "grid"      :   cls.grid,
+            "year"      :   year,
+            "month"     :   cls.months,
+            "day"       :   cls.days,
+#                "levtype"   :   cls.levtype,
+            # "levelist"  :   cls.lvllist,
+            "param"     :   cls.var_cf_code,
+            "time"      :  cls.time,
+            "format"    :   "netcdf",
+            }, 
+            tmp_output)
+    elif cls.levtype == 'pl':
+        server.retrieve("reanalysis-era5-pressure-levels",
+            {
+            "producttype":  "reanalysis",
+            "class"     :   "ei",
+            "expver"    :   "1",
+            "grid"      :   cls.grid,
+            "year"      :   year,
+            "month"     :   cls.months,
+            "day"       :   cls.days,
+            "levelist"  :   cls.lvllist,
+            "param"     :   cls.var_cf_code,
+             "time"      :  cls.time,
+            "format"    :   "netcdf",
+            }, 
+            tmp_output)
 
 
 def kornshell_with_input(args, cls):

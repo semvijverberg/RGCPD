@@ -302,20 +302,20 @@ def plot_corr_coeffs(Corr_Coeff, m, lag_min, lat_grid, lon_grid, title='Corr Map
 	return fig
 
 
-
-
-def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
-	'''
+def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid, ex):
+    #%%
+    '''
 	takes Corr Coeffs and defines regions by strength
 
 	return A: the matrix whichs entries correspond to region. 1 = strongest, 2 = second strongest...
-	'''
-	print('extracting causal precursor regions ...\n')
+    '''
+#    print('extracting features ...\n')
 
 	
 	# initialize arrays:
 	# A final return array 
-	A = np.ma.copy(Corr_Coeff)
+    A = np.ma.copy(Corr_Coeff)
+#    A = np.ma.zeros(Corr_Coeff.shape)
 	#========================================
 	# STEP 1: mask nodes which were never significantly correlatated to index (= count=0)
 	#========================================
@@ -324,66 +324,83 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 	# STEP 2: define neighbors for everey node which passed Step 1
 	#========================================
 
-	indices_not_masked = np.where(A.mask==False)[0].tolist()
+    indices_not_masked = np.where(A.mask==False)[0].tolist()
 
-	lo = lon_grid.shape[0]
-	la = lat_grid.shape[0]
+    lo = lon_grid.shape[0]
+    la = lat_grid.shape[0]
 	
 	# create list of potential neighbors:
-	N_pot=[[] for i in range(A.shape[0])]
+    N_pot=[[] for i in range(A.shape[0])]
 
 	#=====================
 	# Criteria 1: must bei geographical neighbors:
+    n_between = ex['prec_reg_max_d']
 	#=====================
-	for i in indices_not_masked:
-		n = []	
-
-		col_i= i%lo
-		row_i = i//lo
-
-		# knoten links oben
-		if i==0:
-			n= n+[lo-1, i+1, lo ]
-
-		# knoten rechts oben	
-		elif i== lo-1:
-			n= n+[i-1, 0, i+lo]
-
-		# knoten links unten
-		elif i==(la-1)*lo:
-			n= n+ [i+lo-1, i+1, i-lo]
-
-		# knoten rechts unten
-		elif i == la*lo-1:
-			n= n+ [i-1, i-lo+1, i-lo]
-
-		# erste zeile
-		elif i<lo:
-			n= n+[i-1, i+1, i+lo]
-	
-		# letzte zeile:
-		elif i>la*lo-1:
-			n= n+[i-1, i+1, i-lo]
-	
-		# erste spalte
-		elif col_i==0:
-			n= n+[i+lo-1, i+1, i-lo, i+lo]
-	
-		# letzt spalte
-		elif col_i ==lo-1:
-			n= n+[i-1, i-lo+1, i-lo, i+lo]
-	
-		# nichts davon
-		else:
-			n = n+[i-1, i+1, i-lo, i+lo]
+    for i in indices_not_masked:
+        neighb = []
+        def find_neighboors(i, lo):
+            n = []	
+    
+            col_i= i%lo
+            row_i = i//lo
+    
+    		# knoten links oben
+            if i==0:	
+                n= n+[lo-1, i+1, lo ]
+    
+    		# knoten rechts oben	
+            elif i== lo-1:
+                n= n+[i-1, 0, i+lo]
+    
+    		# knoten links unten
+            elif i==(la-1)*lo:
+                n= n+ [i+lo-1, i+1, i-lo]
+    
+    		# knoten rechts unten
+            elif i == la*lo-1:
+                n= n+ [i-1, i-lo+1, i-lo]
+    
+    		# erste zeile
+            elif i<lo:
+                n= n+[i-1, i+1, i+lo]
+    	
+    		# letzte zeile:
+            elif i>la*lo-1:
+                n= n+[i-1, i+1, i-lo]
+    	
+    		# erste spalte
+            elif col_i==0:
+                n= n+[i+lo-1, i+1, i-lo, i+lo]
+    	
+    		# letzt spalte
+            elif col_i ==lo-1:
+                n= n+[i-1, i-lo+1, i-lo, i+lo]
+    	
+    		# nichts davon
+            else:
+                n = n+[i-1, i+1, i-lo, i+lo]
+            return n
+        
+        for t in range(n_between+1):
+            direct_n = find_neighboors(i, lo)
+            if t == 0:
+                neighb.append(direct_n)
+            if t == 1:
+                for n in direct_n:
+                    ind_n = find_neighboors(n, lo)
+                    neighb.append(ind_n)
+        n = list(set(flatten(neighb)))
+        if i in n:
+            n.remove(i)
+        
 	
 	#=====================
 	# Criteria 2: must be all at least once be significanlty correlated 
 	#=====================	
-		m =[]
-		for j in n:
-			if j in indices_not_masked:
-					m = m+[j]
+        m =[]
+        for j in n:
+            if j in indices_not_masked:
+                m = m+[j]
 		
 		# now m contains the potential neighbors of gridpoint i
 
@@ -391,39 +408,39 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 	#=====================	
 	# Criteria 3: sign must be the same for each step 
 	#=====================				
-		l=[]
+        l=[]
 	
-		cc_i = A.data[i]
-		cc_i_sign = np.sign(cc_i)
+        cc_i = A.data[i]
+        cc_i_sign = np.sign(cc_i)
 		
 	
-		for k in m:
-			cc_k = A.data[k]
-			cc_k_sign = np.sign(cc_k)
+        for k in m:
+            cc_k = A.data[k]
+            cc_k_sign = np.sign(cc_k)
 		
 
-			if cc_i_sign *cc_k_sign == 1:
-				l = l +[k]
+            if cc_i_sign *cc_k_sign == 1:
+                l = l +[k]
 
-			else:
-				l = l
+            else:
+                l = l
 			
-		if len(l)==0:
-			l =[]
-			A.mask[i]=True	
-			
-		else: l = l +[i]	
+            if len(l)==0:
+                l =[]
+                A.mask[i]=True	
+    			
+            elif i not in l: 
+                l = l + [i]	
 		
 		
-		N_pot[i]=N_pot[i]+ l	
+            N_pot[i]=N_pot[i] + l	
 
 
 
 	#========================================	
 	# STEP 3: merge overlapping set of neighbors
 	#========================================
-	
-	Regions = merge_neighbors(N_pot)
+    Regions = merge_neighbors(N_pot)
 	
 	#========================================
 	# STEP 4: assign a value to each region
@@ -431,51 +448,57 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 	
 
 	# 2) combine 1A+1B 
-	B = np.abs(A)
+    B = np.abs(A)
 	
 	# 3) calculate the area size of each region	
 	
-	Area =  [[] for i in range(len(Regions))]
+    Area =  [[] for i in range(len(Regions))]
 	
-	for i in range(len(Regions)):
-		indices = np.array(list(Regions[i]))
-		indices_lat_position = indices//lo
-		lat_nodes = lat_grid[indices_lat_position[:]]
-		cos_nodes = np.cos(np.deg2rad(lat_nodes))		
+    for i in range(len(Regions)):
+        indices = np.array(list(Regions[i]))
+        indices_lat_position = indices//lo
+        lat_nodes = lat_grid[indices_lat_position[:]]
+        cos_nodes = np.cos(np.deg2rad(lat_nodes))		
 		
-		area_i = [np.sum(cos_nodes)]
-		Area[i]= Area[i]+area_i
+        area_i = [np.sum(cos_nodes)]
+        Area[i]= Area[i]+area_i
 	
 	#---------------------------------------
 	# OPTIONAL: Exclude regions which only consist of less than n nodes
 	# 3a)
 	#---------------------------------------	
 	
-	R=[]
-	Ar=[]
-	for i in range(len(Regions)):
-		if len(Regions[i])>=5:
-			R.append(Regions[i])
-			Ar.append(Area[i])
+    # keep only regions which are larger then the mean size of the regions
+    if ex['min_n_gc'] == 'mean':
+        n_nodes = int(np.mean([len(r) for r in Regions]))
+    else:
+        n_nodes = ex['min_n_gc']
+    
+    R=[]
+    Ar=[]
+    for i in range(len(Regions)):
+        if len(Regions[i])>=n_nodes:
+            R.append(Regions[i])
+            Ar.append(Area[i])
 	
-	Regions = R
-	Area = Ar	
+    Regions = R
+    Area = Ar	
 	
 	
 	
 	# 4) calcualte region value:
 	
-	C = np.zeros(len(Regions))
+    C = np.zeros(len(Regions))
 	
-	Area = np.array(Area)
-	for i in range(len(Regions)):
-		C[i]=Area[i]*np.mean(B[list(Regions[i])])
+    Area = np.array(Area)
+    for i in range(len(Regions)):
+        C[i]=Area[i]*np.mean(B[list(Regions[i])])
 
 
 	
 	
 	# mask out those nodes which didnot fullfill the neighborhood criterias
-	A.mask[A==0] = True	
+    A.mask[A==0] = True	
 		
 		
 	#========================================
@@ -483,20 +506,21 @@ def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid):
 	#========================================
 	
 	# rank indices of Regions starting with strongest:
-	sorted_region_strength = np.argsort(C)[::-1]
+    sorted_region_strength = np.argsort(C)[::-1]
 	
 	# give ranking number
 	# 1 = strongest..
 	# 2 = second strongest
-	
-	for i in range(len(Regions)):
-		j = list(sorted_region_strength)[i]
-		A[list(Regions[j])]=i+1
-		
-	return A	
-	
-	
-
+    
+    # create clean array
+    Regions_lag_i = np.zeros(A.data.shape)
+    for i in range(len(Regions)):
+        j = list(sorted_region_strength)[i]
+        Regions_lag_i[list(Regions[j])]=i+1
+    
+    Regions_lag_i = np.ma.array(Regions_lag_i, mask=A.mask, dtype=int)
+    #%%
+    return Regions_lag_i
 	
 
 def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
@@ -534,10 +558,10 @@ def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
     for i in range(lag_steps):
 		
         if Corr_Coeff.ndim ==1:
-            Regions_lag_i = define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid)
+            Regions_lag_i = define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid, ex)
 		
         else:
-            Regions_lag_i = define_regions_and_rank_new(Corr_Coeff[:,i], lat_grid, lon_grid)
+            Regions_lag_i = define_regions_and_rank_new(Corr_Coeff[:,i], lat_grid, lon_grid, ex)
 		
 		
         if Regions_lag_i.max()> 0:
@@ -574,7 +598,8 @@ def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
         tsCorr = np.array([])
 	
     else:
-        print((np.sum(Number_regions_per_lag), ' regions detected in total'))
+        print('{} regions detected in total\n'.format(
+                        np.sum(Number_regions_per_lag)))
 		
 		# check for whcih lag the first regions are detected
         d = 0
@@ -611,7 +636,7 @@ def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
 	
 
 	
-def print_particular_region(number_region, Corr_Coeff_lag_i, actor, map_proj, title):
+def print_particular_region(ex, number_region, Corr_Coeff_lag_i, actor, map_proj, title):
 #    (number_region, Corr_Coeff_lag_i, latitudes, longitudes, map_proj, title)=(according_number, Corr_precursor[:, :], actor.lat_grid, actor.lon_grid, map_proj, according_fullname) 
     #%%
     # check if only one lag is tested:
@@ -628,12 +653,14 @@ def print_particular_region(number_region, Corr_Coeff_lag_i, actor, map_proj, ti
     for i in range(lag_steps):
 	
         if Corr_Coeff_lag_i.ndim == 1:
-            Regions_lag_i = define_regions_and_rank_new(Corr_Coeff_lag_i, latitudes, longitudes)
+            Regions_lag_i = define_regions_and_rank_new(Corr_Coeff_lag_i, 
+                                                        latitudes, longitudes, ex)
 		
         else:	
-            Regions_lag_i = define_regions_and_rank_new(Corr_Coeff_lag_i[:,i], latitudes, longitudes)
+            Regions_lag_i = define_regions_and_rank_new(Corr_Coeff_lag_i[:,i], 
+                                                        latitudes, longitudes, ex)
 		
-        if Regions_lag_i.count()==0:
+        if Regions_lag_i.max()==0:
             n_regions_lag_i = 0
 		
         else:	
@@ -652,7 +679,8 @@ def print_particular_region(number_region, Corr_Coeff_lag_i, actor, map_proj, ti
 					
             A_number_region = np.zeros(A_r.shape)
             A_number_region[A_r == number_region]=1
-            xr_A_num_reg = xr.DataArray(data=A_number_region, coords=[latitudes, longitudes], dims=('latitude','longitude'))
+            xr_A_num_reg = xr.DataArray(data=A_number_region, coords=[latitudes, longitudes], 
+                                        dims=('latitude','longitude'))
             map_proj = map_proj
             plt.figure(figsize=(6, 4))
             ax = plt.axes(projection=map_proj)

@@ -268,7 +268,13 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
               'desired ex[tfreq]\nWill convert tfreq')
               
         RV.RVfullts, RV.dates, RV.origdates = time_mean_bins(RV.RVfullts, ex)
-       
+    
+    elif (RV.dates[1] - RV.dates[0]).days == ex['tfreq']:
+        RV.RVfullts, RV.dates = timeseries_tofit_bins(RV.RVfullts, ex, seldays='part')
+        
+    assert RV.dates.size == ex[ex['vars'][0][0]].dates.size, ('The amount of'
+                          ' timesteps in the RV ts and the precursors'
+                          ' do not match. ')
 
                                                       
     assert all(np.equal(RV.dates, ex[ex['vars'][0][0]].dates)), ('dates {}'

@@ -16,10 +16,12 @@ import pandas as pd
 # Data wil downloaded to path_raw
 # =============================================================================
 base_path = "/Users/semvijverberg/surfdrive/RGCPD_jetlat/"
-path_raw = os.path.join("/Users/semvijverberg/surfdrive/Data_ERAint/", 
-                        'input_raw')
-path_pp  = os.path.join("/Users/semvijverberg/surfdrive/Data_ERAint/", 
-                        'input_pp')
+dataset   = 'era5' # choose 'era5' or 'ERAint'
+exp_folder = ''
+path_raw = os.path.join('/Users/semvijverberg/surfdrive/Data_{}/' 
+                        'input_raw'.format(dataset))
+path_pp  = os.path.join('/Users/semvijverberg/surfdrive/Data_{}/' 
+                        'input_pp'.format(dataset))
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 
@@ -32,7 +34,7 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 # in the final output.
 
 ex = dict(
-     {'dataset'     :       'era5',
+     {'dataset'     :       dataset,
      'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
      'endyear'      :       2018, # download endyear
@@ -44,7 +46,7 @@ ex = dict(
      'path_pp'      :        path_pp}
      )
 
-if ex['dataset'] == 'interim':
+if ex['dataset'] == 'ERAint':
     import download_ERA_interim_API as ECMWF
 elif ex['dataset'] == 'era5':
     import download_ERA5_API as ECMWF

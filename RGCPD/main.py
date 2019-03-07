@@ -22,7 +22,6 @@ import functions_pp
 import matplotlib.pyplot as plt
 import xarray as xr
 import cartopy.crs as ccrs
-import download_ERA_interim_API as ERAi
 copy_stdout = sys.stdout
 
 # *****************************************************************************
@@ -224,7 +223,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [5] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
@@ -234,7 +233,7 @@ for freq in ex['tfreqlist']:
     # s(elect)startdate and enddate create the period of year you want to investigate:
     # Important! The time cycle of the precursor and Response variable should match!
     ex['sstartdate'] = '{}-03-1'.format(ex['startyear'])
-    ex['senddate']   = '{}-12-31'.format(ex['startyear'])
+    ex['senddate']   = '{}-08-31'.format(ex['startyear'])
 
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
                         ex['sstartdate'].split('-')[1], ex['senddate'].split('-')[1], ex['tfreq'])
@@ -302,7 +301,7 @@ for freq in ex['tfreqlist']:
     # *****************************************************************************
     # *****************************************************************************
     ex = np.load(filename_exp_design1, encoding='latin1').item()
-    ex['alpha'] = 0.05 # set significnace level for correlation maps
+    ex['alpha'] = 0.05# set significnace level for correlation maps
     ex['alpha_fdr'] = 2*ex['alpha'] # conservative significance level
     ex['FDR_control'] = True # Do you want to use the conservative alpha_fdr or normal alpha?
     # If your pp data is not a full year, there is Maximum meaningful lag given by:
@@ -318,6 +317,15 @@ for freq in ex['tfreqlist']:
           'pcA_none'  : None # default
           })
     ex['pcA_set'] = 'pcA_set1a'
+    # =============================================================================
+    # settings precursor region selection
+    # =============================================================================
+    # (1) significant regions will be grouped together if seperated by 'prec_reg_max_d'
+    #     gridcells
+    ex['prec_reg_max_d'] = 1 
+    # (2) set minimal size of precursor region
+    ex['min_n_gc'] = 5
+    
     ex['la_min'] = -20 # select domain of correlation analysis
     ex['la_max'] = 89
     ex['lo_min'] = -180

@@ -71,25 +71,7 @@ def calculate_corr_maps(ex, map_proj):
         # 3c) Precursor field = sst
         #===========================================
         ncdf = Dataset(os.path.join(actor.path_pp, actor.filename_pp), 'r')
-        precur_arr = functions_pp.import_array(actor)[0].values
-#        try:
-#            precur_arr = ncdf.variables[var].squeeze()
-#            numtime = ncdf.variables['time']
-#            dates = pd.to_datetime(num2date(numtime[:], units=numtime.units, calendar=numtime.calendar))
-#        except KeyError:
-#            print('Name in ex dictionary does not match ncdf, taking variable from'
-#                  'ncdf unequal to dimensions, only works when ncdf contains only 1 variable')
-#            allkeysncdf = list(ncdf.variables.keys())
-#            dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude', 'lev', 'mask']
-#            varnc = [keync for keync in allkeysncdf if keync not in dimensionkeys][0]
-#            try:
-#                precur_arr = ncdf.variables[varnc].squeeze()
-##                numtime = ncdf.variables['time']
-##                dates = pd.to_datetime(num2date(numtime[:], units=numtime.units, calendar=numtime.calendar))
-#            except AttributeError:
-#                precur_arr, actor = functions_pp.import_array(actor)
-#                precur_arr = precur_arr.values
-            
+        precur_arr = functions_pp.import_array(actor)[0].values           
 
 
         time , nlats, nlons = precur_arr.shape # [months , lat, lon]
@@ -297,7 +279,7 @@ def run_PCMCI(ex, outdic_actors, map_proj):
             # !!! Corr_precursor_all !!!
             Corr_precursor = Corr_precursor_ALL[according_var_idx]
             actor = outdic_actors[according_varname]
-            rgcpd.print_particular_region(according_number, Corr_precursor[:, :],
+            rgcpd.print_particular_region(ex, according_number, Corr_precursor[:, :],
                                           actor, map_proj, according_fullname)
             fig_file = '{}{}'.format(according_fullname, ex['file_type2'])
 
@@ -468,7 +450,7 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
                 lagidx = lags.index(lag)
                 # Rangs regions of var and lag from 1 to n_regions according to corr strength
                 regions_i = rgcpd.define_regions_and_rank_new(Corr_Coeff_all_r_l[varidx,:,lagidx],
-                                                              actor.lat_grid, actor.lon_grid)
+                                                              actor.lat_grid, actor.lon_grid, ex)
                 regions_i = np.nan_to_num(regions_i)
 
 
@@ -476,7 +458,6 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
                 regions_i = regions_i + tomatch_reg_n_var_names
 
                 indices_regs = np.where( regions_i >= 0.5 )[0]
-                tdata = regions_i.data.reshape(71,144)
 
 
                 for i in indices_regs:
@@ -491,7 +472,7 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
 #                        Corr_Coeff_lag_i = Corr_Coeff_all_r_l[varidx,:,:]
 #                        actor = outdic_actors[var]
 #                        title = '{} {} {}'.format(regions_i[i], var, -lag)
-#                        rgcpd.print_particular_region(number_region, Corr_Coeff_lag_i, actor, map_proj, title)
+#                        rgcpd.print_particular_region(ex, number_region, Corr_Coeff_lag_i, actor, map_proj, title)
 #                        print True
                         all_regions_tig[varidx,i] = number_region
                         all_regions_del[varidx,i] = 0
@@ -518,7 +499,7 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
             for lag in lags:
                 lagidx = lags.index(lag)
                 regions_i = rgcpd.define_regions_and_rank_new(Corr_Coeff_all_r_l[varidx,:,lagidx],
-                                                              actor.lat_grid, actor.lon_grid)
+                                                              actor.lat_grid, actor.lon_grid, ex)
                 regions_i = np.nan_to_num(regions_i)
 
                 tomatch_reg_n_var_names = tomatch_reg_n_var_names + skip_inds_prev_lag
