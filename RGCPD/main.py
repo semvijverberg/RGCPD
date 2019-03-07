@@ -36,10 +36,10 @@ copy_stdout = sys.stdout
 # which will be made when running the code
 base_path = "/Users/semvijverberg/surfdrive/RGCPD_jetlat/"
 dataset   = 'ERAint' # choose 'era5' or 'ERAint'
-exp_folder = 'winter'
+exp_folder = 'summer'
 path_raw = os.path.join('/Users/semvijverberg/surfdrive/Data_{}/' 
                         'input_raw'.format(dataset))
-path_pp  = os.path.join('/Users/semvijverberg/surfdrive/Data_{}/' 
+path_pp  = os.path.join(base_path, 'Data_{}/' 
                         'input_pp'.format(dataset))
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
@@ -60,8 +60,8 @@ ex = dict(
      'months'       :       list(range(1,12+1)), #downoad months
      'time'         :       pd.DatetimeIndex(start='00:00', end='23:00', 
                                 freq=(pd.Timedelta(6, unit='h'))),
-     'startperiod'  :       '11-01', # RV period
-     'endperiod'    :       '12-31', # RV period
+     'startperiod'  :       '07-01', # RV period
+     'endperiod'    :       '08-31', # RV period
      'la_min'       :       -20, # select domain of correlation analysis
      'la_max'       :       89,
      'lo_min'       :       -180,
@@ -235,9 +235,9 @@ for freq in ex['tfreqlist']:
     ex['lag_min'] = max(1, lag_min)
     ex['lag_max'] = ex['lag_min'] + 2
     # s(elect)startdate and enddate create the period of year you want to investigate:
-    # Important! The time cycle of the precursor and Response variable should match!
-    ex['sstartdate'] = '08-1'
-    ex['senddate']   = '12-31'
+    # the dates between sstartdate & senddate will be selected
+    ex['sstartdate'] = '04-01'
+    ex['senddate']   = ex['endperiod']
 
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
                         ex['sstartdate'].split('-')[0], 

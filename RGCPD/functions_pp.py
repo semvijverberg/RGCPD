@@ -106,6 +106,7 @@ def check_pp_done(cls, ex):
     # get time series that you request    
     # =============================================================================
     dates = timeseries_tofit_bins(ds, ex, seldays='part')[1]
+    
     start_day = get_oneyr(dates)[0]
     end_day   = get_oneyr(dates)[-1]
     
@@ -263,18 +264,23 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
             latlonbox = ex['spatial_mask_file']
             RV.RVfullts = selbox_to_1dts(RV, latlonbox)
 
-    if (RV.dates[1] - RV.dates[0]).days != ex['tfreq']:
+
+    same_freq = (RV.dates[1] - RV.dates[0]).days == ex['tfreq']
+    same_len_yr = RV.dates.size == ex[ex['vars'][0][0]].dates.size
+
+    if same_freq == False:
         print('tfreq of imported 1d timeseries is unequal to the '
               'desired ex[tfreq]\nWill convert tfreq')
-              
         RV.RVfullts, RV.dates, RV.origdates = time_mean_bins(RV.RVfullts, ex)
     
-    elif (RV.dates[1] - RV.dates[0]).days == ex['tfreq']:
-        RV.RVfullts, RV.dates = timeseries_tofit_bins(RV.RVfullts, ex, seldays='part')
+    
+    
+    if same_freq == True and same_len_yr == False:
         
-    assert RV.dates.size == ex[ex['vars'][0][0]].dates.size, ('The amount of'
-                          ' timesteps in the RV ts and the precursors'
-                          ' do not match. ')
+        RV.RVfullts, RV.dates = timeseries_tofit_bins(RV.RVfullts, ex, seldays='part')
+        print('The amount of timesteps in the RV ts and the precursors'
+                          ' do not match, selecting desired dates ')
+
 
                                                       
     assert all(np.equal(RV.dates, ex[ex['vars'][0][0]].dates)), ('dates {}'
@@ -367,14 +373,14 @@ def timeseries_tofit_bins(xarray, ex, seldays='part'):
     if seldays == 'part':
         # add corresponding time information
         crossyr = int(ex['sstartdate'].replace('-','')) > int(ex['senddate'].replace('-',''))
-        ex['sstartdate'] = '{}-08-1'.format(ex['startyear'])
+        sstartdate = '{}-{}'.format(ex['startyear'], ex['sstartdate'])
         if crossyr:
-            ex['senddate']   = '{}-12-31'.format(ex['startyear']+1)        
+            senddate   = '{}-{}'.format(ex['startyear']+1, ex['senddate'])        
         else:
-            ex['senddate']   = '{}-12-31'.format(ex['startyear'])
+            senddate   = '{}-{}'.format(ex['startyear'], ex['senddate'])
         
-        ex['adjhrsstartdate'] = ex['sstartdate'] + ' {:}:00:00'.format(datetime[0].hour)
-        ex['adjhrsenddate']   = ex['senddate'] + ' {:}:00:00'.format(datetime[0].hour)
+        ex['adjhrsstartdate'] = sstartdate + ' {:}:00:00'.format(datetime[0].hour)
+        ex['adjhrsenddate']   = senddate + ' {:}:00:00'.format(datetime[0].hour)
         sdate = pd.to_datetime(ex['adjhrsstartdate'])
         seldays_pp = pd.DatetimeIndex(start=ex['adjhrsstartdate'], end=ex['adjhrsenddate'], 
                                 freq=(datetime[1] - datetime[0]))
