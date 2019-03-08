@@ -9,8 +9,7 @@ import time
 start_time = time.time()
 import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-curr_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD" # script directory
-script_dir = os.path.join(curr_dir)
+script_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD" # script directory
 # To link modules in RGCPD folder to this script
 os.chdir(script_dir)
 sys.path.append(script_dir)
@@ -34,12 +33,12 @@ copy_stdout = sys.stdout
 
 # this will be your basepath, all raw_input and output will stored in subfolder
 # which will be made when running the code
-base_path = "/Users/semvijverberg/surfdrive/RGCPD_jetlat/"
+base_path = "/Users/semvijverberg/surfdrive/"
 dataset   = 'ERAint' # choose 'era5' or 'ERAint'
-exp_folder = 'summer'
-path_raw = os.path.join('/Users/semvijverberg/surfdrive/Data_{}/' 
+exp_folder = 'RGCPD_jetlat/summer'
+path_raw = os.path.join(base_path, 'Data_{}/' 
                         'input_raw'.format(dataset))
-path_pp  = os.path.join(base_path, 'Data_{}/' 
+path_pp  = os.path.join(base_path, 'RGCPD_jetlat', 'Data_{}/' 
                         'input_pp'.format(dataset))
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
@@ -55,13 +54,20 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 ex = dict(
      {'dataset'     :       dataset,
      'grid_res'     :       2.5,
-     'startyear'    :       1979, # download startyear
+     'startyear'    :       1980, # download startyear
      'endyear'      :       2017, # download endyear
+     'input_freq'   :       'monthly',
      'months'       :       list(range(1,12+1)), #downoad months
-     'time'         :       pd.DatetimeIndex(start='00:00', end='23:00', 
-                                freq=(pd.Timedelta(6, unit='h'))),
+     # if dealing with daily data, give string as 'month-day', i.e. '07-01'
+     # if dealing with monthly data, give integers of months 
      'startperiod'  :       '07-01', # RV period
      'endperiod'    :       '08-31', # RV period
+     'sstartdate'   :       '04-01', # precursor period
+     'senddate'     :       '08-31', # precursor period
+#     'startperiod'  :       6, # RV period
+#     'endperiod'    :       8, # RV period
+#     'sstartdate'   :       5, # precursor period
+#     'senddate'     :       8, # precursor period
      'la_min'       :       -20, # select domain of correlation analysis
      'la_max'       :       89,
      'lo_min'       :       -180,
@@ -81,9 +87,9 @@ elif ex['dataset'] == 'era5':
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = True
+ECMWFdownload = False
 # Option 2:
-import_precursor_ncdf = False
+import_precursor_ncdf = True
 # Option 3:
 import_RV_ncdf = False
 # Option 4:
@@ -96,9 +102,14 @@ importRV_1dts = True
 # only analytical fields
 
 # Info to download ncdf from ECMWF, atm only analytical fields (no forecasts)
-# You need the ecmwf-api-client package for this option.
+# You need the ecmwf-api-client package for this option. See http://apps.ecmwf.int/datasets/.
 if ECMWFdownload == True:
-    # See http://apps.ecmwf.int/datasets/.
+    if ex['input_freq'] == 'daily':
+        # select hours you want to download from analysis
+        ex['time']      =       pd.DatetimeIndex(start='00:00', end='23:00', 
+                                freq=(pd.Timedelta(6, unit='h')))
+        
+    
 #    ex['vars']      =       [['t2m'],['167.128'],['sfc'],[0]]
 #    ex['vars']      =       [['sm1','sm2', 'sm3'],['39.128', '40.128','41.128'],['sfc','sfc','sfc'],['0','0','0']]
 #    ex['vars']      =       [['sm2'],['40.128'],['sfc'],['0']]
@@ -137,8 +148,7 @@ if import_precursor_ncdf == True:
 #                              '{}deg.nc'.format(ex['startyear'], ex['endyear'],
 #                               ex['grid_res']))]]
 #    ex['precursor_ncdf'] = [['sst', 'sst_NOAA_mcKbox_det_1982_2017_1_12_daily_0.25deg.nc']]
-    ex['precursor_ncdf'] = [['sst', 'prcp_1979-2017_1_12_daily_2.5deg.nc']]
-#    ex['precursor_ncdf'] = [['prcp', 'hgt.200mb.daily.1979-2016.del29feb.nc']]
+    ex['precursor_ncdf'] = [['z_850hpa', 'z_850hpa_1979-2017_1_12_monthly_2.5deg.nc']]
 
 else:
     ex['precursor_ncdf'] = [[]]
@@ -151,7 +161,7 @@ if import_RV_ncdf == True:
     ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_daily_'
                               '{}deg.nc'.format(ex['startyear'], ex['endyear'],
                                ex['grid_res']))]
-    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_daily_'
+    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_monthly_'
                               '0.75deg.nc'.format(ex['startyear'], ex['endyear']))]    
 else:
     ex['RVnc_name'] = []
@@ -179,8 +189,8 @@ if ECMWFdownload == True:
     for idx in range(len(ex['vars'][0]))[:]:
         # class for ECMWF downloads
         var_class = ECMWF.Var_ECMWF_download(ex, idx)
+        var_class = ECMWF.retrieve_field(var_class)
         ex[ex['vars'][0][idx]] = var_class
-        ECMWF.retrieve_field(var_class)
 
 #if ECMWFdownload == True:
 #    for var in ex['vars'][0]:
@@ -227,17 +237,13 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [13] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [1] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
     lag_min = int(np.timedelta64(5, 'D') / np.timedelta64(ex['tfreq'], 'D'))
     ex['lag_min'] = max(1, lag_min)
     ex['lag_max'] = ex['lag_min'] + 2
-    # s(elect)startdate and enddate create the period of year you want to investigate:
-    # the dates between sstartdate & senddate will be selected
-    ex['sstartdate'] = '04-01'
-    ex['senddate']   = ex['endperiod']
 
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
                         ex['sstartdate'].split('-')[0], 

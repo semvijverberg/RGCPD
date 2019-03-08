@@ -45,6 +45,7 @@ class Var_ECMWF_download():
     def __init__(self, ex, idx):
         from datetime import datetime, timedelta
         import pandas as pd
+        import numpy as np
         import calendar
 #        import os
         vclass = Variable(self, ex)
@@ -55,20 +56,28 @@ class Var_ECMWF_download():
         vclass.var_cf_code = ex['vars'][1][idx]
         vclass.levtype = ex['vars'][2][idx]
         vclass.lvllist = ex['vars'][3][idx]
-        vclass.stream = 'oper'
+        if ex['input_freq'] == 'daily':
+            vclass.stream = 'oper'
+        if ex['input_freq'] == 'monthly':
+            vclass.stream = 'moda'
         
-        if vclass.name != 'pr':
-            time_ana = "00:00:00/06:00:00/12:00:00/18:00:00"
+        if vclass.stream == 'oper' and vclass.name != 'pr':
+
+            vclass.time_ana = "00:00:00/06:00:00/12:00:00/18:00:00"
             vclass.type = 'an'
             vclass.step = "0"
-        else:
-            time_ana = "00:00:00/12:00:00"
+        elif vclass.stream == 'oper' and vclass.name == 'pr':
+            vclass.time_ana = "00:00:00/12:00:00"
             vclass.type = 'fc'
             vclass.step = "3/6/9/12"
-    #            else:
-    #                time_ana = "00:00:00"
-        vclass.time_ana = time_ana 
+
         
+        vclass.years    = [str(yr) for yr in np.arange(ex['startyear'], 
+                                               ex['endyear']+1E-9, dtype=int)]
+        vclass.months   = [str(yr) for yr in ex['months']] 
+        vclass.days     = [str(yr) for yr in np.arange(1, 31+1E-9, dtype=int)] 
+        
+       
         days_in_month = dict( {1:31, 2:28, 3:31, 4:30, 5:31, 6:30, 7:31, 8:31, 
                                9:30, 10:31, 11:30, 12:31} )
         days_in_month_leap = dict( {1:31, 2:29, 3:31, 4:30, 5:31, 6:30, 7:31, 
@@ -101,75 +110,196 @@ class Var_ECMWF_download():
         vclass.dates = pd.to_datetime(datelist_str)   
         vclass.filename = '{}_{}-{}_{}_{}_{}_{}deg.nc'.format(vclass.name, 
                            vclass.startyear, vclass.endyear, vclass.startmonth, 
-                           vclass.endmonth, 'daily', vclass.grid).replace(' ', '_')
+                           vclass.endmonth, ex['input_freq'], vclass.grid).replace(' ', '_')
         
-        print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(vclass.name, 
-               vclass.startyear, vclass.endyear, vclass.grid)))
+        print(('\n\t**\n\t{} {}-{} {} data on {} grid\n\t**\n'.format(vclass.name, 
+               vclass.startyear, vclass.endyear, ex['input_freq'], vclass.grid)))
 
 def retrieve_field(cls):
 
-    from ecmwfapi import ECMWFDataServer
     import os
-    server = ECMWFDataServer()
+
+    downloaded, cls = check_downloaded(cls)
     
     file_path = os.path.join(cls.path_raw, cls.filename)
-    file_path_raw = file_path.replace('daily','oper')
-    datestring = "/".join(cls.datelist_str)
-#    if cls.stream == "mnth" or cls.stream == "oper":
-#        time = "00:00:00/06:00:00/12:00:00/18:00:00"
-#    elif cls.stream == "moda":
-#        time = "00:00:00"
-#    else:
-#        print("stream is not available")
+    
+    if cls.stream == 'moda':
+        file_path_raw = file_path
+    else: 
+        file_path_raw = file_path.replace('daily','oper')
 
-
-    if os.path.isfile(path=file_path) == True:
+    
+    if downloaded == True:
         print("You have already download the variable")
         print(("to path: {} \n ".format(file_path)))
         pass
     else:
+        # create temporary folder
+        cls.tmp_folder = os.path.join(cls.path_raw, 
+                  '{}_{}_{}_tmp'.format(cls.name, cls.stream, cls.grid))
+        if os.path.isdir(cls.tmp_folder) == False : os.makedirs(cls.tmp_folder)
         print(("You WILL download variable {} \n stream is set to {} \n".format \
             (cls.name, cls.stream)))
-        print(("to path: \n \n {} \n \n".format(file_path_raw)))
-        # !/usr/bin/python
-        if cls.levtype == 'sfc':
-            server.retrieve({
-                "dataset"   :   'interim',
-                "class"     :   "ei",
-                "expver"    :   "1",
-                "grid"      :   '{}/{}'.format(cls.grid,cls.grid),
-                "date"      :   datestring,
-                "levtype"   :   cls.levtype,
-                # "levelist"  :   cls.lvllist,
-                "param"     :   cls.var_cf_code,
-                "stream"    :   cls.stream,
-                "time"      :  cls.time_ana,
-                "type"      :   cls.type,
-                "step"      :   cls.step,
-                "format"    :   "netcdf",
-                "target"    :   file_path_raw,
-                })
-        elif cls.levtype == 'pl':
-            server.retrieve({
-                "dataset"   :   'interim',
-                "class"     :   "ei",
-                "expver"    :   "1",
-                "date"      :   datestring,
-                "grid"      :   '{}/{}'.format(cls.grid,cls.grid),
-                "levtype"   :   cls.levtype,
-                "levelist"  :   cls.lvllist,
-                "param"     :   cls.var_cf_code,
-                "stream"    :   cls.stream,
-                 "time"      :  cls.time_ana,
-                "type"      :   cls.type,
-                "format"    :   "netcdf",
-                "target"    :   file_path_raw,
-                })
-        print("convert operational 6hrly data to daily means")
-        args = ['cdo daymean {} {}'.format(file_path_raw, file_path)]
-        kornshell_with_input(args, cls)
-    return
+        print(("to path: \n \n {} \n \n".format(file_path_raw)))        
+        # =============================================================================
+        #         daily data
+        # =============================================================================
+        if cls.stream == 'oper':
+            
+            for year in cls.years:
+                # specifies the output file name
+                target = os.path.join(cls.tmp_folder, 
+                          '{}_{}.nc'.format(cls.name, year))   
+                if os.path.isfile(target):
+                    print('Output file: ', target)
+                    retrieval_yr(cls, year, target)
 
+
+            print("convert operational 6hrly data to daily means")
+            cat  = 'cdo cat {}*.nc {}'.format(cls.tmp_folder, file_path_raw)
+            daymean = ['cdo daymean {} {}'.format(file_path_raw, file_path)]
+            args = [cat, daymean]
+            kornshell_with_input(args, cls)
+
+
+        # =============================================================================
+        # monthly mean of daily means            
+        # =============================================================================
+        if cls.stream == 'moda':
+            years = [int(yr) for yr in cls.years]
+            decades = list(set([divmod(i, 10)[0] for i in years]))
+            decades = [x * 10 for x in decades]
+            decades.sort()
+            print('Decades:', decades)
+          
+        # loop through decades and create a month list
+            for d in decades:
+                requestDates=''
+                for y in years:
+                    if ((divmod(y,10)[0])*10) == d:
+                        for m in cls.months:
+                            requestDates = requestDates+str(y)+m.zfill(2)+'01/'
+                requestDates = requestDates[:-1]
+                print('Requesting dates: ', requestDates)
+                target = os.path.join(cls.tmp_folder, '{}_{}.nc'.format(cls.name,
+                              year))  
+                if os.path.isfile(target):
+                    print('Output file: ', target)
+                    retrieval_moda(cls, requestDates, d, target)
+                
+                
+            cat  = 'cdo cat {}*.nc {}'.format(cls.tmp_folder, file_path_raw)
+            args = [cat]
+            kornshell_with_input(args, cls)
+            
+    return cls
+
+
+def retrieval_yr(cls, year, target):
+    from ecmwfapi import ECMWFDataServer
+    server = ECMWFDataServer()
+
+
+    
+    if cls.levtype == 'sfc':
+        server.retrieve({
+            "dataset"   :   'interim',
+            "class"     :   "ei",
+            "expver"    :   "1",
+            "grid"      :   '{}/{}'.format(cls.grid,cls.grid),
+            "date"      :   '{}-01-01/TO/{}-12-21'.format(year, year),
+            "levtype"   :   cls.levtype,
+            "param"     :   cls.var_cf_code,
+            "stream"    :   cls.stream,
+            "time"      :  cls.time_ana,
+            "type"      :   cls.type,
+            "step"      :   cls.step,
+            "format"    :   "netcdf",
+            "target"    :   target
+            })
+    elif cls.levtype == 'pl':
+        server.retrieve({
+            "dataset"   :   'interim',
+            "class"     :   "ei",
+            "expver"    :   "1",
+            "date"      :   '{}-01-01/TO/{}-12-21'.format(year, year),
+            "grid"      :   '{}/{}'.format(cls.grid,cls.grid),
+            "levtype"   :   cls.levtype,
+            "levelist"  :   cls.lvllist,
+            "param"     :   cls.var_cf_code,
+            "stream"    :   cls.stream,
+            "time"      :   cls.time_ana,
+            "type"      :   cls.type,
+            "format"    :   "netcdf",
+            "target"    :   target
+            })
+
+
+def retrieval_moda(cls, requestDates, decade, target):
+    from ecmwfapi import ECMWFDataServer
+    server = ECMWFDataServer()
+
+
+    if cls.levtype == 'sfc':
+        server.retrieve({    # do not change this!
+        'class'         :   'ea',
+        'expver'        :   '1',
+        'stream'        :   'moda',
+        'type'          :   'an',
+        'param'         :   cls.var_cf_code,
+        'levtype'       :   cls.levtype,
+        'date'          :   requestDates,
+        'decade'        :   decade,
+        'target'        :   target
+            })
+    elif cls.levtype == 'pl': 
+        server.retrieve({    # do not change this!
+        'class'         :   'ea',
+        'expver'        :   '1',
+        'stream'        :   'moda',
+        'type'          :   'an',
+        'param'         :   cls.var_cf_code,
+        'levtype'       :   cls.levtype,
+        'levelist'      :   cls.lvllist,
+        'date'          :   requestDates,
+        'decade'        :   decade,
+        'target'        :   target
+            })
+
+
+    
+    
+def check_downloaded(cls):
+    import os, re
+    rootdir = cls.path_raw
+    rx = re.compile(r'{}_(\d\d\d\d)-(.*?)$'.format(cls.name))
+#    re.search(rx, cls.filename).groups()
+    match = []
+    for root, dirs, files in os.walk(rootdir):  
+        for file in files:
+            res = re.search(rx, file)
+            if res:
+                match.append([res.string, res.groups()])
+    if len(match) == 0:
+        downloaded = False
+    elif len(match) != 0:
+        # check if right gridres
+        for file in match:
+            file_path = file[0]
+            reggroups = file[1]
+            grid_res = float(file_path.split('_')[-1].split('deg')[0]) == cls.grid
+            startyr  = cls.startyear > int(reggroups[0])
+            endyr    = cls.endyear <= int(reggroups[1][:4])
+            if grid_res and startyr and endyr:
+                downloaded = True
+                # adapt filename that exists
+                new = file_path.replace(str(cls.startyear), reggroups[0])
+                new = new.replace(str(cls.endyear), reggroups[1][:4])
+                cls.filename = new
+    else:
+        downloaded = False
+    return downloaded, cls
+    
 def kornshell_with_input(args, cls):
 #    stopped working for cdo commands
     '''some kornshell with input '''

@@ -106,7 +106,11 @@ class Var_ECMWF_download():
         vclass.var_cf_code = ex['vars'][1][idx]
         vclass.levtype = ex['vars'][2][idx]
         vclass.lvllist = ex['vars'][3][idx]
-        vclass.stream = 'oper'
+        if ex['input_freq'] == 'daily':
+            vclass.stream = 'oper'
+        if ex['input_freq'] == 'monthly':
+            vclass.stream = 'moda'
+            
         vclass.years    = [str(yr) for yr in np.arange(ex['startyear'], 
                                                ex['endyear']+1E-9, dtype=int)]
         vclass.months   = [str(yr) for yr in ex['months']] 
@@ -114,22 +118,25 @@ class Var_ECMWF_download():
         
 
         vclass.time = list(ex['time'].strftime('%H:%M'))
+
+
         vclass.filename = '{}_{}-{}_{}_{}_{}_{}deg.nc'.format(vclass.name, 
                            vclass.startyear, vclass.endyear, vclass.startmonth, 
-                           vclass.endmonth, 'daily', ex['grid_res']).replace(' ', '_')
+                           vclass.endmonth, ex['input_freq'], ex['grid_res']).replace(' ', '_')
         vclass.format = '{}'.format('netcdf')
-        print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(vclass.name, 
-               vclass.startyear, vclass.endyear, vclass.grid)))
+        print(('\n\t**\n\t{} {}-{} {} data on {} grid\n\t**\n'.format(vclass.name, 
+               vclass.startyear, vclass.endyear, ex['input_freq'], vclass.grid)))
         
         
             
 def retrieve_field(cls):
-
-
     import os
     
     file_path = os.path.join(cls.path_raw, cls.filename)
-    file_path_raw = file_path.replace('daily','oper')
+    if cls.stream == 'moda':
+        file_path_raw = file_path
+    else: 
+        file_path_raw = file_path.replace('daily','oper')
     
     if os.path.isfile(path=file_path) == True:
         print("You have already download the variable")
@@ -137,41 +144,71 @@ def retrieve_field(cls):
         pass
     else:
         # create temporary folder
-        tmp_folder = os.path.join(cls.path_raw, 
-                  '{}_{}_tmp'.format(cls.name, cls.grid[0]))
-        if os.path.isdir(tmp_folder) == False : os.makedirs(tmp_folder)
-        cls.tmp_folder = tmp_folder
+        cls.tmp_folder = os.path.join(cls.path_raw, 
+                  '{}_{}_{}_tmp'.format(cls.name, cls.stream, cls.grid[0]))
+        if os.path.isdir(cls.tmp_folder) == False : os.makedirs(cls.tmp_folder)
         print(("You WILL download variable {} \n stream is set to {} \n".format \
             (cls.name, cls.stream)))
         print(("to path: \n \n {} \n \n".format(file_path_raw)))
         
-        for year in cls.years:
-            retrieval_yr(cls, year)
-        
+        # =============================================================================
+        #         daily data
+        # =============================================================================
+        if cls.stream == 'oper':
+            
+            for year in cls.years:
+                # specifies the output file name
+                target = os.path.join(cls.tmp_folder, 
+                          '{}_{}.nc'.format(cls.name, year))   
+                if os.path.isfile(target):
+                    print('Output file: ', target)
+                    retrieval_yr(cls, year, target)
     
-    
-        print("convert operational 6hrly data to daily means")
-        cat  = 'cdo cat {}*.nc {}'.format(cls.tmp_folder, file_path_raw)
-        daymean = ['cdo daymean {} {}'.format(file_path_raw, file_path)]
-        args = [cat, daymean]
-        kornshell_with_input(args, cls)
-        
+            print("convert operational 6hrly data to daily means")
+            cat  = 'cdo cat {}*.nc {}'.format(cls.tmp_folder, file_path_raw)
+            daymean = ['cdo daymean {} {}'.format(file_path_raw, file_path)]
+            args = [cat, daymean]
+            kornshell_with_input(args, cls)
+
+
+        # =============================================================================
+        # monthly mean of daily means            
+        # =============================================================================
+        if cls.stream == 'moda':
+            years = [int(yr) for yr in cls.years]
+            decades = list(set([divmod(i, 10)[0] for i in years]))
+            decades = [x * 10 for x in decades]
+            decades.sort()
+            print('Decades:', decades)
+          
+        # loop through decades and create a month list
+            for d in decades:
+                requestDates=''
+                for y in years:
+                    if ((divmod(y,10)[0])*10) == d:
+                        for m in cls.months:
+                            requestDates = requestDates+str(y)+m.zfill(2)+'01/'
+                requestDates = requestDates[:-1]
+                print('Requesting dates: ', requestDates)
+                target = os.path.join(cls.tmp_folder, '{}_{}.nc'.format(cls.name,
+                              year))  
+                if os.path.isfile(target):
+                    print('Output file: ', target)
+                    retrieval_moda(cls, requestDates, d, target)
         
     return
 
-def retrieval_yr(cls, year):
+def retrieval_yr(cls, year, target):
     import cdsapi
     server = cdsapi.Client()
 
     
-    tmp_output = os.path.join(cls.tmp_folder, '{}_{}.nc'.format(cls.name,
-                              year))
 
     # !/usr/bin/python
     if cls.levtype == 'sfc':
         server.retrieve("reanalysis-era5-single-levels",
             {
-            "producttype":  "reanalysis",
+            "product_type":  "reanalysis",
             "class"     :   "ei",
             "expver"    :   "1",
             "grid"      :   cls.grid,
@@ -184,11 +221,11 @@ def retrieval_yr(cls, year):
             "time"      :  cls.time,
             "format"    :   "netcdf",
             }, 
-            tmp_output)
+            target)
     elif cls.levtype == 'pl':
         server.retrieve("reanalysis-era5-pressure-levels",
             {
-            "producttype":  "reanalysis",
+            "product_type":  "reanalysis",
             "class"     :   "ei",
             "expver"    :   "1",
             "grid"      :   cls.grid,
@@ -200,7 +237,37 @@ def retrieval_yr(cls, year):
              "time"      :  cls.time,
             "format"    :   "netcdf",
             }, 
-            tmp_output)
+            target)
+    return
+
+
+def retrieval_moda(cls, requestDates, decade, target):
+    import cdsapi
+    server = cdsapi.Client()
+
+    if cls.levtype == 'sfc':
+        server.retrieve('reanalysis-era5-complete', {    # do not change this!
+        'class'         :   'ea',
+        'expver'        :   '1',
+        'stream'        :   'moda',
+        'type'          :   'an',
+        'param'         :   cls.var_cf_code,
+        'levtype'       :   cls.levtype,
+        'date'          :   requestDates,
+        'decade'        :   decade,
+        }, target)
+    elif cls.levtype == 'pl': 
+        server.retrieve('reanalysis-era5-complete', {    # do not change this!
+        'class'         :   'ea',
+        'expver'        :   '1',
+        'stream'        :   'moda',
+        'type'          :   'an',
+        'param'         :   cls.var_cf_code,
+        'levtype'       :   cls.levtype,
+        'levelist'      :   cls.lvllist,
+        'date'          :   requestDates,
+        'decade'        :   decade,
+        }, target)
 
 
 def kornshell_with_input(args, cls):

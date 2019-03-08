@@ -7,20 +7,22 @@ Created on Wed Mar  6 16:31:58 2019
 """
 
 #%%
-import os
+import os, inspect
 import numpy as np
 import pandas as pd
-
-
+curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+script_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD" # script directory
+# To link modules in RGCPD folder to this script
+os.chdir(script_dir)
 # =============================================================================
 # Data wil downloaded to path_raw
 # =============================================================================
-base_path = "/Users/semvijverberg/surfdrive/RGCPD_jetlat/"
+base_path = "/Users/semvijverberg/surfdrive/"
 dataset   = 'era5' # choose 'era5' or 'ERAint'
-exp_folder = ''
-path_raw = os.path.join('/Users/semvijverberg/surfdrive/Data_{}/' 
+exp_folder = 'RGCPD_jetlat'
+path_raw = os.path.join(base_path,'Data_{}/' 
                         'input_raw'.format(dataset))
-path_pp  = os.path.join('/Users/semvijverberg/surfdrive/Data_{}/' 
+path_pp  = os.path.join(base_path, exp_folder, 'Data_{}/' 
                         'input_pp'.format(dataset))
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
@@ -39,6 +41,7 @@ ex = dict(
      'startyear'    :       1979, # download startyear
      'endyear'      :       2018, # download endyear
      'months'       :       list(range(1,12+1)), #downoad months
+     'input_tfreq'  :       'monthly',
      'time'         :       pd.DatetimeIndex(start='00:00', end='23:00', 
                                 freq=(pd.Timedelta(6, unit='h'))),
      'base_path'    :       base_path,
