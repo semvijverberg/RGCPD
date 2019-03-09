@@ -156,8 +156,8 @@ def retrieve_field(cls):
 
 
             print("convert operational 6hrly data to daily means")
-            cat  = 'cdo cat {}*.nc {}'.format(cls.tmp_folder, file_path_raw)
-            daymean = ['cdo daymean {} {}'.format(file_path_raw, file_path)]
+            cat  = 'cdo cat {}/*.nc {}'.format(cls.tmp_folder, file_path_raw)
+            daymean = 'cdo daymean {} {}'.format(file_path_raw, file_path)
             args = [cat, daymean]
             kornshell_with_input(args, cls)
 
@@ -207,7 +207,7 @@ def retrieval_yr(cls, year, target):
             "class"     :   "ei",
             "expver"    :   "1",
             "grid"      :   '{}/{}'.format(cls.grid,cls.grid),
-            "date"      :   '{}-01-01/TO/{}-12-21'.format(year, year),
+            "date"      :   '{}-01-01/TO/{}-12-31'.format(year, year),
             "levtype"   :   cls.levtype,
             "param"     :   cls.var_cf_code,
             "stream"    :   cls.stream,
@@ -222,7 +222,7 @@ def retrieval_yr(cls, year, target):
             "dataset"   :   'interim',
             "class"     :   "ei",
             "expver"    :   "1",
-            "date"      :   '{}-01-01/TO/{}-12-21'.format(year, year),
+            "date"      :   '{}-01-01/TO/{}-12-31'.format(year, year),
             "grid"      :   '{}/{}'.format(cls.grid,cls.grid),
             "levtype"   :   cls.levtype,
             "levelist"  :   cls.lvllist,

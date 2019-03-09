@@ -54,7 +54,7 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 ex = dict(
      {'dataset'     :       dataset,
      'grid_res'     :       2.5,
-     'startyear'    :       1980, # download startyear
+     'startyear'    :       1979, # download startyear
      'endyear'      :       2017, # download endyear
      'input_freq'   :       'monthly',
      'months'       :       list(range(1,12+1)), #downoad months
@@ -91,9 +91,9 @@ ECMWFdownload = False
 # Option 2:
 import_precursor_ncdf = True
 # Option 3:
-import_RV_ncdf = False
+import_RV_ncdf = True
 # Option 4:
-importRV_1dts = True
+importRV_1dts = False
 
 
 # Option 1111111111111111111111111111111111111111111111111111111111111111111111
@@ -158,11 +158,11 @@ else:
 # 33333333333333333333333333333333333333333333333333333333333333333333333333333
 if import_RV_ncdf == True:
 #    ex['RVnc_name'] = ['pr', 'prcp_GLB_daily_1979-2016-del29feb.75-88E_18-25N.nc']
-    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_daily_'
+    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_{}_'
                               '{}deg.nc'.format(ex['startyear'], ex['endyear'],
-                               ex['grid_res']))]
-    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_monthly_'
-                              '0.75deg.nc'.format(ex['startyear'], ex['endyear']))]    
+                               ex['input_freq'], ex['grid_res']))]
+#    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_monthly_'
+#                              '0.75deg.nc'.format(ex['startyear'], ex['endyear']))]    
 else:
     ex['RVnc_name'] = []
 
@@ -229,7 +229,7 @@ elif importRV_1dts == False:
                           't2mmax_1979-2017_averAggljacc0.75d_tf1_n6__to_t2mmax_tf1.npy')
     # You can also include a latitude longitude box as a spatial mask by just 
     # giving a list [west_lon, east_lon, south_lat, north_lat] instead of a file
-#    ex['spatial_mask_file'] = [18.25, 24.75, 75.25, 87.75]
+    ex['spatial_mask_file'] = [18.25, 24.75, 75.25, 87.75]
 
 
 # =============================================================================
@@ -237,7 +237,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [1] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [2] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
@@ -373,15 +373,16 @@ for freq in ex['tfreqlist']:
     end_day   = '{}-{}'.format(var_class.dates[-1].day, var_class.dates[-1].month_name())
     print('Part of year investigated: {} - {}'.format(start_day, end_day))
     print('Part of year predicted (RV period): {} '.format(RV_name_range[:-1]))
-    print('Temporal resolution: {} days'.format(ex['tfreq']))
+    print('Temporal resolution: {} {}'.format(ex['tfreq'], ex['input_freq']))
     print('Lags: {} to {}'.format(ex['lag_min'], ex['lag_max']))
     one_year_RV_data = RV.datesRV.where(RV.datesRV.year==RV.startyear).dropna(how='all').values
     print('For example\nPredictant (only one year) is:\n{} at \n{}\n'.format(RV_name,
           one_year_RV_data))
     print('\tVS\n')
     shift_lag_days = one_year_RV_data - pd.Timedelta(int(ex['lag_min']*ex['tfreq']), unit='d')
-    print('Predictor (only one year) is:\n{} at lag {} days\n{}\n'.format(
-            ex['vars'][0][-1], int(ex['lag_min']*ex['tfreq']), shift_lag_days))
+    print('Predictor (only one year) is:\n{} at lag {} {}s\n{}\n'.format(
+            ex['vars'][0][-1], int(ex['lag_min']*ex['tfreq']), ex['input_freq'][:-2], 
+            shift_lag_days))
     print('\n**\nEnd of summary\n**\n')
 
     print('\nNext time, you\'re able to redo the experiment by loading in the dict '
