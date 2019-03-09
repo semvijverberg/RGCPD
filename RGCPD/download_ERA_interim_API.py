@@ -150,7 +150,7 @@ def retrieve_field(cls):
                 # specifies the output file name
                 target = os.path.join(cls.tmp_folder, 
                           '{}_{}.nc'.format(cls.name, year))   
-                if os.path.isfile(target):
+                if os.path.isfile(target) == False:
                     print('Output file: ', target)
                     retrieval_yr(cls, year, target)
 
@@ -271,24 +271,26 @@ def retrieval_moda(cls, requestDates, decade, target):
     
 def check_downloaded(cls):
     import os, re
+    # assume not downloaded 
+    downloaded = False
     rootdir = cls.path_raw
     rx = re.compile(r'{}_(\d\d\d\d)-(.*?)$'.format(cls.name))
 #    re.search(rx, cls.filename).groups()
     match = []
+    
     for root, dirs, files in os.walk(rootdir):  
         for file in files:
             res = re.search(rx, file)
             if res:
                 match.append([res.string, res.groups()])
-    if len(match) == 0:
-        downloaded = False
-    elif len(match) != 0:
+
+    if len(match) != 0:
         # check if right gridres
         for file in match:
             file_path = file[0]
             reggroups = file[1]
             grid_res = float(file_path.split('_')[-1].split('deg')[0]) == cls.grid
-            startyr  = cls.startyear > int(reggroups[0])
+            startyr  = cls.startyear >= int(reggroups[0])
             endyr    = cls.endyear <= int(reggroups[1][:4])
             if grid_res and startyr and endyr:
                 downloaded = True
@@ -296,8 +298,7 @@ def check_downloaded(cls):
                 new = file_path.replace(str(cls.startyear), reggroups[0])
                 new = new.replace(str(cls.endyear), reggroups[1][:4])
                 cls.filename = new
-    else:
-        downloaded = False
+        
     return downloaded, cls
     
 def kornshell_with_input(args, cls):

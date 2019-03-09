@@ -7,64 +7,6 @@ Created on Thu Feb  7 15:42:46 2019
 """
 import os
 import numpy as np
-import pandas as pd
-
-
-## =============================================================================
-## Data wil downloaded to path_raw
-## =============================================================================
-#base_path = "/Users/semvijverberg/surfdrive/RGCPD_jetlat/"
-#path_raw = os.path.join("/Users/semvijverberg/surfdrive/Data_ERAint/", 
-#                        'input_raw')
-#path_pp  = os.path.join("/Users/semvijverberg/surfdrive/Data_ERAint/", 
-#                        'input_pp')
-#if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
-#if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
-#
-## *****************************************************************************
-## Step 1 Create dictionary and variable class (and optionally download ncdfs)
-## *****************************************************************************
-## The dictionary is used as a container with all information for the experiment
-## The dic is saved after the post-processes step, so you can continue the experiment
-## from this point onward with different configurations. It also stored as a log
-## in the final output.
-##
-#ex = dict(
-#     {'dataset'     :       'era5',
-#     'grid_res'     :       2.5,
-#     'startyear'    :       1979, # download startyear
-#     'endyear'      :       2018, # download endyear
-#     'months'       :       list(range(1,12+1)), #downoad months
-#     'time'         :       pd.DatetimeIndex(start='00:00', end='23:00', 
-#                                freq=(pd.Timedelta(6, unit='h'))),
-#     'base_path'    :       base_path,
-#     'path_raw'     :       path_raw,
-#     'path_pp'      :        path_pp}
-#     )
-#
-#    
-#
-## Option 1111111111111111111111111111111111111111111111111111111111111111111111
-## Download ncdf fields (in ex['vars']) through cds?
-## 11111111111111111111111111111111111111111111111111111111111111111111111111111
-## only reanalysis fields
-#
-## Info to download ncdf from ECMWF, atm only analytical fields (no forecasts)
-## You need the cds-api-client package for this option.
-#
-## See https://confluence.ecmwf.int/display/CKB/How+to+download+ERA5
-#
-#ex['vars']     =   [
-#                    ['t2m', 'u'],              # ['name_var1','name_var2', ...]
-#                    ['167.128', '131.128'],    # ECMWF param ids
-#                    ['sfc', 'pl'],             # Levtypes
-#                    [0, 200],                  # Vertical levels
-#                    ]
-#
-## assign first variables class
-#var_class = Var_ECMWF_download(ex, 0) 
-#retrieve_ERA5(var_class)
-
 
 
 def Variable(self, ex):
@@ -77,6 +19,7 @@ def Variable(self, ex):
     self.dataset = ex['dataset']
     self.path_raw = ex['path_raw']
     self.path_pp = ex['path_pp']
+    self.base_path = ex['base_path']
     return self
 
 class Var_ECMWF_download():
@@ -160,13 +103,13 @@ def retrieve_field(cls):
                 # specifies the output file name
                 target = os.path.join(cls.tmp_folder, 
                           '{}_{}.nc'.format(cls.name, year))   
-                if os.path.isfile(target):
+                if os.path.isfile(target) == False:
                     print('Output file: ', target)
                     retrieval_yr(cls, year, target)
     
             print("convert operational 6hrly data to daily means")
             cat  = 'cdo cat {}*.nc {}'.format(cls.tmp_folder, file_path_raw)
-            daymean = ['cdo daymean {} {}'.format(file_path_raw, file_path)]
+            daymean = 'cdo daymean {} {}'.format(file_path_raw, file_path)
             args = [cat, daymean]
             kornshell_with_input(args, cls)
 
@@ -192,7 +135,7 @@ def retrieve_field(cls):
                 print('Requesting dates: ', requestDates)
                 target = os.path.join(cls.tmp_folder, '{}_{}.nc'.format(cls.name,
                               year))  
-                if os.path.isfile(target):
+                if os.path.isfile(target) == False:
                     print('Output file: ', target)
                     retrieval_moda(cls, requestDates, d, target)
         

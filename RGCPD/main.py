@@ -34,7 +34,7 @@ copy_stdout = sys.stdout
 # this will be your basepath, all raw_input and output will stored in subfolder
 # which will be made when running the code
 base_path = "/Users/semvijverberg/surfdrive/"
-dataset   = 'ERAint' # choose 'era5' or 'ERAint'
+dataset   = 'era5' # choose 'era5' or 'ERAint'
 exp_folder = 'RGCPD_jetlat/summer'
 path_raw = os.path.join(base_path, 'Data_{}/' 
                         'input_raw'.format(dataset))
@@ -53,10 +53,10 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 #
 ex = dict(
      {'dataset'     :       dataset,
-     'grid_res'     :       2.5,
+     'grid_res'     :       0.5,
      'startyear'    :       1979, # download startyear
-     'endyear'      :       2017, # download endyear
-     'input_freq'   :       'monthly',
+     'endyear'      :       2018, # download endyear
+     'input_freq'   :       'daily',
      'months'       :       list(range(1,12+1)), #downoad months
      # if dealing with daily data, give string as 'month-day', i.e. '07-01'
      # if dealing with monthly data, give integers of months 
@@ -87,9 +87,9 @@ elif ex['dataset'] == 'era5':
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = False
+ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf = True
+import_precursor_ncdf = False
 # Option 3:
 import_RV_ncdf = True
 # Option 4:
@@ -110,7 +110,7 @@ if ECMWFdownload == True:
                                 freq=(pd.Timedelta(6, unit='h')))
         
     
-#    ex['vars']      =       [['t2m'],['167.128'],['sfc'],[0]]
+    ex['vars']      =       [['t2m'],['167.128'],['sfc'],[0]]
 #    ex['vars']      =       [['sm1','sm2', 'sm3'],['39.128', '40.128','41.128'],['sfc','sfc','sfc'],['0','0','0']]
 #    ex['vars']      =       [['sm2'],['40.128'],['sfc'],['0']]
 #    ex['vars']      =       [['st1','st2'],['139.128', '170.128'],['sfc','sfc'],['0','0']]
@@ -119,8 +119,8 @@ if ECMWFdownload == True:
 #                             ['pl'],[['1000', '900', '850', '700', '600', '500','400','200']] ]
 #    ex['vars']      =       [['u_10hpa'],['131.128'],
 #                             ['pl'],['10'] ]
-    ex['vars']      =       [ ['z_500hpa', 'sst', 't_850hpa'],['129.128', '34.128', '130.128'],
-                              ['pl', 'sfc', 'pl'],[['500'], '0', ['850']] ]
+#    ex['vars']      =       [ ['z_500hpa', 'sst', 't_850hpa'],['129.128', '34.128', '130.128'],
+#                              ['pl', 'sfc', 'pl'],[['500'], '0', ['850']] ]
 #    ex['vars']      =       [['t_10hpa'],['130.128'],
 #                             ['pl'],['10'] ]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
