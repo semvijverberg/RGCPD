@@ -34,7 +34,7 @@ copy_stdout = sys.stdout
 # this will be your basepath, all raw_input and output will stored in subfolder
 # which will be made when running the code
 base_path = "/Users/semvijverberg/surfdrive/"
-dataset   = 'era5' # choose 'era5' or 'ERAint'
+dataset   = 'ERAint' # choose 'era5' or 'ERAint'
 exp_folder = 'RGCPD_jetlat/summer'
 path_raw = os.path.join(base_path, 'Data_{}/' 
                         'input_raw'.format(dataset))
@@ -53,21 +53,17 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 #
 ex = dict(
      {'dataset'     :       dataset,
-     'grid_res'     :       0.5,
+     'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
-     'endyear'      :       2018, # download endyear
+     'endyear'      :       2017, # download endyear
      'input_freq'   :       'daily',
      'months'       :       list(range(1,12+1)), #downoad months
      # if dealing with daily data, give string as 'month-day', i.e. '07-01'
-     # if dealing with monthly data, give integers of months 
+     # if dealing with monthly data, the day of month is neglected 
      'startperiod'  :       '07-01', # RV period
      'endperiod'    :       '08-31', # RV period
      'sstartdate'   :       '04-01', # precursor period
      'senddate'     :       '08-31', # precursor period
-#     'startperiod'  :       6, # RV period
-#     'endperiod'    :       8, # RV period
-#     'sstartdate'   :       5, # precursor period
-#     'senddate'     :       8, # precursor period
      'la_min'       :       -20, # select domain of correlation analysis
      'la_max'       :       89,
      'lo_min'       :       -180,
@@ -87,9 +83,9 @@ elif ex['dataset'] == 'era5':
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = True
+ECMWFdownload = False
 # Option 2:
-import_precursor_ncdf = False
+import_precursor_ncdf = True
 # Option 3:
 import_RV_ncdf = True
 # Option 4:
@@ -110,7 +106,7 @@ if ECMWFdownload == True:
                                 freq=(pd.Timedelta(6, unit='h')))
         
     
-    ex['vars']      =       [['t2m'],['167.128'],['sfc'],[0]]
+#    ex['vars']      =       [['t2m'],['167.128'],['sfc'],[0]]
 #    ex['vars']      =       [['sm1','sm2', 'sm3'],['39.128', '40.128','41.128'],['sfc','sfc','sfc'],['0','0','0']]
 #    ex['vars']      =       [['sm2'],['40.128'],['sfc'],['0']]
 #    ex['vars']      =       [['st1','st2'],['139.128', '170.128'],['sfc','sfc'],['0','0']]
@@ -123,7 +119,7 @@ if ECMWFdownload == True:
 #                              ['pl', 'sfc', 'pl'],[['500'], '0', ['850']] ]
 #    ex['vars']      =       [['t_10hpa'],['130.128'],
 #                             ['pl'],['10'] ]
-#    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
+    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
 #    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
 #    ex['vars']      =       [['rv'], ['138.128'],['pl'], ['250']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],

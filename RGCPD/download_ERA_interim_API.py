@@ -58,8 +58,10 @@ class Var_ECMWF_download():
         vclass.lvllist = ex['vars'][3][idx]
         if ex['input_freq'] == 'daily':
             vclass.stream = 'oper'
+            vclass.input_freq = 'daily'
         if ex['input_freq'] == 'monthly':
             vclass.stream = 'moda'
+            vclass.input_freq = 'monthly'
         
         if vclass.stream == 'oper' and vclass.name != 'pr':
 
@@ -274,8 +276,8 @@ def check_downloaded(cls):
     # assume not downloaded 
     downloaded = False
     rootdir = cls.path_raw
-    rx = re.compile(r'{}_(\d\d\d\d)-(.*?)$'.format(cls.name))
-#    re.search(rx, cls.filename).groups()
+    rx = re.compile(r'^{}_(\d\d\d\d)-(.*?)$'.format(cls.name))
+    re.search(rx, cls.filename).groups()
     match = []
     
     for root, dirs, files in os.walk(rootdir):  
@@ -292,7 +294,8 @@ def check_downloaded(cls):
             grid_res = float(file_path.split('_')[-1].split('deg')[0]) == cls.grid
             startyr  = cls.startyear >= int(reggroups[0])
             endyr    = cls.endyear <= int(reggroups[1][:4])
-            if grid_res and startyr and endyr:
+            input_freq = file_path.split('_')[-2] == cls.input_freq
+            if grid_res and startyr and endyr and input_freq:
                 downloaded = True
                 # adapt filename that exists
                 new = file_path.replace(str(cls.startyear), reggroups[0])
