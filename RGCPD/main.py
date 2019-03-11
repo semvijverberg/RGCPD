@@ -54,15 +54,15 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 ex = dict(
      {'dataset'     :       dataset,
      'grid_res'     :       2.5,
-     'startyear'    :       1979, # download startyear
+     'startyear'    :       1980, # download startyear
      'endyear'      :       2017, # download endyear
-     'input_freq'   :       'daily',
+     'input_freq'   :       'monthly',
      'months'       :       list(range(1,12+1)), #downoad months
      # if dealing with daily data, give string as 'month-day', i.e. '07-01'
      # if dealing with monthly data, the day of month is neglected 
-     'startperiod'  :       '07-01', # RV period
+     'startperiod'  :       '06-01', # RV period
      'endperiod'    :       '08-31', # RV period
-     'sstartdate'   :       '04-01', # precursor period
+     'sstartdate'   :       '01-01', # precursor period
      'senddate'     :       '08-31', # precursor period
      'la_min'       :       -20, # select domain of correlation analysis
      'la_max'       :       89,
@@ -188,10 +188,6 @@ if ECMWFdownload == True:
         var_class = ECMWF.retrieve_field(var_class)
         ex[ex['vars'][0][idx]] = var_class
 
-#if ECMWFdownload == True:
-#    for var in ex['vars'][0]:
-#        var_class = ex[var]
-#        retrieve_ERA_i_field(var_class)
 
 if import_RV_ncdf == True and importRV_1dts == False:
     RV_name = ex['RVnc_name'][0]
@@ -233,7 +229,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [2] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [1, 2] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test

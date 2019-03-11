@@ -357,7 +357,7 @@ def xarray_plot_region(print_vars, outdic_actors, ex, map_proj):
 
     for var in variables:
         lags = list(range(ex['lag_min'], ex['lag_max']+1))
-        lags = ['{} ({} days)'.format(l, l*ex['tfreq']) for l in lags]
+        lags = ['{} ({} {}s)'.format(l, l*ex['tfreq'], ex['input_freq'][:-2]) for l in lags]
         lat = outd[var].lat_grid
         lon = outd[var].lon_grid
         list_Corr.append(outd[var].Corr_Coeff.data[None,:,:].reshape(lat.size,lon.size,len(lags)))
