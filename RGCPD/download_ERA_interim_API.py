@@ -51,6 +51,12 @@ class Var_ECMWF_download():
         vclass = Variable(self, ex)
         # shared information of ECMWF downloaded variables
         # variables specific information
+        if ex['dataset'] == 'ERAint':
+            vclass.dataset = 'interim'
+            vclass.dclass   = 'ei'
+        elif ex['dataset'] == 'era20c':
+            vclass.dataset = 'era20c'
+            vclass.dclass   = 'e2'
         vclass.dataset = ex['dataset']
         vclass.name = ex['vars'][0][idx]
         vclass.var_cf_code = ex['vars'][1][idx]
@@ -205,8 +211,8 @@ def retrieval_yr(cls, year, target):
     
     if cls.levtype == 'sfc':
         server.retrieve({
-            "dataset"   :   'interim',
-            "class"     :   "ei",
+            "dataset"   :   cls.dataset,
+            "class"     :   cls.dclass,
             "expver"    :   "1",
             "grid"      :   '{}/{}'.format(cls.grid,cls.grid),
             "date"      :   '{}-01-01/TO/{}-12-31'.format(year, year),
@@ -221,8 +227,8 @@ def retrieval_yr(cls, year, target):
             })
     elif cls.levtype == 'pl':
         server.retrieve({
-            "dataset"   :   'interim',
-            "class"     :   "ei",
+            "dataset"   :   cls.dataset,
+            "class"     :   cls.dclass,
             "expver"    :   "1",
             "date"      :   '{}-01-01/TO/{}-12-31'.format(year, year),
             "grid"      :   '{}/{}'.format(cls.grid,cls.grid),
@@ -243,8 +249,9 @@ def retrieval_moda(cls, requestDates, decade, target):
 
 
     if cls.levtype == 'sfc':
-        server.retrieve({    # do not change this!
-        'class'         :   'ea',
+        server.retrieve({   
+        "dataset"       :   cls.dataset,
+        "class"         :   cls.dclass,
         'expver'        :   '1',
         'stream'        :   'moda',
         'type'          :   'an',
@@ -255,9 +262,9 @@ def retrieval_moda(cls, requestDates, decade, target):
         'target'        :   target
             })
     elif cls.levtype == 'pl': 
-        server.retrieve({    # do not change this!
-        'class'         :   'ea',
-        'expver'        :   '1',
+        server.retrieve({    
+        "dataset"       :   cls.dataset,
+        "class"         :   cls.dclass,
         'stream'        :   'moda',
         'type'          :   'an',
         'param'         :   cls.var_cf_code,
@@ -267,7 +274,7 @@ def retrieval_moda(cls, requestDates, decade, target):
         'decade'        :   decade,
         'target'        :   target
             })
-
+    return
 
     
     

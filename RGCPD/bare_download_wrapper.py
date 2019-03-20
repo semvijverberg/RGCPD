@@ -18,7 +18,7 @@ os.chdir(script_dir)
 # Data wil downloaded to path_raw
 # =============================================================================
 base_path = "/Users/semvijverberg/surfdrive/"
-dataset   = 'era5' # choose 'era5' or 'ERAint'
+dataset   = 'era5' # choose 'era5' or 'ERAint' or era20c
 exp_folder = 'RGCPD_jetlat'
 path_raw = os.path.join(base_path,'Data_{}/' 
                         'input_raw'.format(dataset))
@@ -37,19 +37,20 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 
 ex = dict(
      {'dataset'     :       dataset,
-     'grid_res'     :       2.5,
-     'startyear'    :       1979, # download startyear
+     'grid_res'     :       0.25,
+     'startyear'    :       2001, # download startyear
      'endyear'      :       2018, # download endyear
      'months'       :       list(range(1,12+1)), #downoad months
-     'input_tfreq'  :       'monthly',
+     'input_freq'  :       'daily',
      'time'         :       pd.DatetimeIndex(start='00:00', end='23:00', 
                                 freq=(pd.Timedelta(6, unit='h'))),
+     'area'         :       [60, -130, 0, -60], # North, West, South, East. Default: global
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
      'path_pp'      :        path_pp}
      )
 
-if ex['dataset'] == 'ERAint':
+if ex['dataset'] == 'ERAint' or ex['dataset'] == 'era20c':
     import download_ERA_interim_API as ECMWF
 elif ex['dataset'] == 'era5':
     import download_ERA5_API as ECMWF
@@ -66,10 +67,10 @@ elif ex['dataset'] == 'era5':
 # See https://confluence.ecmwf.int/display/CKB/How+to+download+ERA5
 
 ex['vars']     =   [
-                    ['t2m', 'u'],              # ['name_var1','name_var2', ...]
-                    ['167.128', '131.128'],    # ECMWF param ids
-                    ['sfc', 'pl'],             # Levtypes
-                    [0, 200],                  # Vertical levels
+                    ['t2m', 'sst'],              # ['name_var1','name_var2', ...]
+                    ['167.128', '34.128'],    # ECMWF param ids
+                    ['sfc', 'sfc'],             # Levtypes
+                    [['0'], ['0']],                  # Vertical levels
                     ]
 
 for idx in range(len(ex['vars'][0]))[:]:

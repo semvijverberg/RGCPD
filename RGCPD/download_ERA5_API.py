@@ -49,10 +49,16 @@ class Var_ECMWF_download():
         vclass.var_cf_code = ex['vars'][1][idx]
         vclass.levtype = ex['vars'][2][idx]
         vclass.lvllist = ex['vars'][3][idx]
+        if 'area' in ex.keys():
+            vclass.area    = ex['area']
+        else:
+            vclass.area    = 'global'
         if ex['input_freq'] == 'daily':
             vclass.stream = 'oper'
+            vclass.input_freq = 'daily'
         if ex['input_freq'] == 'monthly':
             vclass.stream = 'moda'
+            vclass.input_freq = 'monthly'
             
         vclass.years    = [str(yr) for yr in np.arange(ex['startyear'], 
                                                ex['endyear']+1E-9, dtype=int)]
@@ -158,6 +164,7 @@ def retrieval_yr(cls, year, target):
             "year"      :   year,
             "month"     :   cls.months,
             "day"       :   cls.days,
+            'area'      :   cls.area,
 #                "levtype"   :   cls.levtype,
             # "levelist"  :   cls.lvllist,
             "param"     :   cls.var_cf_code,
@@ -175,6 +182,7 @@ def retrieval_yr(cls, year, target):
             "year"      :   year,
             "month"     :   cls.months,
             "day"       :   cls.days,
+            'area'      :   cls.area,
             "levelist"  :   cls.lvllist,
             "param"     :   cls.var_cf_code,
              "time"      :  cls.time,

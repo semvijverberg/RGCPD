@@ -72,7 +72,9 @@ def calculate_corr_maps(ex, map_proj):
         # 3c) Precursor field = sst
         #===========================================
         ncdf = Dataset(os.path.join(actor.path_pp, actor.filename_pp), 'r')
-        precur_arr = functions_pp.import_array(actor)[0].values           
+        
+        precur_arr, actor = functions_pp.import_ds_timemeanbins(actor, ex)
+#        precur_arr = functions_pp.import_array(actor)[0].values           
 
 
         time , nlats, nlons = precur_arr.shape # [months , lat, lon]
@@ -83,8 +85,7 @@ def calculate_corr_maps(ex, map_proj):
         # =============================================================================
         # Convert regions in time series
         # =============================================================================
-        actbox = rgcpd.extract_data(ncdf, precur_arr, ex)
-        actbox = np.reshape(actbox, (actbox.shape[0], -1))
+        actbox = np.reshape(precur_arr.values, (precur_arr.shape[0], -1))
         # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
         # stacked on top of each other (from lag_min to lag_max)
         tsCorr, n_reg_perlag = rgcpd.calc_actor_ts_and_plot(Corr_Coeff, actbox,
@@ -357,7 +358,7 @@ def xarray_plot_region(print_vars, outdic_actors, ex, map_proj):
 
     for var in variables:
         lags = list(range(ex['lag_min'], ex['lag_max']+1))
-        lags = ['{} ({} {}s)'.format(l, l*ex['tfreq'], ex['input_freq'][:-2]) for l in lags]
+        lags = ['{} ({} {})'.format(l, l*ex['tfreq'], ex['input_freq'][:1]) for l in lags]
         lat = outd[var].lat_grid
         lon = outd[var].lon_grid
         list_Corr.append(outd[var].Corr_Coeff.data[None,:,:].reshape(lat.size,lon.size,len(lags)))

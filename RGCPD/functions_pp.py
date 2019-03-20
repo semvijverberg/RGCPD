@@ -9,10 +9,12 @@ import os
 import numpy as np
 import pandas as pd
 from netCDF4 import num2date
+import matplotlib.pyplot as plt
 import itertools
 from dateutil.relativedelta import relativedelta as date_dt
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 flatten = lambda l: list(itertools.chain.from_iterable(l))
+
 def get_oneyr(datetime):
         return datetime.where(datetime.year==datetime.year[0]).dropna()
 
@@ -92,13 +94,14 @@ def check_pp_done(cls, ex):
     if ex['input_freq'] == 'monthly':
         dates = [d.replace(day=1,hour=0) for d in dates]
         ex['n_oneyr'] = np.unique(pd.to_datetime(dates).month).size
-    ds['time'] = pd.to_datetime(dates)
+    dates = pd.to_datetime(dates)
+    ds['time'] = dates 
     
     # =============================================================================
     # get time series that you request    
     # =============================================================================
 
-    dates = timeseries_tofit_bins(ds, ex, seldays='part')[1]
+#    dates = timeseries_tofit_bins(ds, ex, seldays='part')[1]
 
     start_day = get_oneyr(dates)[0]
     end_day   = get_oneyr(dates)[-1]
@@ -107,7 +110,7 @@ def check_pp_done(cls, ex):
     # give appropriate name to output file    
     # =============================================================================
     outfilename = cls.filename[:-3]+'.nc'
-    outfilename = outfilename.replace('daily', 'dt-{}days'.format(ex['tfreq']))
+#    outfilename = outfilename.replace('daily', 'dt-{}days'.format(1))
     months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
                          8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
 
@@ -218,7 +221,7 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
 #    RV_period = [x for sublist in RV_period for x in sublist]
 #    RV_period.sort()
 #    
-#    ex['RV_period'] = RV_periodß
+#    ex['RV_period'] = RV_period
 #    RV.datesRV = RV.dates[RV_period]
     
         # =============================================================================
@@ -266,7 +269,8 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
         same_freq = (RV.dates[1] - RV.dates[0]).days == ex['tfreq']
     if ex['input_freq'] == 'monthly':
         same_freq = (RV.dates[1].month - RV.dates[0].month) == ex['tfreq']
-    same_len_yr = RV.dates.size == ex[ex['vars'][0][0]].dates.size
+
+#    same_len_yr = RV.dates.size == ex[ex['vars'][0][0]].dates.size
 
     if same_freq == False:
         print('tfreq of imported 1d timeseries is unequal to the '
@@ -275,7 +279,7 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
     
     
     
-    if same_freq == True and same_len_yr == False:
+    if same_freq == True:
         
         RV.RVfullts, RV.dates = timeseries_tofit_bins(RV.RVfullts, ex, seldays='part')
         print('The amount of timesteps in the RV ts and the precursors'
@@ -283,8 +287,8 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
 
 
                                                       
-    assert all(np.equal(RV.dates, ex[ex['vars'][0][0]].dates)), ('dates {}'
-        ' not equal to dates in netcdf {}'.format(RV.name, ex['vars'][0][0]))
+#    assert all(np.equal(RV.dates, ex[ex['vars'][0][0]].dates)), ('dates {}'
+#        ' not equal to dates in netcdf {}'.format(RV.name, ex['vars'][0][0]))
     
     if ex['input_freq'] == 'daily':            
         RV.datesRV = make_RVdatestr(pd.to_datetime(RV.RVfullts.time.values), ex, 
@@ -330,6 +334,7 @@ def time_mean_bins(xarray, ex, seldays = 'part'):
     #%%
     import xarray as xr
     datetime = pd.to_datetime(xarray['time'].values)
+    ex['n_oneyr'] = get_oneyr(datetime).size
     
     # does the amount of steps per year already fit the bins?
     need_fit_bins = (ex['n_oneyr'] % ex['tfreq'] != 0)
@@ -461,46 +466,6 @@ def timeseries_tofit_bins(xarray, ex, seldays='part'):
             if next_yr[-1].year == breakyr:
                 break
         return start_yr
-
-        
-#    def make_datestr_2(datetime, start_yr):
-##        crossyr = (start_yr[-1].year - start_yr[0].year) == 1
-#        breakyr = datetime.year.max() 
-#        datesstr = [str(date).split('.', 1)[0] for date in start_yr.values]
-#        nyears = (datetime.year[-1] - datetime.year[0])+1
-#        startday = start_yr[0].strftime('%Y-%m-%dT%H:%M:%S')
-#        endday = start_yr[-1].strftime('%Y-%m-%dT%H:%M:%S')
-#        firstyear = (startday[:4], endday[:4])
-#        datesdt = start_yr
-#        def plusyearnoleap(curr_yr, startday, endday, incr):
-#            startday = startday.replace(firstyear[0], str(curr_yr[0]+incr))
-#            endday = endday.replace(firstyear[1], str(curr_yr[1]+incr))
-#            next_yr = pd.DatetimeIndex(start=startday, end=endday, 
-#                            freq=(datetime[1] - datetime[0]))
-#            # excluding leap year again
-#            noleapdays = (((next_yr.month==2) & (next_yr.day==29))==False)
-#            next_yr = next_yr[noleapdays].dropna(how='all')
-#            return next_yr
-#        
-#        for yr in range(0,nyears-1):
-##            if crossyr==False:
-##                curr_yr = (yr+int(firstyear[0]), yr+int(firstyear[1]))
-##            elif crossyr:
-#            curr_yr = (yr+int(firstyear[0]), yr+int(firstyear[1]))
-#
-#            next_yr = plusyearnoleap(curr_yr, startday, endday, 1)
-#            datesdt = np.append(datesdt, next_yr)
-##            print(len(next_yr))
-##            nextstr = [str(date).split('.', 1)[0] for date in next_yr.values]
-##            datesstr = datesstr + nextstr
-##            print(nextstr[0])
-#
-#            if next_yr.year[-1] == breakyr:
-#                break
-#        # drop last year data if crossyr == True, othersize years are unequal lenght
-##        datesdt = datesdt[datesdt.year != breakyr]
-#        datesdt = pd.to_datetime(datesdt)
-#        return datesdt
     
 
     ex['n_oneyr'] = start_yr.size
@@ -605,6 +570,30 @@ def import_array(cls, path='pp'):
     cls.dates = dates
     return marray, cls
 
+def import_ds_timemeanbins(cls, ex):
+    import os
+    import xarray as xr
+    from netCDF4 import num2date
+    import pandas as pd
+    import numpy as np
+
+    file_path = os.path.join(cls.path_pp, cls.filename_pp)        
+    ds = xr.open_dataset(file_path, decode_cf=True, decode_coords=True, decode_times=False)
+    
+    numtime = ds['time']
+    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+    if numtime.attrs['calendar'] != 'gregorian':
+        dates = [d.strftime('%Y-%m-%d') for d in dates]
+    ds['time'] = pd.to_datetime(dates)
+#    ds['time'] = dates
+    ds, dates, datessel = time_mean_bins(ds, ex, seldays='part')
+    
+#    print('temporal frequency \'dt\' is: \n{}'.format(dates[1]- dates[0]))
+    ds['time'] = dates
+    marray = ds.to_array().squeeze()
+    cls.dates = dates
+    return marray, cls
+
 def detrend_anom_ncdf3D(infile, outfile, ex, encoding=None):
     ''' 
     Function for preprocessing
@@ -645,10 +634,6 @@ def detrend_anom_ncdf3D(infile, outfile, ex, encoding=None):
         ex['n_oneyr'] = np.unique(pd.to_datetime(dates).month).size
     ds['time'] = pd.to_datetime(dates)
     
-    
-    ds, dates, datessel = time_mean_bins(ds, ex, seldays='part')
-
-
 
     # check if 3D data (lat, lat, lev) or 2D
     if any([level in ds.dims for level in ['lev', 'level']]):
@@ -658,10 +643,10 @@ def detrend_anom_ncdf3D(infile, outfile, ex, encoding=None):
         output[:] = np.nan
         for lev_idx, lev in enumerate(levels.values):
             ds_2D = ds.sel(levels=lev)
-            output[:,lev_idx,:,:] = detrend_xarray_ds_2D(ds_2D, ex)
+            output[:,lev_idx,:,:] = detrend_xarray_ds_2D(ds_2D)
             
     else:
-        output = detrend_xarray_ds_2D(ds, ex)
+        output = detrend_xarray_ds_2D(ds)
         
     output = xr.DataArray(output, name=var, dims=ds.dims, coords=ds.coords)
     # copy original attributes to xarray
@@ -681,7 +666,7 @@ def detrend_anom_ncdf3D(infile, outfile, ex, encoding=None):
     #%%
     return 
 
-def detrend_xarray_ds_2D(ds, ex):    
+def detrend_xarray_ds_2D(ds):    
     #%%
     import xarray as xr
     import numpy as np
@@ -695,16 +680,26 @@ def detrend_xarray_ds_2D(ds, ex):
     else:
         dates = pd.to_datetime(ds['time'].values)
     stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
-    
+    test_if_fullyr = np.logical_and(dates[stepsyr.size-1].month == 12,
+                                    dates[stepsyr.size-1].day == 31)
+    assert test_if_fullyr, ('full is needed as raw data since rolling'
+                            ' mean is applied across timesteps')
     ds['time'] = dates
+
+
     
-    def _detrendfunc2d(arr_oneday):
+    def _detrendfunc2d(arr_oneday, arr_oneday_smooth):
         from scipy import signal
-        no_nans = np.nan_to_num(arr_oneday)
-        detrended = signal.detrend(no_nans, axis=0, type='linear')
+        # get trend of smoothened signal
+        
+        no_nans = np.nan_to_num(arr_oneday_smooth)
+        detrended_sm = signal.detrend(no_nans, axis=0, type='linear')
         nan_true = np.isnan(arr_oneday)
-        detrended[nan_true] = np.nan
-        return detrended
+        detrended_sm[nan_true] = np.nan
+        # subtract trend smoothened signal of arr_oneday values
+        trend = (arr_oneday_smooth - detrended_sm)- np.mean(arr_oneday_smooth, 0)
+        detrended = arr_oneday - trend
+        return detrended, detrended_sm
     
     
     def detrendfunc2d(arr_oneday):
@@ -714,51 +709,64 @@ def detrend_xarray_ds_2D(ds, ex):
 #        return xr.apply_ufunc(_detrendfunc2d, arr_oneday.compute(), 
 #                              dask='parallelized',
 #                              output_dtypes=[float])
-                
+
+
+    window_s = min(25,int(stepsyr.size / 12))
+    print('Performing {} day rolling mean with gaussian window (std={})'
+          ' to get better interannual statistics'.format(window_s, window_s/2))  
+    data_smooth =  rolling_mean_np(ds.values, window_s)
+    
+        
+
+#    output_std = np.empty( (stepsyr.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
+#    output_std[:] = np.nan
+#    output_clim = np.empty( (stepsyr.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
+#    output_clim[:] = np.nan
     output = np.empty( (ds.time.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
     output[:] = np.nan
-    print('Detrending based on interannual trend of specific dayofyear')
+    print('Detrending based on interannual trend of 25 day smoothened day of year')
+    print('using absolute anomalies w.r.t. climatology of '
+              'smoothed concurrent day accross years')
     for i in range(stepsyr.size):
-        sd = (dates[i::stepsyr.size])
-        if ex['tfreq'] <= 7:
-            # select surrounding dates to get better statistics
-            if i == stepsyr.size-1:
-                print('selecting surrounding dates to get better statistics')
-            
-            arr_oneday, sd_surr = get_mean_surrouding_dates(ds, sd, dates)
-            
-        elif ex['tfreq'] >= 8:
-            if i == stepsyr.size-1:
-                print('selecting dayofyear and subtr. interannual mean')
-            arr_oneday = ds.sel(time=sd)#.chunk({'latitude': 100, 'longitude': 100})
+        sliceyr = np.arange(i, ds.time.size, stepsyr.size)
+        arr_oneday = ds.isel(time=sliceyr)
+        arr_oneday_smooth = data_smooth[sliceyr]
+        arr_oneday, detrended_sm = _detrendfunc2d(arr_oneday, arr_oneday_smooth)
         
-        if ex['abs_or_anom'] == 'anom':
-            # subtract climatology
-            arr_oneday = arr_oneday - arr_oneday.mean(dim='time')
+#        output_std[i]  = arr_oneday.std(axis=0)
+        output_clim = arr_oneday_smooth.mean(axis=0)
 
-            if i == stepsyr.size-1:
-                print('calculated anomalies w.r.t. clim ')
+        output[i::stepsyr.size] = arr_oneday - output_clim
+           
+#    output_std_new = rolling_mean_np(output_std, 50)
+    
+#    plt.figure(figsize=(15,10)) ; plt.title('T2m at 66N, 24E. 1 day bins mean (39 years)'); 
+#    plt.plot((output_clim[:,16,10]-output_clim[:,16,10].mean())) 
+#    plt.plot((output_clim_old[:,16,10]-output_clim_old[:,16,10].mean())) 
+#    plt.yticks(np.arange(-15,15,2.5)) ; plt.xticks(np.arange(0,366,25)) ; plt.grid(which='major') ;
+#    plt.ylabel('Kelvin')
+
+#    plt.figure(figsize=(15,10)) 
+#    plt.plot(output_std[:,16,10], label='one day of year') 
+#    plt.plot(output_std_new[:,16,10], label='50 day smooth of blue line') ; plt.yticks(np.arange(3,7.5,0.25)) ; plt.xticks(np.arange(0,366,25)) ; plt.grid(which='major') ;
+#    plt.legend()
+#    plt.ylabel('Kelvin')
+
         
-        output[i::stepsyr.size] = detrendfunc2d(arr_oneday) 
     #%%
-    return output 
+    return output
 
-def get_mean_surrouding_dates(ds, sd, dates):
-    tfreq = dates[1] - dates[0]
-    sd_prior = sd - tfreq
-    sd_post  = sd + tfreq
-    idx_outside_dates = [list(sd_prior).index(d) for d in sd_prior if d not in dates]
-    sd_prior = np.delete(sd_prior, idx_outside_dates)
-    idx_outside_dates = [list(sd_post).index(d) for d in sd_post if d not in dates]
-    sd_post  = np.delete(sd_post, idx_outside_dates)
-    new_sd = sd.append([sd_post, sd_prior])
-    arr_oneday = ds.sel(time=sd)
-    nparr = arr_oneday.values
-    for yr_idx, yr in enumerate(np.unique(new_sd.year.values)):
-#        mean_of_yr = 
-        nparr[yr_idx] = ds.sel(time=new_sd[new_sd.year == yr]).mean(dim='time')
-    arr_oneday.values = nparr
-    return arr_oneday, new_sd
+def rolling_mean_np(arr, win):    
+    import scipy.signal.windows as spwin
+    plt.plot(range(-int(win/2),+int(win/2)+1), spwin.gaussian(win, win/2))
+    plt.title('window used for rolling mean')
+    plt.xlabel('timesteps')
+    df = pd.DataFrame(data=arr.reshape( (arr.shape[0], arr[0].size)))
+    
+    rollmean = df.rolling(win, center=True, min_periods=1,
+                          win_type='gaussian').mean(std=win/2.)
+    
+    return rollmean.values.reshape( (arr.shape))
 
 def xarray_plot(data, path='default', name = 'default', saving=False):
     # from plotting import save_figure

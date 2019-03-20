@@ -150,10 +150,10 @@ def calc_corr_coeffs_new(ncdf, precur_arr, RVts, ex):
     Corr_Coeff = np.ma.array(z, mask=z)
 	
 	
-    # extract data	
-    sat = extract_data(ncdf, precur_arr, ex)	
+
+
     # reshape
-    sat = np.reshape(sat, (sat.shape[0],-1))
+    sat = np.reshape(precur_arr.values, (precur_arr.shape[0],-1))
     
     allkeysncdf = list(d.variables.keys())
     dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude', 'mask', 'levels']

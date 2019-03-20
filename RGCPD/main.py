@@ -54,15 +54,15 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 ex = dict(
      {'dataset'     :       dataset,
      'grid_res'     :       2.5,
-     'startyear'    :       1980, # download startyear
+     'startyear'    :       1979, # download startyear
      'endyear'      :       2017, # download endyear
-     'input_freq'   :       'monthly',
+     'input_freq'   :       'daily',
      'months'       :       list(range(1,12+1)), #downoad months
      # if dealing with daily data, give string as 'month-day', i.e. '07-01'
      # if dealing with monthly data, the day of month is neglected 
      'startperiod'  :       '06-01', # RV period
      'endperiod'    :       '08-31', # RV period
-     'sstartdate'   :       '01-01', # precursor period
+     'sstartdate'   :       '03-01', # precursor period
      'senddate'     :       '08-31', # precursor period
      'la_min'       :       -20, # select domain of correlation analysis
      'la_max'       :       89,
@@ -83,13 +83,13 @@ elif ex['dataset'] == 'era5':
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = False
+ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf = True
+import_precursor_ncdf = False
 # Option 3:
-import_RV_ncdf = True
+import_RV_ncdf = False
 # Option 4:
-importRV_1dts = False
+importRV_1dts = True
 
 
 # Option 1111111111111111111111111111111111111111111111111111111111111111111111
@@ -119,7 +119,7 @@ if ECMWFdownload == True:
 #                              ['pl', 'sfc', 'pl'],[['500'], '0', ['850']] ]
 #    ex['vars']      =       [['t_10hpa'],['130.128'],
 #                             ['pl'],['10'] ]
-    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
+#    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
 #    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
 #    ex['vars']      =       [['rv'], ['138.128'],['pl'], ['250']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
@@ -229,7 +229,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [1, 2] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
@@ -361,8 +361,8 @@ for freq in ex['tfreqlist']:
     print('\n**\nBegin summary of main experiment settings\n**\n')
     print('Response variable is {} is correlated vs {}'.format(ex['vars'][0][0],
           ex['vars'][0][1:]))
-    start_day = '{}-{}'.format(var_class.dates[0].day, var_class.dates[0].month_name())
-    end_day   = '{}-{}'.format(var_class.dates[-1].day, var_class.dates[-1].month_name())
+    start_day = '{}-{}'.format(RV.dates[0].day, RV.dates[0].month_name())
+    end_day   = '{}-{}'.format(RV.dates[-1].day, RV.dates[-1].month_name())
     print('Part of year investigated: {} - {}'.format(start_day, end_day))
     print('Part of year predicted (RV period): {} '.format(RV_name_range[:-1]))
     print('Temporal resolution: {} {}'.format(ex['tfreq'], ex['input_freq']))
