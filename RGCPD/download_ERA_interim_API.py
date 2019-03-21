@@ -57,7 +57,6 @@ class Var_ECMWF_download():
         elif ex['dataset'] == 'era20c':
             vclass.dataset = 'era20c'
             vclass.dclass   = 'e2'
-        vclass.dataset = ex['dataset']
         vclass.name = ex['vars'][0][idx]
         vclass.var_cf_code = ex['vars'][1][idx]
         vclass.levtype = ex['vars'][2][idx]

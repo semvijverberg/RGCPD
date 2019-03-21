@@ -421,27 +421,43 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
     #%%
     # =============================================================================
     print('\nPlotting all fields significant at alpha_level_tig, while conditioning on parents'
-          'that were found in the PC step')
+          ' that were found in the PC step')
     # =============================================================================
     # i+1 below, assuming parents_RV pythonic counting of idx
     # !!!! Check with Marlene !!!!
     all_reg_tig = [[var_names[i][0],var_names[i][1],l] for i,l in parents_RV]
     allvar = ex['vars'][0]
     precursor_fields = allvar[ex['excludeRV']:]
-    Corr_Coeff_list = []
-    for var in precursor_fields:
-        actor = outdic_actors[var]
-        Corr_Coeff_list.append(actor.Corr_Coeff)
-    Corr_precursor_ALL = Corr_Coeff_list
-    # shape of Corr_Coeff_all_r_l = [prec_vars, gridpoints, lags]
-    Corr_Coeff_all_r_l = np.ma.array(Corr_precursor_ALL)
     lags = list(range(ex['lag_min'],ex['lag_max']+1))
+    n_gcs = [outdic_actors[var].Corr_Coeff[:,0].size for var in precursor_fields]
+    all_same_size = np.equal([n-n_gcs[0] for n in n_gcs], np.zeros( len(n_gcs) )).all()
+    assert (all_same_size == True), ('Not all grids are same resolution, '
+            'not supported by this plotting function')
+    n_gc = outdic_actors[precursor_fields[0]].Corr_Coeff[:,0].size
+    
+    Corr_Coeff_all_r_l = np.ma.zeros( ( len(allvar), n_gc, len(lags) ) )
+    for var in precursor_fields:
+        idx = precursor_fields.index(var)
+        actor = outdic_actors[var]
+        Corr_Coeff_all_r_l[idx] = actor.Corr_Coeff
+    
+#    all_reg_tig = [[var_names[i][0],var_names[i][1],l] for i,l in parents_RV]
+#    allvar = ex['vars'][0]
+#    precursor_fields = allvar[ex['excludeRV']:]
+#    Corr_Coeff_list = []
+#    for var in precursor_fields:
+#        actor = outdic_actors[var]
+#        Corr_Coeff_list.append(actor.Corr_Coeff)
+#    Corr_precursor_ALL = Corr_Coeff_list
+#    # shape of Corr_Coeff_all_r_l = [prec_vars, gridpoints, lags]
+#    Corr_Coeff_all_r_l = np.ma.array(Corr_precursor_ALL)
+    
     prec_names = np.array(allvar[ex['excludeRV']:])
     if ex['plotin1fig'] == True:
       # Build array, keeping only correlated regions that are sign after tigramite step
-        all_regions_corr = np.zeros((prec_names.size, actor.lat_grid.size*actor.lon_grid.size))
-        all_regions_tig = np.zeros((prec_names.size, actor.lat_grid.size*actor.lon_grid.size))
-        all_regions_del = np.zeros((prec_names.size, actor.lat_grid.size*actor.lon_grid.size))
+        all_regions_corr = np.zeros((prec_names.size, n_gc))
+        all_regions_tig = np.zeros((prec_names.size, n_gc))
+        all_regions_del = np.zeros((prec_names.size, n_gc))
 
         for var in allvar[ex['excludeRV']:]:
             varidx = allvar.index(var) - ex['excludeRV']  # minus the first idx of the RV if exclRV = 1
@@ -479,18 +495,16 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
                         all_regions_del[varidx,i] = 0
                 skip_inds_prev_lag = regions_i.max()
 
-        all_regions_corr = all_regions_corr.reshape((prec_names.size, actor.lat_grid.size,
-                                                     actor.lon_grid.size))
-        all_regions_tig = all_regions_tig.reshape((prec_names.size, actor.lat_grid.size,
-                                                   actor.lon_grid.size))
-        all_regions_del = all_regions_del.reshape((prec_names.size, actor.lat_grid.size,
-                                                   actor.lon_grid.size))
+        all_regions_corr = all_regions_corr.reshape((prec_names.size, n_gc))
+        all_regions_tig = all_regions_tig.reshape((prec_names.size, n_gc))
+        all_regions_del = all_regions_del.reshape((prec_names.size, n_gc))
+        
         array = np.concatenate( (all_regions_corr[None,:,:,:], all_regions_tig[None,:,:,:]), axis=0)
     elif ex['plotin1fig'] == False:
         # Build array, keeping only correlated regions that are sign after tigramite step
-        all_regions_corr = np.ma.zeros((prec_names.size, len(lags), actor.lat_grid.size*actor.lon_grid.size))
-        all_regions_tig = np.ma.zeros((prec_names.size, len(lags), actor.lat_grid.size*actor.lon_grid.size))
-        all_regions_del = np.ma.zeros((prec_names.size, len(lags), actor.lat_grid.size*actor.lon_grid.size))
+        all_regions_corr = np.ma.zeros((prec_names.size, len(lags), n_gc))
+        all_regions_tig = np.ma.zeros((prec_names.size, len(lags), n_gc))
+        all_regions_del = np.ma.zeros((prec_names.size, len(lags), n_gc))
 
 #        for var in allvar[ex['excludeRV']:]:
         for var in allvar[ex['excludeRV']:]:

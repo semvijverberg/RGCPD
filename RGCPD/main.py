@@ -35,10 +35,10 @@ copy_stdout = sys.stdout
 # which will be made when running the code
 base_path = "/Users/semvijverberg/surfdrive/"
 dataset   = 'ERAint' # choose 'era5' or 'ERAint'
-exp_folder = 'RGCPD_jetlat/summer'
+exp_folder = 'mcKinnon'
 path_raw = os.path.join(base_path, 'Data_{}/' 
                         'input_raw'.format(dataset))
-path_pp  = os.path.join(base_path, 'RGCPD_jetlat', 'Data_{}/' 
+path_pp  = os.path.join(base_path, 'Data_{}/' 
                         'input_pp'.format(dataset))
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
@@ -87,9 +87,9 @@ ECMWFdownload = True
 # Option 2:
 import_precursor_ncdf = False
 # Option 3:
-import_RV_ncdf = False
+import_RV_ncdf = True
 # Option 4:
-importRV_1dts = True
+importRV_1dts = False
 
 
 # Option 1111111111111111111111111111111111111111111111111111111111111111111111
@@ -168,7 +168,7 @@ else:
 if importRV_1dts == True:
     RV_name = 'jetlat'
     ex['RVts_filename'] = 't2mmax_1979-2017_averAggljacc_tf14_n8__to_t2mmax_tf1.npy'
-    ex['RVts_filename'] = 'jetlat_1979-2017_02-27_12-31.npy'
+#    ex['RVts_filename'] = 'jetlat_1979-2017_02-27_12-31.npy'
 
 ex['excludeRV'] = 0 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
 
@@ -221,7 +221,7 @@ elif importRV_1dts == False:
                           't2mmax_1979-2017_averAggljacc0.75d_tf1_n6__to_t2mmax_tf1.npy')
     # You can also include a latitude longitude box as a spatial mask by just 
     # giving a list [west_lon, east_lon, south_lat, north_lat] instead of a file
-    ex['spatial_mask_file'] = [18.25, 24.75, 75.25, 87.75]
+#    ex['spatial_mask_file'] = [18.25, 24.75, 75.25, 87.75]
 
 
 # =============================================================================
@@ -229,7 +229,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [1,2,4,7,14,21,35]
+ex['tfreqlist'] = [1] # [1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test

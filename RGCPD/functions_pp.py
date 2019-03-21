@@ -618,7 +618,7 @@ def detrend_anom_ncdf3D(infile, outfile, ex, encoding=None):
     strvars = [' {} '.format(var) for var in variables]
     var = [var for var in strvars if var not in ' time time_bnds longitude latitude lev lon lat level '][0] 
     var = var.replace(' ', '')
-    ds = ncdf[var]
+    ds = ncdf[var].squeeze()
     if 'latitude' and 'longitude' not in ds.dims:
         ds = ds.rename({'lat':'latitude', 
                    'lon':'longitude'})
@@ -633,10 +633,11 @@ def detrend_anom_ncdf3D(infile, outfile, ex, encoding=None):
         dates = [d.replace(day=1,hour=0) for d in dates]
         ex['n_oneyr'] = np.unique(pd.to_datetime(dates).month).size
     ds['time'] = pd.to_datetime(dates)
-    
 
     # check if 3D data (lat, lat, lev) or 2D
-    if any([level in ds.dims for level in ['lev', 'level']]):
+    check_dim_level = any([level in ds.dims for level in ['lev', 'level']])
+    
+    if check_dim_level:
         key = ['lev', 'level'][any([level in ds.dims for level in ['lev', 'level']])]
         levels = ds[key]
         output = np.empty( (ds.time.size,  ds.level.size, ds.latitude.size, ds.longitude.size), dtype='float32' )
@@ -644,7 +645,6 @@ def detrend_anom_ncdf3D(infile, outfile, ex, encoding=None):
         for lev_idx, lev in enumerate(levels.values):
             ds_2D = ds.sel(levels=lev)
             output[:,lev_idx,:,:] = detrend_xarray_ds_2D(ds_2D)
-            
     else:
         output = detrend_xarray_ds_2D(ds)
         
