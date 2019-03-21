@@ -56,7 +56,7 @@ ex = dict(
      'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
      'endyear'      :       2017, # download endyear
-     'input_freq'   :       'daily',
+     'input_freq'   :       'monthly',
      'months'       :       list(range(1,12+1)), #downoad months
      # if dealing with daily data, give string as 'month-day', i.e. '07-01'
      # if dealing with monthly data, the day of month is neglected 
@@ -157,8 +157,9 @@ if import_RV_ncdf == True:
     ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_{}_'
                               '{}deg.nc'.format(ex['startyear'], ex['endyear'],
                                ex['input_freq'], ex['grid_res']))]
-    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_monthly_'
-                              '0.75deg.nc'.format(ex['startyear'], ex['endyear']))]    
+#    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_monthly_'
+#                              '0.75deg.nc'.format(ex['startyear'], ex['endyear']))]   
+
 else:
     ex['RVnc_name'] = []
 
@@ -221,7 +222,7 @@ elif importRV_1dts == False:
                           't2mmax_1979-2017_averAggljacc0.75d_tf1_n6__to_t2mmax_tf1.npy')
     # You can also include a latitude longitude box as a spatial mask by just 
     # giving a list [west_lon, east_lon, south_lat, north_lat] instead of a file
-#    ex['spatial_mask_file'] = [18.25, 24.75, 75.25, 87.75]
+    ex['spatial_mask_file'] = [18.25, 24.75, 75.25, 87.75]
 
 
 # =============================================================================
