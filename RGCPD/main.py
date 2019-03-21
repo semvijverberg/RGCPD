@@ -83,9 +83,9 @@ elif ex['dataset'] == 'era5':
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = True
+ECMWFdownload = False
 # Option 2:
-import_precursor_ncdf = False
+import_precursor_ncdf = True
 # Option 3:
 import_RV_ncdf = True
 # Option 4:
@@ -157,8 +157,8 @@ if import_RV_ncdf == True:
     ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_{}_'
                               '{}deg.nc'.format(ex['startyear'], ex['endyear'],
                                ex['input_freq'], ex['grid_res']))]
-#    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_monthly_'
-#                              '0.75deg.nc'.format(ex['startyear'], ex['endyear']))]    
+    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_monthly_'
+                              '0.75deg.nc'.format(ex['startyear'], ex['endyear']))]    
 else:
     ex['RVnc_name'] = []
 
