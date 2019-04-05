@@ -56,7 +56,7 @@ ex = dict(
      'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
      'endyear'      :       2017, # download endyear
-     'input_freq'   :       'daily',
+     'input_freq'   :       'monthly',
      'months'       :       list(range(1,12+1)), #downoad months
      # if dealing with daily data, give string as 'month-day', i.e. '07-01'
      # if dealing with monthly data, the day of month is neglected 
@@ -83,9 +83,9 @@ elif ex['dataset'] == 'era5':
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = True
+ECMWFdownload = False
 # Option 2:
-import_precursor_ncdf = False
+import_precursor_ncdf = True
 # Option 3:
 import_RV_ncdf = True
 # Option 4:
@@ -234,8 +234,8 @@ for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
     lag_min = int(np.timedelta64(5, 'D') / np.timedelta64(ex['tfreq'], 'D'))
-    ex['lag_min'] = max(1, lag_min)
-    ex['lag_max'] = ex['lag_min'] + 2
+    ex['lag_min'] = 1 #max(1, lag_min)
+    ex['lag_max'] = 1 #ex['lag_min'] + 2
 
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
                         ex['sstartdate'].split('-')[0], 
@@ -277,12 +277,17 @@ for freq in ex['tfreqlist']:
     # Test if you're not have a lag that will precede the start date of the year
     # =============================================================================
     # first date of year to be analyzed:
-    firstdoy = RV.datesRV.min() - np.timedelta64(ex['tfreq'] * ex['lag_max'], 'D')
-    if firstdoy < RV.dates[0] and (RV.dates[0].month,RV.dates[0].day) != (1,1):
+    if ex['input_freq'] == 'daily'  : dt = 'D'
+    if ex['input_freq'] == 'monthly': dt = 'M'
+    firstdoy = RV.datesRV.min() - np.timedelta64(ex['tfreq'] * ex['lag_max'], dt)
+#    if np.logical_and(firstdoy < var_class.dates[0],
+#                      (var_class.dates[0].month,var_class.dates[0].day) != (1,1)
+#                      ):
+    if firstdoy < var_class.dates[0]:
         tdelta = RV.datesRV.min() - RV.dates.min()
-        ex['lag_max'] = int(tdelta / np.timedelta64(ex['tfreq'], 'D'))
-        print(('Changing maximum lag to {}, so that you not skip part of the '
-              'year.'.format(ex['lag_max'])))
+        ex['lag_max'] = max(1, int(tdelta / np.timedelta64(ex['tfreq'], dt)))
+        print('\nChanging maximum lag to {}, so that you not skip part of the '
+              'year.'.format(ex['lag_max']))
 
     # create this subfolder in ex['path_exp'] for RV_period and spatial mask
     ex['path_exp_periodmask'] =  ex['path_exp_periodmask'] + '_lag{}-{}'.format(

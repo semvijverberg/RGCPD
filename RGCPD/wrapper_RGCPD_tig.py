@@ -624,12 +624,14 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
         file_name = '{}_tigout_all'.format(ex['params'])
         finalfigure(xrdata, all_regions_deladj, file_name)
     if ex['plotin1fig'] == False:
+        if ex['input_freq'] == 'daily'  : dt = 'days'
+        if ex['input_freq'] == 'monthly': dt = 'months'
         for var in allvar[ex['excludeRV']:]:
             varidx = allvar.index(var) - ex['excludeRV']
             onevar_array = array[:,varidx,:,:,:].copy()
             names_row = []
             for lag in lags:
-                names_row.append(var + '\n-{} days'.format(lag * ex['tfreq']))
+                names_row.append(var + '\n-{} {}'.format(lag * ex['tfreq'], dt))
 
             xrdata = xr.DataArray(data=onevar_array, coords=[names_col, names_row, lat, lon],
                                 dims=['names_col','names_row','latitude','longitude'], name='Corr Coeff')

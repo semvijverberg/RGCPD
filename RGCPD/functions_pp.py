@@ -455,9 +455,10 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
 
         RV.RVfullts, RV.dates = timeseries_tofit_bins(RV.RVfullts, ex, seldays='part')
         print('The amount of timesteps in the RV ts and the precursors'
-                          ' do not match, selecting desired dates ')
-
-
+                          ' do not match, selecting desired dates. ')
+    
+    print('Detrending Respone Variable.')
+    RV.RVfullts = detrend1D(RV.RVfullts)
 
     if ex['input_freq'] == 'daily':
         RV.datesRV = make_RVdatestr(pd.to_datetime(RV.RVfullts.time.values), ex,
@@ -663,9 +664,6 @@ def timeseries_tofit_bins(xarray, ex, seldays='part'):
         start_yr.reverse()
         start_yr = pd.to_datetime(start_yr)
 
-
-
-
         #%%
     def make_dates(datetime, start_yr):
         breakyr = datetime.year.max()
@@ -786,7 +784,6 @@ def import_ds_timemeanbins(cls, ex):
     import xarray as xr
     from netCDF4 import num2date
     import pandas as pd
-    import numpy as np
 
     file_path = os.path.join(cls.path_pp, cls.filename_pp)
     ds = xr.open_dataset(file_path, decode_cf=True, decode_coords=True, decode_times=False)
