@@ -34,12 +34,12 @@ copy_stdout = sys.stdout
 # this will be your basepath, all raw_input and output will stored in subfolder
 # which will be made when running the code
 base_path = "/Users/semvijverberg/surfdrive/"
-dataset   = 'ERAint' # choose 'era5' or 'ERAint'
-exp_folder = 'mcKinnon'
-path_raw = os.path.join(base_path, 'Data_{}/' 
-                        'input_raw'.format(dataset))
-path_pp  = os.path.join(base_path, 'Data_{}/' 
-                        'input_pp'.format(dataset))
+dataset   = 'Morocco' # choose 'era5' or 'ERAint'
+exp_folder = 'Morocco'
+path_raw = os.path.join(base_path, 'Morocco/input_raw')
+                        
+path_pp  = os.path.join(base_path, 'Morocco/input_pp')
+                       
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 
@@ -55,16 +55,16 @@ ex = dict(
      {'dataset'     :       dataset,
      'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
-     'endyear'      :       2017, # download endyear
+     'endyear'      :       2015, # download endyear
      'input_freq'   :       'monthly',
      'months'       :       list(range(1,12+1)), #downoad months
      # if dealing with daily data, give string as 'month-day', i.e. '07-01'
      # if dealing with monthly data, the day of month is neglected 
-     'startperiod'  :       '06-01', # RV period
-     'endperiod'    :       '08-31', # RV period
-     'time_match_RV':       False,
-     'sstartdate'   :       '03-01', # precursor period
-     'senddate'     :       '08-31', # precursor period
+     'startperiod'  :       '12-01', # RV period
+     'endperiod'    :       '12-31', # RV period
+     'time_match_RV':       True,    # set False to avoid time period matching RV & Prec
+     'sstartdate'   :       '01-01', # precursor period
+     'senddate'     :       '12-31', # precursor period
      'la_min'       :       -20, # select domain of correlation analysis
      'la_max'       :       89,
      'lo_min'       :       -180,
@@ -88,9 +88,9 @@ ECMWFdownload = False
 # Option 2:
 import_precursor_ncdf = True
 # Option 3:
-import_RV_ncdf = True
+import_RV_ncdf = False
 # Option 4:
-importRV_1dts = False
+importRV_1dts = True
 
 
 # Option 1111111111111111111111111111111111111111111111111111111111111111111111
@@ -107,25 +107,6 @@ if ECMWFdownload == True:
                                 freq=(pd.Timedelta(6, unit='h')))
         
     
-    ex['vars']      =       [['t2m'],['2m_temperature'],['sfc'],[0]]
-#    ex['vars']      =       [['sm1','sm2', 'sm3'],['39.128', '40.128','41.128'],['sfc','sfc','sfc'],['0','0','0']]
-#    ex['vars']      =       [['sm2'],['40.128'],['sfc'],['0']]
-#    ex['vars']      =       [['st1','st2'],['139.128', '170.128'],['sfc','sfc'],['0','0']]
-#    ex['vars']      =       [['prcp'], ['228.128'], ['sfc'], [0]]
-#    ex['vars']      =       [['u_3d'],['131.128'],
-#                             ['pl'],[['1000', '900', '850', '700', '600', '500','400','200']] ]
-#    ex['vars']      =       [['u_10hpa'],['131.128'],
-#                             ['pl'],['10'] ]
-#    ex['vars']      =       [ ['z_500hpa', 'sst', 't_850hpa'],['129.128', '34.128', '130.128'],
-#                              ['pl', 'sfc', 'pl'],[['500'], '0', ['850']] ]
-#    ex['vars']      =       [['t_10hpa'],['130.128'],
-#                             ['pl'],['10'] ]
-#    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
-#    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
-#    ex['vars']      =       [['rv'], ['138.128'],['pl'], ['250']]
-#    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
-#                            ['167.128', '34.128', '131.128', '130.128'],
-#                            ['sfc', 'sfc', 'pl', 'pl'],[0, 0, '500', '100']]
 #    ex['vars']     =   [
 #                        ['t2m', 'u'],              # ['name_RV','name_actor', ...]
 #                        ['167.128', '131.128'],    # ECMWF param ids
@@ -145,7 +126,7 @@ if import_precursor_ncdf == True:
 #                              '{}deg.nc'.format(ex['startyear'], ex['endyear'],
 #                               ex['grid_res']))]]
 #    ex['precursor_ncdf'] = [['sst', 'sst_NOAA_mcKbox_det_1982_2017_1_12_daily_0.25deg.nc']]
-    ex['precursor_ncdf'] = [['z_850hpa', 'z_850hpa_1979-2017_1_12_monthly_2.5deg.nc']]
+    ex['precursor_ncdf'] = [['gph_500', 'gph_500mb_monmean_1979-2015.nc']]
 
 else:
     ex['precursor_ncdf'] = [[]]
@@ -168,8 +149,8 @@ else:
 # Import Response Variable 1-dimensional time serie.
 # 44444444444444444444444444444444444444444444444444444444444444444444444444444
 if importRV_1dts == True:
-    RV_name = 'jetlat'
-    ex['RVts_filename'] = 't2mmax_1979-2017_averAggljacc_tf14_n8__to_t2mmax_tf1.npy'
+    RV_name = 'cropyield'
+    ex['RVts_filename'] = 'Moroccan_crop_yields_1979-2015_extended.csv'
 #    ex['RVts_filename'] = 'jetlat_1979-2017_02-27_12-31.npy'
 
 ex['excludeRV'] = 0 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
@@ -187,6 +168,7 @@ if ECMWFdownload == True:
     for idx in range(len(ex['vars'][0]))[:]:
         # class for ECMWF downloads
         var_class = ECMWF.Var_ECMWF_download(ex, idx)
+        var_class = ECMWF.retrieve_field(var_class)
         ex[ex['vars'][0][idx]] = var_class
 
 
@@ -230,13 +212,13 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [1] # [1,2,4,7,14,21,35]
+ex['tfreqlist'] = [1,2,4,6] # [1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
     lag_min = int(np.timedelta64(5, 'D') / np.timedelta64(ex['tfreq'], 'D'))
-    ex['lag_min'] = max(1, lag_min)
-    ex['lag_max'] = ex['lag_min'] + 2
+    ex['lag_min'] = 1# max(1, lag_min)
+    ex['lag_max'] = 2# ex['lag_min'] + 2
 
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
                         ex['sstartdate'].split('-')[0], 
@@ -278,12 +260,16 @@ for freq in ex['tfreqlist']:
     # Test if you're not have a lag that will precede the start date of the year
     # =============================================================================
     # first date of year to be analyzed:
-    firstdoy = RV.datesRV.min() - np.timedelta64(ex['tfreq'] * ex['lag_max'], 'D')
-    if firstdoy < RV.dates[0] and (RV.dates[0].month,RV.dates[0].day) != (1,1):
-        tdelta = RV.datesRV.min() - RV.dates.min()
-        ex['lag_max'] = int(tdelta / np.timedelta64(ex['tfreq'], 'D'))
-        print(('Changing maximum lag to {}, so that you not skip part of the '
-              'year.'.format(ex['lag_max'])))
+    if ex['input_freq'] == 'daily'  : dt = 'D'
+    if ex['input_freq'] == 'monthly': dt = 'M'
+    firstdoy = RV.datesRV.min() - np.timedelta64(ex['tfreq'] * ex['lag_max'], dt)
+    if np.logical_and(firstdoy < var_class.dates[0],
+                      (var_class.dates[0].month,var_class.dates[0].day) != (1,1)
+                      ):
+        tdelta = var_class.datesRV.min() - var_class.dates.min()
+        ex['lag_max'] = int(tdelta / np.timedelta64(ex['tfreq'], dt))
+        print('\nChanging maximum lag to {}, so that you not skip part of the '
+              'year.'.format(ex['lag_max']))
 
     # create this subfolder in ex['path_exp'] for RV_period and spatial mask
     ex['path_exp_periodmask'] =  ex['path_exp_periodmask'] + '_lag{}-{}'.format(
@@ -307,7 +293,7 @@ for freq in ex['tfreqlist']:
     ex = np.load(filename_exp_design1, encoding='latin1').item()
     ex['alpha'] = 0.05# set significnace level for correlation maps
     ex['alpha_fdr'] = 2*ex['alpha'] # conservative significance level
-    ex['FDR_control'] = True # Do you want to use the conservative alpha_fdr or normal alpha?
+    ex['FDR_control'] = False # Do you want to use the conservative alpha_fdr or normal alpha?
     # If your pp data is not a full year, there is Maximum meaningful lag given by:
     #ex['lag_max'] = dates[dates.year == 1979].size - ex['RV_oneyr'].size
     ex['alpha_level_tig'] = 0.05 # Alpha level for final regression analysis by Tigrimate
@@ -372,7 +358,7 @@ for freq in ex['tfreqlist']:
     print('For example\nPredictant (only one year) is:\n{} at \n{}\n'.format(RV_name,
           one_year_RV_data))
     print('\tVS\n')
-    shift_lag_days = one_year_RV_data - pd.Timedelta(int(ex['lag_min']*ex['tfreq']), unit='d')
+    shift_lag_days = one_year_RV_data - pd.Timedelta(int(ex['lag_min']*ex['tfreq']), unit=dt)
     print('Predictor (only one year) is:\n{} at lag {} {}s\n{}\n'.format(
             ex['vars'][0][-1], int(ex['lag_min']*ex['tfreq']), ex['input_freq'][:-2], 
             shift_lag_days))

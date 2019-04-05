@@ -163,8 +163,8 @@ def retrieve_field(cls):
 
 
             print("convert operational 6hrly data to daily means")
-            cat  = 'cdo cat {}/*.nc {}'.format(cls.tmp_folder, file_path_raw)
-            daymean = 'cdo daymean {} {}'.format(file_path_raw, file_path)
+            cat  = 'cdo -O -b F64 mergetime {}/*.nc {}'.format(cls.tmp_folder, file_path_raw)
+            daymean = 'cdo -b 32 daymean {} {}'.format(file_path_raw, file_path)
             args = [cat, daymean]
             kornshell_with_input(args, cls)
 

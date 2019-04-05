@@ -81,7 +81,7 @@ def calculate_corr_maps(ex, map_proj):
         # =============================================================================
         # Calculate correlation
         # =============================================================================
-        Corr_Coeff, lat_grid, lon_grid = rgcpd.calc_corr_coeffs_new(ncdf, precur_arr, RV.RV_ts, ex)
+        Corr_Coeff, lat_grid, lon_grid = rgcpd.calc_corr_coeffs_new(ncdf, precur_arr, RV, ex)
         # =============================================================================
         # Convert regions in time series
         # =============================================================================
@@ -469,12 +469,13 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
                 regions_i = rgcpd.define_regions_and_rank_new(Corr_Coeff_all_r_l[varidx,:,lagidx],
                                                               actor.lat_grid, actor.lon_grid, ex)
                 regions_i = np.nan_to_num(regions_i)
-
+                indices_regs = np.where( regions_i >= 0.5 )[0]
 
                 tomatch_reg_n_var_names = tomatch_reg_n_var_names + skip_inds_prev_lag
-                regions_i = regions_i + tomatch_reg_n_var_names
+                if regions_i.sum() != 0:
+                    regions_i = regions_i[indices_regs] + tomatch_reg_n_var_names
 
-                indices_regs = np.where( regions_i >= 0.5 )[0]
+                
 
 
                 for i in indices_regs:
@@ -515,12 +516,15 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
                 lagidx = lags.index(lag)
                 regions_i = rgcpd.define_regions_and_rank_new(Corr_Coeff_all_r_l[varidx,:,lagidx],
                                                               actor.lat_grid, actor.lon_grid, ex)
-                regions_i = np.nan_to_num(regions_i)
-
-                tomatch_reg_n_var_names = tomatch_reg_n_var_names + skip_inds_prev_lag
-                regions_i = regions_i + tomatch_reg_n_var_names
-
+                regions_i = np.nan_to_num(regions_i.data)
                 indices_regs = np.where( regions_i >= 0.5 )[0]
+                
+                tomatch_reg_n_var_names = tomatch_reg_n_var_names + skip_inds_prev_lag
+                if regions_i.sum() != 0:
+                    regions_i = regions_i + tomatch_reg_n_var_names
+                    regions_i[indices_regs] = regions_i[indices_regs] + tomatch_reg_n_var_names
+
+
                 for i in indices_regs:
                     number_region = np.nan_to_num(regions_i[i])
                     all_regions_corr[varidx,lagidx,i] = number_region
@@ -555,11 +559,8 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
         else:
             cmap = plt.cm.Greens
             clevels = [0., 0.95, 1.0]
-        levels = [0,.5,2.]
 
 
-#        xrdata.data[xrdata.data > 0.5] = 2.
-#        clevels = np.linspace(int(xrdata.data.min()), int(xrdata.max())+1E-9, 2)
         for row in xrdata.names_row.values:
             rowidx = list(xrdata.names_row.values).index(row)
             plotrow = xrdata.sel(names_row=row)
@@ -580,9 +581,10 @@ def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
                     plotdata = extend_longitude(plotrow.sel(names_col=names_col[1]))
                     if np.sum(plotdata) != 0.:
                         contourmask = np.array(np.nan_to_num(plotdata.where(plotdata > 0.)), dtype=int)
+                        contourmask[contourmask!=0] = 2
                         plotdata.data = contourmask
                         plotdata.plot.contour(ax=g.axes[rowidx,colidx], transform=ccrs.PlateCarree(),
-                                                            colors=['black'], levels=levels,
+                                                            colors=['black'], levels=[0,1,2],
                                                             subplot_kws={'projection':map_proj},
                                                             add_colorbar=False)
                 g.axes[rowidx,colidx].set_extent([lon[0], lon[-1], 

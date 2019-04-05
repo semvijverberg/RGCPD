@@ -6,13 +6,15 @@ from pylab import *
 import matplotlib.pyplot as plt
 #from mpl_toolkits.basemap import Basemap, shiftgrid, cm
 import scipy
+import pandas as pd
 from statsmodels.sandbox.stats import multicomp
 import xarray as xr
 import cartopy.crs as ccrs
 import itertools
 flatten = lambda l: list(itertools.chain.from_iterable(l))
-
-
+def get_oneyr(datetime):
+        return datetime.where(datetime.year==datetime.year[0]).dropna()
+from dateutil.relativedelta import relativedelta as date_dt
 
 def extract_data(d, D, ex):	
 	"""
@@ -106,8 +108,9 @@ def corr_new(D, di):
 	return corr_di_D, sig_di_D
 
 	
-def calc_corr_coeffs_new(ncdf, precur_arr, RVts, ex):
-#    v = ncdf ; V = array ; RVts = ts of RV, time_range_all = index range of whole ts
+def calc_corr_coeffs_new(ncdf, precur_arr, RV, ex):
+    #%%
+#    v = ncdf ; V = array ; RV.RV_ts = ts of RV, time_range_all = index range of whole ts
     """
     This function calculates the correlation maps for fied V for different lags. Field significance is applied to test for correltion.
     This function uses the following variables (in the ex dictionary)
@@ -122,6 +125,8 @@ def calc_corr_coeffs_new(ncdf, precur_arr, RVts, ex):
 
     """
     lag_steps = ex['lag_max'] - ex['lag_min'] +1
+    
+    assert lag_steps >= 0, ('Maximum lag is larger then minimum lag, not allowed')
 		
     d = ncdf
 	
@@ -164,14 +169,24 @@ def calc_corr_coeffs_new(ncdf, precur_arr, RVts, ex):
     for i in range(lag_steps):
 
         lag = ex['lag_min'] + i
-		
-        months_indices_lagged = [r - lag for r in ex['RV_period']]
-		
-        # only winter months 		
+        
+        if ex['time_match_RV'] == True:
+            months_indices_lagged = [r - lag for r in ex['RV_period']]
+        else:
+            # recreate RV_period of precursor to match the correct indices           
+            start_prec = pd.Timestamp(RV.RVfullts[ex['RV_period'][0]].time.values) - date_dt(months=lag * ex['tfreq'])
+            start_ind = int(np.where(pd.to_datetime(precur_arr.time.values) == start_prec)[0])
+            new_n_oneyr  = get_oneyr(pd.to_datetime(precur_arr.time.values)).size
+            RV_period = [ (yr*new_n_oneyr)-start_ind for yr in range(1,int(ex['n_yrs'])+1)]
+            months_indices_lagged = [r - (lag) for r in RV_period]
+
+            
+#            precur_arr.time.values[months_indices_lagged]
+            # only winter months 		
         sat_winter = sat[months_indices_lagged]
 		
 		# correlation map and pvalue at each grid-point:
-        corr_di_sat, sig_di_sat = corr_new(sat_winter, RVts)
+        corr_di_sat, sig_di_sat = corr_new(sat_winter, RV.RV_ts)
 		
         if ex['FDR_control'] == True:
 				
@@ -189,7 +204,7 @@ def calc_corr_coeffs_new(ncdf, precur_arr, RVts, ex):
         Corr_Coeff[:,i] = corr_di_sat[:]
             
     Corr_Coeff = np.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
-	
+	#%%
     return Corr_Coeff, lat_grid, lon_grid
 	
 

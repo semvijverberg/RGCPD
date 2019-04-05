@@ -46,6 +46,10 @@ class Var_ECMWF_download():
         if ex['vars'][2][idx] == 'sfc':
             vclass.dataset = '{}'.format('reanalysis-era5-single-levels')
         vclass.name = ex['vars'][0][idx]
+        paramid = np.logical_and(any(char.isdigit() for char in ex['vars'][1][idx]),
+                                    '.' in ex['vars'][1][idx] )
+        assert (paramid==False), ('Please insert variable name instead of paramid')
+            
         vclass.var_cf_code = ex['vars'][1][idx]
         vclass.levtype = ex['vars'][2][idx]
         vclass.lvllist = ex['vars'][3][idx]
@@ -114,8 +118,8 @@ def retrieve_field(cls):
                     retrieval_yr(cls, year, target)
     
             print("convert operational 6hrly data to daily means")
-            cat  = 'cdo cat {}*.nc {}'.format(cls.tmp_folder, file_path_raw)
-            daymean = 'cdo daymean {} {}'.format(file_path_raw, file_path)
+            cat  = 'cdo -O -b F64 mergetime {}/*.nc {}'.format(cls.tmp_folder, file_path_raw)
+            daymean = 'cdo -b 32 daymean {} {}'.format(file_path_raw, file_path)
             args = [cat, daymean]
             kornshell_with_input(args, cls)
 
@@ -150,7 +154,11 @@ def retrieve_field(cls):
 def retrieval_yr(cls, year, target):
     import cdsapi
     server = cdsapi.Client()
-
+    
+    print('variable: {}'.format(cls.var_cf_code))
+    print(year)
+    print('months: {}'.format(cls.months))
+    print('days {}'.format(cls.days))
     
 
     # !/usr/bin/python
@@ -167,7 +175,7 @@ def retrieval_yr(cls, year, target):
             'area'      :   cls.area,
 #                "levtype"   :   cls.levtype,
             # "levelist"  :   cls.lvllist,
-            "param"     :   cls.var_cf_code,
+            "variable"     :   cls.var_cf_code,
             "time"      :  cls.time,
             "format"    :   "netcdf",
             }, 
@@ -184,7 +192,7 @@ def retrieval_yr(cls, year, target):
             "day"       :   cls.days,
             'area'      :   cls.area,
             "levelist"  :   cls.lvllist,
-            "param"     :   cls.var_cf_code,
+            "variable"     :   cls.var_cf_code,
              "time"      :  cls.time,
             "format"    :   "netcdf",
             }, 
