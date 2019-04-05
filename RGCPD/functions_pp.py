@@ -444,23 +444,20 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
         same_freq = True
 #    same_len_yr = RV.dates.size == ex[ex['vars'][0][0]].dates.size
 
-    if same_freq == False and ex['time_match_RV'] == True:
+    if same_freq == False:
         print('tfreq of imported 1d timeseries is unequal to the '
               'desired ex[tfreq]\nWill convert tfreq')
         RV.RVfullts, RV.dates, RV.origdates = time_mean_bins(RV.RVfullts, ex)
 
 
 
-    if same_freq == True and ex['time_match_RV'] == True:
+    if same_freq == True:
 
         RV.RVfullts, RV.dates = timeseries_tofit_bins(RV.RVfullts, ex, seldays='part')
         print('The amount of timesteps in the RV ts and the precursors'
                           ' do not match, selecting desired dates ')
 
 
-
-    assert all(np.equal(RV.dates, ex[ex['vars'][0][0]].dates)), ('dates {}'
-        ' not equal to dates in netcdf {}'.format(RV.name, ex['vars'][0][0]))
 
     if ex['input_freq'] == 'daily':
         RV.datesRV = make_RVdatestr(pd.to_datetime(RV.RVfullts.time.values), ex,
@@ -547,8 +544,8 @@ def csv_to_npy(ex):
 def time_mean_bins(xarray, ex, seldays = 'part'):
     #%%
     import xarray as xr
-    datetime = pd.to_datetime(xarray['time'].values)
-    ex['n_oneyr'] = get_oneyr(datetime).size
+    datetime_orig = pd.to_datetime(xarray['time'].values)
+    ex['n_oneyr'] = get_oneyr(datetime_orig).size
 
     # does the amount of steps per year already fit the bins?
     need_fit_bins = (ex['n_oneyr'] % ex['tfreq'] != 0)
@@ -591,7 +588,7 @@ def time_mean_bins(xarray, ex, seldays = 'part'):
     group_bins['bins'] = newdate.values
     dates = pd.to_datetime(newdate.values)
     #%%
-    return group_bins.rename({'bins' : 'time'}), dates, datetime
+    return group_bins.rename({'bins' : 'time'}), dates, datetime_orig
 
 def timeseries_tofit_bins(xarray, ex, seldays='part'):
     #%%
@@ -656,7 +653,7 @@ def timeseries_tofit_bins(xarray, ex, seldays='part'):
         end_day = ex['adjhrsenddate'].split(' ')[0]
         end_day = pd.to_datetime(end_day.replace(end_day[-2:], '01'))
         fit_steps_yr = (end_day.month - start_day.month + 1) / ex['tfreq']
-        start_day = (end_day - (dt * np.round(fit_steps_yr, decimals=0))) \
+        start_day = (end_day - (dt * int(fit_steps_yr))) \
                 + date_dt(months=+1)
         days_back = end_day
         start_yr = [end_day.strftime('%Y-%m-%d %H:%M:%S')]

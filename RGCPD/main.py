@@ -56,13 +56,12 @@ ex = dict(
      'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
      'endyear'      :       2017, # download endyear
-     'input_freq'   :       'monthly',
+     'input_freq'   :       'daily',
      'months'       :       list(range(1,12+1)), #downoad months
      # if dealing with daily data, give string as 'month-day', i.e. '07-01'
      # if dealing with monthly data, the day of month is neglected 
      'startperiod'  :       '06-01', # RV period
      'endperiod'    :       '08-31', # RV period
-     'time_match_RV':       False,
      'sstartdate'   :       '03-01', # precursor period
      'senddate'     :       '08-31', # precursor period
      'la_min'       :       -20, # select domain of correlation analysis
@@ -84,9 +83,9 @@ elif ex['dataset'] == 'era5':
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = False
+ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf = True
+import_precursor_ncdf = False
 # Option 3:
 import_RV_ncdf = True
 # Option 4:

@@ -77,7 +77,7 @@ def calculate_corr_maps(ex, map_proj):
 #        precur_arr = functions_pp.import_array(actor)[0].values           
 
 
-        time , nlats, nlons = precur_arr.shape # [months , lat, lon]
+        time , nlats, nlons = precur_arr.shape 
         # =============================================================================
         # Calculate correlation
         # =============================================================================

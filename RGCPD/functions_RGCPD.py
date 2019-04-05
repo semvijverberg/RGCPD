@@ -169,16 +169,17 @@ def calc_corr_coeffs_new(ncdf, precur_arr, RV, ex):
     for i in range(lag_steps):
 
         lag = ex['lag_min'] + i
-        
-        if ex['time_match_RV'] == True:
-            months_indices_lagged = [r - lag for r in ex['RV_period']]
-        else:
-            # recreate RV_period of precursor to match the correct indices           
-            start_prec = pd.Timestamp(RV.RVfullts[ex['RV_period'][0]].time.values) - date_dt(months=lag * ex['tfreq'])
-            start_ind = int(np.where(pd.to_datetime(precur_arr.time.values) == start_prec)[0])
-            new_n_oneyr  = get_oneyr(pd.to_datetime(precur_arr.time.values)).size
-            RV_period = [ (yr*new_n_oneyr)-start_ind for yr in range(1,int(ex['n_yrs'])+1)]
-            months_indices_lagged = [r - (lag) for r in RV_period]
+        months_indices_lagged = [r - lag for r in ex['RV_period']]
+       
+#        if ex['time_match_RV'] == True:
+#            months_indices_lagged = [r - lag for r in ex['RV_period']]
+#        else:
+#            # recreate RV_period of precursor to match the correct indices           
+#            start_prec = pd.Timestamp(RV.RVfullts[ex['RV_period'][0]].time.values) - date_dt(months=lag * ex['tfreq'])
+#            start_ind = int(np.where(pd.to_datetime(precur_arr.time.values) == start_prec)[0])
+#            new_n_oneyr  = get_oneyr(pd.to_datetime(precur_arr.time.values)).size
+#            RV_period = [ (yr*new_n_oneyr)-start_ind for yr in range(1,int(ex['n_yrs'])+1)]
+#            months_indices_lagged = [r - (lag) for r in RV_period]
 
             
 #            precur_arr.time.values[months_indices_lagged]
