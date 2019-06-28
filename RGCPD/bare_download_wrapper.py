@@ -18,8 +18,8 @@ os.chdir(script_dir)
 # Data wil downloaded to path_raw
 # =============================================================================
 base_path = "/Users/semvijverberg/surfdrive/"
-dataset   = 'era5' # choose 'era5' or 'ERAint' or era20c
-exp_folder = 'RGCPD_jetlat'
+dataset   = 'ERAint' # choose 'era5' or 'ERAint' or era20c
+exp_folder = ''
 path_raw = os.path.join(base_path,'Data_{}/'
                         'input_raw'.format(dataset))
 path_pp  = os.path.join(base_path, exp_folder, 'Data_{}/'
@@ -39,7 +39,7 @@ ex = dict(
      {'dataset'     :       dataset,
      'grid_res'     :       1.0,
      'startyear'    :       1979, # download startyear
-     'endyear'      :       2018, # download endyear
+     'endyear'      :       2017, # download endyear
      'months'       :       list(range(1,12+1)), #downoad months
      'input_freq'  :       'daily',
      'time'         :       pd.DatetimeIndex(start='00:00', end='23:00',

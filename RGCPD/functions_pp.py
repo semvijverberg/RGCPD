@@ -10,7 +10,9 @@ import numpy as np
 import pandas as pd
 from netCDF4 import num2date
 import matplotlib.pyplot as plt
+import xarray as xr
 import itertools
+import core_pp
 from dateutil.relativedelta import relativedelta as date_dt
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 flatten = lambda l: list(itertools.chain.from_iterable(l))
@@ -61,49 +63,12 @@ def perform_post_processing(ex):
             pass
         else:
             infile = os.path.join(var_class.path_raw, var_class.filename)
-            detrend_anom_ncdf3D(infile, outfile, ex)
+            core_pp.detrend_anom_ncdf3D(infile, outfile, ex)
         # update the dates stored in var_class:
         var_class, ex = update_dates(var_class, ex)
         # store updates
         ex[var] = var_class
 
-
-def import_ds_lazy(filename, ex):
-    import xarray as xr
-    ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
-    variables = list(ds.variables.keys())
-    strvars = [' {} '.format(var) for var in variables]
-    common_fields = ' time time_bnds longitude latitude lev lon lat level mask '
-    var = [var for var in strvars if var not in common_fields][0]
-    var = var.replace(' ', '')
-    
-    ds = ds[var].squeeze()
-    if 'latitude' and 'longitude' not in ds.dims:
-        ds = ds.rename({'lat':'latitude',
-                   'lon':'longitude'})
-    ds = ds.sel(latitude=slice(ex['la_max'], ex['la_min']))
-    ds = ds.sel(longitude=slice(ex['lo_min'], ex['lo_max']))
-    
-    # get dates
-    numtime = ds['time']
-    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
-    
-    if numtime.attrs['calendar'] != 'gregorian':
-        dates = [d.strftime('%Y-%m-%d') for d in dates]
-    if ex['input_freq'] == 'monthly':
-        dates = [d.replace(day=1,hour=0) for d in pd.to_datetime(dates)]
-        ex['n_oneyr'] = np.unique(pd.to_datetime(dates).month).size
-    else:
-        dates = pd.to_datetime(dates)
-        stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
-        test_if_fullyr = np.logical_and(dates[stepsyr.size-1].month == 12,
-                                    dates[stepsyr.size-1].day == 31)
-        assert test_if_fullyr, ('full is needed as raw data since rolling'
-                            ' mean is applied across timesteps')
-        
-    dates = pd.to_datetime(dates)
-    ds['time'] = dates
-    return ds
 
 def check_pp_done(cls, ex):
     #%%
@@ -113,10 +78,10 @@ def check_pp_done(cls, ex):
     # =============================================================================
     # load dataset lazy
     # =============================================================================
-    
+
     import pandas as pd
     filename = os.path.join(ex['path_raw'], cls.filename)
-    ds = import_ds_lazy(filename, ex)
+    ds = core_pp.import_ds_lazy(filename, ex)
     dates = pd.to_datetime(ds['time'].values)
 
     # =============================================================================
@@ -154,156 +119,6 @@ def check_pp_done(cls, ex):
     return outfile, cls, ex
 
 
-def detrend_anom_ncdf3D(infile, outfile, ex, encoding=None):
-    '''
-    Function for preprocessing
-    - Select time period of interest from daily mean time series
-    - Calculate anomalies (w.r.t. multi year daily means)
-    - linear detrend
-    '''
-
-    #%%
-    import xarray as xr
-    ds = import_ds_lazy(infile, ex)
-
-    # check if 3D data (lat, lat, lev) or 2D
-    check_dim_level = any([level in ds.dims for level in ['lev', 'level']])
-
-    if check_dim_level:
-        key = ['lev', 'level'][any([level in ds.dims for level in ['lev', 'level']])]
-        levels = ds[key]
-        output = np.empty( (ds.time.size,  ds.level.size, ds.latitude.size, ds.longitude.size), dtype='float32' )
-        output[:] = np.nan
-        for lev_idx, lev in enumerate(levels.values):
-            ds_2D = ds.sel(levels=lev)
-            output[:,lev_idx,:,:] = detrend_xarray_ds_2D(ds_2D)
-    else:
-        output = detrend_xarray_ds_2D(ds)
-
-    output = xr.DataArray(output, name=ds.name, dims=ds.dims, coords=ds.coords)
-    # copy original attributes to xarray
-    output.attrs = ds.attrs
-
-    # ensure mask
-    output = output.where(output.values != 0.).fillna(-9999)
-    encoding = ( {ds.name : {'_FillValue': -9999}} )
-    mask =  (('latitude', 'longitude'), (output.values[0] != -9999) )
-    output.coords['mask'] = mask
-#    xarray_plot(output[0])
-
-    # save netcdf
-    output.to_netcdf(outfile, mode='w', encoding=encoding)
-#    diff = output - abs(marray)
-#    diff.to_netcdf(filename.replace('.nc', 'diff.nc'))
-    #%%
-    return
-
-def detrend_xarray_ds_2D(ds):
-    #%%
-    import xarray as xr
-    import numpy as np
-#    marray = np.squeeze(ncdf.to_array(name=var))
-    if type(ds.time[0].values) != type(np.datetime64()):
-        numtime = ds['time']
-        dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
-        if numtime.attrs['calendar'] != 'gregorian':
-            dates = [d.strftime('%Y-%m-%d') for d in dates]
-        dates = pd.to_datetime(dates)
-    else:
-        dates = pd.to_datetime(ds['time'].values)
-    stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
-    ds['time'] = dates
-
-
-
-    def _detrendfunc2d(arr_oneday, arr_oneday_smooth):
-        from scipy import signal
-        # get trend of smoothened signal
-
-        no_nans = np.nan_to_num(arr_oneday_smooth)
-        detrended_sm = signal.detrend(no_nans, axis=0, type='linear')
-        nan_true = np.isnan(arr_oneday)
-        detrended_sm[nan_true] = np.nan
-        # subtract trend smoothened signal of arr_oneday values
-        trend = (arr_oneday_smooth - detrended_sm)- np.mean(arr_oneday_smooth, 0)
-        detrended = arr_oneday - trend
-        return detrended, detrended_sm
-
-
-    def detrendfunc2d(arr_oneday):
-        return xr.apply_ufunc(_detrendfunc2d, arr_oneday,
-                              dask='parallelized',
-                              output_dtypes=[float])
-#        return xr.apply_ufunc(_detrendfunc2d, arr_oneday.compute(),
-#                              dask='parallelized',
-#                              output_dtypes=[float])
-
-    if (stepsyr.day== 1).all() == True:
-        print('\nHandling monthly data, no smoothening applied')
-        data_smooth = ds.values
-
-    elif (stepsyr.day== 1).all() == False:
-        window_s = min(25,int(stepsyr.size / 12))
-        print('Performing {} day rolling mean with gaussian window (std={})'
-              ' to get better interannual statistics'.format(window_s, window_s/2))
-        print('Detrending based on interannual trend of 25 day smoothened day of year')
-        print('using absolute anomalies w.r.t. climatology of '
-              'smoothed concurrent day accross years')
-        data_smooth =  rolling_mean_np(ds.values, window_s)
-
-
-
-#    output_std = np.empty( (stepsyr.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
-#    output_std[:] = np.nan
-#    output_clim = np.empty( (stepsyr.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
-#    output_clim[:] = np.nan
-    output = np.empty( (ds.time.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
-    output[:] = np.nan
-
-
-    for i in range(stepsyr.size):
-        sliceyr = np.arange(i, ds.time.size, stepsyr.size)
-        arr_oneday = ds.isel(time=sliceyr)
-        arr_oneday_smooth = data_smooth[sliceyr]
-        arr_oneday, detrended_sm = _detrendfunc2d(arr_oneday, arr_oneday_smooth)
-
-#        output_std[i]  = arr_oneday.std(axis=0)
-        output_clim = arr_oneday_smooth.mean(axis=0)
-
-        output[i::stepsyr.size] = arr_oneday - output_clim
-
-#    output_std_new = rolling_mean_np(output_std, 50)
-
-#    plt.figure(figsize=(15,10)) ; plt.title('T2m at 66N, 24E. 1 day bins mean (39 years)');
-#    plt.plot((output_clim[:,16,10]-output_clim[:,16,10].mean()))
-#    plt.plot((output_clim_old[:,16,10]-output_clim_old[:,16,10].mean()))
-#    plt.yticks(np.arange(-15,15,2.5)) ; plt.xticks(np.arange(0,366,25)) ; plt.grid(which='major') ;
-#    plt.ylabel('Kelvin')
-
-#    plt.figure(figsize=(15,10))
-#    plt.plot(output_std[:,16,10], label='one day of year')
-#    plt.plot(output_std_new[:,16,10], label='50 day smooth of blue line') ; plt.yticks(np.arange(3,7.5,0.25)) ; plt.xticks(np.arange(0,366,25)) ; plt.grid(which='major') ;
-#    plt.legend()
-#    plt.ylabel('Kelvin')
-
-
-    #%%
-    return output
-
-def rolling_mean_np(arr, win):
-    import scipy.signal.windows as spwin
-    plt.plot(range(-int(win/2),+int(win/2)+1), spwin.gaussian(win, win/2))
-    plt.title('window used for rolling mean')
-    plt.xlabel('timesteps')
-    df = pd.DataFrame(data=arr.reshape( (arr.shape[0], arr[0].size)))
-
-    rollmean = df.rolling(win, center=True, min_periods=1,
-                          win_type='gaussian').mean(std=win/2.)
-
-    return rollmean.values.reshape( (arr.shape))
-
-
-
 def kornshell_with_input(args, cls):
 #    stopped working for cdo commands
     '''some kornshell with input '''
@@ -334,20 +149,12 @@ def kornshell_with_input(args, cls):
 
 def update_dates(cls, ex):
     import os
-    from netCDF4 import Dataset
-    from netCDF4 import num2date
-    import pandas as pd
-    import numpy as np
-    temporal_freq = np.timedelta64(ex['tfreq'], 'D')
     file_path = os.path.join(cls.path_pp, cls.filename_pp)
-    ncdf = Dataset(file_path)
-    numtime = ncdf.variables['time']
-    dates = num2date(numtime[:], units=numtime.units, calendar=numtime.calendar)
-    if numtime.calendar != 'gregorian':
-        dates = [d.strftime('%Y-%m-%d') for d in dates]
-    dates = pd.to_datetime(dates)
-    cls.dates = dates
-    cls.temporal_freq = '{}days'.format(temporal_freq.astype('timedelta64[D]').astype(int))
+    ds = core_pp.import_ds_lazy(file_path, ex)
+
+    temporal_freq = pd.Timedelta((ds['time'][1] - ds['time'][0]).values)
+    cls.dates = pd.to_datetime(ds['time'].values)
+    cls.temporal_freq = '{}days'.format(temporal_freq.days)
     return cls, ex
 
 def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
@@ -371,14 +178,16 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
             print('Assuming .csv, where rows are timesteps and 4 columns are\n'
                   'Year, Months, Day' )
             ex = csv_to_npy(ex)
-        dicRV = np.load(os.path.join(ex['path_pp'], 'RVts2.5', ex['RVts_filename']),
+        dicRV = np.load(os.path.join(ex['path_pp'], 'RVts', ex['RVts_filename']),
                         encoding='latin1', allow_pickle=True).item()
     #    dicRV = pickle.load( open(os.path.join(ex['path_pp'],ex['RVts_filename']+'.pkl'), "rb") )
-
-        RV.RVfullts = dicRV['RVfullts']
+        try:
+            RV.RVfullts = dicRV['RVfullts']
+        except:
+            RV.RVfullts = dicRV['RVfullts95']
         RV.filename = ex['RVts_filename']
 
-        
+
 
 
     elif importRV_1dts == False:
@@ -420,7 +229,7 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
                 RV.RVfullts = (RVarray_w).where(
                         RV.mask).mean(dim=['latitude','longitude']
                         ).squeeze()
-                
+
 
             except IOError as e:
                 print('\n\n**\nSpatial mask not found.\n \n {}'.format(
@@ -435,28 +244,28 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
     RV.endyear = RV.dates.year[-1]
     RV.n_timesteps = RV.dates.size
     RV.n_yrs       = (RV.endyear - RV.startyear) + 1
-    
+
     if ex['input_freq'] == 'daily':
         same_freq = (RV.dates[1] - RV.dates[0]).days == ex['tfreq']
-    if ex['input_freq'] == 'monthly' and RV.n_yrs != RV.n_timesteps:
+    elif ex['input_freq'] == 'monthly' and RV.n_yrs != RV.n_timesteps:
         same_freq = (RV.dates[1].month - RV.dates[0].month) == ex['tfreq']
     else:
         same_freq = True
 #    same_len_yr = RV.dates.size == ex[ex['vars'][0][0]].dates.size
-
+#%%
     if same_freq == False:
         print('tfreq of imported 1d timeseries is unequal to the '
               'desired ex[tfreq]\nWill convert tfreq')
         RV.RVfullts, RV.dates, RV.origdates = time_mean_bins(RV.RVfullts, ex)
 
-
+    #%%
 
     if same_freq == True:
 
         RV.RVfullts, RV.dates = timeseries_tofit_bins(RV.RVfullts, ex, seldays='part')
         print('The amount of timesteps in the RV ts and the precursors'
                           ' do not match, selecting desired dates. ')
-    
+
     print('Detrending Respone Variable.')
     RV.RVfullts = detrend1D(RV.RVfullts)
 
@@ -464,7 +273,7 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
         RV.datesRV = make_RVdatestr(pd.to_datetime(RV.RVfullts.time.values), ex,
                               ex['startyear'], ex['endyear'], lpyr=False)
     elif ex['input_freq'] == 'monthly':
-        
+
         want_month = np.arange(int(ex['startperiod'].split('-')[0]),
                            int(ex['endperiod'].split('-')[0])+1)
         months = RV.RVfullts.time.dt.month
@@ -477,7 +286,7 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
             new_want_m = []
             for want_m in want_month:
                 idx_close = max(months_pres)
-                diff = [] 
+                diff = []
                 for m in months_pres:
                     diff.append(abs(m - want_m))
                     # choosing month present closest to desired month in ex['startperiod']
@@ -489,7 +298,7 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
         mask[idx] = True
         xrdates = RV.RVfullts.time.where(mask).dropna(dim='time')
         RV.datesRV = pd.to_datetime(xrdates.values)
-        
+
     # get indices of RVdates
     string_RV = list(RV.datesRV.strftime('%Y-%m-%d'))
     string_full = list(RV.dates.strftime('%Y-%m-%d'))
@@ -508,7 +317,7 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
     if importRV_1dts == True:
         i = len(RV_name_range)
         ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range +
-                                      ex['RVts_filename'][i:])
+                                      ex['RV_name'])
 
     elif importRV_1dts == False:
         ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range +
@@ -636,7 +445,8 @@ def timeseries_tofit_bins(xarray, ex, seldays='part'):
         start_day = (end_day - (dt * np.round(fit_steps_yr, decimals=0))) \
                     + np.timedelta64(1, 'D')
 
-        if start_day.dayofyear < sdate.dayofyear:
+
+        if start_day.dayofyear < sdate.dayofyear or start_day.year < sdate.year:
             # if startday is before the desired starting period, skip one bin forward in time
             start_day = (end_day - (dt * np.round(fit_steps_yr-1, decimals=0))) \
                     + np.timedelta64(1, 'D')
@@ -780,25 +590,18 @@ def import_array(cls, path='pp'):
     return marray, cls
 
 def import_ds_timemeanbins(cls, ex):
-    import os
-    import xarray as xr
-    from netCDF4 import num2date
-    import pandas as pd
 
     file_path = os.path.join(cls.path_pp, cls.filename_pp)
-    ds = xr.open_dataset(file_path, decode_cf=True, decode_coords=True, decode_times=False)
+    ds = core_pp.import_ds_lazy(file_path, ex)
 
-    numtime = ds['time']
-    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
-    if numtime.attrs['calendar'] != 'gregorian':
-        dates = [d.strftime('%Y-%m-%d') for d in dates]
-    ds['time'] = pd.to_datetime(dates)
-#    ds['time'] = dates
     ds, dates, datessel = time_mean_bins(ds, ex, seldays='part')
 
 #    print('temporal frequency \'dt\' is: \n{}'.format(dates[1]- dates[0]))
     ds['time'] = dates
-    marray = ds.to_array().squeeze()
+    if type(ds) == type(xr.DataArray(data=[0])):
+        marray = ds.squeeze()
+    else:
+        marray = ds.to_array().squeeze()
     cls.dates = dates
     return marray, cls
 
@@ -839,17 +642,31 @@ def xarray_plot(data, path='default', name = 'default', saving=False):
         save_figure(data, path=path)
     plt.show()
 
-def convert_longitude(data):
+def convert_longitude(data, to_format='west_east'):
     import numpy as np
     import xarray as xr
-    lon_above = data.longitude[np.where(data.longitude > 180)[0]]
-    lon_normal = data.longitude[np.where(data.longitude <= 180)[0]]
-    # roll all values to the right for len(lon_above amount of steps)
-    data = data.roll(longitude=len(lon_above))
-    # adapt longitude values above 180 to negative values
-    substract = lambda x, y: (x - y)
-    lon_above = xr.apply_ufunc(substract, lon_above, 360)
-    convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
+    if to_format == 'west_east':
+        lon_above = data.longitude[np.where(data.longitude > 180)[0]]
+        lon_normal = data.longitude[np.where(data.longitude <= 180)[0]]
+        # roll all values to the right for len(lon_above amount of steps)
+        data = data.roll(longitude=len(lon_above))
+        # adapt longitude values above 180 to negative values
+        substract = lambda x, y: (x - y)
+        lon_above = xr.apply_ufunc(substract, lon_above, 360)
+        if lon_normal.size != 0:
+            if lon_normal[0] == 0.:
+                convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
+            else:
+                convert_lon = xr.concat([lon_normal, lon_above], dim='longitude')
+        else:
+            convert_lon = lon_above
+
+    elif to_format == 'only_east':
+        lon_above = data.longitude[np.where(data.longitude >= 0)[0]]
+        lon_below = data.longitude[np.where(data.longitude < 0)[0]]
+        lon_below += 360
+        data = data.roll(longitude=len(lon_below))
+        convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
     data['longitude'] = convert_lon
     return data
 
@@ -943,4 +760,52 @@ def detrend1D(da):
     dao = xr.DataArray(sps.detrend(da),
                             dims=da.dims, coords=da.coords)
     return dao
+
+def regrid_xarray(xarray_in, to_grid_res, periodic=True):
+    #%%
+    import xesmf as xe
+    method_list = ['bilinear', 'conservative', 'nearest_s2d', 'nearest_d2s', 'patch']
+    method = method_list[0]
+
+
+    ds = xr.Dataset({'data':xarray_in})
+
+    if 'longitude' in ds.dims:
+        ds = ds.rename({'longitude': 'lon',
+                        'latitude' : 'lat'})
+
+    lats = ds.lat
+    lons = ds.lon
+
+    if method == 'conservative':
+        # add lon_b and lat_b
+        orig_grid = float(abs(ds.lat[1] - ds.lat[0] ))
+
+        lat_b = np.concatenate(([lats.max()+orig_grid/2.], (lats - orig_grid/2.).values))
+        lon_b = np.concatenate(([lons.max()+orig_grid/2.], (lons - orig_grid/2.).values))
+        ds['lat_b'] = xr.DataArray(lat_b, dims=['lat_b'], coords={'lat_b':lat_b})
+        ds['lon_b'] = xr.DataArray(lon_b, dims=['lon_b'], coords={'lon_b':lon_b})
+
+        lat0_b = lat_b.min()
+        lat1_b = lat_b.max()
+        lon0_b = lon_b.min()
+        lon1_b = lon_b.max()
+    else:
+        lat0_b = lats.min()
+        lat1_b = lats.max()
+        lon0_b = lons.min()
+        lon1_b = lons.max()
+    to_grid = xe.util.grid_2d(lon0_b, lon1_b, to_grid_res, lat0_b, lat1_b, to_grid_res)
+#    to_grid = xe.util.grid_global(2.5, 2.5)
+    regridder = xe.Regridder(ds, to_grid, method, periodic=periodic)
+    xarray_out = regridder(ds['data'])
+    regridder.clean_weight_file()
+    xarray_out = xarray_out.rename({'lon':'longitude',
+                                    'lat':'latitude'})
+    xarray_out = xr.DataArray(xarray_out.values[::-1], dims=['latitude', 'longitude'],
+                 coords={'latitude':xarray_out.latitude[:,0].values[::-1],
+                         'longitude':xarray_out.longitude[0].values})
+    xarray_out['longitude'] -= xarray_out['longitude'][0]
+    #%%
+    return xarray_out
 

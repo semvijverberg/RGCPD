@@ -46,9 +46,7 @@ class Var_ECMWF_download():
         if ex['vars'][2][idx] == 'sfc':
             vclass.dataset = '{}'.format('reanalysis-era5-single-levels')
         vclass.name = ex['vars'][0][idx]
-        paramid = np.logical_and(any(char.isdigit() for char in ex['vars'][1][idx]),
-                                    '.' in ex['vars'][1][idx] )
-        assert (paramid==False), ('Please insert variable name instead of paramid')
+
             
         vclass.var_cf_code = ex['vars'][1][idx]
         vclass.levtype = ex['vars'][2][idx]
@@ -84,6 +82,10 @@ class Var_ECMWF_download():
             
 def retrieve_field(cls):
     import os
+    
+    paramid = np.logical_and(any(char.isdigit() for char in cls.var_cf_code),
+                                '.' in cls.var_cf_code )
+    assert (paramid==False), ('Please insert variable name instead of paramid')
     
     file_path = os.path.join(cls.path_raw, cls.filename)
     if cls.stream == 'moda':
@@ -149,7 +151,7 @@ def retrieve_field(cls):
                     print('Output file: ', target)
                     retrieval_moda(cls, requestDates, d, target)
         
-    return
+    return 
 
 def retrieval_yr(cls, year, target):
     import cdsapi

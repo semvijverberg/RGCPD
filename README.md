@@ -47,7 +47,7 @@ conda config --append channels bioconda\
 conda create --name <env_name> python=3.6 numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict pip 
 
 
-ECWMF MARS API
+ECWMF MARS API (for ERA-i)
 ----------------
 If you did not have ecmwfapi installed before, you need to create an ecmwf account and copy your key into the file .ecmwfapirc in your home directory. See https://confluence-test.ecmwf.int/display/WEBAPI/Access+MARS#AccessMARS-downloadmars. This will look like this:
  \
@@ -72,7 +72,7 @@ Source activate <env_name> \
 Git clone https://github.com/jakobrunge/tigramite.git \
 pip install ./tigramite 
 
-Installing CDO 
+Installing CDO (only needed when you want to download from ECWMF)
 ----------------
 cdo -V \
 Climate Data Operators version 1.9.4 (http://mpimet.mpg.de/cdo) \

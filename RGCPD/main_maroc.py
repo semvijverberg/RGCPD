@@ -212,7 +212,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [1,2,4,6] # [1,2,4,7,14,21,35]
+ex['tfreqlist'] = [6] # [1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
@@ -263,13 +263,16 @@ for freq in ex['tfreqlist']:
     if ex['input_freq'] == 'daily'  : dt = 'D'
     if ex['input_freq'] == 'monthly': dt = 'M'
     firstdoy = RV.datesRV.min() - np.timedelta64(ex['tfreq'] * ex['lag_max'], dt)
-    if np.logical_and(firstdoy < var_class.dates[0],
-                      (var_class.dates[0].month,var_class.dates[0].day) != (1,1)
-                      ):
-        tdelta = var_class.datesRV.min() - var_class.dates.min()
-        ex['lag_max'] = int(tdelta / np.timedelta64(ex['tfreq'], dt))
+#    if np.logical_and(firstdoy < var_class.dates[0],
+#                      (var_class.dates[0].month,var_class.dates[0].day) != (1,1)
+#                      ):
+    if firstdoy < var_class.dates[0]:
+        tdelta = RV.datesRV.min() - RV.dates.min()
+        ex['lag_max'] = max(1, int(tdelta / np.timedelta64(ex['tfreq'], dt)))
         print('\nChanging maximum lag to {}, so that you not skip part of the '
               'year.'.format(ex['lag_max']))
+        
+#        assert ex['lag_max'] > ex['lag_min'], '
 
     # create this subfolder in ex['path_exp'] for RV_period and spatial mask
     ex['path_exp_periodmask'] =  ex['path_exp_periodmask'] + '_lag{}-{}'.format(

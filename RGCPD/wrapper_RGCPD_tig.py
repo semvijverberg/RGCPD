@@ -42,7 +42,6 @@ def calculate_corr_maps(ex, map_proj):
     # Information on period taken for response-variable, already decided in main_download_and_pp
     #=====================================================================================
     ex['time_range_all'] = [0, RV.dates.size]
-    ex['n_tot_regs'] = 0
     #==================================================================================
     # Start of experiment
     #==================================================================================
@@ -56,28 +55,23 @@ def calculate_corr_maps(ex, map_proj):
     #=====================================================================================
     outdic_actors = dict()
     class act:
-        def __init__(self, name, Corr_Coeff, lat_grid, lon_grid, actbox, tsCorr, n_reg_perlag):
+        def __init__(self, name, Corr_Coeff, precur_arr):
             self.name = var
             self.Corr_Coeff = Corr_Coeff
-            self.lat_grid = lat_grid
-            self.lon_grid = lon_grid
-            self.actbox = actbox
-            self.tsCorr = tsCorr
-            self.n_reg_perlag = n_reg_perlag
+            self.precur_arr = precur_arr
+            self.lat_grid = precur_arr.latitude.values
+            self.lon_grid = precur_arr.longitude.values
+            self.area_grid = rgcpd.get_area(precur_arr)
 
     allvar = ex['vars'][0] # list of all variable names
     for var in allvar[ex['excludeRV']:]: # loop over all variables
         actor = ex[var]
         #===========================================
-        # 3c) Precursor field = sst
+        # 3c) Precursor field
         #===========================================
-        ncdf = Dataset(os.path.join(actor.path_pp, actor.filename_pp), 'r')
-        
+        ncdf = Dataset(os.path.join(actor.path_pp, actor.filename_pp), 'r')  
         precur_arr, actor = functions_pp.import_ds_timemeanbins(actor, ex)
-#        precur_arr = functions_pp.import_array(actor)[0].values           
-
-
-        time , nlats, nlons = precur_arr.shape 
+         
         # =============================================================================
         # Calculate correlation
         # =============================================================================
@@ -85,14 +79,14 @@ def calculate_corr_maps(ex, map_proj):
         # =============================================================================
         # Convert regions in time series
         # =============================================================================
-        actbox = np.reshape(precur_arr.values, (precur_arr.shape[0], -1))
+        actor = act(var, Corr_Coeff, precur_arr)
+        actor, ex = rgcpd.cluster_DBSCAN_regions(actor, ex)
         # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
         # stacked on top of each other (from lag_min to lag_max)
-        tsCorr, n_reg_perlag = rgcpd.calc_actor_ts_and_plot(Corr_Coeff, actbox,
-                                ex, lat_grid, lon_grid, var)           
-        ex['n_tot_regs'] += tsCorr.size / time
+#        tsCorr, n_reg_perlag = rgcpd.calc_actor_ts_and_plot(Corr_Coeff, actbox,
+#                                ex, lat_grid, lon_grid, var)           
         # Order of regions: strongest to lowest correlation strength
-        outdic_actors[var] = act(var, Corr_Coeff, lat_grid, lon_grid, actbox, tsCorr, n_reg_perlag)
+        outdic_actors[var] = actor
         # =============================================================================
         # Plot
         # =============================================================================
@@ -114,7 +108,18 @@ def calculate_corr_maps(ex, map_proj):
 #%%
     return ex, outdic_actors
 
-
+def get_prec_ts(outdic_actors, ex):
+    
+    
+    
+    allvar = ex['vars'][0] # list of all variable names
+    for var in allvar[ex['excludeRV']:]: # loop over all variables
+        actor = outdic_actors[var]
+        actor.tsCorr, actor.tsCorr_labels = rgcpd.spatial_mean_regions(actor, ex)
+        outdic_actors[var] = actor
+    return outdic_actors
+        
+        
 
 def run_PCMCI(ex, outdic_actors, map_proj):
     #=====================================================================================
@@ -140,7 +145,7 @@ def run_PCMCI(ex, outdic_actors, map_proj):
     # alpha level for multiple linear regression model while conditining on parents of
     # parents
     alpha_level = ex['alpha_level_tig']
-    print('run tigramite 3, run.pcmci')
+    print('run tigramite 4, run.pcmci')
     print(('alpha level(s) for independence tests within the pc procedure'
           '(finding parents): {}'.format(pc_alpha)))
     print(('alpha level for multiple linear regression model while conditining on parents of '
@@ -154,7 +159,9 @@ def run_PCMCI(ex, outdic_actors, map_proj):
     RV = ex[ex['RV_name']]
     # create list with all actors, these will be merged into the fulldata array
     allvar = ex['vars'][0]
-    var_names = [[0, allvar[0]]]
+    var_names = []
+    # old structure, tsCorr were ordered across lags, then for Corr strength
+#    if ex['ordered_tsCorr'] == False:
     actorlist = []
     for var in allvar[ex['excludeRV']:]:
         print(var)
@@ -164,11 +171,34 @@ def run_PCMCI(ex, outdic_actors, map_proj):
             # create array which numbers the regions
             var_idx = allvar.index(var) - ex['excludeRV']
             n_regions = actor.tsCorr.shape[1]
-            actor.var_info = [[i+1, var, var_idx] for i in range(n_regions)]
+            actor.var_info = [[i+1, actor.tsCorr_labels[i], var_idx] for i in range(n_regions)]
+#            actor.var_info = [[i+1, var, var_idx] for i in range(n_regions)]
             # Array of corresponing regions with var_names (first entry is RV)
             var_names = var_names + actor.var_info
+#            var_names = var_names + actor.var_info
     # stack actor time-series together:
     fulldata = np.concatenate(tuple(actorlist), axis = 1)
+    # New structure, tsCorr are ordered Corr strength, lags are nog given in order
+    
+    
+#    elif ex['ordered_tsCorr'] == True: 
+#        
+#        corr_str_all = {}
+#        for var in allvar[ex['excludeRV']:]:
+#            print(var)
+#            actor = outdic_actors[var]
+#            order_str_actor = actor.corr_strength
+#            var_names = var_names + actor.tsCorr_labels
+#            for key, value in order_str_actor.items():
+#                corr_str_all[key] = value + f'_{var}'
+#        # sort across all variables
+#        strongest = sorted(corr_str_all.keys())[::-1]
+#        # what idx are concomitant to strongest regions
+#        idx_str = [var_names.index(corr_str_all[str_key]) for str_key in strongest]
+        
+        
+    var_names.insert(0, RV.name)
+        
     print(('There are {} regions in total'.format(fulldata.shape[1])))
     # add the full 1D time series of interest as first entry:
     fulldata = np.column_stack((RV.RVfullts, fulldata))
@@ -177,8 +207,8 @@ def run_PCMCI(ex, outdic_actors, map_proj):
     fulldata.dump(os.path.join(ex['fig_subpath'], file_name+'.pkl'))
 
     file_name = 'list_actors_{}'.format(ex['params'])
-    var_names_np = np.asanyarray(var_names)
-    var_names_np.dump(os.path.join(ex['fig_subpath'], file_name+'.pkl'))
+#    var_names_np = np.asanyarray(var_names)
+#    var_names_np.dump(os.path.join(ex['fig_subpath'], file_name+'.pkl'))
     # ======================================================================================================================
     # tigramite 3
     # ======================================================================================================================
@@ -194,37 +224,59 @@ def run_PCMCI(ex, outdic_actors, map_proj):
     # ======================================================================================================================
     # Initialize dataframe object (needed for tigramite functions)
     # ======================================================================================================================
-    dataframe = pp.DataFrame(data=data, mask=data_mask)
+    dataframe = pp.DataFrame(data=data, mask=data_mask, var_names=var_names)
     # Create 'time axis' and variable names
 #    datatime = np.arange(len(data))
     # ======================================================================================================================
     # pc algorithm: only parents for selected_variables are calculated
     # ======================================================================================================================
     parcorr = ParCorr(significance='analytic',
-                      use_mask =True,
                       mask_type='y',
-                      verbosity=2)
+                      verbosity=3)
     #==========================================================================
     # multiple testing problem:
     #==========================================================================
     pcmci   = PCMCI(dataframe=dataframe,
                     cond_ind_test=parcorr,
-                    var_names=var_names,
-                    selected_variables=None, # consider precursor only of RV variable, then selected_variables should be None
-                    verbosity=2)
+                    selected_variables=None, 
+                    verbosity=4)
+    
+    # selected_variables : list of integers, optional (default: range(N))
+    #    Specify to estimate parents only for selected variables. If None is
+    #    passed, parents are estimated for all variables.
 
     # ======================================================================================================================
     #selected_links = dictionary/None
-    results = pcmci.run_pcmci(tau_max=ex['lag_max'], pc_alpha = pc_alpha, tau_min = ex['lag_min'], max_combinations=1)
+    results = pcmci.run_pcmci(tau_max=ex['tigr_tau_max'], pc_alpha = pc_alpha, tau_min = 0, 
+                              max_combinations=ex['max_comb_actors'])
 
     q_matrix = pcmci.get_corrected_pvalues(p_matrix=results['p_matrix'], fdr_method='fdr_bh')
 
-    pcmci._print_significant_links(p_matrix = results['p_matrix'],
+    pcmci.print_significant_links(p_matrix = results['p_matrix'],
                                    q_matrix = q_matrix,
                                    val_matrix = results['val_matrix'],
                                    alpha_level = alpha_level)
+    #%%
 
-    sig = pcmci._return_significant_parents(pq_matrix=q_matrix,
+        
+    def return_sign_parents(pc_class, pq_matrix, val_matrix,
+                                alpha_level=0.05):
+          # Initialize the return value
+        all_parents = dict()
+        for j in pc_class.selected_variables:
+            # Get the good links
+            good_links = np.argwhere(pq_matrix[:, j, :] <= alpha_level)
+            # Build a dictionary from these links to their values
+            links = {(i, -tau): np.abs(val_matrix[i, j, abs(tau) ])
+                     for i, tau in good_links}
+            # Sort by value
+            all_parents[j] = sorted(links, key=links.get, reverse=True)
+        # Return the significant parents
+        return {'parents': all_parents,
+                'link_matrix': pq_matrix <= alpha_level}
+    
+    
+    sig = return_sign_parents(pcmci, pq_matrix=q_matrix,
                                             val_matrix=results['val_matrix'],
                                             alpha_level=alpha_level)
 
@@ -245,47 +297,54 @@ def run_PCMCI(ex, outdic_actors, map_proj):
     # parents_neighbors = all_parents, estimates, iterations
     parents_RV = all_parents[0]
 
-    # combine all variables in one list
-    precursor_fields = allvar[ex['excludeRV']:]
-    Corr_Coeff_list = []
-    for var in precursor_fields:
-        actor = outdic_actors[var]
-        Corr_Coeff_list.append(actor.Corr_Coeff)
-    Corr_precursor_ALL = Corr_Coeff_list
+#    # combine all variables in one list
+#    precursor_fields = allvar[ex['excludeRV']:]
+#    Corr_Coeff_list = []
+#    for var in precursor_fields:
+#        actor = outdic_actors[var]
+#        Corr_Coeff_list.append(actor.Corr_Coeff)
+#    Corr_precursor_ALL = Corr_Coeff_list
 #    print('You have {} precursor(s) with {} lag(s)'.format(np.array(Corr_precursor_ALL).shape[0],
 #                                                            np.array(Corr_precursor_ALL).shape[2]))
 
     n_parents = len(parents_RV)
+    lags = list(np.arange(ex['lag_min'], ex['lag_max']+1E-9, dtype=int))
     for i in range(n_parents):
-        link_number = parents_RV[i][0]
-        lag = np.abs(parents_RV[i][1]) #-1 There was a minus, but is it really correct?
+        tigr_lag = parents_RV[i][1] #-1 There was a minus, but is it really correct?
         index_in_fulldata = parents_RV[i][0]
+        print("\n\nunique_label_format: \n\'lag\'_\'regionlabel\'_\'var\'")
         if index_in_fulldata>0:
-
-            according_varname = var_names[index_in_fulldata][1]
-            according_number = var_names[index_in_fulldata][0]
-            according_var_idx = var_names[index_in_fulldata][2]
-            print("index_in_fulldata")
-            print(index_in_fulldata)
-            print("according_varname")
-            print(according_varname)
-            print("according_number")
-            print(according_number)
-            print("according_var_idx")
-            print(according_var_idx)
+            uniq_label = var_names[index_in_fulldata][1]
+            var_name = uniq_label.split('_')[-1]
+            according_varname = uniq_label
+            according_number = int(uniq_label.split('_')[1])
+            according_var_idx = ex['vars'][0].index(var_name)
+            corr_lag = int(uniq_label.split('_')[0])
+            l_idx = lags.index(corr_lag)
+            print('index in fulldata {}: region: {} at lag {}'.format(
+                    index_in_fulldata, uniq_label, tigr_lag))
+#            print("according_varname")
+#            print(according_varname)
+#            print("according_number")
+#            print(according_number)
+#            print("according_var_idx")
+#            print(according_var_idx)
             # *********************************************************
             # print and save only significant regions
             # *********************************************************
-            according_fullname = '{}lag_{}_reg{}'.format(according_varname,
-                                  lag,str(according_number))
-            # !!! Corr_precursor_all !!!
-            Corr_precursor = Corr_precursor_ALL[according_var_idx]
-            actor = outdic_actors[according_varname]
-            rgcpd.print_particular_region(ex, according_number, Corr_precursor[:, :],
-                                          actor, map_proj, according_fullname)
+            according_fullname = '{} at lag {} - ts_index_{}'.format(according_varname,
+                                  tigr_lag, index_in_fulldata)
+            
+
+
+            actor = outdic_actors[var_name]
+            prec_labels_actor = actor.prec_labels
+            rgcpd.print_particular_region_new(ex, according_number, l_idx, prec_labels_actor,
+                                          map_proj, according_fullname)
             fig_file = '{}{}'.format(according_fullname, ex['file_type2'])
 
             plt.savefig(os.path.join(ex['fig_subpath'], fig_file), dpi=250)
+#            plt.show()
             plt.close()
 
             print('                                        ')
@@ -293,7 +352,7 @@ def run_PCMCI(ex, outdic_actors, map_proj):
             # save data
             # *********************************************************
             according_fullname = str(according_number) + according_varname
-            name = ''.join([str(index_in_fulldata),'_',according_fullname])
+            name = ''.join([str(index_in_fulldata),'_',uniq_label])
             print((fulldata[:,index_in_fulldata].size))
             print(name)
         else :
