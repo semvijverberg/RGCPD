@@ -62,6 +62,7 @@ def calculate_corr_maps(ex, map_proj):
             self.lat_grid = precur_arr.latitude.values
             self.lon_grid = precur_arr.longitude.values
             self.area_grid = rgcpd.get_area(precur_arr)
+            self.grid_res = abs(self.lon_grid[1] - self.lon_grid[0])
 
     allvar = ex['vars'][0] # list of all variable names
     for var in allvar[ex['excludeRV']:]: # loop over all variables
@@ -71,7 +72,7 @@ def calculate_corr_maps(ex, map_proj):
         #===========================================
         ncdf = Dataset(os.path.join(actor.path_pp, actor.filename_pp), 'r')  
         precur_arr, actor = functions_pp.import_ds_timemeanbins(actor, ex)
-         
+        precur_arr = rgcpd.convert_longitude(precur_arr, 'only_east') 
         # =============================================================================
         # Calculate correlation
         # =============================================================================
@@ -295,7 +296,7 @@ def run_PCMCI(ex, outdic_actors, map_proj):
 
     # parents of index of interest:
     # parents_neighbors = all_parents, estimates, iterations
-    parents_RV = all_parents[0]
+    links_RV = all_parents[0]
 
 #    # combine all variables in one list
 #    precursor_fields = allvar[ex['excludeRV']:]
@@ -307,11 +308,11 @@ def run_PCMCI(ex, outdic_actors, map_proj):
 #    print('You have {} precursor(s) with {} lag(s)'.format(np.array(Corr_precursor_ALL).shape[0],
 #                                                            np.array(Corr_precursor_ALL).shape[2]))
 
-    n_parents = len(parents_RV)
+    n_parents = len(links_RV)
     lags = list(np.arange(ex['lag_min'], ex['lag_max']+1E-9, dtype=int))
     for i in range(n_parents):
-        tigr_lag = parents_RV[i][1] #-1 There was a minus, but is it really correct?
-        index_in_fulldata = parents_RV[i][0]
+        tigr_lag = links_RV[i][1] #-1 There was a minus, but is it really correct?
+        index_in_fulldata = links_RV[i][0]
         print("\n\nunique_label_format: \n\'lag\'_\'regionlabel\'_\'var\'")
         if index_in_fulldata>0:
             uniq_label = var_names[index_in_fulldata][1]
@@ -382,9 +383,24 @@ def run_PCMCI(ex, outdic_actors, map_proj):
         # pass output to original console again
         sys.stdout = orig_stdout
 
-
-        
-    return parents_RV, var_names
+    # create dataframe output:
+    index = [n[1] for n in var_names[1:]]
+    var   = np.array([n[1].split('_')[-1] for n in var_names[1:]])
+    link_names = [var_names[l[0]][1]  for l in links_RV]
+    mask_causal = np.array([True if i in link_names else False for i in index])
+    lag_corr_map = np.array([int(n[1][0]) for n in var_names[1:]])
+    region_number = np.array([int(n[0]) for n in var_names[1:]])
+    lag_tigr_ = [l[1] for l in links_RV]
+    lag_caus  = np.zeros(shape=(len(index))) 
+    lag_caus[mask_causal] = lag_tigr_
+    lag_caus[~mask_causal] = np.nan
+    data = np.concatenate([var[None,:], lag_corr_map[None,:], region_number[None,:],
+                            mask_causal[None,:], lag_caus[None,:]], axis=0)
+    df = pd.DataFrame(data=data.T, index=index, 
+                      columns=['var', 'lag_corr_map', 'region_number', 'causal', 'lag_causal'])
+                      
+    print(df)
+    return df
 #%%
 
 # =============================================================================
@@ -414,7 +430,8 @@ def xarray_plot_region(print_vars, outdic_actors, ex, map_proj):
         variables = list(outd.keys())[:]
     else:
         variables = print_vars
-
+    
+    
     for var in variables:
         lags = list(range(ex['lag_min'], ex['lag_max']+1))
         lags = ['{} ({} {})'.format(l, l*ex['tfreq'], ex['input_freq'][:1]) for l in lags]
@@ -431,6 +448,10 @@ def xarray_plot_region(print_vars, outdic_actors, ex, map_proj):
                         dims=['variable','latitude','longitude','lag'], name='Corr Coeff')
     g = xr.plot.FacetGrid(xrdata, col='variable', row='lag', subplot_kws={'projection': map_proj},
                       aspect= (lon.size) / lat.size, size=3)
+    
+    if len(print_vars) == 0:
+        xrdata
+
     figheight = g.fig.get_figheight()
     class MidpointNormalize(colors.Normalize):
         def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
@@ -448,8 +469,13 @@ def xarray_plot_region(print_vars, outdic_actors, ex, map_proj):
     cmap = 'RdBu_r'
     for var in variables[:]:
         col = variables.index(var)
-        xrdatavar = extend_longitude(xrdata.sel(variable=var))
-        xrmaskvar = extend_longitude(xrmask.sel(variable=var))
+        xrdatavar = xrdata.sel(variable=var)
+        xrmaskvar = xrmask.sel(variable=var)
+        if abs(lon[-1] - 360) <= outd[var].grid_res:
+            xrdatavar = extend_longitude(xrdatavar)
+            xrmaskvar = extend_longitude(xrmaskvar)
+
+            
         for lag in lags:
             row = lags.index(lag)
             print('Plotting Corr maps {}, lag {}'.format(var, lag))
@@ -470,37 +496,52 @@ def xarray_plot_region(print_vars, outdic_actors, ex, map_proj):
     plt.tight_layout()
     g.axes[row,col].get_position()
     plt.subplots_adjust(wspace=0.0, hspace=0.0)
-    cbar_ax = g.fig.add_axes([0.25, 0.0, 0.5, figheight/300]) #[left, bottom, width, height]
+    cbar_ax = g.fig.add_axes([0.25, 0.0, 0.5, figheight/150]) #[left, bottom, width, height]
     plt.colorbar(im, cax=cbar_ax , orientation='horizontal', norm=norm,
                  label='Corr Coefficient', ticks=clevels[::4], extend='neither')
     #%%
     return
 
-def plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj):
+def plottingfunction(ex, links_RV, var_names, outdic_actors, map_proj):
     #%%
     # =============================================================================
     print('\nPlotting all fields significant at alpha_level_tig, while conditioning on parents'
           ' that were found in the PC step')
     # =============================================================================
-    # i+1 below, assuming parents_RV pythonic counting of idx
+    # i+1 below, assuming links_RV pythonic counting of idx
     # !!!! Check with Marlene !!!!
-    all_reg_tig = [[var_names[i][0],var_names[i][1],l] for i,l in parents_RV]
+    all_reg_tig = [[var_names[i][0],var_names[i][1],l] for i,l in links_RV]
     allvar = ex['vars'][0]
     precursor_fields = allvar[ex['excludeRV']:]
     lags = list(range(ex['lag_min'],ex['lag_max']+1))
+    
     n_gcs = [outdic_actors[var].Corr_Coeff[:,0].size for var in precursor_fields]
     all_same_size = np.equal([n-n_gcs[0] for n in n_gcs], np.zeros( len(n_gcs) )).all()
     assert (all_same_size == True), ('Not all grids are same resolution, '
             'not supported by this plotting function')
     n_gc = outdic_actors[precursor_fields[0]].Corr_Coeff[:,0].size
     
-    Corr_Coeff_all_r_l = np.ma.zeros( ( len(allvar), n_gc, len(lags) ) )
+    ds = xr.Dataset()
     for var in precursor_fields:
         idx = precursor_fields.index(var)
         actor = outdic_actors[var]
-        Corr_Coeff_all_r_l[idx] = actor.Corr_Coeff
+        lats = actor.lat_grid
+        lons = actor.lon_grid
+        corr_coeff = actor.Corr_Coeff.reshape(len(lags), lats.size, lons.size)
+        xr_corr = actor.prec_labels.copy()
+        xr_corr.values = corr_coeff
+        ds[var+'_labels'] = actor.prec_labels
+        ds[var+'_corr'] = xr_corr
     
-#    all_reg_tig = [[var_names[i][0],var_names[i][1],l] for i,l in parents_RV]
+    n_lats = actor.lat_grid
+    
+    prec_regs_all_r_l = np.ma.zeros( ( len(allvar), n_gc, len(lags) ) )
+    for var in precursor_fields:
+        idx = precursor_fields.index(var)
+        actor = outdic_actors[var]
+        prec_regs_all_r_l[idx] = actor.prec_labels
+    
+    all_reg_tig = [[var_names[i][0],var_names[i][1],l] for i,l in links_RV]
 #    allvar = ex['vars'][0]
 #    precursor_fields = allvar[ex['excludeRV']:]
 #    Corr_Coeff_list = []

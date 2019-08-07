@@ -52,7 +52,35 @@ def extract_data(d, D, ex):
 	
 	return D
 
-	
+
+def convert_longitude(data, to_format='only_east'):
+    import numpy as np
+    import xarray as xr
+    if to_format == 'west_east':
+        lon_above = data.longitude[np.where(data.longitude > 180)[0]]
+        lon_normal = data.longitude[np.where(data.longitude <= 180)[0]]
+        # roll all values to the right for len(lon_above amount of steps)
+        data = data.roll(longitude=len(lon_above))
+        # adapt longitude values above 180 to negative values
+        substract = lambda x, y: (x - y)
+        lon_above = xr.apply_ufunc(substract, lon_above, 360)
+        if lon_normal.size != 0:
+            if lon_normal[0] == 0.:
+                convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
+            
+            else:
+                convert_lon = xr.concat([lon_normal, lon_above], dim='longitude')
+        else:
+            convert_lon = lon_above
+
+    elif to_format == 'only_east':
+        lon_above = data.longitude[np.where(data.longitude >= 0)[0]]
+        lon_below = data.longitude[np.where(data.longitude < 0)[0]]
+        lon_below += 360
+        data = data.roll(longitude=len(lon_below))
+        convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
+    data['longitude'] = convert_lon
+    return data
 	
 def plot_basemap_options(m):
 
@@ -711,12 +739,14 @@ def cluster_DBSCAN_regions(actor, ex):
     if lag_steps >= 2:
         adjust_vert_cbar = 0.0; adj_fig_h=1.4
     elif lag_steps < 2:
-        adjust_vert_cbar = 0.1 ; adj_fig_h = 1.4
+        adjust_vert_cbar = 0.0 ; adj_fig_h = 1.4
     
         
     cmap = plt.cm.tab20
     for_plt = prec_labels.copy()
     for_plt.values = for_plt.values-0.5
+#    if np.unique(for_plt.values[~np.isnan(for_plt.values)]).size == 1:
+#        for_plt[0,0,0] = 0
     kwrgs = dict( {'title' : for_plt.attrs['title'], 'clevels' : 'notdefault', 
                    'steps' : ex['max_N_regs']+1, 'subtitles': None,
                    'vmin' : 0, 'vmax' : ex['max_N_regs'], 
@@ -1169,7 +1199,9 @@ def finalfigure(xrdata, file_name, kwrgs):
     else:
         extend = 'neither'
 
-    cbar_ax = g.fig.add_axes([0.25, cbar_vert, 
+    # new cbar positioning
+    y0 = ax.figbox.bounds[1]
+    cbar_ax = g.fig.add_axes([0.25, y0-0.05+kwrgs['cbar_vert'], 
                                   0.5, cbar_hght], label='cbar')
 
     if 'clim' in kwrgs.keys(): #adjust the range of colors shown in cbar
@@ -1179,8 +1211,9 @@ def finalfigure(xrdata, file_name, kwrgs):
         cnorm = clevels
 
     norm = mpl.colors.BoundaryNorm(boundaries=cnorm, ncolors=256)
-    cbar = mpl.colorbar.ColorbarBase(cbar_ax, cmap=cmap, orientation='horizontal', 
-                 extend=extend, ticks=cnorm, norm=norm)
+#    cbar = mpl.colorbar.ColorbarBase(cbar_ax, cmap=cmap, orientation='horizontal', 
+#                 extend=extend, ticks=cnorm, norm=norm)
+
     cbar = plt.colorbar(im, cbar_ax, cmap=cmap, orientation='horizontal', 
                  extend=extend, norm=norm)
 
