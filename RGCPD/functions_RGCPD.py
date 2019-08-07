@@ -335,227 +335,6 @@ def plot_corr_coeffs(Corr_Coeff, m, lag_min, lat_grid, lon_grid, title='Corr Map
 	#fig.tight_layout(rect=[0, 0.03, 1, 0.93])
 	return fig
 
-
-def define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid, ex):
-    #%%
-    '''
-	takes Corr Coeffs and defines regions by strength
-
-	return A: the matrix whichs entries correspond to region. 1 = strongest, 2 = second strongest...
-    '''
-#    print('extracting features ...\n')
-
-	
-	# initialize arrays:
-	# A final return array 
-    A = np.ma.copy(Corr_Coeff)
-#    A = np.ma.zeros(Corr_Coeff.shape)
-	#========================================
-	# STEP 1: mask nodes which were never significantly correlatated to index (= count=0)
-	#========================================
-	
-	#========================================
-	# STEP 2: define neighbors for everey node which passed Step 1
-	#========================================
-
-    indices_not_masked = np.where(A.mask==False)[0].tolist()
-
-    lo = lon_grid.shape[0]
-    la = lat_grid.shape[0]
-	
-	# create list of potential neighbors:
-    N_pot=[[] for i in range(A.shape[0])]
-
-	#=====================
-	# Criteria 1: must bei geographical neighbors:
-    n_between = ex['prec_reg_max_d']
-	#=====================
-    for i in indices_not_masked:
-        neighb = []
-        def find_neighboors(i, lo):
-            n = []	
-    
-            col_i= i%lo
-            row_i = i//lo
-    
-    		# knoten links oben
-            if i==0:	
-                n= n+[lo-1, i+1, lo ]
-    
-    		# knoten rechts oben	
-            elif i== lo-1:
-                n= n+[i-1, 0, i+lo]
-    
-    		# knoten links unten
-            elif i==(la-1)*lo:
-                n= n+ [i+lo-1, i+1, i-lo]
-    
-    		# knoten rechts unten
-            elif i == la*lo-1:
-                n= n+ [i-1, i-lo+1, i-lo]
-    
-    		# erste zeile
-            elif i<lo:
-                n= n+[i-1, i+1, i+lo]
-    	
-    		# letzte zeile:
-            elif i>la*lo-1:
-                n= n+[i-1, i+1, i-lo]
-    	
-    		# erste spalte
-            elif col_i==0:
-                n= n+[i+lo-1, i+1, i-lo, i+lo]
-    	
-    		# letzt spalte
-            elif col_i ==lo-1:
-                n= n+[i-1, i-lo+1, i-lo, i+lo]
-    	
-    		# nichts davon
-            else:
-                n = n+[i-1, i+1, i-lo, i+lo]
-            return n
-        
-        for t in range(n_between+1):
-            direct_n = find_neighboors(i, lo)
-            if t == 0:
-                neighb.append(direct_n)
-            if t == 1:
-                for n in direct_n:
-                    ind_n = find_neighboors(n, lo)
-                    neighb.append(ind_n)
-        n = list(set(flatten(neighb)))
-        if i in n:
-            n.remove(i)
-        
-	
-	#=====================
-	# Criteria 2: must be all at least once be significanlty correlated 
-	#=====================	
-        m =[]
-        for j in n:
-            if j in indices_not_masked:
-                m = m+[j]
-		
-		# now m contains the potential neighbors of gridpoint i
-
-	
-	#=====================	
-	# Criteria 3: sign must be the same for each step 
-	#=====================				
-        l=[]
-	
-        cc_i = A.data[i]
-        cc_i_sign = np.sign(cc_i)
-		
-	
-        for k in m:
-            cc_k = A.data[k]
-            cc_k_sign = np.sign(cc_k)
-		
-
-            if cc_i_sign *cc_k_sign == 1:
-                l = l +[k]
-
-            else:
-                l = l
-			
-            if len(l)==0:
-                l =[]
-                A.mask[i]=True	
-    			
-            elif i not in l: 
-                l = l + [i]	
-		
-		
-            N_pot[i]=N_pot[i] + l	
-
-
-
-	#========================================	
-	# STEP 3: merge overlapping set of neighbors
-	#========================================
-    Regions = merge_neighbors(N_pot)
-	
-	#========================================
-	# STEP 4: assign a value to each region
-	#========================================
-	
-
-	# 2) combine 1A+1B 
-    B = np.abs(A)
-	
-	# 3) calculate the area size of each region	
-	
-    Area =  [[] for i in range(len(Regions))]
-	
-    for i in range(len(Regions)):
-        indices = np.array(list(Regions[i]))
-        indices_lat_position = indices//lo
-        lat_nodes = lat_grid[indices_lat_position[:]]
-        cos_nodes = np.cos(np.deg2rad(lat_nodes))		
-		
-        area_i = [np.sum(cos_nodes)]
-        Area[i]= Area[i]+area_i
-	
-	#---------------------------------------
-	# OPTIONAL: Exclude regions which only consist of less than n nodes
-	# 3a)
-	#---------------------------------------	
-	
-    # keep only regions which are larger then the mean size of the regions
-    if ex['min_n_gc'] == 'mean':
-        n_nodes = int(np.mean([len(r) for r in Regions]))
-    else:
-        n_nodes = ex['min_n_gc']
-    
-    R=[]
-    Ar=[]
-    for i in range(len(Regions)):
-        if len(Regions[i])>=n_nodes:
-            R.append(Regions[i])
-            Ar.append(Area[i])
-	
-    Regions = R
-    Area = Ar	
-	
-	
-	
-	# 4) calcualte region value:
-	
-    C = np.zeros(len(Regions))
-	
-    Area = np.array(Area)
-    for i in range(len(Regions)):
-        C[i]=Area[i]*np.mean(B[list(Regions[i])])
-
-
-	
-	
-#	 mask out those nodes which didnot fullfill the neighborhood criterias
-#    A.mask[A==0] = True	
-		
-		
-	#========================================
-	# STEP 5: rank regions by region value
-	#========================================
-	
-	# rank indices of Regions starting with strongest:
-    sorted_region_strength = np.argsort(C)[::-1]
-	
-	# give ranking number
-	# 1 = strongest..
-	# 2 = second strongest
-    
-    # create clean array
-    Regions_lag_i = np.zeros(A.data.shape)
-    for i in range(len(Regions)):
-        j = list(sorted_region_strength)[i]
-        Regions_lag_i[list(Regions[j])]=i+1
-    
-    Regions_lag_i = np.array(Regions_lag_i, dtype=int)
-    Regions_lag_i = np.ma.masked_where(Regions_lag_i==0, Regions_lag_i)
-    #%%
-    return Regions_lag_i
 	
 
 def get_area(ds):
@@ -716,7 +495,7 @@ def cluster_DBSCAN_regions(actor, ex):
 #                
 
     
-#    actor.labels_sign   = labels_sign
+    
     actor.n_regions_lag = Number_regions_per_lag
     ex['n_tot_regs']    += int(np.sum(Number_regions_per_lag))
     
@@ -729,21 +508,20 @@ def cluster_DBSCAN_regions(actor, ex):
     prec_labels = prec_labels.where(prec_labels_ord!=0.)
     prec_labels.attrs['title'] = prec_labels.name
     actor.prec_labels = prec_labels
+    return actor, ex 
     
     
-    ex['max_N_regs'] = min(20, int(prec_labels.max() + 0.5))
-    label_weak = np.nan_to_num(prec_labels.values) >=  ex['max_N_regs']
-    prec_labels.values[label_weak] = ex['max_N_regs']
-    
-    
-    if lag_steps >= 2:
-        adjust_vert_cbar = 0.0; adj_fig_h=1.4
-    elif lag_steps < 2:
-        adjust_vert_cbar = 0.0 ; adj_fig_h = 1.4
+def plot_regs_xarray(for_plt, ex):
+        
+    ex['max_N_regs'] = min(20, int(for_plt.max() + 0.5))
+    label_weak = np.nan_to_num(for_plt.values) >=  ex['max_N_regs']
+    for_plt.values[label_weak] = ex['max_N_regs']
+
+
+    adjust_vert_cbar = 0.0 ; adj_fig_h = 1.4
     
         
     cmap = plt.cm.tab20
-    for_plt = prec_labels.copy()
     for_plt.values = for_plt.values-0.5
 #    if np.unique(for_plt.values[~np.isnan(for_plt.values)]).size == 1:
 #        for_plt[0,0,0] = 0
@@ -755,23 +533,11 @@ def cluster_DBSCAN_regions(actor, ex):
                    'adj_fig_h' : adj_fig_h, 'adj_fig_w' : 1., 
                    'hspace' : 0.0, 'wspace' : 0.08, 
                    'cticks_center' : False, 'title_h' : 0.95} )
-    filename = '{}_labels_init_{}_vs_{}'.format(ex['params'], ex['RV_name'], actor.name) + ex['file_type2']
+    filename = '{}_{}_vs_{}'.format(ex['params'], ex['RV_name'], for_plt.name) + ex['file_type2']
     plotting_wrapper(for_plt, ex, filename, kwrgs=kwrgs)
 
-#    for_plt.where(for_plt.values==3)[0].plot()
-
-#    if np.sum(Number_regions_per_lag) != 0:
-#        assert np.where(np.isnan(tsCorr))[1].size < 0.5*tsCorr[:,0].size, ('more '
-#                       'then 10% nans found, i.e. {} out of {} datapoints'.format(
-#                               np.where(np.isnan(tsCorr))[1].size), tsCorr.size)
-#        while np.where(np.isnan(tsCorr))[1].size != 0:
-#            nans = np.where(np.isnan(tsCorr))
-#            print('{} nans were found in timeseries of regions out of {} datapoints'.format(
-#                    nans[1].size, tsCorr.size))
-#            tsCorr[nans[0],nans[1]] = tsCorr[nans[0]-1,nans[1]]
-#            print('taking value of previous timestep')
     #%%
-    return actor, ex
+
 
 def spatial_mean_regions(actor, ex):
     #%%
