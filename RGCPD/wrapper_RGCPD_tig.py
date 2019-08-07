@@ -82,7 +82,7 @@ def calculate_corr_maps(ex, map_proj):
         # =============================================================================
         actor = act(var, Corr_Coeff, precur_arr)
         actor, ex = rgcpd.cluster_DBSCAN_regions(actor, ex)
-        rgcpd.plot_regs_xarray(actor.prec_labels, ex)
+        rgcpd.plot_regs_xarray(actor.prec_labels.copy(), ex)
         # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
         # stacked on top of each other (from lag_min to lag_max)
 #        tsCorr, n_reg_perlag = rgcpd.calc_actor_ts_and_plot(Corr_Coeff, actbox,
@@ -95,6 +95,7 @@ def calculate_corr_maps(ex, map_proj):
         if ex['plotin1fig'] == False:
             xrdata, xrmask = xrcorr_vars([var], outdic_actors, ex)
             plot_corr_maps(xrdata, xrmask, map_proj)
+
             fig_filename = '{}_corr_{}_vs_{}'.format(ex['params'], allvar[0], var) + ex['file_type2']
             plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=200)
             if ex['showplot'] == False:
@@ -496,10 +497,21 @@ def plot_corr_maps(xrdata, xrmask, map_proj):
                 plotmask.plot.contour(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
                                       subplot_kws={'projection': map_proj}, colors=['black'],
                                       levels=[float(vmin),float(vmax)],add_colorbar=False)
-            im = plotdata.plot.contourf(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
+                try:
+                    im = plotdata.plot.contourf(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
                                         center=0,
                                          levels=clevels, norm=norm, cmap=cmap,
                                          subplot_kws={'projection':map_proj},add_colorbar=False)
+                except ValueError:
+                    print('could not draw contourf, shifting to pcolormesh')
+                    im = plotdata.plot.pcolormesh(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
+                                        center=0,
+                                         levels=clevels, norm=norm, cmap=cmap,
+                                         subplot_kws={'projection':map_proj},add_colorbar=False)
+            if np.nansum(plotdata.values) == 0.:
+                g.axes[row,col].text(0.5, 0.5, 'No regions significant',
+                      horizontalalignment='center', fontsize='x-large',
+                      verticalalignment='center', transform=g.axes[row,col].transAxes)
             g.axes[row,col].set_extent([lon[0], lon[-1], 
                                        lat[0], lat[-1]], ccrs.PlateCarree())
             g.axes[row,col].coastlines()
@@ -538,7 +550,7 @@ def causal_reg_to_xarray(ex, df, outdic_actors):
         ds[var+'_labels'] = actor.prec_labels
         ds[var+'_corr'] = xr_corr
         ds[var+'_labels_tigr'] = actor.prec_labels.copy()
-        ds[var+'_corr_tigr'] = actor.prec_labels.copy()
+        ds[var+'_corr_tigr'] = xr_corr.copy()
     
     for i, var in enumerate(np.unique(df_c['var'])):
         regs_c = df_c.loc[ df_c['var'] == var ]
@@ -558,27 +570,31 @@ def causal_reg_to_xarray(ex, df, outdic_actors):
     #%%
     return ds
 
-def plotting_per_variable(ds, df, ex):
+def plotting_per_variable(ds, df, map_proj, ex):
+    #%%
     # plotting per variable per lag
     df_c = df.loc[ df['causal']==True ]
     lags = ds.lag.values
     for lag in lags:
         
         for i, var in enumerate(np.unique(df_c['var'])):
-            plot_labels(ds, df_c, var, lag, ex)
-
+#            plot_labels(ds, df_c, var, lag, ex)
+            
+            plot_corr_regions(ds, df_c, var, lag, map_proj, ex)
+    #%%
 def plot_labels(ds, df_c, var, lag, ex):
     
     ds_l = ds.sel(lag=lag)
     list_xr = [] ; name = []
-    for c in ['labels', '_labels_tigr']:
+    for c in ['labels', 'labels_tigr']:
         name.append(var+'_'+c)
         list_xr.append(ds_l[var+'_'+c])
         for_plt = xr.concat(list_xr, dim='lag')
         for_plt.lag.values = name
         rgcpd.plot_regs_xarray(for_plt, ex)
+        plt.show() ; plt.close()
 
-def plot_corr_regions(ds, df_c, var, lag, ex):
+def plot_corr_regions(ds, df_c, var, lag, map_proj, ex):
     
     ds_l = ds.sel(lag=lag)
     list_xr = [] ; name = []
@@ -587,16 +603,24 @@ def plot_corr_regions(ds, df_c, var, lag, ex):
         list_xr.append(ds_l[var+'_'+c])
         for_plt = xr.concat(list_xr, dim='lag')
         for_plt.lag.values = name
-        kwrgs = dict( {'title' : for_plt.attrs['title'], 'clevels' : 'notdefault', 
-                       'steps' : ex['max_N_regs']+1, 'subtitles': None,
-                       'vmin' : 0, 'vmax' : ex['max_N_regs'], 
-                       'cmap' : cmap, 'column' : 1,
-                       'cbar_vert' : adjust_vert_cbar, 'cbar_hght' : 0.0,
-                       'adj_fig_h' : adj_fig_h, 'adj_fig_w' : 1., 
-                       'hspace' : 0.0, 'wspace' : 0.08, 
-                       'cticks_center' : False, 'title_h' : 0.95} )
-        filename = '{}_{}_vs_{}'.format(ex['params'], ex['RV_name'], for_plt.name) + ex['file_type2']
-        rgcpd.plotting_wrapper(for_plt, ex, filename, kwrgs=kwrgs)
+        for_plt.name = 'sst_corr_and_tigr'
+        for_plt = for_plt.expand_dims('variable', axis=0)
+        for_plt.assign_coords(variable=[var])
+        xrmask = for_plt.copy()
+        xrmask.values = ~np.isnan(for_plt.values)
+        plot_corr_maps(for_plt, xrmask, map_proj)
+        plt.show() ; plt.close()
+        
+#        kwrgs = dict( {'title' : for_plt.attrs['title'], 'clevels' : 'notdefault', 
+#                       'steps' : ex['max_N_regs']+1, 'subtitles': None,
+#                       'vmin' : 0, 'vmax' : ex['max_N_regs'], 
+#                       'cmap' : cmap, 'column' : 1,
+#                       'cbar_vert' : adjust_vert_cbar, 'cbar_hght' : 0.0,
+#                       'adj_fig_h' : adj_fig_h, 'adj_fig_w' : 1., 
+#                       'hspace' : 0.0, 'wspace' : 0.08, 
+#                       'cticks_center' : False, 'title_h' : 0.95} )
+#        filename = '{}_{}_vs_{}'.format(ex['params'], ex['RV_name'], for_plt.name) + ex['file_type2']
+#        rgcpd.plotting_wrapper(for_plt, ex, filename, kwrgs=kwrgs)
             
     #%%
 

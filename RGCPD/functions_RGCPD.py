@@ -508,6 +508,7 @@ def cluster_DBSCAN_regions(actor, ex):
     prec_labels = prec_labels.where(prec_labels_ord!=0.)
     prec_labels.attrs['title'] = prec_labels.name
     actor.prec_labels = prec_labels
+    #%%
     return actor, ex 
     
     
@@ -555,6 +556,8 @@ def spatial_mean_regions(actor, ex):
     actbox = np.reshape(actor.precur_arr.values, (n_time, 
                   lats.size*lons.size))  
 
+#    print(actor.prec_labels.squeeze().values[~np.isnan(actor.prec_labels.squeeze().values)])
+    
     
     ts_list = np.zeros( (lag_steps), dtype=list )
     track_names = []
