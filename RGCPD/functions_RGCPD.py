@@ -17,41 +17,6 @@ def get_oneyr(datetime):
         return datetime.where(datetime.year==datetime.year[0]).dropna()
 from dateutil.relativedelta import relativedelta as date_dt
 
-def extract_data(d, D, ex):	
-	"""
-	Extracts the array of variable d for indices index_range over the domain box
-	d: netcdf elements
-	D: the data array
-	index_range: a list containing the start and the end index, e.g. [0, time_cycle*n_years]
-	"""
-	
-	
-	index_0 = ex['time_range_all'][0]
-	index_n = ex['time_range_all'][1]
-
-	if 'latitude' in list(d.variables.keys()):
-	  lat = d.variables['latitude'][:]
-	else:
-	  lat = d.variables['lat'][:]
-	if 'longitude' in list(d.variables.keys()):
-	  lon = d.variables['longitude'][:]
-	else:
-	  lon = d.variables['lon'][:]
-
-	if lon.min() < 0: 
-	  lon[ lon < 0] = 360 + lon[ lon < 0]
-
-
-#	time = d.variables['time'][:]
-#	unit = d.variables['time'].units
-#	u = utime(unit)
-#	date = u.num2date(time[:])
-	D = D[index_0: index_n, :, :]
-	D = D[:,(lat>=ex['la_min']) & (lat<=ex['la_max']),:]
-	D = D[:,:,(lon>=ex['lo_min']) & (lon<=ex['lo_max'])]
-	
-	return D
-
 
 def convert_longitude(data, to_format='only_east'):
     import numpy as np
@@ -82,44 +47,6 @@ def convert_longitude(data, to_format='only_east'):
     data['longitude'] = convert_lon
     return data
 	
-def plot_basemap_options(m):
-
-	''' specifies basemap options for basemap m'''
-	
-	# Basemap options:
-	m.drawcoastlines(color='gray', linewidth=0.35)
-	#m.drawcountries(color='gray', linewidth=0.2)
-	m.drawmapboundary(fill_color='white', color='gray')
-	#m.drawmapboundary(color='gray')
-	#m.fillcontinents(color='white',lake_color='white')
-	m.drawmeridians(np.arange(0, 360, 30), color='lightgray')
-	m.drawparallels(np.arange(-90, 90, 30), color='lightgray')
-
-
-	
-	
-
-# This functions merges sets which contain at least on common element. It was taken from:
-# http://stackoverflow.com/questions/9110837/python-simple-list-merging-based-on-intersections
-
-def merge_neighbors(lsts):
-  sets = [set(lst) for lst in lsts if lst]
-  merged = 1
-  while merged:
-    merged = 0
-    results = []
-    while sets:
-      common, rest = sets[0], sets[1:]
-      sets = []
-      for x in rest:
-        if x.isdisjoint(common):
-          sets.append(x)
-        else:
-          merged = 1
-          common |= x
-      results.append(common)
-    sets = results
-  return sets
 	
 def corr_new(D, di):
 	"""
@@ -137,15 +64,14 @@ def corr_new(D, di):
 	return corr_di_D, sig_di_D
 
 	
-def calc_corr_coeffs_new(ncdf, precur_arr, RV, ex):
+def calc_corr_coeffs_new(precur_arr, RV, ex):
     #%%
 #    v = ncdf ; V = array ; RV.RV_ts = ts of RV, time_range_all = index range of whole ts
     """
-    This function calculates the correlation maps for fied V for different lags. Field significance is applied to test for correltion.
+    This function calculates the correlation maps for precur_arr for different lags. 
+    Field significance is applied to test for correltion.
     This function uses the following variables (in the ex dictionary)
-    ncdf: netcdf element
     prec_arr: array
-    box: list of form [la_min, la_max, lo_min, lo_max]
     time_range_all: a list containing the start and the end index, e.g. [0, time_cycle*n_years]
     lag_steps: number of lags
     time_cycle: time cycyle of dataset, =12 for monthly data...
@@ -156,43 +82,75 @@ def calc_corr_coeffs_new(ncdf, precur_arr, RV, ex):
     lag_steps = ex['lag_max'] - ex['lag_min'] +1
     
     assert lag_steps >= 0, ('Maximum lag is larger then minimum lag, not allowed')
-		
-    d = ncdf
-	
-    if 'latitude' in list(d.variables.keys()):
-        lat = d.variables['latitude'][:]
-    else:
-        lat = d.variables['lat'][:]
-    if 'longitude' in list(d.variables.keys()):
-        lon = d.variables['longitude'][:]
-    else:
-        lon = d.variables['lon'][:]
+		    
+    lat = precur_arr.latitude.values
+    lon = precur_arr.longitude.values
+    
 
-    if lon.min() < 0: 
-        lon[lon < 0] = 360 + lon[lon < 0]
-	
-    lat_grid = lat[(lat>=ex['la_min']) & (lat<=ex['la_max'])]
-    lon_grid = lon[(lon>=ex['lo_min']) & (lon<=ex['lo_max'])]
-	
-    la = lat_grid.shape[0]
-    lo = lon_grid.shape[0]
-	
-    lons, lats = np.meshgrid(lon_grid,lat_grid)
-
-#    A1 = np.zeros((la,lo))
-    z = np.zeros((la*lo,lag_steps))
+    z = np.zeros((lat.size*lon.size,lag_steps))
     Corr_Coeff = np.ma.array(z, mask=z)
 	
-	
-
-
     # reshape
     sat = np.reshape(precur_arr.values, (precur_arr.shape[0],-1))
+    print('\n{} - calculating correlation maps'.format(precur_arr.name))
+	
+	
+    for i in range(lag_steps):
+
+        lag = ex['lag_min'] + i
+        months_indices_lagged = [r - lag for r in ex['RV_period']]	
+        sat_winter = sat[months_indices_lagged]
+		
+		# correlation map and pvalue at each grid-point:
+        corr_di_sat, sig_di_sat = corr_new(sat_winter, RV.RV_ts)
+		
+        if ex['FDR_control'] == True:
+			# test for Field significance and mask unsignificant values			
+			# FDR control:
+            adjusted_pvalues = multicomp.multipletests(sig_di_sat, method='fdr_bh')			
+            ad_p = adjusted_pvalues[1]
+			
+            corr_di_sat.mask[ad_p> ex['alpha']] = True
+
+        else:
+            corr_di_sat.mask[sig_di_sat> ex['alpha']] = True
+			
+			
+        Corr_Coeff[:,i] = corr_di_sat[:]
+            
+    Corr_Coeff = np.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
+	#%%
+    return Corr_Coeff
+	
+def calc_corr_coeffs(precur_arr, RV, ex):
+    #%%
+#    v = ncdf ; V = array ; RV.RV_ts = ts of RV, time_range_all = index range of whole ts
+    """
+    This function calculates the correlation maps for precur_arr for different lags. 
+    Field significance is applied to test for correltion.
+    This function uses the following variables (in the ex dictionary)
+    prec_arr: array
+    time_range_all: a list containing the start and the end index, e.g. [0, time_cycle*n_years]
+    lag_steps: number of lags
+    time_cycle: time cycyle of dataset, =12 for monthly data...
+    RV_period: indices that matches the response variable time series
+    alpha: significance level
+
+    """
+    lag_steps = ex['lag_max'] - ex['lag_min'] +1
     
-    allkeysncdf = list(d.variables.keys())
-    dimensionkeys = ['time', 'lat', 'lon', 'latitude', 'longitude', 'mask', 'levels']
-    var = [keync for keync in allkeysncdf if keync not in dimensionkeys][0]  
-    print('\ncalculating correlation maps for {}'.format(var))
+    assert lag_steps >= 0, ('Maximum lag is larger then minimum lag, not allowed')
+		    
+    lat = precur_arr.latitude.values
+    lon = precur_arr.longitude.values
+    
+
+    z = np.zeros((lat.size*lon.size,lag_steps))
+    Corr_Coeff = np.ma.array(z, mask=z)
+	
+    # reshape
+    sat = np.reshape(precur_arr.values, (precur_arr.shape[0],-1))
+    print('\n{} - calculating correlation maps'.format(precur_arr.name))
 	
 	
     for i in range(lag_steps):
@@ -235,107 +193,7 @@ def calc_corr_coeffs_new(ncdf, precur_arr, RV, ex):
             
     Corr_Coeff = np.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
 	#%%
-    return Corr_Coeff, lat_grid, lon_grid
-	
-
-def plot_corr_coeffs(Corr_Coeff, m, lag_min, lat_grid, lon_grid, title='Corr Maps for different time lags', Corr_mask=False):	
-	'''
-	This function plots the differnt corr coeffs on map m. the variable title must be a string. If mask==True, only significant values are shown.
-	'''
-	
-	print('plotting correlation maps...')
-	n_rows = Corr_Coeff.shape[1]
-	fig = plt.figure(figsize=(4, 2*n_rows))
-	#fig.subplots_adjust(left=None, bottom = None, right=None, top=0.3, wspace=0.1, hspace= 0.1)
-
-	plt.suptitle(title, fontsize = 14)
-
-	if Corr_Coeff.count()==0:
-		vmin = -0.99 
-		vmax = 0.99
-	
-	else:
-		vmin = Corr_Coeff.min()
-		vmax = Corr_Coeff.max()
-		
-	maxabs = max([np.abs(vmin), vmax]) + 0.01
-	levels = np.linspace(- maxabs, maxabs , 13) 
-	levels = [round(elem,2) for elem in levels]
-	
-	#gs1 = gridspec.GridSpec(2, Corr_Coeff.shape[1]/2) 
-	for i in range(Corr_Coeff.shape[1]):
-		plt.subplot(Corr_Coeff.shape[1], 1, i+1)
-		lag = lag_min +i
-		plt.title('lag = -' + str(lag), fontsize =12)
-		
-		
-		corr_di_sat = np.ma.array(data = Corr_Coeff[:,i], mask = Corr_Coeff.mask[:,i])
-		
-		la = lat_grid.shape[0]
-		lo = lon_grid.shape[0]
-		
-		# lons_ext = np.zeros((lon_grid.shape[0]+1))
-		# lons_ext[:-1] = lon_grid
-		# lons_ext[-1] = 360
-
-		# lons, lats = np.meshgrid(lons_ext,lat_grid)
-		lons, lats = np.meshgrid(lon_grid,lat_grid)
-		
-		
-		# reshape for plotting
-		corr_di_sat = np.reshape(corr_di_sat, (la, lo))
-		corr_di_sat_significance = np.zeros(corr_di_sat.shape)
-		corr_di_sat_significance[corr_di_sat.mask==False]=1				
-		
-		# # make new dimension for plotting
-		# B = np.zeros((corr_di_sat.shape[0], corr_di_sat.shape[1]+1))
-		# B[:, :-1] = corr_di_sat
-		# B[:, -1] = corr_di_sat[:, 0]
-	
-		# D = np.zeros((corr_di_sat_significance.shape[0], corr_di_sat_significance.shape[1]+1))
-		# D[:, :-1] = corr_di_sat_significance
-		# D[:, -1] = corr_di_sat_significance[:, 0]	
-		
-
-		# if (Corr_mask==True) | (np.sum(corr_di_sat_significance)==0):
-		if (Corr_mask==True):
-			# plotting otions:
-			im = m.contourf(lons,lats, corr_di_sat, vmin = vmin, vmax = vmax, latlon=True, levels = levels, cmap="RdBu_r")
-			# m.colorbar(location="bottom")
-			plot_basemap_options(m)
-
-
-		elif (np.sum(corr_di_sat_significance)==0):
-			im = m.contourf(lons,lats, corr_di_sat.data, vmin = vmin, vmax = vmax, latlon=True, levels = levels, cmap="RdBu_r")
-			# m.colorbar(location="bottom")
-			plot_basemap_options(m)
-		
-		else:				
-			
-			plot_basemap_options(m)		
-			im = m.contourf(lons,lats, corr_di_sat.data, vmin = vmin, vmax = vmax, latlon=True, levels = levels, cmap="RdBu_r")				
-			m.contour(lons,lats, corr_di_sat_significance, latlon = True, linewidths=0.2,colors='k')
-
-			#m.colorbar(location="bottom")
-			#m.scatter(lons,lats,corr_di_sat_significance,alpha=0.7,latlon=True, color="k")
-	
-	
-	# vertical colorbar
-	# cax2 = fig.add_axes([0.92, 0.3, 0.013, 0.4])
-	# cb = fig.colorbar(im, cax=cax2, orientation='vertical')
-	# cb.outline.set_linewidth(.1)
-	# cb.ax.tick_params(labelsize = 7)
-	
-	
-	cax2 = fig.add_axes([0.25, 0.07, 0.5, 0.014])
-	cb = fig.colorbar(im, cax=cax2, orientation='horizontal')
-	cb.outline.set_linewidth(.1)
-	cb.ax.tick_params(labelsize = 7)
-	
-	#fig.tight_layout(rect=[0, 0.03, 1, 0.93])
-	return fig
-
-	
+    return Corr_Coeff
 
 def get_area(ds):
     longitude = ds.longitude
@@ -356,6 +214,14 @@ def get_area(ds):
 #    A_mean = np.mean(A_gridcell2D)
     return A_gridcell2D
 
+
+def quick_plot_mask(actor):
+    mask  = actor.Corr_Coeff.mask
+    lats    = actor.lat_grid
+    lons    = actor.lon_grid
+    plt.figure(figsize=(10,15)) ; 
+    plt.imshow(np.reshape(mask, (lats.size, lons.size))) 
+    return
 
 def cluster_DBSCAN_regions(actor, ex):
     #%%
@@ -416,24 +282,26 @@ def cluster_DBSCAN_regions(actor, ex):
                 weights_core_samples.append(wght_area[mask_sig[:,:,l]].reshape(-1))
                 
             sign_coords = flatten(sign_coords)
-            weights_core_samples = flatten(weights_core_samples)
-            # calculate distance between sign coords accross all lags to keep labels 
-            # more consistent when clustering
-            distance = metrics.pairwise_distances(sign_coords, metric=haversine)
-            dbresult = cluster.DBSCAN(eps=ex['distance_eps'], min_samples=ex['min_area_samples'], 
-                                      metric='precomputed').fit(distance, 
-                                      sample_weight=weights_core_samples)
-            labels = dbresult.labels_ + 1
-            
-            # all labels == -1 (now 0) are seen as noise:
-            labels[labels==0] = -label_start
-            individual_labels = labels + label_start
-            [labels_sign_lag.append((l, sign)) for l in np.unique(individual_labels) if l != 0]
+            if len(sign_coords) != 0:
+                weights_core_samples = flatten(weights_core_samples)
+                # calculate distance between sign coords accross all lags to keep labels 
+                # more consistent when clustering
+                distance = metrics.pairwise_distances(sign_coords, metric=haversine)
+                dbresult = cluster.DBSCAN(eps=ex['distance_eps'], min_samples=ex['min_area_samples'], 
+                                          metric='precomputed').fit(distance, 
+                                          sample_weight=weights_core_samples)
+                labels = dbresult.labels_ + 1
+                # all labels == -1 (now 0) are seen as noise:
+                labels[labels==0] = -label_start
+                individual_labels = labels + label_start
+                [labels_sign_lag.append((l, sign)) for l in np.unique(individual_labels) if l != 0]
 
-            for l in range(lag_steps):
-                mask_sig_lag = mask[:,l]==True
-                np_dbregs[:,l][mask_sig_lag] = individual_labels[labels_for_lag[l]]
-            label_start = int(np_dbregs[mask].max())
+                for l in range(lag_steps):
+                    mask_sig_lag = mask[:,l]==True
+                    np_dbregs[:,l][mask_sig_lag] = individual_labels[labels_for_lag[l]]
+                label_start = int(np_dbregs[mask].max())
+            else:
+                pass
             np_regs = np.reshape(np_dbregs, (lats.size, lons.size, lag_steps))
             np_regs = np_regs.swapaxes(0,-1).swapaxes(1,2)
         return np_regs, labels_sign_lag
@@ -442,56 +310,67 @@ def cluster_DBSCAN_regions(actor, ex):
     prec_labels_np = np.zeros( (lag_steps, lats.size, lons.size) )
 #    labels_sign = np.zeros( (lag_steps), dtype=list )
     mask_and_data = Corr_Coeff.copy()
+#    if 
     # prec_labels_np: shape [lags, lats, lons]
     prec_labels_np, labels_sign_lag = mask_sig_to_cluster(mask_and_data, lons, lats, wght_area, ex)
     
     
-
-    corr_strength = {}
-    totalsize_lag0 = area_grid[prec_labels_np[0]!=0].mean() / 1E5
-    for l_idx, lag in enumerate(lags):
-        # check if region is higher lag is actually too small to be a cluster:
-        prec_field = prec_labels_np[l_idx,:,:]
+    if np.nansum(prec_labels_np) == 0. and mask_and_data.mask.all()==False:
+        print('\nSome significantly correlating gridcells found, but too randomly located and '
+              'interpreted as noise by DBSCAN, make distance_eps lower '
+              'to relax contrain.\n')
+        prec_labels_ord = prec_labels_np
+    if mask_and_data.mask.all()==True:
+        print('\nNo significantly correlating gridcells found.\n')
+        prec_labels_ord = prec_labels_np
+    else:
+        # order regions on corr strength
+        # based on median of upper 25 percentile
+        corr_strength = {}
+        totalsize_lag0 = area_grid[prec_labels_np[0]!=0].mean() / 1E5
+        for l_idx, lag in enumerate(lags):
+            # check if region is higher lag is actually too small to be a cluster:
+            prec_field = prec_labels_np[l_idx,:,:]
+            
+            for i, reg in enumerate(np.unique(prec_field)[1:]):
+                are = area_grid.copy()
+                are[prec_field!=reg]=0
+                area_prec_reg = are.sum()/1E5
+                if area_prec_reg < ex['min_area_km2']/1E5:
+                    print(reg, area_prec_reg, ex['min_area_km2']/1E5, 'not exceeding area')
+                    prec_field[prec_field==reg] = 0
+                if area_prec_reg >= ex['min_area_km2']/1E5:
+                    Corr_value = mask_and_data.data[prec_field.reshape(-1)==reg, l_idx]
+                    weight_by_size = (area_prec_reg / totalsize_lag0)**0.1
+                    Corr_value.sort()
+                    strength   = abs(np.median(Corr_value[int(0.75*Corr_value.size):]))
+                    Corr_strength = np.round(strength * weight_by_size, 10)
+                    corr_strength[Corr_strength + l_idx*1E-5] = '{}_{}'.format(l_idx,reg)
+            Number_regions_per_lag[l_idx] = np.unique(prec_field)[1:].size
+            prec_labels_np[l_idx,:,:] = prec_field
         
-        for i, reg in enumerate(np.unique(prec_field)[1:]):
-            are = area_grid.copy()
-            are[prec_field!=reg]=0
-            area_prec_reg = are.sum()/1E5
-            if area_prec_reg < ex['min_area_km2']/1E5:
-                print(reg, area_prec_reg, ex['min_area_km2']/1E5, 'not exceeding area')
-                prec_field[prec_field==reg] = 0
-            if area_prec_reg >= ex['min_area_km2']/1E5:
-                Corr_value = mask_and_data.data[prec_field.reshape(-1)==reg, l_idx]
-                weight_by_size = (area_prec_reg / totalsize_lag0)**0.1
-                Corr_value.sort()
-                strength   = abs(np.median(Corr_value[int(0.75*Corr_value.size):]))
-                Corr_strength = np.round(strength * weight_by_size, 10)
-                corr_strength[Corr_strength + l_idx*1E-5] = '{}_{}'.format(l_idx,reg)
-        Number_regions_per_lag[l_idx] = np.unique(prec_field)[1:].size
-        prec_labels_np[l_idx,:,:] = prec_field
-    
-    
-    # Reorder - strongest correlation region is number 1, etc... ,
-    strongest = sorted(corr_strength.keys())[::-1]
-    actor.corr_strength = corr_strength
-    reassign = {} ; key_dupl = [] ; new_reg = 0 
-    order_str_actor = {}
-    for i, key in enumerate(strongest):
-        old_lag_reg = corr_strength[key]
-        old_reg = int(old_lag_reg.split('_')[-1])
-        if old_reg not in key_dupl:
-            new_reg += 1
-            reassign[old_reg] = new_reg
-        key_dupl.append( old_reg )
-        new_lag_reg = old_lag_reg.split('_')[0] +'_'+ str(reassign[old_reg])
-        order_str_actor[new_lag_reg] = i+1
-    
-    
-    actor.order_str_actor = order_str_actor
-    prec_labels_ord = np.zeros(prec_labels_np.shape, dtype=int)
-    for i, reg in enumerate(reassign.keys()):   
-        prec_labels_ord[prec_labels_np == reg] = reassign[reg]
-#        print('reg {}, to {}'.format(reg, reassign[reg]))
+        
+        # Reorder - strongest correlation region is number 1, etc... ,
+        strongest = sorted(corr_strength.keys())[::-1]
+        actor.corr_strength = corr_strength
+        reassign = {} ; key_dupl = [] ; new_reg = 0 
+        order_str_actor = {}
+        for i, key in enumerate(strongest):
+            old_lag_reg = corr_strength[key]
+            old_reg = int(old_lag_reg.split('_')[-1])
+            if old_reg not in key_dupl:
+                new_reg += 1
+                reassign[old_reg] = new_reg
+            key_dupl.append( old_reg )
+            new_lag_reg = old_lag_reg.split('_')[0] +'_'+ str(reassign[old_reg])
+            order_str_actor[new_lag_reg] = i+1
+        
+        
+        actor.order_str_actor = order_str_actor
+        prec_labels_ord = np.zeros(prec_labels_np.shape, dtype=int)
+        for i, reg in enumerate(reassign.keys()):   
+            prec_labels_ord[prec_labels_np == reg] = reassign[reg]
+    #        print('reg {}, to {}'.format(reg, reassign[reg]))
 #                
 
     
@@ -608,121 +487,6 @@ def spatial_mean_regions(actor, ex):
     #%%
     return tsCorr, track_names
 
-def calc_actor_ts_and_plot(Corr_Coeff, actbox, ex, lat_grid, lon_grid, var):
-    #%%
-    """
-	Calculates the time-series of the actors based on the correlation coefficients and plots the according regions. 
-	Only caluclates regions with significant correlation coefficients
-	"""
-    
-    if Corr_Coeff.ndim == 1:
-        lag_steps = 1
-        n_rows = 1
-    else:
-        lag_steps = Corr_Coeff.shape[1]
-        n_rows = Corr_Coeff.shape[1]
-
-	
-    la_gph = lat_grid.shape[0]
-    lo_gph = lon_grid.shape[0]
-    lons_gph, lats_gph = np.meshgrid(lon_grid, lat_grid)
-
-    cos_box_gph = np.cos(np.deg2rad(lats_gph))
-    cos_box_gph_array = np.repeat(cos_box_gph[None,:], actbox.shape[0], 0)
-    cos_box_gph_array = np.reshape(cos_box_gph_array, (cos_box_gph_array.shape[0], -1))
-
-
-    Actors_ts_GPH = [[] for i in range(lag_steps)]
-	
-	#test = [len(a) for a in Actors_ts_GPH]
-	#print test
-
-
-    Number_regions_per_lag = np.zeros(lag_steps)
-    x = 0
-    
-    
-    for i in range(lag_steps):
-		
-        if Corr_Coeff.ndim ==1:
-            Regions_lag_i = define_regions_and_rank_new(Corr_Coeff, lat_grid, lon_grid, ex)
-		
-        else:
-            Regions_lag_i = define_regions_and_rank_new(Corr_Coeff[:,i], lat_grid, lon_grid, ex)
-		
-        
-        
-        if Regions_lag_i.max()> 0:
-            n_regions_lag_i = int(Regions_lag_i.max())
-            print(('{} regions detected for lag {}, variable {}'.format(n_regions_lag_i, ex['lag_min']+i,var)))
-            x_reg = np.max(Regions_lag_i)
-			
-#            levels = np.arange(x, x + x_reg +1)+.5
-            A_r = np.reshape(Regions_lag_i, (la_gph, lo_gph))
-            A_r + x
-            
-            x = A_r.max() 
-
-			# this array will be the time series for each region
-            ts_regions_lag_i = np.zeros((actbox.shape[0], n_regions_lag_i))
-				
-            for j in range(n_regions_lag_i):
-                B = np.zeros(Regions_lag_i.shape)
-                B[Regions_lag_i == j+1] = 1	
-                ts_regions_lag_i[:,j] = np.mean(actbox[:, B == 1] * cos_box_gph_array[:, B == 1], axis =1)
-
-            Actors_ts_GPH[i] = ts_regions_lag_i
-		
-        else:
-            print(('no regions detected for lag ', ex['lag_min'] + i))	
-            Actors_ts_GPH[i] = np.array([])
-            n_regions_lag_i = 0
-		
-        Number_regions_per_lag[i] = n_regions_lag_i
-		
-
-    if np.sum(Number_regions_per_lag) ==0:
-        print('no regions detected at all')
-        tsCorr = np.array([])
-	
-    else:
-        print('{} regions detected in total\n'.format(
-                        np.sum(Number_regions_per_lag)))
-		
-		# check for whcih lag the first regions are detected
-        d = 0
-		
-        while (Actors_ts_GPH[d].shape[0]==0) & (d < lag_steps):
-            d = d+1
-            print(d)
-		
-		# make one array out of it:
-        tsCorr = Actors_ts_GPH[d]
-		
-        for i in range(d+1, len(Actors_ts_GPH)):
-            if Actors_ts_GPH[i].shape[0]>0:		
-				
-                tsCorr = np.concatenate((tsCorr, Actors_ts_GPH[i]), axis = 1)		
-		
-			# if Actors_ts_GPH[i].shape[0]==0:
-				# print i+1
-				
-			# else:
-				# tsCorr = np.concatenate((tsCorr, Actors_ts_GPH[i]), axis = 1)
-    if np.sum(Number_regions_per_lag) != 0:
-        assert np.where(np.isnan(tsCorr))[1].size < 0.5*tsCorr[:,0].size, ('more '
-                       'then 10% nans found, i.e. {} out of {} datapoints'.format(
-                               np.where(np.isnan(tsCorr))[1].size), tsCorr.size)
-        while np.where(np.isnan(tsCorr))[1].size != 0:
-            nans = np.where(np.isnan(tsCorr))
-            print('{} nans were found in timeseries of regions out of {} datapoints'.format(
-                    nans[1].size, tsCorr.size))
-            tsCorr[nans[0],nans[1]] = tsCorr[nans[0]-1,nans[1]]
-            print('taking value of previous timestep')
-    #%%
-    return tsCorr, Number_regions_per_lag#, fig_GPH
-	
-
 
 def print_particular_region_new(ex, number_region, corr_lag, prec_labels, map_proj, title):
 #    (number_region, Corr_Coeff_lag_i, latitudes, longitudes, map_proj, title)=(according_number, Corr_precursor[:, :], actor.lat_grid, actor.lon_grid, map_proj, according_fullname) 
@@ -749,66 +513,6 @@ def print_particular_region_new(ex, number_region, corr_lag, prec_labels, map_pr
 #%%
     return fig
 
-
-def print_particular_region(ex, number_region, Corr_Coeff_lag_i, actor, map_proj, title):
-#    (number_region, Corr_Coeff_lag_i, latitudes, longitudes, map_proj, title)=(according_number, Corr_precursor[:, :], actor.lat_grid, actor.lon_grid, map_proj, according_fullname) 
-    #%%
-    # check if only one lag is tested:
-    if Corr_Coeff_lag_i.ndim == 1:
-        lag_steps = 1
-
-    else:
-        lag_steps = Corr_Coeff_lag_i.shape[1]
-
-    latitudes = actor.lat_grid
-    longitudes = actor.lon_grid
-    
-    x = 0
-    for i in range(lag_steps):
-	
-        if Corr_Coeff_lag_i.ndim == 1:
-            Regions_lag_i = define_regions_and_rank_new(Corr_Coeff_lag_i, 
-                                                        latitudes, longitudes, ex)
-		
-        else:	
-            Regions_lag_i = define_regions_and_rank_new(Corr_Coeff_lag_i[:,i], 
-                                                        latitudes, longitudes, ex)
-		
-        if np.max(Regions_lag_i.data)==0:
-            n_regions_lag_i = 0
-		
-        else:	
-            n_regions_lag_i = int(np.max(Regions_lag_i.data))
-#            x_reg = np.max(Regions_lag_i)	
-#            levels = np.arange(x, x + x_reg +1)+.5
-
-		
-            A_r = np.reshape(Regions_lag_i, (latitudes.size, longitudes.size))
-            A_r = A_r + x			
-            x = A_r.max() 
-            print(x)
-		
-		
-        if (x >= number_region) & (x>0):
-					
-            A_number_region = np.zeros(A_r.shape)
-            A_number_region[A_r == number_region]=1
-            xr_A_num_reg = xr.DataArray(data=A_number_region, coords=[latitudes, longitudes], 
-                                        dims=('latitude','longitude'))
-            map_proj = map_proj
-            plt.figure(figsize=(6, 4))
-            ax = plt.axes(projection=map_proj)
-            im = xr_A_num_reg.plot.pcolormesh(ax=ax, cmap=plt.cm.BuPu,
-                             transform=ccrs.PlateCarree(), add_colorbar=False)
-            plt.colorbar(im, ax=ax , orientation='horizontal')
-            ax.coastlines(color='grey', alpha=0.3)
-            ax.set_title(title)
-            
-            break
-#%%
-    return
-
-	
 		
 def plotting_wrapper(plotarr, ex, filename=None,  kwrgs=None):
     import os
