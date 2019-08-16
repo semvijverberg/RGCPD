@@ -810,99 +810,221 @@ def regrid_xarray(xarray_in, to_grid_res, periodic=True):
     #%%
     return xarray_out
 
+
+
 def rand_traintest_years(RV_ts, precur_arr, ex):
     #%%
-  
+    '''
+    possible ex['method'] are:
+    random{int} : with the int(ex['method'][6:8]) determining the amount of folds
+    leave{int} : chronologically split train and test years
+    split{int} : split dataset into single train and test set
+    no_train_test_split.
+    '''
+     
+    
     
     ex['tested_yrs'] = [] ; ex['n_events'] = []
-    ex['all_yrs'] = list(np.unique(RV_ts.time.dt.year))
-
+    
 
     if ex['method'][:6] == 'random':
         if 'seed' not in ex.keys():
             ex['seed'] = 30 # control reproducibility train/test split
         else:
             ex['seed'] = ex['seed']
-        if ex['n'] == 0: ex['seed_run'] = ex['seed']
-        rng = np.random.RandomState(ex['seed_run'])
+        
+        rng = np.random.RandomState(ex['seed'])
+        ex['n_conv'] = int(ex['method'][6:8])
+    elif ex['method'][:5] == 'leave': 
+        ex['n_conv'] = int(ex['n_yrs'] / int(ex['method'].split('_')[1]) )
+        iterate = np.arange(0, ex['n_yrs']+1E-9, 
+                            int(ex['method'].split('_')[1]), dtype=int )
+    elif ex['method'] == 'no_train_test_split': ex['n_conv'] = 1
+    
+    traintest = []
+    for s in range(ex['n_conv']):
+        
+        # conditions failed initally assumed True
+        a_conditions_failed = True
+        count = 0
+        
+        while a_conditions_failed == True:
+            count +=1
+            a_conditions_failed = False
     
     
-    # conditions failed initally assumed True
-    a_conditions_failed = True
-    count = 0
-
-    while a_conditions_failed == True:
-        count +=1
-        a_conditions_failed = False
-
-
-        if ex['method'][:6] == 'random':
-            ex['n_conv'] = int(ex['method'][6:8])
-
-            
-            size_test  = int(np.round(ex['n_yrs'] / ex['n_conv']))
-            size_train = int(ex['n_yrs'] - size_test)
-
-            ex['leave_n_years_out'] = size_test
-            yrs_to_draw_sample = [yr for yr in ex['all_yrs'] if yr not in flatten(ex['tested_yrs'])]
-            if (len(yrs_to_draw_sample)) >= size_test:
-                rand_test_years = rng.choice(yrs_to_draw_sample, ex['leave_n_years_out'], replace=False)
-            # if last test sample will be too small for next iteration, add test yrs to current test yrs
-            if (len(yrs_to_draw_sample)) < size_test:
-                rand_test_years = yrs_to_draw_sample  
-            check_double_test = [yr for yr in rand_test_years if yr in flatten( ex['tested_yrs'] )]
-            if len(check_double_test) != 0 :
-                a_conditions_failed = True
-                print('test year drawn twice, redoing sampling')
+            if ex['method'][:6] == 'random':
+                ex['n_conv'] = int(ex['method'][6:8])
+    
                 
+                size_test  = int(np.round(ex['n_yrs'] / ex['n_conv']))
+                size_train = int(ex['n_yrs'] - size_test)
+    
+                ex['leave_n_years_out'] = size_test
+                yrs_to_draw_sample = [yr for yr in ex['all_yrs'] if yr not in flatten(ex['tested_yrs'])]
+                if (len(yrs_to_draw_sample)) >= size_test:
+                    rand_test_years = rng.choice(yrs_to_draw_sample, ex['leave_n_years_out'], replace=False)
+                # if last test sample will be too small for next iteration, add test yrs to current test yrs
+                if (len(yrs_to_draw_sample)) < size_test:
+                    rand_test_years = yrs_to_draw_sample  
+                check_double_test = [yr for yr in rand_test_years if yr in flatten( ex['tested_yrs'] )]
+                if len(check_double_test) != 0 :
+                    a_conditions_failed = True
+                    print('test year drawn twice, redoing sampling')
+                    
+                
+            elif ex['method'][:5] == 'leave':
+                ex['leave_n_years_out'] = int(ex['method'].split('_')[1])
+                t0 = iterate[s]
+                t1 = iterate[s+1]
+                rand_test_years = ex['all_yrs'][t0: t1]
+                
+            elif ex['method'][:5] == 'split':
+                size_train = int(np.percentile(range(len(ex['all_yrs'])), int(ex['method'][5:])))
+                size_test  = len(ex['all_yrs']) - size_train
+                ex['leave_n_years_out'] = size_test
+                print('Using {} years to train and {} to test'.format(size_train, size_test))
+                rand_test_years = ex['all_yrs'][-size_test:]
+
+            elif ex['method'] == 'no_train_test_split':
+                size_train = len(ex['all_yrs'])
+                size_test  = 0
+                ex['leave_n_years_out'] = size_test
+                print('No train test split'.format(size_train, size_test))
+                rand_test_years = []
+        
             
-        elif ex['method'] == 'iter':
-            ex['leave_n_years_out'] = 1
-            if ex['n'] >= ex['n_yrs']:
-                n = ex['n'] - ex['n_yrs']
+                
+            # test duplicates
+            a_conditions_failed = np.logical_and((len(set(rand_test_years)) != ex['leave_n_years_out']),
+                                     s != ex['n_conv']-1)
+            # Update random years to be selected as test years:
+        #        initial_years = [yr for yr in initial_years if yr not in random_test_years]
+            rand_train_years = [yr for yr in ex['all_yrs'] if yr not in rand_test_years]
+            
+    
+            full_years  = list(precur_arr.time.dt.year.values)
+            RV_years  = list(RV_ts.time.dt.year.values)
+            
+            Prec_train_idx = [i for i in range(len(full_years)) if full_years[i] in rand_train_years]
+            RV_train_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_train_years]
+            RV_train = RV_ts.isel(time=RV_train_idx)
+            
+            if ex['method'] != 'no_train_test_split':
+                Prec_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
+                RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
+                RV_test = RV_ts.isel(time=RV_test_idx)    
+                test_years = np.unique(RV_test.time.dt.year)
             else:
-                n = ex['n']
-            rand_test_years = [ex['all_yrs'][n]]
-            
-        elif ex['method'][:5] == 'split':
-            size_train = int(np.percentile(range(len(ex['all_yrs'])), int(ex['method'][5:])))
-            size_test  = len(ex['all_yrs']) - size_train
-            ex['leave_n_years_out'] = size_test
-            print('Using {} years to train and {} to test'.format(size_train, size_test))
-            rand_test_years = ex['all_yrs'][-size_test:]
-    
+                RV_test = [] ; test_years = [] ; Prec_test_idx = []
         
-            
-        # test duplicates
-        a_conditions_failed = np.logical_and((len(set(rand_test_years)) != ex['leave_n_years_out']),
-                                             ex['n'] != ex['n_conv']-1)
-        # Update random years to be selected as test years:
-    #        initial_years = [yr for yr in initial_years if yr not in random_test_years]
-        rand_train_years = [yr for yr in ex['all_yrs'] if yr not in rand_test_years]
+        ex['tested_yrs'].append(test_years)
         
+        traintest_ = dict( { 'years'            : test_years,
+                            'RV_train'          : RV_train,
+                            'Prec_train_idx'    : Prec_train_idx,
+                            'RV_test'           : RV_test,
+                            'Prec_test_idx'     : Prec_test_idx} )
+        traintest.append(traintest_)
 
-        full_years  = list(precur_arr.time.dt.year.values)
-        RV_years  = list(RV_ts.time.dt.year.values)
-        
-        Prec_train_idx = [i for i in range(len(full_years)) if full_years[i] in rand_train_years]
-        RV_train_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_train_years]
-        
-        Prec_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
-        RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
-        
-        
-
-        RV_train = RV_ts.isel(time=RV_train_idx)
-        
-        RV_test = RV_ts.isel(time=RV_test_idx)
-        
-    test_years = np.unique(RV_test.time.dt.year)
-    
-    ex['tested_yrs'].append(test_years)
-    
-    train = dict( {    'RV'             : RV_train,
-                       'Prec_train_idx' : Prec_train_idx})
-    test = dict( {     'RV'             : RV_test,
-                       'Prec_test_idx'  : Prec_test_idx})
     #%%
-    return train, test, ex
+    return traintest, ex
+
+
+#
+#def rand_traintest_years(RV_ts, precur_arr, ex):
+#    #%%
+#  
+#    
+#    ex['tested_yrs'] = [] ; ex['n_events'] = []
+#    ex['all_yrs'] = list(np.unique(RV_ts.time.dt.year))
+#
+#
+#    if ex['method'][:6] == 'random':
+#        if 'seed' not in ex.keys():
+#            ex['seed'] = 30 # control reproducibility train/test split
+#        else:
+#            ex['seed'] = ex['seed']
+#        if ex['n'] == 0: ex['seed_run'] = ex['seed']
+#        rng = np.random.RandomState(ex['seed_run'])
+#    
+#    
+#    # conditions failed initally assumed True
+#    a_conditions_failed = True
+#    count = 0
+#
+#    while a_conditions_failed == True:
+#        count +=1
+#        a_conditions_failed = False
+#
+#
+#        if ex['method'][:6] == 'random':
+#            ex['n_conv'] = int(ex['method'][6:8])
+#
+#            
+#            size_test  = int(np.round(ex['n_yrs'] / ex['n_conv']))
+#            size_train = int(ex['n_yrs'] - size_test)
+#
+#            ex['leave_n_years_out'] = size_test
+#            yrs_to_draw_sample = [yr for yr in ex['all_yrs'] if yr not in flatten(ex['tested_yrs'])]
+#            if (len(yrs_to_draw_sample)) >= size_test:
+#                rand_test_years = rng.choice(yrs_to_draw_sample, ex['leave_n_years_out'], replace=False)
+#            # if last test sample will be too small for next iteration, add test yrs to current test yrs
+#            if (len(yrs_to_draw_sample)) < size_test:
+#                rand_test_years = yrs_to_draw_sample  
+#            check_double_test = [yr for yr in rand_test_years if yr in flatten( ex['tested_yrs'] )]
+#            if len(check_double_test) != 0 :
+#                a_conditions_failed = True
+#                print('test year drawn twice, redoing sampling')
+#                
+#            
+#        elif ex['method'] == 'iter':
+#            ex['leave_n_years_out'] = 1
+#            if ex['n'] >= ex['n_yrs']:
+#                n = ex['n'] - ex['n_yrs']
+#            else:
+#                n = ex['n']
+#            rand_test_years = [ex['all_yrs'][n]]
+#            
+#        elif ex['method'][:5] == 'split':
+#            size_train = int(np.percentile(range(len(ex['all_yrs'])), int(ex['method'][5:])))
+#            size_test  = len(ex['all_yrs']) - size_train
+#            ex['leave_n_years_out'] = size_test
+#            print('Using {} years to train and {} to test'.format(size_train, size_test))
+#            rand_test_years = ex['all_yrs'][-size_test:]
+#    
+#        
+#            
+#        # test duplicates
+#        a_conditions_failed = np.logical_and((len(set(rand_test_years)) != ex['leave_n_years_out']),
+#                                             ex['n'] != ex['n_conv']-1)
+#        # Update random years to be selected as test years:
+#    #        initial_years = [yr for yr in initial_years if yr not in random_test_years]
+#        rand_train_years = [yr for yr in ex['all_yrs'] if yr not in rand_test_years]
+#        
+#
+#        full_years  = list(precur_arr.time.dt.year.values)
+#        RV_years  = list(RV_ts.time.dt.year.values)
+#        
+#        Prec_train_idx = [i for i in range(len(full_years)) if full_years[i] in rand_train_years]
+#        RV_train_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_train_years]
+#        
+#        Prec_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
+#        RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
+#        
+#        
+#
+#        RV_train = RV_ts.isel(time=RV_train_idx)
+#        
+#        RV_test = RV_ts.isel(time=RV_test_idx)
+#        
+#    test_years = np.unique(RV_test.time.dt.year)
+#    
+#    ex['tested_yrs'].append(test_years)
+#    
+#    train = dict( {    'RV'             : RV_train,
+#                       'Prec_train_idx' : Prec_train_idx})
+#    test = dict( {     'RV'             : RV_test,
+#                       'Prec_test_idx'  : Prec_test_idx})
+#    #%%
+#    return train, test, ex

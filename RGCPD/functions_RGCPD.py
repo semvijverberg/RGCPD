@@ -140,7 +140,7 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
         return Corr_Coeff
 
     for s in xrcorr.split.values:
-        progress = 100 * s+1 / ex['n_conv']
+        progress = 100 * (s+1) / ex['n_conv']
         print(f"\rProgress traintest set {progress}%", end="") 
         # =============================================================================
         # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']        
