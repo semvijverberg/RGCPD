@@ -814,7 +814,7 @@ def rand_traintest_years(RV_ts, precur_arr, ex):
     #%%
   
     
-    if ex['n'] == 0: ex['tested_yrs'] = [] ; ex['n_events'] = []
+    ex['tested_yrs'] = [] ; ex['n_events'] = []
     ex['all_yrs'] = list(np.unique(RV_ts.time.dt.year))
 
 

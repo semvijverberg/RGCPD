@@ -2,10 +2,10 @@
 import numpy as np
 import matplotlib
 matplotlib.rcParams['backend'] = "Qt4Agg"
-from pylab import *
+
 import matplotlib.pyplot as plt
 import wrapper_RGCPD_tig
-import functions_pp
+#from mpl_toolkits.basemap import Basemap, shiftgrid, cm
 import scipy
 import pandas as pd
 from statsmodels.sandbox.stats import multicomp
@@ -80,87 +80,47 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
 
     """
     lag_steps = ex['lag_max'] - ex['lag_min'] +1
-    tfreq = ex['tfreq']
-    lags = np.arange(ex['lag_min']*tfreq, ex['lag_max']*tfreq+1E-9, tfreq, dtype=int)
+    
     assert lag_steps >= 0, ('Maximum lag is larger then minimum lag, not allowed')
 		    
-
-    traintest, ex = functions_pp.rand_traintest_years(RV.RV_ts, precur_arr, ex)
-    # make new xarray to store results
-    xrcorr = precur_arr.isel(time=0).drop('time').copy()
-    # add lags
-    list_xr = [xrcorr.expand_dims('lag', axis=0) for i in range(lag_steps)]
-    xrcorr = xr.concat(list_xr, dim = 'lag')
-    xrcorr['lags'] = ('lag', lags)
-    # add train test split     
-    list_xr = [xrcorr.expand_dims('split', axis=0) for i in range(ex['n_conv'])]
-    xrcorr = xr.concat(list_xr, dim = 'split')           
-    xrcorr['split'] = ('split', range(ex['n_conv']))
+    lat = precur_arr.latitude.values
+    lon = precur_arr.longitude.values
     
+
+    z = np.zeros((lat.size*lon.size,lag_steps))
+    Corr_Coeff = np.ma.array(z, mask=z)
+	
+    # reshape
+    sat = np.reshape(precur_arr.values, (precur_arr.shape[0],-1))
     print('\n{} - calculating correlation maps'.format(precur_arr.name))
-    np_data = np.zeros_like(xrcorr.values)
-    np_mask = np.zeros_like(xrcorr.values)
-    def corr_single_split(RV_ts, precur, RV_period, ex):
-        
-        lag_steps = ex['lag_max'] - ex['lag_min'] +1
-        lat = precur_arr.latitude.values
-        lon = precur_arr.longitude.values
-        
-        z = np.zeros((lat.size*lon.size,lag_steps))
-        Corr_Coeff = np.ma.array(z, mask=z)
-        # reshape
-        sat = np.reshape(precur_arr.values, (precur_arr.shape[0],-1))
-        
-    	
-        for i in range(lag_steps):
-    
-            lag = ex['lag_min'] + i
-            months_indices_lagged = [r - lag for r in RV_period]	
-            sat_winter = sat[months_indices_lagged]
-    		
-    		# correlation map and pvalue at each grid-point:
-            corr_di_sat, sig_di_sat = corr_new(sat_winter, RV_ts)
-    		
-            if ex['FDR_control'] == True:
-    			# test for Field significance and mask unsignificant values			
-    			# FDR control:
-                adjusted_pvalues = multicomp.multipletests(sig_di_sat, method='fdr_bh')			
-                ad_p = adjusted_pvalues[1]
-    			
-                corr_di_sat.mask[ad_p> ex['alpha']] = True
-    
-            else:
-                corr_di_sat.mask[sig_di_sat> ex['alpha']] = True
-    			
-    			
-            Corr_Coeff[:,i] = corr_di_sat[:]
-                
-        Corr_Coeff = np.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
-        Corr_Coeff = Corr_Coeff.reshape(lat.size,lon.size,len(lags)).swapaxes(2,1).swapaxes(1,0)
-        return Corr_Coeff
+	
+	
+    for i in range(lag_steps):
 
-    for s in xrcorr.split.values:
-        progress = 100 * s+1 / ex['n_conv']
-        print(f"\rProgress traintest set {progress}%", end="") 
-        # =============================================================================
-        # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']        
-        # =============================================================================
-        RV_ts = traintest[s]['RV_train']
-        precur = precur_arr.isel(time=traintest[s]['Prec_train_idx'])
-        dates_RV  = pd.to_datetime(RV_ts.time.values)
-        dates_all = pd.to_datetime(precur.time.values)
-        string_RV = list(dates_RV.strftime('%Y-%m-%d'))
-        string_full = list(dates_all.strftime('%Y-%m-%d'))
-        RV_period = [string_full.index(date) for date in string_full if date in string_RV]
-        
-        ma_data = corr_single_split(RV_ts, precur, RV_period, ex)
-        np_data[s] = ma_data.data
-        np_mask[s] = ma_data.mask
-    xrcorr.values = np_data
-    mask = (('split', 'lag', 'latitude', 'longitude'), np_mask )
-    xrcorr.coords['mask'] = mask
-    #%%
-    return xrcorr
+        lag = ex['lag_min'] + i
+        months_indices_lagged = [r - lag for r in ex['RV_period']]	
+        sat_winter = sat[months_indices_lagged]
+		
+		# correlation map and pvalue at each grid-point:
+        corr_di_sat, sig_di_sat = corr_new(sat_winter, RV.RV_ts)
+		
+        if ex['FDR_control'] == True:
+			# test for Field significance and mask unsignificant values			
+			# FDR control:
+            adjusted_pvalues = multicomp.multipletests(sig_di_sat, method='fdr_bh')			
+            ad_p = adjusted_pvalues[1]
+			
+            corr_di_sat.mask[ad_p> ex['alpha']] = True
+
+        else:
+            corr_di_sat.mask[sig_di_sat> ex['alpha']] = True
+			
+			
+        Corr_Coeff[:,i] = corr_di_sat[:]
+            
+    Corr_Coeff = np.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
+	#%%
+    return Corr_Coeff
 	
 def calc_corr_coeffs(precur_arr, RV, ex):
     #%%

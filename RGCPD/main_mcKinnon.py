@@ -319,6 +319,10 @@ for freq in ex['tfreqlist' ]:
     ex['min_area_in_degrees2'] = 4 # minimal size to become precursor region (core sample)
     
     # =============================================================================
+    # Train test split
+    # =============================================================================
+        
+    # =============================================================================
     # Load some standard settings
     # =============================================================================
     ex = wrapper_RGCPD_tig.standard_settings_and_tests(ex)

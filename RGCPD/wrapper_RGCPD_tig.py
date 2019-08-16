@@ -66,7 +66,8 @@ def calculate_corr_maps(ex, map_proj):
         # =============================================================================
         # Calculate correlation
         # =============================================================================
-        Corr_Coeff = rgcpd.calc_corr_coeffs(precur_arr, RV, ex)
+        Corr_Coeff = rgcpd.calc_corr_coeffs_new(precur_arr, RV, ex)
+        #%%
         # =============================================================================
         # Convert regions in time series
         # =============================================================================
