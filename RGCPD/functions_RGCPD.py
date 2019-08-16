@@ -2,7 +2,7 @@
 import numpy as np
 import matplotlib
 matplotlib.rcParams['backend'] = "Qt4Agg"
-from pylab import *
+
 import matplotlib.pyplot as plt
 import wrapper_RGCPD_tig
 #from mpl_toolkits.basemap import Basemap, shiftgrid, cm
