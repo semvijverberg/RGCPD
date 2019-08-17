@@ -824,8 +824,8 @@ def rand_traintest_years(RV_ts, precur_arr, ex):
      
     
     
-    ex['tested_yrs'] = [] ; ex['n_events'] = []
-    
+    ex['tested_yrs'] = [] ; # ex['n_events'] = []
+    ex['all_yrs'] = list(np.unique(RV_ts.time.dt.year))
 
     if ex['method'][:6] == 'random':
         if 'seed' not in ex.keys():
@@ -843,7 +843,7 @@ def rand_traintest_years(RV_ts, precur_arr, ex):
     
     traintest = []
     for s in range(ex['n_conv']):
-        
+
         # conditions failed initally assumed True
         a_conditions_failed = True
         count = 0
@@ -917,7 +917,8 @@ def rand_traintest_years(RV_ts, precur_arr, ex):
                 test_years = np.unique(RV_test.time.dt.year)
             else:
                 RV_test = [] ; test_years = [] ; Prec_test_idx = []
-        
+
+            
         ex['tested_yrs'].append(test_years)
         
         traintest_ = dict( { 'years'            : test_years,

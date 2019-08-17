@@ -27,6 +27,7 @@ def calculate_corr_maps(ex, map_proj):
 #    ex = np.load(str(filename_exp_design2)).item()
     # Response Variable is what we want to predict
     RV = ex[ex['RV_name']]
+    ex['lags'] = [l * ex['tfreq'] for l in range(ex['lag_min'],ex['lag_max']+1)]
     ex['time_cycle'] = RV.dates[RV.dates.year == RV.startyear].size # time-cycle of data. total timesteps in one year
     #=====================================================================================
     # Information on period taken for response-variable, already decided in main_download_and_pp
@@ -45,9 +46,9 @@ def calculate_corr_maps(ex, map_proj):
     #=====================================================================================
     outdic_actors = dict()
     class act:
-        def __init__(self, name, Corr_Coeff, precur_arr):
+        def __init__(self, name, xr_corr, precur_arr):
             self.name = var
-            self.Corr_Coeff = Corr_Coeff
+            self.corr_xr = corr_xr
             self.precur_arr = precur_arr
             self.lat_grid = precur_arr.latitude.values
             self.lon_grid = precur_arr.longitude.values
@@ -66,12 +67,12 @@ def calculate_corr_maps(ex, map_proj):
         # =============================================================================
         # Calculate correlation
         # =============================================================================
-        Corr_Coeff = rgcpd.calc_corr_coeffs_new(precur_arr, RV, ex)
+        corr_xr = rgcpd.calc_corr_coeffs_new(precur_arr, RV, ex)
         #%%
         # =============================================================================
         # Convert regions in time series
         # =============================================================================
-        actor = act(var, Corr_Coeff, precur_arr)
+        actor = act(var, corr_xr, precur_arr)
         actor, ex = rgcpd.cluster_DBSCAN_regions(actor, ex)
         if np.isnan(actor.prec_labels.values).all() == False:
             rgcpd.plot_regs_xarray(actor.prec_labels.copy(), ex)

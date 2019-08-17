@@ -61,10 +61,10 @@ ex = dict(
      'months'       :       list(range(1,12+1)), #downoad months
      # if dealing with daily data, give string as 'month-day', i.e. '07-01'
      # if dealing with monthly data, the day of month is neglected 
-     'startperiod'  :       '07-15', # RV period
-     'endperiod'    :       '07-15', # RV period
+     'startperiod'  :       '06-22', # RV period
+     'endperiod'    :       '08-24', # RV period
      'sstartdate'   :       '01-01', # precursor period
-     'senddate'     :       '08-31', # precursor period
+     'senddate'     :       '08-24', # precursor period
      'la_min'       :       0, # select domain of correlation analysis
      'la_max'       :       90,
      'lo_min'       :       -180,
@@ -86,7 +86,7 @@ elif ex['dataset'] == 'era5':
 # Option 1:
 ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf = True
+import_precursor_ncdf = False
 # Option 3:
 import_RV_ncdf = False
 # Option 4:
@@ -121,9 +121,12 @@ if ECMWFdownload == True:
 #    ex['vars']      =       [['t_10hpa'],['130.128'],
 #                             ['pl'],['10'] ]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
-    ex['vars']      =       [['sst', 'u500hpa'],
-                               ['sea_surface_temperature', 'u_component_of_wind'],
-                               ['sfc', 'pl'], [0,500]]
+    ex['vars']      =       [['sst'],
+                               ['sea_surface_temperature'],
+                               ['sfc'], [0]]
+#    ex['vars']      =       [['sst', 'u500hpa'],
+#                               ['sea_surface_temperature', 'u_component_of_wind'],
+#                               ['sfc', 'pl'], [0,500]]
 #    ex['vars']      =       [['v'], ['138.128'],['pl'], ['250']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
 #                            ['167.128', '34.128', '131.128', '130.128'],
@@ -234,7 +237,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [60, 70, 80] #[2,4,7,14,21,35] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [14] #[2,4,7,14,21,35] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist' ]:
     ex['tfreq'] = freq
     # choose lags to test
@@ -322,6 +325,7 @@ for freq in ex['tfreqlist' ]:
     # Train test split
     # =============================================================================
     ex['method'] = 'random10' ; ex['seed'] = 30
+#    ex['method'] = 'no_train_test_split'
     # =============================================================================
     # Load some standard settings
     # =============================================================================
