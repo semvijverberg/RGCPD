@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 import statsmodels.formula.api as sm
 from statsmodels.api import add_constant
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 from sklearn.model_selection import GridSearchCV
 from sklearn import metrics
 from sklearn.metrics import make_scorer
@@ -136,6 +136,64 @@ def GBR(RV, df_norm, keys, kwrgs_GBR=None):
     logit_pred, model_logit = logit_model(RV.RV_bin, prediction, keys=[None])
     #%%
     return logit_pred, (model_logit, regressor)
+
+def GBC(RV, df_norm, keys, kwrgs_GBR=None):
+    #%%
+    '''
+    X contains all precursor data, incl train and test
+    X_train, y_train are split up by TrainIsTrue
+    Preciction is made for whole timeseries    
+    '''
+    import warnings
+    warnings.filterwarnings("ignore", category=DeprecationWarning) 
+        
+    if kwrgs_GBR == None:
+        # use Bram settings
+        kwrgs_GBR = {'max_depth':1,
+                 'learning_rate':0.001,
+                 'n_estimators' : 1250,
+                 'max_features':'sqrt',
+                 'subsample' : 0.5}
+    
+    # find parameters for gridsearch optimization
+    kwrgs_gridsearch = {k:i for k, i in kwrgs_GBR.items() if type(i) == list}
+    # only the constant parameters are kept
+    kwrgs = kwrgs_GBR.copy()
+    [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
+    
+    X = df_norm[keys]
+    X = add_constant(X)
+    RV_bin = RV.RV_bin
+    TrainIsTrue = df_norm['TrainIsTrue']
+  
+    X_train = X[TrainIsTrue]
+    y_train = RV_bin[TrainIsTrue.values] 
+    # sample weight not yet supported by GridSearchCV (august, 2019)
+#    y_wghts = (RV.RV_bin[TrainIsTrue.values] + 1).squeeze().values
+    regressor = GradientBoostingClassifier(**kwrgs)
+
+    if len(kwrgs_gridsearch) != 0:
+        scoring   = 'brier_score_loss'
+#        scoring   = 'neg_mean_squared_error'
+        regressor = GridSearchCV(regressor,
+                  param_grid=kwrgs_gridsearch,
+                  scoring=scoring, cv=5, refit=scoring, 
+                  return_train_score=False)
+        regressor.fit(X_train, y_train.values.ravel())
+        results = regressor.cv_results_
+        scores = results['mean_test_score'] / results['std_test_score']
+        improv = int(100* (min(scores)-max(scores)) / max(scores))
+        print("Hyperparam tuning led to {:}% improvement, best {:.2f}, "
+              "best params {}".format(
+                improv, regressor.best_score_, regressor.best_params_))
+    else:
+        regressor.fit(X_train, y_train.values.ravel())
+    
+
+    prediction = pd.DataFrame(regressor.predict(X), index=X.index, columns=[0])
+
+    #%%
+    return prediction, regressor
 
 def Ev_threshold(xarray, event_percentile):
     if event_percentile == 'std':

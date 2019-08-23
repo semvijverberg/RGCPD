@@ -26,7 +26,7 @@ splits  = df_data.index.levels[0]
 df_sum  = dict_of_dfs['df_sum']
 
 
-kwrgs_events = {'event_percentile': 'std',
+kwrgs_events = {'event_percentile': 66,
                 'min_dur' : 1,
                 'max_break' : 0,
                 'grouped' : False}
@@ -58,13 +58,19 @@ RV = RV_class(df_data, kwrgs_events)
 #%%
 lags = [1,2]
 
-stat_model = 'GBR'
+stat_model = 'GBC'
 
-kwrgs_GBR = {'max_depth':[1,2,3,4,5,6],
+kwrgs_GBR = {'max_depth':3,
              'learning_rate':1E-3,
              'n_estimators' : 1250,
              'max_features':'sqrt',
-             'subsample' : [0.5, 0.8]}
+             'subsample' : 0.5}
+
+#kwrgs_GBR = {'max_depth':[1,2,3,4,5,6],
+#             'learning_rate':1E-3,
+#             'n_estimators' : 1250,
+#             'max_features':['sqrt'],
+#             'subsample' : [0.5, 0.8]}
 n_boot = 500
 
 y_pred_all = []
@@ -96,6 +102,9 @@ for lag in lags:
             prediction, model = func_fc.logit_model(RV.RV_bin, df_norm, keys)
         if stat_model == 'GBR':
             prediction, model = func_fc.GBR(RV, df_norm, keys, kwrgs_GBR=kwrgs_GBR)
+        if stat_model == 'GBC':
+            prediction, model = func_fc.GBC(RV, df_norm, keys, kwrgs_GBR=kwrgs_GBR)
+            
         prediction = pd.DataFrame(prediction.values, index=RV.dates_RV,
                                   columns=[lag])
         y_pred_l.append(prediction[(df_norm['TrainIsTrue']==False).values])  
@@ -118,6 +127,7 @@ for lag in lags:
 
     y_pred_all.append(y_pred_l)
 y_pred_all = pd.concat(y_pred_all, axis=1) 
+print("\n")
 
 #%%
 
