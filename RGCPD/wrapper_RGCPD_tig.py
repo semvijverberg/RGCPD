@@ -10,12 +10,15 @@ from tigramite import data_processing as pp
 from tigramite.pcmci import PCMCI
 from tigramite.independence_tests import ParCorr, GPDC, CMIknn, CMIsymb
 import functions_RGCPD as rgcpd
+import itertools
 import numpy as np
 import xarray as xr
+import datetime
+import h5py
 import cartopy.crs as ccrs
 import pandas as pd
 import functions_pp
-
+flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 #%%
 def calculate_corr_maps(ex, map_proj):
@@ -24,7 +27,6 @@ def calculate_corr_maps(ex, map_proj):
     # Load 'exp' dictionairy with information of pre-processed data (variables, paths, filenames, etcetera..)
     # and add RGCPD/Tigrimate experiment settings
     # =============================================================================
-#    ex = np.load(str(filename_exp_design2)).item()
     # Response Variable is what we want to predict
     RV = ex[ex['RV_name']]
     ex['lags'] = [l * ex['tfreq'] for l in range(ex['lag_min'],ex['lag_max']+1)]
@@ -46,7 +48,7 @@ def calculate_corr_maps(ex, map_proj):
     #=====================================================================================
     outdic_actors = dict()
     class act:
-        def __init__(self, name, xr_corr, precur_arr):
+        def __init__(self, name, corr_xr, precur_arr):
             self.name = var
             self.corr_xr = corr_xr
             self.precur_arr = precur_arr
@@ -68,7 +70,7 @@ def calculate_corr_maps(ex, map_proj):
         # Calculate correlation
         # =============================================================================
         corr_xr = rgcpd.calc_corr_coeffs_new(precur_arr, RV, ex)
-        #%%
+        
         # =============================================================================
         # Convert regions in time series
         # =============================================================================
@@ -83,8 +85,8 @@ def calculate_corr_maps(ex, map_proj):
         # Plot
         # =============================================================================
         if ex['plotin1fig'] == False:
-            xrdata, xrmask = xrcorr_vars([var], outdic_actors, ex)
-            plot_corr_maps(xrdata, xrmask, map_proj)
+#            xrdata, xrmask = xrcorr_vars([var], outdic_actors, ex)
+            plot_corr_maps(corr_xr, corr_xr['mask'], map_proj)
 
             fig_filename = '{}_corr_{}_vs_{}'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']
             plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=ex['png_dpi'])
@@ -92,14 +94,14 @@ def calculate_corr_maps(ex, map_proj):
                 plt.close()
 
 
-    if ex['plotin1fig'] == True and ex['showplot'] == True:
-        variables = list(outdic_actors.keys())
-        xrdata, xrmask = xrcorr_vars(variables, outdic_actors, ex)
-        plot_corr_maps(xrdata, xrmask, map_proj)
-        fig_filename = '{}_corr_all'.format(ex['params'], allvar[0], var) + ex['file_type2']
-        plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=ex['png_dpi'])
-        if ex['showplot'] == False:
-            plt.close()
+#    if ex['plotin1fig'] == True and ex['showplot'] == True:
+#        variables = list(outdic_actors.keys())
+##        xrdata, xrmask = xrcorr_vars(variables, outdic_actors, ex)
+#        plot_corr_maps(xrdata, xrmask, map_proj)
+#        fig_filename = '{}_corr_all'.format(ex['params'], allvar[0], var) + ex['file_type2']
+#        plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=ex['png_dpi'])
+#        if ex['showplot'] == False:
+#            plt.close()
 #%%
     return ex, outdic_actors
 
@@ -113,17 +115,51 @@ def get_prec_ts(outdic_actors, ex):
         actor = outdic_actors[var]
         
         if np.isnan(actor.prec_labels.values).all():
-            actor.tsCorr, actor.tsCorr_labels = np.array([]), []
+            actor.ts_corr = np.array([]), []
             pass
         else:
-            actor.tsCorr, actor.tsCorr_labels = rgcpd.spatial_mean_regions(actor, ex)
+            actor.ts_corr = rgcpd.spatial_mean_regions(actor, ex)
             outdic_actors[var] = actor
-            ex['n_tot_regs'] += actor.tsCorr.shape[1]
+            ex['n_tot_regs'] += max([actor.ts_corr[s].shape[1] for s in range(ex['n_spl'])])
     return outdic_actors
         
-        
 
-def run_PCMCI(ex, outdic_actors, map_proj):
+def run_PCMCI_CV(ex, outdic_actors, map_proj):
+    #%%
+    df_splits = np.zeros( (ex['n_spl']) , dtype=object)
+    df_data_s   = np.zeros( (ex['n_spl']) , dtype=object)
+    for s in range(ex['n_spl']):
+        progress = 100 * (s+1) / ex['n_spl']
+        print(f"\rProgress causal inference - traintest set {progress}%", end="")
+        df_splits[s], df_data_s[s] = run_PCMCI(ex, outdic_actors, s, map_proj)
+        
+    print("\n")
+    
+    df_data  = pd.concat(list(df_data_s), keys= range(ex['n_spl']))
+    df_sum = pd.concat(list(df_splits), keys= range(ex['n_spl']))
+
+    dict_of_dfs = {'df_data':df_data, 'df_sum':df_sum}
+    today = datetime.datetime.today().strftime('%Y-%m-%d')
+    file_name = 'fulldata_{}_{}'.format(ex['params'], today)
+    ex['path_data'] = os.path.join(ex['fig_subpath'], file_name+'.h5')
+    
+    if ex['store_format'] == 'hdf5':
+        store_hdf_df(dict_of_dfs, ex['path_data'])
+    #%%
+    return df_sum, df_data
+
+def store_hdf_df(dict_of_dfs, file_path):
+    import warnings
+    import tables
+    
+    warnings.filterwarnings('ignore', category=tables.NaturalNameWarning)
+    with pd.HDFStore(file_path, 'w') as hdf:
+        for key, item in  dict_of_dfs.items():
+            hdf.put(key, item, format='table', data_columns=True)
+        hdf.close()
+    return
+
+def run_PCMCI(ex, outdic_actors, s, map_proj):
     #=====================================================================================
     #
     # 4) PCMCI-algorithm
@@ -155,59 +191,69 @@ def run_PCMCI(ex, outdic_actors, map_proj):
     print(('alpha level for multiple linear regression model while conditining on parents of '
           'parents: {}'.format(ex['alpha_level_tig'])))
 
-
-
+    # Retrieve traintest info
+    traintest = ex['traintest']
 
     # load Response Variable class
-
     RV = ex[ex['RV_name']]
     # create list with all actors, these will be merged into the fulldata array
     allvar = ex['vars'][0]
-    var_names = [] ; actorlist = []
+    var_names = [] ; actorlist = [] ; cols = [[RV.name]]
     
     for var in allvar[ex['excludeRV']:]:
         print(var)
         actor = outdic_actors[var]
-        if actor.tsCorr.size != 0:
-            actorlist.append(actor.tsCorr)
+        if actor.ts_corr[s].size != 0:
+            ts_train = actor.ts_corr[s].values
+            actorlist.append(ts_train)
             # create array which numbers the regions
             var_idx = allvar.index(var) - ex['excludeRV']
-            n_regions = actor.tsCorr.shape[1]
-            actor.var_info = [[i+1, actor.tsCorr_labels[i], var_idx] for i in range(n_regions)]
+            n_regions = actor.ts_corr[s].shape[1]
+            actor.var_info = [[i+1, actor.ts_corr[s].columns[i], var_idx] for i in range(n_regions)]
             # Array of corresponing regions with var_names (first entry is RV)
             var_names = var_names + actor.var_info
-            
+        cols.append(list(actor.ts_corr[s].columns))
+    var_names.insert(0, RV.name)
+#    .iloc[traintest[s]['Prec_train_idx']]
+        
     # stack actor time-series together:
     fulldata = np.concatenate(tuple(actorlist), axis = 1)   
-    var_names.insert(0, RV.name)
+    
         
     print(('There are {} regions in total'.format(fulldata.shape[1])))
     # add the full 1D time series of interest as first entry:
-    fulldata = np.column_stack((RV.RVfullts, fulldata))
-    # save fulldata
-    file_name = 'fulldata_{}'.format(ex['params'])#,'.pdf' ])
-    fulldata.dump(os.path.join(ex['fig_subpath'], file_name+'.pkl'))
 
-    file_name = 'list_actors_{}'.format(ex['params'])
+    fulldata = np.column_stack((RV.RVfullts, fulldata))
+    
+    
+    df_data = pd.DataFrame(fulldata, columns=flatten(cols), index=actor.ts_corr[s].index)
+    RVfull_train = RV.RVfullts.isel(time=traintest[s]['Prec_train_idx'])
+    datesfull_train = pd.to_datetime(RVfull_train.time.values)
+    data = df_data.loc[datesfull_train].values
+    print((data.shape))
+
+    
+    # get RV datamask (same shape als data)
+    datesRV_train   = pd.to_datetime(traintest[s]['RV_train'].time.values)
+    data_mask = [True if d in datesRV_train else False for d in datesfull_train]
+    data_mask = np.repeat(data_mask, data.shape[1]).reshape(data.shape)
+
+    # add traintest mask to fulldata
+    dates_all = pd.to_datetime(RV.RVfullts.time.values)
+    dates_RV  = pd.to_datetime(RV.RV_ts.time.values)
+    df_data['TrainIsTrue'] = [True if d in datesfull_train else False for d in dates_all]
+    df_data['RV_mask'] = [True if d in dates_RV else False for d in dates_all]
+
 
     # ======================================================================================================================
     # tigramite 3
     # ======================================================================================================================
-    data = fulldata
-    print((data.shape))
-    # RV mask False for period that I want to analyse
-    idx_start_RVperiod = int(np.where(RV.dates == RV.datesRV.min())[0])
-    data_mask = np.ones(data.shape, dtype='bool') # true for actor months, false for RV months
-    steps_in_oneyr = len(RV.datesRV[RV.datesRV.year == ex['startyear']])
-    for i in range(steps_in_oneyr): # total timesteps RV period, 12 is
-        data_mask[idx_start_RVperiod+i:: ex['time_cycle'],:] = False
+
     T, N = data.shape # Time, Regions
     # ======================================================================================================================
     # Initialize dataframe object (needed for tigramite functions)
     # ======================================================================================================================
     dataframe = pp.DataFrame(data=data, mask=data_mask, var_names=var_names)
-    # Create 'time axis' and variable names
-#    datatime = np.arange(len(data))
     # ======================================================================================================================
     # pc algorithm: only parents for selected_variables are calculated
     # ======================================================================================================================
@@ -239,167 +285,40 @@ def run_PCMCI(ex, outdic_actors, map_proj):
                                    val_matrix = results['val_matrix'],
                                    alpha_level = alpha_level)
     
-
-        
-    def return_sign_parents(pc_class, pq_matrix, val_matrix,
-                                alpha_level=0.05):
-          # Initialize the return value
-        all_parents = dict()
-        for j in pc_class.selected_variables:
-            # Get the good links
-            good_links = np.argwhere(pq_matrix[:, j, :] <= alpha_level)
-            # Build a dictionary from these links to their values
-            links = {(i, -tau): np.abs(val_matrix[i, j, abs(tau) ])
-                     for i, tau in good_links}
-            # Sort by value
-            all_parents[j] = sorted(links, key=links.get, reverse=True)
-        # Return the significant parents
-        return {'parents': all_parents,
-                'link_matrix': pq_matrix <= alpha_level}
-    
-    
-    sig = return_sign_parents(pcmci, pq_matrix=q_matrix,
+    # returns all parents, not just causal precursors (of lag>0)
+    sig = rgcpd.return_sign_parents(pcmci, pq_matrix=q_matrix,
                                             val_matrix=results['val_matrix'],
                                             alpha_level=alpha_level)
 
 
     all_parents = sig['parents']
-    link_matrix = sig['link_matrix']
+#    link_matrix = sig['link_matrix']
     
-#    """
-#    what's this?
-#    med = LinearMediation(dataframe=dataframe,
-#                use_mask =True,
-#                mask_type ='y',
-#                data_transform = None)   # False or None for sklearn.preprocessing.StandardScaler =
-#
-#    med.fit_model(all_parents=all_parents, tau_max= tau_max)
-#    """
-
-    # parents of index of interest:
-    # parents_neighbors = all_parents, estimates, iterations
     links_RV = all_parents[0]
+    
+    df = rgcpd.bookkeeping_precursors(links_RV, var_names)
     #%%
 
-    n_parents = len(links_RV)
-    lags = list(np.arange(ex['lag_min'], ex['lag_max']+1E-9, dtype=int))
-    for i in range(n_parents):
-        tigr_lag = links_RV[i][1] #-1 There was a minus, but is it really correct?
-        index_in_fulldata = links_RV[i][0]
-        print("\n\nunique_label_format: \n\'lag\'_\'regionlabel\'_\'var\'")
-        if index_in_fulldata>0:
-            uniq_label = var_names[index_in_fulldata][1]
-            var_name = uniq_label.split('_')[-1]
-            according_varname = uniq_label
-            according_number = int(uniq_label.split('_')[1])
-#            according_var_idx = ex['vars'][0].index(var_name)
-            corr_lag = int(uniq_label.split('_')[0])
-            l_idx = lags.index(corr_lag)
-            print('index in fulldata {}: region: {} at lag {}'.format(
-                    index_in_fulldata, uniq_label, tigr_lag))
-            # *********************************************************
-            # print and save only significant regions
-            # *********************************************************
-            according_fullname = '{} at lag {} - ts_index_{}'.format(according_varname,
-                                  tigr_lag, index_in_fulldata)
-            
+    rgcpd.print_particular_region_new(links_RV, var_names, s, outdic_actors, map_proj, ex)
 
-
-            actor = outdic_actors[var_name]
-            prec_labels_actor = actor.prec_labels
-            rgcpd.print_particular_region_new(ex, according_number, l_idx, prec_labels_actor,
-                                          map_proj, according_fullname)
-            fig_file = '{}{}'.format(according_fullname, ex['file_type2'])
-
-            plt.savefig(os.path.join(ex['fig_subpath'], fig_file), dpi=ex['png_dpi'])
-#            plt.show()
-            plt.close()
-
-            print('                                        ')
-            # *********************************************************
-            # save data
-            # *********************************************************
-            according_fullname = str(according_number) + according_varname
-            name = ''.join([str(index_in_fulldata),'_',uniq_label])
-            print((fulldata[:,index_in_fulldata].size))
-            print(name)
-        else :
-            print('Index itself is also causal parent -> skipped')
-            print('*******************              ***************************')
+    
 #%%
     if ex['SaveTF'] == True:
         if sys.version[:1] == '3':
-            file = io.open(os.path.join(ex['fig_subpath'], ex['params']+'.txt'), mode='w+')
+            fname = f's{s}_' +ex['params']+'.txt'
+            file = io.open(os.path.join(ex['fig_subpath'], fname), mode='w+')
             file.write(f.getvalue())
             file.close()
             f.close()
         elif sys.version[:1] == '2':
             f.close()
         sys.stdout = orig_stdout
+        
+
+    return df, df_data
+
 #%%
-    # create dataframe output:
-    # var_names = [reg_number, str({lag_corr}_{reg_number}_{var_name}), lag_tigr]
-    var_names_ = var_names.copy()
-    index = [n[1] for n in var_names_[1:]] ; index.insert(0, var_names_[0])
-    link_names = [var_names_[l[0]][1] if l[0] !=0 else var_names_[l[0]] for l in links_RV]
-    
-    
-    # check if two lags of same region are tigr significant
-    idx_tigr = [l[0] for l in links_RV] ; 
-    for r in np.unique(idx_tigr):
-        if idx_tigr.count(r) != 1:
-            double = var_names_[r][1]
-            idx = int(np.argwhere(np.array(index)==double)[0])
-            # append each double to index for the dataframe
-            for i in range(idx_tigr.count(r)-1):
-                index.insert(idx+i, double)
-                d = len(index) - len(var_names_)
-                var_names_.insert(idx+i+1, var_names_[idx+1-d])
-                
-    
 
-#    mask_causal = np.zeros( (len(index) + doubles), dtype=bool)
-#    for n in link_names:
-#        np.argwhere(index==n)
-    l = [n[1].split('_')[-1] for n in var_names_[1:]]
-    l.insert(0, var_names_[0])
-    var = np.array(l)
-    mask_causal = np.array([True if i in link_names else False for i in index])
-    lag_corr_map = np.array([int(n[1][0]) for n in var_names_[1:]]) ; 
-    lag_corr_map = np.insert(lag_corr_map, 0, 0)
-    region_number = np.array([int(n[0]) for n in var_names_[1:]])
-    region_number = np.insert(region_number, 0, 0)
-    lag_tigr_map = {str(links_RV[i][1])+'..'+link_names[i]:links_RV[i][1] for i in range(len(link_names))}
-    sorted(lag_tigr_map, reverse=False)
-    lag_tigr_ = index.copy() ; track_idx = list(range(len(index)))
-    for k in lag_tigr_map.keys():
-        l = int(k.split('..')[0])
-        var_temp = k.split('..')[1]
-        idx = lag_tigr_.index(var_temp)
-        track_idx.remove(idx)
-        lag_tigr_[idx] = l
-    for i in track_idx:
-        lag_tigr_[i] = np.nan
-    lag_tigr_ = np.array(lag_tigr_)
-    mask_causal = ~np.isnan(lag_tigr_)
-    
-
-
-    
-#    print(var.shape, lag_corr_map.shape, region_number.shape, mask_causal.shape, lag_caus.shape)
-
-
-    data = np.concatenate([var[None,:], lag_corr_map[None,:], region_number[None,:],
-                            mask_causal[None,:], lag_tigr_[None,:]], axis=0)
-    df = pd.DataFrame(data=data.T, index=index, 
-                      columns=['var', 'lag_corr_map', 'region_number', 'causal', 'lag_causal'])
-    df['causal'] = df['causal'] == 'True'
-    df = df.astype({'var':str, 'lag_corr_map':int,
-                               'region_number':int, 'causal':bool, 'lag_causal':float})
-    #%%                      
-    print(df)
-    return df
-#%%
 
 # =============================================================================
 # 2 Plotting functions for correlation maps (xarray_plot_region)
@@ -415,51 +334,70 @@ def extend_longitude(data):
     return plottable
 
 
-def xrcorr_vars(print_vars, outdic_actors, ex):
-    #%%
-    import cartopy.crs as ccrs
-    import numpy as np
-    import xarray as xr
-    outd = outdic_actors
-    list_Corr = []
-    list_mask = []
-    if print_vars == 'all':
-        variables = list(outd.keys())[:]
-    else:
-        variables = print_vars
+#def xrcorr_vars(print_vars, outdic_actors, ex):
+#    #%%
+#    import cartopy.crs as ccrs
+#    import numpy as np
+#    import xarray as xr
+#    outd = outdic_actors
+#    list_Corr = []
+#    list_mask = []
+#    if print_vars == 'all':
+#        variables = list(outd.keys())[:]
+#    else:
+#        variables = print_vars
+#    
+#    for var in variables:
+#        lags = list(range(ex['lag_min'], ex['lag_max']+1))
+#        lags = ['{} ({} {})'.format(l, l*ex['tfreq'], ex['input_freq'][:1]) for l in lags]
+#        lat = outd[var].lat_grid
+#        lon = outd[var].lon_grid
+#        list_Corr.append(outd[var].Corr_Coeff.data[None,:,:].reshape(lat.size,lon.size,len(lags)))
+#        list_mask.append(outd[var].Corr_Coeff.mask[None,:,:].reshape(lat.size,lon.size,len(lags)))
+#        Corr_regvar = np.array(list_Corr)
+#        mask_regvar = np.array(list_mask)
+#    
+#        xrdata = xr.DataArray(data=Corr_regvar, coords=[variables, lat, lon, lags],
+#                            dims=['variable','latitude','longitude','lag'], name='Corr Coeff')
+#        xrmask = xr.DataArray(data=mask_regvar, coords=[variables, lat, lon, lags],
+#                            dims=['variable','latitude','longitude','lag'], name='Corr Coeff')
+#    #%%
+#    return xrdata, xrmask
     
-    for var in variables:
-        lags = list(range(ex['lag_min'], ex['lag_max']+1))
-        lags = ['{} ({} {})'.format(l, l*ex['tfreq'], ex['input_freq'][:1]) for l in lags]
-        lat = outd[var].lat_grid
-        lon = outd[var].lon_grid
-        list_Corr.append(outd[var].Corr_Coeff.data[None,:,:].reshape(lat.size,lon.size,len(lags)))
-        list_mask.append(outd[var].Corr_Coeff.mask[None,:,:].reshape(lat.size,lon.size,len(lags)))
-        Corr_regvar = np.array(list_Corr)
-        mask_regvar = np.array(list_mask)
-    
-        xrdata = xr.DataArray(data=Corr_regvar, coords=[variables, lat, lon, lags],
-                            dims=['variable','latitude','longitude','lag'], name='Corr Coeff')
-        xrmask = xr.DataArray(data=mask_regvar, coords=[variables, lat, lon, lags],
-                            dims=['variable','latitude','longitude','lag'], name='Corr Coeff')
-    #%%
-    return xrdata, xrmask
-    
-def plot_corr_maps(xrdata, xrmask, map_proj):
+def plot_corr_maps(corr_xr, xrmask, map_proj, kwrgs={'hspace':-0.6}):
     #%%
     import matplotlib.colors as colors
 
-
-    variables = xrdata['variable'].values
-    lags      = xrdata['lag'].values
-    lat = xrdata.latitude
-    lon = xrdata.longitude
+    if 'split' not in corr_xr.dims:
+        corr_xr = corr_xr.expand_dims('split', 0) 
+        xrmask = xrmask.expand_dims('split', 0) 
+        
+        
+    splits = corr_xr['split'].values
+    var_n     = corr_xr.name
+    lags      = corr_xr['lag'].values
+    lat = corr_xr.latitude
+    lon = corr_xr.longitude
     zonal_width = abs(lon[-1] - lon[0]).values
     
-    g = xr.plot.FacetGrid(xrdata, col='variable', row='lag', subplot_kws={'projection': map_proj},
+    g = xr.plot.FacetGrid(corr_xr, col='lag', row='split', subplot_kws={'projection': map_proj},
+                      sharex=True, sharey=True,
                       aspect= (lon.size) / lat.size, size=3)
+
+    # =============================================================================
+    # Coordinate labels
+    # =============================================================================
+    import cartopy.mpl.ticker as cticker
+    longitude_labels = np.linspace(np.min(lon), np.max(lon), 6, dtype=int)
+    longitude_labels = np.array(sorted(list(set(np.round(longitude_labels, -1)))))
+    latitude_labels = np.linspace(lat.min(), lat.max(), 4, dtype=int)
+    latitude_labels = sorted(list(set(np.round(latitude_labels, -1))))    
+    g.set_ticks(max_xticks=5, max_yticks=5, fontsize='large')
+    g.set_xlabels(label=[str(el) for el in longitude_labels])
     
-    figheight = g.fig.get_figheight()
+    if 'hspace' in kwrgs.keys():
+        g.fig.subplots_adjust(hspace=kwrgs['hspace'])
+        
     class MidpointNormalize(colors.Normalize):
         def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
             self.midpoint = midpoint
@@ -470,21 +408,22 @@ def plot_corr_maps(xrdata, xrmask, map_proj):
             # simple example...
             x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
             return np.ma.masked_array(np.interp(value, x, y))
-    vmin = np.round(float(xrdata.min())-0.01,decimals=2) ; vmax = np.round(float(xrdata.max())+0.01,decimals=2)
+    vmin = np.round(float(corr_xr.min())-0.01,decimals=2) ; vmax = np.round(float(corr_xr.max())+0.01,decimals=2)
     clevels = np.linspace(-max(abs(vmin),vmax),max(abs(vmin),vmax),17) # choose uneven number for # steps
     norm = MidpointNormalize(midpoint=0, vmin=clevels[0],vmax=clevels[-1])
     cmap = 'coolwarm'
-    for col, var in enumerate(variables):
-        xrdatavar = xrdata.sel(variable=var)
-        xrmaskvar = xrmask.sel(variable=var)
+    for col, lag in enumerate(lags):
+        xrdatavar = corr_xr.sel(lag=lag)
+        xrmaskvar = xrmask.sel(lag=lag)
         if abs(lon[-1] - 360) <= (lon[1] - lon[0]):
             xrdatavar = extend_longitude(xrdatavar)
             xrmaskvar = extend_longitude(xrmaskvar)
             
-        for row, lag in enumerate(lags):
-            print('Plotting Corr maps {}, lag {}'.format(var, lag))
-            plotdata = xrdatavar.sel(lag=lag)
-            plotmask = xrmaskvar.sel(lag=lag)
+        
+        for row, s in enumerate(splits):
+            print(f"\rPlotting Corr maps {var_n}, split {s}, lag {lag}", end="")
+            plotdata = xrdatavar.sel(split=s)
+            plotmask = xrmaskvar.sel(split=s)
             # if plotdata is already masked (with nans):
             p_nans = int(100*plotdata.values[np.isnan(plotdata.values)].size / plotdata.size)
             # field not completely masked?
@@ -513,12 +452,46 @@ def plot_corr_maps(xrdata, xrmask, map_proj):
                                        lat[0], lat[-1]], ccrs.PlateCarree())
             g.axes[row,col].coastlines()
 
-    plt.tight_layout()
-    g.axes[row,col].get_position()
-    plt.subplots_adjust(wspace=0.0, hspace=0.0)
-    cbar_ax = g.fig.add_axes([0.25, 0.0, 0.5, figheight/150]) #[left, bottom, width, height]
+            # =============================================================================
+            # set coordinate ticks
+            # =============================================================================          
+#            rcParams['axes.titlesize'] = 'xx-large'
+
+            if map_proj.proj4_params['proj'] in ['merc', 'eqc', 'cea']:
+                ax = g.axes[row,col]
+                ax.set_xticks(longitude_labels[:-1], crs=ccrs.PlateCarree())
+                ax.set_xticklabels(longitude_labels[:-1], fontsize=12)
+                lon_formatter = cticker.LongitudeFormatter()
+                ax.xaxis.set_major_formatter(lon_formatter)
+                
+                
+                g.axes[row,col].set_yticks(latitude_labels, crs=ccrs.PlateCarree())
+                g.axes[row,col].set_yticklabels(latitude_labels, fontsize=12)
+                lat_formatter = cticker.LatitudeFormatter()
+                g.axes[row,col].yaxis.set_major_formatter(lat_formatter)
+                g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3, linestyle='--')
+                g.axes[row,col].set_ylabel('')
+                g.axes[row,col].set_xlabel('')
+            if row == splits[-1]:
+                last_ax = g.axes[row,col]
+    # lay out settings
+
+    plt.tight_layout(pad=1.1-0.02*splits.size, h_pad=None, w_pad=None, rect=None)
+   
+    # height colorbor 1/10th of height of subfigure
+    height = g.axes[-1,0].get_position().height / 10
+    
+    bottom_ysub = last_ax.get_position(original=False).bounds[1] # bottom
+    
+    cbar_ax = g.fig.add_axes([0.25, bottom_ysub, 
+                              0.5, height]) #[left, bottom, width, height]
+    
+    
     plt.colorbar(im, cax=cbar_ax , orientation='horizontal', norm=norm,
                  label='Corr Coefficient', ticks=clevels[::4], extend='neither')
+    
+    print("\n")
+
     #%%
     return
 
@@ -530,39 +503,50 @@ def causal_reg_to_xarray(ex, df, outdic_actors):
     # causal link
     if df.index[0] in df_c.index:
         df_c = df_c.drop(df.index[0])
-    allvar = ex['vars'][0]
-    precursor_fields = allvar[ex['excludeRV']:]
-    lags = list(range(ex['lag_min'],ex['lag_max']+1))
-    
-    
+   
+    variable = np.unique(df_c['var'])
+    var_rel_sizes = {outdic_actors[var].area_grid.sum()/7939E6 : var for var in variable}
+    var_large_to_small = [var_rel_sizes[s] for s in sorted(var_rel_sizes, reverse=True)]
     ds = xr.Dataset()
-    for var in precursor_fields:
-        actor = outdic_actors[var]
-        lats = actor.lat_grid
-        lons = actor.lon_grid
-        corr_coeff = actor.Corr_Coeff.reshape(len(lags), lats.size, lons.size)
-        xr_corr = actor.prec_labels.copy()
-        xr_corr.values = corr_coeff
-        ds[var+'_labels'] = actor.prec_labels
-        ds[var+'_corr'] = xr_corr
-        ds[var+'_labels_tigr'] = actor.prec_labels.copy()
-        ds[var+'_corr_tigr'] = xr_corr.copy()
-    
-    for i, var in enumerate(np.unique(df_c['var'])):
+    for i, var in enumerate(var_large_to_small):
         regs_c = df_c.loc[ df_c['var'] == var ]
-        for lag_cor in ds[var+'_labels_tigr'].lag.values:
-            var_tig = ds[var+'_labels_tigr'].sel(lag=lag_cor)
-            for lag_t in np.unique(regs_c['lag_causal']):
-                reg_c_l = regs_c.loc[ regs_c['lag_causal'] == lag_t]
-                labels = reg_c_l.region_number.values
+        actor = outdic_actors[var]
+        label_tig = actor.prec_labels.copy()
+        corr_tig = actor.corr_xr.copy()
+        corr_xr  = actor.corr_xr.copy()
+        for lag_cor in label_tig.lag.values:
+            
+            var_tig = label_tig.sel(lag=lag_cor)
+            for lag_t in np.unique(regs_c['lag_tig']):
+                reg_c_l = regs_c.loc[ regs_c['lag_tig'] == lag_t]
+                labels = list(reg_c_l.label.values)
                 
                 new_mask = np.zeros( shape=var_tig.shape, dtype=bool)
                 
                 for l in labels:
                     new_mask[var_tig.values == l] = True
-            
-            ds[var+'_labels_tigr'].sel(lag=lag_cor).values[~new_mask] = np.nan
-            ds[var+'_corr_tigr'].sel(lag=lag_cor).values[~new_mask] = np.nan
+
+            wghts_splits = np.array(new_mask, dtype=int).sum(0)
+            wghts_splits = wghts_splits / wghts_splits.max()
+            label_tig.sel(lag=lag_cor).values[~new_mask] = np.nan
+            corr_tig.sel(lag=lag_cor).values[~new_mask] = np.nan
+            # Tig: apply weights and take mean over splits
+            orig_corr_val = corr_tig.sel(lag=lag_cor).values
+            corr_tig.sel(lag=lag_cor).values = orig_corr_val * wghts_splits
+            # Corr: apply weights and take mean over splits
+            orig_corr_val = corr_xr.sel(lag=lag_cor).values
+            corr_xr.sel(lag=lag_cor).values = orig_corr_val * wghts_splits
+                              
+        ds[var+'_corr'] = corr_xr.mean(dim='split') 
+        ds[var+'_corr_tigr'] = corr_tig.mean(dim='split') 
+        ds[var+'_labels'] = actor.prec_labels.copy()
+        ds[var+'_labels_tigr'] = label_tig.copy()            
+#            orig_corr_val = 
+#            corr_xr.sel(lag=lag_cor).values = corr_xr.values * wghts_splits #np.tile(wghts_splits, (2,1,1))
+        
+
+#        ds[var+'_corr'] = corr_aggr.assign_coords(split=['aggregated'])
+
     #%%
     return ds
 
@@ -602,25 +586,30 @@ def plot_labels(ds, df_c, var, lag, ex):
         print(f'No significant regions for {var}')
 
 def plot_corr_regions(ds, df_c, var, lag, map_proj, ex):
-    
+    #%%    
     ds_l = ds.sel(lag=lag)
     list_xr = [] ; name = []
-    for c in ['corr', 'corr_tigr']:
-        name.append(var+'_'+c)
-        list_xr.append(ds_l[var+'_'+c])
+    list_xr_m = []
+    for c in [['corr', 'labels'],['corr_tigr', 'labels_tigr']]:
+        name.append(var+'_'+c[0])
+        list_xr.append(ds_l[var+'_'+c[0]])
+        mask = ds_l[var+'_'+c[1]].sum(dim='split').astype('bool')
+        list_xr_m.append(mask)
+        
     xrdata = xr.concat(list_xr, dim='lag')
     xrdata.lag.values = name
     xrdata.name = 'sst_corr_and_tigr'
-    xrdata = xrdata.expand_dims('variable', axis=0)
-    xrdata.assign_coords(variable=[var])
-    xrmask = xrdata.copy()
-    xrmask.values = ~np.isnan(xrdata.values)
+#    xrdata = xrdata.expand_dims('variable', axis=0)
+#    xrdata.assign_coords(variable=[var])
+    xrmask = xr.concat(list_xr_m, dim='lag')
+    xrmask.lag.values = name
+#    xrmask.values = ~np.isnan(xrdata.values)
     if np.isnan(xrdata.values).all() == False:
         plot_corr_maps(xrdata, xrmask, map_proj)
         fig_filename = '{}_tigr_corr_{}_vs_{}'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']
         plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=ex['png_dpi'])
         plt.show() ; plt.close()
-
+    #%%
     
 def standard_settings_and_tests(ex):
     '''Some boring settings and Perform some test'''
@@ -637,7 +626,8 @@ def standard_settings_and_tests(ex):
         print(('Changing maximum lag to {}, so that you not skip part of the '
               'year.'.format(ex['lag_max'])))
 
-    # Some output settings
+    # Some IO settings
+    ex['store_format']   = 'hdf5'
     ex['file_type1'] = ".pdf"
     ex['file_type2'] = ".png"
     ex['png_dpi'] = 400
@@ -645,8 +635,11 @@ def standard_settings_and_tests(ex):
     ex['plotin1fig'] = False
     ex['showplot'] = True
     # output paths
-    ex['path_output'] = os.path.join(ex['path_exp_periodmask'])
-    ex['fig_path'] = os.path.join(ex['path_exp_periodmask'])
+    method_str = '_'.join([ex['method'], 's'+ str(ex['seed'])])
+    ex['subfolder_exp'] = ex['path_exp_periodmask'] +'_'+ method_str
+    ex['path_output'] = os.path.join(ex['subfolder_exp'])
+    ex['fig_path'] = os.path.join(ex['subfolder_exp'])
+    
     ex['params'] = '{}_ac{}_at{}'.format(ex['pcA_set'], ex['alpha'],
                                                       ex['alpha_level_tig'])
     if os.path.isdir(ex['fig_path']) != True : os.makedirs(ex['fig_path'])
@@ -662,19 +655,20 @@ def standard_settings_and_tests(ex):
     # =============================================================================
     # Save Experiment design
     # =============================================================================
-    filename_exp_design2 = os.path.join(ex['fig_subpath'], 'input_dic_{}.npy'.format(ex['params']))
-    np.save(filename_exp_design2, ex)
+    filename_exp_design = os.path.join(ex['fig_subpath'], 'input_dic_{}.npy'.format(ex['params']))
+    np.save(filename_exp_design, ex)
     print('\n\t**\n\tOkay, end of Part 2!\n\t**' )
 
     print('\n**\nBegin summary of main experiment settings\n**\n')
-    print('Response variable is {} is correlated vs {}'.format(ex['vars'][0][0],
-          ex['vars'][0][1:]))
+    print('Response variable is {} is correlated vs {}'.format(RV.name,
+          ex['vars'][0][:]))
     start_day = '{}-{}'.format(RV.dates[0].day, RV.dates[0].month_name())
     end_day   = '{}-{}'.format(RV.dates[-1].day, RV.dates[-1].month_name())
     print('Part of year investigated: {} - {}'.format(start_day, end_day))
     print('Part of year predicted (RV period): {} '.format(RV.RV_name_range[:-1]))
     print('Temporal resolution: {} {}'.format(ex['tfreq'], ex['input_freq']))
     print('Lags: {} to {}'.format(ex['lag_min'], ex['lag_max']))
+    print('Traintest setting: {} seed {}'.format(method_str.split('_')[0], method_str.split('_s')[1]))
     one_year_RV_data = RV.datesRV.where(RV.datesRV.year==RV.startyear).dropna(how='all').values
     print('For example\nPredictant (only one year) is:\n{} at \n{}\n'.format(ex['RV_name'],
           one_year_RV_data))
@@ -686,7 +680,7 @@ def standard_settings_and_tests(ex):
     print('\n**\nEnd of summary\n**\n')
 
     print('\nNext time, you\'re able to redo the experiment by loading in the dict '
-          '\'filename_exp_design2\'.\n')
+          '\'filename_exp_design\'.\n')
     return ex
 
     
@@ -701,99 +695,4 @@ def standard_settings_and_tests(ex):
 #        filename = '{}_{}_vs_{}'.format(ex['params'], ex['RV_name'], for_plt.name) + ex['file_type2']
 #        rgcpd.plotting_wrapper(for_plt, ex, filename, kwrgs=kwrgs)
             
-    #%%
-
-#    def finalfigure(xrdata, all_regions_deladj, file_name):
-#        g = xr.plot.FacetGrid(xrdata, col='names_col', row='names_row', subplot_kws={'projection': map_proj},
-#                          aspect= (lon.size) / lat.size, size=3)
-#        figwidth = g.fig.get_figwidth() ; figheight = g.fig.get_figheight()
-#        if xrdata.max() >= 2:
-#            cmap = plt.cm.Dark2
-#            clevels = np.arange(int(xrdata.min()), int(xrdata.max())+1E-9, 1)
-#        else:
-#            cmap = plt.cm.Greens
-#            clevels = [0., 0.95, 1.0]
-#
-#
-#        for row in xrdata.names_row.values:
-#            rowidx = list(xrdata.names_row.values).index(row)
-#            plotrow = xrdata.sel(names_row=row)
-#            for col in xrdata.names_col.values:
-#                colidx = list(xrdata.names_col.values).index(col)
-#
-#
-#                plotdata = extend_longitude(plotrow.sel(names_col=names_col[colidx]))
-#                if np.sum(plotdata) == 0.:
-#                    g.axes[rowidx,colidx].text(0.5, 0.5, 'No regions significant',
-#                                  horizontalalignment='center', fontsize='x-large',
-#                                  verticalalignment='center', transform=g.axes[rowidx,colidx].transAxes)
-#                elif np.sum(plotdata) > 0.:
-#                    im = plotdata.plot.contourf(ax=g.axes[rowidx,colidx], transform=ccrs.PlateCarree(),
-#                                                    cmap=cmap, levels=clevels,
-#                                                    subplot_kws={'projection':map_proj},
-#                                                    add_colorbar=False)
-#                    plotdata = extend_longitude(plotrow.sel(names_col=names_col[1]))
-#                    if np.sum(plotdata) != 0.:
-#                        contourmask = np.array(np.nan_to_num(plotdata.where(plotdata > 0.)), dtype=int)
-#                        contourmask[contourmask!=0] = 2
-#                        plotdata.data = contourmask
-#                        plotdata.plot.contour(ax=g.axes[rowidx,colidx], transform=ccrs.PlateCarree(),
-#                                                            colors=['black'], levels=[0,1,2],
-#                                                            subplot_kws={'projection':map_proj},
-#                                                            add_colorbar=False)
-#                g.axes[rowidx,colidx].set_extent([lon[0], lon[-1], 
-#                                       lat[0], lat[-1]], ccrs.PlateCarree())
-#            g.axes[rowidx,0].text(-figwidth/100, 0.5, row,
-#                      horizontalalignment='center', fontsize='x-large',
-#                      verticalalignment='center', transform=g.axes[rowidx,0].transAxes)
-#        for ax in g.axes.flat:
-#            ax.coastlines(color='grey', alpha=0.3)
-#            ax.set_title('')
-#        g.axes[0,1].set_title(names_col[1] + '\nat alpha={} with '
-#                      'pc_alpha(s)={}'.format(ex['alpha_level_tig']  , ex['pcA_sets'][ex['pcA_set']]), fontsize='x-large')
-#        g.axes[0,0].set_title(names_col[0] + '\nat Corr p-value={}'.format(ex['alpha']),
-#                      fontsize='x-large')
-##        g.axes[rowidx,0].text(0.5, figwidth/100, 'Black contours are not significant after MCI',
-##                      horizontalalignment='center', fontsize='x-large',
-##                      verticalalignment='center', transform=g.axes[rowidx,0].transAxes)
-#        if ex['plotin1fig'] == False and xrdata.sum() != 0:
-#            cbar_ax = g.fig.add_axes([0.25, (figheight/25)/len(g.row_names),
-#                                      0.5, (figheight/150)/len(g.row_names)])
-#            plt.colorbar(im, cax=cbar_ax, orientation='horizontal')
-##        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-#        plt.subplots_adjust(wspace=0.1, hspace=-0.3)
-#        g.fig.savefig(os.path.join(ex['fig_path'], file_name + ex['file_type2']),dpi=250)
-#        if ex['showplot'] == False:
-#            plt.close()
-#        return
-#
-#
-#    if ex['plotin1fig'] == True:
-#        names_row = [i +' all lags' for i in prec_names]
-#        xrdata = xr.DataArray(data=array, coords=[names_col, names_row, lat, lon],
-#                            dims=['names_col','names_row','latitude','longitude'], name='Corr Coeff')
-#        xrdata.data = np.nan_to_num(xrdata.data)
-#        xrdata.data[xrdata.data > 0.5] = 1.
-#        all_regions_deladj = all_regions_del
-#        file_name = '{}_tigout_all'.format(ex['params'])
-#        finalfigure(xrdata, all_regions_deladj, file_name)
-#    if ex['plotin1fig'] == False:
-#        if ex['input_freq'] == 'daily'  : dt = 'days'
-#        if ex['input_freq'] == 'monthly': dt = 'months'
-#        for var in allvar[ex['excludeRV']:]:
-#            varidx = allvar.index(var) - ex['excludeRV']
-#            onevar_array = array[:,varidx,:,:,:].copy()
-#            names_row = []
-#            for lag in lags:
-#                names_row.append(var + '\n-{} {}'.format(lag * ex['tfreq'], dt))
-#
-#            xrdata = xr.DataArray(data=onevar_array, coords=[names_col, names_row, lat, lon],
-#                                dims=['names_col','names_row','latitude','longitude'], name='Corr Coeff')
-#
-#            all_regions_deladj = all_regions_del[varidx]
-#            file_name = '{}_tigout_{}'.format(ex['params'], var)
-#            finalfigure(xrdata, all_regions_deladj, file_name)
-# #%%
-#    return
-
 

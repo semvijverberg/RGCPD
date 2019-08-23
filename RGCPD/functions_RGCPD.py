@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import numpy as np
 import matplotlib
 matplotlib.rcParams['backend'] = "Qt4Agg"
@@ -112,11 +113,11 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
     # add lags
     list_xr = [xrcorr.expand_dims('lag', axis=0) for i in range(lag_steps)]
     xrcorr = xr.concat(list_xr, dim = 'lag')
-    xrcorr['lags'] = ('lag', lags)
+    xrcorr['lag'] = ('lag', lags)
     # add train test split     
-    list_xr = [xrcorr.expand_dims('split', axis=0) for i in range(ex['n_conv'])]
+    list_xr = [xrcorr.expand_dims('split', axis=0) for i in range(ex['n_spl'])]
     xrcorr = xr.concat(list_xr, dim = 'split')           
-    xrcorr['split'] = ('split', range(ex['n_conv']))
+    xrcorr['split'] = ('split', range(ex['n_spl']))
     
     print('\n{} - calculating correlation maps'.format(precur_arr.name))
     np_data = np.zeros_like(xrcorr.values)
@@ -163,14 +164,15 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
         return Corr_Coeff
 
     for s in xrcorr.split.values:
-        progress = 100 * (s+1) / ex['n_conv']
+        progress = 100 * (s+1) / ex['n_spl']
         # =============================================================================
         # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']        
         # =============================================================================
         RV_ts = traintest[s]['RV_train']
         precur = precur_arr.isel(time=traintest[s]['Prec_train_idx'])
         dates_RV  = pd.to_datetime(RV_ts.time.values)
-        print(f"\rProgress traintest set {progress}%, trainsize={dates_RV.size}", end="")
+        n = dates_RV.size ; r = int(100*n/RV.datesRV.size )
+        print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
         dates_all = pd.to_datetime(precur.time.values)
         string_RV = list(dates_RV.strftime('%Y-%m-%d'))
         string_full = list(dates_all.strftime('%Y-%m-%d'))
@@ -179,6 +181,7 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
         ma_data = corr_single_split(RV_ts, precur, RV_period, ex)
         np_data[s] = ma_data.data
         np_mask[s] = ma_data.mask
+    print("\n")
     xrcorr.values = np_data
     mask = (('split', 'lag', 'latitude', 'longitude'), np_mask )
     xrcorr.coords['mask'] = mask
@@ -292,16 +295,14 @@ def cluster_DBSCAN_regions(actor, ex):
 	Calculates the time-series of the actors based on the correlation coefficients and plots the according regions. 
 	Only caluclates regions with significant correlation coefficients
 	"""
-    from sklearn import cluster
-    from sklearn import metrics
-    from haversine import haversine
     import xarray as xr
     
 #    var = 'sst'
 #    actor = outdic_actors[var]
-    Corr_Coeff  = actor.Corr_Coeff
-    lats    = actor.lat_grid
-    lons    = actor.lon_grid
+    corr_xr  = actor.corr_xr
+    n_spl  = corr_xr.coords['split'].size
+    lats    = corr_xr.latitude
+    lons    = corr_xr.longitude
     area_grid   = actor.area_grid/ 1E6 # in km2
 
     aver_area_km2 = 7939     # np.mean(actor.area_grid) with latitude 0-90 / 1E6
@@ -314,70 +315,44 @@ def cluster_DBSCAN_regions(actor, ex):
     lags = np.arange(ex['lag_min'], ex['lag_max']+1E-9)
     lag_steps = lags.size
 
-    Number_regions_per_lag = np.zeros(lag_steps)
+    
     ex['n_tot_regs'] = 0
     
+
+    prec_labels_np = np.zeros( (n_spl, lag_steps, lats.size, lons.size), dtype=int )
+    labels_sign_lag = np.zeros( (n_spl), dtype=list)
+    mask_and_data = corr_xr.copy()
     
-    def mask_sig_to_cluster(mask_and_data, lons, lats, wght_area, ex):
-        mask_sig_1d = mask_and_data.mask[:,:]==False
-        data = mask_and_data.data
-    
-        np_dbregs   = np.zeros( (lons.size*lats.size, lag_steps), dtype=int )
-        labels_sign_lag = []
-        label_start = 0
+    # group regions per split (no information leak train test)
+    if ex['group_split'] == 'seperate':
+        for s in range(n_spl):
+            progress = 100 * (s+1) / ex['n_spl']
+            print(f"\rProgress traintest set {progress}%", end="")
+            mask_and_data_s = corr_xr.sel(split=s)
+            grouping_split = mask_sig_to_cluster(mask_and_data_s, wght_area, ex)
+            prec_labels_np[s] = grouping_split[0]
+            labels_sign_lag[s] = grouping_split[1]
+    # group regions regions the same accross splits
+    elif ex['group_split'] == 'together':
         
-        for sign in [-1, 1]:
-            mask = mask_sig_1d.copy()
-            mask[np.sign(data) != sign] = False
-            n_gc_sig_sign = mask[mask==True].size
-            labels_for_lag = np.zeros( (lag_steps, n_gc_sig_sign), dtype=bool)
-            meshgrid = np.meshgrid(lons.data, lats.data)
-            mask_sig = np.reshape(mask, (lats.size, lons.size, lag_steps))
-            sign_coords = [] ; count=0
-            weights_core_samples = []
-            for l in range(lag_steps):
-                sign_c = meshgrid[0][ mask_sig[:,:,l] ], meshgrid[1][ mask_sig[:,:,l] ]
-                n_sign_c_lag = len(sign_c[0])
-                labels_for_lag[l][count:count+n_sign_c_lag] = True
-                count += n_sign_c_lag
-                sign_coords.append( [(sign_c[1][i], sign_c[0][i]-180) for i in range(sign_c[0].size)] )
-                
-                weights_core_samples.append(wght_area[mask_sig[:,:,l]].reshape(-1))
-                
-            sign_coords = flatten(sign_coords)
-            if len(sign_coords) != 0:
-                weights_core_samples = flatten(weights_core_samples)
-                # calculate distance between sign coords accross all lags to keep labels 
-                # more consistent when clustering
-                distance = metrics.pairwise_distances(sign_coords, metric=haversine)
-                dbresult = cluster.DBSCAN(eps=ex['distance_eps'], min_samples=ex['min_area_samples'], 
-                                          metric='precomputed').fit(distance, 
-                                          sample_weight=weights_core_samples)
-                labels = dbresult.labels_ + 1
-                # all labels == -1 (now 0) are seen as noise:
-                labels[labels==0] = -label_start
-                individual_labels = labels + label_start
-                [labels_sign_lag.append((l, sign)) for l in np.unique(individual_labels) if l != 0]
-
-                for l in range(lag_steps):
-                    mask_sig_lag = mask[:,l]==True
-                    np_dbregs[:,l][mask_sig_lag] = individual_labels[labels_for_lag[l]]
-                label_start = int(np_dbregs[mask].max())
-            else:
-                pass
-            np_regs = np.reshape(np_dbregs, (lats.size, lons.size, lag_steps))
-            np_regs = np_regs.swapaxes(0,-1).swapaxes(1,2)
-        return np_regs, labels_sign_lag
-
-
-    prec_labels_np = np.zeros( (lag_steps, lats.size, lons.size) )
-#    labels_sign = np.zeros( (lag_steps), dtype=list )
-    mask_and_data = Corr_Coeff.copy()
-#    if 
-    # prec_labels_np: shape [lags, lats, lons]
-    prec_labels_np, labels_sign_lag = mask_sig_to_cluster(mask_and_data, lons, lats, wght_area, ex)
-    
-    
+        mask = abs(mask_and_data.mask -1)
+        mask_all = mask.sum(dim='split') / mask.sum(dim='split')
+        m_d_together = mask_and_data.isel(split=0).copy()
+        m_d_together['mask'] = abs(mask_all.fillna(0) -1)
+        m_d_together.values = np.sign(mask_and_data).mean(dim='split')
+        grouping_split = mask_sig_to_cluster(m_d_together, wght_area, ex)
+        
+        for s in range(n_spl):
+            m_all = grouping_split[0].copy()
+            mask_split = corr_xr.sel(split=s).mask
+            m_all[mask_split.astype('bool').values] = 0
+            labs = np.unique(mask_split==0)[1:]
+            l_sign = grouping_split[1]
+            labs_s = [t for t in l_sign if t[0] in labs]
+            prec_labels_np[s] = m_all
+            labels_sign_lag[s] = labs_s
+            
+            
     if np.nansum(prec_labels_np) == 0. and mask_and_data.mask.all()==False:
         print('\nSome significantly correlating gridcells found, but too randomly located and '
               'interpreted as noise by DBSCAN, make distance_eps lower '
@@ -387,64 +362,31 @@ def cluster_DBSCAN_regions(actor, ex):
         print('\nNo significantly correlating gridcells found.\n')
         prec_labels_ord = prec_labels_np
     else:
-        # order regions on corr strength
-        # based on median of upper 25 percentile
-        corr_strength = {}
-        totalsize_lag0 = area_grid[prec_labels_np[0]!=0].mean() / 1E5
-        for l_idx, lag in enumerate(lags):
-            # check if region is higher lag is actually too small to be a cluster:
-            prec_field = prec_labels_np[l_idx,:,:]
-            
-            for i, reg in enumerate(np.unique(prec_field)[1:]):
-                are = area_grid.copy()
-                are[prec_field!=reg]=0
-                area_prec_reg = are.sum()/1E5
-                if area_prec_reg < ex['min_area_km2']/1E5:
-                    print(reg, area_prec_reg, ex['min_area_km2']/1E5, 'not exceeding area')
-                    prec_field[prec_field==reg] = 0
-                if area_prec_reg >= ex['min_area_km2']/1E5:
-                    Corr_value = mask_and_data.data[prec_field.reshape(-1)==reg, l_idx]
-                    weight_by_size = (area_prec_reg / totalsize_lag0)**0.1
-                    Corr_value.sort()
-                    strength   = abs(np.median(Corr_value[int(0.75*Corr_value.size):]))
-                    Corr_strength = np.round(strength * weight_by_size, 10)
-                    corr_strength[Corr_strength + l_idx*1E-5] = '{}_{}'.format(l_idx,reg)
-            Number_regions_per_lag[l_idx] = np.unique(prec_field)[1:].size
-            prec_labels_np[l_idx,:,:] = prec_field
-        
-        
-        # Reorder - strongest correlation region is number 1, etc... ,
-        strongest = sorted(corr_strength.keys())[::-1]
-        actor.corr_strength = corr_strength
-        reassign = {} ; key_dupl = [] ; new_reg = 0 
-        order_str_actor = {}
-        for i, key in enumerate(strongest):
-            old_lag_reg = corr_strength[key]
-            old_reg = int(old_lag_reg.split('_')[-1])
-            if old_reg not in key_dupl:
-                new_reg += 1
-                reassign[old_reg] = new_reg
-            key_dupl.append( old_reg )
-            new_lag_reg = old_lag_reg.split('_')[0] +'_'+ str(reassign[old_reg])
-            order_str_actor[new_lag_reg] = i+1
-        
-        
-        actor.order_str_actor = order_str_actor
-        prec_labels_ord = np.zeros(prec_labels_np.shape, dtype=int)
-        for i, reg in enumerate(reassign.keys()):   
-            prec_labels_ord[prec_labels_np == reg] = reassign[reg]
-    #        print('reg {}, to {}'.format(reg, reassign[reg]))
-#                
+        prec_labels_ord = np.zeros_like(prec_labels_np)
+        if ex['group_split'] == 'seperate':
+            for s in range(n_spl):
+                prec_labels_s = prec_labels_np[s]
+                corr_vals     = corr_xr.sel(split=s).values
+                reassign = reorder_strength(prec_labels_s, corr_vals, area_grid, ex)
+                prec_labels_ord[s] = relabel(prec_labels_s, reassign)
+        elif ex['group_split'] == 'together':
+            # order based on mean corr_value:
+            corr_vals = corr_xr.mean(dim='split').values
+            prec_label_s = grouping_split[0].copy()
+            reassign = reorder_strength(prec_label_s, corr_vals, area_grid, ex)
+            for s in range(n_spl):
+                prec_labels_s = prec_labels_np[s]
+                prec_labels_ord[s] = relabel(prec_labels_s, reassign)
 
+                
+
+    ex['n_tot_regs']    += int(np.unique(prec_labels_ord)[1:].size)
     
-    
-    actor.n_regions_lag = Number_regions_per_lag
-    ex['n_tot_regs']    += int(np.sum(Number_regions_per_lag))
-    
-    lags = list(range(ex['lag_min'], ex['lag_max']+1))
-    lags_coord = ['{} ({} {})'.format(l, l*ex['tfreq'], ex['input_freq'][:1]) for l in lags]
-    prec_labels = xr.DataArray(data=prec_labels_ord, coords=[lags_coord, lats, lons], 
-                          dims=['lag','latitude','longitude'], 
+    tfreq = ex['tfreq']
+    lags = np.arange(ex['lag_min']*tfreq, ex['lag_max']*tfreq+1E-9, tfreq, dtype=int)
+#    lags_coord = ['{} ({} {})'.format(l, l*tfreq, ex['input_freq'][:1]) for l in lags]
+    prec_labels = xr.DataArray(data=prec_labels_ord, coords=[range(n_spl), lags, lats, lons], 
+                          dims=['split', 'lag','latitude','longitude'], 
                           name='{}_labels_init'.format(actor.name), 
                           attrs={'units':'Precursor regions [ordered for Corr strength]'})
     prec_labels = prec_labels.where(prec_labels_ord!=0.)
@@ -452,16 +394,330 @@ def cluster_DBSCAN_regions(actor, ex):
     actor.prec_labels = prec_labels
     #%%
     return actor, ex 
+
+def mask_sig_to_cluster(mask_and_data_s, wght_area, ex):
+    from sklearn import cluster
+    from sklearn import metrics
+    from haversine import haversine
+    mask_sig_1d = mask_and_data_s.mask.astype('bool').values == False
+    data = mask_and_data_s.data
+    lons = mask_and_data_s.longitude.values
+    lats = mask_and_data_s.latitude.values
+    lag_steps = mask_and_data_s.lag.size
     
+    np_dbregs   = np.zeros( (lag_steps, lats.size, lons.size), dtype=int )
+    labels_sign_lag = []
+    label_start = 0
     
-def plot_regs_xarray(for_plt, ex):
+    for sign in [-1, 1]:
+        mask = mask_sig_1d.copy()
+        mask[np.sign(data) != sign] = False
+        n_gc_sig_sign = mask[mask==True].size
+        labels_for_lag = np.zeros( (lag_steps, n_gc_sig_sign), dtype=bool)
+        meshgrid = np.meshgrid(lons.data, lats.data)
+        mask_sig = np.reshape(mask, (lag_steps, lats.size, lons.size))
+        sign_coords = [] ; count=0
+        weights_core_samples = []
+        for l in range(lag_steps):
+            sign_c = meshgrid[0][ mask_sig[l,:,:] ], meshgrid[1][ mask_sig[l,:,:] ]
+            n_sign_c_lag = len(sign_c[0])
+            labels_for_lag[l][count:count+n_sign_c_lag] = True
+            count += n_sign_c_lag
+            # shape sign_coords = [(lats, lons)]
+            sign_coords.append( [(sign_c[1][i], sign_c[0][i]-180) for i in range(sign_c[0].size)] )
+            weights_core_samples.append(wght_area[mask_sig[l,:,:]].reshape(-1))
+            
+        sign_coords = flatten(sign_coords)
+        if len(sign_coords) != 0:
+            weights_core_samples = flatten(weights_core_samples)
+            # calculate distance between sign coords accross all lags to keep labels 
+            # more consistent when clustering
+            distance = metrics.pairwise_distances(sign_coords, metric=haversine)
+            dbresult = cluster.DBSCAN(eps=ex['distance_eps'], min_samples=ex['min_area_samples'], 
+                                      metric='precomputed').fit(distance, 
+                                      sample_weight=weights_core_samples)
+            labels = dbresult.labels_ + 1
+            # all labels == -1 (now 0) are seen as noise:
+            labels[labels==0] = -label_start
+            individual_labels = labels + label_start
+            [labels_sign_lag.append((l, sign)) for l in np.unique(individual_labels) if l != 0]
+
+            for l in range(lag_steps):
+                mask_sig_lag = mask[l,:,:]==True
+                np_dbregs[l,:,:][mask_sig_lag] = individual_labels[labels_for_lag[l]]
+            label_start = int(np_dbregs[mask].max())
+        else:
+            pass
+        np_regs = np.array(np_dbregs, dtype='int')
+    return np_regs, labels_sign_lag
+
+def reorder_strength(prec_labels_s, corr_vals, area_grid, ex):
+    #%%
+    # order regions on corr strength
+    # based on median of upper 25 percentile
+    
+    Number_regions_per_lag = np.zeros(len(ex['lags']))
+    corr_strength = {}
+    totalsize_lag0 = area_grid[prec_labels_s[0]!=0].mean() / 1E5
+    for l_idx, lag in enumerate(ex['lags']):
+        # check if region is higher lag is actually too small to be a cluster:
+        prec_field = prec_labels_s[l_idx,:,:]
         
+        for i, reg in enumerate(np.unique(prec_field)[1:]):
+            are = area_grid.copy()
+            are[prec_field!=reg]=0
+            area_prec_reg = are.sum()/1E5
+            if area_prec_reg < ex['min_area_km2']/1E5:
+                print(reg, area_prec_reg, ex['min_area_km2']/1E5, 'not exceeding area')
+                prec_field[prec_field==reg] = 0
+            if area_prec_reg >= ex['min_area_km2']/1E5:
+                Corr_value = corr_vals[l_idx, prec_field==reg]
+                weight_by_size = (area_prec_reg / totalsize_lag0)**0.1
+                Corr_value.sort()
+                strength   = abs(np.median(Corr_value[int(0.75*Corr_value.size):]))
+                Corr_strength = np.round(strength * weight_by_size, 10)
+                corr_strength[Corr_strength + l_idx*1E-5] = '{}_{}'.format(l_idx,reg)
+        Number_regions_per_lag[l_idx] = np.unique(prec_field)[1:].size
+        prec_labels_s[l_idx,:,:] = prec_field
+    
+    
+    # Reorder - strongest correlation region is number 1, etc... ,
+    strongest = sorted(corr_strength.keys())[::-1]
+#    actor.corr_strength = corr_strength
+    reassign = {} ; key_dupl = [] ; new_reg = 0 
+    order_str_actor = {}
+    for i, key in enumerate(strongest):
+        old_lag_reg = corr_strength[key]
+        old_reg = int(old_lag_reg.split('_')[-1])
+        if old_reg not in key_dupl:
+            new_reg += 1
+            reassign[old_reg] = new_reg
+        key_dupl.append( old_reg )
+        new_lag_reg = old_lag_reg.split('_')[0] +'_'+ str(reassign[old_reg])
+        order_str_actor[new_lag_reg] = i+1
+    return reassign
+    
+#    actor.order_str_actor = order_str_actor
+    #%%
+    return reassign
+
+def relabel(prec_labels_s, reassign):
+    prec_labels_ord = np.zeros(prec_labels_s.shape, dtype=int)
+    for i, reg in enumerate(reassign.keys()):   
+        prec_labels_ord[prec_labels_s == reg] = reassign[reg]
+    return prec_labels_ord
+
+
+def spatial_mean_regions(actor, ex):
+    #%%
+    
+    #    var = 'sst'
+#    actor = outdic_actors[var]
+    var             = actor.name
+    corr_xr         = actor.corr_xr
+    prec_labels     = actor.prec_labels
+    n_spl           = corr_xr.split.size
+    lags = np.arange(ex['lag_min'], ex['lag_max']+1E-9, dtype=int)
+    lag_steps = lags.size
+#    order_str       = actor.order_str_actor
+#    actbox = np.reshape(actor.precur_arr.values, (n_time, 
+#                  lats.size*lons.size))  
+    actbox = actor.precur_arr.values
+
+#    print(actor.prec_labels.squeeze().values[~np.isnan(actor.prec_labels.squeeze().values)])
+    
+    ts_corr = np.zeros( (n_spl), dtype=object)
+    
+    for s in range(n_spl):
+        corr = corr_xr.isel(split=0)
+        labels = prec_labels.isel(split=0)
+        
+        ts_list = np.zeros( (lag_steps), dtype=list )
+        track_names = []
+        for l_idx, lag in enumerate(lags):
+            labels_lag = labels.isel(lag=l_idx).values
+            
+            regions_for_ts = list(np.unique(labels_lag[~np.isnan(labels_lag)]))
+            a_wghts = actor.area_grid / actor.area_grid.mean()
+        
+            # this array will be the time series for each feature
+            ts_regions_lag_i = np.zeros((actbox.shape[0], len(regions_for_ts)))
+            
+            # track sign of eacht region
+            sign_ts_regions = np.zeros( len(regions_for_ts) )
+            
+            
+            # calculate area-weighted mean over features
+            for r in regions_for_ts:
+                track_names.append(f'{lag}_{int(r)}_{var}')
+                idx = regions_for_ts.index(r)
+                # start with empty lonlat array
+                B = np.zeros(labels_lag.shape)
+                # Mask everything except region of interest
+                B[labels_lag == r] = 1	
+        #        # Calculates how values inside region vary over time, wgts vs anomaly
+        #        wgts_ano = meanbox[B==1] / meanbox[B==1].max()
+        #        ts_regions_lag_i[:,idx] = np.nanmean(actbox[:,B==1] * cos_box_array[:,B==1] * wgts_ano, axis =1)
+                # Calculates how values inside region vary over time
+                ts_regions_lag_i[:,idx] = np.nanmean(actbox[:,B==1] * a_wghts[B==1], axis =1)
+                # get sign of region
+                sign_ts_regions[idx] = np.sign(np.mean(corr.isel(lag=l_idx).values[B==1]))
+            ts_list[l_idx] = ts_regions_lag_i
+            
+        tsCorr = np.concatenate(tuple(ts_list), axis = 1)
+        df_tscorr = pd.DataFrame(tsCorr, index=pd.to_datetime(actor.precur_arr.time.values), 
+                                 columns=track_names)
+        df_tscorr.name = str(s)
+        ts_corr[s] = df_tscorr
+    #%%
+    return ts_corr
+
+
+def return_sign_parents(pc_class, pq_matrix, val_matrix,
+                            alpha_level=0.05):
+      # Initialize the return value
+    all_parents = dict()
+    for j in pc_class.selected_variables:
+        # Get the good links
+        good_links = np.argwhere(pq_matrix[:, j, :] <= alpha_level)
+        # Build a dictionary from these links to their values
+        links = {(i, -tau): np.abs(val_matrix[i, j, abs(tau) ])
+                 for i, tau in good_links}
+        # Sort by value
+        all_parents[j] = sorted(links, key=links.get, reverse=True)
+    # Return the significant parents
+    return {'parents': all_parents,
+            'link_matrix': pq_matrix <= alpha_level}
+
+def bookkeeping_precursors(links_RV, var_names):
+    #%%
+    var_names_ = var_names.copy()
+    index = [n[1] for n in var_names_[1:]] ; index.insert(0, var_names_[0])
+    link_names = [var_names_[l[0]][1] if l[0] !=0 else var_names_[l[0]] for l in links_RV]
+    
+    # check if two lags of same region are tigr significant
+    idx_tigr = [l[0] for l in links_RV] ; 
+    for r in np.unique(idx_tigr):
+        if idx_tigr.count(r) != 1:
+            double = var_names_[r][1]
+            idx = int(np.argwhere(np.array(index)==double)[0])
+            # append each double to index for the dataframe
+            for i in range(idx_tigr.count(r)-1):
+                index.insert(idx+i, double)
+                d = len(index) - len(var_names_)
+                var_names_.insert(idx+i+1, var_names_[idx+1-d])
+                
+    l = [n[1].split('_')[-1] for n in var_names_[1:]]
+    l.insert(0, var_names_[0])
+    var = np.array(l)
+    mask_causal = np.array([True if i in link_names else False for i in index])
+    lag_corr_map = np.array([int(n[1][0]) for n in var_names_[1:]]) ; 
+    lag_corr_map = np.insert(lag_corr_map, 0, 0)
+    region_number = np.array([int(n[0]) for n in var_names_[1:]])
+    region_number = np.insert(region_number, 0, 0)
+    label = np.array([int(n[1].split('_')[1]) for n in var_names_[1:]])
+    label = np.insert(label, 0, 0)
+    lag_tigr_map = {str(links_RV[i][1])+'..'+link_names[i]:links_RV[i][1] for i in range(len(link_names))}
+    sorted(lag_tigr_map, reverse=False)
+    lag_tigr_ = index.copy() ; track_idx = list(range(len(index)))
+    for k in lag_tigr_map.keys():
+        l = int(k.split('..')[0])
+        var_temp = k.split('..')[1]
+        idx = lag_tigr_.index(var_temp)
+        track_idx.remove(idx)
+        lag_tigr_[idx] = l
+    for i in track_idx:
+        lag_tigr_[i] = np.nan
+    lag_tigr_ = np.array(lag_tigr_)
+    mask_causal = ~np.isnan(lag_tigr_)
+    
+#    print(var.shape, lag_corr_map.shape, region_number.shape, mask_causal.shape, lag_caus.shape)
+
+    data = np.concatenate([label[None,:],  lag_corr_map[None,:], region_number[None,:], var[None,:],
+                            mask_causal[None,:], lag_tigr_[None,:]], axis=0)
+    df = pd.DataFrame(data=data.T, index=index, 
+                      columns=['label', 'lag_corr', 'region_number', 'var', 'causal', 'lag_tig'])
+    df['causal'] = df['causal'] == 'True'
+    df = df.astype({'label':int, 'lag_corr':int,
+                               'region_number':int, 'var':str, 'causal':bool, 'lag_tig':float})
+    #%%      
+    print("\n\n")                
+    print(df)
+    return df
+
+def print_particular_region_new(links_RV, var_names, s, outdic_actors, map_proj, ex):
+
+    #%%
+    n_parents = len(links_RV)
+#    lags = list(np.arange(ex['lag_min'], ex['lag_max']+1E-9, dtype=int))
+    for i in range(n_parents):
+        tigr_lag = links_RV[i][1] #-1 There was a minus, but is it really correct?
+        index_in_fulldata = links_RV[i][0]
+        print("\n\nunique_label_format: \n\'lag\'_\'regionlabel\'_\'var\'")
+        if index_in_fulldata>0:
+            uniq_label = var_names[index_in_fulldata][1]
+            var_name = uniq_label.split('_')[-1]
+            according_varname = uniq_label
+            according_number = int(float(uniq_label.split('_')[1]))
+#            according_var_idx = ex['vars'][0].index(var_name)
+            corr_lag = int(uniq_label.split('_')[0])
+            print('index in fulldata {}: region: {} at lag {}'.format(
+                    index_in_fulldata, uniq_label, tigr_lag))
+            # *********************************************************
+            # print and save only significant regions
+            # *********************************************************
+            according_fullname = '{} at lag {} - ts_index_{}'.format(according_varname,
+                                  tigr_lag, index_in_fulldata)
+            
+
+
+            actor = outdic_actors[var_name]
+            prec_labels = actor.prec_labels.sel(split=s)
+            
+            for_plt = prec_labels.where(prec_labels.values==according_number).isel(lag=corr_lag)
+
+            map_proj = map_proj
+            plt.figure(figsize=(6, 4))
+            ax = plt.axes(projection=map_proj)
+            im = for_plt.plot.pcolormesh(ax=ax, cmap=plt.cm.BuPu,
+                             transform=ccrs.PlateCarree(), add_colorbar=False)
+            plt.colorbar(im, ax=ax , orientation='horizontal')
+            ax.coastlines(color='grey', alpha=0.3)
+            ax.set_title(according_fullname)    
+            fig_file = 's{}_{}{}'.format(s, according_fullname, ex['file_type2'])
+
+            plt.savefig(os.path.join(ex['fig_subpath'], fig_file), dpi=ex['png_dpi'])
+#            plt.show()
+            plt.close()
+            # =============================================================================
+            # Print to text file
+            # =============================================================================
+            print('                                        ')
+            # *********************************************************
+            # save data
+            # *********************************************************
+            according_fullname = str(according_number) + according_varname
+            name = ''.join([str(index_in_fulldata),'_',uniq_label])
+
+#            print((fulldata[:,index_in_fulldata].size))
+            print(name)
+        else :
+            print('Index itself is also causal parent -> skipped')
+            print('*******************              ***************************')
+        
+#%%
+    return 
+
+
+
+def plot_regs_xarray(for_plt, ex):
+    #%%  
     ex['max_N_regs'] = min(20, int(for_plt.max() + 0.5))
     label_weak = np.nan_to_num(for_plt.values) >=  ex['max_N_regs']
     for_plt.values[label_weak] = ex['max_N_regs']
 
 
-    adjust_vert_cbar = 0.0 ; adj_fig_h = 1.4
+    adjust_vert_cbar = 0.0 ; adj_fig_h = 1.0
     
         
     cmap = plt.cm.tab20
@@ -474,108 +730,14 @@ def plot_regs_xarray(for_plt, ex):
                    'cmap' : cmap, 'column' : 1,
                    'cbar_vert' : adjust_vert_cbar, 'cbar_hght' : 0.0,
                    'adj_fig_h' : adj_fig_h, 'adj_fig_w' : 1., 
-                   'hspace' : 0.0, 'wspace' : 0.08, 
-                   'cticks_center' : False, 'title_h' : 0.95} )
+                   'hspace' : 0.2, 'wspace' : 0.08, 
+                   'cticks_center' : False, 'title_h' : 1.01} )
     filename = '{}_{}_vs_{}'.format(ex['params'], ex['RV_name'], for_plt.name) + ex['file_type2']
-    plotting_wrapper(for_plt, ex, filename, kwrgs=kwrgs)
-
+    
+    for l in for_plt.lag.values:
+        plotting_wrapper(for_plt.sel(lag=l), ex, filename, kwrgs=kwrgs)
     #%%
-
-
-def spatial_mean_regions(actor, ex):
-    #%%
-    
-    #    var = 'sst'
-#    actor = outdic_actors[var]
-    var             = actor.name
-    Corr_Coeff      = actor.Corr_Coeff
-    lats            = actor.lat_grid
-    lons            = actor.lon_grid
-    lags = np.arange(ex['lag_min'], ex['lag_max']+1E-9, dtype=int)
-    lag_steps = lags.size
-    n_time          = actor.precur_arr.time.size
-    order_str       = actor.order_str_actor
-    actbox = np.reshape(actor.precur_arr.values, (n_time, 
-                  lats.size*lons.size))  
-
-#    print(actor.prec_labels.squeeze().values[~np.isnan(actor.prec_labels.squeeze().values)])
-    
-    
-    ts_list = np.zeros( (lag_steps), dtype=list )
-    track_names = []
-    for l_idx, lag in enumerate(lags):
-        prec_labels_lag = actor.prec_labels.isel(lag=l_idx).values
-        
-        if prec_labels_lag.shape == actbox[0].shape:
-            Regions = prec_labels_lag
-        elif prec_labels_lag.shape == (lats.shape[0], lons.shape[0]):
-            Regions = np.reshape(prec_labels_lag, (prec_labels_lag.size))
-        
-        
-        regions_for_ts = [int(key.split('_')[1]) for key in order_str.keys() if int(key.split('_')[0]) ==l_idx]
-        
-        # get lonlat array of area for taking spatial means 
-        lons_gph, lats_gph = np.meshgrid(lons, lats)
-        cos_box = np.cos(np.deg2rad(lats_gph))
-        cos_box_array = np.repeat(cos_box[None,:], actbox.shape[0], 0)
-        cos_box_array = np.reshape(cos_box_array, (cos_box_array.shape[0], -1))
-        
-    
-        # this array will be the time series for each feature
-        ts_regions_lag_i = np.zeros((actbox.shape[0], len(regions_for_ts)))
-        
-        # track sign of eacht region
-        sign_ts_regions = np.zeros( len(regions_for_ts) )
-        
-        
-        # calculate area-weighted mean over features
-        for r in regions_for_ts:
-            track_names.append(f'{lag}_{r}_{var}')
-            idx = regions_for_ts.index(r)
-            # start with empty lonlat array
-            B = np.zeros(Regions.shape)
-            # Mask everything except region of interest
-            B[Regions == r] = 1	
-    #        # Calculates how values inside region vary over time, wgts vs anomaly
-    #        wgts_ano = meanbox[B==1] / meanbox[B==1].max()
-    #        ts_regions_lag_i[:,idx] = np.nanmean(actbox[:,B==1] * cos_box_array[:,B==1] * wgts_ano, axis =1)
-            # Calculates how values inside region vary over time
-            ts_regions_lag_i[:,idx] = np.nanmean(actbox[:,B==1] * cos_box_array[:,B==1], axis =1)
-            # get sign of region
-            sign_ts_regions[idx] = np.sign(np.mean(Corr_Coeff.data[B==1]))
-        ts_list[l_idx] = ts_regions_lag_i
-    tsCorr = np.concatenate(tuple(ts_list), axis = 1)
-    
-        
-    #%%
-    return tsCorr, track_names
-
-
-def print_particular_region_new(ex, number_region, corr_lag, prec_labels, map_proj, title):
-#    (number_region, Corr_Coeff_lag_i, latitudes, longitudes, map_proj, title)=(according_number, Corr_precursor[:, :], actor.lat_grid, actor.lon_grid, map_proj, according_fullname) 
-    #%%
-    # check if only one lag is tested:
-
-#    lag_steps = prec_labels.lag.size
-
-#    latitudes = actor.lat_grid
-#    longitudes = actor.lon_grid
-    
-
-    for_plt = prec_labels.where(prec_labels.values==number_region).isel(lag=corr_lag)
-
-    map_proj = map_proj
-    fig = plt.figure(figsize=(6, 4))
-    ax = plt.axes(projection=map_proj)
-    im = for_plt.plot.pcolormesh(ax=ax, cmap=plt.cm.BuPu,
-                     transform=ccrs.PlateCarree(), add_colorbar=False)
-    plt.colorbar(im, ax=ax , orientation='horizontal')
-    ax.coastlines(color='grey', alpha=0.3)
-    ax.set_title(title)
-        
-#%%
-    return fig
-
+    return
 		
 def plotting_wrapper(plotarr, ex, filename=None,  kwrgs=None):
     import os
@@ -704,7 +866,9 @@ def finalfigure(xrdata, file_name, kwrgs):
             
         else:
             pass
-        
+    plt.tight_layout()
+    
+    
     if 'title_h' in kwrgs.keys():
         title_height = kwrgs['title_h']
     else:
@@ -719,13 +883,14 @@ def finalfigure(xrdata, file_name, kwrgs):
         g.fig.set_figwidth(figwidth*kwrgs['adj_fig_w'], forward=True)
 
     if 'cbar_vert' in kwrgs.keys():
-        cbar_vert = (figheight/40)/(n_plots*2) + kwrgs['cbar_vert']
+        cbar_vert = 0 + kwrgs['cbar_vert']
     else:
-        cbar_vert = (figheight/40)/(n_plots*2)
+        cbar_vert = 0
     if 'cbar_hght' in kwrgs.keys():
-        cbar_hght = (figheight/40)/(n_plots*2) + kwrgs['cbar_hght']
-    else:
-        cbar_hght = (figheight/40)/(n_plots*2)
+        # height colorbor 1/10th of height of subfigure
+        cbar_h = g.axes[-1,-1].get_position().height / 10
+        cbar_hght = cbar_h + kwrgs['cbar_hght']
+
     if 'wspace' in kwrgs.keys():
         g.fig.subplots_adjust(wspace=kwrgs['wspace'])
     if 'hspace' in kwrgs.keys():
@@ -737,7 +902,7 @@ def finalfigure(xrdata, file_name, kwrgs):
 
     # new cbar positioning
     y0 = ax.figbox.bounds[1]
-    cbar_ax = g.fig.add_axes([0.25, y0-0.05+kwrgs['cbar_vert'], 
+    cbar_ax = g.fig.add_axes([0.25, -y0 + 0.1*y0, 
                                   0.5, cbar_hght], label='cbar')
 
     if 'clim' in kwrgs.keys(): #adjust the range of colors shown in cbar
@@ -766,10 +931,11 @@ def finalfigure(xrdata, file_name, kwrgs):
             cbar.cmap.set_under(cbar.to_rgba(kwrgs['vmin']))
     cbar.set_label(xrdata.attrs['units'], fontsize=16)
     cbar.ax.tick_params(labelsize=14)
+    
     #%%
     if kwrgs['savefig'] != False:
-        g.fig.savefig(file_name ,dpi=250, frameon=True)
-    
+        g.fig.savefig(file_name ,dpi=250, bbox_inches='tight')
+    #%%
     return
 
 

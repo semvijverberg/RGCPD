@@ -252,13 +252,12 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
     else:
         same_freq = True
 #    same_len_yr = RV.dates.size == ex[ex['vars'][0][0]].dates.size
-#%%
+
     if same_freq == False:
         print('tfreq of imported 1d timeseries is unequal to the '
               'desired ex[tfreq]\nWill convert tfreq')
         RV.RVfullts, RV.dates, RV.origdates = time_mean_bins(RV.RVfullts, ex)
 
-    #%%
 
     if same_freq == True:
 
@@ -313,15 +312,18 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
     RV_name_range = '{}{}-{}{}_'.format(RV.datesRV[0].day, months[RV.datesRV.month[0]],
                      RV.datesRV[-1].day, months[RV.datesRV.month[-1]] )
 
-    print('\nCreating a folder for the specific spatial mask and RV period')
+    info_lags = 'lag{}-{}'.format(ex['lag_min'], ex['lag_max'])
+                                                    
+    # Creating a folder for the specific spatial mask, RV period and traintest set
     if importRV_1dts == True:
-        i = len(RV_name_range)
-        ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range +
-                                      ex['RV_name'])
+        ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range + \
+                                          info_lags )
+                                    
 
     elif importRV_1dts == False:
         ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range +
-                                      ex['spatial_mask_naming'] )
+                                      ex['spatial_mask_naming'] + info_lags )
+    
     RV.RV_name_range = RV_name_range
     #%%
     return RV, ex
@@ -758,9 +760,53 @@ def selbox_to_1dts(cls, latlonbox):
 def detrend1D(da):
     import scipy.signal as sps
     import xarray as xr
-    dao = xr.DataArray(sps.detrend(da),
-                            dims=da.dims, coords=da.coords)
+    dates = pd.to_datetime(da.time.values)
+    stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
+    
+    if (stepsyr.day== 1).all() == True or int(da.time.size / 365) >= 120:
+        print('\nHandling time series longer then 120 day or monthly data, no smoothening applied')
+        data_smooth = da.values
+
+    elif (stepsyr.day== 1).all() == False and int(da.time.size / 365) < 120:
+        window_s = min(25,int(stepsyr.size / 12))
+        print('Performing {} day rolling mean with gaussian window (std={})'
+              ' to get better interannual statistics'.format(window_s, window_s/2))
+
+        print('using absolute anomalies w.r.t. climatology of '
+              'smoothed concurrent day accross years')
+        data_smooth =  rolling_mean_np(da.values, window_s)
+    output = np.empty( (da.time.size), dtype='float32' )
+    for i in range(stepsyr.size):
+        sliceyr = np.arange(i, da.time.size, stepsyr.size)
+        arr_oneday = da.isel(time=sliceyr)
+        arr_oneday_smooth = data_smooth[sliceyr]
+        
+        detrended_sm = xr.DataArray(sps.detrend(arr_oneday_smooth),
+                            dims=arr_oneday.dims, 
+                            coords=arr_oneday.coords)
+        # subtract trend smoothened signal of arr_oneday values
+        trend = (arr_oneday_smooth - detrended_sm)- np.mean(arr_oneday_smooth, 0)
+        detrended = arr_oneday - trend
+        output[i::stepsyr.size] = detrended
+    dao = xr.DataArray(output,
+                            dims=da.dims, 
+                            coords=da.coords)
     return dao
+
+
+def rolling_mean_np(arr, win, center=True, plot=False):
+    import scipy.signal.windows as spwin
+    if plot == True:
+        plt.plot(range(-int(win/2),+int(win/2)+1), spwin.gaussian(win, win/2))
+        plt.title('window used for rolling mean')
+        plt.xlabel('timesteps')
+    df = pd.DataFrame(data=arr.reshape( (arr.shape[0], arr[0].size)))
+
+    rollmean = df.rolling(win, center=center, min_periods=1,
+                          win_type='gaussian').mean(std=win/2.)
+
+    return rollmean.values.reshape( (arr.shape))
+
 
 def regrid_xarray(xarray_in, to_grid_res, periodic=True):
     #%%
@@ -834,15 +880,15 @@ def rand_traintest_years(RV_ts, precur_arr, ex):
             ex['seed'] = ex['seed']
         
         rng = np.random.RandomState(ex['seed'])
-        ex['n_conv'] = int(ex['method'][6:8])
+        ex['n_spl'] = int(ex['method'][6:8])
     elif ex['method'][:5] == 'leave': 
-        ex['n_conv'] = int(ex['n_yrs'] / int(ex['method'].split('_')[1]) )
+        ex['n_spl'] = int(ex['n_yrs'] / int(ex['method'].split('_')[1]) )
         iterate = np.arange(0, ex['n_yrs']+1E-9, 
                             int(ex['method'].split('_')[1]), dtype=int )
-    elif ex['method'] == 'no_train_test_split': ex['n_conv'] = 1
+    elif ex['method'] == 'no_train_test_split': ex['n_spl'] = 1
     
     traintest = []
-    for s in range(ex['n_conv']):
+    for s in range(ex['n_spl']):
 
         # conditions failed initally assumed True
         a_conditions_failed = True
@@ -854,10 +900,10 @@ def rand_traintest_years(RV_ts, precur_arr, ex):
     
     
             if ex['method'][:6] == 'random':
-                ex['n_conv'] = int(ex['method'][6:8])
+                ex['n_spl'] = int(ex['method'][6:8])
     
                 
-                size_test  = int(np.round(ex['n_yrs'] / ex['n_conv']))
+                size_test  = int(np.round(ex['n_yrs'] / ex['n_spl']))
                 size_train = int(ex['n_yrs'] - size_test)
     
                 ex['leave_n_years_out'] = size_test
@@ -897,7 +943,7 @@ def rand_traintest_years(RV_ts, precur_arr, ex):
                 
             # test duplicates
             a_conditions_failed = np.logical_and((len(set(rand_test_years)) != ex['leave_n_years_out']),
-                                     s != ex['n_conv']-1)
+                                     s != ex['n_spl']-1)
             # Update random years to be selected as test years:
         #        initial_years = [yr for yr in initial_years if yr not in random_test_years]
             rand_train_years = [yr for yr in ex['all_yrs'] if yr not in rand_test_years]
@@ -927,105 +973,8 @@ def rand_traintest_years(RV_ts, precur_arr, ex):
                             'RV_test'           : RV_test,
                             'Prec_test_idx'     : Prec_test_idx} )
         traintest.append(traintest_)
+        ex['traintest'] = traintest
 
     #%%
     return traintest, ex
 
-
-#
-#def rand_traintest_years(RV_ts, precur_arr, ex):
-#    #%%
-#  
-#    
-#    ex['tested_yrs'] = [] ; ex['n_events'] = []
-#    ex['all_yrs'] = list(np.unique(RV_ts.time.dt.year))
-#
-#
-#    if ex['method'][:6] == 'random':
-#        if 'seed' not in ex.keys():
-#            ex['seed'] = 30 # control reproducibility train/test split
-#        else:
-#            ex['seed'] = ex['seed']
-#        if ex['n'] == 0: ex['seed_run'] = ex['seed']
-#        rng = np.random.RandomState(ex['seed_run'])
-#    
-#    
-#    # conditions failed initally assumed True
-#    a_conditions_failed = True
-#    count = 0
-#
-#    while a_conditions_failed == True:
-#        count +=1
-#        a_conditions_failed = False
-#
-#
-#        if ex['method'][:6] == 'random':
-#            ex['n_conv'] = int(ex['method'][6:8])
-#
-#            
-#            size_test  = int(np.round(ex['n_yrs'] / ex['n_conv']))
-#            size_train = int(ex['n_yrs'] - size_test)
-#
-#            ex['leave_n_years_out'] = size_test
-#            yrs_to_draw_sample = [yr for yr in ex['all_yrs'] if yr not in flatten(ex['tested_yrs'])]
-#            if (len(yrs_to_draw_sample)) >= size_test:
-#                rand_test_years = rng.choice(yrs_to_draw_sample, ex['leave_n_years_out'], replace=False)
-#            # if last test sample will be too small for next iteration, add test yrs to current test yrs
-#            if (len(yrs_to_draw_sample)) < size_test:
-#                rand_test_years = yrs_to_draw_sample  
-#            check_double_test = [yr for yr in rand_test_years if yr in flatten( ex['tested_yrs'] )]
-#            if len(check_double_test) != 0 :
-#                a_conditions_failed = True
-#                print('test year drawn twice, redoing sampling')
-#                
-#            
-#        elif ex['method'] == 'iter':
-#            ex['leave_n_years_out'] = 1
-#            if ex['n'] >= ex['n_yrs']:
-#                n = ex['n'] - ex['n_yrs']
-#            else:
-#                n = ex['n']
-#            rand_test_years = [ex['all_yrs'][n]]
-#            
-#        elif ex['method'][:5] == 'split':
-#            size_train = int(np.percentile(range(len(ex['all_yrs'])), int(ex['method'][5:])))
-#            size_test  = len(ex['all_yrs']) - size_train
-#            ex['leave_n_years_out'] = size_test
-#            print('Using {} years to train and {} to test'.format(size_train, size_test))
-#            rand_test_years = ex['all_yrs'][-size_test:]
-#    
-#        
-#            
-#        # test duplicates
-#        a_conditions_failed = np.logical_and((len(set(rand_test_years)) != ex['leave_n_years_out']),
-#                                             ex['n'] != ex['n_conv']-1)
-#        # Update random years to be selected as test years:
-#    #        initial_years = [yr for yr in initial_years if yr not in random_test_years]
-#        rand_train_years = [yr for yr in ex['all_yrs'] if yr not in rand_test_years]
-#        
-#
-#        full_years  = list(precur_arr.time.dt.year.values)
-#        RV_years  = list(RV_ts.time.dt.year.values)
-#        
-#        Prec_train_idx = [i for i in range(len(full_years)) if full_years[i] in rand_train_years]
-#        RV_train_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_train_years]
-#        
-#        Prec_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
-#        RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
-#        
-#        
-#
-#        RV_train = RV_ts.isel(time=RV_train_idx)
-#        
-#        RV_test = RV_ts.isel(time=RV_test_idx)
-#        
-#    test_years = np.unique(RV_test.time.dt.year)
-#    
-#    ex['tested_yrs'].append(test_years)
-#    
-#    train = dict( {    'RV'             : RV_train,
-#                       'Prec_train_idx' : Prec_train_idx})
-#    test = dict( {     'RV'             : RV_test,
-#                       'Prec_test_idx'  : Prec_test_idx})
-#    #%%
-#    return train, test, ex

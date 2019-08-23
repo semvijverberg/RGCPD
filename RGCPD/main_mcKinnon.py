@@ -86,7 +86,7 @@ elif ex['dataset'] == 'era5':
 # Option 1:
 ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf = False
+import_precursor_ncdf = True
 # Option 3:
 import_RV_ncdf = False
 # Option 4:
@@ -121,12 +121,12 @@ if ECMWFdownload == True:
 #    ex['vars']      =       [['t_10hpa'],['130.128'],
 #                             ['pl'],['10'] ]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
-    ex['vars']      =       [['sst'],
-                               ['sea_surface_temperature'],
-                               ['sfc'], [0]]
-#    ex['vars']      =       [['sst', 'u500hpa'],
-#                               ['sea_surface_temperature', 'u_component_of_wind'],
-#                               ['sfc', 'pl'], [0,500]]
+#    ex['vars']      =       [['sst'],
+#                               ['sea_surface_temperature'],
+#                               ['sfc'], [0]]
+    ex['vars']      =       [['sst', 'u500hpa'],
+                               ['sea_surface_temperature', 'u_component_of_wind'],
+                               ['sfc', 'pl'], [0,500]]
 #    ex['vars']      =       [['v'], ['138.128'],['pl'], ['250']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
 #                            ['167.128', '34.128', '131.128', '130.128'],
@@ -237,8 +237,8 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [14] #[2,4,7,14,21,35] #[1,2,4,7,14,21,35]
-for freq in ex['tfreqlist' ]:
+ex['tfreqlist'] = [10] #[2,4,7,14,21,35] #[1,2,4,7,14,21,35]
+for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
 #    lag_min = int(np.timedelta64(5, 'D') / np.timedelta64(ex['tfreq'], 'D'))
@@ -281,25 +281,18 @@ for freq in ex['tfreqlist' ]:
     RV, ex = functions_pp.RV_spatial_temporal_mask(ex, RV, importRV_1dts)
     ex[ex['RV_name']] = RV
 
-    # create this subfolder in ex['path_exp'] for RV_period and spatial mask
-    ex['path_exp_periodmask'] =  ex['path_exp_periodmask'] + '_lag{}-{}'.format(
-                                                    ex['lag_min'], ex['lag_max'])
-    if os.path.isdir(ex['path_exp_periodmask']) != True : os.makedirs(ex['path_exp_periodmask'])
-    filename_exp_design1 = os.path.join(ex['path_exp_periodmask'], 'input_dic_part_1.npy')
-    print('\n\t**\n\tOkay, end of Part 1!\n\t**' )
-    print('\nNext time, you can choose to start with part 2 by loading in '
-          'part 1 settings from dictionary \'filename_exp_design1\'\n')
-    np.save(filename_exp_design1, ex)
+
+
+    print('\n\t**\n\tOkay, end of pre-processing climate data!\n\t**' )
     #%%
     # *****************************************************************************
     # *****************************************************************************
     # Part 2 Configure RGCPD/Tigramite settings
     # *****************************************************************************
     # *****************************************************************************
-    ex = np.load(filename_exp_design1, encoding='latin1').item()
     ex['tigr_tau_max'] = 7
     ex['max_comb_actors'] = 10
-    ex['alpha'] = 0.05# set significnace level for correlation maps
+    ex['alpha'] = 0.01# set significnace level for correlation maps
     ex['alpha_fdr'] = 2*ex['alpha'] # conservative significance level
     ex['FDR_control'] = True # Do you want to use the conservative alpha_fdr or normal alpha?
     # If your pp data is not a full year, there is Maximum meaningful lag given by:
@@ -318,9 +311,9 @@ for freq in ex['tfreqlist' ]:
     # =============================================================================
     # settings precursor region selection
     # =============================================================================   
-    ex['distance_eps'] = 1500 # km apart from a core sample, standard = 1500 km
+    ex['distance_eps'] = 1000 # proportional to km apart from a core sample, standard = 1000 km
     ex['min_area_in_degrees2'] = 4 # minimal size to become precursor region (core sample)
-    
+    ex['group_split'] = 'together' # choose 'together' or 'seperate'
     # =============================================================================
     # Train test split
     # =============================================================================
@@ -335,7 +328,7 @@ for freq in ex['tfreqlist' ]:
     #%%
     # *****************************************************************************
     # *****************************************************************************
-    # Part 3 Start your experiment by running RGCPD python script with settings
+    # Part 3 Run RGCPD python script with settings
     # *****************************************************************************
     # *****************************************************************************
     # =============================================================================
@@ -343,23 +336,24 @@ for freq in ex['tfreqlist' ]:
     # =============================================================================
 
     ex, outdic_actors = wrapper_RGCPD_tig.calculate_corr_maps(ex, map_proj)
+    
+    #%%
     # calculate precursor timeseries
     outdic_actors = wrapper_RGCPD_tig.get_prec_ts(outdic_actors, ex)
-    #%%
+    
     if ex['n_tot_regs'] != 0:
         
         # =============================================================================
         # Run tigramite to extract causal precursors
         # =============================================================================
-    
-        df = wrapper_RGCPD_tig.run_PCMCI(ex, outdic_actors, map_proj)
+        df_sum, df_data = wrapper_RGCPD_tig.run_PCMCI_CV(ex, outdic_actors, map_proj)
         
         # =============================================================================
         # Plot final results
         # =============================================================================
         #%%
-        ds = wrapper_RGCPD_tig.causal_reg_to_xarray(ex, df, outdic_actors)
-        wrapper_RGCPD_tig.plotting_per_variable(ds, df, map_proj, ex)
+        ds = wrapper_RGCPD_tig.causal_reg_to_xarray(ex, df_sum, outdic_actors)
+        wrapper_RGCPD_tig.plotting_per_variable(ds, df_sum, map_proj, ex)
 #        wrapper_RGCPD_tig.plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj)
         print("--- {:.2} minutes ---".format((time.time() - start_time)/60))
         #%%
