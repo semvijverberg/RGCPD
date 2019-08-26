@@ -768,7 +768,7 @@ def detrend1D(da):
         data_smooth = da.values
 
     elif (stepsyr.day== 1).all() == False and int(da.time.size / 365) < 120:
-        window_s = min(25,int(stepsyr.size / 12))
+        window_s = max(min(25,int(stepsyr.size / 12)), 1)
         print('Performing {} day rolling mean with gaussian window (std={})'
               ' to get better interannual statistics'.format(window_s, window_s/2))
 

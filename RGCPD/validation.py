@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn import metrics
+import seaborn as sns
 from itertools import chain
 flatten = lambda l: list(chain.from_iterable(l))
 
@@ -19,14 +20,20 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksiz
     
     y = RV.RV_bin.values
     lags = y_pred_all.columns
+    cont_pred = np.unique(y_pred_all).size > 5
+#    class_pred = np.unique(y_pred_all).size < 5
     
-    df_auc = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
-                          index=['AUC', 'con_low', 'con_high'])
+    if cont_pred:
+        df_auc = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
+                              index=['AUC', 'con_low', 'con_high'])
+        
+        df_brier = pd.DataFrame(data=np.zeros( (7, len(lags)) ), columns=[lags],
+                              index=['BSS', 'con_low', 'con_high', 'Brier', 'con_low', 'con_high', 'Brier_clim'])
+    
+
     df_KSS = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
                           index=['KSS', 'con_low', 'con_high'])
     
-    df_brier = pd.DataFrame(data=np.zeros( (7, len(lags)) ), columns=[lags],
-                          index=['BSS', 'BSS_low', 'BSS_high', 'Brier', 'con_low', 'con_high', 'Brier_clim'])
     
     df_prec  = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
                           index=['prec', 'con_low', 'con_high'])
@@ -35,40 +42,75 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksiz
                           index=['acc', 'con_low', 'con_high'])
     
     
-    
     for lag in lags:
         y_pred = y_pred_all[lag].values
 
         metrics_dict = metrics_sklearn(
                     y, y_pred, y_pred_c.values,
                     alpha=alpha, n_boot=n_boot, blocksize=blocksize)
-        # AUC
-        AUC_score, conf_lower, conf_upper, sorted_AUC = metrics_dict['AUC']
-        df_auc[lag] = (AUC_score, conf_lower, conf_upper) 
+        if cont_pred:
+            # AUC
+            AUC_score, conf_lower, conf_upper, sorted_AUC = metrics_dict['AUC']
+            df_auc[lag] = (AUC_score, conf_lower, conf_upper) 
+            # Brier score
+            brier_score, brier_clim, ci_low_brier, ci_high_brier, sorted_briers = metrics_dict['brier']
+            BSS = (brier_clim - brier_score) / brier_clim
+            BSS_low = (brier_clim - ci_high_brier) / brier_clim    
+            BSS_high = (brier_clim - ci_low_brier) / brier_clim    
+            df_brier[lag] = (BSS, BSS_low, BSS_high, 
+                            brier_score, ci_low_brier, ci_high_brier, brier_clim)
         # HKSS
         KSS_score, ci_low_KSS, ci_high_KSS, sorted_KSSs = metrics_dict['KSS']
         df_KSS[lag] = (KSS_score, ci_low_KSS, ci_high_KSS)
-        # Brier score
-        brier_score, brier_clim, ci_low_brier, ci_high_brier, sorted_briers = metrics_dict['brier']
-        BSS = (brier_clim - brier_score) / brier_clim
-        BSS_low = (brier_clim - ci_high_brier) / brier_clim    
-        BSS_high = (brier_clim - ci_low_brier) / brier_clim    
-        df_brier[lag] = (BSS, BSS_low, BSS_high, 
-                        brier_score, ci_low_brier, ci_high_brier, brier_clim)
         # Precision
         prec, ci_low_prec, ci_high_prec, sorted_precs = metrics_dict['prec']
         df_prec[lag] = (prec, ci_low_prec, ci_high_prec)
         # Accuracy
         acc, ci_low_acc, ci_high_acc, sorted_accs = metrics_dict['acc']
-        df_acc[lag] = (acc, ci_low_prec, ci_high_prec)
-        
-    print("ROC area: {:0.3f}".format( float(df_auc.iloc[0][0]) ))
-    print("BSS     : {:0.3f}".format( float(df_brier.iloc[0][0]) ))
+        df_acc[lag] = (acc, ci_low_acc, ci_high_acc)
+    
+    if cont_pred:
+        df_valid = pd.concat([df_brier, df_auc, df_KSS, df_prec, df_acc], 
+                         keys=['BSS', 'AUC',  'KSS', 'prec', 'acc'])
+        print("ROC area: {:0.3f}".format( float(df_auc.iloc[0][0]) ))
+        print("BSS     : {:0.3f}".format( float(df_brier.iloc[0][0]) ))
+    else:
+        df_valid = pd.concat([df_KSS, df_prec, df_acc], 
+                         keys=['KSS', 'prec', 'acc'])
     print("prec    : {:0.3f}".format( float(df_prec.iloc[0][0]) ))
     print("acc    : {:0.3f}".format( float(df_acc.iloc[0][0]) ))
-    #%%
-    return df_auc, df_KSS, df_brier, metrics_dict
+    
 
+    #%%
+    return df_valid, metrics_dict
+
+
+def get_metrics_bin(y_true, y_pred, t=None):
+    '''
+    y_true should be classes
+    if t == None, y_pred is already classes
+    else t (threshold) is used to make binary ts
+    '''
+    if t != None:
+        if t < 1:
+            t = 100*t
+        else:
+            t = t
+        y_pred_b = np.array(y_pred > np.percentile(y_pred, t),dtype=int)
+    else:
+        y_pred_b = y_pred
+    prec = metrics.precision_score(y_true, y_pred_b)
+    recall = metrics.recall_score(y_true, y_pred_b)
+    #        cm = metrics.confusion_matrix(y_true,  y_pred_b_lags[l])
+    tn, fp, fn, tp = metrics.confusion_matrix(y_true, y_pred_b).ravel()
+    FPR = fp / (fp + tn)
+    SP = tn / (tn + fp)
+    Acc  = metrics.accuracy_score(y_true, y_pred_b)
+    f1  = metrics.f1_score(y_true, y_pred_b)
+    # Hansen Kuiper score (TPR - FPR): 
+    tpr = tp / (tp+fn) ; fpr = fp / (fp+tn)
+    KSS_score = tpr - fpr
+    return prec, recall, FPR, SP, Acc, f1, KSS_score
 
 def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle=0):
     #%%                    
@@ -99,25 +141,22 @@ def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle
         for t in thresholds:
             y_pred = y_pred_all[lag].values
             y_pred_b = np.array(y_pred > np.percentile(y_pred, 100*t),dtype=int)
-            prec_f = metrics.precision_score(y_true, y_pred_b)
-            recall_f = metrics.recall_score(y_true, y_pred_b)
-    #        cm = metrics.confusion_matrix(y_true,  y_pred_b_lags[l])
-            tn, fp, fn, tp = metrics.confusion_matrix(y_true, y_pred_b).ravel()
-            FPR_f = fp / (fp + tn)
-            SP_f = tn / (tn + fp)
-            Acc_f = metrics.accuracy_score(y_true, y_pred_b)
-            f1_f = metrics.f1_score(y_true, y_pred_b)
+           
+            
+            out = get_metrics_bin(y_true, y_pred_b, t=None)
+            (prec_f, recall_f, FPR_f, SP_f, Acc_f, f1_f, KSS) = out
             # shuffle the predictions 
             prec = [] ; recall = [] ; FPR = [] ; SP = [] ; Acc = [] ; f1 = []
             for i in range(n_shuffle):
                 np.random.shuffle(y_pred_b); 
-                prec.append(metrics.precision_score(y_true, y_pred_b))
-                recall.append(metrics.recall_score(y_true, y_pred_b))
-                tn, fp, fn, tp = metrics.confusion_matrix(y_true, y_pred_b).ravel()
-                FPR.append(fp / (fp + tn))
-                SP.append(tn / (tn + fp))
-                Acc.append(metrics.accuracy_score(y_true, y_pred_b))
-                f1.append(metrics.f1_score(y_true, y_pred_b))
+                out = get_metrics_bin(y_true, y_pred_b, t=None)
+                (prec_s, recall_s, FPR_s, SP_s, Acc_s, f1_s, KSS) = out
+                prec.append(prec_s)
+                recall.append(recall_s)
+                FPR.append(FPR_s)
+                SP.append(SP_s)
+                Acc.append(Acc_s)
+                f1.append(f1_s)
             
             if n_shuffle > 0:
                 precision_  = [prec_f, np.mean(prec),
@@ -188,35 +227,35 @@ def get_bstrap_size(ts, max_lag=200, n=1, plot=True):
     cutoff = where[np.where(n_of_times == n)[0][0] ]
     return cutoff
 
+
 def metrics_sklearn(y_true, y_pred, y_pred_c, alpha=0.05, n_boot=5, blocksize=1):
 #    y_true, y_pred, y_pred_c = y_true_c, ts_logit_c, y_pred_c_c
     #%%
 
     y_true = np.array(y_true).squeeze()
-    
+    cont_pred = np.unique(y_pred).size > 5
     metrics_dict = {}
-    AUC_score = metrics.roc_auc_score(y_true, y_pred)
 
-    fpr, tpr, thresholds = metrics.roc_curve(y_true, y_pred)
-    threshold_clim_events = np.sort(y_pred)[::-1][y_true[y_true>0.5].size]
-    
-    KSS_score = get_KSS_clim(y_true, y_pred, threshold_clim_events)
-    
     # binary metrics for clim prevailance
     clim_prev = 100 * np.round((1-y_true[y_true==1.].size / y_true.size),2)
     y_pred_b = y_pred_b = np.array(y_pred > np.percentile(y_pred, clim_prev),dtype=int)
     
+    out = get_metrics_bin(y_true, y_pred, t=clim_prev)
+    (prec, recall, FPR, SP, Acc, f1, KSS_score) = out
     prec = metrics.precision_score(y_true, y_pred_b)
     acc = metrics.accuracy_score(y_true, y_pred_b)
 
-    # convert y_pred to fake probabilities if spatcov is given
-    if y_pred.max() > 1 or y_pred.min() < 0: 
-        y_pred = (y_pred+abs(y_pred.min()))/( y_pred.max()+abs(y_pred.min()) )
-    else:
-        y_pred = y_pred
+    if cont_pred:
+        AUC_score = metrics.roc_auc_score(y_true, y_pred)
+        fpr, tpr, thresholds = metrics.roc_curve(y_true, y_pred_b)
+        # convert y_pred to fake probabilities if spatcov is given
+        if y_pred.max() > 1 or y_pred.min() < 0: 
+            y_pred = (y_pred+abs(y_pred.min()))/( y_pred.max()+abs(y_pred.min()) )
+        else:
+            y_pred = y_pred
         
-    brier_score = metrics.brier_score_loss(y_true, y_pred)
-    brier_score_clim = metrics.brier_score_loss(y_true, y_pred_c)
+        brier_score = metrics.brier_score_loss(y_true, y_pred)
+        brier_score_clim = metrics.brier_score_loss(y_true, y_pred_c)
     
     rng_seed = 42  # control reproducibility
     boots_AUC = []
@@ -243,17 +282,21 @@ def metrics_sklearn(y_true, y_pred, y_pred_c, alpha=0.05, n_boot=5, blocksize=1)
             # We need at least one positive and one negative sample for ROC AUC
             # to be defined: reject the sample
             continue
-        score_AUC = metrics.roc_auc_score(y_true[indices], y_pred[indices])
-        score_KSS = get_KSS_clim(y_true[indices], y_pred[indices], threshold_clim_events)
-        score_brier = metrics.brier_score_loss(y_true[indices], y_pred[indices])
-        score_prec = metrics.precision_score(y_true[indices], y_pred_b[indices])
-        score_acc = metrics.accuracy_score(y_true[indices], y_pred_b[indices])
+
+        out = get_metrics_bin(y_true[indices], y_pred[indices], t=clim_prev)
+        (score_prec, recall, FPR, SP, score_acc, f1, score_KSS) = out
+
         
-        boots_AUC.append(score_AUC)
-        boots_KSS.append(score_KSS)
-        boots_brier.append(score_brier)
+        if cont_pred:
+            score_AUC = metrics.roc_auc_score(y_true[indices], y_pred[indices])
+            score_brier = metrics.brier_score_loss(y_true[indices], y_pred[indices])    
+
+        if cont_pred:
+            boots_AUC.append(score_AUC)
+            boots_brier.append(score_brier)
         boots_prec.append(score_prec)
         boots_acc.append(score_acc)
+        boots_KSS.append(score_KSS)
 #        print("Bootstrap #{} ROC area: {:0.3f}".format(i + 1, score))
 
     # Computing the lower and upper bound of the 90% confidence interval
@@ -267,34 +310,38 @@ def metrics_sklearn(y_true, y_pred, y_pred_c, alpha=0.05, n_boot=5, blocksize=1)
         return ci_low, ci_high, sorted_scores
     
     if len(boots_AUC) != 0:
-        ci_low_AUC, ci_high_AUC, sorted_AUCs = get_ci(boots_AUC, alpha)
+        if cont_pred:
+            ci_low_AUC, ci_high_AUC, sorted_AUCs = get_ci(boots_AUC, alpha)
         
+            ci_low_brier, ci_high_brier, sorted_briers = get_ci(boots_brier, alpha)
+
         ci_low_KSS, ci_high_KSS, sorted_KSSs = get_ci(boots_KSS, alpha)
-        
-        ci_low_brier, ci_high_brier, sorted_briers = get_ci(boots_brier, alpha)
-        
+    
         ci_low_prec, ci_high_prec, sorted_precs = get_ci(boots_prec, alpha)
         
         ci_low_acc, ci_high_acc, sorted_accs = get_ci(boots_acc, alpha)
         
         
     else:
-        ci_low_AUC, ci_high_AUC, sorted_AUCs = (AUC_score, AUC_score, [AUC_score])
+        if cont_pred:
+            ci_low_AUC, ci_high_AUC, sorted_AUCs = (AUC_score, AUC_score, [AUC_score])
+        
+            ci_low_brier, ci_high_brier, sorted_briers = (brier_score, brier_score, [brier_score])
         
         ci_low_KSS, ci_high_KSS, sorted_KSSs = (KSS_score, KSS_score, [KSS_score])
-        
-        ci_low_brier, ci_high_brier, sorted_briers = (brier_score, brier_score, [brier_score])
         
         ci_low_prec, ci_high_prec, sorted_precs = (prec, prec, [prec])
         
         ci_low_acc, ci_high_acc, sorted_accs = (acc, acc, [acc])
-   
-    metrics_dict['AUC'] = (AUC_score, ci_low_AUC, ci_high_AUC, sorted_AUCs)
+    
+    if cont_pred:
+        metrics_dict['AUC'] = (AUC_score, ci_low_AUC, ci_high_AUC, sorted_AUCs)
+        metrics_dict['brier'] = (brier_score, brier_score_clim, ci_low_brier, ci_high_brier, sorted_briers)
+        metrics_dict['fpr_tpr_thres'] = fpr, tpr, thresholds
     metrics_dict['KSS'] = (KSS_score, ci_low_KSS, ci_high_KSS, sorted_KSSs)
-    metrics_dict['brier'] = (brier_score, brier_score_clim, ci_low_brier, ci_high_brier, sorted_briers)
     metrics_dict['prec'] = (prec, ci_low_prec, ci_high_prec, sorted_precs)
     metrics_dict['acc'] = (acc, ci_low_acc, ci_high_acc, sorted_accs)
-    metrics_dict['fpr_tpr_thres'] = fpr, tpr, thresholds
+    
 #    print("Confidence interval for the score: [{:0.3f} - {:0.3}]".format(
 #        confidence_lower, confidence_upper))
     #%%
@@ -305,3 +352,28 @@ def get_KSS_clim(y_true, y_pred, threshold_clim_events):
     idx_clim_events = np.argmin(abs(thresholds[::-1] - threshold_clim_events))
     KSS_score = tpr[idx_clim_events] - fpr[idx_clim_events]
     return KSS_score 
+
+
+def valid_figures(dict_datasets, met=['AUC', 'BSS', 'prec', 'Rel. Curve']):
+    #%%
+    datasets = list(dict_datasets.keys())
+    models   = list(dict_datasets[datasets[0]].keys())
+    lags     = list(dict_datasets[datasets[0]][models[0]][2].columns)
+
+    
+    grid_data = np.zeros( (2, len(met)), dtype=str)
+    grid_data = np.stack( [np.repeat(met, len(datasets)), 
+                           np.repeat(datasets, len(met))])
+
+    df = pd.DataFrame(grid_data.T, columns=['met','dataset'])
+    g = sns.FacetGrid(df, row='met', col='dataset', size=3, aspect=1.4,
+                      sharex=False,  sharey=False)
+    
+    for col, dataset in enumerate(datasets):
+        for row, metric in enumerate(met):
+            ax = g.axes[row,col]
+            for m, model in enumerate(models):
+                df_valid, RV, y_pred_all = dict_datasets[dataset][model]
+                
+                
+#                df_metric = df_valid[metric]

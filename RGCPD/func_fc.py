@@ -8,13 +8,100 @@ Created on Thu Aug 22 12:54:45 2019
 import h5py
 import pandas as pd
 import numpy as np
-import statsmodels.formula.api as sm
-from statsmodels.api import add_constant
-from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
-from sklearn.model_selection import GridSearchCV
-from sklearn import metrics
-from sklearn.metrics import make_scorer
+import stat_models
+import validation as valid
 
+
+def forecast_and_valid(RV, df_data, keys_d, stat_model=tuple, lags=list, 
+                       n_boot=0, verbosity=0):
+    #%%
+    # do forecasting accros lags
+    splits  = df_data.index.levels[0]
+    y_pred_all = []
+    y_pred_c = []
+    c = 0
+    
+    for lag in lags:
+        
+        y_pred_l = []
+    
+        for s in splits:
+            c += 1
+            progress = int(100 * (c) / (len(splits) * len(lags)))
+            print(f"\rProgress {progress}%", end="")
+            
+            df_norm, RV_mask, TrainIsTrue = prepare_data(df_data.loc[s])
+        
+            keys = keys_d[s].copy()
+            model_name, kwrgs = stat_model
+            
+    #        dates_all = pd.to_datetime(RV.index.values)
+            
+            dates_l  = func_dates_min_lag(RV.dates_RV, lag, indays=False)[1]
+            df_norm = df_norm.loc[dates_l]
+            if lag != 0:
+                df_norm['RV_autocorr'] = RV.RVfullts.loc[dates_l]
+                keys = np.insert(keys, 0, 'RV_autocorr')
+            
+            # forecasting models
+            if model_name == 'logit':
+                prediction, model = stat_models.logit(RV, df_norm, keys=keys)
+            if model_name == 'GBR':
+                kwrgs_GBR = kwrgs
+                prediction, model = stat_models.GBR(RV, df_norm, keys, 
+                                                    kwrgs_GBR=kwrgs_GBR, 
+                                                    verbosity=verbosity)
+            if model_name == 'logit_skl':
+                kwrgs_logit = kwrgs
+                prediction, model = stat_models.logit_skl(RV, df_norm, keys, 
+                                                          kwrgs_logit=kwrgs_logit)
+            if model_name == 'GBR_logitCV':
+                kwrgs_GBR = kwrgs
+                prediction, model = stat_models.GBR_logitCV(RV, df_norm, keys, 
+                                                            kwrgs_GBR=kwrgs_GBR, 
+                                                            verbosity=verbosity)
+            if model_name == 'GBR_classes':
+                kwrgs_GBR = kwrgs
+                prediction, model = stat_models.GBR_classes(RV, df_norm, keys, 
+                                                            kwrgs_GBR=kwrgs_GBR, 
+                                                            verbosity=verbosity)
+                
+            prediction = pd.DataFrame(prediction.values, index=RV.dates_RV,
+                                      columns=[lag])
+            y_pred_l.append(prediction[(df_norm['TrainIsTrue']==False).values])  
+            
+            if lag == lags[0]:
+                # determining climatological prevailance in training data
+                y_c_mask = np.logical_and(df_norm['TrainIsTrue'].values, RV.RV_bin.squeeze().values==1)
+                y_clim_val = RV.RV_bin[y_c_mask].size / RV.RV_bin[df_norm['TrainIsTrue'].values].size
+                y_clim = RV.RV_bin[df_norm['TrainIsTrue'].values==False].copy()
+                y_clim[:] = y_clim_val
+                y_pred_c.append(y_clim)
+            
+        y_pred_l = pd.concat(y_pred_l) 
+        y_pred_l = y_pred_l.sort_index()
+        
+        if lag == lags[0]:
+            y_pred_c = pd.concat(y_pred_c) 
+            y_pred_c = y_pred_c.sort_index()
+    
+    
+        y_pred_all.append(y_pred_l)
+    y_pred_all = pd.concat(y_pred_all, axis=1) 
+    print("\n")
+    # do validation
+
+    print(f'{stat_model} ')
+
+    
+    blocksize = valid.get_bstrap_size(RV.RVfullts, plot=False)
+    out = valid.get_metrics_sklearn(RV, y_pred_all, y_pred_c, n_boot=n_boot,
+                                    blocksize=blocksize)
+    df_valid, metrics_dict = out
+    #%%
+
+    y_pred_all[1][y_pred_all[1]==1].size / RV.RV_bin[RV.RV_bin==1].size
+    return df_valid, RV, y_pred_all
 
 def load_hdf5(path_data):
     hdf = h5py.File(path_data,'r+')   
@@ -41,159 +128,7 @@ def prepare_data(df_split):
 
     return df_prec, RV_mask, TrainisTrue
 
-def logit_model(y, df_norm, keys):
-    #%%
-    '''
-    X contains all precursor data, incl train and test
-    X_train, y_train are split up by TrainIsTrue
-    Preciction is made for whole timeseries    
-    '''
-    if keys[0] == None:
-        no_data_col = ['TrainIsTrue', 'RV_mask']
-        keys = df_norm.columns
-        keys = [k for k in keys if k not in no_data_col]
-        
-    X = df_norm[keys]
-    X = add_constant(X)
-    TrainIsTrue = df_norm['TrainIsTrue']
-    
-    
-    X_train = X[TrainIsTrue]
-    y_train = y[TrainIsTrue.values] 
-    model_set = sm.Logit(y_train.values, X_train, disp=0)
-    try:
-        model = model_set.fit( disp=0, maxfun=35 )
-        prediction = model.predict(X)
-    except np.linalg.LinAlgError as err:
-        if 'Singular matrix' in str(err):
-            model = model_set.fit(method='bfgs', disp=0 )
-            prediction = model.predict(X)
-        else:
-            raise
-    except Exception as e:
-        print(e)
-        model = model_set.fit(method='bfgs', disp=0 )
-        prediction = model.predict(X)
-    #%%
-    return prediction, model
 
-def GBR(RV, df_norm, keys, kwrgs_GBR=None):
-    #%%
-    '''
-    X contains all precursor data, incl train and test
-    X_train, y_train are split up by TrainIsTrue
-    Preciction is made for whole timeseries    
-    '''
-    import warnings
-    warnings.filterwarnings("ignore", category=DeprecationWarning) 
-        
-    if kwrgs_GBR == None:
-        # use Bram settings
-        kwrgs_GBR = {'max_depth':1,
-                 'learning_rate':0.001,
-                 'n_estimators' : 1250,
-                 'max_features':'sqrt',
-                 'subsample' : 0.5}
-    
-    # find parameters for gridsearch optimization
-    kwrgs_gridsearch = {k:i for k, i in kwrgs_GBR.items() if type(i) == list}
-    # only the constant parameters are kept
-    kwrgs = kwrgs_GBR.copy()
-    [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
-    
-    X = df_norm[keys]
-    X = add_constant(X)
-    RV_ts = RV.RV_ts
-    TrainIsTrue = df_norm['TrainIsTrue']
-  
-    X_train = X[TrainIsTrue]
-    y_train = RV_ts[TrainIsTrue.values] 
-    # sample weight not yet supported by GridSearchCV (august, 2019)
-#    y_wghts = (RV.RV_bin[TrainIsTrue.values] + 1).squeeze().values
-    regressor = GradientBoostingRegressor(**kwrgs)
-
-    if len(kwrgs_gridsearch) != 0:
-        scoring   = 'r2'
-#        scoring   = 'neg_mean_squared_error'
-        regressor = GridSearchCV(regressor,
-                  param_grid=kwrgs_gridsearch,
-                  scoring=scoring, cv=5, refit=scoring, 
-                  return_train_score=False)
-        regressor.fit(X_train, y_train.values.ravel())
-        results = regressor.cv_results_
-        scores = results['mean_test_score'] / results['std_test_score']
-        improv = int(100* (min(scores)-max(scores)) / max(scores))
-        print("Hyperparam tuning led to {:}% improvement, best {:.2f}, "
-              "best params {}".format(
-                improv, regressor.best_score_, regressor.best_params_))
-    else:
-        regressor.fit(X_train, y_train.values.ravel())
-    
-
-    prediction = pd.DataFrame(regressor.predict(X), index=X.index, columns=[0])
-    prediction['TrainIsTrue'] = pd.Series(TrainIsTrue.values, index=X.index)
-    
-    logit_pred, model_logit = logit_model(RV.RV_bin, prediction, keys=[None])
-    #%%
-    return logit_pred, (model_logit, regressor)
-
-def GBC(RV, df_norm, keys, kwrgs_GBR=None):
-    #%%
-    '''
-    X contains all precursor data, incl train and test
-    X_train, y_train are split up by TrainIsTrue
-    Preciction is made for whole timeseries    
-    '''
-    import warnings
-    warnings.filterwarnings("ignore", category=DeprecationWarning) 
-        
-    if kwrgs_GBR == None:
-        # use Bram settings
-        kwrgs_GBR = {'max_depth':1,
-                 'learning_rate':0.001,
-                 'n_estimators' : 1250,
-                 'max_features':'sqrt',
-                 'subsample' : 0.5}
-    
-    # find parameters for gridsearch optimization
-    kwrgs_gridsearch = {k:i for k, i in kwrgs_GBR.items() if type(i) == list}
-    # only the constant parameters are kept
-    kwrgs = kwrgs_GBR.copy()
-    [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
-    
-    X = df_norm[keys]
-    X = add_constant(X)
-    RV_bin = RV.RV_bin
-    TrainIsTrue = df_norm['TrainIsTrue']
-  
-    X_train = X[TrainIsTrue]
-    y_train = RV_bin[TrainIsTrue.values] 
-    # sample weight not yet supported by GridSearchCV (august, 2019)
-#    y_wghts = (RV.RV_bin[TrainIsTrue.values] + 1).squeeze().values
-    regressor = GradientBoostingClassifier(**kwrgs)
-
-    if len(kwrgs_gridsearch) != 0:
-        scoring   = 'brier_score_loss'
-#        scoring   = 'neg_mean_squared_error'
-        regressor = GridSearchCV(regressor,
-                  param_grid=kwrgs_gridsearch,
-                  scoring=scoring, cv=5, refit=scoring, 
-                  return_train_score=False)
-        regressor.fit(X_train, y_train.values.ravel())
-        results = regressor.cv_results_
-        scores = results['mean_test_score'] / results['std_test_score']
-        improv = int(100* (min(scores)-max(scores)) / max(scores))
-        print("Hyperparam tuning led to {:}% improvement, best {:.2f}, "
-              "best params {}".format(
-                improv, regressor.best_score_, regressor.best_params_))
-    else:
-        regressor.fit(X_train, y_train.values.ravel())
-    
-
-    prediction = pd.DataFrame(regressor.predict(X), index=X.index, columns=[0])
-
-    #%%
-    return prediction, regressor
 
 def Ev_threshold(xarray, event_percentile):
     if event_percentile == 'std':
