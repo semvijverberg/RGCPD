@@ -51,11 +51,11 @@ def forecast_and_valid(RV, df_data, keys_d, stat_model=tuple, lags=list,
                 prediction, model = stat_models.GBR(RV, df_norm, keys, 
                                                     kwrgs_GBR=kwrgs_GBR, 
                                                     verbosity=verbosity)
-            if model_name == 'logit_skl':
+            if model_name == 'logit-CV':
                 kwrgs_logit = kwrgs
                 prediction, model = stat_models.logit_skl(RV, df_norm, keys, 
                                                           kwrgs_logit=kwrgs_logit)
-            if model_name == 'GBR_logitCV':
+            if model_name == 'GBR-logitCV':
                 kwrgs_GBR = kwrgs
                 prediction, model = stat_models.GBR_logitCV(RV, df_norm, keys, 
                                                             kwrgs_GBR=kwrgs_GBR, 
@@ -128,8 +128,23 @@ def prepare_data(df_split):
 
     return df_prec, RV_mask, TrainisTrue
 
-
-
+def get_obs_clim(RV):
+    splits = RV.TrainIsTrue.index.levels[0]
+    RV_mask_s = RV.RV_mask
+    TrainIsTrue = RV.TrainIsTrue
+    y_prob_clim = RV.RV_bin.copy()
+    y_prob_clim = y_prob_clim.rename(columns={'RV_binary':'prob_clim'})
+    for s in splits:
+        RV_train_mask = TrainIsTrue[s][RV_mask_s[s]]
+        y_b_train = RV.RV_bin[RV_train_mask]
+        y_b_test  = RV.RV_bin[RV_train_mask==False]
+        
+        clim_prevail = y_b_train.sum() / y_b_train.size
+        clim_arr = np.repeat(clim_prevail, y_b_test.size).values
+        pdseries = pd.Series(clim_arr, index=y_b_test.index)
+        y_prob_clim.loc[y_b_test.index, 'prob_clim'] = pdseries
+    return y_prob_clim
+        
 def Ev_threshold(xarray, event_percentile):
     if event_percentile == 'std':
         # binary time serie when T95 exceeds 1 std

@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 import func_fc
 import matplotlib.pyplot as plt
+import validation as valid
 
 # =============================================================================
 # load data 
@@ -79,12 +80,15 @@ def forecast_wrapper(datasets=dict, keys_d=dict, kwrgs_events=dict, stat_model_l
             self.RV_bin   = self.RV_b_full[df_data['RV_mask'][0]] 
             self.dates_all = self.RV_b_full.index
             self.dates_RV = self.RV_bin.index
+            self.TrainIsTrue = df_data['TrainIsTrue']
+            self.RV_mask = df_data['RV_mask']
+            self.prob_clim = func_fc.get_obs_clim(self)
             
     RV = RV_class(df_data, kwrgs_events)
     dict_sum = {}
     for stat_model in stat_model_l:
         name = stat_model[0]
-        df_valid, RV, y_pred_all = func_fc.forecast_and_valid(RV, df_data, keys_d, stat_model=stat_model, lags=lags, n_boot=0)
+        df_valid, RV, y_pred_all = func_fc.forecast_and_valid(RV, df_data, keys_d, stat_model=stat_model, lags=lags, n_boot=n_boot)
         dict_sum[name] = (df_valid, RV, y_pred_all)
     #%%    
     return dict_sum  
@@ -98,22 +102,22 @@ GBR_model = ('GBR',
                'max_features':'sqrt',
                'subsample' : 0.6} )
     
-logit_skl_model = ('logit_skl', { 'class_weight':{ 0:1, 1:1},
+logitCV = ('logit-CV', { 'class_weight':{ 0:1, 1:1},
                 'scoring':'brier_score_loss',
                 'penalty':'l2',
                 'solver':'lbfgs'})
     
-GBR_logitCV_model = ('GBR_logitCV', 
+GBR_logitCV = ('GBR-logitCV', 
               {'max_depth':3,
                'learning_rate':1E-3,
                'n_estimators' : 500,
                'max_features':'sqrt',
                'subsample' : 0.6} )  
     
-stat_model_l = [logit_model, GBR_model, logit_skl_model, GBR_logitCV_model]
+stat_model_l = [logitCV, GBR_logitCV]
 
 
-datasets = {'ERA-5_sm':path_data_sm, 'ERA-5 30d':path_data_30d}
+datasets = {'ERA-510d':path_data_sm, 'ERA-5 30d':path_data_30d}
 dict_datasets = {}
 for dataset, path_data in datasets.items():
     
@@ -135,7 +139,7 @@ for dataset, path_data in datasets.items():
 
     dict_datasets[dataset] = dict_sum
 
-    
+valid.valid_figures(dict_datasets, met='default')
 #for stat_model in stat_model_l:
 #    name = stat_model[0]
 #    

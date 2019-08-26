@@ -6,14 +6,39 @@ Created on Thu Aug 22 13:53:03 2019
 @author: semvijverberg
 """
 
-import h5py
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
+import matplotlib.patches as patches
 from sklearn import metrics
+from sklearn.calibration import calibration_curve
 import seaborn as sns
 from itertools import chain
 flatten = lambda l: list(chain.from_iterable(l))
+
+
+from matplotlib import cycler
+nice_colors = ['#EE6666', '#3388BB', '#9988DD',
+                 '#EECC55', '#88BB44', '#FFBBBB']
+colors_nice = cycler('color',
+                nice_colors)
+plt.rc('axes', facecolor='#E6E6E6', edgecolor='none',
+       axisbelow=True, grid=True, prop_cycle=colors_nice)
+plt.rc('grid', color='w', linestyle='solid')
+plt.rc('xtick', direction='out', color='black')
+plt.rc('ytick', direction='out', color='black')
+plt.rc('patch', edgecolor='#E6E6E6')
+plt.rc('lines', linewidth=2)
+
+mpl.rcParams['figure.figsize'] = [7.0, 5.0]
+mpl.rcParams['figure.dpi'] = 100
+mpl.rcParams['savefig.dpi'] = 600
+
+mpl.rcParams['font.size'] = 14
+mpl.rcParams['legend.fontsize'] = 'large'
+mpl.rcParams['figure.titlesize'] = 'medium'
 
 def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksize=10):
     #%%
@@ -28,7 +53,7 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksiz
                               index=['AUC', 'con_low', 'con_high'])
         
         df_brier = pd.DataFrame(data=np.zeros( (7, len(lags)) ), columns=[lags],
-                              index=['BSS', 'con_low', 'con_high', 'Brier', 'con_low', 'con_high', 'Brier_clim'])
+                              index=['BSS', 'con_low', 'con_high', 'Brier', 'br_con_low', 'br_con_high', 'Brier_clim'])
     
 
     df_KSS = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
@@ -354,12 +379,218 @@ def get_KSS_clim(y_true, y_pred, threshold_clim_events):
     return KSS_score 
 
 
-def valid_figures(dict_datasets, met=['AUC', 'BSS', 'prec', 'Rel. Curve']):
+
+
+def plot_score_lags(df_metric, metric, color, lags_tf, cv_lines=False, ax=None):
+    #%%
+
+    if ax==None:
+        print('ax == None')
+        ax = plt.subplot(111)
+
+    if metric == 'BSS':
+        y_lim = (-0.4, 0.6)
+    elif metric == 'AUC':
+        y_lim = (0,1.0)
+    elif metric == 'prec':
+        y_lim = (0,1)
+    y = np.array(df_metric.loc[metric])
+    y_min = np.array(df_metric.loc['con_low'])
+    y_max = np.array(df_metric.loc['con_high'])
+    if cv_lines == True:
+        y_cv  = [0]
+    
+
+
+    x = lags_tf
+
+    style = 'solid'
+    ax.fill_between(x, y_min, y_max, linestyle='solid', 
+                            edgecolor='black', facecolor=color, alpha=0.3)
+    ax.plot(x, y, color=color, linestyle=style, 
+                    linewidth=2, alpha=1 ) 
+    ax.scatter(x, y, color=color, linestyle=style, 
+                    linewidth=2, alpha=1 ) 
+    if cv_lines == True:
+        for f in range(y_cv.shape[1]):
+            style = 'dashed'
+            ax.plot(x, y_cv[f,:], color=color, linestyle=style, 
+                         alpha=0.35 ) 
+    ax.set_ylabel(metric) ; ax.set_xlabel('Lead time [days]')
+    ax.grid(b=True, which='major')
+#    ax.set_title('{}-day mean'.format(col))
+    if min(x) == 1:
+        xmin = 0
+    else:
+        xmin = min(x)
+    xticks = np.arange(xmin, max(x)+1E-9, 20) ; 
+    if min(x) == 1:
+        xticks[0] = 1
+    ax.set_xticks(xticks)
+    ax.set_ylim(y_lim)
+    if metric == 'BSS':
+        y_major = [-0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6]
+        ax.set_yticks(y_major, minor=False)
+        ax.set_yticklabels(y_major)
+        ax.set_yticks(np.arange(-0.6,0.6+1E-9, 0.1), minor=True)
+        ax.hlines(y=0, xmin=min(x), xmax=max(x), linewidth=1)
+    elif metric == 'AUC':
+        ax.set_yticks(np.arange(0.5,1+1E-9, 0.1), minor=True)
+        ax.hlines(y=0.5, xmin=min(x), xmax=max(x), linewidth=1)
+    
+    
+        
+#    str_freq = str(x).replace(' ' ,'')  
+    #%%
+    return ax
+
+
+def rel_curve_base(RV, lags_tf, ax=None):
+    #%%
+
+
+
+    if ax==None:    
+        print('ax == None')
+        fig, ax = plt.subplots(1, facecolor='white')
+        
+    ax.set_fc('ivory')
+    ax.grid(b=True, which = 'major', axis='both', color='black',
+            linestyle='--', alpha=0.2)
+    
+    n_bins = 5
+
+    # perfect forecast
+    perfect = np.arange(0,1+1E-9,(1/n_bins))
+    pos_text = np.array((0.6, 0.62))
+    ax.plot(perfect,perfect, color='black', alpha=0.5)
+    trans_angle = plt.gca().transData.transform_angles(np.array((45,)),
+                                                       pos_text.reshape((1, 2)))[0]
+    ax.text(pos_text[0], pos_text[1], 'perfect forecast', fontsize=14,
+                   rotation=trans_angle, rotation_mode='anchor')
+    obs_clim = RV.prob_clim.mean()[0]
+    ax.text(obs_clim+0.15, obs_clim-0.04, 'true clim', 
+                horizontalalignment='center', fontsize=14,
+         verticalalignment='center', rotation=0, rotation_mode='anchor')
+    ax.hlines(y=obs_clim, xmin=0, xmax=1, label=None, color='grey',
+              linestyle='dashed')
+    ax.vlines(x=obs_clim, ymin=0, ymax=1, label=None, color='grey', 
+              linestyle='dashed')
+    
+    # forecast clim
+#    pred_clim = y_pred_all.mean().values
+#    ax.vlines(x=np.mean(pred_clim), ymin=0, ymax=1, label=None)
+#    ax.vlines(x=np.min(pred_clim), ymin=0, ymax=1, label=None, alpha=0.2)
+#    ax.vlines(x=np.max(pred_clim), ymin=0, ymax=1, label=None, alpha=0.2)
+    ax.text(np.min(obs_clim)-0.02, obs_clim.mean()+0.25, 'True clim', 
+            horizontalalignment='center', fontsize=14,
+     verticalalignment='center', rotation=90, rotation_mode='anchor')
+    # resolution = reliability line
+    BSS_clim_ref = perfect - obs_clim
+    dist_perf = (BSS_clim_ref / 2.) + obs_clim
+    x = np.arange(0,1+1E-9,1/n_bins)
+    ax.plot(x, dist_perf, c='grey')
+    def get_angle_xy(x, y):
+        import math
+        dy = np.mean(dist_perf[1:] - dist_perf[:-1])
+        dx = np.mean(x[1:] - x[:-1])
+        angle = np.rad2deg(math.atan(dy/dx))
+        return angle
+    angle = get_angle_xy(x, dist_perf)
+    pos_text = (x[int(4/n_bins)], dist_perf[int(2/n_bins)]+0.04)
+    trans_angle = plt.gca().transData.transform_angles(np.array((angle,)),
+                                      np.array(pos_text).reshape((1, 2)))[0]
+#    ax.text(pos_text[0], pos_text[1], 'resolution=reliability', 
+#            horizontalalignment='center', fontsize=14,
+#     verticalalignment='center', rotation=trans_angle, rotation_mode='anchor')
+    # BSS > 0 ares
+    ax.fill_between(x, dist_perf, perfect, color='grey', alpha=0.5) 
+    ax.fill_betweenx(perfect, x, np.repeat(obs_clim, x.size), 
+                    color='grey', alpha=0.5) 
+    # Better than random
+    ax.fill_between(x, dist_perf, np.repeat(obs_clim, x.size), color='grey', alpha=0.2) 
+    
+    ax.set_ylabel('Fraction of Positives')
+    ax.set_xlabel('Mean Predicted Value')
+    #%%
+    return ax, n_bins
+    #%%
+def rel_curve(RV, y_pred_all, color, lags_tf, n_bins, mean_lags=True, ax=None):
+    #%%
+    
+    strategy = 'uniform' # 'quantile' or 'uniform'
+    fop = [] ; mpv = []
+    for l, lag in enumerate(lags_tf):
+        fraction_of_positives, mean_predicted_value = calibration_curve(RV.RV_bin, y_pred_all[l], 
+                                                                       n_bins=n_bins, strategy=strategy)
+        fop.append(fraction_of_positives)
+        mpv.append(mean_predicted_value)
+    fop = np.array(fop)
+    mpv = np.array(mpv)
+    if len(fop.shape) == 2:
+        # al bins are present, we can take a mean over lags
+        # plot forecast
+        mean_mpv = np.mean(mpv, 0) ; mean_fop = np.mean(fop, 0)
+        fop_std = np.std(fop, 0)
+    else:
+        bins = np.arange(0,1+1E-9,1/n_bins)
+        b_prev = 0
+        dic_mpv = {}
+        dic_fop = {}
+        for i, b in enumerate(bins[1:]):
+            
+            list_mpv = []
+            list_fop = []
+            for m_ in mpv:
+                
+                i_lags = list(mpv).index(m_)
+                m_ = list(m_)
+                # if mpv falls in bin, it is added to the list, which will added to 
+                # the dict_mpv
+                
+                list_mpv.append([val for val in m_ if (val < b and val > b_prev)])
+                
+                list_fop.append([fop[i_lags][m_.index(val)] for idx,val in enumerate(m_) if (val < b and val > b_prev)])
+                # get associated fop concomitant to the mpv:
+    #            for val in m_:
+    #            if (val < b and val > b_prev):
+                    # mpv is present:
+    #            
+    #            list_fop.append(fop[idx])
+    #            list_b.append([f[i] for val in f])
+            dic_mpv[i] = flatten(list_mpv)
+            dic_fop[i] = flatten(list_fop)
+            b_prev = b
+        mean_mpv = np.zeros( (n_bins) )
+        mean_fop = np.zeros( (n_bins) )
+        for k, item in dic_mpv.items():
+            mean_mpv[k] = np.mean(item)
+            mean_fop[k] = np.mean(dic_fop[k])
+            fop_std[k]  = np.std(dic_fop[k])
+    
+    ax.plot(mean_mpv, mean_fop, label=f'fc lag {lag}') ; 
+        
+    ax.fill_between(mean_mpv, mean_fop+fop_std, 
+                    mean_fop-fop_std, label=None,
+                    alpha=0.2) ; 
+    color = ax.lines[-1].get_c() # get color
+    # determine size freq
+    freq = np.histogram(y_pred_all[l], bins=n_bins)[0]
+    n_freq = freq / RV.RV_ts.size
+    ax.scatter(mean_mpv, mean_fop, s=n_freq*2000, 
+               c=color, alpha=0.5)
+        
+
+    #%%        
+    return ax
+
+def valid_figures(dict_datasets, met='default'):
     #%%
     datasets = list(dict_datasets.keys())
     models   = list(dict_datasets[datasets[0]].keys())
     lags     = list(dict_datasets[datasets[0]][models[0]][2].columns)
-
+    if met == 'default':
+        met = ['AUC', 'BSS', 'prec', 'Rel. Curve']
     
     grid_data = np.zeros( (2, len(met)), dtype=str)
     grid_data = np.stack( [np.repeat(met, len(datasets)), 
@@ -371,9 +602,38 @@ def valid_figures(dict_datasets, met=['AUC', 'BSS', 'prec', 'Rel. Curve']):
     
     for col, dataset in enumerate(datasets):
         for row, metric in enumerate(met):
-            ax = g.axes[row,col]
+            
+            legend = []
             for m, model in enumerate(models):
+                
                 df_valid, RV, y_pred_all = dict_datasets[dataset][model]
+                tfreq = (y_pred_all.iloc[1].name - y_pred_all.iloc[0].name).days
+                lags_tf = [l*tfreq for l in lags]
+                model = models[m]
+                color = nice_colors[m]
+                if metric in ['AUC', 'BSS', 'prec']: 
+                    df_metric = df_valid.loc[metric]
+                    plot_score_lags(df_metric, metric, color,
+                                    lags_tf, cv_lines=False, 
+                                    ax=g.axes[row,col])
+                if metric == 'Rel. Curve':
+                    if m == 0:
+                        ax, n_bins = rel_curve_base(RV, lags_tf, ax=g.axes[row,col])
+                    else:
+                        pass
+                    print(m,model)
+                    rel_curve(RV, y_pred_all, color, lags_tf, n_bins, 
+                              mean_lags=True, 
+                              ax=g.axes[row,col])
+                    
+                if np.logical_and(row==0, col==0):
+                    legend.append(patches.Rectangle((0,0),0.5,0.5,facecolor=color))
+#            plt.legend(handlelength=1, handleheight=1)
+                    g.axes[row,col].legend(tuple(legend), models, 
+                          loc = 'lower left', fancybox=True,
+                          handletextpad = 0.2, markerscale=0.1,
+                          borderaxespad = 0.1,
+                          handlelength=1, handleheight=1, prop={'size': 12})
                 
-                
-#                df_metric = df_valid[metric]
+                    
+#                    plt.plot()
