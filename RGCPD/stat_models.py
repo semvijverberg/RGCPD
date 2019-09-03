@@ -244,7 +244,7 @@ def GBR_logitCV(RV, df_norm, keys, kwrgs_GBR=None, verbosity=0):
     prediction = pd.DataFrame(regressor.predict(X), index=X.index, columns=[0])
     prediction['TrainIsTrue'] = pd.Series(TrainIsTrue.values, index=X.index)
 
-    logit_pred, model_logit = logit_skl(RV, prediction, keys=[None])
+    logit_pred, model_logit = logit_skl(RV, prediction, keys=None)
     
     
     
@@ -264,7 +264,7 @@ def logit_skl(RV, df_norm, keys, kwrgs_logit=None):
     Preciction is made for whole timeseries    
     '''
 
-    if keys[0] == None:
+    if keys is None:
             no_data_col = ['TrainIsTrue', 'RV_mask']
             keys = df_norm.columns
             keys = [k for k in keys if k not in no_data_col]

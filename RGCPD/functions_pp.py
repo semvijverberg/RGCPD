@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import xarray as xr
 import itertools
 import core_pp
+import func_fc
 from dateutil.relativedelta import relativedelta as date_dt
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 flatten = lambda l: list(itertools.chain.from_iterable(l))
@@ -265,8 +266,10 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
         print('The amount of timesteps in the RV ts and the precursors'
                           ' do not match, selecting desired dates. ')
 
-    print('Detrending Respone Variable.')
-    RV.RVfullts = detrend1D(RV.RVfullts)
+    
+    if ex['RV_detrend'] == True:
+        print('Detrending Respone Variable.')
+        RV.RVfullts = detrend1D(RV.RVfullts)
 
     if ex['input_freq'] == 'daily':
         RV.datesRV = make_RVdatestr(pd.to_datetime(RV.RVfullts.time.values), ex,
@@ -368,7 +371,8 @@ def time_mean_bins(xarray, ex, seldays = 'part'):
             if ex['n_oneyr']%i == 0:
                 possible.append(i)
         if ex['n_oneyr'] % ex['tfreq'] != 0:
-            print('Note: tfreq {} does not fit in the supplied (sub)year\n'
+            if ex['verbosity'] > 1:
+                print('Note: tfreq {} does not fit in the supplied (sub)year\n'
                          'adjusting part of year to fit bins.'.format(
                              ex['tfreq']))
 #            print('\n Stepsize that do fit are {}'.format(possible))
@@ -500,10 +504,11 @@ def timeseries_tofit_bins(xarray, ex, seldays='part'):
                          8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
     startdatestr = '{} {}'.format(start_day.day, months[start_day.month])
     enddatestr   = '{} {}'.format(end_day.day, months[end_day.month])
-    if ex['input_freq'] == 'daily':
+    
+    if ex['input_freq'] == 'daily' and ex['verbosity'] > 0:
         print('Period of year selected: \n{} to {}, tfreq {} days'.format(
                 startdatestr, enddatestr, ex['tfreq']))
-    if ex['input_freq'] == 'monthly':
+    if ex['input_freq'] == 'monthly' and ex['verbosity'] > 0:
         print('Months of year selected: \n{} to {}, tfreq {} months'.format(
                 startdatestr.split(' ')[-1], enddatestr.split(' ')[-1], ex['tfreq']))
     adj_xarray = xarray.sel(time=datesdt)
@@ -858,7 +863,7 @@ def regrid_xarray(xarray_in, to_grid_res, periodic=True):
 
 
 
-def rand_traintest_years(RV_ts, precur_arr, ex):
+def rand_traintest_years(RV, precur_arr, ex):
     #%%
     '''
     possible ex['method'] are:
@@ -869,18 +874,24 @@ def rand_traintest_years(RV_ts, precur_arr, ex):
     '''
      
     
-    
+    RV_ts = RV.RV_ts
     ex['tested_yrs'] = [] ; # ex['n_events'] = []
     ex['all_yrs'] = list(np.unique(RV_ts.time.dt.year))
 
-    if ex['method'][:6] == 'random':
+    if ex['method'][:6] == 'random' or ex['method'][:9] == 'ran_strat':
         if 'seed' not in ex.keys():
             ex['seed'] = 30 # control reproducibility train/test split
         else:
             ex['seed'] = ex['seed']
         
-        rng = np.random.RandomState(ex['seed'])
-        ex['n_spl'] = int(ex['method'][6:8])
+        seed = ex['seed']
+
+        if ex['method'][:6] == 'random':
+            ex['n_spl'] = int(ex['method'][6:8])
+        else:
+             ex['n_spl'] = int(ex['method'][9:])
+       
+        
     elif ex['method'][:5] == 'leave': 
         ex['n_spl'] = int(ex['n_yrs'] / int(ex['method'].split('_')[1]) )
         iterate = np.arange(0, ex['n_yrs']+1E-9, 
@@ -899,10 +910,10 @@ def rand_traintest_years(RV_ts, precur_arr, ex):
             a_conditions_failed = False
     
     
-            if ex['method'][:6] == 'random':
-                ex['n_spl'] = int(ex['method'][6:8])
+            if ex['method'][:6] == 'random' or ex['method'][:9] == 'ran_strat':
+
     
-                
+                rng = np.random.RandomState(seed)
                 size_test  = int(np.round(ex['n_yrs'] / ex['n_spl']))
                 size_train = int(ex['n_yrs'] - size_test)
     
@@ -961,6 +972,10 @@ def rand_traintest_years(RV_ts, precur_arr, ex):
                 RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
                 RV_test = RV_ts.isel(time=RV_test_idx)    
                 test_years = np.unique(RV_test.time.dt.year)
+                if ex['method'][:9] == 'ran_strat':
+                    # check if representative sample
+                    a_conditions_failed, count, seed = check_test_split(RV, RV_test, ex, a_conditions_failed,
+                                                                        s, count, seed, ex['verbosity'])
             else:
                 RV_test = [] ; test_years = [] ; Prec_test_idx = []
 
@@ -978,3 +993,51 @@ def rand_traintest_years(RV_ts, precur_arr, ex):
     #%%
     return traintest, ex
 
+def check_test_split(RV, RV_test, ex, a_conditions_failed, s, count, seed, verbosity=0):
+    
+    ex['event_thres'] = func_fc.Ev_threshold(RV.RV_ts, ex['kwrgs_events']['event_percentile'])
+    tol_from_exp_events = 0.20
+    
+    if 'kwrgs_events' not in ex.keys():
+        print('Stratified Train Test based on +1 tercile events\n')
+        ex['kwrgs_events']  =  {'event_percentile': 66,
+                    'min_dur' : 1,
+                    'max_break' : 0,
+                    'grouped' : False}
+        
+    if ex['kwrgs_events']['event_percentile'] == 'std':
+        exp_events_r = 0.15
+    elif type(ex['kwrgs_events']['event_percentile']) == int:
+        exp_events_r = 1 - ex['kwrgs_events']['event_percentile']/100
+    
+    
+    test_years = np.unique(RV_test.time.dt.year)
+    exp_events = (exp_events_r * RV.RV_ts.size / ex['n_yrs']) * test_years.size
+    tolerance      = tol_from_exp_events * exp_events
+    event_test = func_fc.Ev_timeseries(RV_test, ex['event_thres'])[1]
+    diff           = abs(len(event_test) - exp_events)
+    
+    
+    if diff > tolerance: 
+        if verbosity > 1:
+            print('not a representative sample drawn, drawing new sample')
+        seed += 1 # next random sample
+        a_conditions_failed = True
+    else:
+        if verbosity > 0:
+            print('{}: test year is {}, with {} events'.format(s, test_years, len(event_test)))
+    if count == 7:
+        if verbosity > 1:
+            print(f"{s}: {count+1} attempts made, lowering tolence threshold from {tol_from_exp_events} "
+                "to 0.40 deviation from mean expected events" )
+        tol_from_exp_events = 0.40
+    if count == 10:
+        if verbosity > 1:
+            print(f"kept sample after {count+1} attempts")
+            print('{}: test year is {}, with {} events'.format(s, test_years, len(event_test)))
+        a_conditions_failed = False
+        
+    return a_conditions_failed, count, seed
+        
+        
+        

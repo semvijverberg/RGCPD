@@ -70,10 +70,20 @@ ex = dict(
      'lo_min'       :       -180,
      'lo_max'       :       360,
      'abs_or_anom'  :       'anom', # use absolute or anomalies?
+     'verbosity'    :       0, # higher verbosity gives more feedback in terminal
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
      'path_pp'      :       path_pp}
      )
+
+# =============================================================================
+# RV events settings (allows to make balanced traintest splits)
+# =============================================================================
+ex['kwrgs_events']  =  {'event_percentile': 'std',
+                        'min_dur' : 1,
+                        'max_break' : 0,
+                        'grouped' : False}
+
 
 if ex['dataset'] == 'ERAint':
     import download_ERA_interim_API as ECMWF
@@ -86,7 +96,7 @@ elif ex['dataset'] == 'era5':
 # Option 1:
 ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf = True
+import_precursor_ncdf = False
 # Option 3:
 import_RV_ncdf = False
 # Option 4:
@@ -106,20 +116,10 @@ if ECMWFdownload == True:
         ex['time']      =       pd.DatetimeIndex(start='00:00', end='23:00', 
                                 freq=(pd.Timedelta(6, unit='h')))
         
-    
-#    ex['vars']      =       [['t2m'],['167.128'],['sfc'],[0]]
-#    ex['vars']      =       [['sm1','sm2', 'sm3'],['39.128', '40.128','41.128'],['sfc','sfc','sfc'],['0','0','0']]
-#    ex['vars']      =       [['sm2'],['40.128'],['sfc'],['0']]
+
 #    ex['vars']      =       [['st1','st2'],['139.128', '170.128'],['sfc','sfc'],['0','0']]
-#    ex['vars']      =       [['prcp'], ['228.128'], ['sfc'], [0]]
-#    ex['vars']      =       [['u_3d'],['131.128'],
-#                             ['pl'],[['1000', '900', '850', '700', '600', '500','400','200']] ]
-#    ex['vars']      =       [['u_10hpa'],['131.128'],
-#                             ['pl'],['10'] ]
 #    ex['vars']      =       [ ['z_500hpa', 'sst', 't_850hpa'],['129.128', '34.128', '130.128'],
 #                              ['pl', 'sfc', 'pl'],[['500'], '0', ['850']] ]
-#    ex['vars']      =       [['t_10hpa'],['130.128'],
-#                             ['pl'],['10'] ]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
 #    ex['vars']      =       [['sst'],
 #                               ['sea_surface_temperature'],
@@ -160,7 +160,6 @@ else:
 # Import ncdf field to be Response Variable.
 # 33333333333333333333333333333333333333333333333333333333333333333333333333333
 if import_RV_ncdf == True:
-#    ex['RVnc_name'] = ['pr', 'prcp_GLB_daily_1979-2016-del29feb.75-88E_18-25N.nc']
 #    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_{}_'
 #                              '{}deg.nc'.format(ex['startyear'], ex['endyear'],
 #                               ex['input_freq'], ex['grid_res']))]
@@ -175,6 +174,7 @@ else:
 ex['importRV_1dts'] = importRV_1dts
 if importRV_1dts == True:
     ex['RV_name'] = 't2mmax_E-US'
+    ex['RV_detrend'] = False
 #    ex['RVts_filename'] = 't2mmax_1979-2017_averAggljacc_tf14_n8__to_t2mmax_tf1.npy'
     ex['RVts_filename'] = 'era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4.npy'
 #    ex['RVts_filename'] = 'comp_v_spclus2of4_tempclus2_AgglomerativeClustering_smooth15days_compmean_daily.npy'
@@ -237,7 +237,7 @@ elif importRV_1dts == False:
 # =============================================================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [60] #[2,4,7,14,21,35] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [10] #[2,4,7,14,21,35] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
@@ -292,7 +292,7 @@ for freq in ex['tfreqlist']:
     # *****************************************************************************
     ex['tigr_tau_max'] = 7
     ex['max_comb_actors'] = 10
-    ex['alpha'] = 0.01# set significnace level for correlation maps
+    ex['alpha'] = 0.05# set significnace level for correlation maps
     ex['alpha_fdr'] = 2*ex['alpha'] # conservative significance level
     ex['FDR_control'] = True # Do you want to use the conservative alpha_fdr or normal alpha?
     # If your pp data is not a full year, there is Maximum meaningful lag given by:
@@ -317,7 +317,15 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # Train test split
     # =============================================================================
-    ex['method'] = 'random10' ; ex['seed'] = 30
+    ###options###
+    # (1) random{int}   :   with the int(ex['method'][6:8]) determining the amount of folds
+    # (2) ran_strat{int}:   random stratified folds, stratified based upon events, 
+    #                       requires kwrgs_events.    
+    # (3) leave{int}    :   chronologically split train and test years.
+    # (4) split{int}    :   split dataset into single train and test set
+    # (5) no_train_test_split
+    
+    ex['method'] = 'ran_strat10' ; ex['seed'] = 30 
 #    ex['method'] = 'no_train_test_split'
     # =============================================================================
     # Load some standard settings
@@ -352,9 +360,14 @@ for freq in ex['tfreqlist']:
         # Plot final results
         # =============================================================================
         #%%
-        ds = wrapper_RGCPD_tig.causal_reg_to_xarray(ex, df_sum, outdic_actors)
-        wrapper_RGCPD_tig.plotting_per_variable(ds, df_sum, map_proj, ex)
-#        wrapper_RGCPD_tig.plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj)
-        print("--- {:.2} minutes ---".format((time.time() - start_time)/60))
+        
+        dict_ds = wrapper_RGCPD_tig.causal_reg_to_xarray(ex, df_sum, outdic_actors)
+        
+        wrapper_RGCPD_tig.store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=True)
+        
+        wrapper_RGCPD_tig.plotting_per_variable(dict_ds, df_sum, map_proj, ex)
+        
+
+        print("--- {:.0} minutes ---".format((time.time() - start_time)/60))
         #%%
 

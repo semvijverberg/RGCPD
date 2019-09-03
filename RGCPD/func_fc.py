@@ -8,11 +8,13 @@ Created on Thu Aug 22 12:54:45 2019
 import h5py
 import pandas as pd
 import numpy as np
+import xarray as xr
+import eofs
 import stat_models
 import validation as valid
 
 
-def forecast_and_valid(RV, df_data, keys_d, stat_model=tuple, lags=list, 
+def forecast_and_valid(RV, df_data, kwrgs_exp, stat_model=tuple, lags=list, 
                        n_boot=0, verbosity=0):
     #%%
     # do forecasting accros lags
@@ -20,6 +22,16 @@ def forecast_and_valid(RV, df_data, keys_d, stat_model=tuple, lags=list,
     y_pred_all = []
     y_pred_c = []
     c = 0
+    
+    if 'keys' in kwrgs_exp.keys():
+        keys_d = kwrgs_exp['keys'] 
+    
+    
+    if 'kwrgs_pp' in kwrgs_exp.keys():
+        kwrgs_pp = kwrgs_exp['kwrgs_pp']
+    else: 
+        kwrgs_pp = {}
+
     
     for lag in lags:
         
@@ -30,18 +42,20 @@ def forecast_and_valid(RV, df_data, keys_d, stat_model=tuple, lags=list,
             progress = int(100 * (c) / (len(splits) * len(lags)))
             print(f"\rProgress {progress}%", end="")
             
-            df_norm, RV_mask, TrainIsTrue = prepare_data(df_data.loc[s])
-        
             keys = keys_d[s].copy()
             model_name, kwrgs = stat_model
             
-    #        dates_all = pd.to_datetime(RV.index.values)
+            df_split = df_data.loc[s]
+            df_norm, RV_mask, TrainIsTrue, keys = prepare_data(df_split, lag=int(lag), 
+                                                               kwrgs_pp=kwrgs_pp,
+                                                               keys=keys)
+                                                               
+        
             
-            dates_l  = func_dates_min_lag(RV.dates_RV, lag, indays=False)[1]
-            df_norm = df_norm.loc[dates_l]
-            if lag != 0:
-                df_norm['RV_autocorr'] = RV.RVfullts.loc[dates_l]
-                keys = np.insert(keys, 0, 'RV_autocorr')
+        
+            
+            df_norm = df_norm.loc[RV.dates_RV]
+
             
             # forecasting models
             if model_name == 'logit':
@@ -103,6 +117,27 @@ def forecast_and_valid(RV, df_data, keys_d, stat_model=tuple, lags=list,
     y_pred_all[1][y_pred_all[1]==1].size / RV.RV_bin[RV.RV_bin==1].size
     return df_valid, RV, y_pred_all
 
+class RV_class:
+    def __init__(self, df_data, kwrgs_events=None):
+        self.RV_ts = df_data[df_data.columns[0]][0][df_data['RV_mask'][0]] 
+        self.RVfullts = df_data[df_data.columns[0]][0]
+        if kwrgs_events != None:
+            self.threshold = Ev_threshold(self.RV_ts, 
+                                              kwrgs_events['event_percentile'])
+            self.RV_b_full = Ev_timeseries(df_data[df_data.columns[0]][0], 
+                               threshold=self.threshold , 
+                               min_dur=kwrgs_events['min_dur'],
+                               max_break=kwrgs_events['max_break'], 
+                               grouped=kwrgs_events['grouped'])[0]
+            self.RV_bin   = self.RV_b_full[df_data['RV_mask'][0]] 
+            self.prob_clim = get_obs_clim(self)
+        self.dates_all = self.RV_b_full.index
+        self.dates_RV = self.RV_bin.index
+        self.TrainIsTrue = df_data['TrainIsTrue']
+        self.RV_mask = df_data['RV_mask']
+        self.freq      = get_freq_years(self)
+        self.n_oneRVyr = self.dates_RV[self.dates_RV.year == self.dates_RV.year[0]].size
+
 def load_hdf5(path_data):
     hdf = h5py.File(path_data,'r+')   
     dict_of_dfs = {}
@@ -111,22 +146,153 @@ def load_hdf5(path_data):
     hdf.close()
     return dict_of_dfs
 
-def prepare_data(df_split):
+def prepare_data(df_split, lag=int, kwrgs_pp=dict, TrainIsTrue=None, RV_mask=None, norm_datesRV=True,
+                 remove_RV=True, keys=None, add_autocorr=True, EOF=False, expl_var=None):
+                 
+    #%%
     '''
     TrainisTrue : specifies train and test dates
     RV_mask     : specifies what data will be predicted
     RV          : Response Variable (raw data)
     df_norm     : Normalized precursor data    
+    remove_RV   : First column is the RV, and is removed.
+    lag         : Data will be shifted with 'lag' periods, the index (dates) 
+                  will artificially be kept the same for each lag. 
+                  
     '''
-    TrainisTrue = df_split['TrainIsTrue']
-    RV_mask = df_split['RV_mask']
-    RV_name = df_split.columns[0]
-    df_prec = df_split.drop([RV_name], axis=1)
-    x_keys  = df_prec.columns[df_prec.dtypes == np.float64]
-    df_prec[x_keys]  = (df_prec[x_keys] - df_prec[x_keys][TrainisTrue].mean(0)) \
-                / df_prec[x_keys][TrainisTrue].std(0)
 
-    return df_prec, RV_mask, TrainisTrue
+    dates_orig = df_split.index
+    
+    if TrainIsTrue is None:
+        TrainIsTrue = df_split['TrainIsTrue']
+    if RV_mask is None:
+        RV_mask = df_split['RV_mask']
+    if remove_RV is True and add_autocorr==False:
+        # completely remove RV timeseries
+        RV_name = df_split.columns[0]
+        df_prec = df_split.drop([RV_name], axis=1)
+    else:
+        # first column should contain RV timeseries
+        RV_name = df_split.columns[0]
+        df_RV = df_split[RV_name]
+        df_prec = df_split.drop([RV_name], axis=1)
+    
+    # =============================================================================
+    # Shifting data w.r.t. index dates
+    # =============================================================================
+#    df_prec.ix[:,0][:10]
+    df_prec = df_prec.shift(periods=int(lag))
+#    df_prec.ix[:,0][:10]
+    
+    if keys is None:        
+        x_keys  = df_prec.columns[df_prec.dtypes == np.float64]
+    else:
+        x_keys  = keys
+        
+    if add_autocorr:
+        # ensure that autocorr never contains the RV timeseries at lag = 0
+        df_prec.insert(0, 'RV_autocorr', df_RV.shift(periods=max(1,int(lag))))
+        if 'RV_autocorr' not in keys:
+            x_keys = np.insert(keys, 0, 'RV_autocorr')
+    
+
+        
+    
+    # drop nans
+    mask_nonans = ~df_prec.ix[:,0].isna().values
+    # last dates are no longer present in shifted data. But we want restore 
+    # original dates. We are going to delete the first chronologicall dates 
+    # to make them equal length.
+    dates_new  = dates_orig[mask_nonans]
+    df_prec = pd.DataFrame(df_prec[mask_nonans].values, columns=df_prec.columns,
+                           index=dates_new, dtype='float64')
+    TrainIsTrue = pd.Series(TrainIsTrue[mask_nonans], index=dates_new)
+    RV_mask = pd.Series(RV_mask[mask_nonans], index=dates_new)
+
+    
+    # restore original dates
+    
+    
+    # =============================================================================
+    # Select features / variables
+    # =============================================================================
+    df_prec = df_prec[x_keys]
+    # =============================================================================
+    # Normalize data using datesRV or all training data in dataframe
+    # =============================================================================
+    if norm_datesRV == False:
+        # Normalize using all dates
+        df_prec[x_keys]  = (df_prec[x_keys] - df_prec[x_keys][TrainIsTrue].mean(0)) \
+                / df_prec[x_keys][TrainIsTrue].std(0)
+    elif norm_datesRV == True:
+        # Normalize only using the RV dates
+        TrainRV = np.logical_and(TrainIsTrue,RV_mask).values
+        df_prec[x_keys]  = (df_prec[x_keys] - df_prec[x_keys][TrainRV].mean(0)) \
+                / df_prec[x_keys][TrainRV].std(0)
+    
+    if 'EOF' in kwrgs_pp.keys():
+        EOF = kwrgs_pp['EOF']
+    else:
+        EOF = EOF
+    if 'expl_var' in kwrgs_pp.keys():
+        expl_var = kwrgs_pp['expl_var']
+        
+    if EOF:
+        if expl_var is None:
+            expl_var = 0.75
+        else:
+            expl_var = expl_var
+        df_prec = transform_EOF(df_prec, TrainIsTrue, RV_mask, expl_var=0.8)
+        df_prec.columns = df_prec.columns.astype(str)
+        upd_keys = np.array(df_prec.columns.values.ravel(), dtype=str)
+    else:
+        upd_keys = keys
+    
+    # =============================================================================
+    # Replace masks
+    # =============================================================================
+    df_prec['TrainIsTrue']  = TrainIsTrue
+    df_prec['RV_mask']      = RV_mask
+    df_prec.index = dates_new 
+    #%%
+    return df_prec, RV_mask, TrainIsTrue, upd_keys
+
+def transform_EOF(df_prec, TrainIsTrue, RV_mask, expl_var=0.8):
+    '''
+    EOF is based upon all Training data.
+    '''
+    #%%
+    dates_train = df_prec[TrainIsTrue].index
+    dates_test  = df_prec[TrainIsTrue==False].index
+    
+    to_xr = df_prec.to_xarray().to_array().rename({'index':'time'}).transpose()   
+    xr_train = to_xr.sel(time=dates_train)
+    xr_test = to_xr.sel(time=dates_test)
+    eof = eofs.xarray.Eof(xr_train)
+    for n in range(df_prec.columns.size):
+        frac = eof.varianceFraction(n).sum().values
+        if frac >= expl_var:
+            break
+    xr_train = eof.pcs(npcs=n)
+    xr_proj = eof.projectField(xr_test, n)
+    xr_proj = xr_proj.rename({'pseudo_pcs', 'pcs'})
+    xr_eof  = xr.concat([xr_train, xr_proj], dim='time').sortby('time')
+    df_eof  = xr_eof.T.to_dataframe().reset_index(level=0)
+    df_eof  = df_eof.pivot(columns='mode', values='pcs' )
+    #%%
+    return df_eof
+    
+    
+    
+
+def get_freq_years(RV):
+    all_years = np.unique(RV.RV_bin.index.year)
+    binary = RV.RV_bin.values
+    freq = []
+    for y in all_years:
+        n_ev = int(binary[RV.RV_bin.index.year==y].sum())
+        freq.append(n_ev)
+    return pd.Series(freq, index=all_years)
 
 def get_obs_clim(RV):
     splits = RV.TrainIsTrue.index.levels[0]

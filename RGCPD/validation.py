@@ -36,8 +36,8 @@ mpl.rcParams['figure.figsize'] = [7.0, 5.0]
 mpl.rcParams['figure.dpi'] = 100
 mpl.rcParams['savefig.dpi'] = 600
 
-mpl.rcParams['font.size'] = 14
-mpl.rcParams['legend.fontsize'] = 'large'
+mpl.rcParams['font.size'] = 13
+mpl.rcParams['legend.fontsize'] = 'medium'
 mpl.rcParams['figure.titlesize'] = 'medium'
 
 def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksize=10):
@@ -381,7 +381,7 @@ def get_KSS_clim(y_true, y_pred, threshold_clim_events):
 
 
 
-def plot_score_lags(df_metric, metric, color, lags_tf, cv_lines=False, ax=None):
+def plot_score_lags(df_metric, metric, color, lags_tf, cv_lines=False, col=0, ax=None):
     #%%
 
     if ax==None:
@@ -416,7 +416,7 @@ def plot_score_lags(df_metric, metric, color, lags_tf, cv_lines=False, ax=None):
             style = 'dashed'
             ax.plot(x, y_cv[f,:], color=color, linestyle=style, 
                          alpha=0.35 ) 
-    ax.set_ylabel(metric) ; ax.set_xlabel('Lead time [days]')
+    ax.set_xlabel('Lead time [days]', fontsize=13, labelpad=0.1)
     ax.grid(b=True, which='major')
 #    ax.set_title('{}-day mean'.format(col))
     if min(x) == 1:
@@ -428,6 +428,7 @@ def plot_score_lags(df_metric, metric, color, lags_tf, cv_lines=False, ax=None):
         xticks[0] = 1
     ax.set_xticks(xticks)
     ax.set_ylim(y_lim)
+    ax.set_ylabel(metric)
     if metric == 'BSS':
         y_major = [-0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6]
         ax.set_yticks(y_major, minor=False)
@@ -436,7 +437,10 @@ def plot_score_lags(df_metric, metric, color, lags_tf, cv_lines=False, ax=None):
         ax.hlines(y=0, xmin=min(x), xmax=max(x), linewidth=1)
     elif metric == 'AUC':
         ax.set_yticks(np.arange(0.5,1+1E-9, 0.1), minor=True)
-        ax.hlines(y=0.5, xmin=min(x), xmax=max(x), linewidth=1)
+        ax.hlines(y=0.5, xmin=min(x), xmax=max(x), linewidth=1) 
+    if col != 0 :
+        ax.set_ylabel('')
+        ax.tick_params(labelleft=False)
     
     
         
@@ -445,7 +449,7 @@ def plot_score_lags(df_metric, metric, color, lags_tf, cv_lines=False, ax=None):
     return ax
 
 
-def rel_curve_base(RV, lags_tf, ax=None):
+def rel_curve_base(RV, lags_tf, n_bins=5, col=0, ax=None):
     #%%
 
 
@@ -454,7 +458,10 @@ def rel_curve_base(RV, lags_tf, ax=None):
         print('ax == None')
         fig, ax = plt.subplots(1, facecolor='white')
         
-    ax.set_fc('ivory')
+    ax.set_fc('white')
+
+    ax.patch.set_edgecolor('black')  
+    ax.patch.set_linewidth('0.5')  
     ax.grid(b=True, which = 'major', axis='both', color='black',
             linestyle='--', alpha=0.2)
     
@@ -462,14 +469,14 @@ def rel_curve_base(RV, lags_tf, ax=None):
 
     # perfect forecast
     perfect = np.arange(0,1+1E-9,(1/n_bins))
-    pos_text = np.array((0.6, 0.62))
+    pos_text = np.array((0.5, 0.52))
     ax.plot(perfect,perfect, color='black', alpha=0.5)
     trans_angle = plt.gca().transData.transform_angles(np.array((45,)),
                                                        pos_text.reshape((1, 2)))[0]
     ax.text(pos_text[0], pos_text[1], 'perfect forecast', fontsize=14,
                    rotation=trans_angle, rotation_mode='anchor')
     obs_clim = RV.prob_clim.mean()[0]
-    ax.text(obs_clim+0.15, obs_clim-0.04, 'true clim', 
+    ax.text(obs_clim+0.15, obs_clim-0.04, 'True clim', 
                 horizontalalignment='center', fontsize=14,
          verticalalignment='center', rotation=0, rotation_mode='anchor')
     ax.hlines(y=obs_clim, xmin=0, xmax=1, label=None, color='grey',
@@ -509,14 +516,20 @@ def rel_curve_base(RV, lags_tf, ax=None):
                     color='grey', alpha=0.5) 
     # Better than random
     ax.fill_between(x, dist_perf, np.repeat(obs_clim, x.size), color='grey', alpha=0.2) 
-    
-    ax.set_ylabel('Fraction of Positives')
+    if col == 0:
+        ax.set_ylabel('Fraction of Positives')
+    else:
+        ax.tick_params(labelleft=False)
     ax.set_xlabel('Mean Predicted Value')
     #%%
     return ax, n_bins
     #%%
 def rel_curve(RV, y_pred_all, color, lags_tf, n_bins, mean_lags=True, ax=None):
     #%%
+    
+    if ax==None:    
+        print('ax == None')
+        ax, n_bins = rel_curve_base(RV, lags_tf)
     
     strategy = 'uniform' # 'quantile' or 'uniform'
     fop = [] ; mpv = []
@@ -541,28 +554,19 @@ def rel_curve(RV, y_pred_all, color, lags_tf, n_bins, mean_lags=True, ax=None):
             
             list_mpv = []
             list_fop = []
-            for m_ in mpv:
-                
-                i_lags = list(mpv).index(m_)
+            for i_lags, m_ in enumerate(mpv):
                 m_ = list(m_)
                 # if mpv falls in bin, it is added to the list, which will added to 
                 # the dict_mpv
                 
                 list_mpv.append([val for val in m_ if (val < b and val > b_prev)])
-                
                 list_fop.append([fop[i_lags][m_.index(val)] for idx,val in enumerate(m_) if (val < b and val > b_prev)])
-                # get associated fop concomitant to the mpv:
-    #            for val in m_:
-    #            if (val < b and val > b_prev):
-                    # mpv is present:
-    #            
-    #            list_fop.append(fop[idx])
-    #            list_b.append([f[i] for val in f])
             dic_mpv[i] = flatten(list_mpv)
             dic_fop[i] = flatten(list_fop)
             b_prev = b
         mean_mpv = np.zeros( (n_bins) )
         mean_fop = np.zeros( (n_bins) )
+        fop_std  = np.zeros( (n_bins) )
         for k, item in dic_mpv.items():
             mean_mpv[k] = np.mean(item)
             mean_fop[k] = np.mean(dic_fop[k])
@@ -584,13 +588,95 @@ def rel_curve(RV, y_pred_all, color, lags_tf, n_bins, mean_lags=True, ax=None):
     #%%        
     return ax
 
+def plot_events(RV, color, n_yrs = 10, col=0, ax=None):
+    #%%
+#    ax=None
+
+    if type(n_yrs) == int:
+        years = []
+        sorted_ = RV.freq.sort_values().index
+        years.append(sorted_[:int(n_yrs/2)])
+        years.append(sorted_[-int(n_yrs/2):])
+        years = flatten(years)
+        dates_ts = []
+        for y in years:
+            d = RV.dates_RV[RV.dates_RV.year == y]
+            dates_ts.append(d)
+        
+        dates_ts = pd.to_datetime(flatten(dates_ts))
+    else:
+        dates_ts = RV.RV_bin.index
+        
+    if ax==None:    
+        print('ax == None')
+        fig, ax = plt.subplots(1, subplot_kw={'facecolor':'white'})
+        
+    else:
+        ax.axes.set_facecolor('white')
+        ax.patch.set_edgecolor('black')  
+        ax.patch.set_linewidth('0.5')  
+    
+    def chunks(l, n):
+        """Yield successive n-sized chunks from l."""
+        for i in range(0, len(l), n):
+            yield l[i:i + n]
+    y = RV.RV_bin.loc[dates_ts]
+
+    years = np.array(years)
+    x = np.linspace(0, years.size, dates_ts.size)
+    ax.bar(x, y.values.ravel(), alpha=0.75, color='silver', width=0.1, label='events')
+    clim_prob = RV.RV_bin.sum() / RV.RV_bin.size
+    ax.hlines(clim_prob, x[0], x[-1], label='Clim prob.')
+    
+    
+    means = []
+    for chnk in list(chunks(x, int(dates_ts.size/2.))):
+        means.append( chnk.mean() )
+    ax.margins(0.)
+    cold_hot = means
+    labels =['Lowest \nn-event years', 'Highest \nn-event years']
+    ax.set_xticks(cold_hot)    
+    ax.set_xticklabels(labels)
+    minor_ticks = np.linspace(0, x.max(), dates_ts.size)
+    ax.set_xticks(minor_ticks, minor=True);   
+    ax.grid(b=True,which='major', axis='y', color='grey', linestyle='dotted', 
+            linewidth=1)
+    if col == 0:
+        ax.legend(facecolor='white', markerscale=2, handlelength=0.75)
+        ax.set_ylabel('Probability', labelpad=-3)
+        probs = [f"{int(i*100)}%" for i in np.arange(0,1+1E-9,0.2)]
+        ax.set_yticklabels(probs)
+    else:
+        ax.tick_params(labelleft=False)
+        
+        
+    #%%
+    return ax, dates_ts 
+
+def plot_ts(RV, y_pred_all, dates_ts, color, lag=1, ax=None):
+    #%%
+
+    if ax == None:
+        ax, dates_ts = plot_events(RV, color, ax=None)
+        
+#    dates = y_pred_all.index
+    n_yrs = np.unique(dates_ts.year).size
+    x = np.linspace(0, n_yrs, dates_ts.size)
+    y = y_pred_all[1].loc[dates_ts]
+    ax.plot(x, y.values.ravel() , linestyle='solid', marker=None,
+            linewidth=1)
+
+    
+    #%%
+    return ax
+    
 def valid_figures(dict_datasets, met='default'):
     #%%
     datasets = list(dict_datasets.keys())
     models   = list(dict_datasets[datasets[0]].keys())
-    lags     = list(dict_datasets[datasets[0]][models[0]][2].columns)
+    
     if met == 'default':
-        met = ['AUC', 'BSS', 'prec', 'Rel. Curve']
+        met = ['AUC', 'BSS', 'prec', 'Rel. Curve', 'ts']
     
     grid_data = np.zeros( (2, len(met)), dtype=str)
     grid_data = np.stack( [np.repeat(met, len(datasets)), 
@@ -601,6 +687,11 @@ def valid_figures(dict_datasets, met='default'):
                       sharex=False,  sharey=False)
     
     for col, dataset in enumerate(datasets):
+        
+        g.axes[0,col].set_title(dataset)
+        
+        lags     = list(dict_datasets[dataset][models[0]][2].columns.astype(int))
+        
         for row, metric in enumerate(met):
             
             legend = []
@@ -614,26 +705,30 @@ def valid_figures(dict_datasets, met='default'):
                 if metric in ['AUC', 'BSS', 'prec']: 
                     df_metric = df_valid.loc[metric]
                     plot_score_lags(df_metric, metric, color,
-                                    lags_tf, cv_lines=False, 
+                                    lags_tf, cv_lines=False, col=col,
                                     ax=g.axes[row,col])
                 if metric == 'Rel. Curve':
                     if m == 0:
-                        ax, n_bins = rel_curve_base(RV, lags_tf, ax=g.axes[row,col])
-                    else:
-                        pass
+                        ax, n_bins = rel_curve_base(RV, lags_tf, col=col, ax=g.axes[row,col])
                     print(m,model)
                     rel_curve(RV, y_pred_all, color, lags_tf, n_bins, 
                               mean_lags=True, 
                               ax=g.axes[row,col])
+                if metric == 'ts':
+                    if m == 0:
+                        ax, dates_ts = plot_events(RV, color=nice_colors[-1], n_yrs=6, 
+                                         col=col, ax=g.axes[row,col])
+                    plot_ts(RV, y_pred_all, dates_ts, color, lag=1, ax=g.axes[row,col])
                     
                 if np.logical_and(row==0, col==0):
                     legend.append(patches.Rectangle((0,0),0.5,0.5,facecolor=color))
-#            plt.legend(handlelength=1, handleheight=1)
+
                     g.axes[row,col].legend(tuple(legend), models, 
                           loc = 'lower left', fancybox=True,
                           handletextpad = 0.2, markerscale=0.1,
                           borderaxespad = 0.1,
                           handlelength=1, handleheight=1, prop={'size': 12})
+    return g.fig
                 
-                    
-#                    plt.plot()
+                
+                

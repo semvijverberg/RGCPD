@@ -7,18 +7,30 @@ Created on Wed Mar  6 16:31:58 2019
 """
 
 #%%
-import os, inspect
+import os, inspect, sys
 import numpy as np
 import pandas as pd
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-script_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD" # script directory
-# To link modules in RGCPD folder to this script
-os.chdir(script_dir)
+local_base_path = "/Users/semvijverberg/surfdrive/"
+cluster_base_path = "/p/projects/climber3/atm_data/"
+local_script_dir = os.path.join(local_base_path, "Scripts/RGCPD/RGCPD" ) 
+cluster_script_dir = "/home/semvij/Scripts/RGCPD/RGCPD" 
+
+
+try:
+    os.chdir(local_script_dir)
+    sys.path.append(local_script_dir)
+    base_path = local_base_path
+except: 
+    os.chdir(cluster_script_dir)
+    sys.path.append(cluster_script_dir)
+    base_path = cluster_base_path
 # =============================================================================
 # Data wil downloaded to path_raw
 # =============================================================================
-base_path = "/Users/semvijverberg/surfdrive/"
-dataset   = 'ERAint' # choose 'era5' or 'ERAint' or era20c
+
+    
+dataset   = 'era5' # choose 'era5' or 'ERAint' or era20c
 exp_folder = ''
 path_raw = os.path.join(base_path,'Data_{}/'
                         'input_raw'.format(dataset))
@@ -30,20 +42,17 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 # *****************************************************************************
 # Step 1 Create dictionary and variable class (and optionally download ncdfs)
 # *****************************************************************************
-# The dictionary is used as a container with all information for the experiment
-# The dic is saved after the post-processes step, so you can continue the experiment
-# from this point onward with different configurations. It also stored as a log
-# in the final output.
+# The dictionary is used as a container with all information.
 
 ex = dict(
      {'dataset'     :       dataset,
-     'grid_res'     :       1.0,
+     'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
-     'endyear'      :       2017, # download endyear
+     'endyear'      :       2018, # download endyear
      'months'       :       list(range(1,12+1)), #downoad months
      'input_freq'  :       'daily',
      'time'         :       pd.DatetimeIndex(start='00:00', end='23:00',
-                                freq=(pd.Timedelta(6, unit='h'))),
+                                freq=(pd.Timedelta(1, unit='h'))),
      'area'         :       'global', # [North, West, South, East]. Default: global
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
@@ -67,8 +76,8 @@ elif ex['dataset'] == 'era5':
 # See https://confluence.ecmwf.int/display/CKB/How+to+download+ERA5
 
 ex['vars']     =   [
-                    ['sst'],              # ['name_var1','name_var2', ...]
-                    ['sea_surface_temperature'],    # if ERAi: ECMWF param ids. if era5: variable name
+                    ['p'],              # ['name_var1','name_var2', ...]
+                    ['total_precipitation'],    # ECMWF param ids
                     ['sfc'],             # Levtypes ('sfc' or 'pl')
                     [['0']],                  # Vertical levels
                     ]

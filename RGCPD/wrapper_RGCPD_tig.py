@@ -14,7 +14,6 @@ import itertools
 import numpy as np
 import xarray as xr
 import datetime
-import h5py
 import cartopy.crs as ccrs
 import pandas as pd
 import functions_pp
@@ -138,15 +137,36 @@ def run_PCMCI_CV(ex, outdic_actors, map_proj):
     df_data  = pd.concat(list(df_data_s), keys= range(ex['n_spl']))
     df_sum = pd.concat(list(df_splits), keys= range(ex['n_spl']))
 
-    dict_of_dfs = {'df_data':df_data, 'df_sum':df_sum}
+
+    #%%
+    return df_sum, df_data
+
+def store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=True):
+    
+    
     today = datetime.datetime.today().strftime('%Y-%m-%d')
     file_name = 'fulldata_{}_{}'.format(ex['params'], today)
     ex['path_data'] = os.path.join(ex['fig_subpath'], file_name+'.h5')
     
+    if add_spatcov:
+        df_sp_s   = np.zeros( (ex['n_spl']) , dtype=object)
+        for s in range(ex['n_spl']):
+            df_split = df_data.loc[s]
+            df_sp_s[s] = rgcpd.get_spatcovs(dict_ds, df_split, s, outdic_actors, normalize=True)
+    
+        df_sp = pd.concat(list(df_sp_s), keys= range(ex['n_spl']))
+        df_data_to_store = pd.merge(df_data, df_sp, left_index=True, right_index=True)
+        df_sum_to_store = rgcpd.add_sp_info(df_sum, df_sp)
+    else:
+        df_data_to_store = df_data
+        df_sum_to_store = df_sum
+        
+    dict_of_dfs = {'df_data':df_data_to_store, 'df_sum':df_sum_to_store}
     if ex['store_format'] == 'hdf5':
         store_hdf_df(dict_of_dfs, ex['path_data'])
-    #%%
-    return df_sum, df_data
+        
+    return
+
 
 def store_hdf_df(dict_of_dfs, file_path):
     import warnings
@@ -332,37 +352,6 @@ def extend_longitude(data):
     plottable["longitude"] = np.linspace(0,360, len(plottable.longitude))
     plottable = plottable.to_array(dim='ds').squeeze(dim='ds').drop('ds')
     return plottable
-
-
-#def xrcorr_vars(print_vars, outdic_actors, ex):
-#    #%%
-#    import cartopy.crs as ccrs
-#    import numpy as np
-#    import xarray as xr
-#    outd = outdic_actors
-#    list_Corr = []
-#    list_mask = []
-#    if print_vars == 'all':
-#        variables = list(outd.keys())[:]
-#    else:
-#        variables = print_vars
-#    
-#    for var in variables:
-#        lags = list(range(ex['lag_min'], ex['lag_max']+1))
-#        lags = ['{} ({} {})'.format(l, l*ex['tfreq'], ex['input_freq'][:1]) for l in lags]
-#        lat = outd[var].lat_grid
-#        lon = outd[var].lon_grid
-#        list_Corr.append(outd[var].Corr_Coeff.data[None,:,:].reshape(lat.size,lon.size,len(lags)))
-#        list_mask.append(outd[var].Corr_Coeff.mask[None,:,:].reshape(lat.size,lon.size,len(lags)))
-#        Corr_regvar = np.array(list_Corr)
-#        mask_regvar = np.array(list_mask)
-#    
-#        xrdata = xr.DataArray(data=Corr_regvar, coords=[variables, lat, lon, lags],
-#                            dims=['variable','latitude','longitude','lag'], name='Corr Coeff')
-#        xrmask = xr.DataArray(data=mask_regvar, coords=[variables, lat, lon, lags],
-#                            dims=['variable','latitude','longitude','lag'], name='Corr Coeff')
-#    #%%
-#    return xrdata, xrmask
     
 def plot_corr_maps(corr_xr, xrmask, map_proj, kwrgs={'hspace':-0.6}):
     #%%
@@ -421,7 +410,7 @@ def plot_corr_maps(corr_xr, xrmask, map_proj, kwrgs={'hspace':-0.6}):
             
         
         for row, s in enumerate(splits):
-            print(f"\rPlotting Corr maps {var_n}, split {s}, lag {lag}", end="")
+            print(f"\rPlotting Corr maps {var_n}, fold {s}, lag {lag}", end="")
             plotdata = xrdatavar.sel(split=s)
             plotmask = xrmaskvar.sel(split=s)
             # if plotdata is already masked (with nans):
@@ -497,6 +486,10 @@ def plot_corr_maps(corr_xr, xrmask, map_proj, kwrgs={'hspace':-0.6}):
 
 def causal_reg_to_xarray(ex, df, outdic_actors):
     #%%    
+    '''
+    Returns Dataset of merged variables, this aligns there coordinates (easy for plots)
+    Returns list_ds to keep the original dimensions
+    '''
 #    outdic_actors_c = outdic_actors.copy()
     df_c = df.loc[ df['causal']==True ]
     # remove response variable if the ac is a 
@@ -504,11 +497,13 @@ def causal_reg_to_xarray(ex, df, outdic_actors):
     if df.index[0] in df_c.index:
         df_c = df_c.drop(df.index[0])
    
-    variable = np.unique(df_c['var'])
+    variable = [v for v in np.unique(df_c['var']) if v != ex['RV_name']]
     var_rel_sizes = {outdic_actors[var].area_grid.sum()/7939E6 : var for var in variable}
     var_large_to_small = [var_rel_sizes[s] for s in sorted(var_rel_sizes, reverse=True)]
-    ds = xr.Dataset()
+    list_ds = []
+    dict_ds = {}
     for i, var in enumerate(var_large_to_small):
+        ds_var = xr.Dataset()
         regs_c = df_c.loc[ df_c['var'] == var ]
         actor = outdic_actors[var]
         label_tig = actor.prec_labels.copy()
@@ -537,20 +532,19 @@ def causal_reg_to_xarray(ex, df, outdic_actors):
             orig_corr_val = corr_xr.sel(lag=lag_cor).values
             corr_xr.sel(lag=lag_cor).values = orig_corr_val * wghts_splits
                               
-        ds[var+'_corr'] = corr_xr.mean(dim='split') 
-        ds[var+'_corr_tigr'] = corr_tig.mean(dim='split') 
-        ds[var+'_labels'] = actor.prec_labels.copy()
-        ds[var+'_labels_tigr'] = label_tig.copy()            
-#            orig_corr_val = 
-#            corr_xr.sel(lag=lag_cor).values = corr_xr.values * wghts_splits #np.tile(wghts_splits, (2,1,1))
-        
+        ds_var[var+'_corr'] = corr_xr.mean(dim='split') 
+        ds_var[var+'_corr_tigr'] = corr_tig.mean(dim='split') 
+        ds_var[var+'_labels'] = actor.prec_labels.copy()
+        ds_var[var+'_labels_tigr'] = label_tig.copy()    
+        dict_ds[var] = ds_var
+#    list_ds = [item for k,item in dict_ds.items()]
+#    ds = xr.auto_combine(list_ds)
 
-#        ds[var+'_corr'] = corr_aggr.assign_coords(split=['aggregated'])
 
     #%%
-    return ds
+    return dict_ds
 
-def plotting_per_variable(ds, df, map_proj, ex):
+def plotting_per_variable(dict_ds, df, map_proj, ex):
     #%%
     # =============================================================================
     print('\nPlotting all fields significant at alpha_level_tig, while conditioning on parents'
@@ -561,10 +555,13 @@ def plotting_per_variable(ds, df, map_proj, ex):
     # causal link
     if df.index[0] in df_c.index:
         df_c = df_c.drop(df.index[0])
-    lags = ds.lag.values
+        
+    variables = [v for v in np.unique(df_c['var']) if v != ex['RV_name']]
+    lags = ds = dict_ds[variables[0]].lag.values
     for lag in lags:
         
-        for i, var in enumerate(np.unique(df_c['var'])):
+        for i, var in enumerate(variables):
+            ds = dict_ds[var]
             
             plot_labels(ds, df_c, var, lag, ex)
             
@@ -625,7 +622,7 @@ def standard_settings_and_tests(ex):
         ex['lag_max'] = int(tdelta / np.timedelta64(ex['tfreq'], 'D'))
         print(('Changing maximum lag to {}, so that you not skip part of the '
               'year.'.format(ex['lag_max'])))
-
+        
     # Some IO settings
     ex['store_format']   = 'hdf5'
     ex['file_type1'] = ".pdf"

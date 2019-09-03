@@ -7,6 +7,7 @@ from pylab import *
 import matplotlib.pyplot as plt
 import wrapper_RGCPD_tig
 import functions_pp
+import func_fc
 import scipy
 import pandas as pd
 from statsmodels.sandbox.stats import multicomp
@@ -107,7 +108,7 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
     assert lag_steps >= 0, ('Maximum lag is larger then minimum lag, not allowed')
 		    
 
-    traintest, ex = functions_pp.rand_traintest_years(RV.RV_ts, precur_arr, ex)
+    traintest, ex = functions_pp.rand_traintest_years(RV, precur_arr, ex)
     # make new xarray to store results
     xrcorr = precur_arr.isel(time=0).drop('time').copy()
     # add lags
@@ -188,79 +189,6 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
     #%%
     return xrcorr
 	
-def calc_corr_coeffs(precur_arr, RV, ex):
-    #%%
-#    v = ncdf ; V = array ; RV.RV_ts = ts of RV, time_range_all = index range of whole ts
-    """
-    This function calculates the correlation maps for precur_arr for different lags. 
-    Field significance is applied to test for correltion.
-    This function uses the following variables (in the ex dictionary)
-    prec_arr: array
-    time_range_all: a list containing the start and the end index, e.g. [0, time_cycle*n_years]
-    lag_steps: number of lags
-    time_cycle: time cycyle of dataset, =12 for monthly data...
-    RV_period: indices that matches the response variable time series
-    alpha: significance level
-
-    """
-    lag_steps = ex['lag_max'] - ex['lag_min'] +1
-    
-    assert lag_steps >= 0, ('Maximum lag is larger then minimum lag, not allowed')
-		    
-    lat = precur_arr.latitude.values
-    lon = precur_arr.longitude.values
-    
-
-    z = np.zeros((lat.size*lon.size,lag_steps))
-    Corr_Coeff = np.ma.array(z, mask=z)
-	
-    # reshape
-    sat = np.reshape(precur_arr.values, (precur_arr.shape[0],-1))
-    print('\n{} - calculating correlation maps'.format(precur_arr.name))
-	
-	
-    for i in range(lag_steps):
-
-        lag = ex['lag_min'] + i
-        months_indices_lagged = [r - lag for r in ex['RV_period']]
-       
-#        if ex['time_match_RV'] == True:
-#            months_indices_lagged = [r - lag for r in ex['RV_period']]
-#        else:
-#            # recreate RV_period of precursor to match the correct indices           
-#            start_prec = pd.Timestamp(RV.RVfullts[ex['RV_period'][0]].time.values) - date_dt(months=lag * ex['tfreq'])
-#            start_ind = int(np.where(pd.to_datetime(precur_arr.time.values) == start_prec)[0])
-#            new_n_oneyr  = get_oneyr(pd.to_datetime(precur_arr.time.values)).size
-#            RV_period = [ (yr*new_n_oneyr)-start_ind for yr in range(1,int(ex['n_yrs'])+1)]
-#            months_indices_lagged = [r - (lag) for r in RV_period]
-
-            
-#            precur_arr.time.values[months_indices_lagged]
-            # only winter months 		
-        sat_winter = sat[months_indices_lagged]
-		
-		# correlation map and pvalue at each grid-point:
-        corr_di_sat, sig_di_sat = corr_new(sat_winter, RV.RV_ts)
-		
-        if ex['FDR_control'] == True:
-				
-			# test for Field significance and mask unsignificant values			
-			# FDR control:
-            adjusted_pvalues = multicomp.multipletests(sig_di_sat, method='fdr_bh')			
-            ad_p = adjusted_pvalues[1]
-			
-            corr_di_sat.mask[ad_p> ex['alpha']] = True
-
-        else:
-            corr_di_sat.mask[sig_di_sat> ex['alpha']] = True
-			
-			
-        Corr_Coeff[:,i] = corr_di_sat[:]
-            
-    Corr_Coeff = np.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
-	#%%
-    return Corr_Coeff
-
 def get_area(ds):
     longitude = ds.longitude
     latitude = ds.latitude
@@ -279,15 +207,6 @@ def get_area(ds):
     A_gridcell2D = np.tile(A_gridcell,[1,len(longitude)])
 #    A_mean = np.mean(A_gridcell2D)
     return A_gridcell2D
-
-
-def quick_plot_mask(actor):
-    mask  = actor.Corr_Coeff.mask
-    lats    = actor.lat_grid
-    lons    = actor.lon_grid
-    plt.figure(figsize=(10,15)) ; 
-    plt.imshow(np.reshape(mask, (lats.size, lons.size))) 
-    return
 
 def cluster_DBSCAN_regions(actor, ex):
     #%%
@@ -511,21 +430,14 @@ def relabel(prec_labels_s, reassign):
 def spatial_mean_regions(actor, ex):
     #%%
     
-    #    var = 'sst'
-#    actor = outdic_actors[var]
     var             = actor.name
     corr_xr         = actor.corr_xr
     prec_labels     = actor.prec_labels
     n_spl           = corr_xr.split.size
     lags = np.arange(ex['lag_min'], ex['lag_max']+1E-9, dtype=int)
     lag_steps = lags.size
-#    order_str       = actor.order_str_actor
-#    actbox = np.reshape(actor.precur_arr.values, (n_time, 
-#                  lats.size*lons.size))  
-    actbox = actor.precur_arr.values
 
-#    print(actor.prec_labels.squeeze().values[~np.isnan(actor.prec_labels.squeeze().values)])
-    
+    actbox = actor.precur_arr.values
     ts_corr = np.zeros( (n_spl), dtype=object)
     
     for s in range(n_spl):
@@ -572,6 +484,132 @@ def spatial_mean_regions(actor, ex):
     #%%
     return ts_corr
 
+
+def get_spatcovs(dict_ds, df_split, s, outdic_actors, normalize=True):
+    #%%
+
+    lag = 0
+    TrainIsTrue = df_split['TrainIsTrue']
+    times = df_split.index
+#    n_time = times.size
+    options = ['_spatcov', '_spatcov_caus']
+    columns = []
+    for var in outdic_actors.keys():
+        for select in options:
+            columns.append(var+select)
+    
+    
+    data = np.zeros( (len(columns), times.size) )
+    df_sp_s = pd.DataFrame(data.T, index=times, columns=columns) 
+    dates_train = TrainIsTrue[TrainIsTrue.values].index
+#    dates_test  = TrainIsTrue[TrainIsTrue.values==False].index      
+    for var, actor in outdic_actors.items():
+        ds = dict_ds[var]        
+        for i, select in enumerate(['_labels', '_labels_tigr']):
+            # spat_cov over test years using corr fields from training
+                
+            full_timeserie = actor.precur_arr
+            corr_vals = ds[var + "_corr"][0]
+            mask = ds[var + select].sel(split=s).isel(lag=lag)
+            pattern = corr_vals.where(~np.isnan(mask))
+            if np.isnan(pattern.values).all():
+                # no regions of this variable and split
+                pass
+            else:
+                if normalize == True:
+                    spatcov_full = calc_spatcov(full_timeserie, pattern)
+                    mean = spatcov_full.sel(time=dates_train).mean(dim='time')
+                    std = spatcov_full.sel(time=dates_train).std(dim='time')
+                    spatcov_test = ((spatcov_full - mean) / std)
+                elif normalize == False:
+                    spatcov_test = calc_spatcov(full_timeserie, pattern)
+                pd_sp = pd.Series(spatcov_test.values, index=times)
+                col = options[i]
+                df_sp_s[var + col] = pd_sp
+    for i, bckgrnd in enumerate(['tcov', 'caus']):
+        cols = [col for col in df_sp_s.columns if col[-4:] == bckgrnd]
+        key = options[i]
+        df_sp_s['all'+key] = df_sp_s[cols].mean(axis=1)
+    #%%
+    return df_sp_s
+        
+
+def add_sp_info(df_sum, df_sp):
+    #%%
+    splits = df_sum.index.levels[0]
+    cols = df_sum.loc[0].columns
+    df_sum_new = np.zeros( (splits.size), dtype=object)
+    for s in splits:    
+        
+        df_sum_s = df_sum.loc[s]
+        df_sp_s = df_sp.loc[s]
+        keys = list(df_sp_s.columns)
+        data = np.zeros( (len(keys), len(cols)) ) 
+        data[:,:] = 999
+        data[:,-2] = [True if k[-4:]=='caus' else False for k in keys]
+        data[:,-1] = np.nan
+        df_append = pd.DataFrame(data=data, index=keys, columns = cols)
+        df_merged = pd.concat([df_sum_s, df_append])
+        df_merged = df_merged.astype({'label':int, 'lag_corr':int,
+                               'region_number':int, 'var':str, 
+                               'causal':bool, 'lag_tig':float})
+        df_sum_new[s] = df_merged
+    
+    return pd.concat(list(df_sum_new), keys= range(splits.size))
+
+def calc_spatcov(full_timeserie, pattern):
+#%%
+#    full_timeserie = var_train_reg
+#    pattern = ds_Sem['pattern_CPPA'].sel(lag=lag)
+    
+    
+#    # trying to matching dimensions
+#    if pattern.shape != full_timeserie[0].shape:
+#        try:
+#            full_timeserie = full_timeserie.sel(latitude=pattern.latitude)
+#        except:
+#            pattern = pattern.sel(latitude=full_timeserie.latitude)
+    
+    
+    mask = np.ma.make_mask(np.isnan(pattern.values)==False)
+    
+    n_time = full_timeserie.time.size
+    n_space = pattern.size
+    
+
+#    mask_pattern = np.tile(mask_pattern, (n_time,1))
+    # select only gridcells where there is not a nan
+    full_ts = np.nan_to_num(np.reshape( full_timeserie.values, (n_time, n_space) ))
+    pattern = np.nan_to_num(np.reshape( pattern.values, (n_space) ))
+
+    mask_pattern = np.reshape( mask, (n_space) )
+    full_ts = full_ts[:,mask_pattern]
+    pattern = pattern[mask_pattern]
+    
+#    crosscorr = np.zeros( (n_time) )
+    spatcov   = np.zeros( (n_time) )
+#    covself   = np.zeros( (n_time) )
+#    corrself  = np.zeros( (n_time) )
+    for t in range(n_time):
+        # Corr(X,Y) = cov(X,Y) / ( std(X)*std(Y) )
+        # cov(X,Y) = E( (x_i - mu_x) * (y_i - mu_y) )
+#        crosscorr[t] = np.correlate(full_ts[t], pattern)
+        M = np.stack( (full_ts[t], pattern) )
+        spatcov[t] = np.cov(M)[0,1] #/ (np.sqrt(np.cov(M)[0,0]) * np.sqrt(np.cov(M)[1,1]))
+#        sqrt( Var(X) ) = sigma_x = std(X)
+#        spatcov[t] = np.cov(M)[0,1] / (np.std(full_ts[t]) * np.std(pattern))        
+#        covself[t] = np.mean( (full_ts[t] - np.mean(full_ts[t])) * (pattern - np.mean(pattern)) )
+#        corrself[t] = covself[t] / (np.std(full_ts[t]) * np.std(pattern))
+    dates_test = full_timeserie.time
+#    corrself = xr.DataArray(corrself, coords=[dates_test.values], dims=['time'])
+    
+#    # standardize
+#    corrself -= corrself.mean(dim='time', skipna=True)
+    
+    # cov xarray
+    spatcov = xr.DataArray(spatcov, coords=[dates_test.values], dims=['time'])
+#%%
+    return spatcov
 
 def return_sign_parents(pc_class, pq_matrix, val_matrix,
                             alpha_level=0.05):
@@ -707,8 +745,6 @@ def print_particular_region_new(links_RV, var_names, s, outdic_actors, map_proj,
         
 #%%
     return 
-
-
 
 def plot_regs_xarray(for_plt, ex):
     #%%  
