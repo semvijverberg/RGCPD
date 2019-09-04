@@ -230,8 +230,7 @@ def cluster_DBSCAN_regions(actor, ex):
 
 
     lags = ex['lags']
-    n_lags = lags.size
-
+    n_lags = len(lags)
 
     ex['n_tot_regs'] = 0
 
