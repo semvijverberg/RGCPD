@@ -5,7 +5,7 @@ import matplotlib
 matplotlib.rcParams['backend'] = "Qt4Agg"
 from pylab import *
 import matplotlib.pyplot as plt
-import wrapper_RGCPD_tig
+
 import functions_pp
 import func_fc
 import scipy
@@ -13,6 +13,7 @@ import pandas as pd
 from statsmodels.sandbox.stats import multicomp
 import xarray as xr
 import cartopy.crs as ccrs
+import plot_maps
 import itertools
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 def get_oneyr(datetime):
@@ -707,7 +708,7 @@ def print_particular_region_new(links_RV, var_names, s, outdic_actors, map_proj,
             actor = outdic_actors[var_name]
             prec_labels = actor.prec_labels.sel(split=s)
 
-            for_plt = prec_labels.where(prec_labels.values==according_number).isel(lag=corr_lag)
+            for_plt = prec_labels.where(prec_labels.values==according_number).sel(lag=corr_lag)
 
             map_proj = map_proj
             plt.figure(figsize=(6, 4))
@@ -848,7 +849,7 @@ def finalfigure(xrdata, file_name, kwrgs):
         ax = g.axes.flatten()[n_ax]
 #        print(n_ax)
         if periodic == True:
-            plotdata = wrapper_RGCPD_tig.extend_longitude(xrdata[n_ax])
+            plotdata = plot_maps.extend_longitude(xrdata[n_ax])
         else:
             plotdata = xrdata[n_ax].squeeze()
         im = plotdata.plot.pcolormesh(ax=ax, cmap=cmap,
