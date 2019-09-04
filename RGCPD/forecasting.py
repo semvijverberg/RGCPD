@@ -19,37 +19,19 @@ import exp_fc
 # =============================================================================
 
 path_data =  '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_m01-08_dt14/9jun-18aug_t2mmax_E-US_lag0-0/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-22.h5'
-path_data_sm = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-22.h5'
-path_data_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-25.h5'
+rand_10d_sm = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-22.h5'
+rand_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-25.h5'
 path_data_3d_sp = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-30.h5'
-path_data_strat = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
-
-lags = [0,1,2]
+strat_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
+strat_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
 
 n_boot = 500
 
 
 
-    
-stat_model = ('GBR', 
-              {'max_depth':3,
-               'learning_rate':1E-3,
-               'n_estimators' : 500,
-               'max_features':'sqrt',
-               'subsample' : 0.6} )
-  
 
-#stat_model = ('GBR_classes', 
-#              {'max_depth':5,
-#               'learning_rate':1E-3,
-#               'n_estimators' : 500,
-#               'max_features':'sqrt',
-#               'subsample' : 0.6} )     
 
-kwrgs_events = {'event_percentile': 'std',
-                'min_dur' : 1,
-                'max_break' : 0,
-                'grouped' : False}
+
 
 
 
@@ -102,38 +84,28 @@ GBR_logitCV = ('GBR-logitCV',
 stat_model_l = [logit, GBR_logitCV]
 
 
-datasets_path = {'ERA-5 30d strat':path_data_strat, 'ERA-5 30d sp':path_data_3d_sp}
+#datasets_path = {'ERA-5 30d strat':path_data_strat, 'ERA-5 30d sp':path_data_3d_sp}
+datasets_path = {'ERA-5 10d strat':strat_10d, 'ERA-5 30d strat':strat_30d}
 
-#datasets_path = {'ERA-5 10d sp':path_data_3d_sp}
 
 
-causal = True
-keys_d_sets = {}
+causal = False
+keys_d_sets = {} ; experiments = {}
 for dataset, path_data in datasets_path.items():
 #    keys_d = exp_fc.compare_use_spatcov(path_data, causal=causal)
     keys_d = exp_fc.normal_precursor_regions(path_data, causal=causal)
     keys_d_sets[dataset] = keys_d
+    for master_key, feature_keys in keys_d.items():
+        kwrgs_pp = {'EOF':False, 'expl_var':0.5}
+        experiments[dataset] = (path_data, {'keys':feature_keys,
+                                           'kwrgs_pp':kwrgs_pp
+                                           })
     
-#experiments = { 'ERA-5 30d Only_all_spatcov':(path_data_3d_sp,
-#                            {'keys': keys_d_sets[dataset]['Only_all_spatcov'],
-#                             'kwrgs_pp':{'EOF':True, 'expl_var':0.5} } ),
-#                'ERA-5 30d Regions_all_spatcov':(path_data_3d_sp,
-#                            {'keys': keys_d_sets[dataset]['Regions_all_spatcov'],
-#                             'kwrgs_pp':{'EOF':True, 'expl_var':0.5} } ),
-#                'ERA-5 30d Only_all_spatcov_prod':(path_data_sp_prod,
-#                            {'keys': keys_d_sets[dataset]['Only_all_spatcov'],
-#                             'kwrgs_pp':{'EOF':True, 'expl_var':0.5} } ),
-#                'ERA-5 30d Regions_all_spatcov_prod':(path_data_sp_prod,
-#                            {'keys': keys_d_sets[dataset]['Regions_all_spatcov'],
-#                             'kwrgs_pp':{'EOF':True, 'expl_var':0.5} } ) }
+kwrgs_events = {'event_percentile': 80,
+                'min_dur' : 1,
+                'max_break' : 0,
+                'grouped' : False}
 
-experiments = { 
-                'ERA-5 30d strat':(path_data_strat,
-                            {'keys': keys_d_sets[dataset]['normal_precursor_regions'],
-                             'kwrgs_pp':{'EOF':False, 'expl_var':0.5} } ),
-                'ERA-5 30d  ':(path_data_30d,
-                            {'keys': keys_d_sets[dataset]['normal_precursor_regions'] } )
-                }
 
 
 dict_datasets = {}
@@ -144,13 +116,13 @@ for dataset, tuple_sett in experiments.items():
     df_data = dict_of_dfs['df_data']
     splits  = df_data.index.levels[0]
     tfreq = (df_data.loc[0].index[1] - df_data.loc[0].index[0]).days
-    lags = np.arange(0, 30+1E-9, tfreq)/tfreq 
+    lags = np.arange(0, 90+1E-9, tfreq)/tfreq 
     
     df_sum  = dict_of_dfs['df_sum']
     
     if 'keys' not in kwrgs_exp:
         # if keys not defined, getting causal keys
-        kwrgs_exp['keys'] = exp_fc.normal_precursor_regions(path_data, causal=True)
+        kwrgs_exp['keys'] = exp_fc.normal_precursor_regions(path_data, causal=True)['normal_precursor_regions']
 
         
     dict_sum = forecast_wrapper(path_data, kwrgs_exp=kwrgs_exp, kwrgs_events=kwrgs_events, 
@@ -164,7 +136,6 @@ df_valid, RV, y_pred = dict_sum[stat_model_l[-1][0]]
 
 
 def print_sett(experiments, stat_model_l, filename):
-    #%%
     f= open(filename+".txt","w+")
     lines = []
     lines.append(f'Models used:\n')
@@ -183,7 +154,7 @@ def print_sett(experiments, stat_model_l, filename):
     [print(n, file=f) for n in lines]
 
     f.close()
-    #%%
+
         
     
 

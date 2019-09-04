@@ -28,7 +28,6 @@ def calculate_corr_maps(ex, map_proj):
     # =============================================================================
     # Response Variable is what we want to predict
     RV = ex[ex['RV_name']]
-    ex['lags'] = [l * ex['tfreq'] for l in range(ex['lag_min'],ex['lag_max']+1)]
     ex['time_cycle'] = RV.dates[RV.dates.year == RV.startyear].size # time-cycle of data. total timesteps in one year
     #=====================================================================================
     # Information on period taken for response-variable, already decided in main_download_and_pp
@@ -616,12 +615,19 @@ def standard_settings_and_tests(ex):
     # Test if you're not have a lag that will precede the start date of the year
     # =============================================================================
     # first date of year to be analyzed:
-    firstdoy = RV.datesRV.min() - np.timedelta64(ex['tfreq'] * ex['lag_max'], 'D')
+    if ex['input_freq'] == 'daily': 
+        f = 'D'
+    elif ex['input_freq'] == 'monthly':
+        f = 'M'
+ 
+    firstdoy = RV.dates_RV.min() - np.timedelta64(int(max(ex['lags'])), f)
     if firstdoy < RV.dates[0] and (RV.dates[0].month,RV.dates[0].day) != (1,1):
-        tdelta = RV.datesRV.min() - RV.dates.min()
-        ex['lag_max'] = int(tdelta / np.timedelta64(ex['tfreq'], 'D'))
+        tdelta = RV.dates_RV.min() - RV.dates.min()
+        lag_max = int(tdelta / np.timedelta64(ex['tfreq'], 'D'))
+        ex['lags'] = ex['lags'][ex['lags'] < lag_max]
+        ex['lags_i'] = ex['lags_i'][ex['lags_i'] < lag_max]
         print(('Changing maximum lag to {}, so that you not skip part of the '
-              'year.'.format(ex['lag_max'])))
+              'year.'.format(max(ex['lags'])) ) )
         
     # Some IO settings
     ex['store_format']   = 'hdf5'
@@ -664,15 +670,15 @@ def standard_settings_and_tests(ex):
     print('Part of year investigated: {} - {}'.format(start_day, end_day))
     print('Part of year predicted (RV period): {} '.format(RV.RV_name_range[:-1]))
     print('Temporal resolution: {} {}'.format(ex['tfreq'], ex['input_freq']))
-    print('Lags: {} to {}'.format(ex['lag_min'], ex['lag_max']))
+    print('Lags: {}'.format(ex['lags']))
     print('Traintest setting: {} seed {}'.format(method_str.split('_')[0], method_str.split('_s')[1]))
-    one_year_RV_data = RV.datesRV.where(RV.datesRV.year==RV.startyear).dropna(how='all').values
+    one_year_RV_data = RV.dates_RV.where(RV.dates_RV.year==RV.startyear).dropna(how='all').values
     print('For example\nPredictant (only one year) is:\n{} at \n{}\n'.format(ex['RV_name'],
           one_year_RV_data))
     print('\tVS\n')
-    shift_lag_days = one_year_RV_data - pd.Timedelta(int(ex['lag_min']*ex['tfreq']), unit='d')
-    print('Predictor (only one year) is:\n{} at lag {} {}s\n{}\n'.format(
-            ex['vars'][0][-1], int(ex['lag_min']*ex['tfreq']), ex['input_freq'][0], 
+    shift_lag_days = one_year_RV_data - pd.Timedelta(min(ex['lags']), unit='d')
+    print('Predictor (only one year) at is:\n{} at lag {} \n{}\n'.format(
+            ex['vars'][0][-1], min(ex['lags']), 
             shift_lag_days))
     print('\n**\nEnd of summary\n**\n')
 

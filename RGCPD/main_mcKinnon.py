@@ -234,17 +234,17 @@ elif importRV_1dts == False:
 
 # =============================================================================
 # General Temporal Settings: frequency, lags, part of year investigated
-# =============================================================================
+# ===================================lag_steps==========================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [10] #[2,4,7,14,21,35] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [30] #[2,4,7,14,21,35] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
 #    lag_min = int(np.timedelta64(5, 'D') / np.timedelta64(ex['tfreq'], 'D'))
-    ex['lag_min'] = 0#max(0, lag_min)
-    ex['lag_max'] = ex['lag_min'] + 0
-
+    ex['lags_i'] = np.array([0, 1, 2], dtype=int)
+    ex['lags'] = np.array([l*freq for l in ex['lags_i']], dtype=int)
+    
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
                         ex['sstartdate'].split('-')[0], 
                         ex['senddate'].split('-')[0], ex['tfreq'])
@@ -295,8 +295,6 @@ for freq in ex['tfreqlist']:
     ex['alpha'] = 0.05# set significnace level for correlation maps
     ex['alpha_fdr'] = 2*ex['alpha'] # conservative significance level
     ex['FDR_control'] = True # Do you want to use the conservative alpha_fdr or normal alpha?
-    # If your pp data is not a full year, there is Maximum meaningful lag given by:
-    #ex['lag_max'] = dates[dates.year == 1979].size - ex['RV_oneyr'].size
     ex['alpha_level_tig'] = 0.05 # Alpha level for final regression analysis by Tigrimate
     ex['pcA_sets'] = dict({   # dict of sets of pc_alpha values
           'pcA_set1a' : [ 0.05], # 0.05 0.01

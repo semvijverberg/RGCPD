@@ -266,13 +266,13 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
         print('The amount of timesteps in the RV ts and the precursors'
                           ' do not match, selecting desired dates. ')
 
-    
+
     if ex['RV_detrend'] == True:
         print('Detrending Respone Variable.')
         RV.RVfullts = detrend1D(RV.RVfullts)
 
     if ex['input_freq'] == 'daily':
-        RV.datesRV = make_RVdatestr(pd.to_datetime(RV.RVfullts.time.values), ex,
+        RV.dates_RV = make_RVdatestr(pd.to_datetime(RV.RVfullts.time.values), ex,
                               ex['startyear'], ex['endyear'], lpyr=False)
     elif ex['input_freq'] == 'monthly':
 
@@ -299,10 +299,10 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
         idx = [i for i in range(months.size) if months[i] in selmon]
         mask[idx] = True
         xrdates = RV.RVfullts.time.where(mask).dropna(dim='time')
-        RV.datesRV = pd.to_datetime(xrdates.values)
+        RV.dates_RV = pd.to_datetime(xrdates.values)
 
     # get indices of RVdates
-    string_RV = list(RV.datesRV.strftime('%Y-%m-%d'))
+    string_RV = list(RV.dates_RV.strftime('%Y-%m-%d'))
     string_full = list(RV.dates.strftime('%Y-%m-%d'))
     ex['RV_period'] = [string_full.index(date) for date in string_full if date in string_RV]
 
@@ -312,21 +312,21 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
 
     months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',
                     7:'jul',8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
-    RV_name_range = '{}{}-{}{}_'.format(RV.datesRV[0].day, months[RV.datesRV.month[0]],
-                     RV.datesRV[-1].day, months[RV.datesRV.month[-1]] )
+    RV_name_range = '{}{}-{}{}_'.format(RV.dates_RV[0].day, months[RV.dates_RV.month[0]],
+                     RV.dates_RV[-1].day, months[RV.dates_RV.month[-1]] )
 
-    info_lags = 'lag{}-{}'.format(ex['lag_min'], ex['lag_max'])
-                                                    
+    info_lags = 'lag{}-{}'.format(min(ex['lags']), max(ex['lags']))
+
     # Creating a folder for the specific spatial mask, RV period and traintest set
     if importRV_1dts == True:
         ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range + \
                                           info_lags )
-                                    
+
 
     elif importRV_1dts == False:
         ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range +
                                       ex['spatial_mask_naming'] + info_lags )
-    
+
     RV.RV_name_range = RV_name_range
     #%%
     return RV, ex
@@ -504,7 +504,7 @@ def timeseries_tofit_bins(xarray, ex, seldays='part'):
                          8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
     startdatestr = '{} {}'.format(start_day.day, months[start_day.month])
     enddatestr   = '{} {}'.format(end_day.day, months[end_day.month])
-    
+
     if ex['input_freq'] == 'daily' and ex['verbosity'] > 0:
         print('Period of year selected: \n{} to {}, tfreq {} days'.format(
                 startdatestr, enddatestr, ex['tfreq']))
@@ -767,7 +767,7 @@ def detrend1D(da):
     import xarray as xr
     dates = pd.to_datetime(da.time.values)
     stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
-    
+
     if (stepsyr.day== 1).all() == True or int(da.time.size / 365) >= 120:
         print('\nHandling time series longer then 120 day or monthly data, no smoothening applied')
         data_smooth = da.values
@@ -785,16 +785,16 @@ def detrend1D(da):
         sliceyr = np.arange(i, da.time.size, stepsyr.size)
         arr_oneday = da.isel(time=sliceyr)
         arr_oneday_smooth = data_smooth[sliceyr]
-        
+
         detrended_sm = xr.DataArray(sps.detrend(arr_oneday_smooth),
-                            dims=arr_oneday.dims, 
+                            dims=arr_oneday.dims,
                             coords=arr_oneday.coords)
         # subtract trend smoothened signal of arr_oneday values
         trend = (arr_oneday_smooth - detrended_sm)- np.mean(arr_oneday_smooth, 0)
         detrended = arr_oneday - trend
         output[i::stepsyr.size] = detrended
     dao = xr.DataArray(output,
-                            dims=da.dims, 
+                            dims=da.dims,
                             coords=da.coords)
     return dao
 
@@ -872,8 +872,8 @@ def rand_traintest_years(RV, precur_arr, ex):
     split{int} : split dataset into single train and test set
     no_train_test_split.
     '''
-     
-    
+
+
     RV_ts = RV.RV_ts
     ex['tested_yrs'] = [] ; # ex['n_events'] = []
     ex['all_yrs'] = list(np.unique(RV_ts.time.dt.year))
@@ -883,59 +883,59 @@ def rand_traintest_years(RV, precur_arr, ex):
             ex['seed'] = 30 # control reproducibility train/test split
         else:
             ex['seed'] = ex['seed']
-        
+
         seed = ex['seed']
 
         if ex['method'][:6] == 'random':
             ex['n_spl'] = int(ex['method'][6:8])
         else:
              ex['n_spl'] = int(ex['method'][9:])
-       
-        
-    elif ex['method'][:5] == 'leave': 
+
+
+    elif ex['method'][:5] == 'leave':
         ex['n_spl'] = int(ex['n_yrs'] / int(ex['method'].split('_')[1]) )
-        iterate = np.arange(0, ex['n_yrs']+1E-9, 
+        iterate = np.arange(0, ex['n_yrs']+1E-9,
                             int(ex['method'].split('_')[1]), dtype=int )
     elif ex['method'] == 'no_train_test_split': ex['n_spl'] = 1
-    
+
     traintest = []
     for s in range(ex['n_spl']):
 
         # conditions failed initally assumed True
         a_conditions_failed = True
         count = 0
-        
+
         while a_conditions_failed == True:
             count +=1
             a_conditions_failed = False
-    
-    
+
+
             if ex['method'][:6] == 'random' or ex['method'][:9] == 'ran_strat':
 
-    
+
                 rng = np.random.RandomState(seed)
                 size_test  = int(np.round(ex['n_yrs'] / ex['n_spl']))
                 size_train = int(ex['n_yrs'] - size_test)
-    
+
                 ex['leave_n_years_out'] = size_test
                 yrs_to_draw_sample = [yr for yr in ex['all_yrs'] if yr not in flatten(ex['tested_yrs'])]
                 if (len(yrs_to_draw_sample)) >= size_test:
                     rand_test_years = rng.choice(yrs_to_draw_sample, ex['leave_n_years_out'], replace=False)
                 # if last test sample will be too small for next iteration, add test yrs to current test yrs
                 if (len(yrs_to_draw_sample)) < size_test:
-                    rand_test_years = yrs_to_draw_sample  
+                    rand_test_years = yrs_to_draw_sample
                 check_double_test = [yr for yr in rand_test_years if yr in flatten( ex['tested_yrs'] )]
                 if len(check_double_test) != 0 :
                     a_conditions_failed = True
                     print('test year drawn twice, redoing sampling')
-                    
-                
+
+
             elif ex['method'][:5] == 'leave':
                 ex['leave_n_years_out'] = int(ex['method'].split('_')[1])
                 t0 = iterate[s]
                 t1 = iterate[s+1]
                 rand_test_years = ex['all_yrs'][t0: t1]
-                
+
             elif ex['method'][:5] == 'split':
                 size_train = int(np.percentile(range(len(ex['all_yrs'])), int(ex['method'][5:])))
                 size_test  = len(ex['all_yrs']) - size_train
@@ -949,28 +949,28 @@ def rand_traintest_years(RV, precur_arr, ex):
                 ex['leave_n_years_out'] = size_test
                 print('No train test split'.format(size_train, size_test))
                 rand_test_years = []
-        
-            
-                
+
+
+
             # test duplicates
             a_conditions_failed = np.logical_and((len(set(rand_test_years)) != ex['leave_n_years_out']),
                                      s != ex['n_spl']-1)
             # Update random years to be selected as test years:
         #        initial_years = [yr for yr in initial_years if yr not in random_test_years]
             rand_train_years = [yr for yr in ex['all_yrs'] if yr not in rand_test_years]
-            
-    
+
+
             full_years  = list(precur_arr.time.dt.year.values)
             RV_years  = list(RV_ts.time.dt.year.values)
-            
+
             Prec_train_idx = [i for i in range(len(full_years)) if full_years[i] in rand_train_years]
             RV_train_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_train_years]
             RV_train = RV_ts.isel(time=RV_train_idx)
-            
+
             if ex['method'] != 'no_train_test_split':
                 Prec_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
                 RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
-                RV_test = RV_ts.isel(time=RV_test_idx)    
+                RV_test = RV_ts.isel(time=RV_test_idx)
                 test_years = np.unique(RV_test.time.dt.year)
                 if ex['method'][:9] == 'ran_strat':
                     # check if representative sample
@@ -979,9 +979,9 @@ def rand_traintest_years(RV, precur_arr, ex):
             else:
                 RV_test = [] ; test_years = [] ; Prec_test_idx = []
 
-            
+
         ex['tested_yrs'].append(test_years)
-        
+
         traintest_ = dict( { 'years'            : test_years,
                             'RV_train'          : RV_train,
                             'Prec_train_idx'    : Prec_train_idx,
@@ -994,31 +994,31 @@ def rand_traintest_years(RV, precur_arr, ex):
     return traintest, ex
 
 def check_test_split(RV, RV_test, ex, a_conditions_failed, s, count, seed, verbosity=0):
-    
+
     ex['event_thres'] = func_fc.Ev_threshold(RV.RV_ts, ex['kwrgs_events']['event_percentile'])
     tol_from_exp_events = 0.20
-    
+
     if 'kwrgs_events' not in ex.keys():
         print('Stratified Train Test based on +1 tercile events\n')
         ex['kwrgs_events']  =  {'event_percentile': 66,
                     'min_dur' : 1,
                     'max_break' : 0,
                     'grouped' : False}
-        
+
     if ex['kwrgs_events']['event_percentile'] == 'std':
         exp_events_r = 0.15
     elif type(ex['kwrgs_events']['event_percentile']) == int:
         exp_events_r = 1 - ex['kwrgs_events']['event_percentile']/100
-    
-    
+
+
     test_years = np.unique(RV_test.time.dt.year)
     exp_events = (exp_events_r * RV.RV_ts.size / ex['n_yrs']) * test_years.size
     tolerance      = tol_from_exp_events * exp_events
     event_test = func_fc.Ev_timeseries(RV_test, ex['event_thres'])[1]
     diff           = abs(len(event_test) - exp_events)
-    
-    
-    if diff > tolerance: 
+
+
+    if diff > tolerance:
         if verbosity > 1:
             print('not a representative sample drawn, drawing new sample')
         seed += 1 # next random sample
@@ -1036,8 +1036,7 @@ def check_test_split(RV, RV_test, ex, a_conditions_failed, s, count, seed, verbo
             print(f"kept sample after {count+1} attempts")
             print('{}: test year is {}, with {} events'.format(s, test_years, len(event_test)))
         a_conditions_failed = False
-        
+
     return a_conditions_failed, count, seed
-        
-        
-        
+
+

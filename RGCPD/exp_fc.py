@@ -7,7 +7,7 @@ Created on Fri Aug 30 17:04:46 2019
 """
 import func_fc
 import numpy as np
-
+from  more_itertools import unique_everseen
 
 
 #experiments = { 'ERA-5 30d Only_all_spatcov':(path_data_3d_sp,
@@ -113,7 +113,7 @@ def normal_precursor_regions(path_data, causal=True):
             
         # Regions + all_spatcov(_caus)
         keys_ = [k for k in all_keys if ('spatcov' not in k)]
-        keys_d_[s] = np.array((keys_))
+        keys_d_[s] = np.array(list(unique_everseen(keys_)))
         
     keys_d['normal_precursor_regions'] = keys_d_
         

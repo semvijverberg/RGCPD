@@ -121,7 +121,12 @@ class RV_class:
     def __init__(self, df_data, kwrgs_events=None):
         self.RV_ts = df_data[df_data.columns[0]][0][df_data['RV_mask'][0]] 
         self.RVfullts = df_data[df_data.columns[0]][0]
-        if kwrgs_events != None:
+        self.dates_all = self.RVfullts.index
+        self.dates_RV = self.RV_ts.index
+        self.TrainIsTrue = df_data['TrainIsTrue']
+        self.RV_mask = df_data['RV_mask']
+        self.n_oneRVyr = self.dates_RV[self.dates_RV.year == self.dates_RV.year[0]].size
+        if kwrgs_events is not None:
             self.threshold = Ev_threshold(self.RV_ts, 
                                               kwrgs_events['event_percentile'])
             self.RV_b_full = Ev_timeseries(df_data[df_data.columns[0]][0], 
@@ -131,12 +136,8 @@ class RV_class:
                                grouped=kwrgs_events['grouped'])[0]
             self.RV_bin   = self.RV_b_full[df_data['RV_mask'][0]] 
             self.prob_clim = get_obs_clim(self)
-        self.dates_all = self.RV_b_full.index
-        self.dates_RV = self.RV_bin.index
-        self.TrainIsTrue = df_data['TrainIsTrue']
-        self.RV_mask = df_data['RV_mask']
-        self.freq      = get_freq_years(self)
-        self.n_oneRVyr = self.dates_RV[self.dates_RV.year == self.dates_RV.year[0]].size
+            self.freq      = get_freq_years(self)
+        
 
 def load_hdf5(path_data):
     hdf = h5py.File(path_data,'r+')   
@@ -163,10 +164,10 @@ def prepare_data(df_split, lag=int, kwrgs_pp=dict, TrainIsTrue=None, RV_mask=Non
 
     dates_orig = df_split.index
     
-    if TrainIsTrue is None:
-        TrainIsTrue = df_split['TrainIsTrue']
-    if RV_mask is None:
-        RV_mask = df_split['RV_mask']
+    
+    TrainIsTrue = df_split['TrainIsTrue']
+    RV_mask = df_split['RV_mask']
+    
     if remove_RV is True and add_autocorr==False:
         # completely remove RV timeseries
         RV_name = df_split.columns[0]
@@ -185,7 +186,7 @@ def prepare_data(df_split, lag=int, kwrgs_pp=dict, TrainIsTrue=None, RV_mask=Non
 #    df_prec.ix[:,0][:10]
     
     if keys is None:        
-        x_keys  = df_prec.columns[df_prec.dtypes == np.float64]
+        x_keys = np.unique((df_prec.dtypes == np.float64).index)
     else:
         x_keys  = keys
         
@@ -327,7 +328,12 @@ def Ev_timeseries(xarray, threshold, min_dur=1, max_break=0, grouped=False,
     import xarray as xr 
     if type(xarray) != type(xr.DataArray([0])):
         give_df_back = True
-        xarray = xarray.to_xarray().rename({'index':'time'})
+        if xarray.index.name != 'time':
+            old_name = xarray.index.name
+            xarray = xarray.to_xarray().rename({old_name:'time'})
+        else:
+            xarray = xarray.to_xarray()
+        xarray = xarray.to_array().squeeze()
     else:
         give_df_back = False
         
@@ -369,7 +375,7 @@ def Ev_timeseries(xarray, threshold, min_dur=1, max_break=0, grouped=False,
     if give_df_back:
         event_binary = pd.DataFrame(event_binary_np, index=pd.to_datetime(xarray.time.values), 
                                    columns=['RV_binary'])
-        Events = Events.to_dataframe()
+        Events = Events.to_dataframe(name='events')
     else:
         event_binary = xarray.copy()
         event_binary.values = event_binary_np
