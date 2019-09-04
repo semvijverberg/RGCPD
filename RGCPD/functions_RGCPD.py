@@ -22,6 +22,9 @@ from dateutil.relativedelta import relativedelta as date_dt
 
 
 def convert_longitude(data, to_format='only_east'):
+    '''
+    to_format = 'only_east' or 'west_east'
+    '''
     import numpy as np
     import xarray as xr
     if to_format == 'west_east':
@@ -104,7 +107,6 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
 
     """
     n_lags = len(ex['lags_i'])
-    tfreq = ex['tfreq']
     lags = ex['lags']
     assert n_lags >= 0, ('Maximum lag is larger then minimum lag, not allowed')
 

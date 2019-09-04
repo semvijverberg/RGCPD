@@ -21,60 +21,118 @@ def get_oneyr(datetime):
 
 
 
-def import_ds_lazy(filename, ex):
-    ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
-    variables = list(ds.variables.keys())
-    strvars = [' {} '.format(var) for var in variables]
-    common_fields = (' time time_bnds longitude latitude lev lon lat level mask '
-                     ' lon_bounds lat_bounds lon_bnds lat_bnds ')
-    var = [var for var in strvars if var not in common_fields][0]
-    var = var.replace(' ', '')
+# def import_ds_lazy(filename, ex):
+#     ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
+#     variables = list(ds.variables.keys())
+#     strvars = [' {} '.format(var) for var in variables]
+#     common_fields = (' time time_bnds longitude latitude lev lon lat level mask '
+#                      ' lon_bounds lat_bounds lon_bnds lat_bnds ')
+#     var = [var for var in strvars if var not in common_fields][0]
+#     var = var.replace(' ', '')
+#
+#     ds = ds[var].squeeze()
+#     if 'latitude' and 'longitude' not in ds.dims:
+#         ds = ds.rename({'lat':'latitude',
+#                    'lon':'longitude'})
+#     if 'la_max' in ex.keys() and 'la_min' in ex.keys():
+#         if ds.latitude[0] > ds.latitude[1]:
+#             slice_ = slice(ex['la_max'], ex['la_min'])
+#         else:
+#             slice_ = slice(ex['la_min'], ex['la_max'])
+#         ds = ds.sel(latitude=slice_)
+#     if 'lo_max' in ex.keys() and 'lo_min' in ex.keys():
+#         ds = ds.sel(longitude=slice(ex['lo_min'], ex['lo_max']))
+#
+#     # get dates
+#     numtime = ds['time']
+#     dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+#
+#     if numtime.attrs['calendar'] != 'gregorian':
+#         dates = [d.strftime('%Y-%m-%d') for d in dates]
+#     if ex['input_freq'] == 'monthly':
+#         dates = [d.replace(day=1,hour=0) for d in pd.to_datetime(dates)]
+#         ex['n_oneyr'] = np.unique(pd.to_datetime(dates).month).size
+#     else:
+#         dates = pd.to_datetime(dates)
+#         stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
+#         test_if_fullyr = np.logical_and(dates[stepsyr.size-1].month == 12,
+#                                     dates[stepsyr.size-1].day == 31)
+#         assert test_if_fullyr, ('full is needed as raw data since rolling'
+#                             ' mean is applied across timesteps')
+#
+#     dates = pd.to_datetime(dates)
+#     # set hour to 00
+#     if dates.hour[0] != 0:
+#         dates -= pd.Timedelta(dates.hour[0], unit='h')
+#
+#
+#
+#     ds['time'] = dates
+#
+#     # mask away leapdays
+#     dates_noleap = remove_leapdays(dates)
+#     ds = ds.sel(time=dates_noleap)
+#
+#
+#     return ds
 
-    ds = ds[var].squeeze()
-    if 'latitude' and 'longitude' not in ds.dims:
-        ds = ds.rename({'lat':'latitude',
-                   'lon':'longitude'})
-    if 'la_max' in ex.keys() and 'la_min' in ex.keys():
-        if ds.latitude[0] > ds.latitude[1]:
-            slice_ = slice(ex['la_max'], ex['la_min'])
-        else:
-            slice_ = slice(ex['la_min'], ex['la_max'])
-        ds = ds.sel(latitude=slice_)
-    if 'lo_max' in ex.keys() and 'lo_min' in ex.keys():
-        ds = ds.sel(longitude=slice(ex['lo_min'], ex['lo_max']))
+def import_ds_lazy(filename, ex, loadleap=False, seldates=None):
+   ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
+   variables = list(ds.variables.keys())
+   strvars = [' {} '.format(var) for var in variables]
+   common_fields = ' time time_bnds longitude latitude lev lon lat level mask '
+   var = [var for var in strvars if var not in common_fields][0]
+   var = var.replace(' ', '')
 
-    # get dates
-    numtime = ds['time']
-    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+   ds = ds[var].squeeze()
+   if 'latitude' and 'longitude' not in ds.dims:
+       ds = ds.rename({'lat':'latitude',
+                  'lon':'longitude'})
+   if 'la_max' in ex.keys() and 'la_min' in ex.keys():
+       if ds.latitude[0] > ds.latitude[1]:
+           slice_ = slice(ex['la_max'], ex['la_min'])
+       else:
+           slice_ = slice(ex['la_min'], ex['la_max'])
+       ds = ds.sel(latitude=slice_)
+   if 'lo_max' in ex.keys() and 'lo_min' in ex.keys():
+       ds = ds.sel(longitude=slice(ex['lo_min'], ex['lo_max']))
 
-    if numtime.attrs['calendar'] != 'gregorian':
-        dates = [d.strftime('%Y-%m-%d') for d in dates]
-    if ex['input_freq'] == 'monthly':
-        dates = [d.replace(day=1,hour=0) for d in pd.to_datetime(dates)]
-        ex['n_oneyr'] = np.unique(pd.to_datetime(dates).month).size
-    else:
-        dates = pd.to_datetime(dates)
-        stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
-        test_if_fullyr = np.logical_and(dates[stepsyr.size-1].month == 12,
-                                    dates[stepsyr.size-1].day == 31)
-        assert test_if_fullyr, ('full is needed as raw data since rolling'
-                            ' mean is applied across timesteps')
+   # get dates
+   numtime = ds['time']
+   dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
 
-    dates = pd.to_datetime(dates)
-    # set hour to 00
-    if dates.hour[0] != 0:
-        dates -= pd.Timedelta(dates.hour[0], unit='h')
+   if numtime.attrs['calendar'] != 'gregorian':
+       dates = [d.strftime('%Y-%m-%d') for d in dates]
+   if 'input_freq' in ex.keys():
+       if ex['input_freq'] == 'monthly':
+           dates = [d.replace(day=1,hour=0) for d in pd.to_datetime(dates)]
+           ex['n_oneyr'] = np.unique(pd.to_datetime(dates).month).size
+   else:
+       dates = pd.to_datetime(dates)
+       stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
+       test_if_fullyr = np.logical_and(dates[stepsyr.size-1].month == 12,
+                                   dates[stepsyr.size-1].day == 31)
+       assert test_if_fullyr, ('full is needed as raw data since rolling'
+                           ' mean is applied across timesteps')
 
+   dates = pd.to_datetime(dates)
+   # set hour to 00
+   if dates.hour[0] != 0:
+       dates -= pd.Timedelta(dates.hour[0], unit='h')
 
+   ds['time'] = dates
 
-    ds['time'] = dates
+   if type(seldates)==type(None):
+       pass
+   else:
+       ds = ds.sel(time=seldates)
 
-    # mask away leapdays
-    dates_noleap = remove_leapdays(dates)
-    ds = ds.sel(time=dates_noleap)
+   if loadleap==False:
+       # mask away leapdays
+       dates_noleap = remove_leapdays(pd.to_datetime(ds.time.values))
+       ds = ds.sel(time=dates_noleap)
+   return ds
 
-
-    return ds
 
 def remove_leapdays(datetime):
     mask_lpyrfeb = np.logical_and((datetime.month == 2), (datetime.day == 29))

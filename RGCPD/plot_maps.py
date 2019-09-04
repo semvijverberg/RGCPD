@@ -77,7 +77,14 @@ def plot_corr_maps(corr_xr, xrmask, map_proj, kwrgs={'hspace':-0.6}):
             # simple example...
             x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
             return np.ma.masked_array(np.interp(value, x, y))
-    vmin = np.round(float(corr_xr.min())-0.01,decimals=2) ; vmax = np.round(float(corr_xr.max())+0.01,decimals=2)
+    if 'clim' in kwrgs.keys():
+        if kwrgs['clim'] == 'relaxed':
+            vmin_ = np.percentile(corr_xr, 1) ; vmax_ = np.percentile(corr_xr, 99)
+        elif type(kwrgs['clim']) == tuple:
+            vmin_, vmax_ = kwrgs['clim']
+        else:
+            vmin_ = corr_xr.min() ; vmax_ = corr_xr.max()
+    vmin = np.round(float(vmin_)-0.01,decimals=2) ; vmax = np.round(float(vmax_)+0.01,decimals=2)
     clevels = np.linspace(-max(abs(vmin),vmax),max(abs(vmin),vmax),17) # choose uneven number for # steps
     norm = MidpointNormalize(midpoint=0, vmin=clevels[0],vmax=clevels[-1])
     cmap = 'coolwarm'

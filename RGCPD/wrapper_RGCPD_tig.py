@@ -60,9 +60,9 @@ def calculate_corr_maps(ex, map_proj):
         actor = ex[var]
         #===========================================
         # 3c) Precursor field
-        #===========================================
-#        ncdf = Dataset(os.path.join(actor.path_pp, actor.filename_pp), 'r')  
-        precur_arr, actor = functions_pp.import_ds_timemeanbins(actor, ex)
+        #===========================================  
+        file_path = os.path.join(actor.path_pp, actor.filename_pp)
+        precur_arr, actor = functions_pp.import_ds_timemeanbins(file_path, ex)
         precur_arr = rgcpd.convert_longitude(precur_arr, 'only_east') 
         # =============================================================================
         # Calculate correlation

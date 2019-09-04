@@ -257,7 +257,8 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
     if same_freq == False:
         print('tfreq of imported 1d timeseries is unequal to the '
               'desired ex[tfreq]\nWill convert tfreq')
-        RV.RVfullts, RV.dates, RV.origdates = time_mean_bins(RV.RVfullts, ex)
+        to_freq = ex['tfreq']
+        RV.RVfullts, RV.dates, = time_mean_bins(RV.RVfullts, ex, to_freq)
 
 
     if same_freq == True:
@@ -357,55 +358,108 @@ def csv_to_npy(ex):
    #%%
    return ex
 
-def time_mean_bins(xarray, ex, seldays = 'part'):
-    #%%
-    import xarray as xr
-    datetime_orig = pd.to_datetime(xarray['time'].values)
-    ex['n_oneyr'] = get_oneyr(datetime_orig).size
 
-    # does the amount of steps per year already fit the bins?
-    need_fit_bins = (ex['n_oneyr'] % ex['tfreq'] != 0)
-    if (need_fit_bins or seldays == 'part'):
-        possible = []
-        for i in np.arange(1,20):
-            if ex['n_oneyr']%i == 0:
-                possible.append(i)
-        if ex['n_oneyr'] % ex['tfreq'] != 0:
-            if ex['verbosity'] > 1:
-                print('Note: tfreq {} does not fit in the supplied (sub)year\n'
-                         'adjusting part of year to fit bins.'.format(
-                             ex['tfreq']))
-#            print('\n Stepsize that do fit are {}'.format(possible))
-#        print('\n Will shorten the \'subyear\', so that the temporal'
-#              ' frequency fits in one year')
-        xarray, datetime = timeseries_tofit_bins(xarray, ex, seldays='part')
+def time_mean_bins(xarray, ex, to_freq=int, verb=0):
+   #%%
+   datetime = pd.to_datetime(xarray['time'].values)
+    # ensure to remove leapdays
+   datetime = remove_leapdays(datetime)
+   xarray = xarray.sel(time=datetime)
+   one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
 
-    else:
-        pass
-    fit_steps_yr = ex['n_oneyr']  / ex['tfreq']
-    assert fit_steps_yr >= 1, ('{} {} mean does not fit in the period '
-                              'you selected'.format(ex['tfreq'], ex['input_freq']))
-    bins = list(np.repeat(np.arange(0, fit_steps_yr), ex['tfreq']))
-    for y in np.arange(1, ex['n_yrs']):
-        x = np.repeat(np.arange(0, fit_steps_yr), ex['tfreq'])
-        x = x + fit_steps_yr * y
-        [bins.append(i) for i in x]
-    label_bins = xr.DataArray(bins, [xarray.coords['time'][:]], name='time')
-    label_dates = xr.DataArray(xarray.time.values, [xarray.coords['time'][:]], name='time')
-    xarray['bins'] = label_bins
-    xarray['time_dates'] = label_dates
-    xarray = xarray.set_index(time=['bins','time_dates'])
+   if one_yr.size % to_freq != 0:
+       possible = []
+       for i in np.arange(1,20):
+           if one_yr.size%i == 0:
+               possible.append(i)
+       if verb == 1:
+           print('Note: stepsize {} does not fit in one year\n '
+                            ' supply an integer that fits {}'.format(
+                                to_freq, one_yr.size))
+           print('\n Stepsize that do fit are {}'.format(possible))
+           print('\n Will shorten the \'subyear\', so that the temporal'
+                 ' frequency fits in one year')
+       datetime = pd.to_datetime(np.array(xarray['time'].values,
+                                          dtype='datetime64[D]'))
+       datetime = timeseries_tofit_bins(datetime, ex, to_freq, seldays='all', verb=0)
+       xarray = xarray.sel(time=datetime)
+       one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
 
-    half_step = ex['tfreq']/2.
-    newidx = np.arange(half_step, datetime.size, ex['tfreq'], dtype=int)
-    newdate = label_dates[newidx]
+   else:
+       pass
+   fit_steps_yr = (one_yr.size )  / to_freq
+   bins = list(np.repeat(np.arange(0, fit_steps_yr), to_freq))
+   n_years = np.unique(datetime.year).size
+   for y in np.arange(1, n_years):
+       x = np.repeat(np.arange(0, fit_steps_yr), to_freq)
+       x = x + fit_steps_yr * y
+       [bins.append(i) for i in x]
+   label_bins = xr.DataArray(bins, [xarray.coords['time'][:]], name='time')
+   label_dates = xr.DataArray(xarray.time.values, [xarray.coords['time'][:]], name='time')
+   xarray['bins'] = label_bins
+   xarray['time_dates'] = label_dates
+   xarray = xarray.set_index(time=['bins','time_dates'])
+
+   half_step = to_freq/2.
+   newidx = np.arange(half_step, datetime.size, to_freq, dtype=int)
+   newdate = label_dates[newidx]
 
 
-    group_bins = xarray.groupby('bins').mean(dim='time', keep_attrs=True)
-    group_bins['bins'] = newdate.values
-    dates = pd.to_datetime(newdate.values)
-    #%%
-    return group_bins.rename({'bins' : 'time'}), dates, datetime_orig
+   group_bins = xarray.groupby('bins').mean(dim='time', keep_attrs=True)
+   group_bins['bins'] = newdate.values
+   dates = pd.to_datetime(newdate.values)
+   #%%
+   return group_bins.rename({'bins' : 'time'}), dates
+
+# def time_mean_bins_old(xarray, ex, seldays = 'part'):
+#     #%%
+#     import xarray as xr
+#     datetime_orig = pd.to_datetime(xarray['time'].values)
+#     ex['n_oneyr'] = get_oneyr(datetime_orig).size
+#
+#     # does the amount of steps per year already fit the bins?
+#     need_fit_bins = (ex['n_oneyr'] % ex['tfreq'] != 0)
+#     if (need_fit_bins or seldays == 'part'):
+#         possible = []
+#         for i in np.arange(1,20):
+#             if ex['n_oneyr']%i == 0:
+#                 possible.append(i)
+#         if ex['n_oneyr'] % ex['tfreq'] != 0:
+#             if ex['verbosity'] > 1:
+#                 print('Note: tfreq {} does not fit in the supplied (sub)year\n'
+#                          'adjusting part of year to fit bins.'.format(
+#                              ex['tfreq']))
+# #            print('\n Stepsize that do fit are {}'.format(possible))
+# #        print('\n Will shorten the \'subyear\', so that the temporal'
+# #              ' frequency fits in one year')
+#         xarray, datetime = timeseries_tofit_bins(xarray, ex, seldays='part')
+#
+#     else:
+#         pass
+#     fit_steps_yr = ex['n_oneyr']  / ex['tfreq']
+#     assert fit_steps_yr >= 1, ('{} {} mean does not fit in the period '
+#                               'you selected'.format(ex['tfreq'], ex['input_freq']))
+#     bins = list(np.repeat(np.arange(0, fit_steps_yr), ex['tfreq']))
+#     for y in np.arange(1, ex['n_yrs']):
+#         x = np.repeat(np.arange(0, fit_steps_yr), ex['tfreq'])
+#         x = x + fit_steps_yr * y
+#         [bins.append(i) for i in x]
+#     label_bins = xr.DataArray(bins, [xarray.coords['time'][:]], name='time')
+#     label_dates = xr.DataArray(xarray.time.values, [xarray.coords['time'][:]], name='time')
+#     xarray['bins'] = label_bins
+#     xarray['time_dates'] = label_dates
+#     xarray = xarray.set_index(time=['bins','time_dates'])
+#
+#     half_step = ex['tfreq']/2.
+#     newidx = np.arange(half_step, datetime.size, ex['tfreq'], dtype=int)
+#     newdate = label_dates[newidx]
+#
+#
+#     group_bins = xarray.groupby('bins').mean(dim='time', keep_attrs=True)
+#     group_bins['bins'] = newdate.values
+#     dates = pd.to_datetime(newdate.values)
+#     #%%
+#     return group_bins.rename({'bins' : 'time'}), dates, datetime_orig
 
 def timeseries_tofit_bins(xarray, ex, seldays='part'):
     #%%
@@ -597,21 +651,21 @@ def import_array(cls, path='pp'):
     cls.dates = dates
     return marray, cls
 
-def import_ds_timemeanbins(cls, ex):
+def import_ds_timemeanbins(file_path, ex, loadleap=True, to_xarr=True):
 
-    file_path = os.path.join(cls.path_pp, cls.filename_pp)
-    ds = core_pp.import_ds_lazy(file_path, ex)
-
-    ds, dates, datessel = time_mean_bins(ds, ex, seldays='part')
-
+    ds = core_pp.import_ds_lazy(file_path, ex, loadleap=loadleap)
+    to_freq = ex['tfreq']
+    if to_freq != 1:
+        ds, dates = time_mean_bins(ds, ex, to_freq=to_freq, seldays='part')
+        ds['time'] = dates
 #    print('temporal frequency \'dt\' is: \n{}'.format(dates[1]- dates[0]))
-    ds['time'] = dates
-    if type(ds) == type(xr.DataArray(data=[0])):
-        marray = ds.squeeze()
-    else:
-        marray = ds.to_array().squeeze()
-    cls.dates = dates
-    return marray, cls
+    if to_xarr:
+        if type(ds) == type(xr.DataArray(data=[0])):
+            ds = ds.squeeze()
+        else:
+            ds = ds.to_array().squeeze()
+
+    return ds
 
 
 def xarray_plot(data, path='default', name = 'default', saving=False):
