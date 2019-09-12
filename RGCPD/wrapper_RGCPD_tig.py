@@ -62,15 +62,15 @@ def calculate_corr_maps(ex, map_proj):
         actor = ex[var]
         #===========================================
         # 3c) Precursor field
-        #===========================================  
+        #===========================================
         file_path = os.path.join(actor.path_pp, actor.filename_pp)
         precur_arr = functions_pp.import_ds_timemeanbins(file_path, ex)
-#        precur_arr = rgcpd.convert_longitude(precur_arr, 'only_east') 
+#        precur_arr = rgcpd.convert_longitude(precur_arr, 'only_east')
         # =============================================================================
         # Calculate correlation
         # =============================================================================
         corr_xr = rgcpd.calc_corr_coeffs_new(precur_arr, RV, ex)
-        
+
         # =============================================================================
         # Convert regions in time series
         # =============================================================================
@@ -78,7 +78,7 @@ def calculate_corr_maps(ex, map_proj):
         actor, ex = rgcpd.cluster_DBSCAN_regions(actor, ex)
         if np.isnan(actor.prec_labels.values).all() == False:
             rgcpd.plot_regs_xarray(actor.prec_labels.copy(), ex)
-          
+
         # Order of regions: strongest to lowest correlation strength
         outdic_actors[var] = actor
         # =============================================================================
@@ -108,12 +108,12 @@ def calculate_corr_maps(ex, map_proj):
 def get_prec_ts(outdic_actors, ex):
     # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
     # stacked on top of each other (from lag_min to lag_max)
-    
+
     ex['n_tot_regs'] = 0
     allvar = ex['vars'][0] # list of all variable names
     for var in allvar[ex['excludeRV']:]: # loop over all variables
         actor = outdic_actors[var]
-        
+
         if np.isnan(actor.prec_labels.values).all():
             actor.ts_corr = np.array([]), []
             pass
@@ -122,7 +122,7 @@ def get_prec_ts(outdic_actors, ex):
             outdic_actors[var] = actor
             ex['n_tot_regs'] += max([actor.ts_corr[s].shape[1] for s in range(ex['n_spl'])])
     return outdic_actors
-        
+
 
 def run_PCMCI_CV(ex, outdic_actors, map_proj):
     #%%
@@ -132,9 +132,9 @@ def run_PCMCI_CV(ex, outdic_actors, map_proj):
         progress = 100 * (s+1) / ex['n_spl']
         print(f"\rProgress causal inference - traintest set {progress}%", end="")
         df_splits[s], df_data_s[s] = run_PCMCI(ex, outdic_actors, s, map_proj)
-        
+
     print("\n")
-    
+
     df_data  = pd.concat(list(df_data_s), keys= range(ex['n_spl']))
     df_sum = pd.concat(list(df_splits), keys= range(ex['n_spl']))
 
@@ -143,42 +143,31 @@ def run_PCMCI_CV(ex, outdic_actors, map_proj):
     return df_sum, df_data
 
 def store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=True):
-    
-    
+
+
     today = datetime.datetime.today().strftime('%Y-%m-%d')
     file_name = 'fulldata_{}_{}'.format(ex['params'], today)
     ex['path_data'] = os.path.join(ex['fig_subpath'], file_name+'.h5')
-    
+
     if add_spatcov:
         df_sp_s   = np.zeros( (ex['n_spl']) , dtype=object)
         for s in range(ex['n_spl']):
             df_split = df_data.loc[s]
             df_sp_s[s] = rgcpd.get_spatcovs(dict_ds, df_split, s, outdic_actors, normalize=True)
-    
+
         df_sp = pd.concat(list(df_sp_s), keys= range(ex['n_spl']))
         df_data_to_store = pd.merge(df_data, df_sp, left_index=True, right_index=True)
         df_sum_to_store = rgcpd.add_sp_info(df_sum, df_sp)
     else:
         df_data_to_store = df_data
         df_sum_to_store = df_sum
-        
+
     dict_of_dfs = {'df_data':df_data_to_store, 'df_sum':df_sum_to_store}
     if ex['store_format'] == 'hdf5':
-        store_hdf_df(dict_of_dfs, ex['path_data'])
-        
+        functions_pp.store_hdf_df(dict_of_dfs, ex['path_data'])
+
     return
 
-
-def store_hdf_df(dict_of_dfs, file_path):
-    import warnings
-    import tables
-    
-    warnings.filterwarnings('ignore', category=tables.NaturalNameWarning)
-    with pd.HDFStore(file_path, 'w') as hdf:
-        for key, item in  dict_of_dfs.items():
-            hdf.put(key, item, format='table', data_columns=True)
-        hdf.close()
-    return
 
 def run_PCMCI(ex, outdic_actors, s, map_proj):
     #=====================================================================================
@@ -220,7 +209,7 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
     # create list with all actors, these will be merged into the fulldata array
     allvar = ex['vars'][0]
     var_names = [] ; actorlist = [] ; cols = [[RV.name]]
-    
+
     for var in allvar[ex['excludeRV']:]:
         print(var)
         actor = outdic_actors[var]
@@ -236,24 +225,24 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
         cols.append(list(actor.ts_corr[s].columns))
     var_names.insert(0, RV.name)
 
-        
+
     # stack actor time-series together:
-    fulldata = np.concatenate(tuple(actorlist), axis = 1)   
-    
-        
+    fulldata = np.concatenate(tuple(actorlist), axis = 1)
+
+
     print(('There are {} regions in total'.format(fulldata.shape[1])))
     # add the full 1D time series of interest as first entry:
 
     fulldata = np.column_stack((RV.RVfullts, fulldata))
-    
-    
+
+
     df_data = pd.DataFrame(fulldata, columns=flatten(cols), index=actor.ts_corr[s].index)
     RVfull_train = RV.RVfullts.isel(time=traintest[s]['Prec_train_idx'])
     datesfull_train = pd.to_datetime(RVfull_train.time.values)
     data = df_data.loc[datesfull_train].values
     print((data.shape))
 
-    
+
     # get RV datamask (same shape als data)
     datesRV_train   = pd.to_datetime(traintest[s]['RV_train'].time.values)
     data_mask = [True if d in datesRV_train else False for d in datesfull_train]
@@ -278,7 +267,7 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
     # ======================================================================================================================
     # pc algorithm: only parents for selected_variables are calculated
     # ======================================================================================================================
-    
+
     parcorr = ParCorr(significance='analytic',
                       mask_type='y',
                       verbosity=verbosity)
@@ -287,16 +276,16 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
     #==========================================================================
     pcmci   = PCMCI(dataframe=dataframe,
                     cond_ind_test=parcorr,
-                    selected_variables=None, 
+                    selected_variables=None,
                     verbosity=4)
-    
+
     # selected_variables : list of integers, optional (default: range(N))
     #    Specify to estimate parents only for selected variables. If None is
     #    passed, parents are estimated for all variables.
 
     # ======================================================================================================================
     #selected_links = dictionary/None
-    results = pcmci.run_pcmci(tau_max=ex['tigr_tau_max'], pc_alpha = pc_alpha, tau_min = 0, 
+    results = pcmci.run_pcmci(tau_max=ex['tigr_tau_max'], pc_alpha = pc_alpha, tau_min = 0,
                               max_combinations=ex['max_comb_actors'])
 
     q_matrix = pcmci.get_corrected_pvalues(p_matrix=results['p_matrix'], fdr_method='fdr_bh')
@@ -305,7 +294,7 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
                                    q_matrix = q_matrix,
                                    val_matrix = results['val_matrix'],
                                    alpha_level = alpha_level)
-    
+
     # returns all parents, not just causal precursors (of lag>0)
     sig = rgcpd.return_sign_parents(pcmci, pq_matrix=q_matrix,
                                             val_matrix=results['val_matrix'],
@@ -314,15 +303,15 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
 
     all_parents = sig['parents']
 #    link_matrix = sig['link_matrix']
-    
+
     links_RV = all_parents[0]
-    
+
     df = rgcpd.bookkeeping_precursors(links_RV, var_names)
     #%%
 
     rgcpd.print_particular_region_new(links_RV, var_names, s, outdic_actors, map_proj, ex)
 
-    
+
 #%%
     if ex['SaveTF'] == True:
         if sys.version[:1] == '3':
@@ -334,14 +323,14 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
         elif sys.version[:1] == '2':
             f.close()
         sys.stdout = orig_stdout
-        
+
 
     return df, df_data
 
 #%%
 
 
-    
+
 def standard_settings_and_tests(ex):
     '''Some boring settings and Perform some test'''
 
@@ -350,11 +339,11 @@ def standard_settings_and_tests(ex):
     # Test if you're not have a lag that will precede the start date of the year
     # =============================================================================
     # first date of year to be analyzed:
-    if ex['input_freq'] == 'daily': 
+    if ex['input_freq'] == 'daily':
         f = 'D'
     elif ex['input_freq'] == 'monthly':
         f = 'M'
- 
+
     firstdoy = RV.dates_RV.min() - np.timedelta64(int(max(ex['lags'])), f)
     if firstdoy < RV.dates[0] and (RV.dates[0].month,RV.dates[0].day) != (1,1):
         tdelta = RV.dates_RV.min() - RV.dates.min()
@@ -363,7 +352,7 @@ def standard_settings_and_tests(ex):
         ex['lags_i'] = ex['lags_i'][ex['lags_i'] < lag_max]
         print(('Changing maximum lag to {}, so that you not skip part of the '
               'year.'.format(max(ex['lags'])) ) )
-        
+
     # Some IO settings
     ex['store_format']   = 'hdf5'
     ex['file_type1'] = ".pdf"
@@ -377,14 +366,14 @@ def standard_settings_and_tests(ex):
     ex['subfolder_exp'] = ex['path_exp_periodmask'] +'_'+ method_str
     ex['path_output'] = os.path.join(ex['subfolder_exp'])
     ex['fig_path'] = os.path.join(ex['subfolder_exp'])
-    
+
     ex['params'] = '{}_ac{}_at{}'.format(ex['pcA_set'], ex['alpha'],
                                                       ex['alpha_level_tig'])
     if os.path.isdir(ex['fig_path']) != True : os.makedirs(ex['fig_path'])
     ex['fig_subpath'] = os.path.join(ex['fig_path'], '{}_subinfo'.format(ex['params']))
     if os.path.isdir(ex['fig_subpath']) != True : os.makedirs(ex['fig_subpath'])
 
-    
+
     assert RV.startyear == ex['startyear'], ('Make sure the dates '
              'of the RV match with the actors')
     assert ((ex['excludeRV'] == 1) and (ex['importRV_1dts'] == True))==False, ('Are you sure you want '
@@ -413,7 +402,7 @@ def standard_settings_and_tests(ex):
     print('\tVS\n')
     shift_lag_days = one_year_RV_data - pd.Timedelta(min(ex['lags']), unit='d')
     print('Predictor (only one year) at is:\n{} at lag {} \n{}\n'.format(
-            ex['vars'][0][-1], min(ex['lags']), 
+            ex['vars'][0][-1], min(ex['lags']),
             shift_lag_days))
     print('\n**\nEnd of summary\n**\n')
 
@@ -421,16 +410,16 @@ def standard_settings_and_tests(ex):
           '\'filename_exp_design\'.\n')
     return ex
 
-    
-#        kwrgs = dict( {'title' : for_plt.attrs['title'], 'clevels' : 'notdefault', 
+
+#        kwrgs = dict( {'title' : for_plt.attrs['title'], 'clevels' : 'notdefault',
 #                       'steps' : ex['max_N_regs']+1, 'subtitles': None,
-#                       'vmin' : 0, 'vmax' : ex['max_N_regs'], 
+#                       'vmin' : 0, 'vmax' : ex['max_N_regs'],
 #                       'cmap' : cmap, 'column' : 1,
 #                       'cbar_vert' : adjust_vert_cbar, 'cbar_hght' : 0.0,
-#                       'adj_fig_h' : adj_fig_h, 'adj_fig_w' : 1., 
-#                       'hspace' : 0.0, 'wspace' : 0.08, 
+#                       'adj_fig_h' : adj_fig_h, 'adj_fig_w' : 1.,
+#                       'hspace' : 0.0, 'wspace' : 0.08,
 #                       'cticks_center' : False, 'title_h' : 0.95} )
 #        filename = '{}_{}_vs_{}'.format(ex['params'], ex['RV_name'], for_plt.name) + ex['file_type2']
 #        rgcpd.plotting_wrapper(for_plt, ex, filename, kwrgs=kwrgs)
-            
+
 

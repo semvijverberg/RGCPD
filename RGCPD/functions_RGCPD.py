@@ -475,7 +475,7 @@ def get_spatcovs(dict_ds, df_split, s, outdic_actors, normalize=True):
             # spat_cov over test years using corr fields from training
 
             full_timeserie = actor.precur_arr
-            corr_vals = ds[var + "_corr"][0]
+            corr_vals = ds[var + "_corr"].sel(split=s).isel(lag=lag)
             mask = ds[var + select].sel(split=s).isel(lag=lag)
             pattern = corr_vals.where(~np.isnan(mask))
             if np.isnan(pattern.values).all():

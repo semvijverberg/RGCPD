@@ -6,6 +6,15 @@ Created on Thu Aug 22 10:58:26 2019
 @author: semvijverberg
 """
 #%%
+import time
+start_time = time.time()
+import inspect, os, sys
+curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+script_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD" # script directory
+# To link modules in RGCPD folder to this script
+os.chdir(script_dir)
+sys.path.append(script_dir)
+
 import os, datetime
 import pandas as pd
 import numpy as np
@@ -159,11 +168,12 @@ def print_sett(experiments, stat_model_l, filename):
     
 
 working_folder = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/forecasting'
-fig = valid.valid_figures(dict_datasets, met='default')
 today = datetime.datetime.today().strftime('%Y-%m-%d_%H-%M')
 f_name = f'{RV.RV_ts.name}_{tfreq}d_{today}'
 f_format = '.png' 
 filename = os.path.join(working_folder, f_name)
+
+fig = valid.valid_figures(dict_datasets, met='default')
 fig.savefig(os.path.join(filename + f_format), bbox_inches='tight') 
 print_sett(experiments, stat_model_l, filename)
 
