@@ -151,7 +151,7 @@ def remove_leapdays(datetime):
     return dates_noleap
 
 
-def detrend_anom_ncdf3D(infile, outfile, input_freq='daily', loadleap=False, 
+def detrend_anom_ncdf3D(infile, outfile, loadleap=False, 
                         seldates=None, selbox=None, format_lon='west_east', 
                         detrend=True, anomaly=True, encoding=None):
     '''
@@ -163,7 +163,7 @@ def detrend_anom_ncdf3D(infile, outfile, input_freq='daily', loadleap=False,
 
     #%%
     import xarray as xr
-    ds = import_ds_lazy(infile, input_freq=input_freq, loadleap=loadleap, 
+    ds = import_ds_lazy(infile, loadleap=loadleap, 
                         seldates=seldates, selbox=selbox, format_lon=format_lon)
 
     # check if 3D data (lat, lat, lev) or 2D

@@ -27,13 +27,13 @@ import exp_fc
 # load data 
 # =============================================================================
 
-path_data =  '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_m01-08_dt14/9jun-18aug_t2mmax_E-US_lag0-0/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-22.h5'
-rand_10d_sm = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-22.h5'
-rand_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-25.h5'
-path_data_3d_sp = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-30.h5'
-strat_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
-strat_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
-
+#path_data =  '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_m01-08_dt14/9jun-18aug_t2mmax_E-US_lag0-0/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-22.h5'
+#rand_10d_sm = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-22.h5'
+#rand_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-25.h5'
+#path_data_3d_sp = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-30.h5'
+#strat_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
+#strat_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
+strat_1d_CPPA = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/data/ran_strat10_s30/12-09-19_15hr_lag_0.h5'
 n_boot = 500
 
 
@@ -94,7 +94,7 @@ stat_model_l = [logit, GBR_logitCV]
 
 
 #datasets_path = {'ERA-5 30d strat':path_data_strat, 'ERA-5 30d sp':path_data_3d_sp}
-datasets_path = {'ERA-5 10d strat':strat_10d, 'ERA-5 30d strat':strat_30d}
+datasets_path = {'ERA-5 1d CPPA':strat_1d_CPPA}
 
 
 
@@ -102,7 +102,8 @@ causal = False
 keys_d_sets = {} ; experiments = {}
 for dataset, path_data in datasets_path.items():
 #    keys_d = exp_fc.compare_use_spatcov(path_data, causal=causal)
-    keys_d = exp_fc.normal_precursor_regions(path_data, causal=causal)
+#    keys_d = exp_fc.normal_precursor_regions(path_data, causal=causal)
+    keys_d = exp_fc.CPPA_precursor_regions(path_data, option='all')
     keys_d_sets[dataset] = keys_d
     for master_key, feature_keys in keys_d.items():
         kwrgs_pp = {'EOF':False, 'expl_var':0.5}
@@ -110,7 +111,7 @@ for dataset, path_data in datasets_path.items():
                                            'kwrgs_pp':kwrgs_pp
                                            })
     
-kwrgs_events = {'event_percentile': 80,
+kwrgs_events = {'event_percentile': 'std',
                 'min_dur' : 1,
                 'max_break' : 0,
                 'grouped' : False}
@@ -127,7 +128,6 @@ for dataset, tuple_sett in experiments.items():
     tfreq = (df_data.loc[0].index[1] - df_data.loc[0].index[0]).days
     lags = np.arange(0, 90+1E-9, tfreq)/tfreq 
     
-    df_sum  = dict_of_dfs['df_sum']
     
     if 'keys' not in kwrgs_exp:
         # if keys not defined, getting causal keys

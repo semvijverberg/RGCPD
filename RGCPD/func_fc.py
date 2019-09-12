@@ -327,13 +327,12 @@ def Ev_timeseries(xarray, threshold, min_dur=1, max_break=0, grouped=False,
     #%%
     import xarray as xr 
     if type(xarray) != type(xr.DataArray([0])):
+        xarray = xarray.to_xarray()
         give_df_back = True
         if xarray.index.name != 'time':
             old_name = xarray.index.name
-            xarray = xarray.to_xarray().rename({old_name:'time'})
-        else:
-            xarray = xarray.to_xarray()
-        xarray = xarray.to_array().squeeze()
+            xarray = xarray.rename({old_name:'time'})
+        xarray = xarray.squeeze()
     else:
         give_df_back = False
         

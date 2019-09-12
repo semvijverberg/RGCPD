@@ -119,3 +119,26 @@ def normal_precursor_regions(path_data, causal=True):
         
     #%%
     return keys_d
+
+def CPPA_precursor_regions(path_data, option='all'):
+    #%%
+    dict_of_dfs = func_fc.load_hdf5(path_data)
+    df_data = dict_of_dfs['df_data']
+    splits  = df_data.index.levels[0]
+    
+    keys_d = {}
+    keys_d_ = {}
+    for s in splits:
+        if option == 'all':
+            all_keys = df_data.loc[s].columns
+#            keys_ = all_keys
+            keys_ = [k for k in all_keys if k[0] == '0' ] # remove later
+        elif option == 'only_ts':
+            all_keys = df_data.loc[s].columns
+            keys_ = [k for k in all_keys if ('spatcov' not in k)]
+        keys_d_[s] = np.array(list(unique_everseen(keys_)))
+        
+    keys_d['CPPA_precursor_regions'] = keys_d_
+        
+    #%%
+    return keys_d

@@ -67,9 +67,9 @@ ex = dict(
      'senddate'     :       '08-24', # precursor period
      'selbox'       :       {'la_min':0, # select domain in degrees east
                              'la_max':90,
-                             'lo_min':0,
+                             'lo_min':-180,
                              'lo_max':360}, 
-     'abs_or_anom'  :       'anom', # use absolute or anomalies?
+     'anomaly'      :       True, # use absolute or anomalies?
      'verbosity'    :       0, # higher verbosity gives more feedback in terminal
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
@@ -101,6 +101,8 @@ import_precursor_ncdf = False
 import_RV_ncdf = False
 # Option 4:
 importRV_1dts = True
+# Option 5:
+ex['import_prec_ts'] = True
 
 
 # Option 1111111111111111111111111111111111111111111111111111111111111111111111
@@ -124,10 +126,10 @@ if ECMWFdownload == True:
 #    ex['vars']      =       [['sst'],
 #                               ['sea_surface_temperature'],
 #                               ['sfc'], [0]]
-    ex['vars']      =       [['sst', 'u500hpa'],
-                               ['sea_surface_temperature', 'u_component_of_wind'],
-                               ['sfc', 'pl'], [0,500]]
-#    ex['vars']      =       [['v'], ['138.128'],['pl'], ['250']]
+#    ex['vars']      =       [['sst', 'u500hpa'],
+#                               ['sea_surface_temperature', 'u_component_of_wind'],
+#                               ['sfc', 'pl'], [0,500]]
+    ex['vars']      =       [['v200hpa'], ['v_component_of_wind'],['pl'], ['500']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
 #                            ['167.128', '34.128', '131.128', '130.128'],
 #                            ['sfc', 'sfc', 'pl', 'pl'],[0, 0, '500', '100']]
@@ -147,9 +149,20 @@ else:
 if import_precursor_ncdf == True:
     # var names may not contain underscores
     ex['precursor_ncdf'] = [['name1', 'filename1'],['name2','filename2']]
-    ex['precursor_ncdf'] = [['sm3', ('sm_3_{}-{}_1_12_daily_'
-                              '0.25deg.nc'.format(ex['startyear'], ex['endyear'],
-                               ex['grid_res']))]]
+#    ex['precursor_ncdf'] = [['sm3', ('sm_3_{}-{}_1_12_daily_'
+#                              '0.25deg.nc'.format(ex['startyear'], ex['endyear'],
+#                               ex['grid_res']))]]
+#    ex['precursor_ncdf'] = [['p_rm61', ('p_rm61_{}-{}_1_12_daily_'
+#                              '2.5deg.nc'.format(ex['startyear'], ex['endyear'],
+#                               ex['grid_res']))]]
+#    ex['precursor_ncdf'] = [
+#                            ['p_rm61', ('p_rm61_{}-{}_1_12_daily_'
+#                              '2.5deg.nc'.format(ex['startyear'], ex['endyear'],
+#                               ex['grid_res']))], 
+#                            ['sm3', ('sm_3_{}-{}_1_12_daily_'
+#                              '0.25deg.nc'.format(ex['startyear'], ex['endyear'],
+#                               ex['grid_res']))]
+#                            ]
 #    ex['precursor_ncdf'] = [['sst', 'sst_NOAA_mcKbox_det_1982_2017_1_12_daily_0.25deg.nc']]
 #    ex['precursor_ncdf'] = [['z_850hpa', 'z_850hpa_1979-2017_1_12_monthly_2.5deg.nc']]
 
@@ -157,8 +170,21 @@ else:
     ex['precursor_ncdf'] = [[]]
 
 # Option 3333333333333333333333333333333333333333333333333333333333333333333333
-# Import ncdf field to be Response Variable.
+# Import precursor timeseries (daily) 
 # 33333333333333333333333333333333333333333333333333333333333333333333333333333
+if ex['import_prec_ts'] == True:
+    ex['precursor_ts'] = [['name1', 'filename1'],['name2','filename2']]
+    ex['precursor_ts'] = [
+                            ['sst_CPPA', ('/Users/semvijverberg/surfdrive/MckinRepl/',
+                              'era5_T2mmax_sst_Northern/data/ran_strat10_s30/12-09-19_15hr_lag_0.h5')]
+                            ]
+
+    
+    
+    
+# Option 4444444444444444444444444444444444444444444444444444444444444444444444
+# Import Response Variable 1-dimensional time serie.
+# 44444444444444444444444444444444444444444444444444444444444444444444444444444
 if import_RV_ncdf == True:
 #    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_{}_'
 #                              '{}deg.nc'.format(ex['startyear'], ex['endyear'],
@@ -168,9 +194,11 @@ if import_RV_ncdf == True:
 else:
     ex['RVnc_name'] = []
 
-# Option 4444444444444444444444444444444444444444444444444444444444444444444444
+
+# Option 5555555555555555555555555555555555555555555555555555555555555555555555
 # Import Response Variable 1-dimensional time serie.
-# 44444444444444444444444444444444444444444444444444444444444444444444444444444
+# 55555555555555555555555555555555555555555555555555555555555555555555555555555
+ex['excludeRV'] = 0 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
 ex['importRV_1dts'] = importRV_1dts
 if importRV_1dts == True:
     ex['RV_name'] = 't2mmax_E-US'
@@ -179,7 +207,10 @@ if importRV_1dts == True:
     ex['RVts_filename'] = 'era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4.npy'
 #    ex['RVts_filename'] = 'comp_v_spclus2of4_tempclus2_AgglomerativeClustering_smooth15days_compmean_daily.npy'
 
-ex['excludeRV'] = 0 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
+
+
+    
+
 
 # =============================================================================
 # Note, ex['vars'] is expanded if you have own ncdfs, the first element of array will
@@ -212,6 +243,7 @@ if import_precursor_ncdf == True:
         ex[var_class.name] = var_class
 
 
+
 # =============================================================================
 # Now we have collected all info on what variables will be analyzed, based on
 # downloading, own netcdfs / importing RV time serie.
@@ -242,7 +274,7 @@ for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
 #    lag_min = int(np.timedelta64(5, 'D') / np.timedelta64(ex['tfreq'], 'D'))
-    ex['lags_i'] = np.array([0, 1, 2], dtype=int)
+    ex['lags_i'] = np.array([0], dtype=int)
     ex['lags'] = np.array([l*freq for l in ex['lags_i']], dtype=int)
     
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,

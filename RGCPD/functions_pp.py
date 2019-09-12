@@ -65,7 +65,7 @@ def perform_post_processing(ex):
         else:
             infile = os.path.join(var_class.path_raw, var_class.filename)
             kwrgs_pp = {'selbox':ex['selbox'],
-                        'loadleap':False, 'detrend':True, 'anom':ex['abs_or_anom']}
+                        'loadleap':False, 'detrend':True, 'anomaly':ex['anomaly']}
             core_pp.detrend_anom_ncdf3D(infile, outfile, **kwrgs_pp)
         # update the dates stored in var_class:
         var_class, ex = update_dates(var_class, ex)

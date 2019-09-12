@@ -17,6 +17,7 @@ import datetime
 import cartopy.crs as ccrs
 import pandas as pd
 import functions_pp
+import func_fc
 import plot_maps
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
@@ -234,9 +235,16 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
     # add the full 1D time series of interest as first entry:
 
     fulldata = np.column_stack((RV.RVfullts, fulldata))
-
-
     df_data = pd.DataFrame(fulldata, columns=flatten(cols), index=actor.ts_corr[s].index)
+    
+    if ex['import_prec_ts'] == True:
+        for d in ex['precursor_ts']:
+            path_data = d[1]    
+            if len(path_data) > 1:
+                path_data = ''.join(list(path_data))
+            df_data_ext = func_fc.load_hdf5(path_data)['df_data']
+        df_data = df_data.merge(df_data_ext, left_index=True, right_index=True)
+    
     RVfull_train = RV.RVfullts.isel(time=traintest[s]['Prec_train_idx'])
     datesfull_train = pd.to_datetime(RVfull_train.time.values)
     data = df_data.loc[datesfull_train].values
