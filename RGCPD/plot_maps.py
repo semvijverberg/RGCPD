@@ -82,12 +82,13 @@ def plot_corr_maps(corr_xr, xrmask, map_proj, kwrgs={'hspace':-0.6}):
             vmin_ = np.percentile(corr_xr, 1) ; vmax_ = np.percentile(corr_xr, 99)
         elif type(kwrgs['clim']) == tuple:
             vmin_, vmax_ = kwrgs['clim']
-        else:
-            vmin_ = corr_xr.min() ; vmax_ = corr_xr.max()
-    vmin = np.round(float(vmin_)-0.01,decimals=2) ; vmax = np.round(float(vmax_)+0.01,decimals=2)
+    else:
+        vmin_ = corr_xr.min()-0.01 ; vmax_ = corr_xr.max()+0.01
+            
+    vmin = np.round(float(vmin_),decimals=2) ; vmax = np.round(float(vmax_),decimals=2)
     clevels = np.linspace(-max(abs(vmin),vmax),max(abs(vmin),vmax),17) # choose uneven number for # steps
     norm = MidpointNormalize(midpoint=0, vmin=clevels[0],vmax=clevels[-1])
-    cmap = 'coolwarm'
+    cmap = plt.cm.RdBu_r
     for col, lag in enumerate(lags):
         xrdatavar = corr_xr.sel(lag=lag)
         xrmaskvar = xrmask.sel(lag=lag)

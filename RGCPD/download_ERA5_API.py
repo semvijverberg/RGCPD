@@ -7,6 +7,9 @@ Created on Thu Feb  7 15:42:46 2019
 """
 import os
 import numpy as np
+import pandas as pd
+
+accumulated_vars = ['total_precipitation', 'potential_evaporation', 'Runoff']
 
 
 def Variable(self, ex):
@@ -56,7 +59,10 @@ class Var_ECMWF_download():
         else:
             vclass.area    = 'global'
         if ex['input_freq'] == 'daily':
-            vclass.stream = 'oper'
+            if 'stream' in ex.keys():
+                vclass.stream = ex['stream']
+            else:
+                vclass.stream = 'oper'
             vclass.input_freq = 'daily'
         if ex['input_freq'] == 'monthly':
             vclass.stream = 'moda'
@@ -68,6 +74,8 @@ class Var_ECMWF_download():
         vclass.days     = [str(yr) for yr in np.arange(1, 31+1E-9, dtype=int)] 
         
 
+        
+            
         vclass.time = list(ex['time'].strftime('%H:%M'))
 
 
@@ -81,6 +89,7 @@ class Var_ECMWF_download():
         
             
 def retrieve_field(cls):
+    #%%
     import os
     
     paramid = np.logical_and(any(char.isdigit() for char in cls.var_cf_code),
@@ -91,7 +100,7 @@ def retrieve_field(cls):
     if cls.stream == 'moda':
         file_path_raw = file_path
     else: 
-        file_path_raw = file_path.replace('daily','oper')
+        file_path_raw = file_path.replace('daily',cls.stream)
     
     if os.path.isfile(path=file_path) == True:
         print("You have already download the variable")
@@ -104,12 +113,19 @@ def retrieve_field(cls):
         if os.path.isdir(cls.tmp_folder) == False : os.makedirs(cls.tmp_folder)
         print(("You WILL download variable {} \n stream is set to {} \n".format \
             (cls.name, cls.stream)))
+        if cls.stream == 'enda':
+            # you will want data every 3 hours
+            print('\nBecause stream is enda, time forced to 3hr interval')
+            np_datetime = pd.DatetimeIndex(start='00:00', end='23:00',
+                                freq=(pd.Timedelta(3, unit='h')))
+            cls.time = list(np_datetime.strftime('%H:%M'))
+        print('Time: {}'.format(cls.time))
         print(("to path: \n \n {} \n \n".format(file_path_raw)))
         
         # =============================================================================
         #         daily data
         # =============================================================================
-        if cls.stream == 'oper':
+        if cls.stream == 'oper' or cls.stream == 'enda':
             
             for year in cls.years:
                 # specifies the output file name
@@ -118,12 +134,31 @@ def retrieve_field(cls):
                 if os.path.isfile(target) == False:
                     print('Output file: ', target)
                     retrieval_yr(cls, year, target)
+            
+            
+            if cls.var_cf_code in accumulated_vars:
+
+#                cat  = 'cdo -O -b F64 mergetime {}/*.nc {}'.format(cls.tmp_folder, file_path_raw)
+#                if os.path.isfile(file_path_raw) == False:
+#                    kornshell_with_input([cat], cls)
+#                if os.path.getsize(file_path_raw) / 1E9 > 0.3:
+#                    # check if size is reasonably large
+#                    rm_tmp = 'rm -r {}/'.format(cls.tmp_folder)
+#                    kornshell_with_input([rm_tmp], cls)
+                    
+                acc_to_daysum = 'cdo -b 32 settime,00:00 -daysum -shifttime,-1hour -mergetime {}/*.nc {}'.format(cls.tmp_folder, file_path)
+#                day_sum   =  'cdo -b 32 daysum {} {}'.format(tmp_shift, file_path)
+                
+                args = [acc_to_daysum]
+
+            else:
+                print("convert operational oper data to daily means")
+                ana_to_daymean = 'cdo -b 32 settime,00:00 -daymean -mergetime {}/*.nc {}'.format(cls.tmp_folder, file_path)
+                args = [ana_to_daymean]
     
-            print("convert operational 6hrly data to daily means")
-            cat  = 'cdo -O -b F64 mergetime {}/*.nc {}'.format(cls.tmp_folder, file_path_raw)
-            daymean = 'cdo -b 32 daymean {} {}'.format(file_path_raw, file_path)
-            args = [cat, daymean]
             kornshell_with_input(args, cls)
+
+            
 
 
         # =============================================================================
@@ -150,7 +185,7 @@ def retrieve_field(cls):
                 if os.path.isfile(target) == False:
                     print('Output file: ', target)
                     retrieval_moda(cls, requestDates, d, target)
-        
+    #%%                    
     return 
 
 def retrieval_yr(cls, year, target):

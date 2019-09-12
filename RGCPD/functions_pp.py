@@ -64,7 +64,9 @@ def perform_post_processing(ex):
             pass
         else:
             infile = os.path.join(var_class.path_raw, var_class.filename)
-            core_pp.detrend_anom_ncdf3D(infile, outfile, ex)
+            kwrgs_pp = {'selbox':ex['selbox'], 'input_freq':ex['input_freq'], 
+                        'loadleap':False, 'detrend':True, 'anom':ex['abs_or_anom']}
+            core_pp.detrend_anom_ncdf3D(infile, outfile, **kwrgs_pp)
         # update the dates stored in var_class:
         var_class, ex = update_dates(var_class, ex)
         # store updates
@@ -82,7 +84,8 @@ def check_pp_done(cls, ex):
 
     import pandas as pd
     filename = os.path.join(ex['path_raw'], cls.filename)
-    ds = core_pp.import_ds_lazy(filename, ex)
+    kwrgs_pp = {'selbox':ex['selbox'], 'input_freq':ex['input_freq'], 'loadleap':False}
+    ds = core_pp.import_ds_lazy(filename, **kwrgs_pp)
     dates = pd.to_datetime(ds['time'].values)
 
     # =============================================================================
@@ -151,7 +154,9 @@ def kornshell_with_input(args, cls):
 def update_dates(cls, ex):
     import os
     file_path = os.path.join(cls.path_pp, cls.filename_pp)
-    ds = core_pp.import_ds_lazy(file_path, ex)
+    kwrgs_pp = {'selbox':ex['selbox'], 'input_freq':ex['input_freq'], 
+                'loadleap':False }
+    ds = core_pp.import_ds_lazy(file_path, **kwrgs_pp)
 
     temporal_freq = pd.Timedelta((ds['time'][1] - ds['time'][0]).values)
     cls.dates = pd.to_datetime(ds['time'].values)
@@ -239,7 +244,8 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
         if type(ex['spatial_mask_file']) == type(list()):
             latlonbox = ex['spatial_mask_file']
             RV.RVfullts = selbox_to_1dts(RV, latlonbox)
-
+    
+    
     RV.dates = pd.to_datetime(RV.RVfullts.time.values)
     RV.startyear = RV.dates.year[0]
     RV.endyear = RV.dates.year[-1]
@@ -258,7 +264,7 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
         print('tfreq of imported 1d timeseries is unequal to the '
               'desired ex[tfreq]\nWill convert tfreq')
         to_freq = ex['tfreq']
-        RV.RVfullts, RV.dates, = time_mean_bins(RV.RVfullts, ex, to_freq)
+        RV.RVfullts, RV.dates, = time_mean_bins(RV.RVfullts, ex, to_freq, seldays='part')
 
 
     if same_freq == True:
@@ -359,11 +365,11 @@ def csv_to_npy(ex):
    return ex
 
 
-def time_mean_bins(xarray, ex, to_freq=int, verb=0):
+def time_mean_bins(xarray, ex, to_freq=int, seldays='all', verb=0):
    #%%
    datetime = pd.to_datetime(xarray['time'].values)
     # ensure to remove leapdays
-   datetime = remove_leapdays(datetime)
+   datetime = core_pp.remove_leapdays(datetime)
    xarray = xarray.sel(time=datetime)
    one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
 
@@ -381,7 +387,7 @@ def time_mean_bins(xarray, ex, to_freq=int, verb=0):
                  ' frequency fits in one year')
        datetime = pd.to_datetime(np.array(xarray['time'].values,
                                           dtype='datetime64[D]'))
-       datetime = timeseries_tofit_bins(datetime, ex, to_freq, seldays='all', verb=0)
+       datetime = timeseries_tofit_bins(datetime, ex, to_freq, seldays=seldays, verb=0)
        xarray = xarray.sel(time=datetime)
        one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
 
@@ -410,6 +416,126 @@ def time_mean_bins(xarray, ex, to_freq=int, verb=0):
    dates = pd.to_datetime(newdate.values)
    #%%
    return group_bins.rename({'bins' : 'time'}), dates
+
+
+def timeseries_tofit_bins(xr_or_dt, ex, to_freq, seldays='part', verb=1):
+    #%%
+        
+    if type(xr_or_dt) == type(xr.DataArray([0])):
+        datetime = pd.to_datetime(xr_or_dt['time'].values)
+    else:
+        datetime = xr_or_dt
+        
+    datetime = core_pp.remove_leapdays(datetime)
+    input_freq = datetime.resolution
+# =============================================================================
+#   # select dates
+# =============================================================================
+    # selday_pp is the period you aim to study
+    if seldays == 'part':
+        # add corresponding time information
+        crossyr = int(ex['sstartdate'].replace('-','')) > int(ex['senddate'].replace('-',''))
+        sstartdate = '{}-{}'.format(ex['startyear'], ex['sstartdate'])
+        if crossyr:
+            senddate   = '{}-{}'.format(ex['startyear']+1, ex['senddate'])
+        else:
+            senddate   = '{}-{}'.format(ex['startyear'], ex['senddate'])
+
+        ex['adjhrsstartdate'] = sstartdate + ' {:}:00:00'.format(datetime[0].hour)
+        ex['adjhrsenddate']   = senddate + ' {:}:00:00'.format(datetime[0].hour)
+        sdate = pd.to_datetime(ex['adjhrsstartdate'])
+        seldays_pp = pd.DatetimeIndex(start=ex['adjhrsstartdate'], end=ex['adjhrsenddate'],
+                                freq=datetime[1] - datetime[0])
+
+
+    if seldays == 'all':
+        one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
+        sdate = one_yr[0]
+        seldays_pp = pd.DatetimeIndex(start=one_yr[0], end=one_yr[-1],
+                                freq=datetime[1] - datetime[0])
+        
+
+    seldays_pp = core_pp.remove_leapdays(seldays_pp)
+    
+    if input_freq == 'day':
+        dt = np.timedelta64(to_freq, 'D')
+        end_day = seldays_pp.max()
+        start_day = seldays_pp.min()
+        # after time averaging over 'tfreq' number of days, you want that each year
+        # consists of the same day. For this to be true, you need to make sure that
+        # the selday_pp period exactly fits in a integer multiple of 'tfreq'
+        fit_steps_yr = (end_day - start_day + np.timedelta64(1, 'D'))  / dt
+        # line below: The +1 = include day 1 in counting
+        start_day = (end_day - (dt * np.round(fit_steps_yr, decimals=0))) \
+                    + np.timedelta64(1, 'D')
+
+
+        if start_day.dayofyear < sdate.dayofyear or start_day.year < sdate.year:
+            # if startday is before the desired starting period, skip one bin forward in time
+            start_day = (end_day - (dt * np.round(fit_steps_yr-1, decimals=0))) \
+                    + np.timedelta64(1, 'D')
+                    
+        if start_day.is_leap_year:
+            # add day in front to compensate for removing a day
+            start_day = start_day - np.timedelta64(1, 'D')
+        start_yr = pd.DatetimeIndex(start=start_day, end=end_day,
+                                    freq=(datetime[1] - datetime[0]))
+        
+        start_yr = core_pp.remove_leapdays(start_yr)
+
+    if input_freq == 'month':
+        dt = date_dt(months=to_freq)
+        start_day = ex['adjhrsstartdate'].split(' ')[0]
+        start_day = pd.to_datetime(start_day.replace(start_day[-2:], '01'))
+        end_day = ex['adjhrsenddate'].split(' ')[0]
+        end_day = pd.to_datetime(end_day.replace(end_day[-2:], '01'))
+        fit_steps_yr = (end_day.month - start_day.month + 1) / to_freq
+        start_day = (end_day - (dt * int(fit_steps_yr))) \
+                + date_dt(months=+1)
+        days_back = end_day
+        start_yr = [end_day.strftime('%Y-%m-%d %H:%M:%S')]
+        while start_day < days_back:
+            days_back -= date_dt(months=+1)
+            start_yr.append(days_back.strftime('%Y-%m-%d %H:%M:%S'))
+        start_yr.reverse()
+        start_yr = pd.to_datetime(start_yr)
+
+        
+    def make_dates(datetime, start_yr):
+        breakyr = datetime.year.max()
+        nyears = (datetime.year[-1] - datetime.year[0])+1
+        next_yr = start_yr
+        for yr in range(0,nyears-1):
+            next_yr = pd.to_datetime([date + date_dt(years=1) for date in next_yr])
+            start_yr = start_yr.append(next_yr)
+            if next_yr[-1].year == breakyr:
+                break
+        return start_yr
+
+
+    ex['n_oneyr'] = start_yr.size
+    datesdt = make_dates(datetime, start_yr)
+
+    ex['n_yrs'] = datesdt.size / ex['n_oneyr']
+    if verb==1:
+        months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
+                             8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
+        startdatestr = '{} {}'.format(start_day.day, months[start_day.month])
+        enddatestr   = '{} {}'.format(end_day.day, months[end_day.month])
+        if ex['input_freq'] == 'daily':
+            print('Period of year selected: \n{} to {}, tfreq {} days'.format(
+                    startdatestr, enddatestr, to_freq))
+        if ex['input_freq'] == 'monthly':
+            print('Months of year selected: \n{} to {}, tfreq {} months'.format(
+                    startdatestr.split(' ')[-1], enddatestr.split(' ')[-1], to_freq))
+    
+    if type(xr_or_dt) == type(xr.DataArray([0])):
+        adj_xarray = xr_or_dt.sel(time=datesdt)
+        out = (adj_xarray, datesdt)
+    else:
+        out = (datesdt)
+    #%%
+    return out
 
 # def time_mean_bins_old(xarray, ex, seldays = 'part'):
 #     #%%
@@ -461,113 +587,113 @@ def time_mean_bins(xarray, ex, to_freq=int, verb=0):
 #     #%%
 #     return group_bins.rename({'bins' : 'time'}), dates, datetime_orig
 
-def timeseries_tofit_bins(xarray, ex, seldays='part'):
-    #%%
-    datetime = pd.to_datetime(xarray['time'].values)
-
-    leapdays = ((datetime.is_leap_year) & (datetime.month==2) & (datetime.day==29))==False
-    datetime = datetime[leapdays].dropna(how='all')
-
-# =============================================================================
-#   # select dates
-# =============================================================================
-    # selday_pp is the period you aim to study
-    if seldays == 'part':
-        # add corresponding time information
-        crossyr = int(ex['sstartdate'].replace('-','')) > int(ex['senddate'].replace('-',''))
-        sstartdate = '{}-{}'.format(ex['startyear'], ex['sstartdate'])
-        if crossyr:
-            senddate   = '{}-{}'.format(ex['startyear']+1, ex['senddate'])
-        else:
-            senddate   = '{}-{}'.format(ex['startyear'], ex['senddate'])
-
-        ex['adjhrsstartdate'] = sstartdate + ' {:}:00:00'.format(datetime[0].hour)
-        ex['adjhrsenddate']   = senddate + ' {:}:00:00'.format(datetime[0].hour)
-        sdate = pd.to_datetime(ex['adjhrsstartdate'])
-        seldays_pp = pd.DatetimeIndex(start=ex['adjhrsstartdate'], end=ex['adjhrsenddate'],
-                                freq=datetime[1] - datetime[0])
-
-
-    if seldays == 'all':
-        one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
-        sdate = one_yr[0]
-        seldays_pp = pd.DatetimeIndex(start=one_yr[0], end=one_yr[-1],
-                                freq=datetime[1] - datetime[0])
-
-    if ex['input_freq'] == 'daily':
-        dt = np.timedelta64(ex['tfreq'], 'D')
-        end_day = seldays_pp.max()
-        start_day = seldays_pp.min()
-        # after time averaging over 'tfreq' number of days, you want that each year
-        # consists of the same day. For this to be true, you need to make sure that
-        # the selday_pp period exactly fits in a integer multiple of 'tfreq'
-        fit_steps_yr = (end_day - start_day + np.timedelta64(1, 'D'))  / dt
-        # line below: The +1 = include day 1 in counting
-        start_day = (end_day - (dt * np.round(fit_steps_yr, decimals=0))) \
-                    + np.timedelta64(1, 'D')
-
-
-        if start_day.dayofyear < sdate.dayofyear or start_day.year < sdate.year:
-            # if startday is before the desired starting period, skip one bin forward in time
-            start_day = (end_day - (dt * np.round(fit_steps_yr-1, decimals=0))) \
-                    + np.timedelta64(1, 'D')
-
-        start_yr = pd.DatetimeIndex(start=start_day, end=end_day,
-                                    freq=(datetime[1] - datetime[0]))
-        # exluding leap year from cdo select string
-        noleapdays = (((start_yr.month==2) & (start_yr.day==29))==False)
-        start_yr = start_yr[noleapdays].dropna(how='all')
-
-    if ex['input_freq'] == 'monthly':
-        dt = date_dt(months=ex['tfreq'])
-        start_day = ex['adjhrsstartdate'].split(' ')[0]
-        start_day = pd.to_datetime(start_day.replace(start_day[-2:], '01'))
-        end_day = ex['adjhrsenddate'].split(' ')[0]
-        end_day = pd.to_datetime(end_day.replace(end_day[-2:], '01'))
-        fit_steps_yr = (end_day.month - start_day.month + 1) / ex['tfreq']
-        start_day = (end_day - (dt * int(fit_steps_yr))) \
-                + date_dt(months=+1)
-        days_back = end_day
-        start_yr = [end_day.strftime('%Y-%m-%d %H:%M:%S')]
-        while start_day < days_back:
-            days_back -= date_dt(months=+1)
-            start_yr.append(days_back.strftime('%Y-%m-%d %H:%M:%S'))
-        start_yr.reverse()
-        start_yr = pd.to_datetime(start_yr)
-
-        #%%
-    def make_dates(datetime, start_yr):
-        breakyr = datetime.year.max()
-        nyears = (datetime.year[-1] - datetime.year[0])+1
-        next_yr = start_yr
-        for yr in range(0,nyears-1):
-            next_yr = pd.to_datetime([date + date_dt(years=1) for date in next_yr])
-            start_yr = start_yr.append(next_yr)
-            if next_yr[-1].year == breakyr:
-                break
-        return start_yr
-
-
-    ex['n_oneyr'] = start_yr.size
-
-#    datesdt = make_datestr_2(datetime, start_yr)
-    datesdt = make_dates(datetime, start_yr)
-
-    ex['n_yrs'] = datesdt.size / ex['n_oneyr']
-    months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
-                         8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
-    startdatestr = '{} {}'.format(start_day.day, months[start_day.month])
-    enddatestr   = '{} {}'.format(end_day.day, months[end_day.month])
-
-    if ex['input_freq'] == 'daily' and ex['verbosity'] > 0:
-        print('Period of year selected: \n{} to {}, tfreq {} days'.format(
-                startdatestr, enddatestr, ex['tfreq']))
-    if ex['input_freq'] == 'monthly' and ex['verbosity'] > 0:
-        print('Months of year selected: \n{} to {}, tfreq {} months'.format(
-                startdatestr.split(' ')[-1], enddatestr.split(' ')[-1], ex['tfreq']))
-    adj_xarray = xarray.sel(time=datesdt)
-    #%%
-    return adj_xarray, datesdt
+#def timeseries_tofit_bins(xarray, ex, seldays='part'):
+#    #%%
+#    datetime = pd.to_datetime(xarray['time'].values)
+#
+#    leapdays = ((datetime.is_leap_year) & (datetime.month==2) & (datetime.day==29))==False
+#    datetime = datetime[leapdays].dropna(how='all')
+#
+## =============================================================================
+##   # select dates
+## =============================================================================
+#    # selday_pp is the period you aim to study
+#    if seldays == 'part':
+#        # add corresponding time information
+#        crossyr = int(ex['sstartdate'].replace('-','')) > int(ex['senddate'].replace('-',''))
+#        sstartdate = '{}-{}'.format(ex['startyear'], ex['sstartdate'])
+#        if crossyr:
+#            senddate   = '{}-{}'.format(ex['startyear']+1, ex['senddate'])
+#        else:
+#            senddate   = '{}-{}'.format(ex['startyear'], ex['senddate'])
+#
+#        ex['adjhrsstartdate'] = sstartdate + ' {:}:00:00'.format(datetime[0].hour)
+#        ex['adjhrsenddate']   = senddate + ' {:}:00:00'.format(datetime[0].hour)
+#        sdate = pd.to_datetime(ex['adjhrsstartdate'])
+#        seldays_pp = pd.DatetimeIndex(start=ex['adjhrsstartdate'], end=ex['adjhrsenddate'],
+#                                freq=datetime[1] - datetime[0])
+#
+#
+#    if seldays == 'all':
+#        one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
+#        sdate = one_yr[0]
+#        seldays_pp = pd.DatetimeIndex(start=one_yr[0], end=one_yr[-1],
+#                                freq=datetime[1] - datetime[0])
+#
+#    if ex['input_freq'] == 'daily':
+#        dt = np.timedelta64(ex['tfreq'], 'D')
+#        end_day = seldays_pp.max()
+#        start_day = seldays_pp.min()
+#        # after time averaging over 'tfreq' number of days, you want that each year
+#        # consists of the same day. For this to be true, you need to make sure that
+#        # the selday_pp period exactly fits in a integer multiple of 'tfreq'
+#        fit_steps_yr = (end_day - start_day + np.timedelta64(1, 'D'))  / dt
+#        # line below: The +1 = include day 1 in counting
+#        start_day = (end_day - (dt * np.round(fit_steps_yr, decimals=0))) \
+#                    + np.timedelta64(1, 'D')
+#
+#
+#        if start_day.dayofyear < sdate.dayofyear or start_day.year < sdate.year:
+#            # if startday is before the desired starting period, skip one bin forward in time
+#            start_day = (end_day - (dt * np.round(fit_steps_yr-1, decimals=0))) \
+#                    + np.timedelta64(1, 'D')
+#
+#        start_yr = pd.DatetimeIndex(start=start_day, end=end_day,
+#                                    freq=(datetime[1] - datetime[0]))
+#        # exluding leap year from cdo select string
+#        noleapdays = (((start_yr.month==2) & (start_yr.day==29))==False)
+#        start_yr = start_yr[noleapdays].dropna(how='all')
+#
+#    if ex['input_freq'] == 'monthly':
+#        dt = date_dt(months=ex['tfreq'])
+#        start_day = ex['adjhrsstartdate'].split(' ')[0]
+#        start_day = pd.to_datetime(start_day.replace(start_day[-2:], '01'))
+#        end_day = ex['adjhrsenddate'].split(' ')[0]
+#        end_day = pd.to_datetime(end_day.replace(end_day[-2:], '01'))
+#        fit_steps_yr = (end_day.month - start_day.month + 1) / ex['tfreq']
+#        start_day = (end_day - (dt * int(fit_steps_yr))) \
+#                + date_dt(months=+1)
+#        days_back = end_day
+#        start_yr = [end_day.strftime('%Y-%m-%d %H:%M:%S')]
+#        while start_day < days_back:
+#            days_back -= date_dt(months=+1)
+#            start_yr.append(days_back.strftime('%Y-%m-%d %H:%M:%S'))
+#        start_yr.reverse()
+#        start_yr = pd.to_datetime(start_yr)
+#
+#        #%%
+#    def make_dates(datetime, start_yr):
+#        breakyr = datetime.year.max()
+#        nyears = (datetime.year[-1] - datetime.year[0])+1
+#        next_yr = start_yr
+#        for yr in range(0,nyears-1):
+#            next_yr = pd.to_datetime([date + date_dt(years=1) for date in next_yr])
+#            start_yr = start_yr.append(next_yr)
+#            if next_yr[-1].year == breakyr:
+#                break
+#        return start_yr
+#
+#
+#    ex['n_oneyr'] = start_yr.size
+#
+##    datesdt = make_datestr_2(datetime, start_yr)
+#    datesdt = make_dates(datetime, start_yr)
+#    
+#    ex['n_yrs'] = datesdt.size / ex['n_oneyr']
+#    months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
+#                         8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
+#    startdatestr = '{} {}'.format(start_day.day, months[start_day.month])
+#    enddatestr   = '{} {}'.format(end_day.day, months[end_day.month])
+#
+#    if ex['input_freq'] == 'daily' and ex['verbosity'] > 0:
+#        print('Period of year selected: \n{} to {}, tfreq {} days'.format(
+#                startdatestr, enddatestr, ex['tfreq']))
+#    if ex['input_freq'] == 'monthly' and ex['verbosity'] > 0:
+#        print('Months of year selected: \n{} to {}, tfreq {} months'.format(
+#                startdatestr.split(' ')[-1], enddatestr.split(' ')[-1], ex['tfreq']))
+#    adj_xarray = xarray.sel(time=datesdt)
+#    #%%
+#    return adj_xarray, datesdt
 
 def make_RVdatestr(dates, ex, startyr, endyr, lpyr=False):
     import calendar
@@ -631,7 +757,7 @@ def make_RVdatestr(dates, ex, startyr, endyr, lpyr=False):
 def import_array(cls, path='pp'):
     import os
     import xarray as xr
-    from netCDF4 import num2date
+
     import pandas as pd
     import numpy as np
     if path == 'raw':
@@ -651,11 +777,15 @@ def import_array(cls, path='pp'):
     cls.dates = dates
     return marray, cls
 
-def import_ds_timemeanbins(file_path, ex, loadleap=True, to_xarr=True):
-
-    ds = core_pp.import_ds_lazy(file_path, ex, loadleap=loadleap)
+def import_ds_timemeanbins(file_path, ex, loadleap=False, to_xarr=True):
+    
+    
+    kwrgs_pp = {'selbox':ex['selbox'], 'input_freq':ex['input_freq'], 
+                'loadleap':loadleap }
+    
+    ds = core_pp.import_ds_lazy(file_path, **kwrgs_pp)
     to_freq = ex['tfreq']
-    if to_freq != 1:
+    if to_freq != 1:        
         ds, dates = time_mean_bins(ds, ex, to_freq=to_freq, seldays='part')
         ds['time'] = dates
 #    print('temporal frequency \'dt\' is: \n{}'.format(dates[1]- dates[0]))
@@ -667,6 +797,12 @@ def import_ds_timemeanbins(file_path, ex, loadleap=True, to_xarr=True):
 
     return ds
 
+def area_weighted(xarray):
+   # Area weighted, taking cos of latitude in radians     
+   coslat = np.cos(np.deg2rad(xarray.coords['latitude'].values)).clip(0., 1.)
+   area_weights = np.tile(coslat[..., np.newaxis],(1,xarray.longitude.size))
+   return xr.DataArray(xarray.values * area_weights, coords=xarray.coords, 
+                          dims=xarray.dims)
 
 def xarray_plot(data, path='default', name = 'default', saving=False):
     # from plotting import save_figure
@@ -917,7 +1053,7 @@ def regrid_xarray(xarray_in, to_grid_res, periodic=True):
 
 
 
-def rand_traintest_years(RV, precur_arr, ex):
+def rand_traintest_years(RV, ex):
     #%%
     '''
     possible ex['method'] are:
@@ -952,7 +1088,13 @@ def rand_traintest_years(RV, precur_arr, ex):
                             int(ex['method'].split('_')[1]), dtype=int )
     elif ex['method'] == 'no_train_test_split': ex['n_spl'] = 1
 
-    traintest = []
+    full_time  = pd.to_datetime(RV.RVfullts.time.values)
+    RV_time  = pd.to_datetime(RV_ts.time.values)
+    RV_mask = np.array([True if d in RV_time else False for d in full_time])
+    full_years  = list(RV.RVfullts.time.dt.year.values)
+    RV_years  = list(RV_ts.time.dt.year.values)
+
+    traintest = [] ; list_splits = []
     for s in range(ex['n_spl']):
 
         # conditions failed initally assumed True
@@ -1014,13 +1156,17 @@ def rand_traintest_years(RV, precur_arr, ex):
             rand_train_years = [yr for yr in ex['all_yrs'] if yr not in rand_test_years]
 
 
-            full_years  = list(precur_arr.time.dt.year.values)
-            RV_years  = list(RV_ts.time.dt.year.values)
+
+            TrainIsTrue = np.zeros( (full_time.size), dtype=bool )
 
             Prec_train_idx = [i for i in range(len(full_years)) if full_years[i] in rand_train_years]
             RV_train_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_train_years]
             RV_train = RV_ts.isel(time=RV_train_idx)
-
+            
+            
+            TrainIsTrue[Prec_train_idx] = True
+            
+            
             if ex['method'] != 'no_train_test_split':
                 Prec_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
                 RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
@@ -1032,8 +1178,11 @@ def rand_traintest_years(RV, precur_arr, ex):
                                                                         s, count, seed, ex['verbosity'])
             else:
                 RV_test = [] ; test_years = [] ; Prec_test_idx = []
-
-
+        data = np.concatenate([TrainIsTrue[None,:], RV_mask[None,:]], axis=0)
+        list_splits.append(pd.DataFrame(data=data.T, 
+                                       columns=['TrainIsTrue', 'RV_mask'],
+                                       index = full_time))
+        
         ex['tested_yrs'].append(test_years)
 
         traintest_ = dict( { 'years'            : test_years,
@@ -1043,9 +1192,10 @@ def rand_traintest_years(RV, precur_arr, ex):
                             'Prec_test_idx'     : Prec_test_idx} )
         traintest.append(traintest_)
         ex['traintest'] = traintest
-
+    df_splits = pd.concat(list_splits , axis=0, keys=range(ex['n_spl']))
+    ex['df_splits'] = df_splits
     #%%
-    return traintest, ex
+    return df_splits, ex
 
 def check_test_split(RV, RV_test, ex, a_conditions_failed, s, count, seed, verbosity=0):
 

@@ -65,10 +65,10 @@ ex = dict(
      'endperiod'    :       '08-24', # RV period
      'sstartdate'   :       '01-01', # precursor period
      'senddate'     :       '08-24', # precursor period
-     'la_min'       :       0, # select domain of correlation analysis
-     'la_max'       :       90,
-     'lo_min'       :       -180,
-     'lo_max'       :       360,
+     'selbox'       :       {'la_min':0, # select domain in degrees east
+                             'la_max':90,
+                             'lo_min':0,
+                             'lo_max':360}, 
      'abs_or_anom'  :       'anom', # use absolute or anomalies?
      'verbosity'    :       0, # higher verbosity gives more feedback in terminal
      'base_path'    :       base_path,

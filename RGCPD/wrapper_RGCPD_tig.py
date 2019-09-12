@@ -17,6 +17,7 @@ import datetime
 import cartopy.crs as ccrs
 import pandas as pd
 import functions_pp
+import plot_maps
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 #%%
@@ -37,7 +38,8 @@ def calculate_corr_maps(ex, map_proj):
     # Start of experiment
     #==================================================================================
 
-
+    # Define traintest:
+    df_splits, ex = functions_pp.rand_traintest_years(RV, ex)
     # =============================================================================
     # 2) DEFINE PRECURSOS COMMUNITIES:
     # =============================================================================
@@ -62,8 +64,8 @@ def calculate_corr_maps(ex, map_proj):
         # 3c) Precursor field
         #===========================================  
         file_path = os.path.join(actor.path_pp, actor.filename_pp)
-        precur_arr, actor = functions_pp.import_ds_timemeanbins(file_path, ex)
-        precur_arr = rgcpd.convert_longitude(precur_arr, 'only_east') 
+        precur_arr = functions_pp.import_ds_timemeanbins(file_path, ex)
+#        precur_arr = rgcpd.convert_longitude(precur_arr, 'only_east') 
         # =============================================================================
         # Calculate correlation
         # =============================================================================
@@ -84,7 +86,7 @@ def calculate_corr_maps(ex, map_proj):
         # =============================================================================
         if ex['plotin1fig'] == False:
 #            xrdata, xrmask = xrcorr_vars([var], outdic_actors, ex)
-            plot_corr_maps(corr_xr, corr_xr['mask'], map_proj)
+            plot_maps.plot_corr_maps(corr_xr, corr_xr['mask'], map_proj)
 
             fig_filename = '{}_corr_{}_vs_{}'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']
             plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=ex['png_dpi'])
@@ -233,7 +235,7 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
             var_names = var_names + actor.var_info
         cols.append(list(actor.ts_corr[s].columns))
     var_names.insert(0, RV.name)
-#    .iloc[traintest[s]['Prec_train_idx']]
+
         
     # stack actor time-series together:
     fulldata = np.concatenate(tuple(actorlist), axis = 1)   

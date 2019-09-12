@@ -21,37 +21,6 @@ def get_oneyr(datetime):
 from dateutil.relativedelta import relativedelta as date_dt
 
 
-def convert_longitude(data, to_format='only_east'):
-    '''
-    to_format = 'only_east' or 'west_east'
-    '''
-    import numpy as np
-    import xarray as xr
-    if to_format == 'west_east':
-        lon_above = data.longitude[np.where(data.longitude > 180)[0]]
-        lon_normal = data.longitude[np.where(data.longitude <= 180)[0]]
-        # roll all values to the right for len(lon_above amount of steps)
-        data = data.roll(longitude=len(lon_above))
-        # adapt longitude values above 180 to negative values
-        substract = lambda x, y: (x - y)
-        lon_above = xr.apply_ufunc(substract, lon_above, 360)
-        if lon_normal.size != 0:
-            if lon_normal[0] == 0.:
-                convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
-
-            else:
-                convert_lon = xr.concat([lon_normal, lon_above], dim='longitude')
-        else:
-            convert_lon = lon_above
-
-    elif to_format == 'only_east':
-        lon_above = data.longitude[np.where(data.longitude >= 0)[0]]
-        lon_below = data.longitude[np.where(data.longitude < 0)[0]]
-        lon_below += 360
-        data = data.roll(longitude=len(lon_below))
-        convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
-    data['longitude'] = convert_lon
-    return data
 
 
 def corr_new(D, di):
@@ -111,7 +80,7 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
     assert n_lags >= 0, ('Maximum lag is larger then minimum lag, not allowed')
 
 
-    traintest, ex = functions_pp.rand_traintest_years(RV, precur_arr, ex)
+    df_splits = ex['df_splits']
     # make new xarray to store results
     xrcorr = precur_arr.isel(time=0).drop('time').copy()
     # add lags
@@ -126,7 +95,7 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
     print('\n{} - calculating correlation maps'.format(precur_arr.name))
     np_data = np.zeros_like(xrcorr.values)
     np_mask = np.zeros_like(xrcorr.values)
-    def corr_single_split(RV_ts, precur, RV_period, ex):
+    def corr_single_split(RV_ts, precur, ex):
 
         lat = precur_arr.latitude.values
         lon = precur_arr.longitude.values
@@ -165,22 +134,21 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
         Corr_Coeff = Corr_Coeff.reshape(lat.size,lon.size,len(lags)).swapaxes(2,1).swapaxes(1,0)
         return Corr_Coeff
 
+    RV_mask = df_splits.loc[0]['RV_mask']
     for s in xrcorr.split.values:
         progress = 100 * (s+1) / ex['n_spl']
         # =============================================================================
         # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']
         # =============================================================================
-        RV_ts = traintest[s]['RV_train']
-        precur = precur_arr.isel(time=traintest[s]['Prec_train_idx'])
+        RV_train_mask = np.logical_and(RV_mask, df_splits.loc[s]['TrainIsTrue'])
+        RV_ts = RV.RVfullts[RV_train_mask.values]
+        precur = precur_arr[df_splits.loc[s]['TrainIsTrue'].values]
+
         dates_RV  = pd.to_datetime(RV_ts.time.values)
         n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
         print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
-        dates_all = pd.to_datetime(precur.time.values)
-        string_RV = list(dates_RV.strftime('%Y-%m-%d'))
-        string_full = list(dates_all.strftime('%Y-%m-%d'))
-        RV_period = [string_full.index(date) for date in string_full if date in string_RV]
 
-        ma_data = corr_single_split(RV_ts, precur, RV_period, ex)
+        ma_data = corr_single_split(RV_ts, precur, ex)
         np_data[s] = ma_data.data
         np_mask[s] = ma_data.mask
     print("\n")

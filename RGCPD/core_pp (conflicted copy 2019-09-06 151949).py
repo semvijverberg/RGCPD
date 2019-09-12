@@ -99,9 +99,7 @@ def import_ds_lazy(filename, input_freq='daily', loadleap=False, seldates=None, 
        else:
            slice_ = slice(selbox['la_min'], selbox['la_max'])
        ds = ds.sel(latitude=slice_)
-       min_lon = min([selbox['lo_min'], selbox['lo_max']])
-       max_lon = max([selbox['lo_min'], selbox['lo_max']])
-       ds = ds.sel(longitude=slice(min_lon, max_lon))
+       ds = ds.sel(longitude=slice(selbox['lo_min'], selbox['lo_max']))
 
    # get dates
    numtime = ds['time']
@@ -147,7 +145,7 @@ def remove_leapdays(datetime):
 
 
 def detrend_anom_ncdf3D(infile, outfile, input_freq='daily', loadleap=False, 
-                        seldates=None, selbox=None, format_lon='west_east', 
+                        seldates=None, selbox=None, format_lon='only_east', 
                         detrend=True, anomaly=True, encoding=None):
     '''
     Function for preprocessing
@@ -333,19 +331,14 @@ def convert_longitude(data, to_format='west_east'):
             convert_lon = lon_above
 
     elif to_format == 'only_east':
-        deg = float(abs(longitude[1] - longitude[0]))
         lon_above = longitude[np.where(longitude >= 0)[0]]
         lon_below = longitude[np.where(longitude < 0)[0]]
         lon_below += 360
 
-        if min(lon_above) < deg:
-            # crossing the meridional:
-            data = data.roll(longitude=-len(lon_below))
-            convert_lon = xr.concat([lon_below, lon_above], dim='longitude')
-        else:
-            # crossing - 180 line
-            data = data.roll(longitude=len(lon_below))
-            convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
+
+        # crossing - 180 line
+        data = data.roll(longitude=len(lon_below))
+        convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
     data['longitude'] = convert_lon
     return data
 
@@ -360,7 +353,7 @@ if __name__ == '__main__':
     if os.path.isdir(output_folder) != True : os.makedirs(output_folder)
     outfile = os.path.join(output_folder, outfilename)
 
-    kwargs = {'detrend':True, 'anomaly':True}
+    kwargs = {'detrend':False, 'anomaly':True}
     try:
         detrend_anom_ncdf3D(infile, outfile, ex, **kwargs)
     except:
