@@ -76,67 +76,72 @@ def get_oneyr(datetime):
 #
 #     return ds
 
-def import_ds_lazy(filename, input_freq='daily', loadleap=False, seldates=None, selbox=None, format_lon='west_east'):
-   ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
-   variables = list(ds.variables.keys())
-   strvars = [' {} '.format(var) for var in variables]
-   common_fields = ' time time_bnds longitude latitude lev lon lat level mask '
-   var = [var for var in strvars if var not in common_fields][0]
-   var = var.replace(' ', '')
+def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_lon='west_east'):
+    ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
+    variables = list(ds.variables.keys())
+    strvars = [' {} '.format(var) for var in variables]
+    common_fields = ' time time_bnds longitude latitude lev lon lat level mask '
+    var = [var for var in strvars if var not in common_fields][0]
+    var = var.replace(' ', '')
 
-   ds = ds[var].squeeze()
+    ds = ds[var].squeeze()
    
-   ds = convert_longitude(ds, format_lon) 
+    ds = convert_longitude(ds, format_lon) 
    
    
    
-   if 'latitude' and 'longitude' not in ds.dims:
-       ds = ds.rename({'lat':'latitude',
+    if 'latitude' and 'longitude' not in ds.dims:
+        ds = ds.rename({'lat':'latitude',
                   'lon':'longitude'})
-   if selbox is not None:
-       if ds.latitude[0] > ds.latitude[1]:
-           slice_ = slice(selbox['la_max'], selbox['la_min'])
-       else:
-           slice_ = slice(selbox['la_min'], selbox['la_max'])
-       ds = ds.sel(latitude=slice_)
-       min_lon = min([selbox['lo_min'], selbox['lo_max']])
-       max_lon = max([selbox['lo_min'], selbox['lo_max']])
-       ds = ds.sel(longitude=slice(min_lon, max_lon))
+    if selbox is not None:
+        if ds.latitude[0] > ds.latitude[1]:
+            slice_ = slice(selbox['la_max'], selbox['la_min'])
+        else:
+            slice_ = slice(selbox['la_min'], selbox['la_max'])
+        ds = ds.sel(latitude=slice_)
+        min_lon = min([selbox['lo_min'], selbox['lo_max']])
+        max_lon = max([selbox['lo_min'], selbox['lo_max']])
+        ds = ds.sel(longitude=slice(min_lon, max_lon))
 
-   # get dates
-   numtime = ds['time']
-   dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+    # get dates
+    numtime = ds['time']
+    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
 
-   if numtime.attrs['calendar'] != 'gregorian':
-       dates = [d.strftime('%Y-%m-%d') for d in dates]
+    if (dates[1] - dates[0]).days == 1:
+        input_freq = 'daily'
+    elif (dates[1] - dates[0]).days == 30 or (dates[1] - dates[0]).days == 31:
+        input_freq = 'monthly'
+        
+    if numtime.attrs['calendar'] != 'gregorian':
+        dates = [d.strftime('%Y-%m-%d') for d in dates]
    
-   if input_freq == 'monthly':
+    if input_freq == 'monthly':
         dates = [d.replace(day=1,hour=0) for d in pd.to_datetime(dates)]
-   else:
-       dates = pd.to_datetime(dates)
-       stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
-       test_if_fullyr = np.logical_and(dates[stepsyr.size-1].month == 12,
+    else:
+        dates = pd.to_datetime(dates)
+        stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
+        test_if_fullyr = np.logical_and(dates[stepsyr.size-1].month == 12,
                                    dates[stepsyr.size-1].day == 31)
-       assert test_if_fullyr, ('full is needed as raw data since rolling'
+        assert test_if_fullyr, ('full is needed as raw data since rolling'
                            ' mean is applied across timesteps')
 
-   dates = pd.to_datetime(dates)
-   # set hour to 00
-   if dates.hour[0] != 0:
-       dates -= pd.Timedelta(dates.hour[0], unit='h')
+    dates = pd.to_datetime(dates)
+    # set hour to 00
+    if dates.hour[0] != 0:
+        dates -= pd.Timedelta(dates.hour[0], unit='h')
 
-   ds['time'] = dates
+    ds['time'] = dates
 
-   if seldates is None:
-       pass
-   else:
-       ds = ds.sel(time=seldates)
+    if seldates is None:
+        pass
+    else:
+        ds = ds.sel(time=seldates)
 
-   if loadleap==False:
-       # mask away leapdays
-       dates_noleap = remove_leapdays(pd.to_datetime(ds.time.values))
-       ds = ds.sel(time=dates_noleap)
-   return ds
+    if loadleap==False:
+        # mask away leapdays
+        dates_noleap = remove_leapdays(pd.to_datetime(ds.time.values))
+        ds = ds.sel(time=dates_noleap)
+    return ds
 
 
 def remove_leapdays(datetime):

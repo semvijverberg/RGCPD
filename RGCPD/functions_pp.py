@@ -64,7 +64,7 @@ def perform_post_processing(ex):
             pass
         else:
             infile = os.path.join(var_class.path_raw, var_class.filename)
-            kwrgs_pp = {'selbox':ex['selbox'], 'input_freq':ex['input_freq'], 
+            kwrgs_pp = {'selbox':ex['selbox'],  
                         'loadleap':False, 'detrend':True, 'anom':ex['abs_or_anom']}
             core_pp.detrend_anom_ncdf3D(infile, outfile, **kwrgs_pp)
         # update the dates stored in var_class:
@@ -84,7 +84,7 @@ def check_pp_done(cls, ex):
 
     import pandas as pd
     filename = os.path.join(ex['path_raw'], cls.filename)
-    kwrgs_pp = {'selbox':ex['selbox'], 'input_freq':ex['input_freq'], 'loadleap':False}
+    kwrgs_pp = {'selbox':ex['selbox'], 'loadleap':False}
     ds = core_pp.import_ds_lazy(filename, **kwrgs_pp)
     dates = pd.to_datetime(ds['time'].values)
 
@@ -154,7 +154,7 @@ def kornshell_with_input(args, cls):
 def update_dates(cls, ex):
     import os
     file_path = os.path.join(cls.path_pp, cls.filename_pp)
-    kwrgs_pp = {'selbox':ex['selbox'], 'input_freq':ex['input_freq'], 
+    kwrgs_pp = {'selbox':ex['selbox'], 
                 'loadleap':False }
     ds = core_pp.import_ds_lazy(file_path, **kwrgs_pp)
 
@@ -522,10 +522,10 @@ def timeseries_tofit_bins(xr_or_dt, ex, to_freq, seldays='part', verb=1):
                              8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
         startdatestr = '{} {}'.format(start_day.day, months[start_day.month])
         enddatestr   = '{} {}'.format(end_day.day, months[end_day.month])
-        if ex['input_freq'] == 'daily':
+        if input_freq == 'day':
             print('Period of year selected: \n{} to {}, tfreq {} days'.format(
                     startdatestr, enddatestr, to_freq))
-        if ex['input_freq'] == 'monthly':
+        if input_freq == 'month':
             print('Months of year selected: \n{} to {}, tfreq {} months'.format(
                     startdatestr.split(' ')[-1], enddatestr.split(' ')[-1], to_freq))
     
@@ -780,7 +780,7 @@ def import_array(cls, path='pp'):
 def import_ds_timemeanbins(file_path, ex, loadleap=False, to_xarr=True):
     
     
-    kwrgs_pp = {'selbox':ex['selbox'], 'input_freq':ex['input_freq'], 
+    kwrgs_pp = {'selbox':ex['selbox'], 
                 'loadleap':loadleap }
     
     ds = core_pp.import_ds_lazy(file_path, **kwrgs_pp)
