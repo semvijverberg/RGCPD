@@ -33,7 +33,7 @@ import exp_fc
 #path_data_3d_sp = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-30.h5'
 #strat_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
 #strat_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
-strat_1d_CPPA = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/data/ran_strat10_s30/12-09-19_15hr_lag_0.h5'
+strat_1d_CPPA = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/data/ran_strat10_s30/13-09-19_11hr_lag_0.h5'
 n_boot = 500
 
 
@@ -94,22 +94,31 @@ stat_model_l = [logit, GBR_logitCV]
 
 
 #datasets_path = {'ERA-5 30d strat':path_data_strat, 'ERA-5 30d sp':path_data_3d_sp}
-datasets_path = {'ERA-5 1d CPPA':strat_1d_CPPA}
-
+datasets_path = {'ERA-5 1d':strat_1d_CPPA}
+keys_options = ['PEP', 'robust']
 
 
 causal = False
-keys_d_sets = {} ; experiments = {}
+experiments = {} #; keys_d_sets = {}
 for dataset, path_data in datasets_path.items():
 #    keys_d = exp_fc.compare_use_spatcov(path_data, causal=causal)
 #    keys_d = exp_fc.normal_precursor_regions(path_data, causal=causal)
-    keys_d = exp_fc.CPPA_precursor_regions(path_data, option='all')
-    keys_d_sets[dataset] = keys_d
+    keys_d = exp_fc.CPPA_precursor_regions(path_data, 
+                                           keys_options=keys_options)
+#        keys_d_sets[dataset] = keys_d
     for master_key, feature_keys in keys_d.items():
         kwrgs_pp = {'EOF':False, 'expl_var':0.5}
-        experiments[dataset] = (path_data, {'keys':feature_keys,
+        experiments[dataset+' '+master_key] = (path_data, {'keys':feature_keys,
                                            'kwrgs_pp':kwrgs_pp
                                            })
+    
+#    keys_d = exp_fc.CPPA_precursor_regions(path_data, option='robust')
+#    keys_d_sets[dataset] = keys_d
+#    for master_key, feature_keys in keys_d.items():
+#        kwrgs_pp = {'EOF':False, 'expl_var':0.5}
+#        experiments[dataset] = (path_data, {'keys':feature_keys,
+#                                           'kwrgs_pp':kwrgs_pp
+#                                           })
     
 kwrgs_events = {'event_percentile': 'std',
                 'min_dur' : 1,
@@ -126,7 +135,7 @@ for dataset, tuple_sett in experiments.items():
     df_data = dict_of_dfs['df_data']
     splits  = df_data.index.levels[0]
     tfreq = (df_data.loc[0].index[1] - df_data.loc[0].index[0]).days
-    lags = np.arange(0, 90+1E-9, tfreq)/tfreq 
+    lags = np.arange(0, 50+1E-9, max(10,tfreq))/max(10,tfreq)
     
     
     if 'keys' not in kwrgs_exp:
@@ -168,7 +177,7 @@ def print_sett(experiments, stat_model_l, filename):
     
 
 working_folder = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/forecasting'
-today = datetime.datetime.today().strftime('%Y-%m-%d_%H-%M')
+today = datetime.datetime.today().strftime('%Hhr_%d-%m-%Y')
 f_name = f'{RV.RV_ts.name}_{tfreq}d_{today}'
 f_format = '.png' 
 filename = os.path.join(working_folder, f_name)

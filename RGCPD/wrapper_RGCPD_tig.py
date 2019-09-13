@@ -209,7 +209,7 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
     RV = ex[ex['RV_name']]
     # create list with all actors, these will be merged into the fulldata array
     allvar = ex['vars'][0]
-    var_names = [] ; actorlist = [] ; cols = [[RV.name]]
+    var_names_corr = [] ; actorlist = [] ; cols = [[RV.name]]
 
     for var in allvar[ex['excludeRV']:]:
         print(var)
@@ -221,10 +221,10 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
             var_idx = allvar.index(var) - ex['excludeRV']
             n_regions = actor.ts_corr[s].shape[1]
             actor.var_info = [[i+1, actor.ts_corr[s].columns[i], var_idx] for i in range(n_regions)]
-            # Array of corresponing regions with var_names (first entry is RV)
-            var_names = var_names + actor.var_info
+            # Array of corresponing regions with var_names_corr (first entry is RV)
+            var_names_corr = var_names_corr + actor.var_info
         cols.append(list(actor.ts_corr[s].columns))
-    var_names.insert(0, RV.name)
+    var_names_corr.insert(0, RV.name)
 
 
     # stack actor time-series together:
@@ -238,12 +238,38 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
     df_data = pd.DataFrame(fulldata, columns=flatten(cols), index=actor.ts_corr[s].index)
     
     if ex['import_prec_ts'] == True:
+        var_names_full = var_names_corr.copy()
         for d in ex['precursor_ts']:
             path_data = d[1]    
             if len(path_data) > 1:
                 path_data = ''.join(list(path_data))
-            df_data_ext = func_fc.load_hdf5(path_data)['df_data']
-        df_data = df_data.merge(df_data_ext, left_index=True, right_index=True)
+            # skip first col because it is the RV ts
+            df_data_ext = func_fc.load_hdf5(path_data)['df_data'].iloc[:,1:].loc[s]
+            cols_ext = list(df_data_ext.columns[df_data_ext.dtypes == float])
+            # cols_ext must be of format '{}_{int}_{}'
+            lab_int = 100
+            for i, c in enumerate(cols_ext):
+                char = c.split('_')[1]
+                if char.isdigit():
+                    pass
+                else:
+                    cols_ext[i] = c.replace(char, str(lab_int)) + char
+                    lab_int += 1
+                    
+            df_data_ext = df_data_ext[cols_ext]
+            df_data_ext = functions_pp.time_mean_bins(df_data_ext,
+                                                     ex, ex['tfreq'], 
+                                                     seldays='part')[0]
+            # Expand var_names_corr
+            n = var_names_full[-1][0] + 1 ; add_n = n + len(cols_ext)
+            n_var_idx = var_names_full[-1][-1] + 1
+            for i in range(n, add_n):
+                var_names_full.append([i, cols_ext[i-n], n_var_idx])
+            df_data = df_data.merge(df_data_ext, left_index=True, right_index=True)
+    else:
+        var_names_full = var_names_corr
+            
+        
     
     RVfull_train = RV.RVfullts.isel(time=traintest[s]['Prec_train_idx'])
     datesfull_train = pd.to_datetime(RVfull_train.time.values)
@@ -271,7 +297,7 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
     # ======================================================================================================================
     # Initialize dataframe object (needed for tigramite functions)
     # ======================================================================================================================
-    dataframe = pp.DataFrame(data=data, mask=data_mask, var_names=var_names)
+    dataframe = pp.DataFrame(data=data, mask=data_mask, var_names=var_names_full)
     # ======================================================================================================================
     # pc algorithm: only parents for selected_variables are calculated
     # ======================================================================================================================
@@ -314,10 +340,10 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
 
     links_RV = all_parents[0]
 
-    df = rgcpd.bookkeeping_precursors(links_RV, var_names)
+    df = rgcpd.bookkeeping_precursors(links_RV, var_names_full)
     #%%
 
-    rgcpd.print_particular_region_new(links_RV, var_names, s, outdic_actors, map_proj, ex)
+    rgcpd.print_particular_region_new(links_RV, var_names_corr, s, outdic_actors, map_proj, ex)
 
 
 #%%

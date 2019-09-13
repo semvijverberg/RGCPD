@@ -51,7 +51,7 @@ def plot_corr_maps(corr_xr, xrmask, map_proj, kwrgs={'hspace':-0.6}):
     
     g = xr.plot.FacetGrid(corr_xr, col='lag', row='split', subplot_kws={'projection': map_proj},
                       sharex=True, sharey=True,
-                      aspect= (lon.size) / lat.size, size=3)
+                      aspect= (lon.size) / lat.size, size=2)
 
     # =============================================================================
     # Coordinate labels
@@ -185,8 +185,8 @@ def causal_reg_to_xarray(ex, df, outdic_actors):
     if df.index[0] in df_c.index:
         df_c = df_c.drop(df.index[0])
    
-    variable = [v for v in np.unique(df_c['var']) if v != ex['RV_name']]
-    var_rel_sizes = {outdic_actors[var].area_grid.sum()/7939E6 : var for var in variable}
+    spatial_vars = outdic_actors.keys()
+    var_rel_sizes = {outdic_actors[var].area_grid.sum()/7939E6 : var for var in spatial_vars}
     var_large_to_small = [var_rel_sizes[s] for s in sorted(var_rel_sizes, reverse=True)]
     dict_ds = {}
     for i, var in enumerate(var_large_to_small):
@@ -231,19 +231,19 @@ def causal_reg_to_xarray(ex, df, outdic_actors):
     #%%
     return dict_ds
 
-def plotting_per_variable(dict_ds, df, map_proj, ex):
+def plotting_per_variable(dict_ds, df_sum, map_proj, ex):
     #%%
     # =============================================================================
     print('\nPlotting all fields significant at alpha_level_tig, while conditioning on parents'
           ' that were found in the PC step')
     # =============================================================================
-    df_c = df.loc[ df['causal']==True ]
+    df_c = df_sum.loc[ df_sum['causal']==True ]
     # remove response variable if the ac is a 
     # causal link
-    if df.index[0] in df_c.index:
-        df_c = df_c.drop(df.index[0])
+    if df_sum.index[0] in df_c.index:
+        df_c = df_c.drop(df_sum.index[0])
         
-    variables = [v for v in np.unique(df_c['var']) if v != ex['RV_name']]
+    variables = list(dict_ds.keys())
     lags = ds = dict_ds[variables[0]].lag.values
     for lag in lags:
         

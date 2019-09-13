@@ -120,25 +120,41 @@ def normal_precursor_regions(path_data, causal=True):
     #%%
     return keys_d
 
-def CPPA_precursor_regions(path_data, option='all'):
+
+def CPPA_precursor_regions(path_data, keys_options=['CPPA']):
     #%%
     dict_of_dfs = func_fc.load_hdf5(path_data)
     df_data = dict_of_dfs['df_data']
     splits  = df_data.index.levels[0]
-    
+    skip = ['TrainIsTrue', 'RV_mask']
     keys_d = {}
-    keys_d_ = {}
-    for s in splits:
-        if option == 'all':
-            all_keys = df_data.loc[s].columns
-#            keys_ = all_keys
-            keys_ = [k for k in all_keys if k[0] == '0' ] # remove later
-        elif option == 'only_ts':
-            all_keys = df_data.loc[s].columns
-            keys_ = [k for k in all_keys if ('spatcov' not in k)]
-        keys_d_[s] = np.array(list(unique_everseen(keys_)))
+    
+    for option in keys_options:
+        keys_d_ = {}
+        for s in splits:
+            if option == 'CPPA':
+                all_keys = df_data.loc[s].columns[1:]
+                all_keys = [k for k in all_keys if k not in skip]
+                keys_ = [k for k in all_keys if k[-3:] != 'PEP']
+            
+            elif option == 'robust':
+                all_keys = df_data.loc[s].columns[1:]
+                all_keys = [k for k in all_keys if k not in skip]
+                all_keys = [k for k in all_keys if k[-3:] != 'PEP']
+                
+                robust = ['sst', '2', '7', '9' ]
+                sst_regs = [k for k in all_keys if len(k.split('_')) == 3]
+                other    = [k for k in all_keys if len(k.split('_')) != 3]
+                keys_ = [k for k in sst_regs if k.split('_')[1] in robust ] 
+                [keys_.append(k) for k in other]
+                
+            elif option == 'PEP':
+                all_keys = df_data.loc[s].columns[1:]
+                all_keys = [k for k in all_keys if k not in skip]
+                keys_ = [k for k in all_keys if k[-3:] == 'PEP']
         
-    keys_d['CPPA_precursor_regions'] = keys_d_
+            keys_d_[s] = np.array(list(unique_everseen(keys_)))        
+        keys_d[option] = keys_d_
         
     #%%
     return keys_d

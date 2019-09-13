@@ -19,6 +19,7 @@ import numpy as np
 import pandas as pd
 import functions_pp
 import wrapper_RGCPD_tig
+import plot_maps
 import matplotlib.pyplot as plt
 import xarray as xr
 import cartopy.crs as ccrs
@@ -65,8 +66,8 @@ ex = dict(
      'endperiod'    :       '08-24', # RV period
      'sstartdate'   :       '01-01', # precursor period
      'senddate'     :       '08-24', # precursor period
-     'selbox'       :       {'la_min':0, # select domain in degrees east
-                             'la_max':90,
+     'selbox'       :       {'la_min':20, # select domain in degrees east
+                             'la_max':60,
                              'lo_min':-180,
                              'lo_max':360}, 
      'anomaly'      :       True, # use absolute or anomalies?
@@ -96,7 +97,7 @@ elif ex['dataset'] == 'era5':
 # Option 1:
 ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf = False
+import_precursor_ncdf = True
 # Option 3:
 import_RV_ncdf = False
 # Option 4:
@@ -149,9 +150,9 @@ else:
 if import_precursor_ncdf == True:
     # var names may not contain underscores
     ex['precursor_ncdf'] = [['name1', 'filename1'],['name2','filename2']]
-#    ex['precursor_ncdf'] = [['sm3', ('sm_3_{}-{}_1_12_daily_'
-#                              '0.25deg.nc'.format(ex['startyear'], ex['endyear'],
-#                               ex['grid_res']))]]
+    ex['precursor_ncdf'] = [['sm123', ('sm_123_{}-{}_1_12_daily_'
+                              '0.25deg.nc'.format(ex['startyear'], ex['endyear'],
+                               ex['grid_res']))]]
 #    ex['precursor_ncdf'] = [['p_rm61', ('p_rm61_{}-{}_1_12_daily_'
 #                              '2.5deg.nc'.format(ex['startyear'], ex['endyear'],
 #                               ex['grid_res']))]]
@@ -176,7 +177,7 @@ if ex['import_prec_ts'] == True:
     ex['precursor_ts'] = [['name1', 'filename1'],['name2','filename2']]
     ex['precursor_ts'] = [
                             ['sst_CPPA', ('/Users/semvijverberg/surfdrive/MckinRepl/',
-                              'era5_T2mmax_sst_Northern/data/ran_strat10_s30/12-09-19_15hr_lag_0.h5')]
+                              'era5_T2mmax_sst_Northern/data/ran_strat10_s30/13-09-19_11hr_lag_0.h5')]
                             ]
 
     
@@ -269,7 +270,7 @@ elif importRV_1dts == False:
 # ===================================lag_steps==========================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [30] #[2,4,7,14,21,35] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [20] #[2,4,7,14,21,35] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
@@ -322,7 +323,7 @@ for freq in ex['tfreqlist']:
     # Part 2 Configure RGCPD/Tigramite settings
     # *****************************************************************************
     # *****************************************************************************
-    ex['tigr_tau_max'] = 7
+    ex['tigr_tau_max'] = 5
     ex['max_comb_actors'] = 10
     ex['alpha'] = 0.05# set significnace level for correlation maps
     ex['alpha_fdr'] = 2*ex['alpha'] # conservative significance level
@@ -391,11 +392,11 @@ for freq in ex['tfreqlist']:
         # =============================================================================
         #%%
         
-        dict_ds = wrapper_RGCPD_tig.causal_reg_to_xarray(ex, df_sum, outdic_actors)
+        dict_ds = plot_maps.causal_reg_to_xarray(ex, df_sum, outdic_actors)
         
         wrapper_RGCPD_tig.store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=True)
         
-        wrapper_RGCPD_tig.plotting_per_variable(dict_ds, df_sum, map_proj, ex)
+        plot_maps.plotting_per_variable(dict_ds, df_sum, map_proj, ex)
         
 
         print("--- {:.0} minutes ---".format((time.time() - start_time)/60))

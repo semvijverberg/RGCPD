@@ -177,6 +177,7 @@ def prepare_data(df_split, lag=int, kwrgs_pp=dict, TrainIsTrue=None, RV_mask=Non
         RV_name = df_split.columns[0]
         df_RV = df_split[RV_name]
         df_prec = df_split.drop([RV_name], axis=1)
+        keys = [k for k in keys if k != RV_name]
     
     # =============================================================================
     # Shifting data w.r.t. index dates
@@ -192,9 +193,9 @@ def prepare_data(df_split, lag=int, kwrgs_pp=dict, TrainIsTrue=None, RV_mask=Non
         
     if add_autocorr:
         # ensure that autocorr never contains the RV timeseries at lag = 0
-        df_prec.insert(0, 'RV_autocorr', df_RV.shift(periods=max(1,int(lag))))
-        if 'RV_autocorr' not in keys:
-            x_keys = np.insert(keys, 0, 'RV_autocorr')
+        df_prec.insert(0, 'RV_ac', df_RV.shift(periods=max(1,int(lag))))
+        if 'RV_ac' not in keys:
+            x_keys = np.insert(keys, 0, 'RV_ac')
     
 
         
@@ -326,8 +327,8 @@ def Ev_timeseries(xarray, threshold, min_dur=1, max_break=0, grouped=False,
                   high_ano_events=True):  
     #%%
     import xarray as xr 
-    if type(xarray) != type(xr.DataArray([0])):
-        xarray = xarray.to_xarray()
+    if type(xarray) != type(xr.DataArray([0])) or type(xarray) != type(xr.Dataset()):
+        xarray = xarray.to_xarray().to_array()
         give_df_back = True
         if xarray.index.name != 'time':
             old_name = xarray.index.name

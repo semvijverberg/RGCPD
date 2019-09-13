@@ -658,7 +658,7 @@ def print_particular_region_new(links_RV, var_names, s, outdic_actors, map_proj,
         tigr_lag = links_RV[i][1] #-1 There was a minus, but is it really correct?
         index_in_fulldata = links_RV[i][0]
         print("\n\nunique_label_format: \n\'lag\'_\'regionlabel\'_\'var\'")
-        if index_in_fulldata>0:
+        if index_in_fulldata>0 and index_in_fulldata < len(var_names):
             uniq_label = var_names[index_in_fulldata][1]
             var_name = uniq_label.split('_')[-1]
             according_varname = uniq_label

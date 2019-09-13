@@ -23,7 +23,7 @@ def logit(RV, df_norm, keys):
     X_train, y_train are split up by TrainIsTrue
     Preciction is made for whole timeseries    
     '''
-    if keys[0] == None:
+    if keys is None:
         no_data_col = ['TrainIsTrue', 'RV_mask']
         keys = df_norm.columns
         keys = [k for k in keys if k not in no_data_col]
@@ -35,8 +35,8 @@ def logit(RV, df_norm, keys):
     
     
     X_train = X[TrainIsTrue]
-    y_train = y[TrainIsTrue.values] 
-    model_set = sm.Logit(y_train.values, X_train, disp=0)
+    y_train = y[TrainIsTrue] 
+    model_set = sm.Logit(y_train, X_train, disp=0)
     try:
         model = model_set.fit( disp=0, maxfun=60 )
         prediction = model.predict(X)
@@ -113,7 +113,7 @@ def GBR(RV, df_norm, keys, kwrgs_GBR=None, verbosity=0):
     prediction = pd.DataFrame(regressor.predict(X), index=X.index, columns=[0])
     prediction['TrainIsTrue'] = pd.Series(TrainIsTrue.values, index=X.index)
     
-    logit_pred, model_logit = logit(RV, prediction, keys=[None])
+    logit_pred, model_logit = logit(RV, prediction, keys=None)
     #%%
     return logit_pred, (model_logit, regressor)
 
