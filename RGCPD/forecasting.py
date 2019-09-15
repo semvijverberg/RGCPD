@@ -34,6 +34,7 @@ import exp_fc
 #strat_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
 #strat_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
 strat_1d_CPPA = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/data/ran_strat10_s30/13-09-19_11hr_lag_0.h5'
+strat_1d_CPPA_v_sm = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_v200hpa_sm123_m01-08_dt20/16jun-15aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-13.h5'
 n_boot = 500
 
 
@@ -94,8 +95,8 @@ stat_model_l = [logit, GBR_logitCV]
 
 
 #datasets_path = {'ERA-5 30d strat':path_data_strat, 'ERA-5 30d sp':path_data_3d_sp}
-datasets_path = {'ERA-5 1d':strat_1d_CPPA}
-keys_options = ['PEP', 'robust']
+datasets_path = {'ERA-5 1d':strat_1d_CPPA_v_sm}
+keys_options = ['robust', 'all']
 
 
 causal = False

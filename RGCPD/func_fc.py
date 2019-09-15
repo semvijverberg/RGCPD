@@ -330,9 +330,11 @@ def Ev_timeseries(xarray, threshold, min_dur=1, max_break=0, grouped=False,
     if type(xarray) != type(xr.DataArray([0])) or type(xarray) != type(xr.Dataset()):
         xarray = xarray.to_xarray().to_array()
         give_df_back = True
-        if xarray.index.name != 'time':
+        try:
             old_name = xarray.index.name
             xarray = xarray.rename({old_name:'time'})
+        except:
+            pass
         xarray = xarray.squeeze()
     else:
         give_df_back = False
