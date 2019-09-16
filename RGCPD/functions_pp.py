@@ -1240,8 +1240,8 @@ def rand_traintest_years(RV, ex):
 
 
 
-def check_test_split(RV, RV_test, ex, a_conditions_failed, s, count, seed, verbosity=0):
-
+def check_test_split(RV, RV_bin, ex, a_conditions_failed, s, count, seed, verbosity=0):
+    #%%
     ex['event_thres'] = func_fc.Ev_threshold(RV.RV_ts, ex['kwrgs_events']['event_percentile'])
     tol_from_exp_events = 0.20
 
@@ -1258,11 +1258,11 @@ def check_test_split(RV, RV_test, ex, a_conditions_failed, s, count, seed, verbo
         exp_events_r = 1 - ex['kwrgs_events']['event_percentile']/100
 
 
-    test_years = np.unique(RV_test.time.dt.year)
+    test_years = np.unique(RV_bin.index.year)
     exp_events = (exp_events_r * RV.RV_ts.size / ex['n_yrs']) * test_years.size
-    tolerance      = tol_from_exp_events * exp_events
-    event_test = func_fc.Ev_timeseries(RV_test, ex['event_thres'])[1]
-    diff           = abs(len(event_test) - exp_events)
+    tolerance  = tol_from_exp_events * exp_events
+    event_test = RV_bin
+    diff       = abs(len(event_test) - exp_events)
 
 
     if diff > tolerance:
@@ -1283,7 +1283,8 @@ def check_test_split(RV, RV_test, ex, a_conditions_failed, s, count, seed, verbo
             print(f"kept sample after {count+1} attempts")
             print('{}: test year is {}, with {} events'.format(s, test_years, len(event_test)))
         a_conditions_failed = False
-
+    #%%
     return a_conditions_failed, count, seed
+
 
 

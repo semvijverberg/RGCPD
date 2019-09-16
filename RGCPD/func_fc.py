@@ -118,9 +118,9 @@ def forecast_and_valid(RV, df_data, kwrgs_exp, stat_model=tuple, lags=list,
     return df_valid, RV, y_pred_all
 
 class RV_class:
-    def __init__(self, df_data, kwrgs_events=None):
-        self.RV_ts = df_data[df_data.columns[0]][0][df_data['RV_mask'][0]] 
-        self.RVfullts = df_data[df_data.columns[0]][0]
+    def __init__(self, df_data, kwrgs_events=None, only_RV_events=True):
+        self.RV_ts = pd.DataFrame(df_data[df_data.columns[0]][0][df_data['RV_mask'][0]] )
+        self.RVfullts = pd.DataFrame(df_data[df_data.columns[0]][0])
         self.dates_all = self.RVfullts.index
         self.dates_RV = self.RV_ts.index
         self.TrainIsTrue = df_data['TrainIsTrue']
@@ -129,12 +129,19 @@ class RV_class:
         if kwrgs_events is not None:
             self.threshold = Ev_threshold(self.RV_ts, 
                                               kwrgs_events['event_percentile'])
-            self.RV_b_full = Ev_timeseries(df_data[df_data.columns[0]][0], 
+            if only_RV_events == True:
+                self.RV_bin = Ev_timeseries(self.RV_ts, 
                                threshold=self.threshold , 
                                min_dur=kwrgs_events['min_dur'],
                                max_break=kwrgs_events['max_break'], 
                                grouped=kwrgs_events['grouped'])[0]
-            self.RV_bin   = self.RV_b_full[df_data['RV_mask'][0]] 
+            elif only_RV_events == False:
+                self.RV_b_full = Ev_timeseries(df_data[df_data.columns[0]][0], 
+                               threshold=self.threshold , 
+                               min_dur=kwrgs_events['min_dur'],
+                               max_break=kwrgs_events['max_break'], 
+                               grouped=kwrgs_events['grouped'])[0]
+                self.RV_bin   = self.RV_b_full[df_data['RV_mask'][0]] 
             self.prob_clim = get_obs_clim(self)
             self.freq      = get_freq_years(self)
         
@@ -323,12 +330,17 @@ def Ev_threshold(xarray, event_percentile):
         threshold = np.percentile(xarray.values, percentile)
     return float(threshold)
 
-def Ev_timeseries(xarray, threshold, min_dur=1, max_break=0, grouped=False, 
+def Ev_timeseries(xr_or_df, threshold, min_dur=1, max_break=0, grouped=False, 
                   high_ano_events=True):  
     #%%
-    import xarray as xr 
-    if type(xarray) != type(xr.DataArray([0])) or type(xarray) != type(xr.Dataset()):
-        xarray = xarray.to_xarray().to_array()
+    
+    types = [type(xr.Dataset()), type(xr.DataArray([0])), type(pd.DataFrame([0]))]
+
+    assert (type(xr_or_df) in types), ('{} given, should be in {}'.format(type(xr_or_df), types) )
+           
+    
+    if type(xr_or_df) == types[-1]:
+        xarray = xr_or_df.to_xarray().to_array()
         give_df_back = True
         try:
             old_name = xarray.index.name
@@ -336,8 +348,10 @@ def Ev_timeseries(xarray, threshold, min_dur=1, max_break=0, grouped=False,
         except:
             pass
         xarray = xarray.squeeze()
-    else:
+    if type(xr_or_df) in types[:-1]:
+        xarray = xr_or_df
         give_df_back = False
+
         
     tfreq_RVts = pd.Timedelta((xarray.time[1]-xarray.time[0]).values)
     min_dur = min_dur ; max_break = max_break  + 1

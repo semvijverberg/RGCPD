@@ -34,7 +34,7 @@ import exp_fc
 #strat_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
 #strat_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
 strat_1d_CPPA = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/data/ran_strat10_s30/13-09-19_11hr_lag_0.h5'
-strat_1d_CPPA_v_sm = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_v200hpa_sm123_m01-08_dt20/16jun-15aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-13.h5'
+#strat_1d_CPPA_v_sm = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_v200hpa_sm123_m01-08_dt20/16jun-15aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-13.h5'
 n_boot = 500
 
 
@@ -46,13 +46,13 @@ n_boot = 500
 
 
 
-#%%
+
 
 def forecast_wrapper(datasets=dict, kwrgs_exp=dict, kwrgs_events=dict, stat_model_l=list, lags=list, n_boot=0):
     '''
     dict should have splits (as keys) and concomitant list of keys of that particular split 
     '''
-    #%%
+
     
     
     df_data = func_fc.load_hdf5(path_data)['df_data']
@@ -67,7 +67,7 @@ def forecast_wrapper(datasets=dict, kwrgs_exp=dict, kwrgs_events=dict, stat_mode
                                                               stat_model=stat_model, 
                                                               lags=lags, n_boot=n_boot)
         dict_sum[name] = (df_valid, RV, y_pred_all)
-    #%%    
+   
     return dict_sum  
 #%%
 logit = ('logit', None)
@@ -91,11 +91,11 @@ GBR_logitCV = ('GBR-logitCV',
                'max_features':'sqrt',
                'subsample' : 0.6} )  
     
-stat_model_l = [logit, GBR_logitCV]
+stat_model_l = [logit]
 
 
 #datasets_path = {'ERA-5 30d strat':path_data_strat, 'ERA-5 30d sp':path_data_3d_sp}
-datasets_path = {'ERA-5 1d':strat_1d_CPPA_v_sm}
+datasets_path = {'ERA-5 1d':strat_1d_CPPA}
 keys_options = ['robust', 'all']
 
 

@@ -85,14 +85,14 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
     var = var.replace(' ', '')
 
     ds = ds[var].squeeze()
-   
-    ds = convert_longitude(ds, format_lon) 
-   
-   
-   
+
     if 'latitude' and 'longitude' not in ds.dims:
         ds = ds.rename({'lat':'latitude',
                   'lon':'longitude'})
+
+    ds = convert_longitude(ds, format_lon)   
+   
+
     if selbox is not None:
         if ds.latitude[0] > ds.latitude[1]:
             slice_ = slice(selbox['la_max'], selbox['la_min'])

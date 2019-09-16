@@ -9,6 +9,7 @@ import os
 
 import matplotlib.pyplot as plt
 import functions_RGCPD as rgcpd
+import cartopy.feature as cfeature
 import itertools
 import numpy as np
 import xarray as xr
@@ -33,26 +34,42 @@ def extend_longitude(data):
     plottable = plottable.to_array(dim='ds').squeeze(dim='ds').drop('ds')
     return plottable
     
-def plot_corr_maps(corr_xr, xrmask, map_proj, kwrgs={'hspace':-0.6}):
+def plot_corr_maps(corr_xr, mask_xr, map_proj, row_dim='split',
+                   col_dim='lag', clim='relaxed', hspace=-0.6, 
+                   size=2.5, cbar_vert=0, units='units'):
     #%%
     import matplotlib.colors as colors
 
-    if 'split' not in corr_xr.dims:
-        corr_xr = corr_xr.expand_dims('split', 0) 
-        xrmask = xrmask.expand_dims('split', 0) 
-        
-        
-    splits = corr_xr['split'].values
-    var_n     = corr_xr.name
-    lags      = corr_xr['lag'].values
-    lat = corr_xr.latitude
-    lon = corr_xr.longitude
+    if row_dim not in corr_xr.dims:
+        corr_xr = corr_xr.expand_dims(row_dim, 0) 
+        mask_xr = mask_xr.expand_dims(row_dim, 0) 
+    elif col_dim not in corr_xr.dims:
+        corr_xr = corr_xr.expand_dims(col_dim, 0) 
+        mask_xr = mask_xr.expand_dims(col_dim, 0)     
+    
+    var_n   = corr_xr.name        
+    rows    = corr_xr[row_dim].values
+    cols    = corr_xr[col_dim].values
+
+
+    rename_dims = {row_dim:'row', col_dim:'col'}
+    rename_dims_inv = {'row':row_dim, 'col':col_dim}
+    plot_xr = corr_xr.rename(rename_dims)
+    plot_mask = mask_xr.rename(rename_dims)
+    dim_coords = plot_mask.squeeze().dims
+    dim_coords = [d for d in dim_coords if d not in ['latitude', 'longitude']]
+    rename_subs = {d:rename_dims_inv[d] for d in dim_coords}
+    
+    lat = plot_xr.latitude
+    lon = plot_xr.longitude
     zonal_width = abs(lon[-1] - lon[0]).values
     
-    g = xr.plot.FacetGrid(corr_xr, col='lag', row='split', subplot_kws={'projection': map_proj},
+    
+    g = xr.plot.FacetGrid(plot_xr, col='col', row='row', subplot_kws={'projection': map_proj},
                       sharex=True, sharey=True,
-                      aspect= (lon.size) / lat.size, size=2)
-
+                      aspect= (lon.size) / lat.size, size=size)
+    figwidth = g.fig.get_figwidth() ; figheight = g.fig.get_figheight()
+    
     # =============================================================================
     # Coordinate labels
     # =============================================================================
@@ -64,8 +81,8 @@ def plot_corr_maps(corr_xr, xrmask, map_proj, kwrgs={'hspace':-0.6}):
     g.set_ticks(max_xticks=5, max_yticks=5, fontsize='large')
     g.set_xlabels(label=[str(el) for el in longitude_labels])
     
-    if 'hspace' in kwrgs.keys():
-        g.fig.subplots_adjust(hspace=kwrgs['hspace'])
+
+    g.fig.subplots_adjust(hspace=hspace)
         
     class MidpointNormalize(colors.Normalize):
         def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
@@ -77,30 +94,32 @@ def plot_corr_maps(corr_xr, xrmask, map_proj, kwrgs={'hspace':-0.6}):
             # simple example...
             x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
             return np.ma.masked_array(np.interp(value, x, y))
-    if 'clim' in kwrgs.keys():
-        if kwrgs['clim'] == 'relaxed':
-            vmin_ = np.percentile(corr_xr, 1) ; vmax_ = np.percentile(corr_xr, 99)
-        elif type(kwrgs['clim']) == tuple:
-            vmin_, vmax_ = kwrgs['clim']
+
+    if clim == 'relaxed':
+        vmin_ = np.percentile(plot_xr, 1) ; vmax_ = np.percentile(plot_xr, 99)
+    elif type(clim) == tuple:
+        vmin_, vmax_ = clim
     else:
-        vmin_ = corr_xr.min()-0.01 ; vmax_ = corr_xr.max()+0.01
+        vmin_ = plot_xr.min()-0.01 ; vmax_ = plot_xr.max()+0.01
             
     vmin = np.round(float(vmin_),decimals=2) ; vmax = np.round(float(vmax_),decimals=2)
     clevels = np.linspace(-max(abs(vmin),vmax),max(abs(vmin),vmax),17) # choose uneven number for # steps
     norm = MidpointNormalize(midpoint=0, vmin=clevels[0],vmax=clevels[-1])
     cmap = plt.cm.RdBu_r
-    for col, lag in enumerate(lags):
-        xrdatavar = corr_xr.sel(lag=lag)
-        xrmaskvar = xrmask.sel(lag=lag)
+    for col, c_label in enumerate(cols):
+        xrdatavar = plot_xr.sel(col=c_label)
+        xrmaskvar = plot_mask.sel(col=c_label)
         if abs(lon[-1] - 360) <= (lon[1] - lon[0]):
             xrdatavar = extend_longitude(xrdatavar)
             xrmaskvar = extend_longitude(xrmaskvar)
             
         
-        for row, s in enumerate(splits):
-            print(f"\rPlotting Corr maps {var_n}, fold {s}, lag {lag}", end="")
-            plotdata = xrdatavar.sel(split=s)
-            plotmask = xrmaskvar.sel(split=s)
+        for row, r_label in enumerate(rows):
+            print(f"\rPlotting Corr maps {var_n}, {row_dim} {r_label}, {col_dim} {c_label}", end="")
+            plotdata = xrdatavar.sel(row=r_label).rename(rename_subs)
+#                                               
+            plotmask = xrmaskvar.sel(row=r_label)#.rename(
+#                                                {'row':row_dim, 'col':col_dim})
             # if plotdata is already masked (with nans):
             p_nans = int(100*plotdata.values[np.isnan(plotdata.values)].size / plotdata.size)
             # field not completely masked?
@@ -127,7 +146,8 @@ def plot_corr_maps(corr_xr, xrmask, map_proj, kwrgs={'hspace':-0.6}):
                       verticalalignment='center', transform=g.axes[row,col].transAxes)
             g.axes[row,col].set_extent([lon[0], lon[-1], 
                                        lat[0], lat[-1]], ccrs.PlateCarree())
-            g.axes[row,col].coastlines()
+
+
 
             # =============================================================================
             # set coordinate ticks
@@ -149,23 +169,36 @@ def plot_corr_maps(corr_xr, xrmask, map_proj, kwrgs={'hspace':-0.6}):
                 g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3, linestyle='--')
                 g.axes[row,col].set_ylabel('')
                 g.axes[row,col].set_xlabel('')
-            if row == splits[-1]:
-                last_ax = g.axes[row,col]
+#            g.axes[row,col].coastlines(color='black', 
+#                                          alpha=0.3, 
+#                                          facecolor='grey', 
+#                                          linewidth=2)
+            if corr_xr.name[:3] == 'sst':
+                g.axes[row,col].add_feature(cfeature.LAND, facecolor='grey', alpha=0.3)
+#            if row == rows.size-1:
+#                last_ax = g.axes[row,col]
     # lay out settings
 
-    plt.tight_layout(pad=1.1-0.02*splits.size, h_pad=None, w_pad=None, rect=None)
+    plt.tight_layout(pad=1.1-0.02*rows.size, h_pad=None, w_pad=None, rect=None)
    
     # height colorbor 1/10th of height of subfigure
     height = g.axes[-1,0].get_position().height / 10
+    bottom_ysub = (figheight/40)/(rows.size*2) + cbar_vert
     
-    bottom_ysub = last_ax.get_position(original=False).bounds[1] # bottom
+#    bottom_ysub = last_ax.get_position(original=False).bounds[1] # bottom
     
     cbar_ax = g.fig.add_axes([0.25, bottom_ysub, 
                               0.5, height]) #[left, bottom, width, height]
-    
-    
+
+    if units == 'units' and 'units' in corr_xr.attrs:
+        clabel = corr_xr.attrs['units']    
+    elif units != 'units' and units is not None:
+        clabel = units
+    else:
+        clabel = 'Corr Coefficient'
+
     plt.colorbar(im, cax=cbar_ax , orientation='horizontal', norm=norm,
-                 label='Corr Coefficient', ticks=clevels[::4], extend='neither')
+                 label=clabel, ticks=clevels[::4], extend='neither')
     
     print("\n")
 
