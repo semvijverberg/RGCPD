@@ -104,43 +104,44 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
         ds = ds.sel(longitude=slice(min_lon, max_lon))
 
     # get dates
-    numtime = ds['time']
-    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
-
-    if (dates[1] - dates[0]).days == 1:
-        input_freq = 'daily'
-    elif (dates[1] - dates[0]).days == 30 or (dates[1] - dates[0]).days == 31:
-        input_freq = 'monthly'
-        
-    if numtime.attrs['calendar'] != 'gregorian':
-        dates = [d.strftime('%Y-%m-%d') for d in dates]
-   
-    if input_freq == 'monthly':
-        dates = [d.replace(day=1,hour=0) for d in pd.to_datetime(dates)]
-    else:
+    if 'time' in ds.dims:
+        numtime = ds['time']
+        dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+    
+        if (dates[1] - dates[0]).days == 1:
+            input_freq = 'daily'
+        elif (dates[1] - dates[0]).days == 30 or (dates[1] - dates[0]).days == 31:
+            input_freq = 'monthly'
+            
+        if numtime.attrs['calendar'] != 'gregorian':
+            dates = [d.strftime('%Y-%m-%d') for d in dates]
+       
+        if input_freq == 'monthly':
+            dates = [d.replace(day=1,hour=0) for d in pd.to_datetime(dates)]
+        else:
+            dates = pd.to_datetime(dates)
+            stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
+            test_if_fullyr = np.logical_and(dates[stepsyr.size-1].month == 12,
+                                       dates[stepsyr.size-1].day == 31)
+            assert test_if_fullyr, ('full is needed as raw data since rolling'
+                               ' mean is applied across timesteps')
+    
         dates = pd.to_datetime(dates)
-        stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
-        test_if_fullyr = np.logical_and(dates[stepsyr.size-1].month == 12,
-                                   dates[stepsyr.size-1].day == 31)
-        assert test_if_fullyr, ('full is needed as raw data since rolling'
-                           ' mean is applied across timesteps')
+        # set hour to 00
+        if dates.hour[0] != 0:
+            dates -= pd.Timedelta(dates.hour[0], unit='h')
+    
+        ds['time'] = dates
 
-    dates = pd.to_datetime(dates)
-    # set hour to 00
-    if dates.hour[0] != 0:
-        dates -= pd.Timedelta(dates.hour[0], unit='h')
+        if seldates is None:
+            pass
+        else:
+            ds = ds.sel(time=seldates)
 
-    ds['time'] = dates
-
-    if seldates is None:
-        pass
-    else:
-        ds = ds.sel(time=seldates)
-
-    if loadleap==False:
-        # mask away leapdays
-        dates_noleap = remove_leapdays(pd.to_datetime(ds.time.values))
-        ds = ds.sel(time=dates_noleap)
+        if loadleap==False:
+            # mask away leapdays
+            dates_noleap = remove_leapdays(pd.to_datetime(ds.time.values))
+            ds = ds.sel(time=dates_noleap)
     return ds
 
 
