@@ -63,4 +63,59 @@ def ENSO_34(file_path, ex, df_splits=None):
     return df_ENSO
 
     #%%
+
+
+def PDO(file_path, ex, df_splits=None):
+    #%%
+    file_path = '/Users/semvijverberg/surfdrive/Data_era5/input_raw/sst_1979-2018_1_12_daily_2.5deg.nc'
     
+    
+    kwrgs_pp = {'selbox' :  {'la_min':-10, # select domain in degrees east
+                             'la_max':10,
+                             'lo_min':-10,
+                             'lo_max':-60}}
+    
+    ds = core_pp.import_ds_lazy(file_path, **kwrgs_pp)
+    
+    to_freq = ex['tfreq']
+    if to_freq != 1:        
+        ds, dates = functions_pp.time_mean_bins(ds, ex, to_freq=to_freq, seldays='all')
+        ds['time'] = dates
+    
+    if df_splits is None:
+        RV = ex[ex['RV_name']]
+        df_splits, ex = functions_pp.rand_traintest_years(RV, ex)
+            
+    splits = df_splits.index.levels[0]
+    
+    list_splits = []
+    for s in splits:
+        
+        progress = 100 * (s+1) / splits.size
+
+        dates_RV  = pd.to_datetime(RV.RV_ts.time.values)
+        n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
+        print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
+        
+        pattern, data = get_PDO(ds)
+        list_splits.append(pd.DataFrame(data=data.values, 
+                                     index=ds['time'], columns=['ENSO_34']))
+    
+    df_ENSO = pd.concat(list_splits, axis=0, keys=splits)
+    #%%
+    return df_ENSO
+
+def get_PDO(sst):
+    #%%
+    from eofs.xarray import Eof
+    PDO   = functions_pp.find_region(sst, region='PDO')[0]
+    solver = Eof(functions_pp.area_weighted(PDO))
+    # Retrieve the leading EOF, expressed as the correlation between the leading
+    # PC time series and the input SST anomalies at each grid point, and the
+    # leading PC time series itself.
+    eof1 = solver.eofsAsCorrelation(neofs=1).squeeze()
+    init_sign = np.sign(np.mean(eof1)) # flip sign oef pattern and ts
+    eof1 *= init_sign
+    pc1 = solver.pcs(npcs=1, pcscaling=1).squeeze()
+    pc1 *= init_sign
+    return eof1, pc1

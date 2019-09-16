@@ -367,7 +367,7 @@ def csv_to_npy(ex):
 
 def time_mean_bins(xr_or_df, ex, to_freq=int, seldays='all', verb=0):
    #%%
-   
+
    if type(xr_or_df) != type(xr.DataArray(data=[0])):
        return_df = True
        xr_init = xr_or_df.to_xarray().to_array()
@@ -381,7 +381,7 @@ def time_mean_bins(xr_or_df, ex, to_freq=int, seldays='all', verb=0):
    else:
        return_df = False
        xarray = xr_or_df
-       
+
    datetime = pd.to_datetime(xarray['time'].values)
     # ensure to remove leapdays
    datetime = core_pp.remove_leapdays(datetime)
@@ -430,20 +430,20 @@ def time_mean_bins(xr_or_df, ex, to_freq=int, seldays='all', verb=0):
    group_bins['bins'] = newdate.values
    xarray = group_bins.rename({'bins' : 'time'})
    dates = pd.to_datetime(newdate.values)
-   
+
    if return_df:
        if len(xr_init.shape) == 3:
            iterables = [xarray.level_0.values, dates]
-           index = pd.MultiIndex.from_product(iterables, 
+           index = pd.MultiIndex.from_product(iterables,
                                               names=['split', 'time'])
            xr_index = xarray.stack(index=['level_0', 'time'])
-           return_obj = pd.DataFrame(xr_index.values.T, 
-                                     index=index, 
+           return_obj = pd.DataFrame(xr_index.values.T,
+                                     index=index,
                                      columns=list(xr_init.coords['variable'].values))
        elif len(xr_init.shape) == 2:
-           return_obj = pd.DataFrame(xarray.values.T, 
-                                     index=dates, 
-                                     columns=list(xr_init.coords['variable'].values))      
+           return_obj = pd.DataFrame(xarray.values.T,
+                                     index=dates,
+                                     columns=list(xr_init.coords['variable'].values))
    elif return_df == False:
        return_obj = xarray
    #%%
@@ -809,11 +809,12 @@ def import_array(cls, path='pp'):
     cls.dates = dates
     return marray, cls
 
-def import_ds_timemeanbins(file_path, ex, loadleap=False, to_xarr=True):
+def import_ds_timemeanbins(file_path, ex, loadleap=False, to_xarr=True, seldates=None):
 
 
     kwrgs_pp = {'selbox':ex['selbox'],
-                'loadleap':loadleap }
+                'loadleap':loadleap,
+                'seldates':seldates }
 
     ds = core_pp.import_ds_lazy(file_path, **kwrgs_pp)
     to_freq = ex['tfreq']
@@ -833,6 +834,7 @@ def area_weighted(xarray):
    # Area weighted, taking cos of latitude in radians
    coslat = np.cos(np.deg2rad(xarray.coords['latitude'].values)).clip(0., 1.)
    area_weights = np.tile(coslat[..., np.newaxis],(1,xarray.longitude.size))
+   area_weights = area_weights / area_weights.mean()
    return xr.DataArray(xarray.values * area_weights, coords=xarray.coords,
                           dims=xarray.dims)
 

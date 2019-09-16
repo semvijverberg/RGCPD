@@ -84,14 +84,14 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
     var = [var for var in strvars if var not in common_fields][0]
     var = var.replace(' ', '')
 
-    ds = ds[var].squeeze()
+    ds = ds[var]
 
     if 'latitude' and 'longitude' not in ds.dims:
         ds = ds.rename({'lat':'latitude',
                   'lon':'longitude'})
 
-    ds = convert_longitude(ds, format_lon)   
-   
+    ds = convert_longitude(ds, format_lon)
+
 
     if selbox is not None:
         if ds.latitude[0] > ds.latitude[1]:
@@ -107,15 +107,15 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
     if 'time' in ds.dims:
         numtime = ds['time']
         dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
-    
+
         if (dates[1] - dates[0]).days == 1:
             input_freq = 'daily'
         elif (dates[1] - dates[0]).days == 30 or (dates[1] - dates[0]).days == 31:
             input_freq = 'monthly'
-            
+
         if numtime.attrs['calendar'] != 'gregorian':
             dates = [d.strftime('%Y-%m-%d') for d in dates]
-       
+
         if input_freq == 'monthly':
             dates = [d.replace(day=1,hour=0) for d in pd.to_datetime(dates)]
         else:
@@ -125,12 +125,12 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
                                        dates[stepsyr.size-1].day == 31)
             assert test_if_fullyr, ('full is needed as raw data since rolling'
                                ' mean is applied across timesteps')
-    
+
         dates = pd.to_datetime(dates)
         # set hour to 00
         if dates.hour[0] != 0:
             dates -= pd.Timedelta(dates.hour[0], unit='h')
-    
+
         ds['time'] = dates
 
         if seldates is None:
@@ -152,8 +152,8 @@ def remove_leapdays(datetime):
     return dates_noleap
 
 
-def detrend_anom_ncdf3D(infile, outfile, loadleap=False, 
-                        seldates=None, selbox=None, format_lon='west_east', 
+def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
+                        seldates=None, selbox=None, format_lon='west_east',
                         detrend=True, anomaly=True, encoding=None):
     '''
     Function for preprocessing
@@ -164,7 +164,7 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
 
     #%%
     import xarray as xr
-    ds = import_ds_lazy(infile, loadleap=loadleap, 
+    ds = import_ds_lazy(infile, loadleap=loadleap,
                         seldates=seldates, selbox=selbox, format_lon=format_lon)
 
     # check if 3D data (lat, lat, lev) or 2D
@@ -347,7 +347,7 @@ def convert_longitude(data, to_format='west_east'):
         if min(lon_above) < deg:
             # crossing the meridional:
             data = data.roll(longitude=-len(lon_below))
-            convert_lon = xr.concat([lon_below, lon_above], dim='longitude')
+            convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
         else:
             # crossing - 180 line
             data = data.roll(longitude=len(lon_below))
