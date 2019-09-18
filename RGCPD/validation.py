@@ -476,7 +476,7 @@ def rel_curve_base(RV, lags_tf, n_bins=5, col=0, ax=None):
     ax.text(pos_text[0], pos_text[1], 'perfect forecast', fontsize=14,
                    rotation=trans_angle, rotation_mode='anchor')
     obs_clim = RV.prob_clim.mean()[0]
-    ax.text(obs_clim+0.15, obs_clim-0.04, 'True clim', 
+    ax.text(obs_clim+0.2, obs_clim-0.05, 'Obs. clim', 
                 horizontalalignment='center', fontsize=14,
          verticalalignment='center', rotation=0, rotation_mode='anchor')
     ax.hlines(y=obs_clim, xmin=0, xmax=1, label=None, color='grey',
@@ -489,7 +489,7 @@ def rel_curve_base(RV, lags_tf, n_bins=5, col=0, ax=None):
 #    ax.vlines(x=np.mean(pred_clim), ymin=0, ymax=1, label=None)
 #    ax.vlines(x=np.min(pred_clim), ymin=0, ymax=1, label=None, alpha=0.2)
 #    ax.vlines(x=np.max(pred_clim), ymin=0, ymax=1, label=None, alpha=0.2)
-    ax.text(np.min(obs_clim)-0.02, obs_clim.mean()+0.25, 'True clim', 
+    ax.text(np.min(obs_clim)-0.025, obs_clim.mean()+0.3, 'Obs. clim', 
             horizontalalignment='center', fontsize=14,
      verticalalignment='center', rotation=90, rotation_mode='anchor')
     # resolution = reliability line
@@ -534,7 +534,8 @@ def rel_curve(RV, y_pred_all, color, lags_tf, n_bins, mean_lags=True, ax=None):
     strategy = 'uniform' # 'quantile' or 'uniform'
     fop = [] ; mpv = []
     for l, lag in enumerate(lags_tf):
-        fraction_of_positives, mean_predicted_value = calibration_curve(RV.RV_bin, y_pred_all[l], 
+        
+        fraction_of_positives, mean_predicted_value = calibration_curve(RV.RV_bin, y_pred_all[lag], 
                                                                        n_bins=n_bins, strategy=strategy)
         fop.append(fraction_of_positives)
         mpv.append(mean_predicted_value)
@@ -579,7 +580,7 @@ def rel_curve(RV, y_pred_all, color, lags_tf, n_bins, mean_lags=True, ax=None):
                     alpha=0.2) ; 
     color = ax.lines[-1].get_c() # get color
     # determine size freq
-    freq = np.histogram(y_pred_all[l], bins=n_bins)[0]
+    freq = np.histogram(y_pred_all[lag], bins=n_bins)[0]
     n_freq = freq / RV.RV_ts.size
     ax.scatter(mean_mpv, mean_fop, s=n_freq*2000, 
                c=color, alpha=0.5)
@@ -653,7 +654,7 @@ def plot_events(RV, color, n_yrs = 10, col=0, ax=None):
     #%%
     return ax, dates_ts 
 
-def plot_ts(RV, y_pred_all, dates_ts, color, lag=1, ax=None):
+def plot_ts(RV, y_pred_all, dates_ts, color, lag_i=1, ax=None):
     #%%
 
     if ax == None:
@@ -662,7 +663,7 @@ def plot_ts(RV, y_pred_all, dates_ts, color, lag=1, ax=None):
 #    dates = y_pred_all.index
     n_yrs = np.unique(dates_ts.year).size
     x = np.linspace(0, n_yrs, dates_ts.size)
-    y = y_pred_all[1].loc[dates_ts]
+    y = y_pred_all.iloc[:,lag_i].loc[dates_ts]
     ax.plot(x, y.values.ravel() , linestyle='solid', marker=None,
             linewidth=1)
 
@@ -670,64 +671,116 @@ def plot_ts(RV, y_pred_all, dates_ts, color, lag=1, ax=None):
     #%%
     return ax
     
-def valid_figures(dict_datasets, met='default'):
+def valid_figures(dict_experiments, line_dim='models', group_line_by=None, 
+                  met='default', wspace=0.08):
     #%%
-    datasets = list(dict_datasets.keys())
-    models   = list(dict_datasets[datasets[0]].keys())
+    '''
+    3 dims to plot: [metrics, experiments, stat_models]
+    2 can be assigned to row or col, the third will be lines in the same axes.
+    '''
     
+    expers = list(dict_experiments.keys())
+    models   = list(dict_experiments[expers[0]].keys())
+    dims = ['exper', 'models', 'met']
+    col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
     if met == 'default':
         met = ['AUC', 'BSS', 'prec', 'Rel. Curve', 'ts']
     
-    grid_data = np.zeros( (2, len(met)), dtype=str)
-    grid_data = np.stack( [np.repeat(met, len(datasets)), 
-                           np.repeat(datasets, len(met))])
-
-    df = pd.DataFrame(grid_data.T, columns=['met','dataset'])
-    g = sns.FacetGrid(df, row='met', col='dataset', size=3, aspect=1.4,
-                      sharex=False,  sharey=False)
     
-    for col, dataset in enumerate(datasets):
+    
+    if line_dim == 'models':
+        lines = models
+        cols  = expers
+    elif line_dim == 'exper':
+        lines = expers
+        cols  = models
+    if len(cols) == 1 and group_line_by is not None:
+        group_s = len(group_line_by)
+        cols = group_line_by
+        lines_grouped = []
+        for i in range(0,len(lines),group_s):
+            lines_grouped.append(lines[i:i+group_s])
         
-        g.axes[0,col].set_title(dataset)
+
+    grid_data = np.zeros( (2, len(met)), dtype=str)
+    grid_data = np.stack( [np.repeat(met, len(cols)), 
+                           np.repeat(cols, len(met))])
+
+    
+    df = pd.DataFrame(grid_data.T, columns=['met', col_dim])
+    g = sns.FacetGrid(df, row='met', col=col_dim, size=3, aspect=1.4,
+                      sharex=False,  sharey=False)
+
+
+    
+    
+    for col, c_label in enumerate(cols):
         
-        lags     = list(dict_datasets[dataset][models[0]][2].columns.astype(int))
+        
+        g.axes[0,col].set_title(c_label)
+        if len(models) == 1 and group_line_by is not None:
+            lines = lines_grouped[col]
+        
         
         for row, metric in enumerate(met):
             
             legend = []
-            for m, model in enumerate(models):
+            for l, line in enumerate(lines):
                 
-                df_valid, RV, y_pred_all = dict_datasets[dataset][model]
+                if line_dim == 'models':
+                    model = line
+                    exper = c_label
+                    
+                elif line_dim == 'exper':
+                    model = c_label
+                    exper = line
+                    if len(models) == 1 and group_line_by is not None:
+                        exper = line
+                        model = models[0]
+                
+                    
+                
+                df_valid, RV, y_pred_all = dict_experiments[exper][model]
                 tfreq = (y_pred_all.iloc[1].name - y_pred_all.iloc[0].name).days
-                lags_tf = [l*tfreq for l in lags]
-                model = models[m]
-                color = nice_colors[m]
+                lags_i     = list(dict_experiments[exper][model][2].columns.astype(int))
+                lags_tf = [l*tfreq for l in lags_i]
+
+                color = nice_colors[l]
+                
                 if metric in ['AUC', 'BSS', 'prec']: 
                     df_metric = df_valid.loc[metric]
                     plot_score_lags(df_metric, metric, color,
                                     lags_tf, cv_lines=False, col=col,
                                     ax=g.axes[row,col])
                 if metric == 'Rel. Curve':
-                    if m == 0:
+                    if l == 0:
                         ax, n_bins = rel_curve_base(RV, lags_tf, col=col, ax=g.axes[row,col])
-                    print(m,model)
-                    rel_curve(RV, y_pred_all, color, lags_tf, n_bins, 
+                    print(l,line)
+                    
+                    rel_curve(RV, y_pred_all, color, lags_i, n_bins, 
                               mean_lags=True, 
                               ax=g.axes[row,col])
+                    
                 if metric == 'ts':
-                    if m == 0:
+                    if l == 0:
                         ax, dates_ts = plot_events(RV, color=nice_colors[-1], n_yrs=6, 
                                          col=col, ax=g.axes[row,col])
-                    plot_ts(RV, y_pred_all, dates_ts, color, lag=1, ax=g.axes[row,col])
-                    
-                if np.logical_and(row==0, col==0):
+                    plot_ts(RV, y_pred_all, dates_ts, color, lag_i=1, ax=g.axes[row,col])
+                
+                # legend conditions
+                same_models = np.logical_and(row==0, col==0)
+                grouped_lines = np.logical_and(row==0, group_line_by is not None)
+                if same_models or grouped_lines:
                     legend.append(patches.Rectangle((0,0),0.5,0.5,facecolor=color))
 
-                    g.axes[row,col].legend(tuple(legend), models, 
+                    g.axes[row,col].legend(tuple(legend), lines, 
                           loc = 'lower left', fancybox=True,
                           handletextpad = 0.2, markerscale=0.1,
                           borderaxespad = 0.1,
                           handlelength=1, handleheight=1, prop={'size': 12})
+
+    g.fig.subplots_adjust(wspace=wspace)
+    #%%                
     return g.fig
                 
                 

@@ -105,7 +105,7 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
         # reshape
 #        sat = np.reshape(precur_arr.values, (precur_arr.shape[0],-1))
 
-        dates_RV = pd.to_datetime(RV_ts.time.values)
+        dates_RV = RV_ts.index
         for i, lag in enumerate(ex['lags']):
 
             dates_lag = func_dates_min_lag(dates_RV, lag)[1]
@@ -114,7 +114,7 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
 
 
     		# correlation map and pvalue at each grid-point:
-            corr_di_sat, sig_di_sat = corr_new(prec_lag, RV_ts)
+            corr_di_sat, sig_di_sat = corr_new(prec_lag, RV_ts.values.squeeze())
 
             if ex['FDR_control'] == True:
     			# test for Field significance and mask unsignificant values
@@ -144,7 +144,8 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
         RV_ts = RV.RVfullts[RV_train_mask.values]
         precur = precur_arr[df_splits.loc[s]['TrainIsTrue'].values]
 
-        dates_RV  = pd.to_datetime(RV_ts.time.values)
+#        dates_RV  = pd.to_datetime(RV_ts.time.values)
+        dates_RV = RV_ts.index
         n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
         print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
 
@@ -599,31 +600,45 @@ def bookkeeping_precursors(links_RV, var_names):
     index = [n[1] for n in var_names_[1:]] ; index.insert(0, var_names_[0])
     link_names = [var_names_[l[0]][1] if l[0] !=0 else var_names_[l[0]] for l in links_RV]
 
-    # check if two lags of same region are tigr significant
+    # check if two lags of same region and are tigr significant
     idx_tigr = [l[0] for l in links_RV] ;
+    var_names_ext = var_names_.copy()
+    index_ext = index.copy()
     for r in np.unique(idx_tigr):
+        # counting double indices (but with different lags)
         if idx_tigr.count(r) != 1:
             double = var_names_[r][1]
+            print(double)
             idx = int(np.argwhere(np.array(index)==double)[0])
             # append each double to index for the dataframe
             for i in range(idx_tigr.count(r)-1):
-                index.insert(idx+i, double)
+                index_ext.insert(idx+i, double)
                 d = len(index) - len(var_names_)
-                var_names_.insert(idx+i+1, var_names_[idx+1-d])
+                var_names_ext.insert(idx+i+1, var_names_[idx+1-d])
 
-    l = [n[1].split('_')[-1] for n in var_names_[1:]]
-    l.insert(0, var_names_[0])
+    # retrieving only var name
+    l = [n[1].split('_')[-1] for n in var_names_ext[1:]]
+    l.insert(0, var_names_ext[0])
     var = np.array(l)
-    mask_causal = np.array([True if i in link_names else False for i in index])
-    lag_corr_map = np.array([int(n[1][0]) for n in var_names_[1:]]) ;
+    # creating mask (True) of causal links
+    mask_causal = np.array([True if i in link_names else False for i in index_ext])
+    # retrieving lag of corr map
+    lag_corr_map = np.array([int(n[1][0]) for n in var_names_ext[1:]]) ;
     lag_corr_map = np.insert(lag_corr_map, 0, 0)
-    region_number = np.array([int(n[0]) for n in var_names_[1:]])
+    # retrieving region number, corresponding to figures
+    region_number = np.array([int(n[0]) for n in var_names_ext[1:]])
     region_number = np.insert(region_number, 0, 0)
-    label = np.array([int(n[1].split('_')[1]) for n in var_names_[1:]])
+    # retrieving ?
+    label = np.array([int(n[1].split('_')[1]) for n in var_names_ext[1:]])
     label = np.insert(label, 0, 0)
+    # retrieving lag of tigramite link
+    # all Tigr links, can include same region at multiple lags:
+    # looping through all unique tigr var labels format {lag..var_name}
     lag_tigr_map = {str(links_RV[i][1])+'..'+link_names[i]:links_RV[i][1] for i in range(len(link_names))}
     sorted(lag_tigr_map, reverse=False)
-    lag_tigr_ = index.copy() ; track_idx = list(range(len(index)))
+    # fill in the nans where the var_name is not causal
+    lag_tigr_ = index_ext.copy() ; track_idx = list(range(len(index_ext)))
+    # looping through all unique tigr var labels and tracking the concomitant indices 
     for k in lag_tigr_map.keys():
         l = int(k.split('..')[0])
         var_temp = k.split('..')[1]
@@ -639,7 +654,7 @@ def bookkeeping_precursors(links_RV, var_names):
 
     data = np.concatenate([label[None,:],  lag_corr_map[None,:], region_number[None,:], var[None,:],
                             mask_causal[None,:], lag_tigr_[None,:]], axis=0)
-    df = pd.DataFrame(data=data.T, index=index,
+    df = pd.DataFrame(data=data.T, index=index_ext,
                       columns=['label', 'lag_corr', 'region_number', 'var', 'causal', 'lag_tig'])
     df['causal'] = df['causal'] == 'True'
     df = df.astype({'label':int, 'lag_corr':int,
@@ -690,7 +705,7 @@ def print_particular_region_new(links_RV, var_names, s, outdic_actors, map_proj,
             ax.set_title(according_fullname)
             fig_file = 's{}_{}{}'.format(s, according_fullname, ex['file_type2'])
 
-            plt.savefig(os.path.join(ex['fig_subpath'], fig_file), dpi=ex['png_dpi'])
+            plt.savefig(os.path.join(ex['fig_subpath'], fig_file), dpi=100)
 #            plt.show()
             plt.close()
             # =============================================================================
@@ -734,9 +749,11 @@ def plot_regs_xarray(for_plt, ex):
                    'adj_fig_h' : adj_fig_h, 'adj_fig_w' : 1.,
                    'hspace' : 0.2, 'wspace' : 0.08,
                    'cticks_center' : False, 'title_h' : 1.01} )
-    filename = '{}_{}_vs_{}'.format(ex['params'], ex['RV_name'], for_plt.name) + ex['file_type2']
+    
 
     for l in for_plt.lag.values:
+        filename = '{}_{}_vs_{}_lag{}'.format(ex['params'], 
+                    ex['RV_name'], for_plt.name, l) + ex['file_type2']
         plotting_wrapper(for_plt.sel(lag=l), ex, filename, kwrgs=kwrgs)
     #%%
     return
@@ -789,7 +806,7 @@ def finalfigure(xrdata, file_name, kwrgs):
 
     lon_tick = xrdata.longitude.values
     dg = abs(lon_tick[1] - lon_tick[0])
-    periodic = (np.arange(0, 360, dg).size - lon_tick.size) < 1
+    periodic = (np.arange(0, 360, dg).size - lon_tick.size) < 1 and all(lon_tick > 0)
 
     longitude_labels = np.linspace(np.min(lon_tick), np.max(lon_tick), 6, dtype=int)
     longitude_labels = np.array(sorted(list(set(np.round(longitude_labels, -1)))))

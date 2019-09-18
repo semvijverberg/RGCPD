@@ -169,12 +169,13 @@ def plot_corr_maps(corr_xr, mask_xr, map_proj, row_dim='split',
                 g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3, linestyle='--')
                 g.axes[row,col].set_ylabel('')
                 g.axes[row,col].set_xlabel('')
-#            g.axes[row,col].coastlines(color='black', 
-#                                          alpha=0.3, 
-#                                          facecolor='grey', 
-#                                          linewidth=2)
-            if corr_xr.name[:3] == 'sst':
-                g.axes[row,col].add_feature(cfeature.LAND, facecolor='grey', alpha=0.3)
+            g.axes[row,col].coastlines(color='black', 
+                                          alpha=0.3, 
+                                          facecolor='grey', 
+                                          linewidth=2)
+            if corr_xr.name is not None:
+                if corr_xr.name[:3] == 'sst':
+                    g.axes[row,col].add_feature(cfeature.LAND, facecolor='grey', alpha=0.3)
 #            if row == rows.size-1:
 #                last_ax = g.axes[row,col]
     # lay out settings
@@ -203,7 +204,7 @@ def plot_corr_maps(corr_xr, mask_xr, map_proj, row_dim='split',
     print("\n")
 
     #%%
-    return
+    return 
 
 def causal_reg_to_xarray(ex, df, outdic_actors):
     #%%    
@@ -252,11 +253,12 @@ def causal_reg_to_xarray(ex, df, outdic_actors):
             orig_corr_val = corr_xr.sel(lag=lag_cor).values
             corr_xr.sel(lag=lag_cor).values = orig_corr_val * wghts_splits
                               
-        ds_var[var+'_corr'] = corr_xr.mean(dim='split') 
-        ds_var[var+'_corr_tigr'] = corr_tig.mean(dim='split') 
+        ds_var[var+'_corr'] = corr_xr
+        ds_var[var+'_corr_tigr'] = corr_tig 
         ds_var[var+'_labels'] = actor.prec_labels.copy()
         ds_var[var+'_labels_tigr'] = label_tig.copy()    
         dict_ds[var] = ds_var
+        
 #    list_ds = [item for k,item in dict_ds.items()]
 #    ds = xr.auto_combine(list_ds)
 

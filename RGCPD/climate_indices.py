@@ -16,7 +16,8 @@ import datetime
 import cartopy.crs as ccrs
 import pandas as pd
 import functions_pp
-import core_pp
+import func_CPPA # temp
+import core_pp 
 
 kwrgs_ENSO = {'tfreq' : 30,
               'method' : 'no_train_test_split'
@@ -24,13 +25,20 @@ kwrgs_ENSO = {'tfreq' : 30,
 # get indices
 def ENSO_34(file_path, ex, df_splits=None):
     #%%
-    file_path = '/Users/semvijverberg/surfdrive/Data_era5/input_raw/sst_1979-2018_1_12_daily_2.5deg.nc'
+#    file_path = '/Users/semvijverberg/surfdrive/Data_era5/input_raw/sst_1979-2018_1_12_daily_2.5deg.nc'
     
-    
+    if df_splits is None:
+        RV = ex[ex['RV_name']]
+        df_splits, ex = functions_pp.rand_traintest_years(RV, ex)
+        seldates = None
+    else:
+        seldates = df_splits.loc[0].index
+
     kwrgs_pp = {'selbox' :  {'la_min':-10, # select domain in degrees east
                              'la_max':10,
                              'lo_min':-10,
-                             'lo_max':-60}}
+                             'lo_max':-60},
+                'seldates': seldates}
     
     ds = core_pp.import_ds_lazy(file_path, **kwrgs_pp)
     
@@ -39,24 +47,19 @@ def ENSO_34(file_path, ex, df_splits=None):
         ds, dates = functions_pp.time_mean_bins(ds, ex, to_freq=to_freq, seldays='all')
         ds['time'] = dates
     
-    if df_splits is None:
-        RV = ex[ex['RV_name']]
-        df_splits, ex = functions_pp.rand_traintest_years(RV, ex)
-            
+    dates = pd.to_datetime(ds.time.values)            
     splits = df_splits.index.levels[0]
     
     list_splits = []
     for s in splits:
         
         progress = 100 * (s+1) / splits.size
+        print(f"\rProgress traintest set {progress}%)", end="")
 
-        dates_RV  = pd.to_datetime(RV.RV_ts.time.values)
-        n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
-        print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
         
         data = ds.mean(dim=('latitude', 'longitude'))
         list_splits.append(pd.DataFrame(data=data.values, 
-                                     index=ds['time'], columns=['ENSO_34']))
+                                     index=dates, columns=['ENSO_34']))
     
     df_ENSO = pd.concat(list_splits, axis=0, keys=splits)
     #%%
@@ -65,57 +68,151 @@ def ENSO_34(file_path, ex, df_splits=None):
     #%%
 
 
-def PDO(file_path, ex, df_splits=None):
+def PDO(filename, ex, df_splits=None):
     #%%
-    file_path = '/Users/semvijverberg/surfdrive/Data_era5/input_raw/sst_1979-2018_1_12_daily_2.5deg.nc'
-    
-    
-    kwrgs_pp = {'selbox' :  {'la_min':-10, # select domain in degrees east
-                             'la_max':10,
-                             'lo_min':-10,
-                             'lo_max':-60}}
-    
-    ds = core_pp.import_ds_lazy(file_path, **kwrgs_pp)
+    '''
+    PDO is calculated based upon all data points in the training years,
+    Subsequently, the PDO pattern is projection on the sst.sel(time=dates_train)
+    to enable retrieving the PDO timeseries on a subset on the year.
+    It is similarly also projected on the dates_test
+    '''
+
+    if df_splits is None:
+        RV = ex[ex['RV_name']]
+        df_splits, ex = functions_pp.rand_traintest_years(RV, ex)
+
+
+        
+        
+    kwrgs_pp = {'selbox' :  {'la_min':20, # select domain in degrees east
+                             'la_max':50,
+                             'lo_min':140,
+                             'lo_max':250},
+                'format_lon': 'only_east'}        
+    ds = core_pp.import_ds_lazy(filename, **kwrgs_pp)
     
     to_freq = ex['tfreq']
     if to_freq != 1:        
         ds, dates = functions_pp.time_mean_bins(ds, ex, to_freq=to_freq, seldays='all')
         ds['time'] = dates
     
-    if df_splits is None:
-        RV = ex[ex['RV_name']]
-        df_splits, ex = functions_pp.rand_traintest_years(RV, ex)
-            
+    dates = pd.to_datetime(ds.time.values)
+
+        
     splits = df_splits.index.levels[0]
-    
+    data = np.zeros( (splits.size, ds.latitude.size, ds.longitude.size) )
+    PDO_patterns = xr.DataArray(data, 
+                                coords=[splits, ds.latitude.values, ds.longitude.values],
+                                dims = ['splits', 'latitude', 'longitude'])    
     list_splits = []
     for s in splits:
         
         progress = 100 * (s+1) / splits.size
-
-        dates_RV  = pd.to_datetime(RV.RV_ts.time.values)
-        n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
+        dates_train = df_splits.loc[s]['TrainIsTrue'][df_splits.loc[s]['TrainIsTrue']].index
+        train_yrs = np.unique(dates_train.year)
+        dates_all_train = pd.to_datetime([d for d in dates if d.year in train_yrs])
+###        dates_train_yrs = ###
+        dates_test  = df_splits.loc[s]['TrainIsTrue'][~df_splits.loc[s]['TrainIsTrue']].index
+        n = dates_train.size ; r = int(100*n/df_splits.loc[s].index.size )
         print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
         
-        pattern, data = get_PDO(ds)
-        list_splits.append(pd.DataFrame(data=data.values, 
-                                     index=ds['time'], columns=['ENSO_34']))
+        PDO_patterns[s], data, solver = get_PDO(ds.sel(time=dates_all_train))
+        data_train = solver.projectField(ds.sel(time=dates_train), 1)
+        data_test = solver.projectField(ds.sel(time=dates_test), 1)
+        
+        df_test = pd.DataFrame(data=data_test.values, index=dates_test, columns=['PDO'])
+        df_train = pd.DataFrame(data=data_train.values, index=dates_train, columns=['PDO'])        
+        
+        df = pd.concat([df_test, df_train]).sort_index()
+        list_splits.append(df)
     
-    df_ENSO = pd.concat(list_splits, axis=0, keys=splits)
+    df_PDO = pd.concat(list_splits, axis=0, keys=splits)
     #%%
-    return df_ENSO
+    return df_PDO, PDO_patterns
 
-def get_PDO(sst):
+
+
+def PDO_temp(filename, ex, df_splits=None):
+    #%%
+    '''
+    PDO is calculated based upon all data points in the training years,
+    Subsequently, the PDO pattern is projection on the sst.sel(time=dates_train)
+    to enable retrieving the PDO timeseries on a subset on the year.
+    It is similarly also projected on the dates_test
+    '''
+    
+
+    if df_splits is None:
+        RV = ex[ex['RV_name']]
+        df_splits, ex = functions_pp.rand_traintest_years(RV, ex)
+
+
+        
+        
+    kwrgs_pp = {'selbox' :  {'la_min':20, # select domain in degrees east
+                             'la_max':50,
+                             'lo_min':140,
+                             'lo_max':250},
+                'format_lon': 'only_east'}        
+    ds = core_pp.import_ds_lazy(filename, **kwrgs_pp)
+    
+    to_freq = ex['tfreq']
+    if to_freq != 1:        
+        ds, dates = functions_pp.time_mean_bins(ds, ex, to_freq=to_freq, seldays='all')
+        ds['time'] = dates
+    
+    dates = pd.to_datetime(ds.time.values)
+
+        
+    splits = df_splits.index.levels[0]
+    data = np.zeros( (splits.size, ds.latitude.size, ds.longitude.size) )
+    PDO_patterns = xr.DataArray(data, 
+                                coords=[splits, ds.latitude.values, ds.longitude.values],
+                                dims = ['splits', 'latitude', 'longitude'])    
+    list_splits = []
+    for s in splits:
+        
+        progress = 100 * (s+1) / splits.size
+        dates_train = df_splits.loc[s]['TrainIsTrue'][df_splits.loc[s]['TrainIsTrue']].index
+        train_yrs = np.unique(dates_train.year)
+        dates_all_train = pd.to_datetime([d for d in dates if d.year in train_yrs])
+        dates_test  = df_splits.loc[s]['TrainIsTrue'][~df_splits.loc[s]['TrainIsTrue']].index
+        n = dates_train.size ; r = int(100*n/df_splits.loc[s].index.size )
+        print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
+        
+        PDO_patterns[s], data, solver = get_PDO(ds.sel(time=dates_all_train))
+        
+        
+        PDO_patterns[s] = PDO_patterns[s].interpolate_na(dim='longitude')
+        data_train = rgcpd.calc_spatcov(ds.sel(time=dates_train), PDO_patterns[s])
+        data_test = rgcpd.calc_spatcov(ds.sel(time=dates_test), PDO_patterns[s])
+        df_test = pd.DataFrame(data=data_test.values, index=dates_test, columns=['PDO'])
+        df_train = pd.DataFrame(data=data_train.values, index=dates_train, columns=['PDO'])  
+        
+        df = pd.concat([df_test, df_train]).sort_index()
+        list_splits.append(df)
+    
+    df_PDO = pd.concat(list_splits, axis=0, keys=splits)
+    #%%
+    return df_PDO
+
+
+def get_PDO(sst_Pacific):
     #%%
     from eofs.xarray import Eof
-    PDO   = functions_pp.find_region(sst, region='PDO')[0]
-    solver = Eof(functions_pp.area_weighted(PDO))
+#    PDO   = functions_pp.find_region(sst, region='PDO')[0]
+    coslat = np.cos(np.deg2rad(sst_Pacific.coords['latitude'].values)).clip(0., 1.)
+    area_weights = np.tile(coslat[..., np.newaxis],(1,sst_Pacific.longitude.size))
+    area_weights = area_weights / area_weights.mean()
+    solver = Eof(sst_Pacific, area_weights)
     # Retrieve the leading EOF, expressed as the correlation between the leading
     # PC time series and the input SST anomalies at each grid point, and the
     # leading PC time series itself.
-    eof1 = solver.eofsAsCorrelation(neofs=1).squeeze()
+    eof1 = solver.eofsAsCovariance(neofs=1).squeeze()
     init_sign = np.sign(np.mean(eof1)) # flip sign oef pattern and ts
     eof1 *= init_sign
     pc1 = solver.pcs(npcs=1, pcscaling=1).squeeze()
     pc1 *= init_sign
-    return eof1, pc1
+    return eof1, pc1, solver
+
+#def project_PDO(sst_Pacific)

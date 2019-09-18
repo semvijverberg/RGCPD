@@ -10,11 +10,11 @@ from tigramite import data_processing as pp
 from tigramite.pcmci import PCMCI
 from tigramite.independence_tests import ParCorr, GPDC, CMIknn, CMIsymb
 import functions_RGCPD as rgcpd
+import matplotlib as mpl
 import itertools
 import numpy as np
 import xarray as xr
 import datetime
-import cartopy.crs as ccrs
 import pandas as pd
 import functions_pp
 import func_fc
@@ -31,15 +31,19 @@ def calculate_corr_maps(ex, map_proj):
     # Response Variable is what we want to predict
     RV = ex[ex['RV_name']]
     ex['time_cycle'] = RV.dates[RV.dates.year == RV.startyear].size # time-cycle of data. total timesteps in one year
-    #=====================================================================================
-    # Information on period taken for response-variable, already decided in main_download_and_pp
-    #=====================================================================================
     ex['time_range_all'] = [0, RV.dates.size]
     #==================================================================================
     # Start of experiment
     #==================================================================================
 
     # Define traintest:
+    df_RVfullts = pd.DataFrame(RV.RVfullts.values, index=RV.dates)
+    df_RV_ts    = pd.DataFrame(RV.RV_ts.values, index=RV.dates_RV)
+    if ex['method'][:9] == 'ran_strat':
+        kwrgs_events = ex['kwrgs_events']
+        RV = func_fc.RV_class(df_RVfullts, df_RV_ts, kwrgs_events)
+    else:
+        RV = func_fc.RV_class(df_RVfullts, df_RV_ts)
     df_splits, ex = functions_pp.rand_traintest_years(RV, ex)
     # =============================================================================
     # 2) DEFINE PRECURSOS COMMUNITIES:
@@ -90,7 +94,7 @@ def calculate_corr_maps(ex, map_proj):
             plot_maps.plot_corr_maps(corr_xr, corr_xr['mask'], map_proj)
 
             fig_filename = '{}_corr_{}_vs_{}'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']
-            plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=ex['png_dpi'])
+            plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight')
             if ex['showplot'] == False:
                 plt.close()
 
@@ -166,7 +170,7 @@ def store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=True):
     dict_of_dfs = {'df_data':df_data_to_store, 'df_sum':df_sum_to_store}
     if ex['store_format'] == 'hdf5':
         functions_pp.store_hdf_df(dict_of_dfs, ex['path_data'])
-
+        print('Data stored in \n{}'.format(ex['path_data']))
     return
 
 
@@ -272,17 +276,20 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
         
     
     RVfull_train = RV.RVfullts.isel(time=traintest[s]['Prec_train_idx'])
+#    RVfull_train = RV.RVfullts.iloc[ traintest[s]['Prec_train_idx'] ]
     datesfull_train = pd.to_datetime(RVfull_train.time.values)
     data = df_data.loc[datesfull_train].values
     print((data.shape))
 
 
     # get RV datamask (same shape als data)
-    datesRV_train   = pd.to_datetime(traintest[s]['RV_train'].time.values)
+    datesRV_train   = traintest[s]['RV_train'].index
     data_mask = [True if d in datesRV_train else False for d in datesfull_train]
     data_mask = np.repeat(data_mask, data.shape[1]).reshape(data.shape)
 
     # add traintest mask to fulldata
+#    dates_all = pd.to_datetime(RV.RVfullts.index)
+#    dates_RV  = pd.to_datetime(RV.RV_ts.index)
     dates_all = pd.to_datetime(RV.RVfullts.time.values)
     dates_RV  = pd.to_datetime(RV.RV_ts.time.values)
     df_data['TrainIsTrue'] = [True if d in datesfull_train else False for d in dates_all]
@@ -391,7 +398,8 @@ def standard_settings_and_tests(ex):
     ex['store_format']   = 'hdf5'
     ex['file_type1'] = ".pdf"
     ex['file_type2'] = ".png"
-    ex['png_dpi'] = 400
+    mpl.rcParams['figure.dpi'] = 100
+    mpl.rcParams['savefig.dpi'] = 600
     ex['SaveTF'] = True # if false, output will be printed in console
     ex['plotin1fig'] = False
     ex['showplot'] = True

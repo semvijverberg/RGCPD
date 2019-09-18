@@ -94,28 +94,57 @@ def compare_use_spatcov(path_data, causal=True):
     #%%
     return keys_d
 
-def normal_precursor_regions(path_data, causal=True):
+def normal_precursor_regions(path_data, keys_options=['all'], causal=True):
     #%%
+    '''
+    keys_options=['all', 'only_db_regs', 'sp_and_regs', 'sst_sm_regs_v_sp']
+    '''
+    
     dict_of_dfs = func_fc.load_hdf5(path_data)
     df_data = dict_of_dfs['df_data']
     splits  = df_data.index.levels[0]
     df_sum  = dict_of_dfs['df_sum']
     
+    skip = ['all_spatcov', '0_2_sm123', '0_101_PEPspatcov', 'sm123_spatcov']
+    
+    
+    
     keys_d = {}
-    keys_d_ = {}
-    for s in splits:
-        if causal == True:
-            # causal
-            all_keys = df_sum[df_sum['causal']].loc[s].index
-        elif causal == False:
-            # correlated
-            all_keys = df_sum.loc[s].index.delete(0)
+    for option in keys_options:
+        keys_d_ = {}
+        for s in splits:
             
-        # Regions + all_spatcov(_caus)
-        keys_ = [k for k in all_keys if ('spatcov' not in k)]
-        keys_d_[s] = np.array(list(unique_everseen(keys_)))
-        
-    keys_d['normal_precursor_regions'] = keys_d_
+            if causal == True:
+                # causal
+                keys_ = df_sum[df_sum['causal']].loc[s].index
+                
+            elif causal == False:
+                # correlated
+                all_keys = df_sum.loc[s].index.delete(0)
+                # remove spatcov_causals
+                all_keys = [k for k in all_keys if k[-4:] != 'caus']
+                
+                
+            if option == 'all':
+                keys_ = [k for k in all_keys if k not in skip]
+
+                
+                
+            elif option == 'only_db_regs':                
+                # Regions + all_spatcov(_caus)
+                keys_ = [k for k in all_keys if ('spatcov' not in k)]
+                keys_ = [k for k in keys_ if k not in skip]
+            elif option == 'sp_and_regs': 
+                keys_ = [k for k in all_keys if k not in skip]
+            elif option == 'sst_sm_regs_v_sp': 
+
+                
+                keys_ = [k for k in all_keys if k[-7:] != 'v200hpa']
+                keys_ = [k for k in keys_ if k not in skip]
+                
+            keys_d_[s] = np.array(list(unique_everseen(keys_)))
+            
+        keys_d[option] = keys_d_
         
     #%%
     return keys_d
@@ -133,16 +162,19 @@ def CPPA_precursor_regions(path_data, keys_options=['CPPA']):
         keys_d_ = {}
         for s in splits:
             if option == 'CPPA':
+                not_robust = ['0_101_PEPspatcov', 'PDO', 'ENSO_34']
                 all_keys = df_data.loc[s].columns[1:]
                 all_keys = [k for k in all_keys if k not in skip]
-                keys_ = [k for k in all_keys if k[-3:] != 'PEP']
-            
-            elif option == 'robust':
-                all_keys = df_data.loc[s].columns[1:]
-                all_keys = [k for k in all_keys if k not in skip]
-                all_keys = [k for k in all_keys if k[-3:] != 'PEP']
+                all_keys = [k for k in all_keys if k not in not_robust]
+                keys_ = all_keys
                 
-                robust = ['sst', '2', '7', '9' ]
+            elif option == 'robust':
+                not_robust = ['0_101_PEPspatcov', 'PDO', 'ENSO_34']
+                all_keys = df_data.loc[s].columns[1:]
+                all_keys = [k for k in all_keys if k not in skip]
+                all_keys = [k for k in all_keys if k not in not_robust]
+                
+                robust = ['0_100_CPPAspatcov', '2', '7', '9' ]
                 sst_regs = [k for k in all_keys if len(k.split('_')) == 3]
                 other    = [k for k in all_keys if len(k.split('_')) != 3]
                 keys_ = [k for k in sst_regs if k.split('_')[1] in robust ] 
@@ -151,7 +183,7 @@ def CPPA_precursor_regions(path_data, keys_options=['CPPA']):
             elif option == 'PEP':
                 all_keys = df_data.loc[s].columns[1:]
                 all_keys = [k for k in all_keys if k not in skip]
-                keys_ = [k for k in all_keys if k[-3:] == 'PEP']
+                keys_ = [k for k in all_keys if k.split('_')[-1] == 'PEPspatcov']
         
             keys_d_[s] = np.array(list(unique_everseen(keys_)))        
         keys_d[option] = keys_d_

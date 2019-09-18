@@ -65,7 +65,7 @@ ex = dict(
      'startperiod'  :       '06-22', # RV period
      'endperiod'    :       '08-24', # RV period
      'sstartdate'   :       '01-01', # precursor period
-     'senddate'     :       '08-24', # precursor period
+     'senddate'     :       '09-30', # precursor period
      'selbox'       :       {'la_min':20, # select domain in degrees east
                              'la_max':60,
                              'lo_min':-180,
@@ -77,13 +77,6 @@ ex = dict(
      'path_pp'      :       path_pp}
      )
 
-# =============================================================================
-# RV events settings (allows to make balanced traintest splits)
-# =============================================================================
-ex['kwrgs_events']  =  {'event_percentile': 'std',
-                        'min_dur' : 1,
-                        'max_break' : 0,
-                        'grouped' : False}
 
 
 if ex['dataset'] == 'ERAint':
@@ -177,7 +170,7 @@ if ex['import_prec_ts'] == True:
     ex['precursor_ts'] = [['name1', 'filename1'],['name2','filename2']]
     ex['precursor_ts'] = [
                             ['sst_CPPA', ('/Users/semvijverberg/surfdrive/MckinRepl/',
-                              'era5_T2mmax_sst_Northern/data/ran_strat10_s30/13-09-19_11hr_lag_0.h5')]
+                              'era5_t2mmax_sst_Northern/ran_strat10_s30/data/era5_15hr_17-09-2019_lag_0.h5')]
                             ]
 
     
@@ -270,7 +263,7 @@ elif importRV_1dts == False:
 # ===================================lag_steps==========================================
 # Information needed to pre-process,
 # Select temporal frequency:
-ex['tfreqlist'] = [20] #[2,4,7,14,21,35] #[1,2,4,7,14,21,35]
+ex['tfreqlist'] = [10] #[2,4,7,14,21,35] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
@@ -358,6 +351,14 @@ for freq in ex['tfreqlist']:
     
     ex['method'] = 'ran_strat10' ; ex['seed'] = 30 
 #    ex['method'] = 'no_train_test_split'
+    # =============================================================================
+    # RV events settings (allows to make balanced traintest splits)
+    # =============================================================================
+    ex['kwrgs_events'] = {'event_percentile':'std', 
+                          'min_dur': 1, 
+                          'max_break': 0, 
+                          'grouped': False}
+
     # =============================================================================
     # Load some standard settings
     # =============================================================================
