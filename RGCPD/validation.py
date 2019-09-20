@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.patches as patches
 from sklearn import metrics
+import functions_pp
 from sklearn.calibration import calibration_curve
 import seaborn as sns
 from itertools import chain
@@ -50,7 +51,10 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksiz
     
     if cont_pred:
         df_auc = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
-                              index=['AUC', 'con_low', 'con_high'])
+                              index=['AUC-ROC', 'con_low', 'con_high'])
+        
+        df_aucPR = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
+                              index=['AUC-PR', 'con_low', 'con_high'])
         
         df_brier = pd.DataFrame(data=np.zeros( (7, len(lags)) ), columns=[lags],
                               index=['BSS', 'con_low', 'con_high', 'Brier', 'br_con_low', 'br_con_high', 'Brier_clim'])
@@ -77,6 +81,9 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksiz
             # AUC
             AUC_score, conf_lower, conf_upper, sorted_AUC = metrics_dict['AUC']
             df_auc[lag] = (AUC_score, conf_lower, conf_upper) 
+            # AUC Precision-Recall 
+            AUCPR_score, ci_low_AUCPR, ci_high_AUCPR, sorted_AUCPRs = metrics_dict['AUCPR']
+            df_aucPR[lag] = (AUCPR_score, ci_low_AUCPR, ci_high_AUCPR)
             # Brier score
             brier_score, brier_clim, ci_low_brier, ci_high_brier, sorted_briers = metrics_dict['brier']
             BSS = (brier_clim - brier_score) / brier_clim
@@ -95,10 +102,12 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksiz
         df_acc[lag] = (acc, ci_low_acc, ci_high_acc)
     
     if cont_pred:
-        df_valid = pd.concat([df_brier, df_auc, df_KSS, df_prec, df_acc], 
-                         keys=['BSS', 'AUC',  'KSS', 'prec', 'acc'])
+        df_valid = pd.concat([df_brier, df_auc, df_aucPR, df_KSS, df_prec, df_acc], 
+                         keys=['BSS', 'AUC-ROC', 'AUC-PR', 'KSS', 'prec', 'acc'])
         print("ROC area: {:0.3f}".format( float(df_auc.iloc[0][0]) ))
+        print("P-R area: {:0.3f}".format( float(df_aucPR.iloc[0][0]) ))
         print("BSS     : {:0.3f}".format( float(df_brier.iloc[0][0]) ))
+        
     else:
         df_valid = pd.concat([df_KSS, df_prec, df_acc], 
                          keys=['KSS', 'prec', 'acc'])
@@ -271,8 +280,13 @@ def metrics_sklearn(y_true, y_pred, y_pred_c, alpha=0.05, n_boot=5, blocksize=1)
     acc = metrics.accuracy_score(y_true, y_pred_b)
 
     if cont_pred:
+        
         AUC_score = metrics.roc_auc_score(y_true, y_pred)
         fpr, tpr, thresholds = metrics.roc_curve(y_true, y_pred_b)
+        # P : Precision at threshold, R : Recall at threshold, PRthresholds 
+        P, R, PRthresholds = metrics.precision_recall_curve(y_true, y_pred)
+        AUCPR_score = metrics.average_precision_score(y_true, y_pred)
+        
         # convert y_pred to fake probabilities if spatcov is given
         if y_pred.max() > 1 or y_pred.min() < 0: 
             y_pred = (y_pred+abs(y_pred.min()))/( y_pred.max()+abs(y_pred.min()) )
@@ -284,6 +298,7 @@ def metrics_sklearn(y_true, y_pred, y_pred_c, alpha=0.05, n_boot=5, blocksize=1)
     
     rng_seed = 42  # control reproducibility
     boots_AUC = []
+    boots_AUCPR = []
     boots_KSS = []
     boots_brier = []   
     boots_prec = []
@@ -314,10 +329,12 @@ def metrics_sklearn(y_true, y_pred, y_pred_c, alpha=0.05, n_boot=5, blocksize=1)
         
         if cont_pred:
             score_AUC = metrics.roc_auc_score(y_true[indices], y_pred[indices])
+            score_AUCPR = metrics.average_precision_score(y_true[indices], y_pred[indices])
             score_brier = metrics.brier_score_loss(y_true[indices], y_pred[indices])    
 
         if cont_pred:
             boots_AUC.append(score_AUC)
+            boots_AUCPR.append(score_AUCPR)
             boots_brier.append(score_brier)
         boots_prec.append(score_prec)
         boots_acc.append(score_acc)
@@ -337,6 +354,8 @@ def metrics_sklearn(y_true, y_pred, y_pred_c, alpha=0.05, n_boot=5, blocksize=1)
     if len(boots_AUC) != 0:
         if cont_pred:
             ci_low_AUC, ci_high_AUC, sorted_AUCs = get_ci(boots_AUC, alpha)
+            
+            ci_low_AUCPR, ci_high_AUCPR, sorted_AUCPRs = get_ci(boots_AUCPR, alpha)
         
             ci_low_brier, ci_high_brier, sorted_briers = get_ci(boots_brier, alpha)
 
@@ -350,6 +369,8 @@ def metrics_sklearn(y_true, y_pred, y_pred_c, alpha=0.05, n_boot=5, blocksize=1)
     else:
         if cont_pred:
             ci_low_AUC, ci_high_AUC, sorted_AUCs = (AUC_score, AUC_score, [AUC_score])
+            
+            ci_low_AUCPR, ci_high_AUCPR, sorted_AUCPRs = (AUCPR_score, AUCPR_score, [AUCPR_score])
         
             ci_low_brier, ci_high_brier, sorted_briers = (brier_score, brier_score, [brier_score])
         
@@ -361,8 +382,10 @@ def metrics_sklearn(y_true, y_pred, y_pred_c, alpha=0.05, n_boot=5, blocksize=1)
     
     if cont_pred:
         metrics_dict['AUC'] = (AUC_score, ci_low_AUC, ci_high_AUC, sorted_AUCs)
+        metrics_dict['AUCPR'] = (AUCPR_score, ci_low_AUCPR, ci_high_AUCPR, sorted_AUCPRs)
         metrics_dict['brier'] = (brier_score, brier_score_clim, ci_low_brier, ci_high_brier, sorted_briers)
         metrics_dict['fpr_tpr_thres'] = fpr, tpr, thresholds
+        metrics_dict['P_R_thres'] = P, R, PRthresholds
     metrics_dict['KSS'] = (KSS_score, ci_low_KSS, ci_high_KSS, sorted_KSSs)
     metrics_dict['prec'] = (prec, ci_low_prec, ci_high_prec, sorted_precs)
     metrics_dict['acc'] = (acc, ci_low_acc, ci_high_acc, sorted_accs)
@@ -379,9 +402,126 @@ def get_KSS_clim(y_true, y_pred, threshold_clim_events):
     return KSS_score 
 
 
+def corr_matrix_pval(df, alpha=0.05):
+    from scipy import stats
+    if type(df) == type(pd.DataFrame()):
+        cross_corr = np.zeros( (df.columns.size, df.columns.size) )
+        pval_matrix = np.zeros_like(cross_corr)
+        for i1, col1 in enumerate(df.columns):
+            for i2, col2 in enumerate(df.columns):
+                pval = stats.pearsonr(df[col1].values, df[col2].values)
+                pval_matrix[i1, i2] = pval[-1]
+                cross_corr[i1, i2]  = pval[0]
+        # recreate pandas cross corr
+        cross_corr = pd.DataFrame(data=cross_corr, columns=df.columns, 
+                                  index=df.columns)
+                
+    sig_mask = pval_matrix < alpha
+    return cross_corr, sig_mask, pval_matrix
+
+def build_ts_matric(df_init, win=20, lag=0, columns=list, rename=dict, period='fullyear'):
+    #%%
+    '''
+    period = ['fullyear', 'summer60days', 'pre60days']
+    
+    splits = df_init.index.levels[0]
+    dates_full_orig = df_init.loc[0].index
+    dates_RV_orig   = df_init.loc[0].index[df_init.loc[0]['RV_mask']==True]
+    
+    
+    if columns is None:
+        columns = df_init.columns
+        
+    df_cols = df_init[columns]
+    
+    TrainIsTrue = df_init['TrainIsTrue']
+
+    list_test = []
+    for s in range(splits.size):
+        TestIsTrue = TrainIsTrue[s]==False
+        list_test.append(df_cols.loc[s][TestIsTrue])
+    
+    df_test = pd.concat(list_test).sort_index()
 
 
-def plot_score_lags(df_metric, metric, color, lags_tf, cv_lines=False, col=0, ax=None):
+    # shift precursor vs. tmax 
+    for c in df_test.columns[1:]:
+        df_test[c] = df_test[c].shift(periods=-lag)
+         
+    # bin means
+    df_test = df_test.resample(f'{win}D').mean()
+    
+    if period=='fullyear':
+        dates_sel = dates_full_orig.strftime('%Y-%m-%d')
+    elif period == 'summer60days':
+        dates_sel = dates_RV_orig.strftime('%Y-%m-%d')
+    elif period == 'pre60days':
+        dates_sel = (dates_RV_orig - pd.Timedelta(60, unit='d')).strftime('%Y-%m-%d')
+    
+    # after resampling, not all dates are in their:
+    dates_sel =  pd.to_datetime([d for d in dates_sel if d in df_test.index] )
+    df_period = df_test.loc[dates_sel, :].dropna()
+
+    if rename is not None:
+        df_period = df_period.rename(rename, axis=1)
+        
+    corr, sig_mask, pvals = corr_matrix_pval(df_period, alpha=0.01)
+
+    # Generate a mask for the upper triangle
+    mask_tri = np.zeros_like(corr, dtype=np.bool)
+    
+    mask_tri[np.triu_indices_from(mask_tri)] = True
+    mask_sig = mask_tri.copy()
+    mask_sig[sig_mask==False] = True
+  
+    # removing meaningless row and column
+    cols = corr.columns
+    corr = corr.drop(cols[0], axis=0).drop(cols[-1], axis=1)
+    mask_sig = mask_sig[1:, :-1]
+    mask_tri = mask_tri[1:, :-1]
+    # Set up the matplotlib figure
+    f, ax = plt.subplots(figsize=(10, 10))
+
+    # Generate a custom diverging colormap
+    cmap = sns.diverging_palette(220, 10, n=9, l=30, as_cmap=True)
+    
+    
+    ax = sns.heatmap(corr, ax=ax, mask=mask_tri, cmap=cmap, vmax=1E99, center=0,
+                square=True, linewidths=.5, 
+                 annot=False, annot_kws={'size':30}, cbar=False)
+    
+    
+    sig_bold_labels = sig_bold_annot(corr, mask_sig)
+    # Draw the heatmap with the mask and correct aspect ratio
+    ax = sns.heatmap(corr, ax=ax, mask=mask_tri, cmap=cmap, vmax=1, center=0,
+                square=True, linewidths=.5, cbar_kws={"shrink": .8},
+                 annot=sig_bold_labels, annot_kws={'size':30}, cbar=False, fmt='s')
+    
+    ax.tick_params(axis='both', labelsize=15, 
+                   bottom=True, top=False, left=True, right=False,
+                   labelbottom=True, labeltop=False, labelleft=True, labelright=False)
+    
+    ax.set_xticklabels(corr.columns, fontdict={'fontweight':'bold', 
+                                               'fontsize':25})
+    ax.set_yticklabels(corr.index, fontdict={'fontweight':'bold',
+                                               'fontsize':25}, rotation=0) 
+    #%%
+    return
+
+def sig_bold_annot(corr, pvals):
+    corr_str = np.zeros_like( corr, dtype=str ).tolist()
+    for i1, r in enumerate(corr.values):
+        for i2, c in enumerate(r):
+            if pvals[i1, i2] <= 0.05 and pvals[i1, i2] > 0.01:
+                corr_str[i1][i2] = '{:.2f}*'.format(c)
+            if pvals[i1, i2] <= 0.01:
+                corr_str[i1][i2]= '{:.2f}**'.format(c)        
+            elif pvals[i1, i2] > 0.05: 
+                corr_str[i1][i2]= '{:.2f}'.format(c)
+    return np.array(corr_str)              
+
+def plot_score_lags(df_metric, metric, color, lags_tf, clim=None,
+                    cv_lines=False, col=0, ax=None):
     #%%
 
     if ax==None:
@@ -390,20 +530,25 @@ def plot_score_lags(df_metric, metric, color, lags_tf, cv_lines=False, col=0, ax
 
     if metric == 'BSS':
         y_lim = (-0.4, 0.6)
-    elif metric == 'AUC':
+    elif metric[:3] == 'AUC':
         y_lim = (0,1.0)
     elif metric == 'prec':
         y_lim = (0,1)
+        y_b = clim
     y = np.array(df_metric.loc[metric])
     y_min = np.array(df_metric.loc['con_low'])
     y_max = np.array(df_metric.loc['con_high'])
     if cv_lines == True:
         y_cv  = [0]
-    
 
 
     x = lags_tf
-
+    if 0 in lags_tf:
+        tfreq = 2 * (lags_tf[1] - lags_tf[0])
+    else:
+        tfreq = (lags_tf[1] - lags_tf[0])
+#    tfreq = max([lags_tf[i+1] - lags_tf[i] for i in range(len(lags_tf)-1)])
+    
     style = 'solid'
     ax.fill_between(x, y_min, y_max, linestyle='solid', 
                             edgecolor='black', facecolor=color, alpha=0.3)
@@ -421,11 +566,16 @@ def plot_score_lags(df_metric, metric, color, lags_tf, cv_lines=False, col=0, ax
 #    ax.set_title('{}-day mean'.format(col))
     if min(x) == 1:
         xmin = 0
-    else:
-        xmin = min(x)
-    xticks = np.arange(xmin, max(x)+1E-9, 20) ; 
-    if min(x) == 1:
+        xticks = np.arange(min(x), max(x)+1E-9, 10) ; 
         xticks[0] = 1
+    elif min(x) == 0:
+        xmin = int(tfreq/2)
+        xticks = np.arange(xmin, max(x)+1E-9, 10) ; 
+        xticks = np.insert(xticks, 0, 0)
+    else:
+        xticks = np.arange(min(x), max(x)+1E-9, 10) ; 
+
+        
     ax.set_xticks(xticks)
     ax.set_ylim(y_lim)
     ax.set_ylabel(metric)
@@ -435,9 +585,24 @@ def plot_score_lags(df_metric, metric, color, lags_tf, cv_lines=False, col=0, ax
         ax.set_yticklabels(y_major)
         ax.set_yticks(np.arange(-0.6,0.6+1E-9, 0.1), minor=True)
         ax.hlines(y=0, xmin=min(x), xmax=max(x), linewidth=1)
-    elif metric == 'AUC':
+        ax.text(max(x), 0 - 0.05, 'Benchmark clim. pred.', 
+                horizontalalignment='right', fontsize=12,
+                verticalalignment='center', 
+                rotation=0, rotation_mode='anchor', alpha=0.5)
+    elif metric == 'AUC-ROC':
+        y_b = 0.5
         ax.set_yticks(np.arange(0.5,1+1E-9, 0.1), minor=True)
-        ax.hlines(y=0.5, xmin=min(x), xmax=max(x), linewidth=1) 
+        ax.hlines(y=y_b, xmin=min(x), xmax=max(x), linewidth=1) 
+    elif metric == 'AUC-PR':
+        ax.set_yticks(np.arange(0.5,1+1E-9, 0.1), minor=True)
+        y_b = clim
+        ax.hlines(y=y_b, xmin=min(x)-int(tfreq/2), xmax=max(x), linewidth=1) 
+
+    if metric in ['AUC-ROC', 'AUC-PR', 'prec']:
+        ax.text(max(x), y_b-0.05, 'Benchmark rand. pred.', 
+                horizontalalignment='right', fontsize=12,
+                verticalalignment='center', 
+                rotation=0, rotation_mode='anchor', alpha=0.5)
     if col != 0 :
         ax.set_ylabel('')
         ax.tick_params(labelleft=False)
@@ -666,10 +831,23 @@ def plot_ts(RV, y_pred_all, dates_ts, color, lag_i=1, ax=None):
     y = y_pred_all.iloc[:,lag_i].loc[dates_ts]
     ax.plot(x, y.values.ravel() , linestyle='solid', marker=None,
             linewidth=1)
-
-    
     #%%
     return ax
+
+def plot_freq_per_yr(RV):
+    #%%
+    dates_RV = RV.RV_bin.index
+    all_yrs = np.unique(dates_RV.year)
+    freq = pd.DataFrame(data= np.zeros(all_yrs.size), 
+                        index = all_yrs, columns=['freq'])
+    for i, yr in enumerate(all_yrs):
+        oneyr = RV.RV_bin.loc[functions_pp.get_oneyr(dates_RV, yr)]
+        freq.loc[yr] = oneyr.sum().values
+    plt.figure( figsize=(8,6) )
+    plt.bar(freq.index, freq['freq'])
+    plt.ylabel('Events p/y', fontdict={'fontsize':14})
+    #%%
+
     
 def valid_figures(dict_experiments, line_dim='models', group_line_by=None, 
                   met='default', wspace=0.08):
@@ -684,7 +862,7 @@ def valid_figures(dict_experiments, line_dim='models', group_line_by=None,
     dims = ['exper', 'models', 'met']
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
     if met == 'default':
-        met = ['AUC', 'BSS', 'prec', 'Rel. Curve', 'ts']
+        met = ['AUC-ROC', 'AUC-PR', 'BSS', 'prec', 'Rel. Curve', 'ts']
     
     
     
@@ -694,6 +872,9 @@ def valid_figures(dict_experiments, line_dim='models', group_line_by=None,
     elif line_dim == 'exper':
         lines = expers
         cols  = models
+    assert line_dim in ['models', 'exper'], ('illegal key for line_dim, '
+                           'choose \'exper\' or \'models\'')
+        
     if len(cols) == 1 and group_line_by is not None:
         group_s = len(group_line_by)
         cols = group_line_by
@@ -744,13 +925,20 @@ def valid_figures(dict_experiments, line_dim='models', group_line_by=None,
                 tfreq = (y_pred_all.iloc[1].name - y_pred_all.iloc[0].name).days
                 lags_i     = list(dict_experiments[exper][model][2].columns.astype(int))
                 lags_tf = [l*tfreq for l in lags_i]
-
+                if tfreq != 1:
+                    # the last day of the time mean bin is tfreq/2 later then the centerered day
+                    lags_tf = [l_tf- int(tfreq/2) if l_tf!=0 else 0 for l_tf in lags_tf ]
+                
                 color = nice_colors[l]
                 
-                if metric in ['AUC', 'BSS', 'prec']: 
+                if metric in ['AUC-ROC', 'AUC-PR', 'BSS', 'prec']: 
                     df_metric = df_valid.loc[metric]
-                    plot_score_lags(df_metric, metric, color,
-                                    lags_tf, cv_lines=False, col=col,
+                    if metric == 'AUC-PR':
+                        clim = RV.RV_bin.values[RV.RV_bin==1].size / RV.RV_bin.size
+                    else:
+                        clim = None
+                    plot_score_lags(df_metric, metric, color, lags_tf,
+                                    clim, cv_lines=False, col=col,
                                     ax=g.axes[row,col])
                 if metric == 'Rel. Curve':
                     if l == 0:
@@ -778,9 +966,10 @@ def valid_figures(dict_experiments, line_dim='models', group_line_by=None,
                           handletextpad = 0.2, markerscale=0.1,
                           borderaxespad = 0.1,
                           handlelength=1, handleheight=1, prop={'size': 12})
-
+    
+    #%%
     g.fig.subplots_adjust(wspace=wspace)
-    #%%                
+                    
     return g.fig
                 
                 

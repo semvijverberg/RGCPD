@@ -16,7 +16,7 @@ import datetime
 import cartopy.crs as ccrs
 import pandas as pd
 import functions_pp
-import func_CPPA # temp
+#import func_CPPA # temp
 import core_pp 
 
 kwrgs_ENSO = {'tfreq' : 30,
@@ -59,7 +59,7 @@ def ENSO_34(file_path, ex, df_splits=None):
         
         data = ds.mean(dim=('latitude', 'longitude'))
         list_splits.append(pd.DataFrame(data=data.values, 
-                                     index=dates, columns=['ENSO_34']))
+                                     index=dates, columns=['0_900_ENSO34']))
     
     df_ENSO = pd.concat(list_splits, axis=0, keys=splits)
     #%%
@@ -120,8 +120,8 @@ def PDO(filename, ex, df_splits=None):
         data_train = solver.projectField(ds.sel(time=dates_train), 1)
         data_test = solver.projectField(ds.sel(time=dates_test), 1)
         
-        df_test = pd.DataFrame(data=data_test.values, index=dates_test, columns=['PDO'])
-        df_train = pd.DataFrame(data=data_train.values, index=dates_train, columns=['PDO'])        
+        df_test = pd.DataFrame(data=data_test.values, index=dates_test, columns=['0_901_PDO'])
+        df_train = pd.DataFrame(data=data_train.values, index=dates_train, columns=['0_901_PDO'])        
         
         df = pd.concat([df_test, df_train]).sort_index()
         list_splits.append(df)
@@ -186,8 +186,8 @@ def PDO_temp(filename, ex, df_splits=None):
         PDO_patterns[s] = PDO_patterns[s].interpolate_na(dim='longitude')
         data_train = rgcpd.calc_spatcov(ds.sel(time=dates_train), PDO_patterns[s])
         data_test = rgcpd.calc_spatcov(ds.sel(time=dates_test), PDO_patterns[s])
-        df_test = pd.DataFrame(data=data_test.values, index=dates_test, columns=['PDO'])
-        df_train = pd.DataFrame(data=data_train.values, index=dates_train, columns=['PDO'])  
+        df_test = pd.DataFrame(data=data_test.values, index=dates_test, columns=['0_901_PDO'])
+        df_train = pd.DataFrame(data=data_train.values, index=dates_train, columns=['0_901_PDO'])  
         
         df = pd.concat([df_test, df_train]).sort_index()
         list_splits.append(df)

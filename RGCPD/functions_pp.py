@@ -18,8 +18,18 @@ from dateutil.relativedelta import relativedelta as date_dt
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
-def get_oneyr(datetime):
-        return datetime.where(datetime.year==datetime.year[0]).dropna()
+def get_oneyr(pddatetime, *args):
+    dates = []
+    pddatetime = pd.to_datetime(pddatetime)
+    year = pddatetime.year[0]
+
+    for arg in args:
+        year = arg
+        dates.append(pddatetime.where(pddatetime.year==year).dropna())
+    dates = pd.to_datetime(flatten(dates))
+    if len(dates) == 0:
+        dates = pddatetime.where(pddatetime.year==year).dropna()
+    return dates
 
 def Variable(self, ex):
     self.startyear = ex['startyear']
@@ -282,7 +292,7 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
 #        RV.dates_RV = make_RVdatestr(pd.to_datetime(RV.RVfullts.time.values), ex)
         RV.dates_RV = make_RVdatestr(pd.to_datetime(RV.RVfullts.time.values), ex,
                                      ex['startyear'], ex['endyear'])
-                              
+
     elif ex['input_freq'] == 'monthly':
 
         want_month = np.arange(int(ex['startperiod'].split('-')[0]),
@@ -373,7 +383,7 @@ def time_mean_bins(xr_or_df, ex, to_freq=int, seldays='all', verb=0):
     types = [type(xr.Dataset()), type(xr.DataArray([0])), type(pd.DataFrame([0]))]
 
     assert (type(xr_or_df) in types), ('{} given, should be in {}'.format(type(xr_or_df), types) )
-    
+
     if type(xr_or_df) == types[-1]:
         return_df = True
         xr_init = xr_or_df.to_xarray().to_array()
@@ -516,7 +526,7 @@ def timeseries_tofit_bins(xr_or_dt, ex, to_freq, seldays='part', verb=1):
         if start_day.is_leap_year:
             # add day in front to compensate for removing a day
             start_day = start_day - np.timedelta64(1, 'D')
-            
+
         start_yr = pd.DatetimeIndex(start=start_day, end=end_day,
                                     freq=(datetime[1] - datetime[0]))
 
@@ -592,13 +602,13 @@ def make_RVdatestr(dates, ex, startyr, endyr, lpyr=False):
 
     sstartdate = pd.to_datetime(str(startyr) + '-' + ex['startperiod'])
     senddate_   = pd.to_datetime(str(startyr) + '-' + ex['endperiod'])
-    
-        
-    
+
+
+
     oneyr_dates = pd.DatetimeIndex(start=sstartdate, end=senddate_,
                             freq=pd.Timedelta(1, 'd'))
     daily_yr_fit = np.round(oneyr_dates.size / ex['tfreq'], 0)
-    
+
     # dont get following
 #    firstyr = oneyr(oneyr_dates)
     firstyr = oneyr(dates)
@@ -606,16 +616,16 @@ def make_RVdatestr(dates, ex, startyr, endyr, lpyr=False):
     closest_enddate_idx = np.argmin(abs(firstyr - senddate_))
     senddate = firstyr[closest_enddate_idx]
     if senddate > senddate_ :
-        senddate = firstyr[closest_enddate_idx-1]    
+        senddate = firstyr[closest_enddate_idx-1]
 
     #update startdate of RV period to fit bins
     if ex['tfreq'] == 1:
         sstartdate = senddate - pd.Timedelta(int(ex['tfreq'] * daily_yr_fit), 'd') + \
                              np.timedelta64(1, 'D')
     else:
-        sstartdate = senddate - pd.Timedelta(int(ex['tfreq'] * daily_yr_fit), 'd') 
-                            
-            
+        sstartdate = senddate - pd.Timedelta(int(ex['tfreq'] * daily_yr_fit), 'd')
+
+
 
     start_yr = pd.DatetimeIndex(start=sstartdate, end=senddate,
                                 freq=(dates[1] - dates[0]))
@@ -666,7 +676,7 @@ def make_RVdatestr(dates, ex, startyr, endyr, lpyr=False):
 #    last_d  = senddate.dayofyear
 #    datesRV = pd.to_datetime([d for d in dates if d.dayofyear >= first_d and d.dayofyear <= last_d])
 #    return datesRV
-    
+
 
 
 
@@ -694,7 +704,7 @@ def import_array(cls, path='pp'):
     cls.dates = dates
     return marray, cls
 
-def import_ds_timemeanbins(file_path, ex, loadleap=False, to_xarr=True, 
+def import_ds_timemeanbins(file_path, ex, loadleap=False, to_xarr=True,
                            seldates=None):
 
 
@@ -982,7 +992,7 @@ def store_hdf_df(dict_of_dfs, file_path):
         hdf.close()
     return
 
-def rand_traintest_years(RV, ex):
+def rand_traintest_years(RV, ex, test_yrs=None):
     #%%
     '''
     possible ex['method'] are:
@@ -1016,6 +1026,9 @@ def rand_traintest_years(RV, ex):
         iterate = np.arange(0, ex['n_yrs']+1E-9,
                             int(ex['method'].split('_')[1]), dtype=int )
     elif ex['method'] == 'no_train_test_split': ex['n_spl'] = 1
+
+    if test_yrs is not None:
+        ex['method'] = 'copied_from_import_ts'
 
     full_time  = pd.to_datetime(RV.RVfullts.index)
     RV_time  = pd.to_datetime(RV_ts.index.values)
@@ -1075,6 +1088,14 @@ def rand_traintest_years(RV, ex):
                 print('No train test split'.format(size_train, size_test))
                 rand_test_years = []
 
+            elif ex['method'] == 'copied_from_import_ts':
+                size_train = len(ex['all_yrs'])
+                rand_test_years = test_yrs[s]
+                if s == 0:
+                    size_test  = len(rand_test_years)
+                ex['leave_n_years_out'] = len(test_yrs[s])
+
+
 
 
             # test duplicates
@@ -1100,10 +1121,11 @@ def rand_traintest_years(RV, ex):
                 Prec_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
                 RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
                 RV_test = RV_ts.iloc[RV_test_idx]
-                RV_bin = RV.RV_bin.iloc[RV_test_idx]
-                test_years = np.unique(RV_bin.index.year)
-                
+
+                test_years = np.unique(RV_test.index.year)
+
                 if ex['method'][:9] == 'ran_strat':
+                    RV_bin = RV.RV_bin.iloc[RV_test_idx]
                     # check if representative sample
                     a_conditions_failed, count, seed = check_test_split(RV, RV_bin, ex, a_conditions_failed,
                                                                         s, count, seed, ex['verbosity'])
@@ -1177,4 +1199,12 @@ def check_test_split(RV, RV_bin, ex, a_conditions_failed, s, count, seed, verbos
     return a_conditions_failed, count, seed
 
 
-
+def get_testyrs(df_splits):
+    #%%
+    traintest_yrs = []
+    splits = df_splits.index.levels[0]
+    for s in splits:
+        df_split = df_splits.loc[s]
+        test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
+        traintest_yrs.append(test_yrs)
+    return traintest_yrs

@@ -37,14 +37,26 @@ def calculate_corr_maps(ex, map_proj):
     #==================================================================================
 
     # Define traintest:
-    df_RVfullts = pd.DataFrame(RV.RVfullts.values, index=RV.dates)
-    df_RV_ts    = pd.DataFrame(RV.RV_ts.values, index=RV.dates_RV)
+    df_RVfullts = pd.DataFrame(RV.RVfullts.values, 
+                               index=pd.to_datetime(RV.RVfullts.time.values))
+    df_RV_ts    = pd.DataFrame(RV.RV_ts.values,
+                               index=pd.to_datetime(RV.RV_ts.time.values))
     if ex['method'][:9] == 'ran_strat':
         kwrgs_events = ex['kwrgs_events']
         RV = func_fc.RV_class(df_RVfullts, df_RV_ts, kwrgs_events)
     else:
         RV = func_fc.RV_class(df_RVfullts, df_RV_ts)
-    df_splits, ex = functions_pp.rand_traintest_years(RV, ex)
+    if ex['import_prec_ts']:
+        # Retrieve same train test split as imported ts
+        path_data = ''.join(ex['precursor_ts'][0][1])
+        df_splits = func_fc.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
+        test_yrs  = functions_pp.get_testyrs(df_splits)
+        df_splits, ex = functions_pp.rand_traintest_years(RV, ex, test_yrs)
+        assert (np.equal(test_yrs, ex['tested_yrs'])).all(), "Train test split not equal"
+    else:
+        df_splits, ex = functions_pp.rand_traintest_years(RV, ex)
+
+    
     # =============================================================================
     # 2) DEFINE PRECURSOS COMMUNITIES:
     # =============================================================================
@@ -249,7 +261,8 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
                 path_data = ''.join(list(path_data))
             # skip first col because it is the RV ts
             df_data_ext = func_fc.load_hdf5(path_data)['df_data'].iloc[:,1:].loc[s]
-            cols_ext = list(df_data_ext.columns[df_data_ext.dtypes == float])
+            cols_ts = np.logical_or(df_data_ext.dtypes == 'float64', df_data_ext.dtypes == 'float32')
+            cols_ext = list(df_data_ext.columns[cols_ts])
             # cols_ext must be of format '{}_{int}_{}'
             lab_int = 100
             for i, c in enumerate(cols_ext):
@@ -437,7 +450,11 @@ def standard_settings_and_tests(ex):
     print('Part of year predicted (RV period): {} '.format(RV.RV_name_range[:-1]))
     print('Temporal resolution: {} {}'.format(ex['tfreq'], ex['input_freq']))
     print('Lags: {}'.format(ex['lags']))
-    print('Traintest setting: {} seed {}'.format(method_str.split('_')[0], method_str.split('_s')[1]))
+    if ex['import_prec_ts']:
+        print('\nTraintest years adjusted to TrainTest split in the imported timeseries.')
+        print('Dataframe of imported ts, should have columns TrainIsTrue and RV_mask\n')
+    else:
+        print('\nTraintest setting: {} seed {}\n'.format(method_str.split('_')[0], method_str.split('_s')[1]))
     one_year_RV_data = RV.dates_RV.where(RV.dates_RV.year==RV.startyear).dropna(how='all').values
     print('For example\nPredictant (only one year) is:\n{} at \n{}\n'.format(ex['RV_name'],
           one_year_RV_data))

@@ -97,7 +97,8 @@ def compare_use_spatcov(path_data, causal=True):
 def normal_precursor_regions(path_data, keys_options=['all'], causal=True):
     #%%
     '''
-    keys_options=['all', 'only_db_regs', 'sp_and_regs', 'sst_sm_regs_v_sp']
+    keys_options=['all', 'only_db_regs', 'sp_and_regs', 'sst+sm+RWT',
+                  'sst(CPPA)+sm', 'sst(PEP)+sm', 'sst(PDO,ENSO)+sm']
     '''
     
     dict_of_dfs = func_fc.load_hdf5(path_data)
@@ -127,20 +128,24 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=True):
                 
             if option == 'all':
                 keys_ = [k for k in all_keys if k not in skip]
-
-                
-                
             elif option == 'only_db_regs':                
                 # Regions + all_spatcov(_caus)
                 keys_ = [k for k in all_keys if ('spatcov' not in k)]
                 keys_ = [k for k in keys_ if k not in skip]
             elif option == 'sp_and_regs': 
                 keys_ = [k for k in all_keys if k not in skip]
-            elif option == 'sst_sm_regs_v_sp': 
-
-                
+            elif option == 'sst+sm+RWT': 
                 keys_ = [k for k in all_keys if k[-7:] != 'v200hpa']
                 keys_ = [k for k in keys_ if k not in skip]
+            elif option == 'sst(CPPA)+sm': 
+                keys_ = [k for k in all_keys if 'v200hpa' not in k]
+                keys_ = [k for k in keys_ if k not in skip]
+            elif option == 'sst(PEP)+sm': 
+                keys_ = [k for k in all_keys if 'sm' in k or 'PEP' in k]
+                keys_ = [k for k in keys_ if k != 'sm123_spatcov']
+#            elif option == 'sst(PDO,ENSO)+sm':
+#                keys_ = [k for k in all_keys if 'sm' in k or 'PEP' in k]
+#                keys_ = [k for k in keys_ if k != 'sm123_spatcov']
                 
             keys_d_[s] = np.array(list(unique_everseen(keys_)))
             

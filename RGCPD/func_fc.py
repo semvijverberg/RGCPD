@@ -52,10 +52,7 @@ def forecast_and_valid(RV, df_data, kwrgs_exp, stat_model=tuple, lags_i=list,
             
             df_norm, keys = prepare_data(df_split, lag_i=int(lag), 
                                                                keys=keys,                                                    
-                                                               **kwrgs_pp)
-
-            
-            
+                                                               **kwrgs_pp) 
             # data used to train and predict
             df_norm = df_norm[df_norm['fit_model_mask']]
 
@@ -180,6 +177,7 @@ class RV_class:
                 self.RV_bin   = self.RV_b_full.loc[self.dates_RV] 
             
             self.freq      = get_freq_years(self)
+
         
 
 def load_hdf5(path_data):
