@@ -25,6 +25,8 @@ nice_colors = ['#EE6666', '#3388BB', '#9988DD',
                  '#EECC55', '#88BB44', '#FFBBBB']
 colors_nice = cycler('color',
                 nice_colors)
+colors_datasets = sns.color_palette('deep')
+
 plt.rc('axes', facecolor='#E6E6E6', edgecolor='none',
        axisbelow=True, grid=True, prop_cycle=colors_nice)
 plt.rc('grid', color='w', linestyle='solid')
@@ -423,7 +425,7 @@ def build_ts_matric(df_init, win=20, lag=0, columns=list, rename=dict, period='f
     #%%
     '''
     period = ['fullyear', 'summer60days', 'pre60days']
-    
+    '''
     splits = df_init.index.levels[0]
     dates_full_orig = df_init.loc[0].index
     dates_RV_orig   = df_init.loc[0].index[df_init.loc[0]['RV_mask']==True]
@@ -596,7 +598,7 @@ def plot_score_lags(df_metric, metric, color, lags_tf, clim=None,
     elif metric == 'AUC-PR':
         ax.set_yticks(np.arange(0.5,1+1E-9, 0.1), minor=True)
         y_b = clim
-        ax.hlines(y=y_b, xmin=min(x)-int(tfreq/2), xmax=max(x), linewidth=1) 
+        ax.hlines(y=y_b, xmin=min(x), xmax=max(x), linewidth=1) 
 
     if metric in ['AUC-ROC', 'AUC-PR', 'prec']:
         ax.text(max(x), y_b-0.05, 'Benchmark rand. pred.', 
@@ -738,17 +740,17 @@ def rel_curve(RV, y_pred_all, color, lags_tf, n_bins, mean_lags=True, ax=None):
             mean_fop[k] = np.mean(dic_fop[k])
             fop_std[k]  = np.std(dic_fop[k])
     
-    ax.plot(mean_mpv, mean_fop, label=f'fc lag {lag}') ; 
+    ax.plot(mean_mpv, mean_fop, color=color, label=f'fc lag {lag}') ; 
         
     ax.fill_between(mean_mpv, mean_fop+fop_std, 
                     mean_fop-fop_std, label=None,
-                    alpha=0.2) ; 
-    color = ax.lines[-1].get_c() # get color
+                    alpha=0.2, color=color) ; 
+    color_line = ax.lines[-1].get_c() # get color
     # determine size freq
     freq = np.histogram(y_pred_all[lag], bins=n_bins)[0]
     n_freq = freq / RV.RV_ts.size
     ax.scatter(mean_mpv, mean_fop, s=n_freq*2000, 
-               c=color, alpha=0.5)
+               c=color_line, alpha=0.5)
         
 
     #%%        
@@ -911,6 +913,7 @@ def valid_figures(dict_experiments, line_dim='models', group_line_by=None,
                 if line_dim == 'models':
                     model = line
                     exper = c_label
+                    color = nice_colors[l]
                     
                 elif line_dim == 'exper':
                     model = c_label
@@ -918,6 +921,7 @@ def valid_figures(dict_experiments, line_dim='models', group_line_by=None,
                     if len(models) == 1 and group_line_by is not None:
                         exper = line
                         model = models[0]
+                    color = colors_datasets[l]
                 
                     
                 
@@ -929,7 +933,7 @@ def valid_figures(dict_experiments, line_dim='models', group_line_by=None,
                     # the last day of the time mean bin is tfreq/2 later then the centerered day
                     lags_tf = [l_tf- int(tfreq/2) if l_tf!=0 else 0 for l_tf in lags_tf ]
                 
-                color = nice_colors[l]
+                
                 
                 if metric in ['AUC-ROC', 'AUC-PR', 'BSS', 'prec']: 
                     df_metric = df_valid.loc[metric]

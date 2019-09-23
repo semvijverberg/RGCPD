@@ -37,7 +37,7 @@ strat_1d_CPPA_era5 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_N
 strat_1d_CPPA_EC   = '/Users/semvijverberg/surfdrive/MckinRepl/EC_tas_tos_Northern/ran_strat10_s30/data/EC_16-09-19_19hr_lag_0.h5'
 CPPA_v_sm_20d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_v200hpa_sm123_m01-09_dt20/13jun-12aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-18.h5'
 CPPA_v_sm_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_v200hpa_sm123_m01-09_dt10/18jun-17aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-20.h5'
-n_boot = 1000
+n_boot = 2000
 
 
 
@@ -109,19 +109,18 @@ GBR_logitCV_tuned = ('GBR-logitCV',
            'max_features':'sqrt',
            'subsample' : 0.6} ) 
     
-stat_model_l = [GBR_logitCV]
-
 
 # format {'dataset' : (path_data, list(keys_options) ) }
 
 ERA_and_EC  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
                  'EC-earth 2.3':(strat_1d_CPPA_EC, ['PEP', 'CPPA'])}
+stat_model_l = [GBR_logitCV]
 
 
-ERA         = {'ERA-5:':(CPPA_v_sm_10d, ['sst(PEP)+sm', 'sst(CPPA)+sm'])}
+ERA         = {'ERA-5:':(CPPA_v_sm_10d, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
+stat_model_l = [logit, GBR_logitCV]
 
-
-datasets_path = ERA_and_EC
+datasets_path = ERA
 
 causal = False
 experiments = {} #; keys_d_sets = {}
@@ -131,22 +130,16 @@ for dataset, path_key in datasets_path.items():
     path_data = path_key[0]
     keys_options = path_key[1]
     
-    keys_d = exp_fc.CPPA_precursor_regions(path_data, 
-                                           keys_options=keys_options)
+#    keys_d = exp_fc.CPPA_precursor_regions(path_data, 
+#                                           keys_options=keys_options)
     
-#    keys_d = exp_fc.normal_precursor_regions(path_data, 
-#                                             keys_options=keys_options,
-#                                             causal=causal)
-#    
+    keys_d = exp_fc.normal_precursor_regions(path_data, 
+                                             keys_options=keys_options,
+                                             causal=causal)
+    
     
 
     for master_key, feature_keys in keys_d.items():
-#        if dataset == 'RV_dates':
-#            kwrgs_pp = {'EOF':False, 'expl_var':0.5,
-#                    'fit_model_dates' : None}
-#        elif dataset == 'ext_training':
-#            kwrgs_pp = {'EOF':False, 'expl_var':0.5,
-#                    'fit_model_dates' : ('03-01', '09-20')   }
         kwrgs_pp = {'EOF':False, 
                     'expl_var':0.5,
                     'fit_model_dates' : None}
@@ -155,7 +148,7 @@ for dataset, path_key in datasets_path.items():
                                            })
 
     
-kwrgs_events = {'event_percentile': 'std',
+kwrgs_events = {'event_percentile': 66,
                 'min_dur' : 1,
                 'max_break' : 0,
                 'grouped' : False}
@@ -181,7 +174,7 @@ for dataset, tuple_sett in experiments.items():
         # if keys not defined, getting causal keys
         kwrgs_exp['keys'] = exp_fc.normal_precursor_regions(path_data, causal=True)['normal_precursor_regions']
 
-        
+    print(kwrgs_events)
     dict_sum = forecast_wrapper(path_data, kwrgs_exp=kwrgs_exp, kwrgs_events=kwrgs_events, 
                             stat_model_l=stat_model_l, 
                             lags_i=lags_i, n_boot=n_boot)
@@ -229,14 +222,32 @@ f_name = f'{RV_name}_{tfreq}d_{today}'
 
 
 #%%
+
+#rename_ERA =    {'ERA-5: sst(PEP)+sm':'PEP+sm', 
+#             'ERA-5: sst(PDO,ENSO)+sm':'PDO+ENSO+sm', 
+#             'ERA-5: sst(CPPA)+sm':'CPPA+sm'}
+#
+#for old, new in rename_ERA.items():
+#    if new not in dict_experiments.keys():
+#        dict_experiments[new] = dict_experiments.pop(old)
+
+rename_EC = {'ERA-5 PEP':'PEP', 
+             'ERA-5 CPPA':'CPPA', 
+             'EC-earth 2.3 PEP':'PEP ', 
+             'EC-earth 2.3 CPPA':'CPPA '}
+
+for old, new in rename_EC.items():
+    if new not in dict_experiments.keys():
+        dict_experiments[new] = dict_experiments.pop(old)
+    
 f_format = '.pdf' 
 filename = os.path.join(working_folder, f_name)
 
 
 #group_line_by = ['20-d', '10-d']
-#group_line_by_ERA_EC = ['ERA-5', 'EC']
+group_line_by_ERA_EC = ['ERA-5', 'EC']
 group_line_by = None
-#group_line_by = group_line_by_ERA_EC
+group_line_by = group_line_by_ERA_EC
 kwrgs = {'wspace':0.08}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 fig = valid.valid_figures(dict_experiments, line_dim='exper', 
@@ -257,26 +268,26 @@ np.save(filename + '.npy', dict_experiments)
 # =============================================================================
 # Cross-correlation matrix
 # =============================================================================
-f_format = '.png' 
-strat_1d_CPPA_EC   = '/Users/semvijverberg/surfdrive/MckinRepl/EC_tas_tos_Northern/ran_strat10_s30/data/EC_16-09-19_19hr_lag_0.h5'
-strat_1d_CPPA_era5 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_19-09-19_12hr_lag_0.h5'
-path_data = strat_1d_CPPA_era5
-win = 1
-
-period = ['fullyear', 'summer60days', 'pre60days'][1]
-df_data = func_fc.load_hdf5(path_data)['df_data']
-df_data['0_104_PDO'] = df_data['0_104_PDO'] * -1
-f_name = f'Cross_corr of strat_1d_CPPA_era5_win{win}_{period}'
-columns = ['t2mmax', '0_100_CPPAspatcov', '0_101_PEPspatcov', '0_104_PDO', '0_103_ENSO34']
-rename = {'t2mmax':'T95', 
-          '0_100_CPPAspatcov':'CPPA', 
-          '0_101_PEPspatcov':'PEP',
-          '0_104_PDO' : 'PDO',
-          '0_103_ENSO34': 'ENSO34'}
-valid.build_ts_matric(df_data, win=win, lag=0, columns=columns, rename=rename, period=period)
-if f_format == '.png':
-    plt.savefig(os.path.join(working_folder, f_name + f_format), 
-                bbox_inches='tight') # dpi auto 600
-elif f_format == '.pdf':
-    plt.savefig(os.path.join(pdfs_folder,f_name+ f_format), 
-                bbox_inches='tight')
+#f_format = '.png' 
+#strat_1d_CPPA_EC   = '/Users/semvijverberg/surfdrive/MckinRepl/EC_tas_tos_Northern/ran_strat10_s30/data/EC_16-09-19_19hr_lag_0.h5'
+#strat_1d_CPPA_era5 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_19-09-19_12hr_lag_0.h5'
+#path_data = strat_1d_CPPA_era5
+#win = 273
+#
+#period = ['fullyear', 'summer60days', 'pre60days'][0]
+#df_data = func_fc.load_hdf5(path_data)['df_data']
+#df_data['0_104_PDO'] = df_data['0_104_PDO'] * -1
+#f_name = f'Cross_corr of strat_1d_CPPA_era5_win{win}_{period}'
+#columns = ['t2mmax', '0_100_CPPAspatcov', '0_101_PEPspatcov', '0_104_PDO', '0_103_ENSO34']
+#rename = {'t2mmax':'T95', 
+#          '0_100_CPPAspatcov':'CPPA', 
+#          '0_101_PEPspatcov':'PEP',
+#          '0_104_PDO' : 'PDO',
+#          '0_103_ENSO34': 'ENSO34'}
+#valid.build_ts_matric(df_data, win=win, lag=0, columns=columns, rename=rename, period=period)
+#if f_format == '.png':
+#    plt.savefig(os.path.join(working_folder, f_name + f_format), 
+#                bbox_inches='tight') # dpi auto 600
+#elif f_format == '.pdf':
+#    plt.savefig(os.path.join(pdfs_folder,f_name+ f_format), 
+#                bbox_inches='tight')

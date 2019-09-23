@@ -36,7 +36,8 @@ def extend_longitude(data):
     
 def plot_corr_maps(corr_xr, mask_xr, map_proj, row_dim='split',
                    col_dim='lag', clim='relaxed', hspace=-0.6, 
-                   size=2.5, cbar_vert=0, units='units'):
+                   size=2.5, cbar_vert=0, units='units',
+                   drawbox=None, subtitles=None, lat_labels=True):
     #%%
     import matplotlib.colors as colors
 
@@ -147,8 +148,32 @@ def plot_corr_maps(corr_xr, mask_xr, map_proj, row_dim='split',
             g.axes[row,col].set_extent([lon[0], lon[-1], 
                                        lat[0], lat[-1]], ccrs.PlateCarree())
 
-
-
+            # =============================================================================
+            # Draw (rectangular) box            
+            # =============================================================================
+            if drawbox is not None:
+                from shapely.geometry.polygon import LinearRing
+                def get_ring(coords):
+                    '''tuple in format: west_lon, east_lon, south_lat, north_lat '''
+                    west_lon, east_lon, south_lat, north_lat = coords
+                    lons_sq = [west_lon, west_lon, east_lon, east_lon]
+                    lats_sq = [north_lat, south_lat, south_lat, north_lat]
+                    ring = LinearRing(list(zip(lons_sq , lats_sq )))
+                    return ring
+                ring = get_ring(drawbox[1])
+#            lons_sq = [-215, -215, -130, -130] #[-215, -215, -125, -125] #[-215, -215, -130, -130] 
+#            lats_sq = [50, 20, 20, 50]
+                if drawbox[0] == g.axes.size or drawbox[0] == 'all':
+                    g.axes[row,col].add_geometries([ring], ccrs.PlateCarree(), facecolor='none', edgecolor='green',
+                                  linewidth=2, linestyle='dashed')
+            
+            # =============================================================================
+            # Subtitles            
+            # =============================================================================
+            if subtitles is not None:
+                fontdict = dict({'fontsize'     : 18,
+                             'fontweight'   : 'bold'})
+                g.axes[row,col].set_title(subtitles[row,col], fontdict=fontdict, loc='center')
             # =============================================================================
             # set coordinate ticks
             # =============================================================================          
@@ -161,11 +186,14 @@ def plot_corr_maps(corr_xr, mask_xr, map_proj, row_dim='split',
                 lon_formatter = cticker.LongitudeFormatter()
                 ax.xaxis.set_major_formatter(lon_formatter)
                 
-                
                 g.axes[row,col].set_yticks(latitude_labels, crs=ccrs.PlateCarree())
-                g.axes[row,col].set_yticklabels(latitude_labels, fontsize=12)
-                lat_formatter = cticker.LatitudeFormatter()
-                g.axes[row,col].yaxis.set_major_formatter(lat_formatter)
+                if lat_labels == True:
+                    g.axes[row,col].set_yticklabels(latitude_labels, fontsize=12)
+                    lat_formatter = cticker.LatitudeFormatter()
+                    g.axes[row,col].yaxis.set_major_formatter(lat_formatter)
+                else:
+                    fake_labels = [' ' * len( str(l) ) for l in latitude_labels]
+                    g.axes[row,col].set_yticklabels(fake_labels, fontsize=12)
                 g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3, linestyle='--')
                 g.axes[row,col].set_ylabel('')
                 g.axes[row,col].set_xlabel('')

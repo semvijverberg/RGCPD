@@ -143,9 +143,9 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=True):
             elif option == 'sst(PEP)+sm': 
                 keys_ = [k for k in all_keys if 'sm' in k or 'PEP' in k]
                 keys_ = [k for k in keys_ if k != 'sm123_spatcov']
-#            elif option == 'sst(PDO,ENSO)+sm':
-#                keys_ = [k for k in all_keys if 'sm' in k or 'PEP' in k]
-#                keys_ = [k for k in keys_ if k != 'sm123_spatcov']
+            elif option == 'sst(PDO,ENSO)+sm':
+                keys_ = [k for k in all_keys if 'sm' in k or 'PDO' in k or 'ENSO' in k]
+                keys_ = [k for k in keys_ if 'spatcov' not in k]
                 
             keys_d_[s] = np.array(list(unique_everseen(keys_)))
             
@@ -167,14 +167,16 @@ def CPPA_precursor_regions(path_data, keys_options=['CPPA']):
         keys_d_ = {}
         for s in splits:
             if option == 'CPPA':
-                not_robust = ['0_101_PEPspatcov', 'PDO', 'ENSO_34']
+                not_robust = ['0_101_PEPspatcov', '0_104_PDO', '0_103_ENSO34',
+                              'ENSO_34', 'PDO']
                 all_keys = df_data.loc[s].columns[1:]
                 all_keys = [k for k in all_keys if k not in skip]
                 all_keys = [k for k in all_keys if k not in not_robust]
                 keys_ = all_keys
                 
             elif option == 'robust':
-                not_robust = ['0_101_PEPspatcov', 'PDO', 'ENSO_34']
+                not_robust = ['0_101_PEPspatcov', 'PDO', 'ENSO_34',
+                              'ENSO_34', 'PDO']
                 all_keys = df_data.loc[s].columns[1:]
                 all_keys = [k for k in all_keys if k not in skip]
                 all_keys = [k for k in all_keys if k not in not_robust]
