@@ -34,13 +34,15 @@ def extend_longitude(data):
     plottable = plottable.to_array(dim='ds').squeeze(dim='ds').drop('ds')
     return plottable
     
-def plot_corr_maps(corr_xr, mask_xr, map_proj, row_dim='split',
+def plot_corr_maps(corr_xr, mask_xr, map_proj=None, row_dim='split',
                    col_dim='lag', clim='relaxed', hspace=-0.6, 
                    size=2.5, cbar_vert=0, units='units',
                    drawbox=None, subtitles=None, lat_labels=True):
     #%%
     import matplotlib.colors as colors
-
+    if map_proj is None:
+        map_proj = ccrs.LambertCylindrical(central_longitude=0)
+    
     if row_dim not in corr_xr.dims:
         corr_xr = corr_xr.expand_dims(row_dim, 0) 
         mask_xr = mask_xr.expand_dims(row_dim, 0) 
@@ -69,7 +71,7 @@ def plot_corr_maps(corr_xr, mask_xr, map_proj, row_dim='split',
     g = xr.plot.FacetGrid(plot_xr, col='col', row='row', subplot_kws={'projection': map_proj},
                       sharex=True, sharey=True,
                       aspect= (lon.size) / lat.size, size=size)
-    figwidth = g.fig.get_figwidth() ; figheight = g.fig.get_figheight()
+    figheight = g.fig.get_figheight()
     
     # =============================================================================
     # Coordinate labels

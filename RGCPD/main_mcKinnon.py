@@ -88,7 +88,7 @@ elif ex['dataset'] == 'era5':
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = True
+ECMWFdownload = False
 # Option 2:
 import_precursor_ncdf = True
 # Option 3:
@@ -170,7 +170,7 @@ if ex['import_prec_ts'] == True:
     ex['precursor_ts'] = [['name1', 'filename1'],['name2','filename2']]
     ex['precursor_ts'] = [
                             ['sst_CPPA', ('/Users/semvijverberg/surfdrive/MckinRepl/',
-                              'era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_19-09-19_12hr_lag_0.h5')]
+                              'era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5')]
                             ]
 
     

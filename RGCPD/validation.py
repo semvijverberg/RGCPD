@@ -404,6 +404,47 @@ def get_KSS_clim(y_true, y_pred, threshold_clim_events):
     return KSS_score 
 
 
+def plot_oneyr_events(df, event_percentile, test_year):
+    #%%
+    fig = plt.figure(figsize=(15, 5))
+    ax = fig.add_subplot(111)
+    
+    linestyles = ['solid', 'dashed', 'stippled']
+    
+    for i, col in enumerate(df.columns):
+        if event_percentile == 'std':
+            # binary time serie when T95 exceeds 1 std
+            threshold = df[col].mean() + df[col].std()
+        else:
+            percentile = event_percentile
+            threshold = np.percentile(df[col], percentile)
+    
+        testyear = df[df.index.year == test_year]
+        freq = pd.Timedelta(testyear.index.values[1] - testyear.index.values[0])
+        plotpaper = df.loc[pd.date_range(start=testyear.index.values[0],
+                                                    end=testyear.index.values[-1],
+                                                    freq=freq )]
+
+    
+        color = nice_colors[i]
+        ax.plot_date(plotpaper.index, plotpaper[col].values, color=color, 
+                     linewidth=3, linestyle=linestyles[i], label=col, alpha=0.8)
+        ax.axhline(y=threshold, color=color, linewidth=2 )
+        if i == 0:
+            label = 'Events'
+        else:
+            label = None
+        ax.fill_between(plotpaper.index, threshold, plotpaper[col].values.squeeze(), 
+                         where=(plotpaper[col].values.squeeze() > threshold),
+                     interpolate=True, color="crimson", label=label)
+        ax.legend(fontsize='x-large', fancybox=True, facecolor='grey',
+                  frameon=True, framealpha=0.3)
+        ax.set_title('Timeseries and Events', fontsize=18)
+        ax.set_ylabel('Temperature anomalies [K]', fontsize=15)
+        ax.set_xlabel('')
+    #%%
+    return
+
 def corr_matrix_pval(df, alpha=0.05):
     from scipy import stats
     if type(df) == type(pd.DataFrame()):

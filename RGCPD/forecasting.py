@@ -33,10 +33,11 @@ import exp_fc
 #path_data_3d_sp = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-30.h5'
 #strat_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
 #strat_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
-strat_1d_CPPA_era5 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_19-09-19_12hr_lag_0.h5'
+strat_1d_CPPA_era5 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5'
 strat_1d_CPPA_EC   = '/Users/semvijverberg/surfdrive/MckinRepl/EC_tas_tos_Northern/ran_strat10_s30/data/EC_16-09-19_19hr_lag_0.h5'
 CPPA_v_sm_20d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_v200hpa_sm123_m01-09_dt20/13jun-12aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-18.h5'
 CPPA_v_sm_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_v200hpa_sm123_m01-09_dt10/18jun-17aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-20.h5'
+CPPA_sm_10d   = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sm123_m01-09_dt10/18jun-17aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-24.h5'
 n_boot = 2000
 
 
@@ -117,10 +118,14 @@ ERA_and_EC  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
 stat_model_l = [GBR_logitCV]
 
 
-ERA         = {'ERA-5:':(CPPA_v_sm_10d, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
+ERA         = {'ERA-5:':(CPPA_sm_10d, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
+ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
 stat_model_l = [logit, GBR_logitCV]
 
-datasets_path = ERA
+ERA_sp      = {'ERA-5:':(CPPA_sm_10d, ['CPPAregs+sm', 'CPPApattern+sm', 'sst(CPPA)+sm'])}
+stat_model_l = [logit, GBR_logitCV]
+
+datasets_path = ERA_Bram
 
 causal = False
 experiments = {} #; keys_d_sets = {}
@@ -231,15 +236,23 @@ f_name = f'{RV_name}_{tfreq}d_{today}'
 #    if new not in dict_experiments.keys():
 #        dict_experiments[new] = dict_experiments.pop(old)
 
-rename_EC = {'ERA-5 PEP':'PEP', 
-             'ERA-5 CPPA':'CPPA', 
-             'EC-earth 2.3 PEP':'PEP ', 
-             'EC-earth 2.3 CPPA':'CPPA '}
+#rename_EC = {'ERA-5 PEP':'PEP', 
+#             'ERA-5 CPPA':'CPPA', 
+#             'EC-earth 2.3 PEP':'PEP ', 
+#             'EC-earth 2.3 CPPA':'CPPA '}
+#
+#for old, new in rename_EC.items():
+#    if new not in dict_experiments.keys():
+#        dict_experiments[new] = dict_experiments.pop(old)
 
-for old, new in rename_EC.items():
-    if new not in dict_experiments.keys():
-        dict_experiments[new] = dict_experiments.pop(old)
-    
+#rename_CPPA_comp =    {'ERA-5: CPPAregs+sm' : 'precursor regions + sm', 
+#                       'ERA-5: CPPApattern+sm': 'precursor pattern + sm', 
+#                       'ERA-5: sst(CPPA)+sm' : 'CPPA (all) + sm'}
+#
+#for old, new in rename_CPPA_comp.items():
+#    if new not in dict_experiments.keys():
+#        dict_experiments[new] = dict_experiments.pop(old)
+
 f_format = '.pdf' 
 filename = os.path.join(working_folder, f_name)
 
@@ -247,10 +260,10 @@ filename = os.path.join(working_folder, f_name)
 #group_line_by = ['20-d', '10-d']
 group_line_by_ERA_EC = ['ERA-5', 'EC']
 group_line_by = None
-group_line_by = group_line_by_ERA_EC
+#group_line_by = group_line_by_ERA_EC
 kwrgs = {'wspace':0.08}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
-fig = valid.valid_figures(dict_experiments, line_dim='exper', 
+fig = valid.valid_figures(dict_experiments, line_dim='models', 
                           group_line_by=group_line_by, 
                           met=met, **kwrgs)
 if f_format == '.png':
@@ -268,22 +281,21 @@ np.save(filename + '.npy', dict_experiments)
 # =============================================================================
 # Cross-correlation matrix
 # =============================================================================
-#f_format = '.png' 
-#strat_1d_CPPA_EC   = '/Users/semvijverberg/surfdrive/MckinRepl/EC_tas_tos_Northern/ran_strat10_s30/data/EC_16-09-19_19hr_lag_0.h5'
-#strat_1d_CPPA_era5 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_19-09-19_12hr_lag_0.h5'
-#path_data = strat_1d_CPPA_era5
-#win = 273
+#f_format = '.pdf' 
 #
-#period = ['fullyear', 'summer60days', 'pre60days'][0]
+#path_data = strat_1d_CPPA_era5
+#win = 1
+#
+#period = ['fullyear', 'summer60days', 'pre60days'][1]
 #df_data = func_fc.load_hdf5(path_data)['df_data']
-#df_data['0_104_PDO'] = df_data['0_104_PDO'] * -1
-#f_name = f'Cross_corr of strat_1d_CPPA_era5_win{win}_{period}'
-#columns = ['t2mmax', '0_100_CPPAspatcov', '0_101_PEPspatcov', '0_104_PDO', '0_103_ENSO34']
+##df_data['0_104_PDO'] = df_data['0_104_PDO'] * -1
+#f_name = f'Cross_corr_strat_1d_CPPA_era5_win{win}_{period}'
+#columns = ['t2mmax', '0_100_CPPAspatcov', '0_101_PEPspatcov', '0_901_PDO', '0_900_ENSO34']
 #rename = {'t2mmax':'T95', 
 #          '0_100_CPPAspatcov':'CPPA', 
 #          '0_101_PEPspatcov':'PEP',
-#          '0_104_PDO' : 'PDO',
-#          '0_103_ENSO34': 'ENSO34'}
+#          '0_901_PDO' : 'PDO',
+#          '0_900_ENSO34': 'ENSO'}
 #valid.build_ts_matric(df_data, win=win, lag=0, columns=columns, rename=rename, period=period)
 #if f_format == '.png':
 #    plt.savefig(os.path.join(working_folder, f_name + f_format), 

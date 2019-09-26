@@ -138,8 +138,21 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=True):
                 keys_ = [k for k in all_keys if k[-7:] != 'v200hpa']
                 keys_ = [k for k in keys_ if k not in skip]
             elif option == 'sst(CPPA)+sm': 
+                skip_ex = ['0_900_ENSO34', '0_901_PDO']
                 keys_ = [k for k in all_keys if 'v200hpa' not in k]
                 keys_ = [k for k in keys_ if k not in skip]
+                keys_ = [k for k in keys_ if k not in skip_ex]
+            elif option == 'CPPAregs+sm': 
+                skip_ex = ['0_900_ENSO34', '0_901_PDO']
+                keys_ = [k for k in all_keys if 'v200hpa' not in k]
+                keys_ = [k for k in keys_ if k not in skip]
+                keys_ = [k for k in keys_ if ('spatcov' not in k)]
+                keys_ = [k for k in keys_ if k not in skip_ex]
+            elif option == 'CPPApattern+sm': 
+                skip_ex = ['0_900_ENSO34', '0_901_PDO']
+                keys_ = [k for k in all_keys if 'v200hpa' not in k]
+                keys_ = [k for k in keys_ if k not in skip]
+                keys_ = [k for k in keys_ if ('spatcov' in k or 'sm' in k)]              
             elif option == 'sst(PEP)+sm': 
                 keys_ = [k for k in all_keys if 'sm' in k or 'PEP' in k]
                 keys_ = [k for k in keys_ if k != 'sm123_spatcov']
