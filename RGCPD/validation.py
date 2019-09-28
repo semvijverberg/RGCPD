@@ -892,7 +892,7 @@ def plot_freq_per_yr(RV):
     #%%
 
     
-def valid_figures(dict_experiments, line_dim='models', group_line_by=None, 
+def valid_figures(dict_experiments, expers, models, line_dim='models', group_line_by=None, 
                   met='default', wspace=0.08):
     #%%
     '''
@@ -900,8 +900,6 @@ def valid_figures(dict_experiments, line_dim='models', group_line_by=None,
     2 can be assigned to row or col, the third will be lines in the same axes.
     '''
     
-    expers = list(dict_experiments.keys())
-    models   = list(dict_experiments[expers[0]].keys())
     dims = ['exper', 'models', 'met']
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
     if met == 'default':

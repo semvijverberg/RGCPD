@@ -179,15 +179,8 @@ def CPPA_precursor_regions(path_data, keys_options=['CPPA']):
     for option in keys_options:
         keys_d_ = {}
         for s in splits:
-            if option == 'CPPA':
-                not_robust = ['0_101_PEPspatcov', '0_104_PDO', '0_103_ENSO34',
-                              'ENSO_34', 'PDO']
-                all_keys = df_data.loc[s].columns[1:]
-                all_keys = [k for k in all_keys if k not in skip]
-                all_keys = [k for k in all_keys if k not in not_robust]
-                keys_ = all_keys
-                
-            elif option == 'robust':
+               
+            if option == 'robust':
                 not_robust = ['0_101_PEPspatcov', 'PDO', 'ENSO_34',
                               'ENSO_34', 'PDO']
                 all_keys = df_data.loc[s].columns[1:]
@@ -199,6 +192,14 @@ def CPPA_precursor_regions(path_data, keys_options=['CPPA']):
                 other    = [k for k in all_keys if len(k.split('_')) != 3]
                 keys_ = [k for k in sst_regs if k.split('_')[1] in robust ] 
                 [keys_.append(k) for k in other]
+
+            elif option == 'CPPA':
+                not_robust = ['0_101_PEPspatcov', '0_104_PDO', '0_103_ENSO34',
+                              'ENSO_34', 'PDO', '0_900_ENSO34', '0_901_PDO']
+                all_keys = df_data.loc[s].columns[1:]
+                all_keys = [k for k in all_keys if k not in skip]
+                all_keys = [k for k in all_keys if k not in not_robust]
+                keys_ = all_keys
                 
             elif option == 'PEP':
                 all_keys = df_data.loc[s].columns[1:]

@@ -176,7 +176,7 @@ class RV_class:
                                grouped=kwrgs_events['grouped'])[0]
                 self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
 
-            self.freq      = get_freq_years(self)
+            self.freq      = get_freq_years(self.RV_bin)
 
 
 
@@ -327,12 +327,12 @@ def transform_EOF(df_prec, TrainIsTrue, RV_mask, expl_var=0.8):
     return df_eof
 
 
-def get_freq_years(RV):
-    all_years = np.unique(RV.RV_bin.index.year)
-    binary = RV.RV_bin.values
+def get_freq_years(RV_bin):
+    all_years = np.unique(RV_bin.index.year)
+    binary = RV_bin.values
     freq = []
     for y in all_years:
-        n_ev = int(binary[RV.RV_bin.index.year==y].sum())
+        n_ev = int(binary[RV_bin.index.year==y].sum())
         freq.append(n_ev)
     return pd.Series(freq, index=all_years)
 

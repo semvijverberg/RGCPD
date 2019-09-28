@@ -89,36 +89,23 @@ def calculate_corr_maps(ex, map_proj):
         corr_xr = rgcpd.calc_corr_coeffs_new(precur_arr, RV, ex)
 
         # =============================================================================
-        # Convert regions in time series
+        # Cluster into precursor regions
         # =============================================================================
         actor = act(var, corr_xr, precur_arr)
         actor, ex = rgcpd.cluster_DBSCAN_regions(actor, ex)
         if np.isnan(actor.prec_labels.values).all() == False:
             rgcpd.plot_regs_xarray(actor.prec_labels.copy(), ex)
-
-        # Order of regions: strongest to lowest correlation strength
         outdic_actors[var] = actor
         # =============================================================================
         # Plot
         # =============================================================================
         if ex['plotin1fig'] == False:
-#            xrdata, xrmask = xrcorr_vars([var], outdic_actors, ex)
             plot_maps.plot_corr_maps(corr_xr, corr_xr['mask'], map_proj)
-
             fig_filename = '{}_corr_{}_vs_{}'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']
-            plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight')
+            plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=200)
             if ex['showplot'] == False:
                 plt.close()
 
-
-#    if ex['plotin1fig'] == True and ex['showplot'] == True:
-#        variables = list(outdic_actors.keys())
-##        xrdata, xrmask = xrcorr_vars(variables, outdic_actors, ex)
-#        plot_corr_maps(xrdata, xrmask, map_proj)
-#        fig_filename = '{}_corr_all'.format(ex['params'], allvar[0], var) + ex['file_type2']
-#        plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=ex['png_dpi'])
-#        if ex['showplot'] == False:
-#            plt.close()
 #%%
     return ex, outdic_actors
 
@@ -415,7 +402,7 @@ def standard_settings_and_tests(ex):
     mpl.rcParams['savefig.dpi'] = 600
     ex['SaveTF'] = True # if false, output will be printed in console
     ex['plotin1fig'] = False
-    ex['showplot'] = True
+    ex['showplot'] = False
     # output paths
     method_str = '_'.join([ex['method'], 's'+ str(ex['seed'])])
     ex['subfolder_exp'] = ex['path_exp_periodmask'] +'_'+ method_str

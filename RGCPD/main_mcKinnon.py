@@ -55,7 +55,7 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 #
 ex = dict(
      {'dataset'     :       dataset,
-     'grid_res'     :       2.5,
+     'grid_res'     :       1.0,
      'startyear'    :       1979, # download startyear
      'endyear'      :       2018, # download endyear
      'input_freq'   :       'daily',
@@ -64,10 +64,11 @@ ex = dict(
      # if dealing with monthly data, the day of month is neglected 
      'startperiod'  :       '06-22', # RV period
      'endperiod'    :       '08-24', # RV period
-     'sstartdate'   :       '01-01', # precursor period
-     'senddate'     :       '09-30', # precursor period
-     'selbox'       :       {'la_min':20, # select domain in degrees east
-                             'la_max':60,
+     'sstartdate'   :       '01-01', # data period
+     'senddate'     :       '09-30', # data period, determines bins time aggr.
+     'tfreqlist'    :       [10],
+     'selbox'       :       {'la_min':-10, # select domain in degrees east
+                             'la_max':80,
                              'lo_min':-180,
                              'lo_max':360}, 
      'anomaly'      :       True, # use absolute or anomalies?
@@ -88,9 +89,9 @@ elif ex['dataset'] == 'era5':
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = False
+ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf = True
+import_precursor_ncdf = False
 # Option 3:
 import_RV_ncdf = False
 # Option 4:
@@ -117,13 +118,13 @@ if ECMWFdownload == True:
 #    ex['vars']      =       [ ['z_500hpa', 'sst', 't_850hpa'],['129.128', '34.128', '130.128'],
 #                              ['pl', 'sfc', 'pl'],[['500'], '0', ['850']] ]
 #    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
-#    ex['vars']      =       [['sst'],
-#                               ['sea_surface_temperature'],
-#                               ['sfc'], [0]]
+    ex['vars']      =       [['sst'],
+                               ['sea_surface_temperature'],
+                               ['sfc'], [0]]
 #    ex['vars']      =       [['sst', 'u500hpa'],
 #                               ['sea_surface_temperature', 'u_component_of_wind'],
 #                               ['sfc', 'pl'], [0,500]]
-    ex['vars']      =       [['v200hpa'], ['v_component_of_wind'],['pl'], ['500']]
+#    ex['vars']      =       [['v200hpa'], ['v_component_of_wind'],['pl'], ['500']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
 #                            ['167.128', '34.128', '131.128', '130.128'],
 #                            ['sfc', 'sfc', 'pl', 'pl'],[0, 0, '500', '100']]
@@ -262,8 +263,6 @@ elif importRV_1dts == False:
 # General Temporal Settings: frequency, lags, part of year investigated
 # ===================================lag_steps==========================================
 # Information needed to pre-process,
-# Select temporal frequency:
-ex['tfreqlist'] = [10] #[2,4,7,14,21,35] #[1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
@@ -318,10 +317,10 @@ for freq in ex['tfreqlist']:
     # *****************************************************************************
     ex['tigr_tau_max'] = 5
     ex['max_comb_actors'] = 10
-    ex['alpha'] = 0.05# set significnace level for correlation maps
+    ex['alpha'] = 0.01 # set significnace level for correlation maps
     ex['alpha_fdr'] = 2*ex['alpha'] # conservative significance level
     ex['FDR_control'] = True # Do you want to use the conservative alpha_fdr or normal alpha?
-    ex['alpha_level_tig'] = 0.05 # Alpha level for final regression analysis by Tigrimate
+    ex['alpha_level_tig'] = 0.01 # Alpha level for final regression analysis by Tigrimate
     ex['pcA_sets'] = dict({   # dict of sets of pc_alpha values
           'pcA_set1a' : [ 0.05], # 0.05 0.01
           'pcA_set1b' : [ 0.01], # 0.05 0.01
@@ -397,7 +396,7 @@ for freq in ex['tfreqlist']:
         
         wrapper_RGCPD_tig.store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=True)
         
-        plot_maps.plotting_per_variable(dict_ds, df_sum, map_proj, ex)
+        plot_maps.plot_labels_vars_splits(dict_ds, df_sum, map_proj, ex)
         
 
         print("--- {:.0} minutes ---".format((time.time() - start_time)/60))

@@ -468,7 +468,10 @@ def time_mean_bins(xr_or_df, ex, to_freq=int, seldays='all', verb=0):
 
 def timeseries_tofit_bins(xr_or_dt, ex, to_freq, seldays='part', verb=1):
     #%%
-
+    '''
+    if to_freq is an even number, the centered date will be 
+    1 day to the right of the window. 
+    '''
     if type(xr_or_dt) == type(xr.DataArray([0])):
         datetime = pd.to_datetime(xr_or_dt['time'].values)
     else:
@@ -554,18 +557,6 @@ def timeseries_tofit_bins(xr_or_dt, ex, to_freq, seldays='part', verb=1):
         start_yr = pd.to_datetime(start_yr)
 
 
-    def make_dates(datetime, start_yr, endyear):
-        breakyr = endyear
-        nyears = (datetime.year[-1] - datetime.year[0])+1
-        next_yr = start_yr
-        for yr in range(0,nyears-1):
-            next_yr = pd.to_datetime([date + date_dt(years=1) for date in next_yr])
-            start_yr = start_yr.append(next_yr)
-            if next_yr[-1].year == breakyr:
-                break
-        return start_yr
-
-
     ex['n_oneyr'] = start_yr.size
     end_year = ex['endyear']
     datesdt = make_dates(datetime, start_yr, end_year)
@@ -590,6 +581,24 @@ def timeseries_tofit_bins(xr_or_dt, ex, to_freq, seldays='part', verb=1):
         out = (datesdt)
     #%%
     return out
+
+
+def make_dates(datetime, start_yr, endyear):
+    '''
+    Extend same date period to other years
+    datetime is full datetime
+    start_yr are date period to 'copy'
+    '''
+    breakyr = endyear
+    nyears = (datetime.year[-1] - datetime.year[0])+1
+    next_yr = start_yr
+    for yr in range(0,nyears-1):
+        next_yr = pd.to_datetime([date + date_dt(years=1) for date in next_yr])
+        start_yr = start_yr.append(next_yr)
+        if next_yr[-1].year == breakyr:
+            break
+    return start_yr
+
 
 
 def make_RVdatestr(dates, ex, startyr, endyr, lpyr=False):

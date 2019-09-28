@@ -117,15 +117,15 @@ ERA_and_EC  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
                  'EC-earth 2.3':(strat_1d_CPPA_EC, ['PEP', 'CPPA'])}
 stat_model_l = [GBR_logitCV]
 
+#
+#ERA         = {'ERA-5:':(CPPA_sm_10d, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
+#ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
+#stat_model_l = [logit, GBR_logitCV]
+#
+#ERA_sp      = {'ERA-5:':(CPPA_sm_10d, ['CPPAregs+sm', 'CPPApattern+sm', 'sst(CPPA)+sm'])}
+#stat_model_l = [logit, GBR_logitCV]
 
-ERA         = {'ERA-5:':(CPPA_sm_10d, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
-ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
-stat_model_l = [logit, GBR_logitCV]
-
-ERA_sp      = {'ERA-5:':(CPPA_sm_10d, ['CPPAregs+sm', 'CPPApattern+sm', 'sst(CPPA)+sm'])}
-stat_model_l = [logit, GBR_logitCV]
-
-datasets_path = ERA_Bram
+datasets_path = ERA_and_EC
 
 causal = False
 experiments = {} #; keys_d_sets = {}
@@ -135,12 +135,12 @@ for dataset, path_key in datasets_path.items():
     path_data = path_key[0]
     keys_options = path_key[1]
     
-#    keys_d = exp_fc.CPPA_precursor_regions(path_data, 
-#                                           keys_options=keys_options)
+    keys_d = exp_fc.CPPA_precursor_regions(path_data, 
+                                           keys_options=keys_options)
     
-    keys_d = exp_fc.normal_precursor_regions(path_data, 
-                                             keys_options=keys_options,
-                                             causal=causal)
+#    keys_d = exp_fc.normal_precursor_regions(path_data, 
+#                                             keys_options=keys_options,
+#                                             causal=causal)
     
     
 
@@ -153,7 +153,7 @@ for dataset, path_key in datasets_path.items():
                                            })
 
     
-kwrgs_events = {'event_percentile': 66,
+kwrgs_events = {'event_percentile': 'std',
                 'min_dur' : 1,
                 'max_break' : 0,
                 'grouped' : False}
@@ -253,18 +253,22 @@ f_name = f'{RV_name}_{tfreq}d_{today}'
 #    if new not in dict_experiments.keys():
 #        dict_experiments[new] = dict_experiments.pop(old)
 
-f_format = '.pdf' 
+f_format = '.png' 
 filename = os.path.join(working_folder, f_name)
 
 
-#group_line_by = ['20-d', '10-d']
-group_line_by_ERA_EC = ['ERA-5', 'EC']
+
+
 group_line_by = None
-#group_line_by = group_line_by_ERA_EC
+#group_line_by = ['ERA-5', 'EC']
 kwrgs = {'wspace':0.08}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
-fig = valid.valid_figures(dict_experiments, line_dim='models', 
-                          group_line_by=group_line_by, 
+expers = list(dict_experiments.keys())
+models   = list(dict_experiments[expers[0]].keys())
+
+fig = valid.valid_figures(dict_experiments, expers=expers, models=models,
+                          line_dim='exper', 
+                          group_line_by=group_line_by,  
                           met=met, **kwrgs)
 if f_format == '.png':
     fig.savefig(os.path.join(filename + f_format), 
@@ -303,3 +307,38 @@ np.save(filename + '.npy', dict_experiments)
 #elif f_format == '.pdf':
 #    plt.savefig(os.path.join(pdfs_folder,f_name+ f_format), 
 #                bbox_inches='tight')
+
+# =============================================================================
+#%% Translation to extremes
+# =============================================================================
+
+# import original timeseries:
+path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
+RVts_filename = 'era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4.npy'
+RVfullts = np.load(os.path.join(path_ts, RVts_filename),
+                        encoding='latin1', allow_pickle=True).item()['RVfullts95']
+
+import functions_pp
+dates = functions_pp.get_oneyr(y_pred.index)
+#dates = y_pred.index
+tfreq = (dates[1] - dates[0]).days
+fc_values = np.repeat(y_pred[2].values, tfreq)
+start_date = dates[0] - pd.Timedelta(f'{tfreq/2}d')
+end_date   = dates[-1] + pd.Timedelta(f'{-1+tfreq/2}d')
+daily  = pd.DatetimeIndex(start=start_date, end=end_date,
+                                freq=pd.Timedelta('1d'))
+ext_dates = functions_pp.make_dates(y_pred.index, daily, 2018)
+df_fc_ext = pd.DataFrame(fc_values, index=ext_dates, columns=['fc'])
+RVts_daily = RVfullts.sel(time=ext_dates)
+threshold = func_fc.Ev_threshold(RVts_daily, 90)
+RV_bin    = func_fc.Ev_timeseries(RVts_daily,
+                               threshold=threshold ,
+                               min_dur=4,
+                               max_break=1,
+                               grouped=True)[0]     
+
+df_fc_ext['RV'] = RV_bin                                         
+fraction_of_positives,mean_predicted_values = calibration_curve(df_fc_ext['RV'], df_fc_ext['fc'], n_bins=5); 
+clim_prob = RV_bin[RV_bin==1].size/RV_bin.size
+plt.hlines(1, 0, 1)
+plt.scatter(mean_predicted_values, fraction_of_positives/clim_prob) 

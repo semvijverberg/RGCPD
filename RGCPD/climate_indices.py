@@ -16,6 +16,7 @@ import datetime
 import cartopy.crs as ccrs
 import pandas as pd
 import functions_pp
+from concurrent.futures import ProcessPoolExecutor
 #import func_CPPA # temp
 import core_pp 
 
@@ -81,7 +82,7 @@ def PDO(filename, ex, df_splits=None):
     From https://climatedataguide.ucar.edu/climate-data/pacific-decadal-oscillation-pdo-definition-and-indices
     See http://www.cgd.ucar.edu/staff/cdeser/docs/deser.sstvariability.annrevmarsci10.pdf
     '''
-
+    t0 = time()
     if df_splits is None:
         RV = ex[ex['RV_name']]
         df_splits, ex = functions_pp.rand_traintest_years(RV, ex)
@@ -109,9 +110,8 @@ def PDO(filename, ex, df_splits=None):
     PDO_patterns = xr.DataArray(data, 
                                 coords=[splits, ds.latitude.values, ds.longitude.values],
                                 dims = ['split', 'latitude', 'longitude'])    
-    list_splits = []
-    for s in splits:
-        
+
+    def PDO_single_split(s, ds, df_splits, PDO_patterns):
         progress = 100 * (s+1) / splits.size
         dates_train = df_splits.loc[s]['TrainIsTrue'][df_splits.loc[s]['TrainIsTrue']].index
         train_yrs = np.unique(dates_train.year)
@@ -121,7 +121,7 @@ def PDO(filename, ex, df_splits=None):
         n = dates_train.size ; r = int(100*n/df_splits.loc[s].index.size )
         print(f"\rProgress PDO traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
         
-        PDO_patterns[s], solver, adjust_sign = get_PDO(ds.sel(time=dates_all_train))
+        PDO_pattern, solver, adjust_sign = get_PDO(ds.sel(time=dates_all_train))
         data_train = rgcpd.calc_spatcov(ds.sel(time=dates_train), PDO_patterns[s])
         data_test = rgcpd.calc_spatcov(ds.sel(time=dates_test), PDO_patterns[s])
         
@@ -129,7 +129,21 @@ def PDO(filename, ex, df_splits=None):
         df_train = pd.DataFrame(data=data_train.values, index=dates_train, columns=['0_901_PDO'])        
         
         df = pd.concat([df_test, df_train]).sort_index()
-        list_splits.append(df)
+        return (df, PDO_pattern)
+    
+    pool = ProcessPoolExecutor(os.cpu_count()-1) # amount of cores - 1
+    futures = [pool.submit(PDO_single_split, s, ds, df_splits, PDO_patterns) for s in splits]
+    results = [future.result() for future in futures]
+    
+    list_splits = [r[0] for r in results]
+    
+    time_ = time() - t0
+    print(time_/60)   
+    
+    for s in splits:
+        PDO_patterns[s] = results[s][1]
+    
+ 
     
     df_PDO = pd.concat(list_splits, axis=0, keys=splits)
     #%%

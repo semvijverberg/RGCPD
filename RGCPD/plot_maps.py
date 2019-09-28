@@ -13,6 +13,7 @@ import cartopy.feature as cfeature
 import itertools
 import numpy as np
 import xarray as xr
+from matplotlib.colors import LinearSegmentedColormap 
 
 import cartopy.crs as ccrs
 import pandas as pd
@@ -34,9 +35,10 @@ def extend_longitude(data):
     plottable = plottable.to_array(dim='ds').squeeze(dim='ds').drop('ds')
     return plottable
     
-def plot_corr_maps(corr_xr, mask_xr, map_proj=None, row_dim='split',
+def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    col_dim='lag', clim='relaxed', hspace=-0.6, 
-                   size=2.5, cbar_vert=0, units='units',
+                   size=2.5, cbar_vert=0, units='units', cmap=None,
+                   clevels=None, cticks_center=None,
                    drawbox=None, subtitles=None, lat_labels=True):
     #%%
     import matplotlib.colors as colors
@@ -45,10 +47,12 @@ def plot_corr_maps(corr_xr, mask_xr, map_proj=None, row_dim='split',
     
     if row_dim not in corr_xr.dims:
         corr_xr = corr_xr.expand_dims(row_dim, 0) 
-        mask_xr = mask_xr.expand_dims(row_dim, 0) 
+        if mask_xr is not None:
+            mask_xr = mask_xr.expand_dims(row_dim, 0) 
     elif col_dim not in corr_xr.dims:
         corr_xr = corr_xr.expand_dims(col_dim, 0) 
-        mask_xr = mask_xr.expand_dims(col_dim, 0)     
+        if mask_xr is not None:
+            mask_xr = mask_xr.expand_dims(col_dim, 0)     
     
     var_n   = corr_xr.name        
     rows    = corr_xr[row_dim].values
@@ -58,8 +62,9 @@ def plot_corr_maps(corr_xr, mask_xr, map_proj=None, row_dim='split',
     rename_dims = {row_dim:'row', col_dim:'col'}
     rename_dims_inv = {'row':row_dim, 'col':col_dim}
     plot_xr = corr_xr.rename(rename_dims)
-    plot_mask = mask_xr.rename(rename_dims)
-    dim_coords = plot_mask.squeeze().dims
+    if mask_xr is not None:
+        plot_mask = mask_xr.rename(rename_dims)
+    dim_coords = plot_xr.squeeze().dims
     dim_coords = [d for d in dim_coords if d not in ['latitude', 'longitude']]
     rename_subs = {d:rename_dims_inv[d] for d in dim_coords}
     
@@ -86,52 +91,68 @@ def plot_corr_maps(corr_xr, mask_xr, map_proj=None, row_dim='split',
     
 
     g.fig.subplots_adjust(hspace=hspace)
-        
-    class MidpointNormalize(colors.Normalize):
-        def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
-            self.midpoint = midpoint
-            colors.Normalize.__init__(self, vmin, vmax, clip)
-
-        def __call__(self, value, clip=None):
-            # I'm ignoring masked values and all kinds of edge cases to make a
-            # simple example...
-            x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
-            return np.ma.masked_array(np.interp(value, x, y))
-
-    if clim == 'relaxed':
-        vmin_ = np.percentile(plot_xr, 1) ; vmax_ = np.percentile(plot_xr, 99)
-    elif type(clim) == tuple:
-        vmin_, vmax_ = clim
+    
+    if clevels is None:        
+        class MidpointNormalize(colors.Normalize):
+            def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+                self.midpoint = midpoint
+                colors.Normalize.__init__(self, vmin, vmax, clip)
+    
+            def __call__(self, value, clip=None):
+                # I'm ignoring masked values and all kinds of edge cases to make a
+                # simple example...
+                x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+                return np.ma.masked_array(np.interp(value, x, y))
+    
+        if clim == 'relaxed':
+            vmin_ = np.nanpercentile(plot_xr, 1) ; vmax_ = np.nanpercentile(plot_xr, 99)
+        elif type(clim) == tuple:
+            vmin_, vmax_ = clim
+        else:
+            vmin_ = plot_xr.min()-0.01 ; vmax_ = plot_xr.max()+0.01
+                
+        vmin = np.round(float(vmin_),decimals=2) ; vmax = np.round(float(vmax_),decimals=2)
+        clevels = np.linspace(-max(abs(vmin),vmax),max(abs(vmin),vmax),17) # choose uneven number for # steps
+        norm = MidpointNormalize(midpoint=0, vmin=clevels[0],vmax=clevels[-1])
+        ticksteps = 4
     else:
-        vmin_ = plot_xr.min()-0.01 ; vmax_ = plot_xr.max()+0.01
-            
-    vmin = np.round(float(vmin_),decimals=2) ; vmax = np.round(float(vmax_),decimals=2)
-    clevels = np.linspace(-max(abs(vmin),vmax),max(abs(vmin),vmax),17) # choose uneven number for # steps
-    norm = MidpointNormalize(midpoint=0, vmin=clevels[0],vmax=clevels[-1])
-    cmap = plt.cm.RdBu_r
+        clevels=clevels
+        norm=None
+        ticksteps = 1
+    
+    if cmap is None:
+        cmap = plt.cm.RdBu_r
+    else:
+        cmap=cmap
+        
     for col, c_label in enumerate(cols):
         xrdatavar = plot_xr.sel(col=c_label)
-        xrmaskvar = plot_mask.sel(col=c_label)
+        
         if abs(lon[-1] - 360) <= (lon[1] - lon[0]):
             xrdatavar = extend_longitude(xrdatavar)
-            xrmaskvar = extend_longitude(xrmaskvar)
             
         
         for row, r_label in enumerate(rows):
             print(f"\rPlotting Corr maps {var_n}, {row_dim} {r_label}, {col_dim} {c_label}", end="")
             plotdata = xrdatavar.sel(row=r_label).rename(rename_subs)
-#                                               
-            plotmask = xrmaskvar.sel(row=r_label)#.rename(
-#                                                {'row':row_dim, 'col':col_dim})
+           
+            if mask_xr is not None:     
+                xrmaskvar = plot_mask.sel(col=c_label)  
+                if abs(lon[-1] - 360) <= (lon[1] - lon[0]):
+                    xrmaskvar = extend_longitude(xrmaskvar)                             
+                plotmask = xrmaskvar.sel(row=r_label)
+            
             # if plotdata is already masked (with nans):
             p_nans = int(100*plotdata.values[np.isnan(plotdata.values)].size / plotdata.size)
-            # field not completely masked?
-            if (plotmask.values==True).all() == False:
-                if p_nans < 90:
-                    plotmask.plot.contour(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
+            
+            if mask_xr is not None:
+                # field not completely masked?
+                if (plotmask.values==True).all() == False:
+                    if p_nans < 90:
+                        plotmask.plot.contour(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
                                           subplot_kws={'projection': map_proj}, colors=['black'],
                                           linewidths=np.round(zonal_width/150, 1)+0.3, levels=[float(vmin),float(vmax)],
-                                          add_colorbar=False) #levels=[float(vmin),float(vmax)],
+                                          add_colorbar=False) 
 #                try:
 #                    im = plotdata.plot.contourf(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
 #                                        center=0,
@@ -163,8 +184,7 @@ def plot_corr_maps(corr_xr, mask_xr, map_proj=None, row_dim='split',
                     ring = LinearRing(list(zip(lons_sq , lats_sq )))
                     return ring
                 ring = get_ring(drawbox[1])
-#            lons_sq = [-215, -215, -130, -130] #[-215, -215, -125, -125] #[-215, -215, -130, -130] 
-#            lats_sq = [50, 20, 20, 50]
+
                 if drawbox[0] == g.axes.size or drawbox[0] == 'all':
                     g.axes[row,col].add_geometries([ring], ccrs.PlateCarree(), facecolor='none', edgecolor='green',
                                   linewidth=2, linestyle='dashed')
@@ -228,9 +248,18 @@ def plot_corr_maps(corr_xr, mask_xr, map_proj=None, row_dim='split',
     else:
         clabel = 'Corr Coefficient'
 
-    plt.colorbar(im, cax=cbar_ax , orientation='horizontal', norm=norm,
-                 label=clabel, ticks=clevels[::4], extend='neither')
-    
+    if cticks_center is None:
+        plt.colorbar(im, cax=cbar_ax , orientation='horizontal', norm=norm,
+                 label=clabel, ticks=clevels[::ticksteps], extend='neither')
+    else:
+        norm = colors.BoundaryNorm(boundaries=clevels, ncolors=256)
+        cbar = plt.colorbar(im, cbar_ax, cmap=cmap, orientation='horizontal',
+                 extend='neither', norm=norm, label=clabel)
+        cbar.set_ticks(clevels + 0.5)
+        ticklabels = np.array(clevels+1, dtype=int)
+        cbar.set_ticklabels(ticklabels, update_ticks=True)
+        cbar.update_ticks()
+
     print("\n")
 
     #%%
@@ -296,17 +325,19 @@ def causal_reg_to_xarray(ex, df, outdic_actors):
     #%%
     return dict_ds
 
-def plotting_per_variable(dict_ds, df_sum, map_proj, ex):
+def plot_labels_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
     #%%
     # =============================================================================
     print('\nPlotting all fields significant at alpha_level_tig, while conditioning on parents'
           ' that were found in the PC step')
     # =============================================================================
     df_c = df_sum.loc[ df_sum['causal']==True ]
-    # remove response variable if the ac is a 
-    # causal link
-    if df_sum.index[0] in df_c.index:
-        df_c = df_c.drop(df_sum.index[0])
+    # remove response variable if the ac is a causal link
+    splits = df_sum.index.levels[0]
+    for s in splits:
+        RV_name = ex['RV_name']
+        if RV_name in df_sum.loc[s].index:
+            df_c = df_c.drop((s, RV_name), axis=0)
         
     variables = list(dict_ds.keys())
     lags = ds = dict_ds[variables[0]].lag.values
@@ -315,47 +346,170 @@ def plotting_per_variable(dict_ds, df_sum, map_proj, ex):
         for i, var in enumerate(variables):
             ds = dict_ds[var]
             
-            plot_labels(ds, df_c, var, lag, ex)
+            if mean_splits == True:
+                f_name = '{}_{}_vs_{}_labels_mean'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
+            else:
+                f_name = '{}_tigr_corr_{}_vs_{}_labels'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
             
-            plot_corr_regions(ds, df_c, var, lag, map_proj, ex)
+            filepath = os.path.join(ex['fig_path'], f_name)
+            plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits)
     #%%
-def plot_labels(ds, df_c, var, lag, ex):
-    
+    return 
+
+def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
+    #%%
     ds_l = ds.sel(lag=lag)
+    splits = ds.split
     list_xr = [] ; name = []
-    for c in ['labels', 'labels_tigr']:
-        name.append(var+'_'+c)
-        list_xr.append(ds_l[var+'_'+c])
-    for_plt = xr.concat(list_xr, dim='lag')
-    for_plt.lag.values = name
-    if np.isnan(for_plt.values).all() ==False:
-        rgcpd.plot_regs_xarray(for_plt, ex)
+    columns = ['labels', 'labels_tigr']
+    columns = ['labels']
+    if mean_splits == True:
+        for c in columns:
+            name.append(var+'_'+c)
+            robustness = (ds_l[var+'_'+c] > 0).astype('int').sum(dim='split')
+            wgts_splits = robustness / splits.size
+            mask = (wgts_splits > 0.5).astype('bool')
+            prec_labels = ds_l[var+'_'+c].mean(dim='split')
+            list_xr.append(prec_labels.where(mask))
+        
+        
+    prec_labels = xr.concat(list_xr, dim='lag')
+    prec_labels.lag.values = name
+
+    # colors of cmap are dived over min to max in n_steps. 
+    # We need to make sure that the maximum value in all dimensions will be 
+    # used for each plot (otherwise it assign inconsistent colors)
+    max_N_regs = min(20, int(prec_labels.max() + 0.5))
+    label_weak = np.nan_to_num(prec_labels.values) >=  max_N_regs
+    contour_mask = None
+    prec_labels.values[label_weak] = max_N_regs
+    steps = max_N_regs+1
+    cmap = plt.cm.tab20
+    prec_labels.values = prec_labels.values-0.5
+    clevels = np.linspace(0, max_N_regs,steps)
+    
+    if mean_splits == True:
+        cbar_vert = -0.1
+    else:
+        cbar_vert = -0.025
+        
+    kwrgs_labels = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35, 
+                  'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
+                  'lat_labels':True, 'cticks_center':True,
+                  'cmap':cmap, 'subtitles':np.array([['sm labels']]),
+                  'units': None}  
+    
+    if np.isnan(prec_labels.values).all() ==False:
+        
+        plot_corr_maps(prec_labels, 
+                 contour_mask, 
+                 map_proj, **kwrgs_labels)
+        plt.savefig(filepath, bbox_inches='tight')
         plt.show() ; plt.close()
+        
+        if mean_splits == True:
+                       
+            colors = plt.cm.magma_r(np.linspace(0,0.7, 20))
+            colors[-1] = plt.cm.magma_r(np.linspace(0.99,1, 1))
+            cm = LinearSegmentedColormap.from_list('test', colors, N=255)
+            clevels = np.linspace(splits.min().values, splits.max().values+1, 
+                                  splits.max().values+2)
+            units = 'No. of times significant [0 ... {}]'.format(splits.size)
+            kwrgs_rob = {'clevels':clevels,  
+                         'cmap':cm, 
+                         'subtitles':np.array([['Robustness']]),
+                         'cticks_center':None, 
+                         'units' : units}
+            for key, item in kwrgs_rob.items():
+                kwrgs_labels[key] = item
+
+            robust = xr.concat([robustness], dim='lag')
+            plot_corr_maps(robust-1E-9, 
+                 contour_mask, 
+                 map_proj, **kwrgs_labels)
+        f_name = f'robustness_{var}_lag{lag}.' + filepath.split('.')[-1]
+        fig_path = '/'.join(filepath.split('/')[:-1])   
+        plt.savefig(os.path.join(fig_path, f_name), bbox_inches='tight')
+        plt.show() ; plt.close()
+    
+        
+        
     else:
         print(f'No significant regions for {var}')
+    #%%
+    return
 
-def plot_corr_regions(ds, df_c, var, lag, map_proj, ex):
+def plot_corr_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
+    #%%
+    # =============================================================================
+    print('\nPlotting all fields significant at alpha_level_tig, while conditioning on parents'
+          ' that were found in the PC step')
+    # =============================================================================
+    df_c = df_sum.loc[ df_sum['causal']==True ]
+    # remove response variable if the ac is a causal link
+    splits = df_sum.index.levels[0]
+    for s in splits:
+        RV_name = ex['RV_name']
+        if RV_name in df_sum.loc[s].index:
+            df_c = df_c.drop((s, RV_name), axis=0)
+        
+    variables = list(dict_ds.keys())
+    lags = ds = dict_ds[variables[0]].lag.values
+    for lag in lags:
+        
+        for i, var in enumerate(variables):
+            ds = dict_ds[var]
+            
+            if mean_splits == True:
+                f_name = '{}_tigr_corr_{}_vs_{}_mean'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
+            else:
+                f_name = '{}_tigr_corr_{}_vs_{}'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
+            filepath = os.path.join(ex['fig_path'], f_name)
+            plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits)
+    #%%
+    return
+    
+
+
+def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
     #%%    
     ds_l = ds.sel(lag=lag)
+    splits = ds.split
     list_xr = [] ; name = []
     list_xr_m = []
-    for c in [['corr', 'labels'],['corr_tigr', 'labels_tigr']]:
-        name.append(var+'_'+c[0])
-        list_xr.append(ds_l[var+'_'+c[0]])
-        mask = ds_l[var+'_'+c[1]].sum(dim='split').astype('bool')
-        list_xr_m.append(mask)
+    columns = [['corr', 'labels'],['corr_tigr', 'labels_tigr']]
+#    columns = [['corr', 'labels']]
+    if mean_splits == True:
+        for c in columns:
+            name.append(var+'_'+c[0])
+            mask_splits = (ds_l[var+'_'+c[1]] > 0).astype('int')
+            wgts_splits = mask_splits.sum(dim='split') / splits.size
+            mask = (wgts_splits > 0.5).astype('bool')
+            corr_splits = ds_l[var+'_'+c[0]]
+            corr_mean = corr_splits.mean(dim='split')
+            list_xr.append(corr_mean.where(mask))
+            list_xr_m.append(mask)
+    else:
+        for c in columns:
+            name.append(var+'_'+c[0])
+            mask = (ds_l[var+'_'+c[1]] > 0).astype('bool')
+            corr_splits = ds_l[var+'_'+c[0]]
+            list_xr.append(corr_splits.where(mask))
+            list_xr_m.append(mask)
         
-    xrdata = xr.concat(list_xr, dim='lag')
-    xrdata.lag.values = name
-    xrdata.name = 'sst_corr_and_tigr'
-#    xrdata = xrdata.expand_dims('variable', axis=0)
-#    xrdata.assign_coords(variable=[var])
-    xrmask = xr.concat(list_xr_m, dim='lag')
-    xrmask.lag.values = name
-#    xrmask.values = ~np.isnan(xrdata.values)
-    if np.isnan(xrdata.values).all() == False:
-        plot_corr_maps(xrdata, xrmask, map_proj)
-        fig_filename = '{}_tigr_corr_{}_vs_{}'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']
-        plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=ex['png_dpi'])
+        
+    corr_xr = xr.concat(list_xr, dim='lag')
+    corr_xr.lag.values = name
+    corr_xr.name = 'sst_corr_and_tigr'
+
+    mask_xr = xr.concat(list_xr_m, dim='lag')
+    mask_xr.lag.values = name
+
+    if np.isnan(corr_xr.values).all() == False:
+#        kwrgs = {'cbar_vert':-0.05, 'subtitles':np.array([['Soil Moisture']])}
+        kwrgs = {'cbar_vert':-0.01}
+        plot_corr_maps(corr_xr, mask_xr, map_proj, **kwrgs)
+
+        plt.savefig(filepath, bbox_inches='tight')
         plt.show() ; plt.close()
     #%%
