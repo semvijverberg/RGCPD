@@ -101,7 +101,7 @@ ex['import_prec_ts'] = True
 
 
 # Option 1111111111111111111111111111111111111111111111111111111111111111111111
-# Download ncdf fields (in ex['vars']) through ECMWF MARS?
+# Download ncdf fields (in ex['vars']) through ECMWF API?
 # 11111111111111111111111111111111111111111111111111111111111111111111111111111
 # only analytical fields
 
@@ -397,7 +397,7 @@ for freq in ex['tfreqlist']:
         wrapper_RGCPD_tig.store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=True)
         
         plot_maps.plot_labels_vars_splits(dict_ds, df_sum, map_proj, ex)
-        
+        plot_maps.plot_corr_vars_splits(dict_ds, df_sum, map_proj, ex)    
 
         print("--- {:.0} minutes ---".format((time.time() - start_time)/60))
         #%%

@@ -497,3 +497,4 @@ def func_dates_min_lag(dates, lag, indays = True):
     # to be able to select date in pandas dataframe
     dates_min_lag_str = [d.strftime('%Y-%m-%d %H:%M:%S') for d in dates_min_lag]
     return dates_min_lag_str, dates_min_lag
+

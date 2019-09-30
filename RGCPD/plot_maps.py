@@ -37,7 +37,7 @@ def extend_longitude(data):
     
 def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    col_dim='lag', clim='relaxed', hspace=-0.6, 
-                   size=2.5, cbar_vert=0, units='units', cmap=None,
+                   size=2.5, cbar_vert=-0.01, units='units', cmap=None,
                    clevels=None, cticks_center=None,
                    drawbox=None, subtitles=None, lat_labels=True):
     #%%
@@ -246,7 +246,8 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     elif units != 'units' and units is not None:
         clabel = units
     else:
-        clabel = 'Corr Coefficient'
+        clabel = ''
+
 
     if cticks_center is None:
         plt.colorbar(im, cax=cbar_ax , orientation='horizontal', norm=norm,
@@ -349,7 +350,7 @@ def plot_labels_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
             if mean_splits == True:
                 f_name = '{}_{}_vs_{}_labels_mean'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
             else:
-                f_name = '{}_tigr_corr_{}_vs_{}_labels'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
+                f_name = '{}_{}_vs_{}_labels'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
             
             filepath = os.path.join(ex['fig_path'], f_name)
             plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits)
@@ -362,7 +363,7 @@ def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
     splits = ds.split
     list_xr = [] ; name = []
     columns = ['labels', 'labels_tigr']
-    columns = ['labels']
+#    columns = ['labels']
     if mean_splits == True:
         for c in columns:
             name.append(var+'_'+c)
@@ -371,6 +372,11 @@ def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
             mask = (wgts_splits > 0.5).astype('bool')
             prec_labels = ds_l[var+'_'+c].mean(dim='split')
             list_xr.append(prec_labels.where(mask))
+    else:
+        for c in columns:
+            name.append(var+'_'+c)
+            prec_labels = ds_l[var+'_'+c]
+            list_xr.append(prec_labels)
         
         
     prec_labels = xr.concat(list_xr, dim='lag')
@@ -396,7 +402,7 @@ def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
     kwrgs_labels = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35, 
                   'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
                   'lat_labels':True, 'cticks_center':True,
-                  'cmap':cmap, 'subtitles':np.array([['sm labels']]),
+                  'cmap':cmap, 'subtitles':np.array([[n.replace('_', ' ') for n in name]]),
                   'units': None}  
     
     if np.isnan(prec_labels.values).all() ==False:
@@ -424,6 +430,7 @@ def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
                 kwrgs_labels[key] = item
 
             robust = xr.concat([robustness], dim='lag')
+            robust = robust.where(robust.values != 0.)
             plot_corr_maps(robust-1E-9, 
                  contour_mask, 
                  map_proj, **kwrgs_labels)
@@ -461,9 +468,9 @@ def plot_corr_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
             ds = dict_ds[var]
             
             if mean_splits == True:
-                f_name = '{}_tigr_corr_{}_vs_{}_mean'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
+                f_name = '{}_{}_vs_{}_tigr_corr_mean'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
             else:
-                f_name = '{}_tigr_corr_{}_vs_{}'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
+                f_name = '{}_{}_vs_{}_tigr_corr'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
             filepath = os.path.join(ex['fig_path'], f_name)
             plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits)
     #%%
@@ -478,7 +485,7 @@ def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
     list_xr = [] ; name = []
     list_xr_m = []
     columns = [['corr', 'labels'],['corr_tigr', 'labels_tigr']]
-#    columns = [['corr', 'labels']]
+    columns = [['corr', 'labels']]
     if mean_splits == True:
         for c in columns:
             name.append(var+'_'+c[0])
@@ -505,9 +512,18 @@ def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
     mask_xr = xr.concat(list_xr_m, dim='lag')
     mask_xr.lag.values = name
 
+    if mean_splits:
+        cbar_vert = -0.1
+        subtitles = np.array([[f'{var}']])
+    else:
+        cbar_vert = -0.01
+        subtitles = None
+        
     if np.isnan(corr_xr.values).all() == False:
 #        kwrgs = {'cbar_vert':-0.05, 'subtitles':np.array([['Soil Moisture']])}
-        kwrgs = {'cbar_vert':-0.01}
+            
+        kwrgs = {'cbar_vert':cbar_vert, 'subtitles':subtitles, 
+                 'units':'Corr Coefficient'}
         plot_corr_maps(corr_xr, mask_xr, map_proj, **kwrgs)
 
         plt.savefig(filepath, bbox_inches='tight')
