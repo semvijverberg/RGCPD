@@ -62,10 +62,10 @@ ex = dict(
      'months'       :       list(range(1,12+1)), # downoad months
      # if dealing with daily data, give string as 'month-day', i.e. '07-01'
      # if dealing with monthly data, the day of month is neglected 
-     'startperiod'  :       '06-22', # RV period
+     'startperiod'  :       '06-22', # RV period, period you want to predict
      'endperiod'    :       '08-24', # RV period
-     'sstartdate'   :       '01-01', # data period
-     'senddate'     :       '09-30', # data period, determines bins time aggr.
+     'sstartdate'   :       '01-01', # extended data period loaded (for lags)
+     'senddate'     :       '09-30', # extended data period loaded
      'tfreqlist'    :       [10],
      'selbox'       :       {'la_min':-10, # select domain in degrees east
                              'la_max':80,
@@ -91,7 +91,7 @@ elif ex['dataset'] == 'era5':
 # Option 1:
 ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf = True
+import_precursor_ncdf = False
 # Option 3:
 import_RV_ncdf = False
 # Option 4:
@@ -142,7 +142,8 @@ else:
 # 22222222222222222222222222222222222222222222222222222222222222222222222222222
 # Must have same period, daily data and on same grid
 if import_precursor_ncdf == True:
-    # var names may not contain underscores
+    # var names may not contain underscores, data is assumed to be in path_pp 
+    # or path_raw (if now detrended yet)
     ex['precursor_ncdf'] = [['name1', 'filename1'],['name2','filename2']]
     ex['precursor_ncdf'] = [['sm123', ('sm_123_{}-{}_1_12_daily_'
                               '0.25deg.nc'.format(ex['startyear'], ex['endyear'],
@@ -150,14 +151,6 @@ if import_precursor_ncdf == True:
 #    ex['precursor_ncdf'] = [['p_rm61', ('p_rm61_{}-{}_1_12_daily_'
 #                              '2.5deg.nc'.format(ex['startyear'], ex['endyear'],
 #                               ex['grid_res']))]]
-#    ex['precursor_ncdf'] = [
-#                            ['p_rm61', ('p_rm61_{}-{}_1_12_daily_'
-#                              '2.5deg.nc'.format(ex['startyear'], ex['endyear'],
-#                               ex['grid_res']))], 
-#                            ['sm3', ('sm_3_{}-{}_1_12_daily_'
-#                              '0.25deg.nc'.format(ex['startyear'], ex['endyear'],
-#                               ex['grid_res']))]
-#                            ]
 #    ex['precursor_ncdf'] = [['sst', 'sst_NOAA_mcKbox_det_1982_2017_1_12_daily_0.25deg.nc']]
 #    ex['precursor_ncdf'] = [['z_850hpa', 'z_850hpa_1979-2017_1_12_monthly_2.5deg.nc']]
 
@@ -168,6 +161,8 @@ else:
 # Import precursor timeseries (daily) 
 # 33333333333333333333333333333333333333333333333333333333333333333333333333333
 if ex['import_prec_ts'] == True:
+    # Requires filepath to a hdf5 pandas dataframe with a df called 'df_data'
+    # should contain a boolean mask with the TrainIsTrue column and RV_mask
     ex['precursor_ts'] = [['name1', 'filename1'],['name2','filename2']]
     ex['precursor_ts'] = [
                             ['sst_CPPA', ('/Users/semvijverberg/surfdrive/MckinRepl/',
@@ -182,9 +177,7 @@ else:
 # Import Response Variable 1-dimensional time serie.
 # 44444444444444444444444444444444444444444444444444444444444444444444444444444
 if import_RV_ncdf == True:
-#    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_{}_'
-#                              '{}deg.nc'.format(ex['startyear'], ex['endyear'],
-#                               ex['input_freq'], ex['grid_res']))]
+    ex['RVnc_name'] =  ['RV_name', 'filepath']  
     ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_daily_'
                               '0.75deg.nc'.format(ex['startyear'], ex['endyear']))]    
 else:
@@ -194,7 +187,6 @@ else:
 # Option 5555555555555555555555555555555555555555555555555555555555555555555555
 # Import Response Variable 1-dimensional time serie.
 # 55555555555555555555555555555555555555555555555555555555555555555555555555555
-ex['excludeRV'] = 0 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
 ex['importRV_1dts'] = importRV_1dts
 if importRV_1dts == True:
     ex['RV_name'] = 't2mmax_E-US'
@@ -243,7 +235,7 @@ if import_precursor_ncdf == True:
 # =============================================================================
 list_varclass = []
 allvar = ex['vars'][0] # list of all variable names
-for var in allvar[ex['excludeRV']:]: # loop over all variables
+for var in allvar[:]: # loop over all variables
     list_varclass.append(ex[var])
 
 kwrgs_corr = {'list_varclass':list_varclass}
@@ -274,7 +266,6 @@ elif importRV_1dts == False:
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
-#    lag_min = int(np.timedelta64(5, 'D') / np.timedelta64(ex['tfreq'], 'D'))
     ex['lags_i'] = np.array([0], dtype=int)
     ex['lags'] = np.array([l*freq for l in ex['lags_i']], dtype=int)
     lags = ex['lags']
@@ -335,10 +326,11 @@ for freq in ex['tfreqlist']:
                       lags=ex['lags'],
                       FDR_control=FDR_control)
     
+    # =============================================================================
+    # Tigramite settings
+    # =============================================================================
     ex['tigr_tau_max'] = 5
     ex['max_comb_actors'] = 10
-    ex['alpha_fdr'] = 2*kwrgs_corr['alpha'] # conservative significance level
-    
     ex['alpha_level_tig'] = 0.01 # Alpha level for final regression analysis by Tigrimate
     ex['pcA_sets'] = dict({   # dict of sets of pc_alpha values
           'pcA_set1a' : [ 0.05], # 0.05 0.01
@@ -350,12 +342,14 @@ for freq in ex['tfreqlist']:
           'pcA_none'  : None # default
           })
     ex['pcA_set'] = 'pcA_none' 
+    
     # =============================================================================
     # settings precursor region selection
     # =============================================================================   
     ex['distance_eps'] = 400 # proportional to km apart from a core sample, standard = 1000 km
     ex['min_area_in_degrees2'] = 3 # minimal size to become precursor region (core sample)
     ex['group_split'] = 'together' # choose 'together' or 'seperate'
+    
     # =============================================================================
     # Train test split
     # =============================================================================
@@ -369,7 +363,6 @@ for freq in ex['tfreqlist']:
     
     # Extra: RV events settings are needed to make balanced traintest splits
     # =============================================================================
-
     method='ran_strat10'
     seed=30
     kwrgs_events={'event_percentile':'std', 
@@ -385,16 +378,6 @@ for freq in ex['tfreqlist']:
                     kwrgs_events=kwrgs_events,
                     precursor_ts=precursor_ts)
     
-#    ex['method'] = 'ran_strat10' ; ex['seed'] = 30 
-#    ex['method'] = 'no_train_test_split'
-    # =============================================================================
-    # RV events settings (allows to make balanced traintest splits)
-    # =============================================================================
-#    ex['kwrgs_events'] = {'event_percentile':'std', 
-#                          'min_dur': 1, 
-#                          'max_break': 0, 
-#                          'grouped': False}
-
     # =============================================================================
     # Load some standard settings
     # =============================================================================
@@ -437,11 +420,11 @@ for freq in ex['tfreqlist']:
         
         dict_ds = plot_maps.causal_reg_to_xarray(ex, df_sum, outdic_actors)
         
-        wrapper_RGCPD_tig.store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=True)
+        wrapper_RGCPD_tig.store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=False)
         
         plot_maps.plot_labels_vars_splits(dict_ds, df_sum, map_proj, ex)
         plot_maps.plot_corr_vars_splits(dict_ds, df_sum, map_proj, ex)    
 
-        print("--- {:.0} minutes ---".format((time.time() - start_time)/60))
+        print("--- {:.1f} hours ---".format((time.time() - start_time)/3600))
         #%%
 

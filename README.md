@@ -31,9 +31,8 @@ Options to load/download timeseries
 
 Options for retrieving features
 - 1 Correlation maps
-- 2 Eof analysis
-- 3 Climate Indices (PDO, ENSO, ... under development)
-- 4 load in pandas dataframe with timeseries directly (must follow train-test split format that is used in the code)
+- 2 Climate Indices (PDO, ENSO, ... under development)
+- 3 load in pandas dataframe with timeseries directly (must follow train-test split format that is used in the code)
 
 
 Installation

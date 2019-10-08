@@ -12,6 +12,7 @@ dependencies:
   - babel=2.7.0=py_0
   - backcall=0.1.0=py_0
   - bleach=3.1.0=py_0
+  - blosc=1.17.0=h6de7cb9_1
   - bzip2=1.0.8=h1de35cc_0
   - ca-certificates=2019.9.11=hecc5488_0
   - cartopy=0.17.0=py37hd103db2_1006
@@ -86,6 +87,7 @@ dependencies:
   - matplotlib-base=3.1.1=py37h3a684a6_1
   - mccabe=0.6.1=py_1
   - mistune=0.8.4=py37h1de35cc_1000
+  - mock=3.0.5=py37_0
   - mpi=1.0=mpich
   - mpich=3.3.1=hc856adb_1
   - nbconvert=5.6.0=py37_1
@@ -93,6 +95,7 @@ dependencies:
   - ncurses=6.1=h0a44026_1
   - netcdf-fortran=4.4.5=h1993a31_1004
   - netcdf4=1.5.1.2=py37h876e625_1
+  - numexpr=2.7.0=py37h86efe34_0
   - numpy=1.17.2=py37h6b0580a_0
   - numpydoc=0.9.1=py_0
   - olefile=0.46=py_0
@@ -128,6 +131,7 @@ dependencies:
   - pyrsistent=0.15.4=py37h01d97ff_0
   - pyshp=2.1.0=py_0
   - pysocks=1.7.0=py37_0
+  - pytables=3.5.2=py37hd39446c_2
   - python=3.7.3=h359304d_0
   - python-dateutil=2.8.0=py_0
   - python-libarchive-c=2.8=py37_11

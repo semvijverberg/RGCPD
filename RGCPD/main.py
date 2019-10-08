@@ -13,11 +13,13 @@ script_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD" # script direc
 # To link modules in RGCPD folder to this script
 os.chdir(script_dir)
 sys.path.append(script_dir)
-if sys.version[:1] == '3':
-    from importlib import reload as rel
+#if sys.version[:1] == '3':
+#    from importlib import reload as rel
 import numpy as np
 import pandas as pd
 import functions_pp
+import wrapper_RGCPD_tig
+import plot_maps
 import matplotlib.pyplot as plt
 import xarray as xr
 import cartopy.crs as ccrs
@@ -35,7 +37,7 @@ copy_stdout = sys.stdout
 # which will be made when running the code
 base_path = "/Users/semvijverberg/surfdrive/"
 dataset   = 'era5' # choose 'era5' or 'ERAint'
-exp_folder = ''
+exp_folder = 'RGCPD_mcKinnon'
 path_raw = os.path.join(base_path, 'Data_{}/' 
                         'input_raw'.format(dataset))
 path_pp  = os.path.join(base_path, 'Data_{}/' 
@@ -50,29 +52,33 @@ if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
 # The dic is saved after the post-processes step, so you can continue the experiment
 # from this point onward with different configurations. It also stored as a log
 # in the final output.
-
+#
 ex = dict(
      {'dataset'     :       dataset,
-     'grid_res'     :       2.5,
+     'grid_res'     :       1.0,
      'startyear'    :       1979, # download startyear
      'endyear'      :       2018, # download endyear
      'input_freq'   :       'daily',
-     'months'       :       list(range(1,12+1)), #downoad months
+     'months'       :       list(range(1,12+1)), # downoad months
      # if dealing with daily data, give string as 'month-day', i.e. '07-01'
      # if dealing with monthly data, the day of month is neglected 
-     'startperiod'  :       '07-01', # RV period
-     'endperiod'    :       '07-31', # RV period
-     'sstartdate'   :       '01-01', # precursor period
-     'senddate'     :       '07-31', # precursor period
-     'la_min'       :       -89, # select domain of correlation analysis
-     'la_max'       :       89,
-     'lo_min'       :       -180,
-     'lo_max'       :       360,
-     'abs_or_anom'  :       'anom', # use absolute or anomalies?
+     'startperiod'  :       '06-22', # RV period, period you want to predict
+     'endperiod'    :       '08-24', # RV period
+     'sstartdate'   :       '01-01', # extended data period loaded (for lags)
+     'senddate'     :       '09-30', # extended data period loaded
+     'tfreqlist'    :       [10],
+     'selbox'       :       {'la_min':-10, # select domain in degrees east
+                             'la_max':80,
+                             'lo_min':-180,
+                             'lo_max':360}, 
+     'anomaly'      :       True, # use absolute or anomalies?
+     'verbosity'    :       0, # higher verbosity gives more feedback in terminal
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
      'path_pp'      :       path_pp}
      )
+
+
 
 if ex['dataset'] == 'ERAint':
     import download_ERA_interim_API as ECMWF
@@ -83,17 +89,19 @@ elif ex['dataset'] == 'era5':
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = True 
+ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf = False
+import_precursor_ncdf = True
 # Option 3:
 import_RV_ncdf = False
 # Option 4:
-importRV_1dts = True 
+importRV_1dts = True
+# Option 5:
+ex['import_prec_ts'] = False
 
 
 # Option 1111111111111111111111111111111111111111111111111111111111111111111111
-# Download ncdf fields (in ex['vars']) through ECMWF MARS?
+# Download ncdf fields (in ex['vars']) through ECMWF API?
 # 11111111111111111111111111111111111111111111111111111111111111111111111111111
 # only analytical fields
 
@@ -102,34 +110,19 @@ importRV_1dts = True
 if ECMWFdownload == True:
     if ex['input_freq'] == 'daily':
         # select hours you want to download from analysis
-        ex['time']      =       pd.DatetimeIndex(start='00:00', end='23:00', 
+        ex['time']      =       pd.date_range(start='00:00', end='23:00', 
                                 freq=(pd.Timedelta(6, unit='h')))
         
-    
-#    ex['vars']      =       [['t2m'],['2m_temperature'],['sfc'],[0]]
-#    ex['vars']      =       [['sm_1','sm_2', 'sm_3'],['39.128', '40.128','41.128'],['sfc','sfc','sfc'],['0','0','0']]
-#    ex['vars']      =       [['SLP'],[''],['sfc'],['0']]
-#    ex['vars']      =       [['st_2'],['170.128'],['sfc'],['0']]
-#    ex['vars']      =       [['prcp'], ['228.128'], ['sfc'], [0]]
-#    ex['vars']      =       [['u_3d'],['131.128'],
-#                             ['pl'],[['1000', '900', '850', '700', '600', '500','400','200']] ]
-#    ex['vars']      =       [['u_10hpa'],['131.128'],
-#                             ['pl'],['10'] ]
-#    ex['vars']      =       [ ['z_500hpa', 'sst', 't_850hpa'],['129.128', '34.128', '130.128'],
-#                              ['pl', 'sfc', 'pl'],[['500'], '0', ['850']] ]
-#    ex['vars']      =       [['t_10hpa'],['130.128'],
-#                             ['pl'],['10'] ]
-#    ex['vars']      =       [['t2mmax','sst'],['167.128','34.128'],['sfc','sfc'],['0','0']]
-#    ex['vars']      =       [['sst'],['34.128'],['sfc'],['0']]
-    ex['vars']      =       [['z_500hpa'], ['geopotential_height'],['pl'], ['500']]
-#    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
-#                            ['167.128', '34.128', '131.128', '130.128'],
-#                            ['sfc', 'sfc', 'pl', 'pl'],[0, 0, '500', '100']]
+
+    ex['vars']      =       [['sst'],
+                               ['sea_surface_temperature'],
+                               ['sfc'], [0]]
+
 #    ex['vars']     =   [
-#                        ['t2m', 'u'],              # ['name_RV','name_actor', ...]
-#                        ['167.128', '131.128'],    # ECMWF param ids
-#                        ['sfc', 'pl'],             # Levtypes
-#                        [0, 200],                  # Vertical levels
+#                        ['sst', 'u'],                                          # list of shortnames
+#                        ['sea_surface_temperature', 'u_component_of_wind'],    # list of ECMWF var_names
+#                        ['sfc', 'pl'],                                         # list of Levtypes
+#                        [0, 500],                                              # list Vertical levels
 #                        ]
 else:
     ex['vars']      =       [[]]
@@ -139,42 +132,49 @@ else:
 # 22222222222222222222222222222222222222222222222222222222222222222222222222222
 # Must have same period, daily data and on same grid
 if import_precursor_ncdf == True:
+    # var names may not contain underscores, data is assumed to be in path_pp 
+    # or path_raw (if now detrended yet)
     ex['precursor_ncdf'] = [['name1', 'filename1'],['name2','filename2']]
-    ex['precursor_ncdf'] = [['sst', ('sst_{}-{}_1_12_daily_'
-                              '{}deg.nc'.format(ex['startyear'], ex['endyear'],
-                               ex['grid_res']))]]
-#    ex['precursor_ncdf'] = [['t2mmax_china', 't2mmax_china_1979-2018_1_12_daily_0.25deg.nc'],
-#                           ['sst', ('sst_{}-{}_1_12_daily_'
-#                              '{}deg.nc'.format(ex['startyear'], ex['endyear'],
-#                               ex['grid_res']))]]
-#    ex['precursor_ncdf'] = [['z_850hpa', 'z_850hpa_1979-2017_1_12_monthly_2.5deg.nc']]
-
+ 
 else:
     ex['precursor_ncdf'] = [[]]
 
 # Option 3333333333333333333333333333333333333333333333333333333333333333333333
-# Import ncdf field to be Response Variable.
+# Import precursor timeseries (daily) 
 # 33333333333333333333333333333333333333333333333333333333333333333333333333333
-if import_RV_ncdf == True:
-#    ex['RVnc_name'] = ['pr', 'prcp_GLB_daily_1979-2016-del29feb.75-88E_18-25N.nc']
-    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_{}_'
-                              '{}deg.nc'.format(ex['startyear'], ex['endyear'],
-                               ex['input_freq'], ex['grid_res']))]
-#    ex['RVnc_name'] =  ['t2mmax', ('t2mmax_{}-{}_1_12_monthly_'
-#                              '0.75deg.nc'.format(ex['startyear'], ex['endyear']))]   
-
-else:
-    ex['RVnc_name'] = []
-
+if ex['import_prec_ts'] == True:
+    # Requires filepath to a hdf5 pandas dataframe with a df called 'df_data'
+    # should contain a boolean mask with the TrainIsTrue column and RV_mask
+    ex['precursor_ts'] = [['name1', 'filepath1']]
+                         
+else:                            
+    ex['precursor_ts'] = None
+    
+    
+    
 # Option 4444444444444444444444444444444444444444444444444444444444444444444444
 # Import Response Variable 1-dimensional time serie.
 # 44444444444444444444444444444444444444444444444444444444444444444444444444444
-if importRV_1dts == True:
-    RV_name = 't2mmax_china'
-    ex['RVts_filename'] = 'era5_RV_china_5drm_t95.npy'
-#    ex['RVts_filename'] = 'jetlat_1979-2017_02-27_12-31.npy'
+if import_RV_ncdf == True:
+    ex['RVnc_name'] =  ['RV_name', 'filepath']   
+else:
+    ex['RVnc_name'] = []
 
-ex['excludeRV'] = 0 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
+
+# Option 5555555555555555555555555555555555555555555555555555555555555555555555
+# Import Response Variable 1-dimensional time serie.
+# 55555555555555555555555555555555555555555555555555555555555555555555555555555
+ex['importRV_1dts'] = importRV_1dts
+if importRV_1dts == True:
+    # file should be in path_pp/RV_ts/{file}
+    ex['RV_name'] = 't2mmax_E-US'
+    ex['RV_detrend'] = False
+    ex['RVts_filename'] = 'filename'
+
+
+
+
+
 
 # =============================================================================
 # Note, ex['vars'] is expanded if you have own ncdfs, the first element of array will
@@ -185,19 +185,20 @@ ex['excludeRV'] = 0 # if 0, then corr fields of RV_1dts calculated vs. RV netcdf
 # needed to download and post process the data. Along the way, information is added
 # to class based on decisions that you make.
 # =============================================================================
+    
 if ECMWFdownload == True:
     for idx in range(len(ex['vars'][0]))[:]:
         # class for ECMWF downloads
         var_class = ECMWF.Var_ECMWF_download(ex, idx)
+        ECMWF.retrieve_field(var_class)
         ex[ex['vars'][0][idx]] = var_class
 
-
 if import_RV_ncdf == True and importRV_1dts == False:
-    RV_name = ex['RVnc_name'][0]
-    ex['vars'][0].insert(0, RV_name)
+    ex['RV_name'] = ex['RVnc_name'][0]
+    ex['vars'][0].insert(0, ex['RV_name'])
     var_class = functions_pp.Var_import_RV_netcdf(ex)
     ex[ex['RVnc_name'][0]] = var_class
-    print(('inserted own netcdf as Response Variable {}\n'.format(RV_name)))
+    print(('inserted own netcdf as Response Variable {}\n'.format(ex['RV_name'])))
 
 if import_precursor_ncdf == True:
     print(ex['precursor_ncdf'][0][0])
@@ -205,41 +206,47 @@ if import_precursor_ncdf == True:
         var_class = functions_pp.Var_import_precursor_netcdf(ex, idx)
         ex[var_class.name] = var_class
 
+# =============================================================================
+# Combine precursor information
+# =============================================================================
+list_varclass = []
+allvar = ex['vars'][0] # list of all variable names
+for var in allvar[:]: # loop over all variables
+    list_varclass.append(ex[var])
 
+kwrgs_corr = {'list_varclass':list_varclass}
 # =============================================================================
 # Now we have collected all info on what variables will be analyzed, based on
 # downloading, own netcdfs / importing RV time serie.
 # =============================================================================
 if importRV_1dts == True:
-    ex['RV_name'] = RV_name
-    RV_actor_names = RV_name + '_' + "_".join(ex['vars'][0])
+    RV_actor_names = ex['RV_name'] + '_' + "_".join(ex['vars'][0])
 elif importRV_1dts == False:
     # if no time series is imported, it will take the first of ex['vars] as the
     # Response Variable
-    RV_name = ex['vars'][0][0]
+    ex['RV_name'] = ex['vars'][0][0]
     RV_actor_names = "_".join(ex['vars'][0])
     # if import RVts == False, then a spatial mask is used for the RV
-    ex['spatial_mask_naming'] = 'averAggljacc_tf14_n6'
-    ex['spatial_mask_file'] = os.path.join(ex['path_pp'], 'RVts2.5',
-                          't2mmax_1979-2017_averAggljacc0.75d_tf1_n6__to_t2mmax_tf1.npy')
+    ex['spatial_mask_naming'] = '{name_to_refer_to_experiment}'
+    ex['spatial_mask_file'] = 'filepath'
     # You can also include a latitude longitude box as a spatial mask by just 
     # giving a list [west_lon, east_lon, south_lat, north_lat] instead of a file
-    ex['spatial_mask_file'] = [18.25, 24.75, 75.25, 87.75]
+#    ex['spatial_mask_file'] = [18.25, 24.75, 75.25, 87.75]
 
 
 # =============================================================================
 # General Temporal Settings: frequency, lags, part of year investigated
 # =============================================================================
 # Information needed to pre-process,
-# Select temporal frequency:
-ex['tfreqlist'] = [14] # [1,2,4,7,14,21,35]
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
-    # choose lags to test
-    lag_min = int(np.timedelta64(5, 'D') / np.timedelta64(ex['tfreq'], 'D'))
-    ex['lag_min'] = 1 #max(1, lag_min)
-    ex['lag_max'] = 1 #ex['lag_min'] + 2
-
+    # choose lags to test, strongly recommended to choose only one lag, e.g. 0 or 1
+    # Tigramite will take into account the lag, i.e. shift the timeseries up to
+    # tigr_tau_max
+    ex['lags_i'] = np.array([0], dtype=int)
+    ex['lags'] = np.array([l*freq for l in ex['lags_i']], dtype=int)
+    lags = ex['lags']
+    
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
                         ex['sstartdate'].split('-')[0], 
                         ex['senddate'].split('-')[0], ex['tfreq'])
@@ -273,51 +280,35 @@ for freq in ex['tfreqlist']:
     # If you don't have your own timeseries yet, then we assume you want to make
     # one using the first variable listed in ex['vars'].
 
-    RV, ex, RV_name_range = functions_pp.RV_spatial_temporal_mask(ex, RV, importRV_1dts)
+    RV, ex = functions_pp.RV_spatial_temporal_mask(ex, RV, importRV_1dts)
     ex[ex['RV_name']] = RV
 
-    # =============================================================================
-    # Test if you're not have a lag that will precede the start date of the year
-    # =============================================================================
-    # first date of year to be analyzed:
-    if ex['input_freq'] == 'daily'  : dt = 'D'
-    if ex['input_freq'] == 'monthly': dt = 'M'
-    firstdoy = RV.datesRV.min() - np.timedelta64(ex['tfreq'] * ex['lag_max'], dt)
-#    if np.logical_and(firstdoy < var_class.dates[0],
-#                      (var_class.dates[0].month,var_class.dates[0].day) != (1,1)
-#                      ):
-    if firstdoy < var_class.dates[0]:
-        tdelta = RV.datesRV.min() - RV.dates.min()
-        ex['lag_max'] = max(1, int(tdelta / np.timedelta64(ex['tfreq'], dt)))
-        print('\nChanging maximum lag to {}, so that you not skip part of the '
-              'year.'.format(ex['lag_max']))
-
-    # create this subfolder in ex['path_exp'] for RV_period and spatial mask
-    ex['path_exp_periodmask'] =  ex['path_exp_periodmask'] + '_lag{}-{}'.format(
-                                                    ex['lag_min'], ex['lag_max'])
 
 
-    if os.path.isdir(ex['path_exp_periodmask']) != True : os.makedirs(ex['path_exp_periodmask'])
-    filename_exp_design1 = os.path.join(ex['path_exp_periodmask'], 'input_dic_part_1.npy')
+    print('\n\t**\n\tOkay, end of pre-processing climate data!\n\t**' )
 
-
-    print('\n\t**\n\tOkay, end of Part 1!\n\t**' )
-    print('\nNext time, you can choose to start with part 2 by loading in '
-          'part 1 settings from dictionary \'filename_exp_design1\'\n')
-    np.save(filename_exp_design1, ex)
-    #%%
     # *****************************************************************************
     # *****************************************************************************
     # Part 2 Configure RGCPD/Tigramite settings
     # *****************************************************************************
     # *****************************************************************************
-    ex = np.load(filename_exp_design1, encoding='latin1').item()
-    ex['alpha'] = 0.05# set significnace level for correlation maps
-    ex['alpha_fdr'] = 2*ex['alpha'] # conservative significance level
-    ex['FDR_control'] = True # Do you want to use the conservative alpha_fdr or normal alpha?
-    # If your pp data is not a full year, there is Maximum meaningful lag given by:
-    #ex['lag_max'] = dates[dates.year == 1979].size - ex['RV_oneyr'].size
-    ex['alpha_level_tig'] = 0.05 # Alpha level for final regression analysis by Tigrimate
+
+    # =============================================================================
+    # Corr maps settings
+    # =============================================================================
+    alpha = 0.01 # set significnace level for correlation maps
+    FDR_control = True # Do you want to use the conservative alpha_fdr or normal alpha?
+    kwrgs_corr = dict(alpha=alpha,
+                      list_varclass=list_varclass,
+                      lags=ex['lags'],
+                      FDR_control=FDR_control)
+    
+    # =============================================================================
+    # Tigramite settings
+    # =============================================================================
+    ex['tigr_tau_max'] = 5
+    ex['max_comb_actors'] = 10
+    ex['alpha_level_tig'] = 0.01 # Alpha level for final regression analysis by Tigrimate
     ex['pcA_sets'] = dict({   # dict of sets of pc_alpha values
           'pcA_set1a' : [ 0.05], # 0.05 0.01
           'pcA_set1b' : [ 0.01], # 0.05 0.01
@@ -327,91 +318,89 @@ for freq in ex['tfreqlist']:
           'pcA_set4'  : [ 0.5, 0.4, 0.3, 0.2, 0.1], # set4
           'pcA_none'  : None # default
           })
-    ex['pcA_set'] = 'pcA_set1a'
+    ex['pcA_set'] = 'pcA_none' 
     # =============================================================================
     # settings precursor region selection
-    # =============================================================================
-    # (1) significant regions will be grouped together if seperated by 'prec_reg_max_d'
-    #     gridcells
-    ex['prec_reg_max_d'] = 1  # max of 1
-    # (2) set minimal size of precursor region
-    ex['min_n_gc'] = 10
+    # =============================================================================   
+    ex['distance_eps'] = 400 # proportional to km apart from a core sample
+    ex['min_area_in_degrees2'] = 3 # minimal size to become precursor region (core sample)
+    ex['group_split'] = 'together' # keep this setting to 'together'
     
-    # Some output settings
-    ex['file_type1'] = ".pdf"
-    ex['file_type2'] = ".png"
-    ex['SaveTF'] = True # if false, output will be printed in console
-    ex['plotin1fig'] = False
-    ex['showplot'] = True
-    central_lon_plots = 240
+    # =============================================================================
+    # Train test split
+    # =============================================================================
+    ###options###
+    # (1) random{int}   :   with the int(ex['method'][6:8]) determining the amount of folds
+    # (2) ran_strat{int}:   random stratified folds, stratified based upon events, 
+    #                       requires kwrgs_events.    
+    # (3) leave{int}    :   chronologically split train and test years.
+    # (4) split{int}    :   split dataset into single train and test set
+    # (5) no_train_test_split
+    
+    # Extra: RV events settings are needed to make balanced traintest splits
+    # =============================================================================
+    method='ran_strat10'
+    seed=30
+    kwrgs_events={'event_percentile':'std', 
+                  'min_dur': 1, 
+                  'max_break': 0, 
+                  'grouped': False}
+    precursor_ts=ex['precursor_ts']
+    
+    
+    
+    kwrgs_RV = dict(method=method,
+                    seed=seed,
+                    kwrgs_events=kwrgs_events,
+                    precursor_ts=precursor_ts)
+    
+    # =============================================================================
+    # Load some standard settings
+    # =============================================================================
+    ex = wrapper_RGCPD_tig.standard_settings_and_tests(ex, kwrgs_RV, kwrgs_corr)
+    central_lon_plots = 200
     map_proj = ccrs.LambertCylindrical(central_longitude=central_lon_plots)
-    # output paths
-    ex['path_output'] = os.path.join(ex['path_exp_periodmask'])
-    ex['fig_path'] = os.path.join(ex['path_exp_periodmask'])
-    ex['params'] = '{}_ac{}_at{}'.format(ex['pcA_set'], ex['alpha'],
-                                                      ex['alpha_level_tig'])
-    if os.path.isdir(ex['fig_path']) != True : os.makedirs(ex['fig_path'])
-    ex['fig_subpath'] = os.path.join(ex['fig_path'], '{}_subinfo'.format(ex['params']))
-    if os.path.isdir(ex['fig_subpath']) != True : os.makedirs(ex['fig_subpath'])
-    # =============================================================================
-    # Save Experiment design
-    # =============================================================================
-    assert RV.startyear == ex['startyear'], ('Make sure the dates '
-             'of the RV match with the actors')
-    assert ((ex['excludeRV'] == 1) and (importRV_1dts == True))==False, ('Are you sure you want '
-             'exclude first element of array ex[\'vars\']. You are importing a seperate '
-             ' time series, so you probably do not need to skip the first variable in ex[\'vars\'] ')
-
-    filename_exp_design2 = os.path.join(ex['fig_subpath'], 'input_dic_{}.npy'.format(ex['params']))
-    np.save(filename_exp_design2, ex)
-    print('\n\t**\n\tOkay, end of Part 2!\n\t**' )
-
-    print('\n**\nBegin summary of main experiment settings\n**\n')
-    print('Response variable is {} is correlated vs {}'.format(ex['vars'][0][0],
-          ex['vars'][0][1:]))
-    start_day = '{}-{}'.format(RV.dates[0].day, RV.dates[0].month_name())
-    end_day   = '{}-{}'.format(RV.dates[-1].day, RV.dates[-1].month_name())
-    print('Part of year investigated: {} - {}'.format(start_day, end_day))
-    print('Part of year predicted (RV period): {} '.format(RV_name_range[:-1]))
-    print('Temporal resolution: {} {}'.format(ex['tfreq'], ex['input_freq']))
-    print('Lags: {} to {}'.format(ex['lag_min'], ex['lag_max']))
-    one_year_RV_data = RV.datesRV.where(RV.datesRV.year==RV.startyear).dropna(how='all').values
-    print('For example\nPredictant (only one year) is:\n{} at \n{}\n'.format(RV_name,
-          one_year_RV_data))
-    print('\tVS\n')
-    shift_lag_days = one_year_RV_data - pd.Timedelta(int(ex['lag_min']*ex['tfreq']), unit='d')
-    print('Predictor (only one year) is:\n{} at lag {} {}s\n{}\n'.format(
-            ex['vars'][0][-1], int(ex['lag_min']*ex['tfreq']), ex['input_freq'][:-2], 
-            shift_lag_days))
-    print('\n**\nEnd of summary\n**\n')
-
-    print('\nNext time, you\'re able to redo the experiment by loading in the dict '
-          '\'filename_exp_design2\'.\n')
     #%%
     # *****************************************************************************
     # *****************************************************************************
-    # Part 3 Start your experiment by running RGCPD python script with settings
+    # Part 3 Run RGCPD python script with settings
     # *****************************************************************************
     # *****************************************************************************
-    import wrapper_RGCPD_tig
+    
+    RV, ex = functions_pp.RV_spatial_temporal_mask(ex, RV, importRV_1dts)
+    # =============================================================================
+    # Define RV and train-test split
+    # =============================================================================
+    RV, df_splits = wrapper_RGCPD_tig.RV_and_traintest(RV, ex, **kwrgs_RV)
     # =============================================================================
     # Find precursor fields (potential precursors)
     # =============================================================================
-    ex, outdic_actors = wrapper_RGCPD_tig.calculate_corr_maps(ex, map_proj)
+    
+    ex, outdic_actors = wrapper_RGCPD_tig.calculate_corr_maps(RV, df_splits, ex, **kwrgs_corr)
+    
     #%%
+    # calculate precursor timeseries
+    outdic_actors = wrapper_RGCPD_tig.get_prec_ts(outdic_actors, ex)
+    
     if ex['n_tot_regs'] != 0:
         
         # =============================================================================
         # Run tigramite to extract causal precursors
         # =============================================================================
-    
-        parents_RV, var_names = wrapper_RGCPD_tig.run_PCMCI(ex, outdic_actors, map_proj)
+        df_sum, df_data = wrapper_RGCPD_tig.run_PCMCI_CV(ex, outdic_actors, map_proj)
         
         # =============================================================================
         # Plot final results
         # =============================================================================
-        #! netcdfs must have same spatial resolution for final plotting function
-        wrapper_RGCPD_tig.plottingfunction(ex, parents_RV, var_names, outdic_actors, map_proj)
-        print("--- {:.2} minutes ---".format((time.time() - start_time)/60))
+        #%%
+        
+        dict_ds = plot_maps.causal_reg_to_xarray(ex, df_sum, outdic_actors)
+        
+        wrapper_RGCPD_tig.store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=False)
+        
+        plot_maps.plot_labels_vars_splits(dict_ds, df_sum, map_proj, ex)
+        plot_maps.plot_corr_vars_splits(dict_ds, df_sum, map_proj, ex)    
+
+        print("--- {:.1f} hours ---".format((time.time() - start_time)/3600))
         #%%
 

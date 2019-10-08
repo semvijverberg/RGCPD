@@ -127,7 +127,7 @@ def get_prec_ts(outdic_actors, ex):
 
     ex['n_tot_regs'] = 0
     allvar = ex['vars'][0] # list of all variable names
-    for var in allvar[ex['excludeRV']:]: # loop over all variables
+    for var in allvar[:]: # loop over all variables
         actor = outdic_actors[var]
 
         if np.isnan(actor.prec_labels.values).all():
@@ -226,14 +226,14 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
     allvar = ex['vars'][0]
     var_names_corr = [] ; actorlist = [] ; cols = [[RV.name]]
 
-    for var in allvar[ex['excludeRV']:]:
+    for var in allvar[:]:
         print(var)
         actor = outdic_actors[var]
         if actor.ts_corr[s].size != 0:
             ts_train = actor.ts_corr[s].values
             actorlist.append(ts_train)
             # create array which numbers the regions
-            var_idx = allvar.index(var) - ex['excludeRV']
+            var_idx = allvar.index(var) 
             n_regions = actor.ts_corr[s].shape[1]
             actor.var_info = [[i+1, actor.ts_corr[s].columns[i], var_idx] for i in range(n_regions)]
             # Array of corresponing regions with var_names_corr (first entry is RV)
@@ -430,9 +430,6 @@ def standard_settings_and_tests(ex, kwrgs_RV, kwrgs_corr):
 
     assert RV.startyear == ex['startyear'], ('Make sure the dates '
              'of the RV match with the actors')
-    assert ((ex['excludeRV'] == 1) and (ex['importRV_1dts'] == True))==False, ('Are you sure you want '
-             'exclude first element of array ex[\'vars\']. You are importing a seperate '
-             ' time series, so you probably do not need to skip the first variable in ex[\'vars\'] ')
     # =============================================================================
     # Save Experiment design
     # =============================================================================
