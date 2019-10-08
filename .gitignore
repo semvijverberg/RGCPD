@@ -20,4 +20,19 @@ docs/apidocs
 .idea
 .eclipse
 .vscode
+
+# pytest
+.travis.yml
+conda_env.txt
+
+
+# own folders
+examples/
 RGCPD/main_mcKinnon.py
+RGCPD/main_maroc.py
+
+$ other
+setup.py
+setup.cfg
+CHANGELOG.rst
+CONTRIBUTING.rst

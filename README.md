@@ -1,53 +1,35 @@
 
-
 # RG-CPD
 Features
 =====
 
-The idea behind RG-CPD was to create a python package which can process 3-dimensional climate data, such that relationships based on correlation can be tested for causality.
+RG-CPD is a framework to process 3-dimensional climate data, such that relationships based on correlation can be tested for conditional independence, i.e. causality.
 
-Causal inference metrics have been proven a valuable to go beyond defining a relationship based upon correlation. Autocorrelation, common drivers and indirect drivers are very common in the climate system, and they lead to spurious (significant) correlations. Tigramite has been successfully applied to 1 dimensional time series in climate science (Kretschmer et al. 2016 https://doi.org/10.1175/JCLI-D-15-0654.1), in order to filter out these spurious correlations using conditional indepence tests (Runge et al. 2017 http://arxiv.org/abs/1702.07007).
+Causal inference frameworks have been proven valuable by going beyond defining a relationship based upon correlation. Autocorrelation, common drivers and indirect drivers are very common in the climate system, and they lead to spurious (significant) correlations. Tigramite has been successfully applied to 1 dimensional time series in climate science (Kretschmer et al. 2016 https://doi.org/10.1175/JCLI-D-15-0654.1), in order to filter out these spurious correlations using conditional indepence tests (Runge et al. 2017 http://arxiv.org/abs/1702.07007).
 
 Within RG-CPD, the 1-d precursor time series are obtained by creating point-wise correlation maps and subsequently grouping adjacent significantly correlating gridcells together into precursor regions. These precursor regions are then converted into 1-d time series by taking a spatial mean (Kretschmer et al. 2017 https://doi.org/10.1002/2017GL074696).
 
-The final step is the same, where the 1-d time series are processed by Tigramite to extract the causal relationships. This requires thorough understanding of the method, see Runge et al. 2017 http://arxiv.org/abs/1702.07007). These 1d time series contain more information since they are spatially aggregated. The 1d time series of different precursor regions are subsequently tested for causality using the Tigramite package (https://github.com/jakobrunge/tigramite).  
+The final step is the same, where the 1-d time series are processed by Tigramite to extract the causal relationships. This requires thorough understanding of the method, see Runge et al. 2017 http://arxiv.org/abs/1702.07007). These 1d time series contain more information since they are spatially aggregated. The 1d time series of different precursor regions are subsequently tested for causality using the Tigramite package (https://github.com/jakobrunge/tigramite). One has to have good knowledge about the assumptions needed for causal inference, https://doi.org/10.1063/1.5025050.
+
+# Example output
+to be added
 
 
 Installation
 ===========
-
-If you install all of the dependencies as listed below (python packages, ecmwf-api, Tigramite & CDO), then you should be able to all scripts within this repository.\
-Installation Anaconda3, python 3.6.1 environment
-
-Installing in conda base_root 
-----------------------
-conda install spyder=3.3.1
-\
-conda config --add channels conda-forge
-\
-conda config --append channels bioconda
-\
-conda install numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict
-\
-conda install -c conda-forge nco
+If depencies are correct, then all scripts should work. Please use the .yml file to create a new conda environment. Afterwards, Tigramite is installed from github.
 
 
-If you want to install this package in an environment this will not work since it will automatically install Tigramite to your root site-package e.g. ~anaconda/lib/python2.7/site-packages/. And running Spyder from source activate <env> will point to the site-packages in your env folder ~/anaconda/envs/<env_name>/lib/python3.6/site-packages, not your root (thus it will not find the tigramite module). 
-To solve this you could do:
-
-Installing in conda env 
-----------------------
-Easy way:\
-conda config --add channels conda-forge\
-conda config --append channels bioconda\
-conda create --name <env_name> --file conda_env.txt \
-More typing way, but probably cleaner: \
-conda config --add channels conda-forge \
-conda config --append channels bioconda\
-conda create --name <env_name> python=3.6 numpy pandas matplotlib cartopy xarray netCDF4 ecmwfapi scipy seaborn netcdftime cyordereddict pip 
+### Create conda environment:
+conda env create -f RGCPD37.yml \
+conda activate RGCPD \
+Git clone https://github.com/jakobrunge/tigramite.git \
+pip install ./tigramite 
 
 
-ECWMF MARS API (for ERA-i)
+
+## Optional:
+### ECWMF MARS API (for ERA-i)
 ----------------
 If you did not have ecmwfapi installed before, you need to create an ecmwf account and copy your key into the file .ecmwfapirc in your home directory. See https://confluence-test.ecmwf.int/display/WEBAPI/Access+MARS#AccessMARS-downloadmars. This will look like this:
  \
@@ -60,19 +42,10 @@ If you did not have ecmwfapi installed before, you need to create an ecmwf accou
 }
 
 
-Installing Tigramite
-----------------
-To install Tigramite, see https://github.com/jakobrunge/tigramite \
-If you install Tigramite on your base_root in conda, it will satisfy to download the tigramite-master folder and run \
-python setup.py install .
 
-Installing Tigramite in conda env:
-----------------
-Source activate <env_name> \
-Git clone https://github.com/jakobrunge/tigramite.git \
-pip install ./tigramite 
 
-Installing CDO (only needed when you want to download from ECWMF)
+
+### Installing CDO (only needed when you want to download from ECWMF)
 ----------------
 cdo -V \
 Climate Data Operators version 1.9.4 (http://mpimet.mpg.de/cdo) \
@@ -120,21 +93,6 @@ Dr. Jakob Runge, who developed the causal inference python package Tigramite (ht
 3. J. Runge (2015): Quantifying information transfer and mediation along causal pathways in complex systems. Phys. Rev. E, 92(6), 62829. http://doi.org/10.1103/PhysRevE.92.062829
 
 4. J. Runge, J. Heitzig, V. Petoukhov, and J. Kurths (2012): Escaping the Curse of Dimensionality in Estimating Multivariate Transfer Entropy. Physical Review Letters, 108(25), 258701. http://doi.org/10.1103/PhysRevLett.108.258701
-
-
-
-
-
-# Autogenerated text by Cookiecutter:
-
-Python versions
----------------
-
-This repository is set up with Python versions:
-* 3.4
-* 3.5
-* 3.6
-
 
 
 License

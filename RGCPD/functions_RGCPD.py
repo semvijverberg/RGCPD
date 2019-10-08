@@ -23,20 +23,22 @@ from dateutil.relativedelta import relativedelta as date_dt
 
 
 
-def corr_new(D, di):
-	"""
-	This function calculates the correlation coefficent r  and the the pvalue p for each grid-point of field D with the response-variable di
-	"""
-	x = np.ma.zeros(D.shape[1])
-	corr_di_D = np.ma.array(data = x, mask =False)
-	sig_di_D = np.array(x)
-
-	for i in range(D.shape[1]):
-		r, p = scipy.stats.pearsonr(di,D[:,i])
-		corr_di_D[i]= r
-		sig_di_D[i]= p
-
-	return corr_di_D, sig_di_D
+def corr_new(field, ts):
+    """
+    This function calculates the correlation coefficent r and 
+    the pvalue p for each grid-point of field vs response-variable ts
+    """
+    x = np.ma.zeros(field.shape[1])
+    corr_vals = np.ma.array(data = x, mask =False)
+    pvals = np.array(x)
+    fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
+    
+    nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
+    
+    for i in nonans_gc:
+        corr_vals[i], pvals[i] = scipy.stats.pearsonr(ts,field[:,i])
+        
+    return corr_vals, pvals
 
 def func_dates_min_lag(dates, lag):
     dates_min_lag = pd.to_datetime(dates.values) - pd.Timedelta(int(lag), unit='d')
@@ -60,7 +62,8 @@ def func_dates_min_lag(dates, lag):
     dates_min_lag_str = [d.strftime('%Y-%m-%d %H:%M:%S') for d in dates_min_lag]
     return dates_min_lag_str, dates_min_lag
 
-def calc_corr_coeffs_new(precur_arr, RV, ex):
+def calc_corr_coeffs_new(precur_arr, RV, df_splits, lags=np.array([0]), 
+                         alpha=0.05, FDR_control=True):
     #%%
 #    v = ncdf ; V = array ; RV.RV_ts = ts of RV, time_range_all = index range of whole ts
     """
@@ -75,12 +78,13 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
     alpha: significance level
 
     """
-    n_lags = len(ex['lags_i'])
-    lags = ex['lags']
+    n_lags = len(lags)
+    lags = lags
     assert n_lags >= 0, ('Maximum lag is larger then minimum lag, not allowed')
 
 
-    df_splits = ex['df_splits']
+    df_splits = df_splits
+    n_spl = df_splits.index.levels[0].size
     # make new xarray to store results
     xrcorr = precur_arr.isel(time=0).drop('time').copy()
     # add lags
@@ -88,25 +92,24 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
     xrcorr = xr.concat(list_xr, dim = 'lag')
     xrcorr['lag'] = ('lag', lags)
     # add train test split
-    list_xr = [xrcorr.expand_dims('split', axis=0) for i in range(ex['n_spl'])]
+    list_xr = [xrcorr.expand_dims('split', axis=0) for i in range(n_spl)]
     xrcorr = xr.concat(list_xr, dim = 'split')
-    xrcorr['split'] = ('split', range(ex['n_spl']))
+    xrcorr['split'] = ('split', range(n_spl))
 
     print('\n{} - calculating correlation maps'.format(precur_arr.name))
     np_data = np.zeros_like(xrcorr.values)
     np_mask = np.zeros_like(xrcorr.values)
-    def corr_single_split(RV_ts, precur, ex):
+    def corr_single_split(RV_ts, precur, lags, alpha, FDR_control):
 
         lat = precur_arr.latitude.values
         lon = precur_arr.longitude.values
 
-        z = np.zeros((lat.size*lon.size,len(ex['lags']) ) )
+        z = np.zeros((lat.size*lon.size,len(lags) ) )
         Corr_Coeff = np.ma.array(z, mask=z)
-        # reshape
-#        sat = np.reshape(precur_arr.values, (precur_arr.shape[0],-1))
+
 
         dates_RV = RV_ts.index
-        for i, lag in enumerate(ex['lags']):
+        for i, lag in enumerate(lags):
 
             dates_lag = func_dates_min_lag(dates_RV, lag)[1]
             prec_lag = precur_arr.sel(time=dates_lag)
@@ -114,21 +117,21 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
 
 
     		# correlation map and pvalue at each grid-point:
-            corr_di_sat, sig_di_sat = corr_new(prec_lag, RV_ts.values.squeeze())
+            corr_val, pval = corr_new(prec_lag, RV_ts.values.squeeze())
 
-            if ex['FDR_control'] == True:
+            if FDR_control == True:
     			# test for Field significance and mask unsignificant values
     			# FDR control:
-                adjusted_pvalues = multicomp.multipletests(sig_di_sat, method='fdr_bh')
+                adjusted_pvalues = multicomp.multipletests(pval, method='fdr_bh')
                 ad_p = adjusted_pvalues[1]
 
-                corr_di_sat.mask[ad_p> ex['alpha']] = True
+                corr_val.mask[ad_p> alpha] = True
 
             else:
-                corr_di_sat.mask[sig_di_sat> ex['alpha']] = True
+                corr_val.mask[pval> alpha] = True
 
 
-            Corr_Coeff[:,i] = corr_di_sat[:]
+            Corr_Coeff[:,i] = corr_val[:]
 
         Corr_Coeff = np.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
         Corr_Coeff = Corr_Coeff.reshape(lat.size,lon.size,len(lags)).swapaxes(2,1).swapaxes(1,0)
@@ -136,7 +139,7 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
 
     RV_mask = df_splits.loc[0]['RV_mask']
     for s in xrcorr.split.values:
-        progress = 100 * (s+1) / ex['n_spl']
+        progress = 100 * (s+1) / n_spl
         # =============================================================================
         # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']
         # =============================================================================
@@ -149,7 +152,7 @@ def calc_corr_coeffs_new(precur_arr, RV, ex):
         n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
         print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
 
-        ma_data = corr_single_split(RV_ts, precur, ex)
+        ma_data = corr_single_split(RV_ts, precur, lags, alpha, FDR_control)
         np_data[s] = ma_data.data
         np_mask[s] = ma_data.mask
     print("\n")
@@ -285,7 +288,7 @@ def cluster_DBSCAN_regions(actor, ex):
 def mask_sig_to_cluster(mask_and_data_s, wght_area, ex):
     from sklearn import cluster
     from sklearn import metrics
-    from haversine import haversine
+#    from haversine import haversine
     mask_sig_1d = mask_and_data_s.mask.astype('bool').values == False
     data = mask_and_data_s.data
     lons = mask_and_data_s.longitude.values
@@ -594,6 +597,7 @@ def return_sign_parents(pc_class, pq_matrix, val_matrix,
     return {'parents': all_parents,
             'link_matrix': pq_matrix <= alpha_level}
 
+
 def bookkeeping_precursors(links_RV, var_names):
     #%%
     var_names_ = var_names.copy()
@@ -663,6 +667,79 @@ def bookkeeping_precursors(links_RV, var_names):
     print("\n\n")
     print(df)
     return df
+
+
+# =============================================================================
+# Haversine function
+# =============================================================================
+from math import radians, cos, sin, asin, sqrt
+from enum import Enum
+
+
+# mean earth radius - https://en.wikipedia.org/wiki/Earth_radius#Mean_radius
+_AVG_EARTH_RADIUS_KM = 6371.0088
+
+
+class Unit(Enum):
+    """
+    Enumeration of supported units.
+    The full list can be checked by iterating over the class; e.g.
+    the expression `tuple(Unit)`.
+    """
+
+    KILOMETERS = 'km'
+    METERS = 'm'
+    MILES = 'mi'
+    NAUTICAL_MILES = 'nmi'
+    FEET = 'ft'
+    INCHES = 'in'
+
+
+# Unit values taken from http://www.unitconversion.org/unit_converter/length.html
+_CONVERSIONS = {Unit.KILOMETERS:       1.0,
+                Unit.METERS:           1000.0,
+                Unit.MILES:            0.621371192,
+                Unit.NAUTICAL_MILES:   0.539956803,
+                Unit.FEET:             3280.839895013,
+                Unit.INCHES:           39370.078740158}
+
+
+def haversine(point1, point2, unit=Unit.KILOMETERS):
+    """ Calculate the great-circle distance between two points on the Earth surface.
+    Takes two 2-tuples, containing the latitude and longitude of each point in decimal degrees,
+    and, optionally, a unit of length.
+    :param point1: first point; tuple of (latitude, longitude) in decimal degrees
+    :param point2: second point; tuple of (latitude, longitude) in decimal degrees
+    :param unit: a member of haversine.Unit, or, equivalently, a string containing the
+                 initials of its corresponding unit of measurement (i.e. miles = mi)
+                 default 'km' (kilometers).
+    Example: ``haversine((45.7597, 4.8422), (48.8567, 2.3508), unit=Unit.METERS)``
+    Precondition: ``unit`` is a supported unit (supported units are listed in the `Unit` enum)
+    :return: the distance between the two points in the requested unit, as a float.
+    The default returned unit is kilometers. The default unit can be changed by
+    setting the unit parameter to a member of ``haversine.Unit``
+    (e.g. ``haversine.Unit.INCHES``), or, equivalently, to a string containing the
+    corresponding abbreviation (e.g. 'in'). All available units can be found in the ``Unit`` enum.
+    """
+
+    # get earth radius in required units
+    unit = Unit(unit)
+    avg_earth_radius = _AVG_EARTH_RADIUS_KM * _CONVERSIONS[unit]
+
+    # unpack latitude/longitude
+    lat1, lng1 = point1
+    lat2, lng2 = point2
+
+    # convert all latitudes/longitudes from decimal degrees to radians
+    lat1, lng1, lat2, lng2 = map(radians, (lat1, lng1, lat2, lng2))
+
+    # calculate haversine
+    lat = lat2 - lat1
+    lng = lng2 - lng1
+    d = sin(lat * 0.5) ** 2 + cos(lat1) * cos(lat2) * sin(lng * 0.5) ** 2
+
+    return 2 * avg_earth_radius * asin(sqrt(d))
+
 
 def print_particular_region_new(links_RV, var_names, s, outdic_actors, map_proj, ex):
 

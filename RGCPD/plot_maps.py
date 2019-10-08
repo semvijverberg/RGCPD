@@ -485,7 +485,7 @@ def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
     list_xr = [] ; name = []
     list_xr_m = []
     columns = [['corr', 'labels'],['corr_tigr', 'labels_tigr']]
-    columns = [['corr', 'labels']]
+#    columns = [['corr', 'labels']]
     if mean_splits == True:
         for c in columns:
             name.append(var+'_'+c[0])
@@ -514,7 +514,7 @@ def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
 
     if mean_splits:
         cbar_vert = -0.1
-        subtitles = np.array([[f'{var}']])
+        subtitles = np.array([[f'{var}', f'{var} causal']])
     else:
         cbar_vert = -0.01
         subtitles = None

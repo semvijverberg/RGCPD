@@ -106,8 +106,8 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=True):
     splits  = df_data.index.levels[0]
     df_sum  = dict_of_dfs['df_sum']
     
-    skip = ['all_spatcov', '0_2_sm123', '0_101_PEPspatcov', 'sm123_spatcov']
-    
+#    skip = ['all_spatcov', '0_2_sm123', '0_101_PEPspatcov', 'sm123_spatcov']
+    skip = ['all_spatcov']
     
     
     keys_d = {}
@@ -115,11 +115,11 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=True):
         keys_d_ = {}
         for s in splits:
             
-            if causal == True:
+            if causal == True or 'causal' in option:
                 # causal
-                keys_ = df_sum[df_sum['causal']].loc[s].index
+                all_keys = df_sum[df_sum['causal']].loc[s].index
                 
-            elif causal == False:
+            elif causal == False and 'causal' not in option:
                 # correlated
                 all_keys = df_sum.loc[s].index.delete(0)
                 # remove spatcov_causals
@@ -128,7 +128,7 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=True):
                 
             if option == 'all':
                 keys_ = [k for k in all_keys if k not in skip]
-            elif option == 'only_db_regs':                
+            elif 'only_db_regs' in option:
                 # Regions + all_spatcov(_caus)
                 keys_ = [k for k in all_keys if ('spatcov' not in k)]
                 keys_ = [k for k in keys_ if k not in skip]

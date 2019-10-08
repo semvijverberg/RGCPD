@@ -18,18 +18,14 @@ import datetime
 import pandas as pd
 import functions_pp
 import func_fc
-import plot_maps
+import classes
+#import plot_maps
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 #%%
-def calculate_corr_maps(ex, map_proj):
-    #%%
-    # =============================================================================
-    # Load 'exp' dictionairy with information of pre-processed data (variables, paths, filenames, etcetera..)
-    # and add RGCPD/Tigrimate experiment settings
-    # =============================================================================
-    # Response Variable is what we want to predict
-    RV = ex[ex['RV_name']]
+def RV_and_traintest(RV, ex, method=str, kwrgs_events=None, precursor_ts=None,
+                     seed=int):
+                        
     ex['time_cycle'] = RV.dates[RV.dates.year == RV.startyear].size # time-cycle of data. total timesteps in one year
     ex['time_range_all'] = [0, RV.dates.size]
     #==================================================================================
@@ -41,21 +37,37 @@ def calculate_corr_maps(ex, map_proj):
                                index=pd.to_datetime(RV.RVfullts.time.values))
     df_RV_ts    = pd.DataFrame(RV.RV_ts.values,
                                index=pd.to_datetime(RV.RV_ts.time.values))
-    if ex['method'][:9] == 'ran_strat':
-        kwrgs_events = ex['kwrgs_events']
-        RV = func_fc.RV_class(df_RVfullts, df_RV_ts, kwrgs_events)
+    if method[:9] == 'ran_strat':
+        kwrgs_events = kwrgs_events
+        RV = classes.RV_class(df_RVfullts, df_RV_ts, kwrgs_events)
     else:
-        RV = func_fc.RV_class(df_RVfullts, df_RV_ts)
-    if ex['import_prec_ts']:
+        RV = classes.RV_class(df_RVfullts, df_RV_ts)
+    
+    if precursor_ts is not None:
         # Retrieve same train test split as imported ts
-        path_data = ''.join(ex['precursor_ts'][0][1])
+        path_data = ''.join(precursor_ts[0][1])
         df_splits = func_fc.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
         test_yrs  = functions_pp.get_testyrs(df_splits)
-        df_splits, ex = functions_pp.rand_traintest_years(RV, ex, test_yrs)
+        df_splits, ex = functions_pp.rand_traintest_years(RV, ex, test_yrs=test_yrs)
         assert (np.equal(test_yrs, ex['tested_yrs'])).all(), "Train test split not equal"
     else:
-        df_splits, ex = functions_pp.rand_traintest_years(RV, ex)
+        df_splits, ex = functions_pp.rand_traintest_years(RV, ex, method=method,
+                                                          seed=seed, 
+                                                          kwrgs_events=kwrgs_events)
+    return RV, df_splits
 
+def calculate_corr_maps(RV, df_splits, ex, list_varclass=list, lags=[0], alpha=0.05,
+                        FDR_control=True, plot=True):
+                         
+    #%%
+    # =============================================================================
+    # Load 'exp' dictionairy with information of pre-processed data (variables, paths, filenames, etcetera..)
+    # and add RGCPD/Tigrimate experiment settings
+    # =============================================================================
+    # Response Variable is what we want to predict
+#    RV = ex[ex['RV_name']]
+
+    
     
     # =============================================================================
     # 2) DEFINE PRECURSOS COMMUNITIES:
@@ -66,7 +78,7 @@ def calculate_corr_maps(ex, map_proj):
     outdic_actors = dict()
     class act:
         def __init__(self, name, corr_xr, precur_arr):
-            self.name = var
+            self.name = name
             self.corr_xr = corr_xr
             self.precur_arr = precur_arr
             self.lat_grid = precur_arr.latitude.values
@@ -74,37 +86,37 @@ def calculate_corr_maps(ex, map_proj):
             self.area_grid = rgcpd.get_area(precur_arr)
             self.grid_res = abs(self.lon_grid[1] - self.lon_grid[0])
 
-    allvar = ex['vars'][0] # list of all variable names
-    for var in allvar[ex['excludeRV']:]: # loop over all variables
-        actor = ex[var]
+
+    for var_class in list_varclass: # loop over all variables
         #===========================================
         # 3c) Precursor field
         #===========================================
-        file_path = os.path.join(actor.path_pp, actor.filename_pp)
+        file_path = os.path.join(var_class.path_pp, var_class.filename_pp)
         precur_arr = functions_pp.import_ds_timemeanbins(file_path, ex)
 #        precur_arr = rgcpd.convert_longitude(precur_arr, 'only_east')
         # =============================================================================
         # Calculate correlation
         # =============================================================================
-        corr_xr = rgcpd.calc_corr_coeffs_new(precur_arr, RV, ex)
+        corr_xr = rgcpd.calc_corr_coeffs_new(precur_arr, RV, df_splits, lags=lags,
+                                             alpha=alpha, FDR_control=FDR_control)
 
         # =============================================================================
         # Cluster into precursor regions
         # =============================================================================
-        actor = act(var, corr_xr, precur_arr)
+        actor = act(var_class.name, corr_xr, precur_arr)
         actor, ex = rgcpd.cluster_DBSCAN_regions(actor, ex)
-        if np.isnan(actor.prec_labels.values).all() == False:
+        if plot and np.isnan(actor.prec_labels.values).all() == False:
             rgcpd.plot_regs_xarray(actor.prec_labels.copy(), ex)
-        outdic_actors[var] = actor
-        # =============================================================================
-        # Plot
-        # =============================================================================
-        if ex['plotin1fig'] == False:
-            plot_maps.plot_corr_maps(corr_xr, corr_xr['mask'], map_proj)
-            fig_filename = '{}_corr_{}_vs_{}'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']
-            plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=200)
-            if ex['showplot'] == False:
-                plt.close()
+        outdic_actors[actor.name] = actor
+#        # =============================================================================
+#        # Plot
+#        # =============================================================================
+#        if ex['plotin1fig'] == False:
+#            plot_maps.plot_corr_maps(corr_xr, corr_xr['mask'], map_proj)
+#            fig_filename = '{}_corr_{}_vs_{}'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']
+#            plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=200)
+#            if ex['showplot'] == False:
+#                plt.close()
 
 #%%
     return ex, outdic_actors
@@ -372,7 +384,7 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
 
 
 
-def standard_settings_and_tests(ex):
+def standard_settings_and_tests(ex, kwrgs_RV, kwrgs_corr):
     '''Some boring settings and Perform some test'''
 
     RV = ex[ex['RV_name']]
@@ -404,12 +416,12 @@ def standard_settings_and_tests(ex):
     ex['plotin1fig'] = False
     ex['showplot'] = False
     # output paths
-    method_str = '_'.join([ex['method'], 's'+ str(ex['seed'])])
+    method_str = '_'.join([kwrgs_RV['method'], 's'+ str(kwrgs_RV['seed'])])
     ex['subfolder_exp'] = ex['path_exp_periodmask'] +'_'+ method_str
     ex['path_output'] = os.path.join(ex['subfolder_exp'])
     ex['fig_path'] = os.path.join(ex['subfolder_exp'])
 
-    ex['params'] = '{}_ac{}_at{}'.format(ex['pcA_set'], ex['alpha'],
+    ex['params'] = '{}_ac{}_at{}'.format(ex['pcA_set'], kwrgs_corr['alpha'],
                                                       ex['alpha_level_tig'])
     if os.path.isdir(ex['fig_path']) != True : os.makedirs(ex['fig_path'])
     ex['fig_subpath'] = os.path.join(ex['fig_path'], '{}_subinfo'.format(ex['params']))

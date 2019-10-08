@@ -495,14 +495,14 @@ def timeseries_tofit_bins(xr_or_dt, ex, to_freq, seldays='part', verb=1):
         ex['adjhrsstartdate'] = sstartdate + ' {:}:00:00'.format(datetime[0].hour)
         ex['adjhrsenddate']   = senddate + ' {:}:00:00'.format(datetime[0].hour)
         sdate = pd.to_datetime(ex['adjhrsstartdate'])
-        seldays_pp = pd.DatetimeIndex(start=ex['adjhrsstartdate'], end=ex['adjhrsenddate'],
+        seldays_pp = pd.date_range(start=ex['adjhrsstartdate'], end=ex['adjhrsenddate'],
                                 freq=pd.Timedelta(datetime[1] - datetime[0]))
 
 
     if seldays == 'all':
         one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
         sdate = one_yr[0]
-        seldays_pp = pd.DatetimeIndex(start=one_yr[0], end=one_yr[-1],
+        seldays_pp = pd.date_range(start=one_yr[0], end=one_yr[-1],
                                 freq=datetime[1] - datetime[0])
 
 
@@ -530,7 +530,7 @@ def timeseries_tofit_bins(xr_or_dt, ex, to_freq, seldays='part', verb=1):
             # add day in front to compensate for removing a day
             start_day = start_day - np.timedelta64(1, 'D')
 
-        start_yr = pd.DatetimeIndex(start=start_day, end=end_day,
+        start_yr = pd.date_range(start=start_day, end=end_day,
                                     freq=(datetime[1] - datetime[0]))
 
         start_yr = core_pp.remove_leapdays(start_yr)
@@ -614,7 +614,7 @@ def make_RVdatestr(dates, ex, startyr, endyr, lpyr=False):
 
 
 
-    oneyr_dates = pd.DatetimeIndex(start=sstartdate, end=senddate_,
+    oneyr_dates = pd.date_range(start=sstartdate, end=senddate_,
                             freq=pd.Timedelta(1, 'd'))
     daily_yr_fit = np.round(oneyr_dates.size / ex['tfreq'], 0)
 
@@ -636,7 +636,7 @@ def make_RVdatestr(dates, ex, startyr, endyr, lpyr=False):
 
 
 
-    start_yr = pd.DatetimeIndex(start=sstartdate, end=senddate,
+    start_yr = pd.date_range(start=sstartdate, end=senddate,
                                 freq=(dates[1] - dates[0]))
     if lpyr==True and calendar.isleap(startyr):
         start_yr -= pd.Timedelta( '1 days')
@@ -652,7 +652,7 @@ def make_RVdatestr(dates, ex, startyr, endyr, lpyr=False):
         startday = startday.replace(firstyear, str(curr_yr+incr))
         endday = endday.replace(firstyear, str(curr_yr+incr))
 
-        next_yr = pd.DatetimeIndex(start=startday, end=endday,
+        next_yr = pd.date_range(start=startday, end=endday,
                         freq=(dates[1] - dates[0]))
         if lpyr==True and calendar.isleap(curr_yr+incr):
             next_yr -= pd.Timedelta( '1 days')
@@ -950,6 +950,7 @@ def regrid_xarray(xarray_in, to_grid_res, periodic=True):
 
 
     ds = xr.Dataset({'data':xarray_in})
+    ds = xarray_in
 
     if 'longitude' in ds.dims:
         ds = ds.rename({'longitude': 'lon',
@@ -978,8 +979,8 @@ def regrid_xarray(xarray_in, to_grid_res, periodic=True):
         lon1_b = lons.max()
     to_grid = xe.util.grid_2d(lon0_b, lon1_b, to_grid_res, lat0_b, lat1_b, to_grid_res)
 #    to_grid = xe.util.grid_global(2.5, 2.5)
-    regridder = xe.Regridder(ds, to_grid, method, periodic=periodic)
-    xarray_out = regridder(ds['data'])
+    regridder = xe.Regridder(ds, to_grid, method, periodic=periodic, reuse_weights=True)
+    xarray_out = regridder(ds)
     regridder.clean_weight_file()
     xarray_out = xarray_out.rename({'lon':'longitude',
                                     'lat':'latitude'})
@@ -1001,11 +1002,12 @@ def store_hdf_df(dict_of_dfs, file_path):
         hdf.close()
     return
 
-def rand_traintest_years(RV, ex, test_yrs=None):
+def rand_traintest_years(RV, ex, test_yrs=None, method=str, seed=int, 
+                         kwrgs_events=None):
     #%%
     '''
-    possible ex['method'] are:
-    random{int} : with the int(ex['method'][6:8]) determining the amount of folds
+    possible method are:
+    random{int} : with the int(method[6:8]) determining the amount of folds
     leave{int} : chronologically split train and test years
     split{int} : split dataset into single train and test set
     no_train_test_split.
@@ -1016,7 +1018,7 @@ def rand_traintest_years(RV, ex, test_yrs=None):
     ex['tested_yrs'] = [] ; # ex['n_events'] = []
     ex['all_yrs'] = list(np.unique(RV_ts.index.year))
 
-    if ex['method'][:6] == 'random' or ex['method'][:9] == 'ran_strat':
+    if method[:6] == 'random' or method[:9] == 'ran_strat':
         if 'seed' not in ex.keys():
             ex['seed'] = 30 # control reproducibility train/test split
         else:
@@ -1024,20 +1026,20 @@ def rand_traintest_years(RV, ex, test_yrs=None):
 
         seed = ex['seed']
 
-        if ex['method'][:6] == 'random':
-            ex['n_spl'] = int(ex['method'][6:8])
+        if method[:6] == 'random':
+            ex['n_spl'] = int(method[6:8])
         else:
-             ex['n_spl'] = int(ex['method'][9:])
+             ex['n_spl'] = int(method[9:])
 
 
-    elif ex['method'][:5] == 'leave':
-        ex['n_spl'] = int(ex['n_yrs'] / int(ex['method'].split('_')[1]) )
+    elif method[:5] == 'leave':
+        ex['n_spl'] = int(ex['n_yrs'] / int(method.split('_')[1]) )
         iterate = np.arange(0, ex['n_yrs']+1E-9,
-                            int(ex['method'].split('_')[1]), dtype=int )
-    elif ex['method'] == 'no_train_test_split': ex['n_spl'] = 1
+                            int(method.split('_')[1]), dtype=int )
+    elif method == 'no_train_test_split': ex['n_spl'] = 1
 
     if test_yrs is not None:
-        ex['method'] = 'copied_from_import_ts'
+        method = 'copied_from_import_ts'
 
     full_time  = pd.to_datetime(RV.RVfullts.index)
     RV_time  = pd.to_datetime(RV_ts.index.values)
@@ -1057,7 +1059,7 @@ def rand_traintest_years(RV, ex, test_yrs=None):
             a_conditions_failed = False
 
 
-            if ex['method'][:6] == 'random' or ex['method'][:9] == 'ran_strat':
+            if method[:6] == 'random' or method[:9] == 'ran_strat':
 
 
                 rng = np.random.RandomState(seed)
@@ -1077,27 +1079,27 @@ def rand_traintest_years(RV, ex, test_yrs=None):
                     print('test year drawn twice, redoing sampling')
 
 
-            elif ex['method'][:5] == 'leave':
-                ex['leave_n_years_out'] = int(ex['method'].split('_')[1])
+            elif method[:5] == 'leave':
+                ex['leave_n_years_out'] = int(method.split('_')[1])
                 t0 = iterate[s]
                 t1 = iterate[s+1]
                 rand_test_years = ex['all_yrs'][t0: t1]
 
-            elif ex['method'][:5] == 'split':
-                size_train = int(np.percentile(range(len(ex['all_yrs'])), int(ex['method'][5:])))
+            elif method[:5] == 'split':
+                size_train = int(np.percentile(range(len(ex['all_yrs'])), int(method[5:])))
                 size_test  = len(ex['all_yrs']) - size_train
                 ex['leave_n_years_out'] = size_test
                 print('Using {} years to train and {} to test'.format(size_train, size_test))
                 rand_test_years = ex['all_yrs'][-size_test:]
 
-            elif ex['method'] == 'no_train_test_split':
+            elif method == 'no_train_test_split':
                 size_train = len(ex['all_yrs'])
                 size_test  = 0
                 ex['leave_n_years_out'] = size_test
                 print('No train test split'.format(size_train, size_test))
                 rand_test_years = []
 
-            elif ex['method'] == 'copied_from_import_ts':
+            elif method == 'copied_from_import_ts':
                 size_train = len(ex['all_yrs'])
                 rand_test_years = test_yrs[s]
                 if s == 0:
@@ -1126,18 +1128,19 @@ def rand_traintest_years(RV, ex, test_yrs=None):
             TrainIsTrue[Prec_train_idx] = True
 
 
-            if ex['method'] != 'no_train_test_split':
+            if method != 'no_train_test_split':
                 Prec_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
                 RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
                 RV_test = RV_ts.iloc[RV_test_idx]
 
                 test_years = np.unique(RV_test.index.year)
 
-                if ex['method'][:9] == 'ran_strat':
+                if method[:9] == 'ran_strat':
                     RV_bin = RV.RV_bin.iloc[RV_test_idx]
                     # check if representative sample
-                    a_conditions_failed, count, seed = check_test_split(RV, RV_bin, ex, a_conditions_failed,
-                                                                        s, count, seed, ex['verbosity'])
+                    out = check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed,
+                                           s, count, seed, ex['verbosity'])
+                    a_conditions_failed, count, seed = out
             else:
                 RV_test = [] ; test_years = [] ; Prec_test_idx = []
         data = np.concatenate([TrainIsTrue[None,:], RV_mask[None,:]], axis=0)
@@ -1161,26 +1164,27 @@ def rand_traintest_years(RV, ex, test_yrs=None):
 
 
 
-def check_test_split(RV, RV_bin, ex, a_conditions_failed, s, count, seed, verbosity=0):
+def check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed, s, count, seed, verbosity=0):
     #%%
-    ex['event_thres'] = func_fc.Ev_threshold(RV.RV_ts, ex['kwrgs_events']['event_percentile'])
+#    event_thres = func_fc.Ev_threshold(RV.RV_ts, kwrgs_events['event_percentile'])
     tol_from_exp_events = 0.20
 
-    if 'kwrgs_events' not in ex.keys():
+    if 'kwrgs_events' is None:
         print('Stratified Train Test based on +1 tercile events\n')
-        ex['kwrgs_events']  =  {'event_percentile': 66,
+        kwrgs_events  =  {'event_percentile': 66,
                     'min_dur' : 1,
                     'max_break' : 0,
                     'grouped' : False}
 
-    if ex['kwrgs_events']['event_percentile'] == 'std':
+    if kwrgs_events['event_percentile'] == 'std':
         exp_events_r = 0.15
-    elif type(ex['kwrgs_events']['event_percentile']) == int:
-        exp_events_r = 1 - ex['kwrgs_events']['event_percentile']/100
+    elif type(kwrgs_events['event_percentile']) == int:
+        exp_events_r = 1 - kwrgs_events['event_percentile']/100
 
 
     test_years = np.unique(RV_bin.index.year)
-    exp_events = (exp_events_r * RV.RV_ts.size / ex['n_yrs']) * test_years.size
+    n_yrs      = np.unique(RV.RV_ts.index.year).size
+    exp_events = (exp_events_r * RV.RV_ts.size / n_yrs) * test_years.size
     tolerance  = tol_from_exp_events * exp_events
     event_test = RV_bin
     diff       = abs(len(event_test) - exp_events)
@@ -1217,3 +1221,6 @@ def get_testyrs(df_splits):
         test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
         traintest_yrs.append(test_yrs)
     return traintest_yrs
+
+
+

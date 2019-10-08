@@ -53,7 +53,7 @@ def logit(RV, df_norm, keys):
     #%%
     return prediction, model
 
-def GBR(RV, df_norm, keys, kwrgs_GBR=None, verbosity=0):
+def GBR(RV, df_norm, keys=None, kwrgs_GBR=None, verbosity=0):
     #%%
     '''
     X contains all precursor data, incl train and test
@@ -62,10 +62,16 @@ def GBR(RV, df_norm, keys, kwrgs_GBR=None, verbosity=0):
     '''
     import warnings
     warnings.filterwarnings("ignore", category=DeprecationWarning) 
+    
+    
+    if keys is None:
+        no_data_col = ['TrainIsTrue', 'RV_mask', 'fit_model_mask']
+        keys = df_norm.columns
+        keys = [k for k in keys if k not in no_data_col]
         
     if kwrgs_GBR == None:
         # use Bram settings
-        kwrgs_GBR = {'max_depth':1,
+        kwrgs_GBR = {'max_depth':3,
                  'learning_rate':0.001,
                  'n_estimators' : 1250,
                  'max_features':'sqrt',

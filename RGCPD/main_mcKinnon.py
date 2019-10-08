@@ -13,8 +13,8 @@ script_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD" # script direc
 # To link modules in RGCPD folder to this script
 os.chdir(script_dir)
 sys.path.append(script_dir)
-if sys.version[:1] == '3':
-    from importlib import reload as rel
+#if sys.version[:1] == '3':
+#    from importlib import reload as rel
 import numpy as np
 import pandas as pd
 import functions_pp
@@ -59,7 +59,7 @@ ex = dict(
      'startyear'    :       1979, # download startyear
      'endyear'      :       2018, # download endyear
      'input_freq'   :       'daily',
-     'months'       :       list(range(1,12+1)), #downoad months
+     'months'       :       list(range(1,12+1)), # downoad months
      # if dealing with daily data, give string as 'month-day', i.e. '07-01'
      # if dealing with monthly data, the day of month is neglected 
      'startperiod'  :       '06-22', # RV period
@@ -91,13 +91,13 @@ elif ex['dataset'] == 'era5':
 # Option 1:
 ECMWFdownload = True
 # Option 2:
-import_precursor_ncdf = False
+import_precursor_ncdf = True
 # Option 3:
 import_RV_ncdf = False
 # Option 4:
 importRV_1dts = True
 # Option 5:
-ex['import_prec_ts'] = True
+ex['import_prec_ts'] = False
 
 
 # Option 1111111111111111111111111111111111111111111111111111111111111111111111
@@ -110,7 +110,7 @@ ex['import_prec_ts'] = True
 if ECMWFdownload == True:
     if ex['input_freq'] == 'daily':
         # select hours you want to download from analysis
-        ex['time']      =       pd.DatetimeIndex(start='00:00', end='23:00', 
+        ex['time']      =       pd.date_range(start='00:00', end='23:00', 
                                 freq=(pd.Timedelta(6, unit='h')))
         
 
@@ -172,8 +172,9 @@ if ex['import_prec_ts'] == True:
     ex['precursor_ts'] = [
                             ['sst_CPPA', ('/Users/semvijverberg/surfdrive/MckinRepl/',
                               'era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5')]
-                            ]
-
+                         ]
+else:                            
+    ex['precursor_ts'] = None
     
     
     
@@ -199,7 +200,7 @@ if importRV_1dts == True:
     ex['RV_name'] = 't2mmax_E-US'
     ex['RV_detrend'] = False
 #    ex['RVts_filename'] = 't2mmax_1979-2017_averAggljacc_tf14_n8__to_t2mmax_tf1.npy'
-    ex['RVts_filename'] = 'era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4.npy'
+    ex['RVts_filename'] = 'era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19.npy'
 #    ex['RVts_filename'] = 'comp_v_spclus2of4_tempclus2_AgglomerativeClustering_smooth15days_compmean_daily.npy'
 
 
@@ -237,8 +238,15 @@ if import_precursor_ncdf == True:
         var_class = functions_pp.Var_import_precursor_netcdf(ex, idx)
         ex[var_class.name] = var_class
 
+# =============================================================================
+# Combine precursor information
+# =============================================================================
+list_varclass = []
+allvar = ex['vars'][0] # list of all variable names
+for var in allvar[ex['excludeRV']:]: # loop over all variables
+    list_varclass.append(ex[var])
 
-
+kwrgs_corr = {'list_varclass':list_varclass}
 # =============================================================================
 # Now we have collected all info on what variables will be analyzed, based on
 # downloading, own netcdfs / importing RV time serie.
@@ -269,6 +277,7 @@ for freq in ex['tfreqlist']:
 #    lag_min = int(np.timedelta64(5, 'D') / np.timedelta64(ex['tfreq'], 'D'))
     ex['lags_i'] = np.array([0], dtype=int)
     ex['lags'] = np.array([l*freq for l in ex['lags_i']], dtype=int)
+    lags = ex['lags']
     
     ex['exp_pp'] = '{}_m{}-{}_dt{}'.format(RV_actor_names,
                         ex['sstartdate'].split('-')[0], 
@@ -309,17 +318,27 @@ for freq in ex['tfreqlist']:
 
 
     print('\n\t**\n\tOkay, end of pre-processing climate data!\n\t**' )
-    #%%
+
     # *****************************************************************************
     # *****************************************************************************
     # Part 2 Configure RGCPD/Tigramite settings
     # *****************************************************************************
     # *****************************************************************************
+
+    # =============================================================================
+    # Corr maps settings
+    # =============================================================================
+    alpha = 0.01 # set significnace level for correlation maps
+    FDR_control = True # Do you want to use the conservative alpha_fdr or normal alpha?
+    kwrgs_corr = dict(alpha=alpha,
+                      list_varclass=list_varclass,
+                      lags=ex['lags'],
+                      FDR_control=FDR_control)
+    
     ex['tigr_tau_max'] = 5
     ex['max_comb_actors'] = 10
-    ex['alpha'] = 0.01 # set significnace level for correlation maps
-    ex['alpha_fdr'] = 2*ex['alpha'] # conservative significance level
-    ex['FDR_control'] = True # Do you want to use the conservative alpha_fdr or normal alpha?
+    ex['alpha_fdr'] = 2*kwrgs_corr['alpha'] # conservative significance level
+    
     ex['alpha_level_tig'] = 0.01 # Alpha level for final regression analysis by Tigrimate
     ex['pcA_sets'] = dict({   # dict of sets of pc_alpha values
           'pcA_set1a' : [ 0.05], # 0.05 0.01
@@ -334,8 +353,8 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # settings precursor region selection
     # =============================================================================   
-    ex['distance_eps'] = 1000 # proportional to km apart from a core sample, standard = 1000 km
-    ex['min_area_in_degrees2'] = 4 # minimal size to become precursor region (core sample)
+    ex['distance_eps'] = 400 # proportional to km apart from a core sample, standard = 1000 km
+    ex['min_area_in_degrees2'] = 3 # minimal size to become precursor region (core sample)
     ex['group_split'] = 'together' # choose 'together' or 'seperate'
     # =============================================================================
     # Train test split
@@ -348,20 +367,38 @@ for freq in ex['tfreqlist']:
     # (4) split{int}    :   split dataset into single train and test set
     # (5) no_train_test_split
     
-    ex['method'] = 'ran_strat10' ; ex['seed'] = 30 
+    # Extra: RV events settings are needed to make balanced traintest splits
+    # =============================================================================
+
+    method='ran_strat10'
+    seed=30
+    kwrgs_events={'event_percentile':'std', 
+                  'min_dur': 1, 
+                  'max_break': 0, 
+                  'grouped': False}
+    precursor_ts=ex['precursor_ts']
+    
+    
+    
+    kwrgs_RV = dict(method=method,
+                    seed=seed,
+                    kwrgs_events=kwrgs_events,
+                    precursor_ts=precursor_ts)
+    
+#    ex['method'] = 'ran_strat10' ; ex['seed'] = 30 
 #    ex['method'] = 'no_train_test_split'
     # =============================================================================
     # RV events settings (allows to make balanced traintest splits)
     # =============================================================================
-    ex['kwrgs_events'] = {'event_percentile':'std', 
-                          'min_dur': 1, 
-                          'max_break': 0, 
-                          'grouped': False}
+#    ex['kwrgs_events'] = {'event_percentile':'std', 
+#                          'min_dur': 1, 
+#                          'max_break': 0, 
+#                          'grouped': False}
 
     # =============================================================================
     # Load some standard settings
     # =============================================================================
-    ex = wrapper_RGCPD_tig.standard_settings_and_tests(ex)
+    ex = wrapper_RGCPD_tig.standard_settings_and_tests(ex, kwrgs_RV, kwrgs_corr)
     central_lon_plots = 200
     map_proj = ccrs.LambertCylindrical(central_longitude=central_lon_plots)
     #%%
@@ -370,11 +407,17 @@ for freq in ex['tfreqlist']:
     # Part 3 Run RGCPD python script with settings
     # *****************************************************************************
     # *****************************************************************************
+    
+    RV, ex = functions_pp.RV_spatial_temporal_mask(ex, RV, importRV_1dts)
+    # =============================================================================
+    # Define RV and train-test split
+    # =============================================================================
+    RV, df_splits = wrapper_RGCPD_tig.RV_and_traintest(RV, ex, **kwrgs_RV)
     # =============================================================================
     # Find precursor fields (potential precursors)
     # =============================================================================
-
-    ex, outdic_actors = wrapper_RGCPD_tig.calculate_corr_maps(ex, map_proj)
+    
+    ex, outdic_actors = wrapper_RGCPD_tig.calculate_corr_maps(RV, df_splits, ex, **kwrgs_corr)
     
     #%%
     # calculate precursor timeseries

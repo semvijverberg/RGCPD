@@ -26,10 +26,15 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
     variables = list(ds.variables.keys())
     strvars = [' {} '.format(var) for var in variables]
     common_fields = ' time time_bnds longitude latitude lev lon lat level mask lsm '
-    var = [var for var in strvars if var not in common_fields][0]
-    var = var.replace(' ', '')
-
-    ds = ds[var]
+    
+    
+    var = [var for var in strvars if var not in common_fields]
+    if len(var) != 0:
+        var = var[0].replace(' ', '')
+        ds = ds[var]
+    else:
+        ds = ds
+    
 
     if 'latitude' and 'longitude' not in ds.dims:
         ds = ds.rename({'lat':'latitude',
@@ -247,7 +252,7 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
 
     #%%
     return output
-
+#%%
 def rolling_mean_np(arr, win, center=True):
     import scipy.signal.windows as spwin
     plt.plot(range(-int(win/2),+int(win/2)+1), spwin.gaussian(win, win/2))
@@ -270,7 +275,7 @@ def convert_longitude(data, to_format='west_east'):
         lon_above = longitude[np.where(longitude > 180)[0]]
         lon_normal = longitude[np.where(longitude <= 180)[0]]
         # roll all values to the right for len(lon_above amount of steps)
-        data = data.roll(longitude=len(lon_above))
+        data = data.roll(longitude=len(lon_above), roll_coords=False)
         # adapt longitude values above 180 to negative values
         substract = lambda x, y: (x - y)
         lon_above = xr.apply_ufunc(substract, lon_above, 360)
@@ -291,15 +296,15 @@ def convert_longitude(data, to_format='west_east'):
 
         if min(lon_above) < deg:
             # crossing the meridional:
-            data = data.roll(longitude=-len(lon_below))
+            data = data.roll(longitude=-len(lon_below), roll_coords=False)
             convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
         else:
             # crossing - 180 line
-            data = data.roll(longitude=len(lon_below))
+            data = data.roll(longitude=len(lon_below), roll_coords=False)
             convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
     data['longitude'] = convert_lon
     return data
-
+#%%
 if __name__ == '__main__':
     ex = {}
     ex['input_freq'] = 'daily'

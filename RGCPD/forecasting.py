@@ -19,6 +19,7 @@ import os, datetime
 import pandas as pd
 import numpy as np
 import func_fc
+import classes
 import matplotlib.pyplot as plt
 import validation as valid
 import valid_plots as dfplots
@@ -36,14 +37,10 @@ import exp_fc
 #strat_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
 strat_1d_CPPA_era5 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5'
 strat_1d_CPPA_EC   = '/Users/semvijverberg/surfdrive/MckinRepl/EC_tas_tos_Northern/ran_strat10_s30/data/EC_16-09-19_19hr_lag_0.h5'
-CPPA_v_sm_20d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_v200hpa_sm123_m01-09_dt20/13jun-12aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-18.h5'
 CPPA_v_sm_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_v200hpa_sm123_m01-09_dt10/18jun-17aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-20.h5'
 CPPA_sm_10d   = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sm123_m01-09_dt10/18jun-17aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-24.h5'
-n_boot = 2000
-
-
-
-
+RGCPD_sst_sm_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_sm123_m01-09_dt10/18jun-17aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.01_subinfo/fulldata_pcA_none_ac0.01_at0.01_2019-10-04.h5'
+n_boot = 200
 
 
 
@@ -64,7 +61,7 @@ def forecast_wrapper(datasets=dict, kwrgs_exp=dict, kwrgs_events=dict, stat_mode
     RVfullts = pd.DataFrame(df_data[df_data.columns[0]][0])
     RV_ts    = pd.DataFrame(df_data[df_data.columns[0]][0][df_data['RV_mask'][0]] )
     fit_model_dates = kwrgs_exp['kwrgs_pp']['fit_model_dates']
-    RV = func_fc.RV_class(RVfullts, RV_ts, kwrgs_events, 
+    RV = classes.RV_class(RVfullts, RV_ts, kwrgs_events, 
                           fit_model_dates=fit_model_dates)
     
     RV.TrainIsTrue = df_data['TrainIsTrue']
@@ -98,7 +95,7 @@ logitCV = ('logit-CV', { 'class_weight':{ 0:1, 1:1},
                 'solver':'lbfgs'})
     
 GBR_logitCV = ('GBR-logitCV', 
-              {'max_depth':3,
+              {'max_depth':10,
                'learning_rate':1E-3,
                'n_estimators' : 750,
                'max_features':'sqrt',
@@ -120,13 +117,14 @@ stat_model_l = [GBR_logitCV]
 
 #
 ERA         = {'ERA-5:':(CPPA_sm_10d, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
-#ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
+ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
+RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_10d, ['only_db_regs', 'causal only_db_regs'])}
 #stat_model_l = [logit, GBR_logitCV]
 #
 #ERA_sp      = {'ERA-5:':(CPPA_sm_10d, ['CPPAregs+sm', 'CPPApattern+sm', 'sst(CPPA)+sm'])}
 #stat_model_l = [logit, GBR_logitCV]
 
-datasets_path = ERA_Bram
+datasets_path = RGCPD
 
 causal = False
 experiments = {} #; keys_d_sets = {}
@@ -142,8 +140,6 @@ for dataset, path_key in datasets_path.items():
     keys_d = exp_fc.normal_precursor_regions(path_data, 
                                              keys_options=keys_options,
                                              causal=causal)
-    
-    
 
     for master_key, feature_keys in keys_d.items():
         kwrgs_pp = {'EOF':False, 
@@ -153,11 +149,24 @@ for dataset, path_key in datasets_path.items():
                                            'kwrgs_pp':kwrgs_pp
                                            })
 
+#%%
+# import original Response Variable timeseries:
+path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
+RVts_filename = 'era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4.npy'
+filename_ts = os.path.join(path_ts, RVts_filename)
+kwrgs_events_daily =    (filename_ts, 
+                         {  'event_percentile': 90,
+                        'min_dur' : 1,
+                        'max_break' : 0,
+                        'grouped' : False   }
+                         )
+
+kwrgs_events = kwrgs_events_daily
     
-kwrgs_events = {'event_percentile': 66,
-                'min_dur' : 1,
-                'max_break' : 0,
-                'grouped' : False}
+#kwrgs_events = {'event_percentile': 66,
+#                'min_dur' : 1,
+#                'max_break' : 0,
+#                'grouped' : False}
 
 
 
@@ -166,7 +175,7 @@ for dataset, tuple_sett in experiments.items():
     '''
     Format output is 
     dict(
-            exper_name = dict( model=tuple(df_valid, RV, y_pred) ) 
+            exper_name = dict( statmodel=tuple(df_valid, RV, y_pred) ) 
         )
     '''
     path_data = tuple_sett[0]
@@ -268,7 +277,7 @@ filename = os.path.join(working_folder, f_name)
 group_line_by = None
 #group_line_by = ['ERA-5', 'EC']
 kwrgs = {'wspace':0.08}
-met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
+met = ['AUC-ROC', 'AUC-PR', 'BSS', 'prec', 'Rel. Curve']
 expers = list(dict_experiments.keys())
 models   = list(dict_experiments[expers[0]].keys())
 
@@ -334,97 +343,97 @@ kwrgs_events_daily = {  'event_percentile': 90,
 
 
 
-def pers_ano_to_extr(filename_ts, RV, kwrgs_events_daily, dict_experiments, 
-                     name_exp, name_model, n_boot):
-    
-   
-    # loading in daily timeseries
-    RVfullts = np.load(filename_ts, encoding='latin1',
-                             allow_pickle=True).item()['RVfullts95']
-
-    # Retrieve information on input timeseries
-    import functions_pp
-    dates = functions_pp.get_oneyr(RV.RV_ts.index)
-    tfreq = (dates[1] - dates[0]).days
-    start_date = dates[0] - pd.Timedelta(f'{tfreq/2}d')
-    end_date   = dates[-1] + pd.Timedelta(f'{-1+tfreq/2}d')
-    yr_daily  = pd.DatetimeIndex(start=start_date, end=end_date,
-                                    freq=pd.Timedelta('1d'))
-    ext_dates = functions_pp.make_dates(RV.RV_ts.index, yr_daily, 
-                                        RV.RV_ts.index.year[-1])
-
-    df_RV_ts_e = pd.DataFrame(RVfullts.sel(time=ext_dates).values, 
-                              index=ext_dates, columns=['RV_ts'])
-    df_RVfullts = pd.DataFrame(RVfullts.values, 
-                              index=pd.to_datetime(RVfullts.time.values), 
-                              columns=['RVfullts'])
-    
-    # Make new class based on new kwrgs_events_daily
-    RV_d = func_fc.RV_class(df_RVfullts, df_RV_ts_e, kwrgs_events_daily)
-    # Ensure that the bins on the daily time series matches the original
-    ex = dict(sstartdate = f'{yr_daily[0].month}-{yr_daily[0].day}',
-              senddate   = f'{yr_daily[-1].month}-{yr_daily[-1].day}',
-              startyear  = ext_dates.year[0],
-              endyear    = ext_dates.year[-1])
-    RV_d.RV_bin, dates_gr = functions_pp.time_mean_bins(RV_d.RV_bin, ex, tfreq)
-    RV_d.RV_bin[RV_d.RV_bin>0] = 1
-    RV_d.TrainIsTrue = RV.TrainIsTrue
-    RV_d.RV_mask     = RV.RV_mask
-    # add new probability of event occurence     
-    RV_d.prob_clim = func_fc.get_obs_clim(RV_d)
-    
-
-    dict_comparison = {}
-    # loading model predicting pers. anomalies
-    orig_event_perc = np.round(1 - float(RV.prob_clim.mean()), 2)
-    new_name = '{}d mean +{}p to +{}p events'.format(tfreq, orig_event_perc, 
-                kwrgs_events_daily['event_percentile'])
-    
-    dict_sum = dict_experiments[name_exp]
-    df_valid, RV, y_pred = dict_sum[models[-1]]
-    
-    blocksize = valid.get_bstrap_size(RV.RVfullts, plot=False)
-    out = valid.get_metrics_sklearn(RV_d, y_pred, RV_d.prob_clim, n_boot=n_boot,
-                                    blocksize=blocksize)
-    df_valid, metrics_dict = out
-    dict_comparison[new_name] = {name_model : (df_valid, RV_d, y_pred)}
-    return dict_comparison
-
-#%%
-
-dict_comparison = pers_ano_to_extr(filename_ts, RV, kwrgs_events_daily, dict_experiments, 
-                     name_exp, name_model, n_boot)
-
-df_valid_ex, RV_d, y_pred = dict_comparison[new_name][name_model]
-f_format = '.png' 
-f_name_extremes = '{}_{}d_{}p_to_{}p_events_{}'.format(RV_name, tfreq, 
-                   kwrgs_events['event_percentile'],
-                   kwrgs_events_daily['event_percentile'], today)
-filename = os.path.join(working_folder, f_name_extremes)
-
-group_line_by = None
-#group_line_by = ['ERA-5', 'EC']
-kwrgs = {'wspace':0.08}
-met = ['AUC-ROC', 'AUC-PR', 'BSS', 'prec', 'Rel. Curve']
-expers = list(dict_comparison.keys())
-models   = list(dict_comparison[expers[0]].keys())
-
-fig = dfplots.valid_figures(dict_comparison, expers=expers, models=models,
-                          line_dim='exper', 
-                          group_line_by=group_line_by,  
-                          met=met, **kwrgs)
-if f_format == '.png':
-    fig.savefig(os.path.join(filename + f_format), 
-                bbox_inches='tight') # dpi auto 600
-elif f_format == '.pdf':
-    fig.savefig(os.path.join(pdfs_folder, f_name_extremes + f_format), 
-                bbox_inches='tight')
-
-filename_extreme = os.path.join(working_folder, f_name_extremes)
-print_sett(experiments, stat_model_l, filename_extreme)
-
-
-np.save(filename + '.npy', dict_experiments)
+#def pers_ano_to_extr(filename_ts, RV, kwrgs_events_daily, dict_experiments, 
+#                     name_exp, name_model, n_boot):
+#    
+#   
+#    # loading in daily timeseries
+#    RVfullts = np.load(filename_ts, encoding='latin1',
+#                             allow_pickle=True).item()['RVfullts95']
+#
+#    # Retrieve information on input timeseries
+#    import functions_pp
+#    dates = functions_pp.get_oneyr(RV.RV_ts.index)
+#    tfreq = (dates[1] - dates[0]).days
+#    start_date = dates[0] - pd.Timedelta(f'{tfreq/2}d')
+#    end_date   = dates[-1] + pd.Timedelta(f'{-1+tfreq/2}d')
+#    yr_daily  = pd.DatetimeIndex(start=start_date, end=end_date,
+#                                    freq=pd.Timedelta('1d'))
+#    ext_dates = functions_pp.make_dates(RV.RV_ts.index, yr_daily, 
+#                                        RV.RV_ts.index.year[-1])
+#
+#    df_RV_ts_e = pd.DataFrame(RVfullts.sel(time=ext_dates).values, 
+#                              index=ext_dates, columns=['RV_ts'])
+#    df_RVfullts = pd.DataFrame(RVfullts.values, 
+#                              index=pd.to_datetime(RVfullts.time.values), 
+#                              columns=['RVfullts'])
+#    
+#    # Make new class based on new kwrgs_events_daily
+#    RV_d = func_fc.RV_class(df_RVfullts, df_RV_ts_e, kwrgs_events_daily)
+#    # Ensure that the bins on the daily time series matches the original
+#    ex = dict(sstartdate = f'{yr_daily[0].month}-{yr_daily[0].day}',
+#              senddate   = f'{yr_daily[-1].month}-{yr_daily[-1].day}',
+#              startyear  = ext_dates.year[0],
+#              endyear    = ext_dates.year[-1])
+#    RV_d.RV_bin, dates_gr = functions_pp.time_mean_bins(RV_d.RV_bin, ex, tfreq)
+#    RV_d.RV_bin[RV_d.RV_bin>0] = 1
+#    RV_d.TrainIsTrue = RV.TrainIsTrue
+#    RV_d.RV_mask     = RV.RV_mask
+#    # add new probability of event occurence     
+#    RV_d.prob_clim = func_fc.get_obs_clim(RV_d)
+#    
+#
+#    dict_comparison = {}
+#    # loading model predicting pers. anomalies
+#    orig_event_perc = np.round(1 - float(RV.prob_clim.mean()), 2)
+#    new_name = '{}d mean +{}p to +{}p events'.format(tfreq, orig_event_perc, 
+#                kwrgs_events_daily['event_percentile'])
+#    
+#    dict_sum = dict_experiments[name_exp]
+#    df_valid, RV, y_pred = dict_sum[models[-1]]
+#    
+#    blocksize = valid.get_bstrap_size(RV.RVfullts, plot=False)
+#    out = valid.get_metrics_sklearn(RV_d, y_pred, RV_d.prob_clim, n_boot=n_boot,
+#                                    blocksize=blocksize)
+#    df_valid, metrics_dict = out
+#    dict_comparison[new_name] = {name_model : (df_valid, RV_d, y_pred)}
+#    return dict_comparison
+#
+##%%
+#
+#dict_comparison = pers_ano_to_extr(filename_ts, RV, kwrgs_events_daily, dict_experiments, 
+#                     name_exp, name_model, n_boot)
+#
+#df_valid_ex, RV_d, y_pred = dict_comparison[new_name][name_model]
+#f_format = '.png' 
+#f_name_extremes = '{}_{}d_{}p_to_{}p_events_{}'.format(RV_name, tfreq, 
+#                   kwrgs_events['event_percentile'],
+#                   kwrgs_events_daily['event_percentile'], today)
+#filename = os.path.join(working_folder, f_name_extremes)
+#
+#group_line_by = None
+##group_line_by = ['ERA-5', 'EC']
+#kwrgs = {'wspace':0.08}
+#met = ['AUC-ROC', 'AUC-PR', 'BSS', 'prec', 'Rel. Curve']
+#expers = list(dict_comparison.keys())
+#models   = list(dict_comparison[expers[0]].keys())
+#
+#fig = dfplots.valid_figures(dict_comparison, expers=expers, models=models,
+#                          line_dim='exper', 
+#                          group_line_by=group_line_by,  
+#                          met=met, **kwrgs)
+#if f_format == '.png':
+#    fig.savefig(os.path.join(filename + f_format), 
+#                bbox_inches='tight') # dpi auto 600
+#elif f_format == '.pdf':
+#    fig.savefig(os.path.join(pdfs_folder, f_name_extremes + f_format), 
+#                bbox_inches='tight')
+#
+#filename_extreme = os.path.join(working_folder, f_name_extremes)
+#print_sett(experiments, stat_model_l, filename_extreme)
+#
+#
+#np.save(filename + '.npy', dict_experiments)
 
 
 

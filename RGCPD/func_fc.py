@@ -122,61 +122,7 @@ def forecast_and_valid(RV, df_data, kwrgs_exp, stat_model=tuple, lags_i=list,
 #    y_pred_all.iloc[1][y_pred_all.iloc[1]==1].size / RV.RV_bin[RV.RV_bin==1].size
     return df_valid, RV, y_pred_all
 
-class RV_class:
-    def __init__(self, RVfullts, RV_ts, kwrgs_events=None, only_RV_events=True,
-                 fit_model_dates=None):
-#        self.RV_ts = pd.DataFrame(df_data[df_data.columns[0]][0][df_data['RV_mask'][0]] )
-#        self.RVfullts = pd.DataFrame(df_data[df_data.columns[0]][0])
-        self.RV_ts = RV_ts
-        self.RVfullts = RVfullts
-        self.dates_all = RVfullts.index
-        self.dates_RV = RV_ts.index
-        if fit_model_dates is None:
-            bool_mask = [True if d in self.dates_RV else False for d in self.dates_all]
-            self.fit_model_mask = pd.DataFrame(bool_mask, columns=['fit_model_mask'],
-                                               index=self.dates_all)
-            self.RV_ts_fit = self.RV_ts
-            self.fit_dates = self.dates_RV
-        else:
-            startperiod, endperiod = fit_model_dates
-            startyr = self.dates_all[0].year
-            endyr   = self.dates_all[-1].year
-            if self.dates_all.resolution == 'day':
-                tfreq = (self.dates_all[1] - self.dates_all[0]).days
-            ex = {'startperiod':startperiod, 'endperiod':endperiod,
-                  'tfreq':tfreq}
-            fit_dates = functions_pp.make_RVdatestr(self.dates_all,
-                                                          ex, startyr, endyr)
-            self.fit_dates = fit_dates
-            bool_mask = [True if d in fit_dates else False for d in self.dates_all]
-            self.fit_model_mask = pd.DataFrame(bool_mask, columns=['fit_model_mask'],
-                                               index=self.dates_all)
-            self.RV_ts_fit = self.RVfullts[self.fit_model_mask.values]
-#        self.TrainIsTrue = df_data['TrainIsTrue']
-#        self.RV_mask = df_data['RV_mask']
-        self.n_oneRVyr = self.dates_RV[self.dates_RV.year == self.dates_RV.year[0]].size
-        if kwrgs_events is not None:
-            self.threshold = Ev_threshold(self.RV_ts,
-                                              kwrgs_events['event_percentile'])
-            self.threshold_ts_fit = Ev_threshold(self.RV_ts_fit,
-                                              kwrgs_events['event_percentile'])
-            if only_RV_events == True:
 
-                self.RV_bin_fit = Ev_timeseries(self.RV_ts_fit,
-                               threshold=self.threshold_ts_fit ,
-                               min_dur=kwrgs_events['min_dur'],
-                               max_break=kwrgs_events['max_break'],
-                               grouped=kwrgs_events['grouped'])[0]
-                self.RV_bin = self.RV_bin_fit.loc[self.dates_RV]
-            elif only_RV_events == False:
-                self.RV_b_full = Ev_timeseries(self.RVfullts,
-                               threshold=self.threshold ,
-                               min_dur=kwrgs_events['min_dur'],
-                               max_break=kwrgs_events['max_break'],
-                               grouped=kwrgs_events['grouped'])[0]
-                self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
-
-            self.freq      = get_freq_years(self.RV_bin)
 
 
 
