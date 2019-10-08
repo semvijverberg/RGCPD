@@ -13,6 +13,7 @@ The final step is the same, where the 1-d time series are processed by Tigramite
 
 # Example output
 to be added
+[alt text](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.01_at0.01_t2mmax_E-US_vs_sst_labels_mean.png)
 
 
 Installation
