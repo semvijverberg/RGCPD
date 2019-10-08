@@ -1,6 +1,6 @@
 
 # RG-CPD
-Features
+Introduction
 =====
 
 RG-CPD is a framework to process 3-dimensional climate data, such that relationships based on correlation can be tested for conditional independence, i.e. causality.
@@ -16,6 +16,24 @@ Correlated (left) and 'Causal' (right) SST regions with eastern U.S. temperature
 ![corr_field](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.01_at0.01_t2mmax_E-US_vs_sst_tigr_corr_mean.png)
 Clustering of the precursor regions.
 ![precursor_labels](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.01_at0.01_t2mmax_E-US_vs_sst_labels_mean.png)
+
+Output is stored in .hdf5 format (pandas dataframe) and can be used by forecasting.py to predict events and validate the forecast. Forecasting and evaluating Continuous timeseries is not fully supported yet. 
+
+# Personal note
+I'm currently using the code mostly privately, I'm willing to set up collaborations, make this code more professional and add new features. 
+
+# Features
+Options to load/download timeseries
+- 1 Download from the new ECMWF ERA-5 dataset
+- 2 Add own 3-d netcdf datasets   
+- 3 Add 3-d Response Variable (RV) of interest, RGCPD assumes you interested in finding the teleconnection of a variable of interest
+- 4 Add a 1-d RV timeseries
+
+Options for retrieving features
+- 1 Correlation maps
+- 2 Eof analysis
+- 3 Climate Indices (PDO, ENSO, ... under development)
+- 4 load in pandas dataframe with timeseries directly (must follow train-test split format that is used in the code)
 
 
 Installation
