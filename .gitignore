@@ -10,7 +10,6 @@ __pycache__
 
 htmlcov
 .coverage
-coverage.xml
 .pytest_cache
 
 docs/_build
@@ -21,18 +20,8 @@ docs/apidocs
 .eclipse
 .vscode
 
-# pytest
-.travis.yml
-conda_env.txt
-
 
 # own folders
 examples/
 RGCPD/main_mcKinnon.py
 RGCPD/main_maroc.py
-
-$ other
-setup.py
-setup.cfg
-CHANGELOG.rst
-CONTRIBUTING.rst
