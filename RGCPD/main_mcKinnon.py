@@ -191,7 +191,7 @@ else:
 ex['importRV_1dts'] = importRV_1dts
 if importRV_1dts == True:
     ex['RV_name'] = 't2mmax_E-US'
-    ex['RV_detrend'] = True
+    ex['RV_detrend'] = False
 #    ex['RVts_filename'] = 't2mmax_1979-2017_averAggljacc_tf14_n8__to_t2mmax_tf1.npy'
     ex['RVts_filename'] = 'era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19.npy'
 #    ex['RVts_filename'] = 'comp_v_spclus2of4_tempclus2_AgglomerativeClustering_smooth15days_compmean_daily.npy'
