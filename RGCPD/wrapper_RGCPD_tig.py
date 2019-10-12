@@ -60,21 +60,8 @@ def calculate_corr_maps(RV, df_splits, ex, list_varclass=list, lags=[0], alpha=0
                         FDR_control=True, plot=True):
                          
     #%%
-    # =============================================================================
-    # Load 'exp' dictionairy with information of pre-processed data (variables, paths, filenames, etcetera..)
-    # and add RGCPD/Tigrimate experiment settings
-    # =============================================================================
-    # Response Variable is what we want to predict
-#    RV = ex[ex['RV_name']]
+    
 
-    
-    
-    # =============================================================================
-    # 2) DEFINE PRECURSOS COMMUNITIES:
-    # =============================================================================
-    # - calculate and plot pattern correltion for differnt fields
-    # - create time-series over these regions
-    #=====================================================================================
     outdic_actors = dict()
     class act:
         def __init__(self, name, corr_xr, precur_arr):
@@ -104,22 +91,24 @@ def calculate_corr_maps(RV, df_splits, ex, list_varclass=list, lags=[0], alpha=0
         # Cluster into precursor regions
         # =============================================================================
         actor = act(var_class.name, corr_xr, precur_arr)
-        actor, ex = rgcpd.cluster_DBSCAN_regions(actor, ex)
-        if plot and np.isnan(actor.prec_labels.values).all() == False:
-            rgcpd.plot_regs_xarray(actor.prec_labels.copy(), ex)
+
         outdic_actors[actor.name] = actor
-#        # =============================================================================
-#        # Plot
-#        # =============================================================================
-#        if ex['plotin1fig'] == False:
-#            plot_maps.plot_corr_maps(corr_xr, corr_xr['mask'], map_proj)
-#            fig_filename = '{}_corr_{}_vs_{}'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']
-#            plt.savefig(os.path.join(ex['fig_path'], fig_filename), bbox_inches='tight', dpi=200)
-#            if ex['showplot'] == False:
-#                plt.close()
+
+    return outdic_actors
+
+def cluster_regions(outdic_actors, ex, plot=True, distance_eps=400, min_area_in_degrees2=3,
+                    group_split='together'):
+    
+    for name, actor in outdic_actors.items():
+        actor = rgcpd.cluster_DBSCAN_regions(actor, distance_eps=400, 
+                                             min_area_in_degrees2=3, group_split='together')
+        if plot and np.isnan(actor.prec_labels.values).all() == False:
+            prec_labels = actor.prec_labels.copy()
+            rgcpd.plot_regs_xarray(prec_labels, ex)
+        outdic_actors[name] = actor
 
 #%%
-    return ex, outdic_actors
+    return outdic_actors
 
 def get_prec_ts(outdic_actors, ex):
     # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
@@ -435,7 +424,6 @@ def standard_settings_and_tests(ex, kwrgs_RV, kwrgs_corr):
     # =============================================================================
     filename_exp_design = os.path.join(ex['fig_subpath'], 'input_dic_{}.npy'.format(ex['params']))
     np.save(filename_exp_design, ex)
-    print('\n\t**\n\tOkay, end of Part 2!\n\t**' )
 
     print('\n**\nBegin summary of main experiment settings\n**\n')
     print('Response variable is {} is correlated vs {}'.format(RV.name,

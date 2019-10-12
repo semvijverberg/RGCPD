@@ -8,7 +8,7 @@ Created on Sat Aug 24 20:01:23 2019
 
 import pandas as pd
 import numpy as np
-import statsmodels.formula.api as sm
+import statsmodels.api as sm
 from statsmodels.api import add_constant
 from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
@@ -23,6 +23,9 @@ def logit(RV, df_norm, keys):
     X_train, y_train are split up by TrainIsTrue
     Preciction is made for whole timeseries    
     '''
+    import warnings
+    warnings.simplefilter(action='ignore', category=FutureWarning)
+    
     if keys is None:
         no_data_col = ['TrainIsTrue', 'RV_mask', 'fit_model_mask']
         keys = df_norm.columns
@@ -35,8 +38,8 @@ def logit(RV, df_norm, keys):
     TrainIsTrue = df_norm['TrainIsTrue'] 
     # Get mask to make only prediction for RV_mask dates
     pred_mask   = df_norm['RV_mask']
-    
-    model_set = sm.Logit(y[TrainIsTrue] , X[TrainIsTrue], disp=0)
+
+    model_set = sm.Logit(y['RV_binary'][TrainIsTrue] , X[TrainIsTrue], disp=0)
     try:
         model = model_set.fit( disp=0, maxfun=60 )
         prediction = model.predict(X[pred_mask])
@@ -62,6 +65,7 @@ def GBR(RV, df_norm, keys=None, kwrgs_GBR=None, verbosity=0):
     '''
     import warnings
     warnings.filterwarnings("ignore", category=DeprecationWarning) 
+    warnings.simplefilter(action='ignore', category=FutureWarning)
     
     
     if keys is None:

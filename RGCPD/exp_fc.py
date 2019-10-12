@@ -7,7 +7,7 @@ Created on Fri Aug 30 17:04:46 2019
 """
 import func_fc
 import numpy as np
-from  more_itertools import unique_everseen
+
 
 
 #experiments = { 'ERA-5 30d Only_all_spatcov':(path_data_3d_sp,
@@ -138,7 +138,7 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=True):
                 keys_ = [k for k in all_keys if k[-7:] != 'v200hpa']
                 keys_ = [k for k in keys_ if k not in skip]
             elif option == 'sst(CPPA)+sm': 
-                skip_ex = ['0_900_ENSO34', '0_901_PDO']
+                skip_ex = ['0_900_ENSO34', '0_901_PDO', '0_101_PEPspatcov', 'sm123_spatcov']
                 keys_ = [k for k in all_keys if 'v200hpa' not in k]
                 keys_ = [k for k in keys_ if k not in skip]
                 keys_ = [k for k in keys_ if k not in skip_ex]
@@ -160,7 +160,7 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=True):
                 keys_ = [k for k in all_keys if 'sm' in k or 'PDO' in k or 'ENSO' in k]
                 keys_ = [k for k in keys_ if 'spatcov' not in k]
                 
-            keys_d_[s] = np.array(list(unique_everseen(keys_)))
+            keys_d_[s] = np.unique(keys_)
             
         keys_d[option] = keys_d_
         
@@ -206,7 +206,7 @@ def CPPA_precursor_regions(path_data, keys_options=['CPPA']):
                 all_keys = [k for k in all_keys if k not in skip]
                 keys_ = [k for k in all_keys if k.split('_')[-1] == 'PEPspatcov']
         
-            keys_d_[s] = np.array(list(unique_everseen(keys_)))        
+            keys_d_[s] = np.unique(keys_)        
         keys_d[option] = keys_d_
         
     #%%

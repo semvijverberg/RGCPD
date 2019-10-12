@@ -21,7 +21,6 @@ import functions_pp
 import wrapper_RGCPD_tig
 import plot_maps
 import matplotlib.pyplot as plt
-import xarray as xr
 import cartopy.crs as ccrs
 copy_stdout = sys.stdout
 
@@ -297,10 +296,10 @@ for freq in ex['tfreqlist']:
     # Corr maps settings
     # =============================================================================
     alpha = 0.01 # set significnace level for correlation maps
-    FDR_control = True # Do you want to use the conservative alpha_fdr or normal alpha?
+    FDR_control = True # Accounting for false discovery rate?
     kwrgs_corr = dict(alpha=alpha,
                       list_varclass=list_varclass,
-                      lags=ex['lags'],
+                      lags=lags,
                       FDR_control=FDR_control)
     
     # =============================================================================
@@ -322,10 +321,12 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # settings precursor region selection
     # =============================================================================   
-    ex['distance_eps'] = 400 # proportional to km apart from a core sample
-    ex['min_area_in_degrees2'] = 3 # minimal size to become precursor region (core sample)
-    ex['group_split'] = 'together' # keep this setting to 'together'
-    
+    distance_eps = 400 # proportional to km apart from a core sample, standard = 1000 km
+    min_area_in_degrees2 = 3 # minimal size to become precursor region (core sample)
+    group_split = 'together' # choose 'together' or 'seperate'
+    kwrgs_cluster = dict(distance_eps=distance_eps,
+                         min_area_in_degrees2=min_area_in_degrees2,
+                         group_split='together')
     # =============================================================================
     # Train test split
     # =============================================================================
@@ -376,7 +377,10 @@ for freq in ex['tfreqlist']:
     # Find precursor fields (potential precursors)
     # =============================================================================
     
-    ex, outdic_actors = wrapper_RGCPD_tig.calculate_corr_maps(RV, df_splits, ex, **kwrgs_corr)
+    outdic_actors = wrapper_RGCPD_tig.calculate_corr_maps(RV, df_splits, ex, **kwrgs_corr)
+    #%% Change distance_eps if clustering is inappropriate (trial & error needed)
+    outdic_actors = wrapper_RGCPD_tig.cluster_regions(outdic_actors, ex, plot=True, 
+                                                      **kwrgs_cluster)
     
     #%%
     # calculate precursor timeseries

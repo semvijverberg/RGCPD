@@ -29,21 +29,13 @@ import exp_fc
 # load data 
 # =============================================================================
 
-#path_data =  '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_m01-08_dt14/9jun-18aug_t2mmax_E-US_lag0-0/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-22.h5'
-#rand_10d_sm = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-22.h5'
-#rand_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-25.h5'
-#path_data_3d_sp = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_random10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-08-30.h5'
-#strat_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt30/11jun-10aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
-#strat_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_u500hpa_sm3_m01-08_dt10/21jun-20aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.05_subinfo/fulldata_pcA_none_ac0.01_at0.05_2019-09-03.h5'
 strat_1d_CPPA_era5 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5'
 strat_1d_CPPA_EC   = '/Users/semvijverberg/surfdrive/MckinRepl/EC_tas_tos_Northern/ran_strat10_s30/data/EC_16-09-19_19hr_lag_0.h5'
 CPPA_v_sm_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_v200hpa_sm123_m01-09_dt10/18jun-17aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-20.h5'
 CPPA_sm_10d   = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sm123_m01-09_dt10/18jun-17aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-24.h5'
 RGCPD_sst_sm_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_sm123_m01-09_dt10/18jun-17aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.01_subinfo/fulldata_pcA_none_ac0.01_at0.01_2019-10-04.h5'
-n_boot = 200
-
-
-
+n_boot = 10
+verbosity = 0
 
 
 
@@ -95,7 +87,7 @@ logitCV = ('logit-CV', { 'class_weight':{ 0:1, 1:1},
                 'solver':'lbfgs'})
     
 GBR_logitCV = ('GBR-logitCV', 
-              {'max_depth':10,
+              {'max_depth':3,
                'learning_rate':1E-3,
                'n_estimators' : 750,
                'max_features':'sqrt',
@@ -116,15 +108,15 @@ GBR_logitCV_tuned = ('GBR-logitCV',
 stat_model_l = [GBR_logitCV]
 
 #
-ERA         = {'ERA-5:':(CPPA_sm_10d, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
-ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
-RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_10d, ['only_db_regs', 'causal only_db_regs'])}
+#ERA         = {'ERA-5:':(CPPA_sm_10d, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
+ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['all'])}
+#RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_10d, ['only_db_regs', 'causal only_db_regs'])}
 #stat_model_l = [logit, GBR_logitCV]
 #
 #ERA_sp      = {'ERA-5:':(CPPA_sm_10d, ['CPPAregs+sm', 'CPPApattern+sm', 'sst(CPPA)+sm'])}
-#stat_model_l = [logit, GBR_logitCV]
+stat_model_l = [logit, GBR_logitCV]
 
-datasets_path = RGCPD
+datasets_path = ERA_Bram
 
 causal = False
 experiments = {} #; keys_d_sets = {}
@@ -152,7 +144,7 @@ for dataset, path_key in datasets_path.items():
 #%%
 # import original Response Variable timeseries:
 path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
-RVts_filename = 'era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4.npy'
+RVts_filename = 'era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19.npy'
 filename_ts = os.path.join(path_ts, RVts_filename)
 kwrgs_events_daily =    (filename_ts, 
                          {  'event_percentile': 90,
@@ -276,13 +268,15 @@ filename = os.path.join(working_folder, f_name)
 
 group_line_by = None
 #group_line_by = ['ERA-5', 'EC']
-kwrgs = {'wspace':0.08}
-met = ['AUC-ROC', 'AUC-PR', 'BSS', 'prec', 'Rel. Curve']
+kwrgs = {'wspace':0.08, 'col_wrap':None}
+kwrgs = {'wspace':0.25, 'col_wrap' : 3}
+met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision', 'Accuracy']
 expers = list(dict_experiments.keys())
 models   = list(dict_experiments[expers[0]].keys())
 
+
 fig = dfplots.valid_figures(dict_experiments, expers=expers, models=models,
-                          line_dim='exper', 
+                          line_dim='model', 
                           group_line_by=group_line_by,  
                           met=met, **kwrgs)
 if f_format == '.png':
@@ -414,7 +408,7 @@ kwrgs_events_daily = {  'event_percentile': 90,
 #group_line_by = None
 ##group_line_by = ['ERA-5', 'EC']
 #kwrgs = {'wspace':0.08}
-#met = ['AUC-ROC', 'AUC-PR', 'BSS', 'prec', 'Rel. Curve']
+#met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Rel. Curve']
 #expers = list(dict_comparison.keys())
 #models   = list(dict_comparison[expers[0]].keys())
 #

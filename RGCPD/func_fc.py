@@ -12,8 +12,7 @@ import xarray as xr
 import eofs
 import stat_models
 import validation as valid
-import functions_pp
-#from functions_pp import make_RVdatestr
+
 
 
 def forecast_and_valid(RV, df_data, kwrgs_exp, stat_model=tuple, lags_i=list,

@@ -101,7 +101,7 @@ class RV_class:
                 tfreq = (dates[1] - dates[0]).days
                 start_date = dates[0] - pd.Timedelta(f'{tfreq/2}d')
                 end_date   = dates[-1] + pd.Timedelta(f'{-1+tfreq/2}d')
-                yr_daily  = pd.DatetimeIndex(start=start_date, end=end_date,
+                yr_daily  = pd.date_range(start=start_date, end=end_date,
                                                 freq=pd.Timedelta('1d'))
                 ext_dates = functions_pp.make_dates(dates_precur_data, yr_daily, 
                                                     dates_precur_data.year[-1])
@@ -159,5 +159,34 @@ class RV_class:
             self.RV_bin_fit[self.RV_bin_fit>0] = 1
             self.RV_bin[self.RV_bin>0] = 1
 
-            
+
+def Variable(self, ex):
+    self.startyear = ex['startyear']
+    self.endyear = ex['endyear']
+    self.startmonth = 1
+    self.endmonth = 12
+    self.grid = ex['grid_res']
+    self.dataset = ex['dataset']
+    self.base_path = ex['base_path']
+    self.path_raw = ex['path_raw']
+    self.path_pp = ex['path_pp']
+    return self
+
+
+class Var_import_RV_netcdf:
+    def __init__(self, ex):
+        vclass = Variable(self, ex)
+
+        vclass.name = ex['RVnc_name'][0]
+        vclass.filename = ex['RVnc_name'][1]
+        print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(vclass.name,
+               vclass.startyear, vclass.endyear, vclass.grid)))
+
+class Var_import_precursor_netcdf:
+    def __init__(self, ex, idx):
+        vclass = Variable(self, ex)
+
+        vclass.name = ex['precursor_ncdf'][idx][0]
+        vclass.filename = ex['precursor_ncdf'][idx][1]
+        ex['vars'][0].append(vclass.name)      
             

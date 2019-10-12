@@ -1,13 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import numpy as np
-import matplotlib
-matplotlib.rcParams['backend'] = "Qt4Agg"
-from pylab import *
 import matplotlib.pyplot as plt
-
-import functions_pp
-import func_fc
 import scipy
 import pandas as pd
 from statsmodels.sandbox.stats import multicomp
@@ -16,9 +10,7 @@ import cartopy.crs as ccrs
 import plot_maps
 import itertools
 flatten = lambda l: list(itertools.chain.from_iterable(l))
-def get_oneyr(datetime):
-        return datetime.where(datetime.year==datetime.year[0]).dropna()
-from dateutil.relativedelta import relativedelta as date_dt
+
 
 
 
@@ -181,57 +173,55 @@ def get_area(ds):
 #    A_mean = np.mean(A_gridcell2D)
     return A_gridcell2D
 
-def cluster_DBSCAN_regions(actor, ex):
+def cluster_DBSCAN_regions(actor, distance_eps=400, min_area_in_degrees2=3, group_split='together'):
     #%%
     """
 	Calculates the time-series of the actors based on the correlation coefficients and plots the according regions.
 	Only caluclates regions with significant correlation coefficients
 	"""
-    import xarray as xr
+    
 
 #    var = 'sst'
 #    actor = outdic_actors[var]
     corr_xr  = actor.corr_xr
     n_spl  = corr_xr.coords['split'].size
+    lags = actor.corr_xr.lag.values
+    n_lags = lags.size
     lats    = corr_xr.latitude
     lons    = corr_xr.longitude
     area_grid   = actor.area_grid/ 1E6 # in km2
 
     aver_area_km2 = 7939     # np.mean(actor.area_grid) with latitude 0-90 / 1E6
     wght_area = area_grid / aver_area_km2
-    ex['min_area_km2'] = ex['min_area_in_degrees2'] * 111.131 * ex['min_area_in_degrees2'] * 78.85
-    min_area = ex['min_area_km2'] / aver_area_km2
-    ex['min_area_samples'] = min_area
+    min_area_km2 = min_area_in_degrees2 * 111.131 * min_area_in_degrees2 * 78.85
+    min_area_samples = min_area_km2 / aver_area_km2
 
-
-    lags = ex['lags']
-    n_lags = len(lags)
-
-    ex['n_tot_regs'] = 0
-
+    
 
     prec_labels_np = np.zeros( (n_spl, n_lags, lats.size, lons.size), dtype=int )
     labels_sign_lag = np.zeros( (n_spl), dtype=list)
     mask_and_data = corr_xr.copy()
 
     # group regions per split (no information leak train test)
-    if ex['group_split'] == 'seperate':
+    if group_split == 'seperate':
         for s in range(n_spl):
-            progress = 100 * (s+1) / ex['n_spl']
+            progress = 100 * (s+1) / n_spl
             print(f"\rProgress traintest set {progress}%", end="")
             mask_and_data_s = corr_xr.sel(split=s)
-            grouping_split = mask_sig_to_cluster(mask_and_data_s, wght_area, ex)
+            grouping_split = mask_sig_to_cluster(mask_and_data_s, wght_area, 
+                                                 distance_eps, min_area_samples)
             prec_labels_np[s] = grouping_split[0]
             labels_sign_lag[s] = grouping_split[1]
     # group regions regions the same accross splits
-    elif ex['group_split'] == 'together':
+    elif group_split == 'together':
 
         mask = abs(mask_and_data.mask -1)
         mask_all = mask.sum(dim='split') / mask.sum(dim='split')
         m_d_together = mask_and_data.isel(split=0).copy()
         m_d_together['mask'] = abs(mask_all.fillna(0) -1)
         m_d_together.values = np.sign(mask_and_data).mean(dim='split')
-        grouping_split = mask_sig_to_cluster(m_d_together, wght_area, ex)
+        grouping_split = mask_sig_to_cluster(m_d_together, wght_area, 
+                                             distance_eps, min_area_samples)
 
         for s in range(n_spl):
             m_all = grouping_split[0].copy()
@@ -254,27 +244,25 @@ def cluster_DBSCAN_regions(actor, ex):
         prec_labels_ord = prec_labels_np
     else:
         prec_labels_ord = np.zeros_like(prec_labels_np)
-        if ex['group_split'] == 'seperate':
+        if group_split == 'seperate':
             for s in range(n_spl):
                 prec_labels_s = prec_labels_np[s]
                 corr_vals     = corr_xr.sel(split=s).values
-                reassign = reorder_strength(prec_labels_s, corr_vals, area_grid, ex)
+                reassign = reorder_strength(prec_labels_s, corr_vals, area_grid, 
+                                            min_area_samples)
                 prec_labels_ord[s] = relabel(prec_labels_s, reassign)
-        elif ex['group_split'] == 'together':
+        elif group_split == 'together':
             # order based on mean corr_value:
             corr_vals = corr_xr.mean(dim='split').values
             prec_label_s = grouping_split[0].copy()
-            reassign = reorder_strength(prec_label_s, corr_vals, area_grid, ex)
+            reassign = reorder_strength(prec_label_s, corr_vals, area_grid, 
+                                        min_area_samples)
             for s in range(n_spl):
                 prec_labels_s = prec_labels_np[s]
                 prec_labels_ord[s] = relabel(prec_labels_s, reassign)
 
 
 
-    ex['n_tot_regs']    += int(np.unique(prec_labels_ord)[1:].size)
-
-
-#    lags_coord = ['{} ({} {})'.format(l, l*tfreq, ex['input_freq'][:1]) for l in lags]
     prec_labels = xr.DataArray(data=prec_labels_ord, coords=[range(n_spl), lags, lats, lons],
                           dims=['split', 'lag','latitude','longitude'],
                           name='{}_labels_init'.format(actor.name),
@@ -283,12 +271,12 @@ def cluster_DBSCAN_regions(actor, ex):
     prec_labels.attrs['title'] = prec_labels.name
     actor.prec_labels = prec_labels
     #%%
-    return actor, ex
+    return actor
 
-def mask_sig_to_cluster(mask_and_data_s, wght_area, ex):
+def mask_sig_to_cluster(mask_and_data_s, wght_area, distance_eps, min_area_samples):
     from sklearn import cluster
     from sklearn import metrics
-#    from haversine import haversine
+    from haversine import haversine
     mask_sig_1d = mask_and_data_s.mask.astype('bool').values == False
     data = mask_and_data_s.data
     lons = mask_and_data_s.longitude.values
@@ -323,7 +311,7 @@ def mask_sig_to_cluster(mask_and_data_s, wght_area, ex):
             # calculate distance between sign coords accross all lags to keep labels
             # more consistent when clustering
             distance = metrics.pairwise_distances(sign_coords, metric=haversine)
-            dbresult = cluster.DBSCAN(eps=ex['distance_eps'], min_samples=ex['min_area_samples'],
+            dbresult = cluster.DBSCAN(eps=distance_eps, min_samples=min_area_samples,
                                       metric='precomputed').fit(distance,
                                       sample_weight=weights_core_samples)
             labels = dbresult.labels_ + 1
@@ -341,15 +329,16 @@ def mask_sig_to_cluster(mask_and_data_s, wght_area, ex):
         np_regs = np.array(np_dbregs, dtype='int')
     return np_regs, labels_sign_lag
 
-def reorder_strength(prec_labels_s, corr_vals, area_grid, ex):
+def reorder_strength(prec_labels_s, corr_vals, area_grid, min_area_km2):
     #%%
     # order regions on corr strength
     # based on median of upper 25 percentile
 
-    Number_regions_per_lag = np.zeros(len(ex['lags']))
+    n_lags = prec_labels_s.shape[0]
+    Number_regions_per_lag = np.zeros(n_lags)
     corr_strength = {}
     totalsize_lag0 = area_grid[prec_labels_s[0]!=0].mean() / 1E5
-    for l_idx, lag in enumerate(ex['lags']):
+    for l_idx in range(n_lags):
         # check if region is higher lag is actually too small to be a cluster:
         prec_field = prec_labels_s[l_idx,:,:]
 
@@ -357,10 +346,10 @@ def reorder_strength(prec_labels_s, corr_vals, area_grid, ex):
             are = area_grid.copy()
             are[prec_field!=reg]=0
             area_prec_reg = are.sum()/1E5
-            if area_prec_reg < ex['min_area_km2']/1E5:
-                print(reg, area_prec_reg, ex['min_area_km2']/1E5, 'not exceeding area')
+            if area_prec_reg < min_area_km2/1E5:
+                print(reg, area_prec_reg, min_area_km2/1E5, 'not exceeding area')
                 prec_field[prec_field==reg] = 0
-            if area_prec_reg >= ex['min_area_km2']/1E5:
+            if area_prec_reg >= min_area_km2/1E5:
                 Corr_value = corr_vals[l_idx, prec_field==reg]
                 weight_by_size = (area_prec_reg / totalsize_lag0)**0.1
                 Corr_value.sort()
@@ -669,76 +658,76 @@ def bookkeeping_precursors(links_RV, var_names):
     return df
 
 
-# =============================================================================
-# Haversine function
-# =============================================================================
-from math import radians, cos, sin, asin, sqrt
-from enum import Enum
-
-
-# mean earth radius - https://en.wikipedia.org/wiki/Earth_radius#Mean_radius
-_AVG_EARTH_RADIUS_KM = 6371.0088
-
-
-class Unit(Enum):
-    """
-    Enumeration of supported units.
-    The full list can be checked by iterating over the class; e.g.
-    the expression `tuple(Unit)`.
-    """
-
-    KILOMETERS = 'km'
-    METERS = 'm'
-    MILES = 'mi'
-    NAUTICAL_MILES = 'nmi'
-    FEET = 'ft'
-    INCHES = 'in'
-
-
-# Unit values taken from http://www.unitconversion.org/unit_converter/length.html
-_CONVERSIONS = {Unit.KILOMETERS:       1.0,
-                Unit.METERS:           1000.0,
-                Unit.MILES:            0.621371192,
-                Unit.NAUTICAL_MILES:   0.539956803,
-                Unit.FEET:             3280.839895013,
-                Unit.INCHES:           39370.078740158}
-
-
-def haversine(point1, point2, unit=Unit.KILOMETERS):
-    """ Calculate the great-circle distance between two points on the Earth surface.
-    Takes two 2-tuples, containing the latitude and longitude of each point in decimal degrees,
-    and, optionally, a unit of length.
-    :param point1: first point; tuple of (latitude, longitude) in decimal degrees
-    :param point2: second point; tuple of (latitude, longitude) in decimal degrees
-    :param unit: a member of haversine.Unit, or, equivalently, a string containing the
-                 initials of its corresponding unit of measurement (i.e. miles = mi)
-                 default 'km' (kilometers).
-    Example: ``haversine((45.7597, 4.8422), (48.8567, 2.3508), unit=Unit.METERS)``
-    Precondition: ``unit`` is a supported unit (supported units are listed in the `Unit` enum)
-    :return: the distance between the two points in the requested unit, as a float.
-    The default returned unit is kilometers. The default unit can be changed by
-    setting the unit parameter to a member of ``haversine.Unit``
-    (e.g. ``haversine.Unit.INCHES``), or, equivalently, to a string containing the
-    corresponding abbreviation (e.g. 'in'). All available units can be found in the ``Unit`` enum.
-    """
-
-    # get earth radius in required units
-    unit = Unit(unit)
-    avg_earth_radius = _AVG_EARTH_RADIUS_KM * _CONVERSIONS[unit]
-
-    # unpack latitude/longitude
-    lat1, lng1 = point1
-    lat2, lng2 = point2
-
-    # convert all latitudes/longitudes from decimal degrees to radians
-    lat1, lng1, lat2, lng2 = map(radians, (lat1, lng1, lat2, lng2))
-
-    # calculate haversine
-    lat = lat2 - lat1
-    lng = lng2 - lng1
-    d = sin(lat * 0.5) ** 2 + cos(lat1) * cos(lat2) * sin(lng * 0.5) ** 2
-
-    return 2 * avg_earth_radius * asin(sqrt(d))
+## =============================================================================
+## Haversine function
+## =============================================================================
+#from math import radians, cos, sin, asin, sqrt
+#from enum import Enum
+#
+#
+## mean earth radius - https://en.wikipedia.org/wiki/Earth_radius#Mean_radius
+#_AVG_EARTH_RADIUS_KM = 6371.0088
+#
+#
+#class Unit(Enum):
+#    """
+#    Enumeration of supported units.
+#    The full list can be checked by iterating over the class; e.g.
+#    the expression `tuple(Unit)`.
+#    """
+#
+#    KILOMETERS = 'km'
+#    METERS = 'm'
+#    MILES = 'mi'
+#    NAUTICAL_MILES = 'nmi'
+#    FEET = 'ft'
+#    INCHES = 'in'
+#
+#
+## Unit values taken from http://www.unitconversion.org/unit_converter/length.html
+#_CONVERSIONS = {Unit.KILOMETERS:       1.0,
+#                Unit.METERS:           1000.0,
+#                Unit.MILES:            0.621371192,
+#                Unit.NAUTICAL_MILES:   0.539956803,
+#                Unit.FEET:             3280.839895013,
+#                Unit.INCHES:           39370.078740158}
+#
+#
+#def haversine(point1, point2, unit=Unit.KILOMETERS):
+#    """ Calculate the great-circle distance between two points on the Earth surface.
+#    Takes two 2-tuples, containing the latitude and longitude of each point in decimal degrees,
+#    and, optionally, a unit of length.
+#    :param point1: first point; tuple of (latitude, longitude) in decimal degrees
+#    :param point2: second point; tuple of (latitude, longitude) in decimal degrees
+#    :param unit: a member of haversine.Unit, or, equivalently, a string containing the
+#                 initials of its corresponding unit of measurement (i.e. miles = mi)
+#                 default 'km' (kilometers).
+#    Example: ``haversine((45.7597, 4.8422), (48.8567, 2.3508), unit=Unit.METERS)``
+#    Precondition: ``unit`` is a supported unit (supported units are listed in the `Unit` enum)
+#    :return: the distance between the two points in the requested unit, as a float.
+#    The default returned unit is kilometers. The default unit can be changed by
+#    setting the unit parameter to a member of ``haversine.Unit``
+#    (e.g. ``haversine.Unit.INCHES``), or, equivalently, to a string containing the
+#    corresponding abbreviation (e.g. 'in'). All available units can be found in the ``Unit`` enum.
+#    """
+#
+#    # get earth radius in required units
+#    unit = Unit(unit)
+#    avg_earth_radius = _AVG_EARTH_RADIUS_KM * _CONVERSIONS[unit]
+#
+#    # unpack latitude/longitude
+#    lat1, lng1 = point1
+#    lat2, lng2 = point2
+#
+#    # convert all latitudes/longitudes from decimal degrees to radians
+#    lat1, lng1, lat2, lng2 = map(radians, (lat1, lng1, lat2, lng2))
+#
+#    # calculate haversine
+#    lat = lat2 - lat1
+#    lng = lng2 - lng1
+#    d = sin(lat * 0.5) ** 2 + cos(lat1) * cos(lat2) * sin(lng * 0.5) ** 2
+#
+#    return 2 * avg_earth_radius * asin(sqrt(d))
 
 
 def print_particular_region_new(links_RV, var_names, s, outdic_actors, map_proj, ex):

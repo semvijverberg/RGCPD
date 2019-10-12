@@ -1,4 +1,4 @@
-name: RGCPD37
+name: RGCPD
 channels:
   - conda-forge
   - defaults
@@ -186,5 +186,5 @@ dependencies:
   - pip:
     - haversine==2.1.2
     - tigramite==4.0.0b0
-prefix: /Users/semvijverberg/miniconda3/envs/RGCPD37
+prefix: /Users/semvijverberg/miniconda3/envs/RGCPD
 

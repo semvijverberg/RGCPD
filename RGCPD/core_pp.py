@@ -39,8 +39,9 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
     if 'latitude' and 'longitude' not in ds.dims:
         ds = ds.rename({'lat':'latitude',
                   'lon':'longitude'})
-
-    ds = convert_longitude(ds, format_lon)
+    
+    if format_lon is not None:
+        ds = convert_longitude(ds, format_lon)
 
 
     if selbox is not None:

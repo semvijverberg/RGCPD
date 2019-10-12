@@ -13,7 +13,8 @@ import matplotlib.pyplot as plt
 import xarray as xr
 import itertools
 import core_pp
-import func_fc
+
+
 from dateutil.relativedelta import relativedelta as date_dt
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 flatten = lambda l: list(itertools.chain.from_iterable(l))
@@ -31,48 +32,19 @@ def get_oneyr(pddatetime, *args):
         dates = pddatetime.where(pddatetime.year==year).dropna()
     return dates
 
-def Variable(self, ex):
-    self.startyear = ex['startyear']
-    self.endyear = ex['endyear']
-    self.startmonth = 1
-    self.endmonth = 12
-    self.grid = ex['grid_res']
-    self.dataset = ex['dataset']
-    self.base_path = ex['base_path']
-    self.path_raw = ex['path_raw']
-    self.path_pp = ex['path_pp']
-    return self
-
-
-class Var_import_RV_netcdf:
-    def __init__(self, ex):
-        vclass = Variable(self, ex)
-
-        vclass.name = ex['RVnc_name'][0]
-        vclass.filename = ex['RVnc_name'][1]
-        print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(vclass.name,
-               vclass.startyear, vclass.endyear, vclass.grid)))
-
-class Var_import_precursor_netcdf:
-    def __init__(self, ex, idx):
-        vclass = Variable(self, ex)
-
-        vclass.name = ex['precursor_ncdf'][idx][0]
-        vclass.filename = ex['precursor_ncdf'][idx][1]
-        ex['vars'][0].append(vclass.name)
-
 
 def perform_post_processing(ex):
-    print('\nPerforming the post processing steps on {}'.format(ex['vars'][0]))
+    
     for var in ex['vars'][0]:
         var_class = ex[var]
         outfile, var_class, ex = check_pp_done(var_class, ex)
 
         if os.path.isfile(outfile) == True:
-            print('\nlooks like pre-processing for {} is already done,\n'
-                  'to save time let\'s not do it twice..\n'.format(var))
+            if ex['verbosity'] == 1:
+                print('\nLoading post-processed: {},\n'.format(var))
             pass
         else:
+            print('\nPerforming the post-processing {}'.format(ex['vars'][0]))
             infile = os.path.join(var_class.path_raw, var_class.filename)
             kwrgs_pp = {'selbox':ex['selbox'],
                         'loadleap':False, 'detrend':True, 'anomaly':ex['anomaly']}
@@ -91,19 +63,10 @@ def check_pp_done(cls, ex):
     # =============================================================================
     # load dataset lazy
     # =============================================================================
-
-    import pandas as pd
     filename = os.path.join(ex['path_raw'], cls.filename)
-    kwrgs_pp = {'selbox':ex['selbox'], 'loadleap':False}
+    kwrgs_pp = {'selbox':ex['selbox'], 'loadleap':False, 'format_lon':None}
     ds = core_pp.import_ds_lazy(filename, **kwrgs_pp)
     dates = pd.to_datetime(ds['time'].values)
-
-    # =============================================================================
-    # get time series that you request
-    # =============================================================================
-
-#    dates = timeseries_tofit_bins(ds, ex, seldays='part')[1]
-
     start_day = get_oneyr(dates)[0]
     end_day   = get_oneyr(dates)[-1]
 
@@ -128,7 +91,8 @@ def check_pp_done(cls, ex):
     cls.path_pp = ex['path_pp']
     outfile = os.path.join(ex['path_pp'], outfilename)
     cls.dates_fit_tfreq = dates
-    print('output file of pp will be saved as: \n' + outfile)
+    if ex['verbosity'] == 1:
+        print('output file of pp will be saved as: \n' + outfile)
     #%%
     return outfile, cls, ex
 
@@ -187,8 +151,11 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
     '''
     #%%
     if importRV_1dts == True:
-        print('\nimportRV_1dts is true, so the 1D time serie given with filename\n'
+        if ex['verbosity'] == 1:
+            print('\nimportRV_1dts is true, so the 1D time serie given with filename\n'
               '{} is imported.\n'.format(ex['RVts_filename']))
+        else:
+            print('Response var imported: {}.\n'.format(ex['RVts_filename']))
         RV.name = ex['RV_name']
         if ex['RVts_filename'].split('.')[-1]  == 'csv':
             print('Assuming .csv, where rows are timesteps and 4 columns are\n'
@@ -271,8 +238,9 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
 #    same_len_yr = RV.dates.size == ex[ex['vars'][0][0]].dates.size
 
     if same_freq == False:
-        print('tfreq of imported 1d timeseries is unequal to the '
-              'desired ex[tfreq]\nWill convert tfreq')
+        if ex['verbosity'] == 1:
+            print('original tfreq of imported response variable is converted to '
+                  'desired tfreq')
         to_freq = ex['tfreq']
         RV.RVfullts, RV.dates, = time_mean_bins(RV.RVfullts, ex, to_freq, seldays='part')
 

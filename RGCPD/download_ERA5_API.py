@@ -83,6 +83,8 @@ class Var_ECMWF_download():
                            vclass.startyear, vclass.endyear, vclass.startmonth, 
                            vclass.endmonth, ex['input_freq'], ex['grid_res']).replace(' ', '_')
         vclass.format = '{}'.format('netcdf')
+        if idx == 0:
+            print('(Down)loading precursors')
         print(('\n\t**\n\t{} {}-{} {} data on {} grid\n\t**\n'.format(vclass.name, 
                vclass.startyear, vclass.endyear, ex['input_freq'], vclass.grid)))
         
@@ -102,16 +104,12 @@ def retrieve_field(cls):
     else: 
         file_path_raw = file_path.replace('daily',cls.stream)
     
-    if os.path.isfile(path=file_path) == True:
-        print("You have already download the variable")
-        print(("to path: {} \n ".format(file_path)))
-        pass
-    else:
+    if os.path.isfile(path=file_path) == False:
         # create temporary folder
         cls.tmp_folder = os.path.join(cls.path_raw, 
                   '{}_{}_{}_tmp'.format(cls.name, cls.stream, cls.grid[0]))
         if os.path.isdir(cls.tmp_folder) == False : os.makedirs(cls.tmp_folder)
-        print(("You WILL download variable {} \n stream is set to {} \n".format \
+        print(("You will download variable {} \n stream is set to {} \n".format \
             (cls.name, cls.stream)))
         if cls.stream == 'enda':
             # you will want data every 3 hours

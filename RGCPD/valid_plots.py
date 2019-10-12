@@ -173,7 +173,7 @@ def plot_score_lags(df_metric, metric, color, lags_tf, clim=None,
         y_lim = (-0.4, 0.6)
     elif metric[:3] == 'AUC':
         y_lim = (0,1.0)
-    elif metric == 'prec':
+    elif metric in ['Precision', 'Accuracy']:
         y_lim = (0,1)
         y_b = clim
     y = np.array(df_metric.loc[metric])
@@ -234,18 +234,18 @@ def plot_score_lags(df_metric, metric, color, lags_tf, clim=None,
         y_b = 0.5
         ax.set_yticks(np.arange(0.5,1+1E-9, 0.1), minor=True)
         ax.hlines(y=y_b, xmin=min(x), xmax=max(x), linewidth=1) 
-    elif metric in ['AUC-PR', 'prec']:
+    elif metric in ['AUC-PR', 'Precision', 'Accuracy']:
         ax.set_yticks(np.arange(0.5,1+1E-9, 0.1), minor=True)
         y_b = clim
         ax.hlines(y=y_b, xmin=min(x), xmax=max(x), linewidth=1) 
         
-    if metric == 'prec':
-        threshold = int(100 * clim/2)
-        ax.text(0.00, 0.05, f'Positive predic. {threshold}% most certain forecasts', 
+    if metric in ['Precision', 'Accuracy']:
+#        threshold = int(100 * clim/2)
+        ax.text(0.00, 0.05, 'Pos. pred. for top 75% of above clim. prob.', 
                 horizontalalignment='left', fontsize=10,
                 verticalalignment='center', transform=ax.transAxes,
                 rotation=0, rotation_mode='anchor', alpha=0.5)
-    if metric in ['AUC-ROC', 'AUC-PR', 'prec']:
+    if metric in ['AUC-ROC', 'AUC-PR', 'Precision']:
         ax.text(max(x), y_b-0.05, 'Benchmark rand. pred.', 
                 horizontalalignment='right', fontsize=12,
                 verticalalignment='center', 
@@ -537,8 +537,8 @@ def plot_freq_per_yr(RV):
     #%%
 
     
-def valid_figures(dict_experiments, expers, models, line_dim='models', group_line_by=None, 
-                  met='default', wspace=0.08):
+def valid_figures(dict_experiments, expers, models, line_dim='model', group_line_by=None, 
+                  met='default', wspace=0.08, col_wrap=None):
     #%%
     '''
     3 dims to plot: [metrics, experiments, stat_models]
@@ -548,18 +548,18 @@ def valid_figures(dict_experiments, expers, models, line_dim='models', group_lin
     dims = ['exper', 'models', 'met']
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
     if met == 'default':
-        met = ['AUC-ROC', 'AUC-PR', 'BSS', 'prec', 'Rel. Curve', 'ts']
+        met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Rel. Curve', 'ts']
     
     
     
-    if line_dim == 'models':
+    if line_dim == 'model':
         lines = models
         cols  = expers
     elif line_dim == 'exper':
         lines = expers
         cols  = models
-    assert line_dim in ['models', 'exper'], ('illegal key for line_dim, '
-                           'choose \'exper\' or \'models\'')
+    assert line_dim in ['model', 'exper'], ('illegal key for line_dim, '
+                           'choose \'exper\' or \'model\'')
         
     if len(cols) == 1 and group_line_by is not None:
         group_s = len(group_line_by)
@@ -567,6 +567,7 @@ def valid_figures(dict_experiments, expers, models, line_dim='models', group_lin
         lines_grouped = []
         for i in range(0,len(lines),group_s):
             lines_grouped.append(lines[i:i+group_s])
+            
         
 
     grid_data = np.zeros( (2, len(met)), dtype=str)
@@ -575,26 +576,38 @@ def valid_figures(dict_experiments, expers, models, line_dim='models', group_lin
 
     
     df = pd.DataFrame(grid_data.T, columns=['met', col_dim])
-    g = sns.FacetGrid(df, row='met', col=col_dim, size=3, aspect=1.4,
+    if len(cols) != 1 or col_wrap is None:
+        g = sns.FacetGrid(df, row='met', col=col_dim, height=3, aspect=1.4,
                       sharex=False,  sharey=False)
+        # Only if 1 column is requisted, col_wrap is allowed
+    if len(cols) == 1 and col_wrap is not None:
+#        cols = met
+        g = sns.FacetGrid(df, col='met', height=3, aspect=1.4,
+                      sharex=False,  sharey=False, col_wrap=col_wrap)
 
 
     
     
     for col, c_label in enumerate(cols):
         
-        
-        g.axes[0,col].set_title(c_label)
+        if col_wrap is None:
+            g.axes[0,col].set_title(c_label)
         if len(models) == 1 and group_line_by is not None:
             lines = lines_grouped[col]
         
         
         for row, metric in enumerate(met):
             
+            if col_wrap is None:
+                ax = g.axes[row,col]    
+            else: 
+                ax = g.axes[row]    
+                
+            
             legend = []
             for l, line in enumerate(lines):
                 
-                if line_dim == 'models':
+                if line_dim == 'model':
                     model = line
                     exper = c_label
                     color = nice_colors[l]
@@ -607,6 +620,11 @@ def valid_figures(dict_experiments, expers, models, line_dim='models', group_lin
                         model = models[0]
                     color = colors_datasets[l]
                 
+#                if col_wrap is not None:
+#                    metric = c_label # metrics on rows
+                    # exper is normally column, now we only have 1 expers
+#                    exper = expers[0] 
+                
                     
                 
                 df_valid, RV, y_pred_all = dict_experiments[exper][model]
@@ -615,33 +633,41 @@ def valid_figures(dict_experiments, expers, models, line_dim='models', group_lin
                 lags_tf = [l*tfreq for l in lags_i]
                 if tfreq != 1:
                     # the last day of the time mean bin is tfreq/2 later then the centerered day
-                    lags_tf = [l_tf- int(tfreq/2) if l_tf!=0 else 0 for l_tf in lags_tf ]
+                    lags_tf = [l_tf- int(tfreq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
                 
                 
                 
-                if metric in ['AUC-ROC', 'AUC-PR', 'BSS', 'prec']: 
+                if metric in ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Accuracy']: 
                     df_metric = df_valid.loc[metric]
-                    if metric in ['AUC-PR', 'prec']:
+                    if metric in ['AUC-PR', 'Precision', 'Accuracy']:
                         clim = RV.RV_bin.values[RV.RV_bin==1].size / RV.RV_bin.size
+                        if metric == 'Accuracy':
+                            import validation as valid
+                            # threshold upper 3/4 of above clim
+                            threshold = int(100 * (1 - 0.75*clim))
+                            df_ran = valid.get_metrics_confusion_matrix(RV, y_pred_all.loc[:,:0], 
+                                                    thr=[threshold], n_shuffle=400)
+                            clim = df_ran[threshold/100]['fc shuf'].loc[:,'Accuracy'].mean()
+                            
                     else:
                         clim = None
                     plot_score_lags(df_metric, metric, color, lags_tf,
                                     clim, cv_lines=False, col=col,
-                                    ax=g.axes[row,col])
+                                    ax=ax)
                 if metric == 'Rel. Curve':
                     if l == 0:
-                        ax, n_bins = rel_curve_base(RV, lags_tf, col=col, ax=g.axes[row,col])
+                        ax, n_bins = rel_curve_base(RV, lags_tf, col=col, ax=ax)
                     print(l,line)
                     
                     rel_curve(RV, y_pred_all, color, lags_i, n_bins, 
                               mean_lags=True, 
-                              ax=g.axes[row,col])
+                              ax=ax)
                     
                 if metric == 'ts':
                     if l == 0:
                         ax, dates_ts = plot_events(RV, color=nice_colors[-1], n_yrs=6, 
-                                         col=col, ax=g.axes[row,col])
-                    plot_ts(RV, y_pred_all, dates_ts, color, lag_i=1, ax=g.axes[row,col])
+                                         col=col, ax=ax)
+                    plot_ts(RV, y_pred_all, dates_ts, color, lag_i=1, ax=ax)
                 
                 # legend conditions
                 same_models = np.logical_and(row==0, col==0)
@@ -649,7 +675,7 @@ def valid_figures(dict_experiments, expers, models, line_dim='models', group_lin
                 if same_models or grouped_lines:
                     legend.append(patches.Rectangle((0,0),0.5,0.5,facecolor=color))
 
-                    g.axes[row,col].legend(tuple(legend), lines, 
+                    ax.legend(tuple(legend), lines, 
                           loc = 'lower left', fancybox=True,
                           handletextpad = 0.2, markerscale=0.1,
                           borderaxespad = 0.1,

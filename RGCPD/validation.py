@@ -63,14 +63,14 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksiz
     
     
     df_prec  = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
-                          index=['prec', 'con_low', 'con_high'])
+                          index=['Precision', 'con_low', 'con_high'])
 
     df_acc  = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
-                          index=['acc', 'con_low', 'con_high'])
+                          index=['Accuracy', 'con_low', 'con_high'])
     
     
     for lag in lags:
-        y_pred = y_pred_all[lag].values
+        y_pred = y_pred_all[[lag]].values
 
         metrics_dict = metrics_sklearn(
                     y, y_pred, y_pred_c.values,
@@ -78,39 +78,39 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksiz
         if cont_pred:
             # AUC
             AUC_score, conf_lower, conf_upper, sorted_AUC = metrics_dict['AUC']
-            df_auc[lag] = (AUC_score, conf_lower, conf_upper) 
+            df_auc[[lag]] = (AUC_score, conf_lower, conf_upper) 
             # AUC Precision-Recall 
             AUCPR_score, ci_low_AUCPR, ci_high_AUCPR, sorted_AUCPRs = metrics_dict['AUCPR']
-            df_aucPR[lag] = (AUCPR_score, ci_low_AUCPR, ci_high_AUCPR)
+            df_aucPR[[lag]] = (AUCPR_score, ci_low_AUCPR, ci_high_AUCPR)
             # Brier score
             brier_score, brier_clim, ci_low_brier, ci_high_brier, sorted_briers = metrics_dict['brier']
             BSS = (brier_clim - brier_score) / brier_clim
             BSS_low = (brier_clim - ci_high_brier) / brier_clim    
             BSS_high = (brier_clim - ci_low_brier) / brier_clim    
-            df_brier[lag] = (BSS, BSS_low, BSS_high, 
+            df_brier[[lag]] = (BSS, BSS_low, BSS_high, 
                             brier_score, ci_low_brier, ci_high_brier, brier_clim)
         # HKSS
         KSS_score, ci_low_KSS, ci_high_KSS, sorted_KSSs = metrics_dict['KSS']
-        df_KSS[lag] = (KSS_score, ci_low_KSS, ci_high_KSS)
+        df_KSS[[lag]] = (KSS_score, ci_low_KSS, ci_high_KSS)
         # Precision
         prec, ci_low_prec, ci_high_prec, sorted_precs = metrics_dict['prec']
-        df_prec[lag] = (prec, ci_low_prec, ci_high_prec)
+        df_prec[[lag]] = (prec, ci_low_prec, ci_high_prec)
         # Accuracy
         acc, ci_low_acc, ci_high_acc, sorted_accs = metrics_dict['acc']
-        df_acc[lag] = (acc, ci_low_acc, ci_high_acc)
+        df_acc[[lag]] = (acc, ci_low_acc, ci_high_acc)
     
     if cont_pred:
         df_valid = pd.concat([df_brier, df_auc, df_aucPR, df_KSS, df_prec, df_acc], 
-                         keys=['BSS', 'AUC-ROC', 'AUC-PR', 'KSS', 'prec', 'acc'])
-        print("ROC area: {:0.3f}".format( float(df_auc.iloc[0][0]) ))
-        print("P-R area: {:0.3f}".format( float(df_aucPR.iloc[0][0]) ))
-        print("BSS     : {:0.3f}".format( float(df_brier.iloc[0][0]) ))
+                         keys=['BSS', 'AUC-ROC', 'AUC-PR', 'KSS', 'Precision', 'Accuracy'])
+        print("ROC area\t: {:0.3f}".format( float(df_auc.iloc[0][0]) ))
+        print("P-R area\t: {:0.3f}".format( float(df_aucPR.iloc[0][0]) ))
+        print("BSS     \t: {:0.3f}".format( float(df_brier.iloc[0][0]) ))
         
     else:
         df_valid = pd.concat([df_KSS, df_prec, df_acc], 
-                         keys=['KSS', 'prec', 'acc'])
-    print("prec    : {:0.3f}".format( float(df_prec.iloc[0][0]) ))
-    print("acc    : {:0.3f}".format( float(df_acc.iloc[0][0]) ))
+                         keys=['KSS', 'Precision', 'Accuracy'])
+    print("Precision       : {:0.3f}".format( float(df_prec.iloc[0][0]) ))
+    print("Accuracy        : {:0.3f}".format( float(df_acc.iloc[0][0]) ))
     
 
     #%%
@@ -151,8 +151,10 @@ def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle
     if thr[0] == 'clim':
         clim_prev = np.round((1-y_true[y_true.values==1.].size / y_true.size),2)
         thresholds = [[clim_prev]]
-    perc_thr = [t for t in thr if type(t) == int]
-    thresholds.append([t/100. for t in perc_thr])
+    else:
+        thresholds = []
+    perc_thr = [t/100. if type(t) == int else t for t in thr ]
+    thresholds.append([t for t in perc_thr])
     thresholds = flatten(thresholds)
     
 
@@ -171,7 +173,7 @@ def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle
                           index=metric_names)
     
         for t in thresholds:
-            y_pred = y_pred_all[lag].values
+            y_pred = y_pred_all[[lag]].values
             y_pred_b = np.array(y_pred > np.percentile(y_pred, 100*t),dtype=int)
            
             
@@ -225,7 +227,8 @@ def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle
 
         if n_shuffle > 0:
             df_lag['mean_impr'] = df_lag.iloc[:, df_lag.columns.get_level_values(1)=='impr.'].mean(axis=1)
-            df_lag = df_lag.rename(columns={clim_prev: 'clim'})
+            if 'clim' in thr:
+                df_lag = df_lag.rename(columns={clim_prev: 'clim'})
         list_dfs.append(df_lag)
 
     df_cm = pd.concat(list_dfs, keys= lags)
@@ -260,7 +263,7 @@ def get_bstrap_size(ts, max_lag=200, n=1, plot=True):
     return cutoff
 
 
-def metrics_sklearn(y_true, y_pred, y_pred_c, alpha=0.05, n_boot=5, blocksize=1):
+def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray, alpha=0.05, n_boot=5, blocksize=1):
 #    y_true, y_pred, y_pred_c = y_true_c, ts_logit_c, y_pred_c_c
     #%%
 
@@ -269,8 +272,9 @@ def metrics_sklearn(y_true, y_pred, y_pred_c, alpha=0.05, n_boot=5, blocksize=1)
     metrics_dict = {}
 
 ##     binary metrics for clim prevailance
-    clim_prev = np.round((y_true[y_true==1.].size / y_true.size),2)
-    bin_threshold = 100 * (1 - 0.5*clim_prev)
+    clim_prev = np.round((y_true[(y_true==1)].size / y_true.size),2)
+    # upper half of 'above clim prob'
+    bin_threshold = 100 * (1 - 0.75*clim_prev)
 #    prob_larger_66 = y_pred[y_pred > 0.66].size/y_pred.size
 #    percentile_t = 100 * (1 - prob_larger_66)
     percentile_t = bin_threshold

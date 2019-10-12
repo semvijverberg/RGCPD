@@ -23,6 +23,7 @@ import plot_maps
 import matplotlib.pyplot as plt
 import xarray as xr
 import cartopy.crs as ccrs
+import classes as cl
 copy_stdout = sys.stdout
 
 # *****************************************************************************
@@ -190,7 +191,7 @@ else:
 ex['importRV_1dts'] = importRV_1dts
 if importRV_1dts == True:
     ex['RV_name'] = 't2mmax_E-US'
-    ex['RV_detrend'] = False
+    ex['RV_detrend'] = True
 #    ex['RVts_filename'] = 't2mmax_1979-2017_averAggljacc_tf14_n8__to_t2mmax_tf1.npy'
     ex['RVts_filename'] = 'era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19.npy'
 #    ex['RVts_filename'] = 'comp_v_spclus2of4_tempclus2_AgglomerativeClustering_smooth15days_compmean_daily.npy'
@@ -220,14 +221,14 @@ if ECMWFdownload == True:
 if import_RV_ncdf == True and importRV_1dts == False:
     ex['RV_name'] = ex['RVnc_name'][0]
     ex['vars'][0].insert(0, ex['RV_name'])
-    var_class = functions_pp.Var_import_RV_netcdf(ex)
+    var_class = cl.Var_import_RV_netcdf(ex)
     ex[ex['RVnc_name'][0]] = var_class
     print(('inserted own netcdf as Response Variable {}\n'.format(ex['RV_name'])))
 
 if import_precursor_ncdf == True:
     print(ex['precursor_ncdf'][0][0])
     for idx in range(len(ex['precursor_ncdf'])):
-        var_class = functions_pp.Var_import_precursor_netcdf(ex, idx)
+        var_class = cl.Var_import_precursor_netcdf(ex, idx)
         ex[var_class.name] = var_class
 
 # =============================================================================
@@ -238,7 +239,6 @@ allvar = ex['vars'][0] # list of all variable names
 for var in allvar[:]: # loop over all variables
     list_varclass.append(ex[var])
 
-kwrgs_corr = {'list_varclass':list_varclass}
 # =============================================================================
 # Now we have collected all info on what variables will be analyzed, based on
 # downloading, own netcdfs / importing RV time serie.
@@ -320,7 +320,7 @@ for freq in ex['tfreqlist']:
     # Corr maps settings
     # =============================================================================
     alpha = 0.01 # set significnace level for correlation maps
-    FDR_control = True # Do you want to use the conservative alpha_fdr or normal alpha?
+    FDR_control = True # Accounting for false discovery rate
     kwrgs_corr = dict(alpha=alpha,
                       list_varclass=list_varclass,
                       lags=ex['lags'],
@@ -346,10 +346,12 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # settings precursor region selection
     # =============================================================================   
-    ex['distance_eps'] = 400 # proportional to km apart from a core sample, standard = 1000 km
-    ex['min_area_in_degrees2'] = 3 # minimal size to become precursor region (core sample)
-    ex['group_split'] = 'together' # choose 'together' or 'seperate'
-    
+    distance_eps = 400 # proportional to km apart from a core sample, standard = 1000 km
+    min_area_in_degrees2 = 3 # minimal size to become precursor region (core sample)
+    group_split = 'together' # choose 'together' or 'seperate'
+    kwrgs_cluster = dict(distance_eps=distance_eps,
+                         min_area_in_degrees2=min_area_in_degrees2,
+                         group_split='together')
     # =============================================================================
     # Train test split
     # =============================================================================
@@ -370,8 +372,6 @@ for freq in ex['tfreqlist']:
                   'max_break': 0, 
                   'grouped': False}
     precursor_ts=ex['precursor_ts']
-    
-    
     
     kwrgs_RV = dict(method=method,
                     seed=seed,
@@ -400,7 +400,10 @@ for freq in ex['tfreqlist']:
     # Find precursor fields (potential precursors)
     # =============================================================================
     
-    ex, outdic_actors = wrapper_RGCPD_tig.calculate_corr_maps(RV, df_splits, ex, **kwrgs_corr)
+    outdic_actors = wrapper_RGCPD_tig.calculate_corr_maps(RV, df_splits, ex, **kwrgs_corr)
+    #%% Change distance_eps if clustering is inappropriate (trial & error needed)
+    outdic_actors = wrapper_RGCPD_tig.cluster_regions(outdic_actors, ex, plot=True, 
+                                                      **kwrgs_cluster)
     
     #%%
     # calculate precursor timeseries
