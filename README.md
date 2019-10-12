@@ -53,7 +53,7 @@ pip install ./tigramite
 
 
 ## Optional:
-### ECWMF MARS API (for ERA-i)
+### ECWMF API (for MARS system and Climate Data Store)
 ----------------
 If you did not have ecmwfapi installed before, you need to create an ecmwf account and copy your key into the file .ecmwfapirc in your home directory. See https://confluence-test.ecmwf.int/display/WEBAPI/Access+MARS#AccessMARS-downloadmars. This will look like this:
  \
