@@ -1,5 +1,5 @@
 
-# RG-CPD
+# RG-CPD (Response Guided - Causal Precursor Detection)
 Introduction
 =====
 
@@ -29,11 +29,15 @@ Options to load/download timeseries
 - 3 Add 3-d Response Variable (RV) of interest, RGCPD assumes you interested in finding the teleconnection of a variable of interest
 - 4 Add a 1-d RV timeseries
 
-Options for retrieving features
+Options for loading/retrieving features
 - 1 Correlation maps
 - 2 Climate Indices (PDO, ENSO, ... under development)
 - 3 load in pandas dataframe with timeseries directly (must follow train-test split format that is used in the code)
 
+Options to forecast:
+- forecasting.py uses the timeseries data from the main analysis.
+- forecasts can be made for events with logistic regression and an 'adapted' Gradient Boosting Regressor.
+- forecasts evaluation metrics and plots are based on the test data.
 
 Installation
 ===========
@@ -49,7 +53,7 @@ pip install ./tigramite
 
 
 ## Optional:
-### ECWMF MARS API (for ERA-i)
+### ECWMF API (for MARS system and Climate Data Store)
 ----------------
 If you did not have ecmwfapi installed before, you need to create an ecmwf account and copy your key into the file .ecmwfapirc in your home directory. See https://confluence-test.ecmwf.int/display/WEBAPI/Access+MARS#AccessMARS-downloadmars. This will look like this:
  \
