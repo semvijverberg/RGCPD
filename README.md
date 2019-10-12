@@ -29,11 +29,15 @@ Options to load/download timeseries
 - 3 Add 3-d Response Variable (RV) of interest, RGCPD assumes you interested in finding the teleconnection of a variable of interest
 - 4 Add a 1-d RV timeseries
 
-Options for retrieving features
+Options for loading/retrieving features
 - 1 Correlation maps
 - 2 Climate Indices (PDO, ENSO, ... under development)
 - 3 load in pandas dataframe with timeseries directly (must follow train-test split format that is used in the code)
 
+Options to forecast:
+- forecasting.py uses the timeseries data from the main analysis.
+- forecasts can be made for events with logistic regression and an 'adapted' Gradient Boosting Regressor.
+- forecasts evaluation metrics and plots are based on the test data.
 
 Installation
 ===========
