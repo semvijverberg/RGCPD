@@ -1,5 +1,5 @@
 
-# RG-CPD
+# RG-CPD (Response Guided - Causal Precursor Detection)
 Introduction
 =====
 
