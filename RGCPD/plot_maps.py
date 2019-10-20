@@ -337,7 +337,7 @@ def plot_labels_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
     splits = df_sum.index.levels[0]
     for s in splits:
         RV_name = ex['RV_name']
-        if RV_name in df_sum.loc[s].index:
+        if RV_name in df_c.loc[s].index:
             df_c = df_c.drop((s, RV_name), axis=0)
         
     variables = list(dict_ds.keys())
@@ -457,7 +457,7 @@ def plot_corr_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
     splits = df_sum.index.levels[0]
     for s in splits:
         RV_name = ex['RV_name']
-        if RV_name in df_sum.loc[s].index:
+        if RV_name in df_c.loc[s].index:
             df_c = df_c.drop((s, RV_name), axis=0)
         
     variables = list(dict_ds.keys())

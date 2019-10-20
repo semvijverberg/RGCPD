@@ -19,6 +19,7 @@ class RV_class:
         only_RV_events : bool. Decides whether to calculate the RV_bin on the 
         whole RVfullts timeseries, or only on RV_ts
         '''
+        #%%
 #        self.RV_ts = pd.DataFrame(df_data[df_data.columns[0]][0][df_data['RV_mask'][0]] )
 #        self.RVfullts = pd.DataFrame(df_data[df_data.columns[0]][0])
         self.RV_ts = RV_ts
@@ -26,6 +27,7 @@ class RV_class:
         self.dates_all = RVfullts.index
         self.dates_RV = RV_ts.index
         self.n_oneRVyr = self.dates_RV[self.dates_RV.year == self.dates_RV.year[0]].size
+        self.tfreq = (self.dates_all[1] - self.dates_all[0]).days
 
         def handle_fit_model_dates(dates_RV, dates_all, RV_ts, fit_model_dates):
             if fit_model_dates is None:
@@ -59,8 +61,10 @@ class RV_class:
         
         
         # make RV_bin for events based on aggregated daymeans
-        if kwrgs_events is not None and type(kwrgs_events) is not tuple:
+        if kwrgs_events is not None and (type(kwrgs_events) is not tuple or self.tfreq==1):
             
+            if type(kwrgs_events) is tuple:
+                kwrgs_events = kwrgs_events[1]
             # RV_ts and RV_ts_fit are equal if fit_model_dates = None
             self.threshold = func_fc.Ev_threshold(self.RV_ts,
                                               kwrgs_events['event_percentile'])
@@ -85,36 +89,37 @@ class RV_class:
         
         
         # make RV_bin for extreme occurring in time window
-        if kwrgs_events is not None and type(kwrgs_events) is tuple:
+        if kwrgs_events is not None and type(kwrgs_events) is tuple and self.tfreq !=1:
             
             
             
             filename_ts = kwrgs_events[0]
             kwrgs_events_daily = kwrgs_events[1]
             # loading in daily timeseries
-            RVfullts = np.load(filename_ts, encoding='latin1',
+            RVfullts_xr = np.load(filename_ts, encoding='latin1',
                                      allow_pickle=True).item()['RVfullts95']
         
             # Retrieve information on input timeseries
             def aggr_to_daily_dates(dates_precur_data):
                 dates = functions_pp.get_oneyr(dates_precur_data)
                 tfreq = (dates[1] - dates[0]).days
-                start_date = dates[0] - pd.Timedelta(f'{tfreq/2}d')
-                end_date   = dates[-1] + pd.Timedelta(f'{-1+tfreq/2}d')
+                start_date = dates[0] - pd.Timedelta(f'{int(tfreq/2)}d')
+                end_date   = dates[-1] + pd.Timedelta(f'{int(-1+tfreq/2+0.5)}d')
                 yr_daily  = pd.date_range(start=start_date, end=end_date,
                                                 freq=pd.Timedelta('1d'))
-                ext_dates = functions_pp.make_dates(dates_precur_data, yr_daily, 
-                                                    dates_precur_data.year[-1])
+                years = np.unique(dates_precur_data.year)
+                ext_dates = functions_pp.make_dates(yr_daily, years)
+
                 return ext_dates
         
         
             dates_RVe = aggr_to_daily_dates(self.dates_RV)
             dates_alle  = aggr_to_daily_dates(self.dates_all)
             
-            df_RV_ts_e = pd.DataFrame(RVfullts.sel(time=dates_RVe).values, 
+            df_RV_ts_e = pd.DataFrame(RVfullts_xr.sel(time=dates_RVe).values, 
                                       index=dates_RVe, columns=['RV_ts'])
             
-            df_RVfullts_e = pd.DataFrame(RVfullts.sel(time=dates_alle).values, 
+            df_RVfullts_e = pd.DataFrame(RVfullts_xr.sel(time=dates_alle).values, 
                                       index=dates_alle, 
                                       columns=['RVfullts'])
             
@@ -148,17 +153,33 @@ class RV_class:
             
             # convert daily binary to aggregated binary
             tfreq = (self.dates_all[1]  - self.dates_all[0]).days
-            ex = dict(sstartdate = f'{dates_RVe[0].month}-{dates_RVe[0].day}',
-                      senddate   = f'{dates_RVe[-1].month}-{dates_RVe[-1].day}',
-                      startyear  = dates_RVe.year[0],
-                      endyear    = dates_RVe.year[-1])
-            self.RV_bin, dates_gr = functions_pp.time_mean_bins(self.RV_bin, ex, tfreq)
-            self.RV_bin_fit, dates_gr = functions_pp.time_mean_bins(self.RV_bin_fit, ex, tfreq)
+            if tfreq != 1:
+                self.RV_bin, dates_gr = functions_pp.time_mean_bins(self.RV_bin.astype('float'), 
+                                                                tfreq,
+                                                                None,
+                                                                None)
+                self.RV_bin_fit, dates_gr = functions_pp.time_mean_bins(self.RV_bin_fit.astype('float'), 
+                                                                        tfreq,         
+                                                                        None,
+                                                                        None)
+                                                                        
+#                start_end_date = (ex['sstartdate'], ex['senddate'])
+#                start_end_year = (ex['startyear'], ex['endyear'])
+#                ds, dates = time_mean_bins(ds, tfreq,
+#                                                start_end_date,
+#                                                start_end_year,
+#                                                seldays='part')
+#            ex = dict(,
+#                      startyear  = dates_RVe.year[0],
+#                      endyear    = dates_RVe.year[-1])
+            
+            
+            
 
             # all bins, with mean > 0 contained an 'extreme' event
             self.RV_bin_fit[self.RV_bin_fit>0] = 1
             self.RV_bin[self.RV_bin>0] = 1
-
+    #%%
 
 def Variable(self, ex):
     self.startyear = ex['startyear']

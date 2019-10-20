@@ -26,6 +26,10 @@ colors_nice = cycler('color',
                 nice_colors)
 colors_datasets = sns.color_palette('deep')
 
+line_styles = ['solid', 'dashed', (0, (3, 5, 1, 5, 1, 5)), 'dotted']
+# dashdotdotted = (0, (3, 5, 1, 5, 1, 5)))
+
+
 plt.rc('axes', facecolor='#E6E6E6', edgecolor='none',
        axisbelow=True, grid=True, prop_cycle=colors_nice)
 plt.rc('grid', color='w', linestyle='solid')
@@ -161,8 +165,58 @@ def sig_bold_annot(corr, pvals):
                 corr_str[i1][i2]= '{:.2f}'.format(c)
     return np.array(corr_str) 
 
-def plot_score_lags(df_metric, metric, color, lags_tf, clim=None,
-                    cv_lines=False, col=0, ax=None):
+
+def plot_score_expers(d_expers=dict, model=str, metric=str, lags_t=None,
+                      color='red', style='solid', col=0, 
+                      x_label=None, x_label2=None, ax=None):
+    #%%
+#    ax = None
+    if ax==None:
+        print('ax == None')
+        fig, ax = plt.subplots(constrained_layout=True)
+        
+    x_vals = list(d_expers.keys())
+    y_vals = [] ; y_mins = [] ; y_maxs = []
+    for x in x_vals:
+        df_valid = d_expers[x][model][0]
+        df_metric = df_valid.loc[metric]
+        y_vals.append(float(df_metric.loc[metric].values))
+        y_mins.append(float(df_metric.loc['con_low'].values))
+        y_maxs.append(float(df_metric.loc['con_high'].values))
+    
+    ax.scatter(x_vals, y_vals, color=color, linestyle=style, 
+                    linewidth=2, alpha=1 ) 
+    # C.I. inteval
+    ax.scatter(x_vals, y_mins, s=8, marker="_")
+    ax.scatter(x_vals, y_maxs, s=8, marker="_")
+
+    ax.set_xticks(x_vals)
+    ax.set_xticklabels(x_vals)
+    
+    if lags_t is not None:
+
+        ax2 = ax.twiny()
+        ax2.set_xbound(ax.get_xbound())
+        ax2.set_xticks(x_vals)
+        ax2.set_xticklabels(lags_t)
+        ax2.grid(False)
+        ax2.set_xlabel(x_label2)
+
+    
+    if metric == 'BSS':
+        y_lim = (-0.4, 0.6)
+    elif metric[:3] == 'AUC':
+        y_lim = (0,1.0)
+    ax.set_ylim(y_lim)
+    ax.set_ylabel(metric)
+    ax.set_xlabel(x_label)
+    ax.plot()
+    #%%
+    return fig
+
+def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid', 
+                    clim=None, cv_lines=False, col=0, ax=None):
+                    
     #%%
 
     if ax==None:
@@ -190,17 +244,17 @@ def plot_score_lags(df_metric, metric, color, lags_tf, clim=None,
         tfreq = (lags_tf[1] - lags_tf[0])
 #    tfreq = max([lags_tf[i+1] - lags_tf[i] for i in range(len(lags_tf)-1)])
     
-    style = 'solid'
+
     ax.fill_between(x, y_min, y_max, linestyle='solid', 
                             edgecolor='black', facecolor=color, alpha=0.3)
-    ax.plot(x, y, color=color, linestyle=style, 
+    ax.plot(x, y, color=color, linestyle=linestyle, 
                     linewidth=2, alpha=1 ) 
-    ax.scatter(x, y, color=color, linestyle=style, 
+    ax.scatter(x, y, color=color, linestyle=linestyle, 
                     linewidth=2, alpha=1 ) 
     if cv_lines == True:
         for f in range(y_cv.shape[1]):
-            style = 'dashed'
-            ax.plot(x, y_cv[f,:], color=color, linestyle=style, 
+            linestyle = 'loosely dotted'
+            ax.plot(x, y_cv[f,:], color=color, linestyle=linestyle, 
                          alpha=0.35 ) 
     ax.set_xlabel('Lead time [days]', fontsize=13, labelpad=0.1)
     ax.grid(b=True, which='major')
@@ -277,15 +331,14 @@ def rel_curve_base(RV, lags_tf, n_bins=5, col=0, ax=None):
     ax.grid(b=True, which = 'major', axis='both', color='black',
             linestyle='--', alpha=0.2)
     
-    n_bins = 5
 
     # perfect forecast
     perfect = np.arange(0,1+1E-9,(1/n_bins))
-    pos_text = np.array((0.5, 0.52))
+    pos_text = np.array((0.50, 0.50+0.025))
     ax.plot(perfect,perfect, color='black', alpha=0.5)
-    trans_angle = plt.gca().transData.transform_angles(np.array((45,)),
+    trans_angle = plt.gca().transData.transform_angles(np.array((44.3,)),
                                                        pos_text.reshape((1, 2)))[0]
-    ax.text(pos_text[0], pos_text[1], 'perfect forecast', fontsize=14,
+    ax.text(pos_text[0], pos_text[1], 'perfectly reliable', fontsize=14,
                    rotation=trans_angle, rotation_mode='anchor')
     obs_clim = RV.prob_clim.mean()[0]
     ax.text(obs_clim+0.2, obs_clim-0.05, 'Obs. clim', 
@@ -329,18 +382,19 @@ def rel_curve_base(RV, lags_tf, n_bins=5, col=0, ax=None):
     # Better than random
     ax.fill_between(x, dist_perf, np.repeat(obs_clim, x.size), color='grey', alpha=0.2) 
     if col == 0:
-        ax.set_ylabel('Fraction of Positives')
+        ax.set_ylabel('Observed frequency')
     else:
         ax.tick_params(labelleft=False)
-    ax.set_xlabel('Mean Predicted Value')
+    ax.set_xlabel('Forecast probability')
+    ax.set_ylim(-0.02,1.02)
+    ax.set_xlim(-0.02,1.02)
     #%%
     return ax, n_bins
     #%%
-def rel_curve(RV, y_pred_all, color, lags_tf, n_bins, mean_lags=True, ax=None):
+def rel_curve(RV, y_pred_all, color, lags_tf, n_bins, linestyle='solid', mean_lags=True, ax=None):
     #%%
     
     if ax==None:    
-        print('ax == None')
         ax, n_bins = rel_curve_base(RV, lags_tf)
     
     strategy = 'uniform' # 'quantile' or 'uniform'
@@ -385,11 +439,13 @@ def rel_curve(RV, y_pred_all, color, lags_tf, n_bins, mean_lags=True, ax=None):
             mean_fop[k] = np.mean(dic_fop[k])
             fop_std[k]  = np.std(dic_fop[k])
     
-    ax.plot(mean_mpv, mean_fop, color=color, label=f'fc lag {lag}') ; 
+    ax.plot(mean_mpv, mean_fop, color=color, linestyle=linestyle, label=None) ; 
         
     ax.fill_between(mean_mpv, mean_fop+fop_std, 
                     mean_fop-fop_std, label=None,
                     alpha=0.2, color=color) ; 
+    ax.set_ylim(-0.02,1.02)
+    ax.set_xlim(-0.02,1.02)
     color_line = ax.lines[-1].get_c() # get color
     # determine size freq
     freq = np.histogram(y_pred_all[lag], bins=n_bins)[0]
@@ -604,7 +660,6 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
                 ax = g.axes[row]    
                 
             
-            legend = []
             for l, line in enumerate(lines):
                 
                 if line_dim == 'model':
@@ -652,7 +707,8 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
                     else:
                         clim = None
                     plot_score_lags(df_metric, metric, color, lags_tf,
-                                    clim, cv_lines=False, col=col,
+                                    linestyle=line_styles[l], clim=clim, 
+                                    cv_lines=False, col=col,
                                     ax=ax)
                 if metric == 'Rel. Curve':
                     if l == 0:
@@ -660,7 +716,7 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
                     print(l,line)
                     
                     rel_curve(RV, y_pred_all, color, lags_i, n_bins, 
-                              mean_lags=True, 
+                              linestyle=line_styles[l], mean_lags=True, 
                               ax=ax)
                     
                 if metric == 'ts':
@@ -673,13 +729,13 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
                 same_models = np.logical_and(row==0, col==0)
                 grouped_lines = np.logical_and(row==0, group_line_by is not None)
                 if same_models or grouped_lines:
-                    legend.append(patches.Rectangle((0,0),0.5,0.5,facecolor=color))
+#                    legend.append(patches.Rectangle((0,0),0.5,0.5,facecolor=color))
 
-                    ax.legend(tuple(legend), lines, 
+                    ax.legend(ax.lines, lines, 
                           loc = 'lower left', fancybox=True,
                           handletextpad = 0.2, markerscale=0.1,
                           borderaxespad = 0.1,
-                          handlelength=1, handleheight=1, prop={'size': 12})
+                          handlelength=2.5, handleheight=1, prop={'size': 12})
     
     #%%
     g.fig.subplots_adjust(wspace=wspace)

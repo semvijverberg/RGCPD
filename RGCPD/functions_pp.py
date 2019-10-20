@@ -242,12 +242,19 @@ def RV_spatial_temporal_mask(ex, RV, importRV_1dts):
             print('original tfreq of imported response variable is converted to '
                   'desired tfreq')
         to_freq = ex['tfreq']
-        RV.RVfullts, RV.dates, = time_mean_bins(RV.RVfullts, ex, to_freq, seldays='part')
+        start_end_date = (ex['sstartdate'], ex['senddate'])
+        start_end_year = (ex['startyear'], ex['endyear'])
+        RV.RVfullts, RV.dates = time_mean_bins(RV.RVfullts, to_freq,
+                                                start_end_date,
+                                                start_end_year,
+                                                seldays='part')
 
 
     if same_freq == True:
-
-        RV.RVfullts, RV.dates = timeseries_tofit_bins(RV.RVfullts, ex, to_freq, seldays='part')
+        start_end_date = (ex['sstartdate'], ex['senddate'])
+        start_end_year = (ex['startyear'], ex['endyear'])
+        RV.RVfullts, = timeseries_tofit_bins(RV.RVfullts, to_freq, 
+                                                      start_end_date, start_end_year, seldays='part')
         print('The amount of timesteps in the RV ts and the precursors'
                           ' do not match, selecting desired dates. ')
 
@@ -345,7 +352,7 @@ def csv_to_npy(ex):
    return ex
 
 
-def time_mean_bins(xr_or_df, ex, to_freq=int, seldays='all', verb=0):
+def time_mean_bins(xr_or_df, to_freq=int, start_end_date=None, start_end_year=None, seldays='all', verb=0):
    #%%
 
     types = [type(xr.Dataset()), type(xr.DataArray([0])), type(pd.DataFrame([0]))]
@@ -386,7 +393,14 @@ def time_mean_bins(xr_or_df, ex, to_freq=int, seldays='all', verb=0):
                  ' frequency fits in one year')
         datetime = pd.to_datetime(np.array(xarray['time'].values,
                                           dtype='datetime64[D]'))
-        datetime = timeseries_tofit_bins(datetime, ex, to_freq, seldays=seldays, verb=0)
+        
+        
+        datetime = timeseries_tofit_bins(datetime, to_freq, 
+                                                     start_end_date=start_end_date, 
+                                                     start_end_year=start_end_year, 
+                                                     seldays=seldays,
+                                                     verb=0)
+#        datetime = timeseries_tofit_bins(datetime, ex, to_freq, seldays=seldays, verb=0)
         xarray = xarray.sel(time=datetime)
         one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
 
@@ -428,13 +442,14 @@ def time_mean_bins(xr_or_df, ex, to_freq=int, seldays='all', verb=0):
             return_obj = pd.DataFrame(xarray.values.T,
                                       index=dates,
                                       columns=list(xr_init.coords['variable'].values))
+            return_obj = return_obj.astype(xr_or_df.dtypes)
     elif return_df == False:
         return_obj = xarray
    #%%
     return return_obj, dates
 
 
-def timeseries_tofit_bins(xr_or_dt, ex, to_freq, seldays='part', verb=1):
+def timeseries_tofit_bins(xr_or_dt, to_freq, start_end_date=None, start_end_year=None, seldays='part', verb=1):
     #%%
     '''
     if to_freq is an even number, the centered date will be 
@@ -450,20 +465,34 @@ def timeseries_tofit_bins(xr_or_dt, ex, to_freq, seldays='part', verb=1):
 # =============================================================================
 #   # select dates
 # =============================================================================
+    if start_end_date is None:
+        d_s = datetime[0]
+        d_e = datetime[-1]
+        sstartdate = '{}-{}'.format(d_s.month, d_s.day)
+        senddate   = '{}-{}'.format(d_e.month, d_e.day)
+    else:
+        sstartdate, senddate = start_end_date
+    
+    if start_end_year is None:
+        startyear, endyear = datetime[0].year, datetime[-1].year
+        years = np.unique(datetime.year)
+    else:
+        startyear, endyear = start_end_year
+        years = range(startyear, endyear+1)
     # selday_pp is the period you aim to study
     if seldays == 'part':
         # add corresponding time information
-        crossyr = int(ex['sstartdate'].replace('-','')) > int(ex['senddate'].replace('-',''))
-        sstartdate = '{}-{}'.format(ex['startyear'], ex['sstartdate'])
+        crossyr = int(sstartdate.replace('-','')) > int(senddate.replace('-',''))
+        sstartdate = '{}-{}'.format(startyear, sstartdate)
         if crossyr:
-            senddate   = '{}-{}'.format(ex['startyear']+1, ex['senddate'])
+            senddate   = '{}-{}'.format(startyear+1, senddate)
         else:
-            senddate   = '{}-{}'.format(ex['startyear'], ex['senddate'])
+            senddate   = '{}-{}'.format(startyear, senddate)
 
-        ex['adjhrsstartdate'] = sstartdate + ' {:}:00:00'.format(datetime[0].hour)
-        ex['adjhrsenddate']   = senddate + ' {:}:00:00'.format(datetime[0].hour)
-        sdate = pd.to_datetime(ex['adjhrsstartdate'])
-        seldays_pp = pd.date_range(start=ex['adjhrsstartdate'], end=ex['adjhrsenddate'],
+        adjhrsstartdate = sstartdate + ' {:}:00:00'.format(datetime[0].hour)
+        adjhrsenddate   = senddate + ' {:}:00:00'.format(datetime[0].hour)
+        sdate = pd.to_datetime(adjhrsstartdate)
+        seldays_pp = pd.date_range(start=adjhrsstartdate, end=adjhrsenddate,
                                 freq=pd.Timedelta(datetime[1] - datetime[0]))
 
 
@@ -509,9 +538,9 @@ def timeseries_tofit_bins(xr_or_dt, ex, to_freq, seldays='part', verb=1):
 
     if input_freq == 'month':
         dt = date_dt(months=to_freq)
-        start_day = ex['adjhrsstartdate'].split(' ')[0]
+        start_day = adjhrsstartdate.split(' ')[0]
         start_day = pd.to_datetime(start_day.replace(start_day[-2:], '01'))
-        end_day = ex['adjhrsenddate'].split(' ')[0]
+        end_day = adjhrsenddate.split(' ')[0]
         end_day = pd.to_datetime(end_day.replace(end_day[-2:], '01'))
         fit_steps_yr = (end_day.month - start_day.month + 1) / to_freq
         start_day = (end_day - (dt * int(fit_steps_yr))) \
@@ -525,11 +554,11 @@ def timeseries_tofit_bins(xr_or_dt, ex, to_freq, seldays='part', verb=1):
         start_yr = pd.to_datetime(start_yr)
 
 
-    ex['n_oneyr'] = start_yr.size
-    end_year = ex['endyear']
-    datesdt = make_dates(datetime, start_yr, end_year)
+#    n_oneyr = start_yr.size
+#    end_year = endyear
+    datesdt = make_dates(start_yr, years)
 
-    ex['n_yrs'] = datesdt.size / ex['n_oneyr']
+#    n_yrs = datesdt.size / n_oneyr
     if verb==1:
         months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
                              8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
@@ -551,21 +580,39 @@ def timeseries_tofit_bins(xr_or_dt, ex, to_freq, seldays='part', verb=1):
     return out
 
 
-def make_dates(datetime, start_yr, endyear):
+#def make_dates(datetime, start_yr, endyear):
+#    '''
+#    Extend same date period to other years
+#    datetime is full datetime
+#    start_yr are date period to 'copy'
+#    '''
+#    breakyr = endyear
+#    nyears = (datetime.year[-1] - datetime.year[0])+1
+#    next_yr = start_yr
+#    for yr in range(0,nyears-1):
+#        next_yr = pd.to_datetime([date + date_dt(years=1) for date in next_yr])
+#        start_yr = start_yr.append(next_yr)
+#        if next_yr[-1].year == breakyr:
+#            break
+#    return start_yr
+
+def make_dates(datetime, years):
     '''
     Extend same date period to other years
-    datetime is full datetime
-    start_yr are date period to 'copy'
+    datetime is start year
+    start_yr is date period to 'copy'
     '''
-    breakyr = endyear
-    nyears = (datetime.year[-1] - datetime.year[0])+1
+
+    start_yr = datetime
     next_yr = start_yr
-    for yr in range(0,nyears-1):
-        next_yr = pd.to_datetime([date + date_dt(years=1) for date in next_yr])
-        start_yr = start_yr.append(next_yr)
-        if next_yr[-1].year == breakyr:
-            break
+    for yr in years:
+        delta_year = yr - start_yr[-1].year
+        if delta_year != 0:
+            next_yr = pd.to_datetime([date + date_dt(years=delta_year) for date in next_yr])
+            start_yr = start_yr.append(next_yr)
+
     return start_yr
+
 
 
 
@@ -692,7 +739,13 @@ def import_ds_timemeanbins(file_path, ex, loadleap=False, to_xarr=True,
     ds = core_pp.import_ds_lazy(file_path, **kwrgs_pp)
     to_freq = ex['tfreq']
     if to_freq != 1:
-        ds, dates = time_mean_bins(ds, ex, to_freq=to_freq, seldays='part')
+        start_end_date = (ex['sstartdate'], ex['senddate'])
+        start_end_year = (ex['startyear'], ex['endyear'])
+        ds, dates = time_mean_bins(ds, to_freq,
+                                        start_end_date,
+                                        start_end_year,
+                                        seldays='part')
+#        ds, dates = time_mean_bins(ds, to_freq=to_freq, seldays='part')
         ds['time'] = dates
 #    print('temporal frequency \'dt\' is: \n{}'.format(dates[1]- dates[0]))
     if to_xarr:
@@ -970,8 +1023,8 @@ def store_hdf_df(dict_of_dfs, file_path):
         hdf.close()
     return
 
-def rand_traintest_years(RV, ex, test_yrs=None, method=str, seed=int, 
-                         kwrgs_events=None):
+def rand_traintest_years(RV, test_yrs=None, method=str, seed=None, 
+                         kwrgs_events=None, verb=0):
     #%%
     '''
     possible method are:
@@ -983,28 +1036,26 @@ def rand_traintest_years(RV, ex, test_yrs=None, method=str, seed=int,
 
 
     RV_ts = RV.RV_ts
-    ex['tested_yrs'] = [] ; # ex['n_events'] = []
-    ex['all_yrs'] = list(np.unique(RV_ts.index.year))
-
+    tested_yrs = [] ; # ex['n_events'] = []
+    all_yrs = list(np.unique(RV_ts.index.year))
+    n_yrs   = len(all_yrs)
     if method[:6] == 'random' or method[:9] == 'ran_strat':
-        if 'seed' not in ex.keys():
-            ex['seed'] = 30 # control reproducibility train/test split
+        if seed is None:
+            seed = 30 # control reproducibility train/test split
         else:
-            ex['seed'] = ex['seed']
-
-        seed = ex['seed']
+            seed = seed
 
         if method[:6] == 'random':
-            ex['n_spl'] = int(method[6:8])
+            n_spl = int(method[6:8])
         else:
-             ex['n_spl'] = int(method[9:])
+             n_spl = int(method[9:])
 
 
     elif method[:5] == 'leave':
-        ex['n_spl'] = int(ex['n_yrs'] / int(method.split('_')[1]) )
-        iterate = np.arange(0, ex['n_yrs']+1E-9,
+        n_spl = int(n_yrs / int(method.split('_')[1]) )
+        iterate = np.arange(0, n_yrs+1E-9,
                             int(method.split('_')[1]), dtype=int )
-    elif method == 'no_train_test_split': ex['n_spl'] = 1
+    elif method == 'no_train_test_split': n_spl = 1
 
     if test_yrs is not None:
         method = 'copied_from_import_ts'
@@ -1016,7 +1067,7 @@ def rand_traintest_years(RV, ex, test_yrs=None, method=str, seed=int,
     RV_years  = list(RV_ts.index.year.values)
 
     traintest = [] ; list_splits = []
-    for s in range(ex['n_spl']):
+    for s in range(n_spl):
 
         # conditions failed initally assumed True
         a_conditions_failed = True
@@ -1031,58 +1082,58 @@ def rand_traintest_years(RV, ex, test_yrs=None, method=str, seed=int,
 
 
                 rng = np.random.RandomState(seed)
-                size_test  = int(np.round(ex['n_yrs'] / ex['n_spl']))
-                size_train = int(ex['n_yrs'] - size_test)
+                size_test  = int(np.round(n_yrs / n_spl))
+                size_train = int(n_yrs - size_test)
 
-                ex['leave_n_years_out'] = size_test
-                yrs_to_draw_sample = [yr for yr in ex['all_yrs'] if yr not in flatten(ex['tested_yrs'])]
+                leave_n_years_out = size_test
+                yrs_to_draw_sample = [yr for yr in all_yrs if yr not in flatten(tested_yrs)]
                 if (len(yrs_to_draw_sample)) >= size_test:
-                    rand_test_years = rng.choice(yrs_to_draw_sample, ex['leave_n_years_out'], replace=False)
+                    rand_test_years = rng.choice(yrs_to_draw_sample, leave_n_years_out, replace=False)
                 # if last test sample will be too small for next iteration, add test yrs to current test yrs
                 if (len(yrs_to_draw_sample)) < size_test:
                     rand_test_years = yrs_to_draw_sample
-                check_double_test = [yr for yr in rand_test_years if yr in flatten( ex['tested_yrs'] )]
+                check_double_test = [yr for yr in rand_test_years if yr in flatten( tested_yrs )]
                 if len(check_double_test) != 0 :
                     a_conditions_failed = True
                     print('test year drawn twice, redoing sampling')
 
 
             elif method[:5] == 'leave':
-                ex['leave_n_years_out'] = int(method.split('_')[1])
+                leave_n_years_out = int(method.split('_')[1])
                 t0 = iterate[s]
                 t1 = iterate[s+1]
-                rand_test_years = ex['all_yrs'][t0: t1]
+                rand_test_years = all_yrs[t0: t1]
 
             elif method[:5] == 'split':
-                size_train = int(np.percentile(range(len(ex['all_yrs'])), int(method[5:])))
-                size_test  = len(ex['all_yrs']) - size_train
-                ex['leave_n_years_out'] = size_test
+                size_train = int(np.percentile(range(len(all_yrs)), int(method[5:])))
+                size_test  = len(all_yrs) - size_train
+                leave_n_years_out = size_test
                 print('Using {} years to train and {} to test'.format(size_train, size_test))
-                rand_test_years = ex['all_yrs'][-size_test:]
+                rand_test_years = all_yrs[-size_test:]
 
             elif method == 'no_train_test_split':
-                size_train = len(ex['all_yrs'])
+                size_train = len(all_yrs)
                 size_test  = 0
-                ex['leave_n_years_out'] = size_test
+                leave_n_years_out = size_test
                 print('No train test split'.format(size_train, size_test))
                 rand_test_years = []
 
             elif method == 'copied_from_import_ts':
-                size_train = len(ex['all_yrs'])
+                size_train = len(all_yrs)
                 rand_test_years = test_yrs[s]
                 if s == 0:
                     size_test  = len(rand_test_years)
-                ex['leave_n_years_out'] = len(test_yrs[s])
+                leave_n_years_out = len(test_yrs[s])
 
 
 
 
             # test duplicates
-            a_conditions_failed = np.logical_and((len(set(rand_test_years)) != ex['leave_n_years_out']),
-                                     s != ex['n_spl']-1)
+            a_conditions_failed = np.logical_and((len(set(rand_test_years)) != leave_n_years_out),
+                                     s != n_spl-1)
             # Update random years to be selected as test years:
         #        initial_years = [yr for yr in initial_years if yr not in random_test_years]
-            rand_train_years = [yr for yr in ex['all_yrs'] if yr not in rand_test_years]
+            rand_train_years = [yr for yr in all_yrs if yr not in rand_test_years]
 
 
 
@@ -1107,7 +1158,7 @@ def rand_traintest_years(RV, ex, test_yrs=None, method=str, seed=int,
                     RV_bin = RV.RV_bin.iloc[RV_test_idx]
                     # check if representative sample
                     out = check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed,
-                                           s, count, seed, ex['verbosity'])
+                                           s, count, seed, verb)
                     a_conditions_failed, count, seed = out
             else:
                 RV_test = [] ; test_years = [] ; Prec_test_idx = []
@@ -1116,7 +1167,7 @@ def rand_traintest_years(RV, ex, test_yrs=None, method=str, seed=int,
                                        columns=['TrainIsTrue', 'RV_mask'],
                                        index = full_time))
 
-        ex['tested_yrs'].append(test_years)
+        tested_yrs.append(test_years)
 
         traintest_ = dict( { 'years'            : test_years,
                             'RV_train'          : RV_train,
@@ -1124,11 +1175,11 @@ def rand_traintest_years(RV, ex, test_yrs=None, method=str, seed=int,
                             'RV_test'           : RV_test,
                             'Prec_test_idx'     : Prec_test_idx} )
         traintest.append(traintest_)
-        ex['traintest'] = traintest
-    df_splits = pd.concat(list_splits , axis=0, keys=range(ex['n_spl']))
-    ex['df_splits'] = df_splits
+
+    df_splits = pd.concat(list_splits , axis=0, keys=range(n_spl))
+
     #%%
-    return df_splits, ex
+    return df_splits
 
 
 
@@ -1137,7 +1188,7 @@ def check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed, s, count, se
 #    event_thres = func_fc.Ev_threshold(RV.RV_ts, kwrgs_events['event_percentile'])
     tol_from_exp_events = 0.20
 
-    if 'kwrgs_events' is None:
+    if kwrgs_events is None:
         print('Stratified Train Test based on +1 tercile events\n')
         kwrgs_events  =  {'event_percentile': 66,
                     'min_dur' : 1,

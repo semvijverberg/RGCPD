@@ -67,7 +67,7 @@ ex = dict(
      'endperiod'    :       '08-24', # RV period
      'sstartdate'   :       '01-01', # extended data period loaded (for lags)
      'senddate'     :       '09-30', # extended data period loaded
-     'tfreqlist'    :       [10],
+     'tfreqlist'    :       [30],
      'selbox'       :       {'la_min':-10, # select domain in degrees east
                              'la_max':80,
                              'lo_min':-180,
@@ -90,15 +90,15 @@ elif ex['dataset'] == 'era5':
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = True
+ECMWFdownload = False
 # Option 2:
-import_precursor_ncdf = False
+import_precursor_ncdf = True
 # Option 3:
 import_RV_ncdf = False
 # Option 4:
 importRV_1dts = True
 # Option 5:
-ex['import_prec_ts'] = False
+ex['import_prec_ts'] = True
 
 
 # Option 1111111111111111111111111111111111111111111111111111111111111111111111
@@ -414,7 +414,7 @@ for freq in ex['tfreqlist']:
         # =============================================================================
         # Run tigramite to extract causal precursors
         # =============================================================================
-        df_sum, df_data = wrapper_RGCPD_tig.run_PCMCI_CV(ex, outdic_actors, map_proj)
+        df_sum, df_data = wrapper_RGCPD_tig.run_PCMCI_CV(ex, outdic_actors, df_splits, map_proj)
         
         # =============================================================================
         # Plot final results

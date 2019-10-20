@@ -11,8 +11,47 @@ import numpy as np
 import xarray as xr
 import eofs
 import stat_models
+import classes
 import validation as valid
 
+
+def df_data_to_RV(df_data=pd.DataFrame, kwrgs_exp=dict, kwrgs_events=dict):
+    '''
+    input df_data according to RGCPD format
+    '''
+        
+    RVfullts = pd.DataFrame(df_data[df_data.columns[0]][0])
+    RV_ts    = pd.DataFrame(df_data[df_data.columns[0]][0][df_data['RV_mask'][0]] )
+    fit_model_dates = kwrgs_exp['kwrgs_pp']['fit_model_dates']
+    RV = classes.RV_class(RVfullts, RV_ts, kwrgs_events, 
+                          fit_model_dates=fit_model_dates)
+    return RV
+
+
+def forecast_wrapper(df_data=pd.DataFrame, kwrgs_exp=dict, kwrgs_events=dict, 
+                     stat_model_l=list, lags_i=list, n_boot=0):
+    '''
+    dict should have splits (as keys) and concomitant list of keys of that particular split 
+    '''
+    
+    RV = df_data_to_RV(df_data, kwrgs_exp=kwrgs_exp, kwrgs_events=kwrgs_events)
+    RV.TrainIsTrue = df_data['TrainIsTrue']
+    RV.RV_mask = df_data['RV_mask']
+
+    splits  = df_data.index.levels[0]
+    fit_model_mask = pd.concat([RV.fit_model_mask] * splits.size, keys=splits)
+    df_data = df_data.merge(fit_model_mask, left_index=True, right_index=True)
+    RV.prob_clim = get_obs_clim(RV)
+    
+    dict_sum = {}
+    for stat_model in stat_model_l:
+        name = stat_model[0]
+        df_valid, RV, y_pred_all = forecast_and_valid(RV, df_data, kwrgs_exp, 
+                                                              stat_model=stat_model, 
+                                                              lags_i=lags_i, n_boot=n_boot)
+        dict_sum[name] = (df_valid, RV, y_pred_all)
+   
+    return dict_sum  
 
 
 def forecast_and_valid(RV, df_data, kwrgs_exp, stat_model=tuple, lags_i=list,

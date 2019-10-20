@@ -39,7 +39,8 @@ def logit(RV, df_norm, keys):
     # Get mask to make only prediction for RV_mask dates
     pred_mask   = df_norm['RV_mask']
 
-    model_set = sm.Logit(y['RV_binary'][TrainIsTrue] , X[TrainIsTrue], disp=0)
+    model_set = sm.Logit(y['RV_binary'][TrainIsTrue] , 
+                         X[TrainIsTrue], disp=0)
     try:
         model = model_set.fit( disp=0, maxfun=60 )
         prediction = model.predict(X[pred_mask])

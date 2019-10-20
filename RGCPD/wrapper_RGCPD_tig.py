@@ -28,6 +28,7 @@ def RV_and_traintest(RV, ex, method=str, kwrgs_events=None, precursor_ts=None,
                         
     ex['time_cycle'] = RV.dates[RV.dates.year == RV.startyear].size # time-cycle of data. total timesteps in one year
     ex['time_range_all'] = [0, RV.dates.size]
+    verbosity=ex['verbosity']
     #==================================================================================
     # Start of experiment
     #==================================================================================
@@ -47,13 +48,18 @@ def RV_and_traintest(RV, ex, method=str, kwrgs_events=None, precursor_ts=None,
         # Retrieve same train test split as imported ts
         path_data = ''.join(precursor_ts[0][1])
         df_splits = func_fc.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
-        test_yrs  = functions_pp.get_testyrs(df_splits)
-        df_splits, ex = functions_pp.rand_traintest_years(RV, ex, test_yrs=test_yrs)
-        assert (np.equal(test_yrs, ex['tested_yrs'])).all(), "Train test split not equal"
-    else:
-        df_splits, ex = functions_pp.rand_traintest_years(RV, ex, method=method,
+        test_yrs_imp  = functions_pp.get_testyrs(df_splits)
+        df_splits = functions_pp.rand_traintest_years(RV, method=method,
                                                           seed=seed, 
-                                                          kwrgs_events=kwrgs_events)
+                                                          kwrgs_events=kwrgs_events, 
+                                                          verb=verbosity)
+        test_yrs_set  = functions_pp.get_testyrs(df_splits)
+        assert (np.equal(test_yrs_imp, test_yrs_set)).all(), "Train test split not equal"
+    else:
+        df_splits = functions_pp.rand_traintest_years(RV, method=method,
+                                                          seed=seed, 
+                                                          kwrgs_events=kwrgs_events, 
+                                                          verb=verbosity)
     return RV, df_splits
 
 def calculate_corr_maps(RV, df_splits, ex, list_varclass=list, lags=[0], alpha=0.05,
@@ -118,30 +124,32 @@ def get_prec_ts(outdic_actors, ex):
     allvar = ex['vars'][0] # list of all variable names
     for var in allvar[:]: # loop over all variables
         actor = outdic_actors[var]
-
+        splits = actor.corr_xr.split
         if np.isnan(actor.prec_labels.values).all():
             actor.ts_corr = np.array([]), []
             pass
         else:
             actor.ts_corr = rgcpd.spatial_mean_regions(actor, ex)
             outdic_actors[var] = actor
-            ex['n_tot_regs'] += max([actor.ts_corr[s].shape[1] for s in range(ex['n_spl'])])
+            ex['n_tot_regs'] += max([actor.ts_corr[s].shape[1] for s in range(splits.size)])
     return outdic_actors
 
 
-def run_PCMCI_CV(ex, outdic_actors, map_proj):
+def run_PCMCI_CV(ex, outdic_actors, df_splits, map_proj):
     #%%
-    df_splits = np.zeros( (ex['n_spl']) , dtype=object)
-    df_data_s   = np.zeros( (ex['n_spl']) , dtype=object)
-    for s in range(ex['n_spl']):
-        progress = 100 * (s+1) / ex['n_spl']
+    splits = df_splits.index.levels[0]
+    
+    df_sum_s = np.zeros( (splits.size) , dtype=object)
+    df_data_s   = np.zeros( (splits.size) , dtype=object)
+    for s in range(splits.size):
+        progress = 100 * (s+1) / splits.size
         print(f"\rProgress causal inference - traintest set {progress}%", end="")
-        df_splits[s], df_data_s[s] = run_PCMCI(ex, outdic_actors, s, map_proj)
+        df_sum_s[s], df_data_s[s] = run_PCMCI(ex, outdic_actors, s, df_splits, map_proj)
 
     print("\n")
 
-    df_data  = pd.concat(list(df_data_s), keys= range(ex['n_spl']))
-    df_sum = pd.concat(list(df_splits), keys= range(ex['n_spl']))
+    df_data  = pd.concat(list(df_data_s), keys= range(splits.size))
+    df_sum = pd.concat(list(df_sum_s), keys= range(splits.size))
 
 
     #%%
@@ -174,7 +182,7 @@ def store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=True):
     return
 
 
-def run_PCMCI(ex, outdic_actors, s, map_proj):
+def run_PCMCI(ex, outdic_actors, s, df_splits, map_proj):
     #=====================================================================================
     #
     # 4) PCMCI-algorithm
@@ -207,7 +215,7 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
           'parents: {}'.format(ex['alpha_level_tig'])))
 
     # Retrieve traintest info
-    traintest = ex['traintest']
+    traintest = df_splits
 
     # load Response Variable class
     RV = ex[ex['RV_name']]
@@ -262,9 +270,17 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
                     lab_int += 1
                     
             df_data_ext = df_data_ext[cols_ext]
-            df_data_ext = functions_pp.time_mean_bins(df_data_ext,
-                                                     ex, ex['tfreq'], 
-                                                     seldays='part')[0]
+            to_freq = ex['tfreq']
+            if to_freq != 1:
+                start_end_date = (ex['sstartdate'], ex['senddate'])
+                start_end_year = (ex['startyear'], ex['endyear'])
+            df_data_ext = functions_pp.time_mean_bins(df_data_ext, to_freq,
+                                        start_end_date,
+                                        start_end_year,
+                                        seldays='part')[0]
+#            df_data_ext = functions_pp.time_mean_bins(df_data_ext,
+#                                                     ex, ex['tfreq'], 
+#                                                     seldays='part')[0]
             # Expand var_names_corr
             n = var_names_full[-1][0] + 1 ; add_n = n + len(cols_ext)
             n_var_idx = var_names_full[-1][-1] + 1
@@ -274,18 +290,18 @@ def run_PCMCI(ex, outdic_actors, s, map_proj):
     else:
         var_names_full = var_names_corr
             
-        
+    bool_train     = traintest.loc[s]['TrainIsTrue']  
+    bool_RV_train  = np.logical_and(bool_train, traintest.loc[s]['RV_mask'])
+    dates_train    = traintest.loc[s]['TrainIsTrue'][bool_train].index
+    dates_RV_train = traintest.loc[s]['TrainIsTrue'][bool_RV_train].index
     
-    RVfull_train = RV.RVfullts.isel(time=traintest[s]['Prec_train_idx'])
-#    RVfull_train = RV.RVfullts.iloc[ traintest[s]['Prec_train_idx'] ]
+    RVfull_train = RV.RVfullts.sel(time=dates_train)
     datesfull_train = pd.to_datetime(RVfull_train.time.values)
     data = df_data.loc[datesfull_train].values
     print((data.shape))
 
-
     # get RV datamask (same shape als data)
-    datesRV_train   = traintest[s]['RV_train'].index
-    data_mask = [True if d in datesRV_train else False for d in datesfull_train]
+    data_mask = [True if d in dates_RV_train else False for d in datesfull_train]
     data_mask = np.repeat(data_mask, data.shape[1]).reshape(data.shape)
 
     # add traintest mask to fulldata
