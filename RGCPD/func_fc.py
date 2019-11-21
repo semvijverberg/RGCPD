@@ -15,6 +15,11 @@ import classes
 import validation as valid
 
 
+
+class fc_class():
+    
+    
+    
 def df_data_to_RV(df_data=pd.DataFrame, kwrgs_exp=dict, kwrgs_events=dict):
     '''
     input df_data according to RGCPD format
