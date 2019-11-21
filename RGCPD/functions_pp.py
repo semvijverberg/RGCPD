@@ -1044,18 +1044,16 @@ def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
             seed = 30 # control reproducibility train/test split
         else:
             seed = seed
-
         if method[:6] == 'random':
             n_spl = int(method[6:8])
         else:
              n_spl = int(method[9:])
-
-
     elif method[:5] == 'leave':
         n_spl = int(n_yrs / int(method.split('_')[1]) )
         iterate = np.arange(0, n_yrs+1E-9,
                             int(method.split('_')[1]), dtype=int )
-    elif method == 'no_train_test_split': n_spl = 1
+    elif method == 'no_train_test_split': 
+        n_spl = 1
 
     if test_yrs is not None:
         method = 'copied_from_import_ts'

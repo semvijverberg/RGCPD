@@ -41,6 +41,13 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    clevels=None, cticks_center=None,
                    drawbox=None, subtitles=None, lat_labels=True):
     #%%
+#    # default parameters
+#    row_dim='split'; col_dim='lag'; clim='relaxed'; hspace=-0.6;                   
+#    size=2.5; cbar_vert=-0.01; units='units'; cmap=None;
+#    clevels=None; cticks_center=None;
+#    drawbox=None; subtitles=None; lat_labels=True;
+#    
+    
     import matplotlib.colors as colors
     if map_proj is None:
         map_proj = ccrs.LambertCylindrical(central_longitude=0)
@@ -147,7 +154,8 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             
             if mask_xr is not None:
                 # field not completely masked?
-                if (plotmask.values==True).all() == False:
+                all_masked = (plotmask.values==False).all()
+                if all_masked == False:
                     if p_nans < 90:
                         plotmask.plot.contour(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
                                           subplot_kws={'projection': map_proj}, colors=['black'],
@@ -160,11 +168,14 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 #                                         subplot_kws={'projection':map_proj},add_colorbar=False)
 #                except ValueError:
 #                    print('could not draw contourf, shifting to pcolormesh')
-            im = plotdata.plot.pcolormesh(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
-                                    center=0,
-                                     levels=clevels, cmap=cmap,
-                                     subplot_kws={'projection':map_proj},add_colorbar=False)
-            if np.nansum(plotdata.values) == 0.:
+
+            # if no signifcant regions, still plot corr values, but the causal plot must remain empty
+            if mask_xr is None or all_masked==False or (all_masked and 'tigr' not in c_label):                      
+                im = plotdata.plot.pcolormesh(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
+                                        center=0,
+                                         levels=clevels, cmap=cmap,
+                                         subplot_kws={'projection':map_proj},add_colorbar=False)
+            elif all_masked and 'tigr' in c_label:
                 g.axes[row,col].text(0.5, 0.5, 'No regions significant',
                       horizontalalignment='center', fontsize='x-large',
                       verticalalignment='center', transform=g.axes[row,col].transAxes)
@@ -274,14 +285,38 @@ def causal_reg_to_xarray(ex, df, outdic_actors):
     '''
 #    outdic_actors_c = outdic_actors.copy()
     df_c = df.loc[ df['causal']==True ]
-    # remove response variable if the ac is a 
-    # causal link
-    if df.index[0] in df_c.index:
-        df_c = df_c.drop(df.index[0])
+    # remove response variable if the ac is a causal link
+    splits = df.index.levels[0]
+    for s in splits:
+        RV_name = ex['RV_name']
+        try:
+            # try because can be no causal regions in split s
+            if RV_name in df_c.loc[s].index:
+                df_c = df_c.drop((s, RV_name), axis=0)
+        except:
+            pass
    
     spatial_vars = outdic_actors.keys()
-    var_rel_sizes = {outdic_actors[var].area_grid.sum()/7939E6 : var for var in spatial_vars}
-    var_large_to_small = [var_rel_sizes[s] for s in sorted(var_rel_sizes, reverse=True)]
+    var_rel_sizes = {var:outdic_actors[var].area_grid.sum()/7939E6 for var in spatial_vars}
+    sorted_sizes = sorted(var_rel_sizes.items(), key=lambda kv: kv[1], reverse=True)
+    var_large_to_small = [s[0] for s in sorted_sizes]
+
+
+
+    def apply_new_mask(new_mask, label_tig, corr_xr, corr_tig):
+#        wghts_splits = np.array(new_mask, dtype=int).sum(0)
+#        wghts_splits = wghts_splits / wghts_splits.max()
+        label_tig.sel(lag=lag_cor).values[~new_mask] = np.nan
+        corr_tig.sel(lag=lag_cor).values[~new_mask] = np.nan
+        # Old! 11-11-19 - Tig: apply weights and take mean over splits
+        # Tig: no longer applying weights and take mean over splits
+        orig_corr_val = corr_tig.sel(lag=lag_cor).values
+        corr_tig.sel(lag=lag_cor).values = orig_corr_val 
+
+        orig_corr_val = corr_xr.sel(lag=lag_cor).values
+        corr_xr.sel(lag=lag_cor).values = orig_corr_val 
+        return label_tig, corr_xr, corr_tig    
+    
     dict_ds = {}
     for i, var in enumerate(var_large_to_small):
         ds_var = xr.Dataset()
@@ -290,29 +325,29 @@ def causal_reg_to_xarray(ex, df, outdic_actors):
         label_tig = actor.prec_labels.copy()
         corr_tig = actor.corr_xr.copy()
         corr_xr  = actor.corr_xr.copy()
-        for lag_cor in label_tig.lag.values:
-            
-            var_tig = label_tig.sel(lag=lag_cor)
-            for lag_t in np.unique(regs_c['lag_tig']):
-                reg_c_l = regs_c.loc[ regs_c['lag_tig'] == lag_t]
-                labels = list(reg_c_l.label.values)
+        if df_c.loc[ df_c['var'] == var ].size != 0:
+            # if causal regions exist: 
+            for lag_cor in label_tig.lag.values:
                 
-                new_mask = np.zeros( shape=var_tig.shape, dtype=bool)
-                
-                for l in labels:
-                    new_mask[var_tig.values == l] = True
+                var_tig = label_tig.sel(lag=lag_cor)
+                for lag_t in np.unique(regs_c['lag_tig']):
+                    reg_c_l = regs_c.loc[ regs_c['lag_tig'] == lag_t]
+                    labels = list(reg_c_l.label.values)
+                    
+                    new_mask = np.zeros( shape=var_tig.shape, dtype=bool)
+                    
+                    for l in labels:
+                        new_mask[var_tig.values == l] = True
 
-            wghts_splits = np.array(new_mask, dtype=int).sum(0)
-            wghts_splits = wghts_splits / wghts_splits.max()
-            label_tig.sel(lag=lag_cor).values[~new_mask] = np.nan
-            corr_tig.sel(lag=lag_cor).values[~new_mask] = np.nan
-            # Tig: apply weights and take mean over splits
-            orig_corr_val = corr_tig.sel(lag=lag_cor).values
-            corr_tig.sel(lag=lag_cor).values = orig_corr_val * wghts_splits
-            # Corr: apply weights and take mean over splits
-            orig_corr_val = corr_xr.sel(lag=lag_cor).values
-            corr_xr.sel(lag=lag_cor).values = orig_corr_val * wghts_splits
-                              
+                out = apply_new_mask(new_mask, label_tig, corr_xr, corr_tig)
+                label_tig, corr_xr, corr_tig = out
+        else:
+            for lag_cor in label_tig.lag.values:
+                var_tig = label_tig.sel(lag=lag_cor)
+                new_mask = np.zeros( shape=var_tig.shape, dtype=bool)
+                out = apply_new_mask(new_mask, label_tig, corr_xr, corr_tig)
+                label_tig, corr_xr, corr_tig = out
+            
         ds_var[var+'_corr'] = corr_xr
         ds_var[var+'_corr_tigr'] = corr_tig 
         ds_var[var+'_labels'] = actor.prec_labels.copy()
@@ -333,12 +368,19 @@ def plot_labels_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
           ' that were found in the PC step')
     # =============================================================================
     df_c = df_sum.loc[ df_sum['causal']==True ]
+    # There can be duplicates because tigramite extract the same region at 
+    # different lags, this is not important for plotting the spatial regions.
+    df_c = df_c.drop_duplicates()
     # remove response variable if the ac is a causal link
     splits = df_sum.index.levels[0]
     for s in splits:
         RV_name = ex['RV_name']
-        if RV_name in df_c.loc[s].index:
-            df_c = df_c.drop((s, RV_name), axis=0)
+        try:
+            # try because can be no causal regions in split s
+            if RV_name in df_c.loc[s].index:
+                df_c = df_c.drop((s, RV_name), axis=0)
+        except:
+            pass
         
     variables = list(dict_ds.keys())
     lags = ds = dict_ds[variables[0]].lag.values
@@ -364,10 +406,12 @@ def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
     list_xr = [] ; name = []
     columns = ['labels', 'labels_tigr']
 #    columns = ['labels']
+    robustness_l = []
     if mean_splits == True:
         for c in columns:
             name.append(var+'_'+c)
             robustness = (ds_l[var+'_'+c] > 0).astype('int').sum(dim='split')
+            robustness_l.append(robustness)
             wgts_splits = robustness / splits.size
             mask = (wgts_splits > 0.5).astype('bool')
             prec_labels = ds_l[var+'_'+c].mean(dim='split')
@@ -385,7 +429,10 @@ def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
     # colors of cmap are dived over min to max in n_steps. 
     # We need to make sure that the maximum value in all dimensions will be 
     # used for each plot (otherwise it assign inconsistent colors)
-    max_N_regs = min(20, int(prec_labels.max() + 0.5))
+    if np.isnan(prec_labels.values).all() == False:
+        max_N_regs = min(20, int(prec_labels.max() + 0.5))
+    else:
+        max_N_regs = 20
     label_weak = np.nan_to_num(prec_labels.values) >=  max_N_regs
     contour_mask = None
     prec_labels.values[label_weak] = max_N_regs
@@ -405,7 +452,7 @@ def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
                   'cmap':cmap, 'subtitles':np.array([[n.replace('_', ' ') for n in name]]),
                   'units': None}  
     
-    if np.isnan(prec_labels.values).all() ==False:
+    if np.isnan(prec_labels.values).all() == False:
         
         plot_corr_maps(prec_labels, 
                  contour_mask, 
@@ -414,7 +461,9 @@ def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
         plt.show() ; plt.close()
         
         if mean_splits == True:
-                       
+            # plot robustness
+            subtitles = ['robustness '+var+' corr.', 'robustness '+var+' causal']
+            
             colors = plt.cm.magma_r(np.linspace(0,0.7, 20))
             colors[-1] = plt.cm.magma_r(np.linspace(0.99,1, 1))
             cm = LinearSegmentedColormap.from_list('test', colors, N=255)
@@ -423,21 +472,22 @@ def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
             units = 'No. of times significant [0 ... {}]'.format(splits.size)
             kwrgs_rob = {'clevels':clevels,  
                          'cmap':cm, 
-                         'subtitles':np.array([['Robustness']]),
+                         'subtitles':np.array([subtitles]),
                          'cticks_center':None, 
                          'units' : units}
             for key, item in kwrgs_rob.items():
                 kwrgs_labels[key] = item
 
-            robust = xr.concat([robustness], dim='lag')
+            robust = xr.concat(robustness_l, dim='lag')
+            robust.lag.values = subtitles
             robust = robust.where(robust.values != 0.)
             plot_corr_maps(robust-1E-9, 
                  contour_mask, 
                  map_proj, **kwrgs_labels)
-        f_name = f'robustness_{var}_lag{lag}.' + filepath.split('.')[-1]
-        fig_path = '/'.join(filepath.split('/')[:-1])   
-        plt.savefig(os.path.join(fig_path, f_name), bbox_inches='tight')
-        plt.show() ; plt.close()
+            f_name = f'robustness_{var}_lag{lag}.' + filepath.split('.')[-1]
+            fig_path = '/'.join(filepath.split('/')[:-1])   
+            plt.savefig(os.path.join(fig_path, f_name), bbox_inches='tight')
+            plt.show() ; plt.close()
     
         
         
@@ -453,12 +503,19 @@ def plot_corr_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
           ' that were found in the PC step')
     # =============================================================================
     df_c = df_sum.loc[ df_sum['causal']==True ]
+    # There can be duplicates because tigramite extract the same region at 
+    # different lags, this is not important for plotting the spatial regions.
+    df_c = df_c.drop_duplicates()
     # remove response variable if the ac is a causal link
     splits = df_sum.index.levels[0]
     for s in splits:
         RV_name = ex['RV_name']
-        if RV_name in df_c.loc[s].index:
-            df_c = df_c.drop((s, RV_name), axis=0)
+        try:
+            # try because can be no causal regions in split s
+            if RV_name in df_c.loc[s].index:
+                df_c = df_c.drop((s, RV_name), axis=0)
+        except:
+            pass
         
     variables = list(dict_ds.keys())
     lags = ds = dict_ds[variables[0]].lag.values
@@ -494,6 +551,7 @@ def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
             mask = (wgts_splits > 0.5).astype('bool')
             corr_splits = ds_l[var+'_'+c[0]]
             corr_mean = corr_splits.mean(dim='split')
+#            list_xr.append(corr_mean)
             list_xr.append(corr_mean.where(mask))
             list_xr_m.append(mask)
     else:
@@ -514,7 +572,7 @@ def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
 
     if mean_splits:
         cbar_vert = -0.1
-        subtitles = np.array([[f'{var}', f'{var} causal']])
+        subtitles = np.array([[f'{var} correlated', f'{var} causal']])
     else:
         cbar_vert = -0.01
         subtitles = None

@@ -236,6 +236,38 @@ def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle
     return df_cm
 
 
+def loop_df(df, function, colwrap=3, sharex='col', kwrgs=None):
+    #%%
+    type_check = np.logical_or(df.dtypes == 'float',df.dtypes == 'float32')
+    keys = type_check[type_check].index
+    
+    df = df.loc[:,keys]
+    if (df.columns.size) % colwrap == 0:
+        rows = int(df.columns.size / colwrap)
+    elif (df.columns.size) % colwrap != 0:
+        rows = int(df.columns.size / colwrap) + 1
+    gridspec_kw = {'hspace':0.5}
+    fig, ax = plt.subplots(rows, colwrap, sharex=sharex, sharey='row',
+                           figsize = (3*colwrap,rows*2.5), gridspec_kw=gridspec_kw)
+    
+    for i, ax in enumerate(fig.axes):
+        if i >= df.columns.size:
+            ax.axis('off')
+        else:
+            header = df.columns[i]
+
+            y = df[header]
+            if kwrgs is None:
+                kwrgs = {'title': header,
+                         'ax'   : ax}
+            else:
+                kwrgs['title'] = header
+                kwrgs['ax'] = ax      
+                
+            function(y, **kwrgs)
+    return fig
+    #%%
+        
 def autocorr_sm(ts, max_lag=None, alpha=0.01):
     import statsmodels as sm
     if max_lag == None:
@@ -245,17 +277,67 @@ def autocorr_sm(ts, max_lag=None, alpha=0.01):
                                  fft=True)
     return ac, con_int
 
+def plot_ac(y=pd.Series, s='auto', title=None, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots(constrained_layout=True)
+        
+    ac, con_int = autocorr_sm(y)
+    
+    time = y.index
+    tfreq = (time[1] - time[0]).days
+
+    # auto xlabels 
+    if s=='auto':
+        where = np.where(con_int[:,0] < 0 )[0]
+        # has to be below 0 for n times (not necessarily consecutive):
+        n = 1
+        n_of_times = np.array([idx+1 - where[0] for idx in where])
+        cutoff = where[np.where(n_of_times == n)[0][0] ]
+        s = 2*cutoff
+    else:
+        s = 5
+
+    xlabels = [x * tfreq for x in range(s)]
+    # con high
+    high = [ min(1,h) for h in con_int[:,1][:s]]
+    ax.plot(xlabels, high, color='orange')
+    # con low
+    ax.plot(xlabels, con_int[:,0][:s], color='orange')
+    # ac values
+    ax.plot(xlabels,ac[:s])
+    ax.scatter(xlabels,ac[:s])
+    ax.hlines(y=0, xmin=min(xlabels), xmax=max(xlabels))
+
+    xlabels = [x * tfreq for x in range(s)]
+    n_labels = max(1, int(s / 5))
+    ax.set_xticks(xlabels[::n_labels])
+    ax.set_xticklabels(xlabels[::n_labels], fontsize=10)
+    ax.set_xlabel('time [days]', fontsize=10)
+    if title is not None:
+        ax.set_title(title, fontsize=10)
+    return ax
+
+
+def plot_ts_vs_ts(y, tv=pd.Series, title=None, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots(constrained_layout=True)
+        
+    y_gr = y.groupby(y.index.year).mean()
+    tv_gr  = tv.groupby(y.index.year).mean()
+    
+    ax.scatter(y_gr, tv_gr)
+    if title is not None:
+        ax.set_title(title, fontsize=10)
+    return ax
+    
+
 def get_bstrap_size(ts, max_lag=200, n=1, plot=True):
     max_lag = min(max_lag, ts.size)
     ac, con_int = autocorr_sm(ts, max_lag=max_lag, alpha=0.01)
+    
     if plot == True:
-        plt.figure()
-        # con high
-        plt.plot(con_int[:,1][:20], color='orange')
-        # ac values
-        plt.plot(range(20),ac[:20])
-        # con low
-        plt.plot(con_int[:,0][:20], color='orange')
+        plot_ac(ac, con_int, s='auto', ax=None)
+        
     where = np.where(con_int[:,0] < 0 )[0]
     # has to be below 0 for n times (not necessarily consecutive):
     n_of_times = np.array([idx+1 - where[0] for idx in where])

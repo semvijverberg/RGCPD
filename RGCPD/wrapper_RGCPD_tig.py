@@ -25,7 +25,7 @@ flatten = lambda l: list(itertools.chain.from_iterable(l))
 #%%
 def RV_and_traintest(RV, ex, method=str, kwrgs_events=None, precursor_ts=None,
                      seed=int):
-                        
+
     ex['time_cycle'] = RV.dates[RV.dates.year == RV.startyear].size # time-cycle of data. total timesteps in one year
     ex['time_range_all'] = [0, RV.dates.size]
     verbosity=ex['verbosity']
@@ -106,8 +106,9 @@ def cluster_regions(outdic_actors, ex, plot=True, distance_eps=400, min_area_in_
                     group_split='together'):
     
     for name, actor in outdic_actors.items():
-        actor = rgcpd.cluster_DBSCAN_regions(actor, distance_eps=400, 
-                                             min_area_in_degrees2=3, group_split='together')
+        actor = rgcpd.cluster_DBSCAN_regions(actor, distance_eps=distance_eps, 
+                                             min_area_in_degrees2=min_area_in_degrees2, 
+                                             group_split=group_split)
         if plot and np.isnan(actor.prec_labels.values).all() == False:
             prec_labels = actor.prec_labels.copy()
             rgcpd.plot_regs_xarray(prec_labels, ex)
@@ -126,34 +127,12 @@ def get_prec_ts(outdic_actors, ex):
         actor = outdic_actors[var]
         splits = actor.corr_xr.split
         if np.isnan(actor.prec_labels.values).all():
-            actor.ts_corr = np.array([]), []
-            pass
+            actor.ts_corr = np.array(splits.size*[[]])
         else:
             actor.ts_corr = rgcpd.spatial_mean_regions(actor, ex)
             outdic_actors[var] = actor
             ex['n_tot_regs'] += max([actor.ts_corr[s].shape[1] for s in range(splits.size)])
     return outdic_actors
-
-
-def run_PCMCI_CV(ex, outdic_actors, df_splits, map_proj):
-    #%%
-    splits = df_splits.index.levels[0]
-    
-    df_sum_s = np.zeros( (splits.size) , dtype=object)
-    df_data_s   = np.zeros( (splits.size) , dtype=object)
-    for s in range(splits.size):
-        progress = 100 * (s+1) / splits.size
-        print(f"\rProgress causal inference - traintest set {progress}%", end="")
-        df_sum_s[s], df_data_s[s] = run_PCMCI(ex, outdic_actors, s, df_splits, map_proj)
-
-    print("\n")
-
-    df_data  = pd.concat(list(df_data_s), keys= range(splits.size))
-    df_sum = pd.concat(list(df_sum_s), keys= range(splits.size))
-
-
-    #%%
-    return df_sum, df_data
 
 def store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=True):
 
@@ -180,6 +159,27 @@ def store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=True):
         functions_pp.store_hdf_df(dict_of_dfs, ex['path_data'])
         print('Data stored in \n{}'.format(ex['path_data']))
     return
+
+def run_PCMCI_CV(ex, outdic_actors, df_splits, map_proj):
+    #%%
+    splits = df_splits.index.levels[0]
+    
+    df_sum_s = np.zeros( (splits.size) , dtype=object)
+    df_data_s   = np.zeros( (splits.size) , dtype=object)
+    for s in range(splits.size):
+        progress = 100 * (s+1) / splits.size
+        print(f"\rProgress causal inference - traintest set {progress}%", end="")
+        df_sum_s[s], df_data_s[s] = run_PCMCI(ex, outdic_actors, s, df_splits, map_proj)
+
+    print("\n")
+
+    df_data  = pd.concat(list(df_data_s), keys= range(splits.size))
+    df_sum = pd.concat(list(df_sum_s), keys= range(splits.size))
+
+    #%%
+    return df_sum, df_data
+
+
 
 
 def run_PCMCI(ex, outdic_actors, s, df_splits, map_proj):
@@ -235,7 +235,8 @@ def run_PCMCI(ex, outdic_actors, s, df_splits, map_proj):
             actor.var_info = [[i+1, actor.ts_corr[s].columns[i], var_idx] for i in range(n_regions)]
             # Array of corresponing regions with var_names_corr (first entry is RV)
             var_names_corr = var_names_corr + actor.var_info
-        cols.append(list(actor.ts_corr[s].columns))
+            cols.append(list(actor.ts_corr[s].columns))
+            index_dates = actor.ts_corr[s].index
     var_names_corr.insert(0, RV.name)
 
 
@@ -247,7 +248,7 @@ def run_PCMCI(ex, outdic_actors, s, df_splits, map_proj):
     # add the full 1D time series of interest as first entry:
 
     fulldata = np.column_stack((RV.RVfullts, fulldata))
-    df_data = pd.DataFrame(fulldata, columns=flatten(cols), index=actor.ts_corr[s].index)
+    df_data = pd.DataFrame(fulldata, columns=flatten(cols), index=index_dates)
     
     if ex['import_prec_ts'] == True:
         var_names_full = var_names_corr.copy()
@@ -410,6 +411,27 @@ def standard_settings_and_tests(ex, kwrgs_RV, kwrgs_corr):
         ex['lags_i'] = ex['lags_i'][ex['lags_i'] < lag_max]
         print(('Changing maximum lag to {}, so that you not skip part of the '
               'year.'.format(max(ex['lags'])) ) )
+        
+#    # How many splits will be made?
+#    method = kwrgs_RV['method']
+#    seed   = kwrgs_RV['seed']
+#    all_yrs = list(np.unique(RV.RV_ts.time.dt.year))
+#    n_yrs   = len(all_yrs)
+#    if method[:6] == 'random' or method[:9] == 'ran_strat':
+#        if seed is None:
+#            seed = 30 # control reproducibility train/test split
+#        else:
+#            seed = seed
+#        if method[:6] == 'random':
+#            n_spl = int(method[6:8])
+#        else:
+#             n_spl = int(method[9:])
+#    elif method[:5] == 'leave':
+#        n_spl = int(n_yrs / int(method.split('_')[1]) )
+#    elif method == 'no_train_test_split': 
+#        n_spl = 1
+#    kwrgs_RV['n_yrs'] = n_yrs
+#    kwrgs_RV['n_spl'] = n_spl
 
     # Some IO settings
     ex['store_format']   = 'hdf5'

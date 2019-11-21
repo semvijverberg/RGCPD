@@ -13,8 +13,7 @@ script_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD" # script direc
 # To link modules in RGCPD folder to this script
 os.chdir(script_dir)
 sys.path.append(script_dir)
-#if sys.version[:1] == '3':
-#    from importlib import reload as rel
+from importlib import reload as rel
 import numpy as np
 import pandas as pd
 import functions_pp
@@ -38,7 +37,7 @@ copy_stdout = sys.stdout
 # which will be made when running the code
 base_path = "/Users/semvijverberg/surfdrive/"
 dataset   = 'era5' # choose 'era5' or 'ERAint'
-exp_folder = 'RGCPD_mcKinnon'
+exp_folder = 'RGCPD_mcKinnon/list_tf_8_11_19'
 path_raw = os.path.join(base_path, 'Data_{}/' 
                         'input_raw'.format(dataset))
 path_pp  = os.path.join(base_path, 'Data_{}/' 
@@ -63,17 +62,18 @@ ex = dict(
      'months'       :       list(range(1,12+1)), # downoad months
      # if dealing with daily data, give string as 'month-day', i.e. '07-01'
      # if dealing with monthly data, the day of month is neglected 
-     'startperiod'  :       '06-22', # RV period, period you want to predict
-     'endperiod'    :       '08-24', # RV period
+     'startperiod'  :       '06-01', # RV period, period you want to predict
+     'endperiod'    :       '08-31', # RV period
      'sstartdate'   :       '01-01', # extended data period loaded (for lags)
-     'senddate'     :       '09-30', # extended data period loaded
-     'tfreqlist'    :       [30],
+     'senddate'     :       '08-31', # extended data period loaded
+     'tfreqlist'    :       [20],
      'selbox'       :       {'la_min':-10, # select domain in degrees east
                              'la_max':80,
                              'lo_min':-180,
                              'lo_max':360}, 
      'anomaly'      :       True, # use absolute or anomalies?
      'verbosity'    :       0, # higher verbosity gives more feedback in terminal
+     'lag_step'     :       [1],
      'base_path'    :       base_path,
      'path_raw'     :       path_raw,
      'path_pp'      :       path_pp}
@@ -90,7 +90,7 @@ elif ex['dataset'] == 'era5':
 # What is the data you want to load / download (4 options)
 # =============================================================================
 # Option 1:
-ECMWFdownload = False
+ECMWFdownload = True
 # Option 2:
 import_precursor_ncdf = True
 # Option 3:
@@ -98,7 +98,7 @@ import_RV_ncdf = False
 # Option 4:
 importRV_1dts = True
 # Option 5:
-ex['import_prec_ts'] = True
+ex['import_prec_ts'] = False
 
 
 # Option 1111111111111111111111111111111111111111111111111111111111111111111111
@@ -122,9 +122,9 @@ if ECMWFdownload == True:
     ex['vars']      =       [['sst'],
                                ['sea_surface_temperature'],
                                ['sfc'], [0]]
-#    ex['vars']      =       [['sst', 'u500hpa'],
-#                               ['sea_surface_temperature', 'u_component_of_wind'],
-#                               ['sfc', 'pl'], [0,500]]
+#    ex['vars']      =       [['sst', 'z500hpa'],
+#                               ['sea_surface_temperature', 'geopotential'],
+#                               ['pl', 'sfc'], [0,500]]
 #    ex['vars']      =       [['v200hpa'], ['v_component_of_wind'],['pl'], ['500']]
 #    ex['vars']      =       [['t2mmax', 'sst', 'u', 't100'],
 #                            ['167.128', '34.128', '131.128', '130.128'],
@@ -146,9 +146,20 @@ if import_precursor_ncdf == True:
     # var names may not contain underscores, data is assumed to be in path_pp 
     # or path_raw (if now detrended yet)
     ex['precursor_ncdf'] = [['name1', 'filename1'],['name2','filename2']]
-    ex['precursor_ncdf'] = [['sm123', ('sm_123_{}-{}_1_12_daily_'
+    ex['precursor_ncdf'] = [
+                            ['sm123', ('sm_123_{}-{}_1_12_daily_'
                               '0.25deg.nc'.format(ex['startyear'], ex['endyear'],
-                               ex['grid_res']))]]
+                               ex['grid_res']))],
+                            ['z500hpa', 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'],
+                            ['precip', 'p_1979-2019_1_12_daily_2.5deg.nc']
+                            ]     
+    
+    ex['precursor_ncdf'] = [
+                            ['sm123', ('sm_123_{}-{}_1_12_daily_'
+                              '0.25deg.nc'.format(ex['startyear'], ex['endyear'],
+                               ex['grid_res']))],
+                            ['z500hpa', 'z500hpa_1979-2018_1_12_daily_2.5deg.nc']
+                            ] 
 #    ex['precursor_ncdf'] = [['p_rm61', ('p_rm61_{}-{}_1_12_daily_'
 #                              '2.5deg.nc'.format(ex['startyear'], ex['endyear'],
 #                               ex['grid_res']))]]
@@ -266,7 +277,7 @@ elif importRV_1dts == False:
 for freq in ex['tfreqlist']:
     ex['tfreq'] = freq
     # choose lags to test
-    ex['lags_i'] = np.array([0], dtype=int)
+    ex['lags_i'] = np.array(ex['lag_step'], dtype=int)
     ex['lags'] = np.array([l*freq for l in ex['lags_i']], dtype=int)
     lags = ex['lags']
     
@@ -319,7 +330,7 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # Corr maps settings
     # =============================================================================
-    alpha = 0.01 # set significnace level for correlation maps
+    alpha = 2E-3 # set significnace level for correlation maps
     FDR_control = True # Accounting for false discovery rate
     kwrgs_corr = dict(alpha=alpha,
                       list_varclass=list_varclass,
@@ -331,7 +342,7 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     ex['tigr_tau_max'] = 5
     ex['max_comb_actors'] = 10
-    ex['alpha_level_tig'] = 0.01 # Alpha level for final regression analysis by Tigrimate
+    ex['alpha_level_tig'] = 0.05 # Alpha level for final regression analysis by Tigrimate
     ex['pcA_sets'] = dict({   # dict of sets of pc_alpha values
           'pcA_set1a' : [ 0.05], # 0.05 0.01
           'pcA_set1b' : [ 0.01], # 0.05 0.01
@@ -346,8 +357,10 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # settings precursor region selection
     # =============================================================================   
-    distance_eps = 400 # proportional to km apart from a core sample, standard = 1000 km
-    min_area_in_degrees2 = 3 # minimal size to become precursor region (core sample)
+    # bigger distance_eps means more and smaller clusters
+    # bigger min_area_in_degrees2 will interpet more small individual clusters as noise
+    distance_eps = 300 # proportional to km apart from a core sample, standard = 400 km
+    min_area_in_degrees2 = 2 # minimal size to become precursor region (core sample)
     group_split = 'together' # choose 'together' or 'seperate'
     kwrgs_cluster = dict(distance_eps=distance_eps,
                          min_area_in_degrees2=min_area_in_degrees2,
@@ -365,7 +378,7 @@ for freq in ex['tfreqlist']:
     
     # Extra: RV events settings are needed to make balanced traintest splits
     # =============================================================================
-    method='ran_strat10'
+    method='random10'
     seed=30
     kwrgs_events={'event_percentile':'std', 
                   'min_dur': 1, 
@@ -395,6 +408,7 @@ for freq in ex['tfreqlist']:
     # =============================================================================
     # Define RV and train-test split
     # =============================================================================
+    
     RV, df_splits = wrapper_RGCPD_tig.RV_and_traintest(RV, ex, **kwrgs_RV)
     # =============================================================================
     # Find precursor fields (potential precursors)
@@ -423,10 +437,12 @@ for freq in ex['tfreqlist']:
         
         dict_ds = plot_maps.causal_reg_to_xarray(ex, df_sum, outdic_actors)
         
-        wrapper_RGCPD_tig.store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=False)
+        
         
         plot_maps.plot_labels_vars_splits(dict_ds, df_sum, map_proj, ex)
         plot_maps.plot_corr_vars_splits(dict_ds, df_sum, map_proj, ex)    
+        
+        wrapper_RGCPD_tig.store_ts(df_data, df_sum, dict_ds, outdic_actors, ex, add_spatcov=False)
 
         print("--- {:.1f} hours ---".format((time.time() - start_time)/3600))
         #%%
