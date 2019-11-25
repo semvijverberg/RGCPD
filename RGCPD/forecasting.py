@@ -57,7 +57,7 @@ logitCV = ('logit-CV', { 'class_weight':{ 0:1, 1:1},
                 'solver':'lbfgs'})
     
 GBR_logitCV = ('GBR-logitCV', 
-              {'max_depth':3,
+              {'max_depth':1,
                'learning_rate':1E-3,
                'n_estimators' : 750,
                'max_features':'sqrt',
@@ -88,48 +88,49 @@ stat_model_l = [GBR_logitCV]
 #stat_model_l = [GBR_logitCV]
 
 #CPPA_sm_30d
-#ERA5_sm         = {'ERA-5:':(CPPA_sm_30d, ['sst(CPPA)+sm'])}
-#stat_model_l = [logitCV, GBR_logitCV]
+ERA5_sm_30d         = {'ERA-5:':(CPPA_sm_30d, ['sst(CPPA)+sm'])}
+stat_model_l = [logitCV, GBR_logitCV]
 
 #ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['all'])}
 #stat_model_l = [GBR_logitCV, logit]
 
 #RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_z500_10d, ['only_db_regs'])}
-stat_model_l = [logitCV, GBR_logitCV]
+#stat_model_l = [logitCV, GBR_logitCV]
 
-RGCPD_20    = {'RGCPD:' : (RGCPD_sst_sm_z500_20d, ['only_db_regs'])}
+
+#RGCPD_20    = {'RGCPD:' : (RGCPD_sst_sm_z500_20d, ['only_db_regs'])}
 
 #RGCPD_30       = {'RGCPD:' : (RGCPD_sst_sm_z500_30d, ['only_db_regs', 'causal only_db_regs'])}
-RGCPD_30       = {'RGCPD:' : (RGCPD_sst_sm_z500_30d, ['only_db_regs'])}
+#RGCPD_30       = {'RGCPD:' : (RGCPD_sst_sm_z500_30d, ['only_db_regs'])}
 #stat_model_l = [logit, logitCV]
 #
 #ERA_sp      = {'ERA-5:':(CPPA_sm_10d, ['CPPAregs+sm', 'CPPApattern+sm', 'sst(CPPA)+sm'])}
 #stat_model_l = [GBR_logitCV]
 
-datasets_path = RGCPD_20
+datasets_path = ERA5_sm_30d
 
 causal = False
-experiments = {} #; keys_d_sets = {}
-for dataset, path_key in datasets_path.items():
-#    keys_d = exp_fc.compare_use_spatcov(path_data, causal=causal)
-    
-    path_data = path_key[0]
-    keys_options = path_key[1]
-    
-#    keys_d = exp_fc.CPPA_precursor_regions(path_data, 
-#                                           keys_options=keys_options)
-    
-    keys_d = exp_fc.normal_precursor_regions(path_data, 
-                                             keys_options=keys_options,
-                                             causal=causal)
-
-    for master_key, feature_keys in keys_d.items():
-        kwrgs_pp = {'EOF':False, 
-                    'expl_var':0.5,
-                    'fit_model_dates' : None}
-        experiments[dataset+' '+master_key] = (path_data, {'keys':feature_keys,
-                                           'kwrgs_pp':kwrgs_pp
-                                           })
+#experiments = {} #; keys_d_sets = {}
+#for dataset, path_key in datasets_path.items():
+##    keys_d = exp_fc.compare_use_spatcov(path_data, causal=causal)
+#    
+#    path_data = path_key[0]
+#    keys_options = path_key[1]
+#    
+##    keys_d = exp_fc.CPPA_precursor_regions(path_data, 
+##                                           keys_options=keys_options)
+#    
+#    keys_d = exp_fc.normal_precursor_regions(path_data, 
+#                                             keys_options=keys_options,
+#                                             causal=causal)
+#
+#    for master_key, feature_keys in keys_d.items():
+#        kwrgs_pp = {'EOF':False, 
+#                    'expl_var':0.5,
+#                    'fit_model_dates' : None}
+#        experiments[dataset+' '+master_key] = (path_data, {'keys':feature_keys,
+#                                           'kwrgs_pp':kwrgs_pp
+#                                           })
 
 #%%
 # import original Response Variable timeseries:
@@ -145,55 +146,76 @@ kwrgs_events_daily =    (filename_ts,
 
 kwrgs_events = kwrgs_events_daily
     
-kwrgs_events = {'event_percentile': 66,
+kwrgs_events = {'event_percentile': 50,
                 'min_dur' : 1,
                 'max_break' : 0,
                 'grouped' : False}
 
+kwrgs_pp = {'EOF':False, 
+            'expl_var':0.5,
+            'fit_model_dates' : None}
 
+#dict_experiments = {}
+#for dataset, tuple_sett in experiments.items():
+#    '''
+#    Format output is 
+#    dict(
+#            exper_name = dict( statmodel=tuple(df_valid, RV, y_pred) ) 
+#        )
+#    '''
+#    path_data = tuple_sett[0]
+#    kwrgs_exp = tuple_sett[1]
+#    dict_of_dfs = func_fc.load_hdf5(path_data)
+#    df_data = dict_of_dfs['df_data']
+#    splits  = df_data.index.levels[0]
+#    tfreq = (df_data.loc[0].index[1] - df_data.loc[0].index[0]).days
+#    if tfreq == 1:
+#        lags_i = np.arange(0, 70+1E-9, max(10,tfreq), dtype=int)
+#    else:
+#        if tfreq == 30:
+#            lags_i = np.array(np.arange(0, 120+1E-9, max(10,tfreq))/max(10,tfreq), dtype=int)
+#        else:
+#            lags_i = np.array(np.arange(0, 70+1E-9, max(10,tfreq))/max(10,tfreq), dtype=int)
+##    lags_i = np.array([0], dtype=int)
+#    
+#    if 'keys' not in kwrgs_exp:
+#        # if keys not defined, getting causal keys
+#        kwrgs_exp['keys'] = exp_fc.normal_precursor_regions(path_data, causal=False)['normal_precursor_regions']
+#
+#    print(kwrgs_events)
+#    df_data  = func_fc.load_hdf5(path_data)['df_data']
+#    dict_sum = func_fc.forecast_wrapper(df_data, kwrgs_exp=kwrgs_exp, kwrgs_events=kwrgs_events, 
+#                            stat_model_l=stat_model_l, 
+#                            lags_i=lags_i, n_boot=n_boot)
+#
+#    dict_experiments[dataset] = dict_sum
+#    
+#df_valid, RV, y_pred = dict_sum[stat_model_l[-1][0]]
 
-dict_experiments = {}
-for dataset, tuple_sett in experiments.items():
-    '''
-    Format output is 
-    dict(
-            exper_name = dict( statmodel=tuple(df_valid, RV, y_pred) ) 
-        )
-    '''
-    path_data = tuple_sett[0]
-    kwrgs_exp = tuple_sett[1]
-    dict_of_dfs = func_fc.load_hdf5(path_data)
-    df_data = dict_of_dfs['df_data']
-    splits  = df_data.index.levels[0]
-    tfreq = (df_data.loc[0].index[1] - df_data.loc[0].index[0]).days
-    if tfreq == 1:
-        lags_i = np.arange(0, 70+1E-9, max(10,tfreq), dtype=int)
-    else:
-        if tfreq == 30:
-            lags_i = np.array(np.arange(0, 120+1E-9, max(10,tfreq))/max(10,tfreq), dtype=int)
-        else:
-            lags_i = np.array(np.arange(0, 70+1E-9, max(10,tfreq))/max(10,tfreq), dtype=int)
-#    lags_i = np.array([0], dtype=int)
+#%%
+lead_max = 105
+from func_fc import fcev
+#stat_model_l = [logit]
+dict_experiments = {} ; list_fc = []
+for dataset, path_key in datasets_path.items():
+#    keys_d = exp_fc.compare_use_spatcov(path_data, causal=causal)
     
-    if 'keys' not in kwrgs_exp:
-        # if keys not defined, getting causal keys
-        kwrgs_exp['keys'] = exp_fc.normal_precursor_regions(path_data, causal=True)['normal_precursor_regions']
-
-    print(kwrgs_events)
-    df_data  = func_fc.load_hdf5(path_data)['df_data']
-    dict_sum = func_fc.forecast_wrapper(df_data, kwrgs_exp=kwrgs_exp, kwrgs_events=kwrgs_events, 
-                            stat_model_l=stat_model_l, 
-                            lags_i=lags_i, n_boot=n_boot)
-
-    dict_experiments[dataset] = dict_sum
+    path_data = path_key[0]
+    keys_options = path_key[1]
+    for i, keys_d in enumerate(keys_options):
+        name = dataset+' '+keys_d
+        fc = fcev(path_data, name=name, stat_model_l=stat_model_l, keys_d=keys_d, 
+                 causal=False, lead_max=lead_max, kwrgs_events=kwrgs_events, kwrgs_pp=kwrgs_pp, n_boot=2000)
+        
+        list_fc.append(fc)
+        fc.fit_and_valid()
+        dict_sum = fc.dict_sum
+        dict_experiments[name] = dict_sum
     
-df_valid, RV, y_pred = dict_sum[stat_model_l[-1][0]]
+    
+#%%
 
-
-
-
-
-def print_sett(experiments, stat_model_l, filename):
+def print_sett(list_fc, stat_model_l, filename):
     f= open(filename+".txt","w+")
     lines = []
     
@@ -206,13 +228,15 @@ def print_sett(experiments, stat_model_l, filename):
         
     lines.append(f'\nnboot: {n_boot}')
     e = 1
-    for k, item in experiments.items():
+    for i, f in enumerate(list_fc):
         
         lines.append(f'\n\n***Experiment {e}***\n\n')
-        lines.append(f'Title \t : {k}')
-        lines.append(f'file \t : {item[0]}')
-        for key, it in item[1].items():
-            lines.append(f'{key} : {it}')
+        lines.append(f'Title \t : {f.name}')
+        lines.append(f'file \t : {f.path_data}')
+        lines.append(f'kwrgs_events \t : {f.kwrgs_events}')
+        lines.append(f'kwrgs_pp \t : {f.kwrgs_pp}')
+#        lines.append(f'kwrgs_pp \t : {f.kwrgs_pp}')
+        
         e+=1
     
     [print(n, file=f) for n in lines]
@@ -226,7 +250,7 @@ working_folder = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/forecasting'
 pdfs_folder = os.path.join(working_folder,'pdfs')
 if os.path.isdir(pdfs_folder) != True : os.makedirs(pdfs_folder)
 today = datetime.datetime.today().strftime('%Hhr_%Mmin_%d-%m-%Y')
-f_name = f'{RV_name}_{tfreq}d_{today}'
+f_name = f'{RV_name}_{fcev.tfreq}d_{today}'
 
 
 #%%
@@ -295,6 +319,7 @@ for f_format in f_formats:
                               line_dim=line_dim, 
                               group_line_by=group_line_by,  
                               met=met, **kwrgs)
+
     if f_format == '.png':
         fig.savefig(os.path.join(filename + f_format), 
                     bbox_inches='tight') # dpi auto 600
@@ -302,15 +327,15 @@ for f_format in f_formats:
         fig.savefig(os.path.join(pdfs_folder,f_name+ f_format), 
                     bbox_inches='tight')
     
-print_sett(experiments, stat_model_l, filename)
+print_sett(list_fc, stat_model_l, filename)
 
 
 np.save(filename + '.npy', dict_experiments)
 #%%
-valid.loop_df(df_data.loc[0], valid.plot_ts_vs_ts, kwrgs={'tv':df_data.loc[0].iloc[:,0]}, sharex='none')
+fcev.plot_scatter()
+#%%
 
-
-valid.loop_df(df_data.loc[0], valid.plot_ac, sharex='none')
+valid.loop_df(fcev.df_data.loc[0], valid.plot_ac, sharex='none')
 
 #%%
 # =============================================================================

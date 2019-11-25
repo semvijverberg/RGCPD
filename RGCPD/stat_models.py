@@ -166,7 +166,7 @@ def GBR_logitCV(RV, df_norm, keys, kwrgs_GBR=None, verbosity=0):
     # Get mask to make only prediction for RV_mask dates
     pred_mask   = df_norm['RV_mask']
   
-    X_train = X[TrainIsTrue]
+    X_train = X[TrainIsTrue.values]
     y_train = RV_ts[TrainIsTrue.values] 
     # add sample weight mannually
 #    y_train[y_train > y_train.mean()] = 10 * y_train[y_train > y_train.mean()]
@@ -240,14 +240,14 @@ def logit_skl(RV, df_norm, keys, kwrgs_logit=None):
     [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
     
     X = df_norm[keys]
-    X = add_constant(X)
+    X = add_constant(X.values)
     RV_bin = RV.RV_bin_fit
     # Get training years
     TrainIsTrue = df_norm['TrainIsTrue'] 
     # Get mask to make only prediction for RV_mask dates
-    pred_mask   = df_norm['RV_mask']
+    pred_mask   = df_norm['RV_mask'].values
   
-    X_train = X[TrainIsTrue]
+    X_train = X[TrainIsTrue.values] 
     y_train = RV_bin[TrainIsTrue.values].squeeze().values 
 #    RV_ts_train = RV.RV_ts[TrainIsTrue.values] 
 #    high_ano = metrics.roc_auc_score(RV.RV_bin.squeeze().values, RV.RV_ts.values)
@@ -289,7 +289,7 @@ def logit_skl(RV, df_norm, keys, kwrgs_logit=None):
     
 #    y_pred = regressor.predict(X)
 #    y_pred[y_pred!=1] = 0
-    prediction = pd.DataFrame(y_pred, index=X[pred_mask].index, columns=[0])
+    prediction = pd.DataFrame(y_pred, index=df_norm[pred_mask].index, columns=[0])
 
     #%%
     return prediction, model

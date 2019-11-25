@@ -318,13 +318,16 @@ def plot_ac(y=pd.Series, s='auto', title=None, ax=None):
     return ax
 
 
-def plot_ts_vs_ts(y, tv=pd.Series, title=None, ax=None):
+def plot_scatter(y, tv=pd.Series, aggr=None, title=None, ax=None):
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
-        
-    y_gr = y.groupby(y.index.year).mean()
-    tv_gr  = tv.groupby(y.index.year).mean()
     
+    if aggr == 'annual':
+        y_gr = y.groupby(y.index.year).mean()
+        tv_gr  = tv.groupby(y.index.year).mean()
+    else:
+        y_gr = y
+        tv_gr = tv
     ax.scatter(y_gr, tv_gr)
     if title is not None:
         ax.set_title(title, fontsize=10)
@@ -492,7 +495,15 @@ def get_KSS_clim(y_true, y_pred, threshold_clim_events):
     return KSS_score 
 
 
-
+def get_testyrs(df_splits):
+    #%%
+    traintest_yrs = []
+    splits = df_splits.index.levels[0]
+    for s in splits:
+        df_split = df_splits.loc[s]
+        test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
+        traintest_yrs.append(test_yrs)
+    return traintest_yrs
              
 
 

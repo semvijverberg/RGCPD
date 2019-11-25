@@ -94,18 +94,22 @@ def compare_use_spatcov(path_data, causal=True):
     #%%
     return keys_d
 
-def normal_precursor_regions(path_data, keys_options=['all'], causal=True):
+def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
     #%%
     '''
     keys_options=['all', 'only_db_regs', 'sp_and_regs', 'sst+sm+RWT',
                   'sst(CPPA)+sm', 'sst(PEP)+sm', 'sst(PDO,ENSO)+sm',
                   'sst(CPPA)']
     '''
-
+    
+    
     dict_of_dfs = func_fc.load_hdf5(path_data)
     df_data = dict_of_dfs['df_data']
     splits  = df_data.index.levels[0]
-    df_sum  = dict_of_dfs['df_sum']
+    try:
+        df_sum  = dict_of_dfs['df_sum']
+    except:
+        pass
 
 #    skip = ['all_spatcov', '0_2_sm123', '0_101_PEPspatcov', 'sm123_spatcov']
     skip = ['all_spatcov']
@@ -122,13 +126,19 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=True):
 
             elif causal == False and 'causal' not in option:
                 # correlated
-                all_keys = df_sum.loc[s].index.delete(0)
+                df_s = df_data.loc[s]
+                all_keys = df_s.columns.delete(0)
+                # extract only float columns
+                mask_f = np.logical_or(df_s.dtypes == 'float64', df_s.dtypes == 'float32')
+                all_keys = all_keys[mask_f[1:].values]
                 # remove spatcov_causals
                 all_keys = [k for k in all_keys if k[-4:] != 'caus']
-
+                
 
             if option == 'all':
+                # extract only float columns
                 keys_ = [k for k in all_keys if k not in skip]
+                
             elif 'only_db_regs' in option:
                 # Regions + all_spatcov(_caus)
                 keys_ = [k for k in all_keys if ('spatcov' not in k)]
