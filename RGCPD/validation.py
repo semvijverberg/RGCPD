@@ -40,7 +40,7 @@ mpl.rcParams['font.size'] = 13
 mpl.rcParams['legend.fontsize'] = 'medium'
 mpl.rcParams['figure.titlesize'] = 'medium'
 
-def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksize=10):
+def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksize=10, threshold_pred='clim'):
     #%%
     
     y = RV.RV_bin.values
@@ -68,13 +68,16 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksiz
     df_acc  = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
                           index=['Accuracy', 'con_low', 'con_high'])
     
+    df_EDI  = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
+                      index=['EDI', 'con_low', 'con_high'])
     
     for lag in lags:
         y_pred = y_pred_all[[lag]].values
 
         metrics_dict = metrics_sklearn(
                     y, y_pred, y_pred_c.values,
-                    alpha=alpha, n_boot=n_boot, blocksize=blocksize)
+                    alpha=alpha, n_boot=n_boot, blocksize=blocksize, 
+                    threshold_pred=threshold_pred)
         if cont_pred:
             # AUC
             AUC_score, conf_lower, conf_upper, sorted_AUC = metrics_dict['AUC']
@@ -98,10 +101,13 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksiz
         # Accuracy
         acc, ci_low_acc, ci_high_acc, sorted_accs = metrics_dict['acc']
         df_acc[[lag]] = (acc, ci_low_acc, ci_high_acc)
+        # EDI
+        EDI, ci_low_EDI, ci_high_EDI, sorted_EDIs = metrics_dict['EDI']
+        df_EDI[[lag]] = EDI, ci_low_EDI, ci_high_EDI
     
     if cont_pred:
-        df_valid = pd.concat([df_brier, df_auc, df_aucPR, df_KSS, df_prec, df_acc], 
-                         keys=['BSS', 'AUC-ROC', 'AUC-PR', 'KSS', 'Precision', 'Accuracy'])
+        df_valid = pd.concat([df_brier, df_auc, df_aucPR, df_KSS, df_prec, df_acc, df_EDI], 
+                         keys=['BSS', 'AUC-ROC', 'AUC-PR', 'KSS', 'Precision', 'Accuracy', 'EDI'])
         print("ROC area\t: {:0.3f}".format( float(df_auc.iloc[0][0]) ))
         print("P-R area\t: {:0.3f}".format( float(df_aucPR.iloc[0][0]) ))
         print("BSS     \t: {:0.3f}".format( float(df_brier.iloc[0][0]) ))
@@ -132,7 +138,7 @@ def get_metrics_bin(y_true, y_pred, t=None):
     else:
         y_pred_b = y_pred
     prec = metrics.precision_score(y_true, y_pred_b)
-    recall = metrics.recall_score(y_true, y_pred_b)
+    recall = metrics.recall_score(y_true, y_pred_b) # TPR
     #        cm = metrics.confusion_matrix(y_true,  y_pred_b_lags[l])
     tn, fp, fn, tp = metrics.confusion_matrix(y_true, y_pred_b).ravel()
     FPR = fp / (fp + tn)
@@ -142,7 +148,11 @@ def get_metrics_bin(y_true, y_pred, t=None):
     # Hansen Kuiper score (TPR - FPR): 
     tpr = tp / (tp+fn) ; fpr = fp / (fp+tn)
     KSS_score = tpr - fpr
-    return prec, recall, FPR, SP, Acc, f1, KSS_score
+    # Extremal Dependence Index (EDI) from :
+    # Higher Subseasonal Predictability of Extreme Hot European Summer Temperatures as Compared to Average Summers, 2019
+    # EDI = log(FPR) - log(TPR) / ( log(FPR) + log(TPR) )
+    EDI = ( np.log(fpr) - np.log(tpr) ) / (np.log(fpr) + np.log(tpr) )
+    return prec, recall, FPR, SP, Acc, f1, KSS_score, EDI
 
 def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle=0):
     #%%                    
@@ -348,27 +358,29 @@ def get_bstrap_size(ts, max_lag=200, n=1, plot=True):
     return cutoff
 
 
-def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray, alpha=0.05, n_boot=5, blocksize=1):
+def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray, 
+                    alpha=0.05, n_boot=5, blocksize=1, threshold_pred='upper clim'):
 #    y_true, y_pred, y_pred_c = y_true_c, ts_logit_c, y_pred_c_c
     #%%
 
     y_true = np.array(y_true).squeeze()
     cont_pred = np.unique(y_pred).size > 5
     metrics_dict = {}
-
-##     binary metrics for clim prevailance
-    clim_prev = np.round((y_true[(y_true==1)].size / y_true.size),2)
-    # upper half of 'above clim prob'
-    bin_threshold = 100 * (1 - 0.75*clim_prev)
-#    prob_larger_66 = y_pred[y_pred > 0.66].size/y_pred.size
-#    percentile_t = 100 * (1 - prob_larger_66)
-    percentile_t = bin_threshold
+    
+    if threshold_pred == 'clim':
+    ##     binary metrics for clim prevailance
+        clim_prev = np.round((y_true[(y_true==1)].size / y_true.size),2)
+        percentile_t = 100 * clim_prev
+    if threshold_pred == 'upper clim':
+        # top 75% of 'above clim prob'
+        bin_threshold = (100 - 75*clim_prev)
+        percentile_t = bin_threshold
     
     y_pred_b = np.array(y_pred > np.percentile(y_pred, percentile_t),dtype=int)
 
     
     out = get_metrics_bin(y_true, y_pred, t=percentile_t)
-    (prec, recall, FPR, SP, Acc, f1, KSS_score) = out
+    (prec, recall, FPR, SP, Acc, f1, KSS_score, EDI) = out
     prec = metrics.precision_score(y_true, y_pred_b)
     acc = metrics.accuracy_score(y_true, y_pred_b)
 
@@ -396,6 +408,7 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray, a
     boots_brier = []   
     boots_prec = []
     boots_acc = []
+    boots_EDI = []
     
     
     old_index = range(0,len(y_pred),1)
@@ -417,21 +430,21 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray, a
             continue
 
         out = get_metrics_bin(y_true[indices], y_pred[indices], t=percentile_t)
-        (score_prec, recall, FPR, SP, score_acc, f1, score_KSS) = out
+        (score_prec, recall, FPR, SP, score_acc, f1, score_KSS, score_EDI) = out
 
         
         if cont_pred:
             score_AUC = metrics.roc_auc_score(y_true[indices], y_pred[indices])
             score_AUCPR = metrics.average_precision_score(y_true[indices], y_pred[indices])
             score_brier = metrics.brier_score_loss(y_true[indices], y_pred[indices])    
-
-        if cont_pred:
+            
             boots_AUC.append(score_AUC)
             boots_AUCPR.append(score_AUCPR)
             boots_brier.append(score_brier)
         boots_prec.append(score_prec)
         boots_acc.append(score_acc)
         boots_KSS.append(score_KSS)
+        boots_EDI.append(score_EDI)
 #        print("Bootstrap #{} ROC area: {:0.3f}".format(i + 1, score))
 
     # Computing the lower and upper bound of the 90% confidence interval
@@ -458,6 +471,8 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray, a
         
         ci_low_acc, ci_high_acc, sorted_accs = get_ci(boots_acc, alpha)
         
+        ci_low_EDI, ci_high_EDI, sorted_EDIs = get_ci(boots_EDI, alpha)
+        
         
     else:
         if cont_pred:
@@ -472,6 +487,8 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray, a
         ci_low_prec, ci_high_prec, sorted_precs = (prec, prec, [prec])
         
         ci_low_acc, ci_high_acc, sorted_accs = (acc, acc, [acc])
+        
+        ci_low_EDI, ci_high_EDI, sorted_EDIs = (EDI, EDI, [EDI])
     
     if cont_pred:
         metrics_dict['AUC'] = (AUC_score, ci_low_AUC, ci_high_AUC, sorted_AUCs)
@@ -482,6 +499,7 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray, a
     metrics_dict['KSS'] = (KSS_score, ci_low_KSS, ci_high_KSS, sorted_KSSs)
     metrics_dict['prec'] = (prec, ci_low_prec, ci_high_prec, sorted_precs)
     metrics_dict['acc'] = (acc, ci_low_acc, ci_high_acc, sorted_accs)
+    metrics_dict['EDI'] = EDI, ci_low_EDI, ci_high_EDI, sorted_EDIs
     
 #    print("Confidence interval for the score: [{:0.3f} - {:0.3}]".format(
 #        confidence_lower, confidence_upper))

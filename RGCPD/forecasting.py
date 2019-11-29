@@ -88,11 +88,12 @@ stat_model_l = [GBR_logitCV]
 #stat_model_l = [GBR_logitCV]
 
 #CPPA_sm_30d
-ERA5_sm_30d         = {'ERA-5:':(CPPA_sm_30d, ['sst(CPPA)+sm'])}
-stat_model_l = [logitCV, GBR_logitCV]
+#ERA5_sm_30d         = {'ERA-5:':(CPPA_sm_30d, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
+#ERA5_sm_30d         = {'ERA-5:':(CPPA_sm_30d, ['sst(CPPA)+sm'])}
+#stat_model_l = [logit, logitCV]
 
-#ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['all'])}
-#stat_model_l = [GBR_logitCV, logit]
+ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['all'])}
+stat_model_l = [GBR_logitCV]
 
 #RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_z500_10d, ['only_db_regs'])}
 #stat_model_l = [logitCV, GBR_logitCV]
@@ -107,7 +108,7 @@ stat_model_l = [logitCV, GBR_logitCV]
 #ERA_sp      = {'ERA-5:':(CPPA_sm_10d, ['CPPAregs+sm', 'CPPApattern+sm', 'sst(CPPA)+sm'])}
 #stat_model_l = [GBR_logitCV]
 
-datasets_path = ERA5_sm_30d
+datasets_path = ERA_Bram
 
 causal = False
 #experiments = {} #; keys_d_sets = {}
@@ -146,7 +147,7 @@ kwrgs_events_daily =    (filename_ts,
 
 kwrgs_events = kwrgs_events_daily
     
-kwrgs_events = {'event_percentile': 50,
+kwrgs_events = {'event_percentile': 90,
                 'min_dur' : 1,
                 'max_break' : 0,
                 'grouped' : False}
@@ -190,7 +191,7 @@ kwrgs_pp = {'EOF':False,
 #
 #    dict_experiments[dataset] = dict_sum
 #    
-#df_valid, RV, y_pred = dict_sum[stat_model_l[-1][0]]
+
 
 #%%
 lead_max = 105
@@ -212,11 +213,11 @@ for dataset, path_key in datasets_path.items():
         dict_sum = fc.dict_sum
         dict_experiments[name] = dict_sum
     
-    
+df_valid, RV, y_pred = dict_sum[stat_model_l[-1][0]]
 #%%
 
 def print_sett(list_fc, stat_model_l, filename):
-    f= open(filename+".txt","w+")
+    file= open(filename+".txt","w+")
     lines = []
     
     lines.append("\nEvent settings:")
@@ -228,19 +229,20 @@ def print_sett(list_fc, stat_model_l, filename):
         
     lines.append(f'\nnboot: {n_boot}')
     e = 1
-    for i, f in enumerate(list_fc):
+    for i, fc_i in enumerate(list_fc):
         
         lines.append(f'\n\n***Experiment {e}***\n\n')
-        lines.append(f'Title \t : {f.name}')
-        lines.append(f'file \t : {f.path_data}')
-        lines.append(f'kwrgs_events \t : {f.kwrgs_events}')
-        lines.append(f'kwrgs_pp \t : {f.kwrgs_pp}')
+        lines.append(f'Title \t : {fc_i.name}')
+        lines.append(f'file \t : {fc_i.path_data}')
+        lines.append(f'kwrgs_events \t : {fc_i.kwrgs_events}')
+        lines.append(f'kwrgs_pp \t : {fc_i.kwrgs_pp}')
+        lines.append(f'keys_d: \n{fc.keys_d}')
 #        lines.append(f'kwrgs_pp \t : {f.kwrgs_pp}')
         
         e+=1
     
-    [print(n, file=f) for n in lines]
-    f.close()
+    [print(n, file=file) for n in lines]
+    file.close()
     [print(n) for n in lines]
 
         
@@ -262,7 +264,7 @@ import valid_plots as dfplots
 #for old, new in rename_ERA.items():
 #    if new not in dict_experiments.keys():
 #        dict_experiments[new] = dict_experiments.pop(old)
-#
+
 #rename_EC_vs_CPPA = {'ERA-5 PEP':'PEP', 
 #             'ERA-5 CPPA':'CPPA', 
 #             'EC-earth 2.3 PEP':'PEP ', 
@@ -288,14 +290,14 @@ import valid_plots as dfplots
 #    if new not in dict_experiments.keys():
 #        dict_experiments[new] = dict_experiments.pop(old)
 
-rename_RGCPD =    {'RGCPD: only_db_regs' : 'RGCPD: correlated regions', 
-                       'RGCPD: causal only_db_regs': 'RGCPD: causal regions'}
-for old, new in rename_RGCPD.items():
-    if new not in dict_experiments.keys():
-        try:
-            dict_experiments[new] = dict_experiments.pop(old)
-        except:
-            pass
+#rename_RGCPD =    {'RGCPD: only_db_regs' : 'RGCPD: correlated regions', 
+#                       'RGCPD: causal only_db_regs': 'RGCPD: causal regions'}
+#for old, new in rename_RGCPD.items():
+#    if new not in dict_experiments.keys():
+#        try:
+#            dict_experiments[new] = dict_experiments.pop(old)
+#        except:
+#            pass
         
 f_formats = ['.png', '.pdf']
 f_format = '.png' 
@@ -306,14 +308,14 @@ for f_format in f_formats:
 #    group_line_by = ['ERA-5', 'EC-Earth']
     col_wrap = None
     wspace = 0.05
-#    kwrgs = {'wspace':wspace, 'col_wrap':col_wrap}
-    kwrgs = {'wspace':0.25, 'col_wrap' : 3}
-    met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision', 'Accuracy']
+    kwrgs = {'wspace':wspace, 'col_wrap':col_wrap}
+    met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
+#    kwrgs = {'wspace':0.25, 'col_wrap' : 3}
 #    met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision', 'Accuracy']
     expers = list(dict_experiments.keys())
     models   = list(dict_experiments[expers[0]].keys())
     line_dim = 'model'
-    
+
     
     fig = dfplots.valid_figures(dict_experiments, expers=expers, models=models,
                               line_dim=line_dim, 
@@ -332,10 +334,10 @@ print_sett(list_fc, stat_model_l, filename)
 
 np.save(filename + '.npy', dict_experiments)
 #%%
-fcev.plot_scatter()
+#fcev.plot_scatter()
 #%%
 
-valid.loop_df(fcev.df_data.loc[0], valid.plot_ac, sharex='none')
+#valid.loop_df(fcev.df_data.loc[0], valid.plot_ac, sharex='none')
 
 #%%
 # =============================================================================

@@ -229,6 +229,8 @@ def plot_score_expers(d_expers=dict, model=str, metric=str, lags_t=None,
         y_lim = (-0.4, 0.6)
     elif metric[:3] == 'AUC':
         y_lim = (0,1.0)
+    elif metric == 'EDI':
+        y_lim = (-1.,1.0)
     ax.set_ylim(y_lim)
     ax.set_ylabel(metric)
     ax.set_xlabel(x_label)

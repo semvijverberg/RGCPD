@@ -131,18 +131,19 @@ class fcev():
                      stat_model_l=self.stat_model_l, lags_i=self.lags_i, 
                      n_boot=self.n_boot)
         return
-    
-    def plot_scatter(self, colwrap=3, sharex='none', s=0, mask='RV_mask', aggr=None, 
+
+    @classmethod
+    def plot_scatter(cls, colwrap=3, sharex='none', s=0, mask='RV_mask', aggr=None, 
                      title=None):
-        df_d = fcev.df_data.loc[s]
+        df_d = cls.df_data.loc[s]
         if mask is None:
-            tv = fcev.df_data.loc[0].iloc[:,0]
+            tv = cls.df_data.loc[0].iloc[:,0]
             df_d = df_d
         elif mask == 'RV_mask':
-            tv = fcev.df_data.loc[0].iloc[:,0][fcev.RV_mask.loc[s]]
+            tv = cls.df_data.loc[0].iloc[:,0][cls.RV_mask.loc[s]]
             df_d = df_d[fcev.RV_mask.loc[s]]
         else:
-            tv = fcev.df_data.loc[0].iloc[:,0][mask]
+            tv = cls.df_data.loc[0].iloc[:,0][mask]
             df_d = df_d[mask]
         kwrgs = {'tv':tv,
                 'aggr':aggr,
