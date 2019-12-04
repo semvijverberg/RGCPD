@@ -39,7 +39,11 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    col_dim='lag', clim='relaxed', hspace=-0.6, 
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
                    clevels=None, cticks_center=None,
-                   drawbox=None, subtitles=None, lat_labels=True):
+                   drawbox=None, subtitles=None, zoomregion=None,
+                   lat_labels=True):
+    '''
+    zoombox = tuple(east_lon, west_lon, south_lat, north_lat)
+    '''
     #%%
 #    # default parameters
 #    row_dim='split'; col_dim='lag'; clim='relaxed'; hspace=-0.6;                   
@@ -56,7 +60,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         corr_xr = corr_xr.expand_dims(row_dim, 0) 
         if mask_xr is not None:
             mask_xr = mask_xr.expand_dims(row_dim, 0) 
-    elif col_dim not in corr_xr.dims:
+    if col_dim not in corr_xr.dims:
         corr_xr = corr_xr.expand_dims(col_dim, 0) 
         if mask_xr is not None:
             mask_xr = mask_xr.expand_dims(col_dim, 0)     
@@ -141,7 +145,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         
         for row, r_label in enumerate(rows):
             print(f"\rPlotting Corr maps {var_n}, {row_dim} {r_label}, {col_dim} {c_label}", end="")
-            plotdata = xrdatavar.sel(row=r_label).rename(rename_subs)
+            plotdata = xrdatavar.sel(row=r_label).rename(rename_subs).squeeze()
            
             if mask_xr is not None:     
                 xrmaskvar = plot_mask.sel(col=c_label)  
@@ -192,12 +196,15 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                     west_lon, east_lon, south_lat, north_lat = coords
                     lons_sq = [west_lon, west_lon, east_lon, east_lon]
                     lats_sq = [north_lat, south_lat, south_lat, north_lat]
-                    ring = LinearRing(list(zip(lons_sq , lats_sq )))
+                    ring = [LinearRing(list(zip(lons_sq , lats_sq )))]
                     return ring
-                ring = get_ring(drawbox[1])
+                if isinstance(drawbox[1], tuple):
+                    ring = get_ring(drawbox[1])
+                elif isinstance(drawbox[1], list):
+                    ring = drawbox[1]
 
                 if drawbox[0] == g.axes.size or drawbox[0] == 'all':
-                    g.axes[row,col].add_geometries([ring], ccrs.PlateCarree(), facecolor='none', edgecolor='green',
+                    g.axes[row,col].add_geometries(ring, ccrs.PlateCarree(), facecolor='none', edgecolor='green',
                                   linewidth=2, linestyle='dashed')
             
             # =============================================================================
@@ -272,7 +279,13 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         cbar.set_ticklabels(ticklabels, update_ticks=True)
         cbar.update_ticks()
 
+    if zoomregion is not None:
+        ax.set_extent(zoomregion, crs=ccrs.PlateCarree())
+        ax.set_xlim(zoomregion[2:])
+        ax.set_ylim(zoomregion[:2])
+
     print("\n")
+    
 
     #%%
     return 

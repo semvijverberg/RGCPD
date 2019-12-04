@@ -42,55 +42,55 @@ mpl.rcParams['figure.titlesize'] = 'medium'
 
 def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksize=10, threshold_pred='clim'):
     #%%
-    
+
     y = RV.RV_bin.values
     lags = y_pred_all.columns
     cont_pred = np.unique(y_pred_all).size > 5
-    
+
     if cont_pred:
         df_auc = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
                               index=['AUC-ROC', 'con_low', 'con_high'])
-        
+
         df_aucPR = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
                               index=['AUC-PR', 'con_low', 'con_high'])
-        
+
         df_brier = pd.DataFrame(data=np.zeros( (7, len(lags)) ), columns=[lags],
                               index=['BSS', 'con_low', 'con_high', 'Brier', 'br_con_low', 'br_con_high', 'Brier_clim'])
-    
+
 
     df_KSS = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
                           index=['KSS', 'con_low', 'con_high'])
-    
-    
+
+
     df_prec  = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
                           index=['Precision', 'con_low', 'con_high'])
 
     df_acc  = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
                           index=['Accuracy', 'con_low', 'con_high'])
-    
+
     df_EDI  = pd.DataFrame(data=np.zeros( (3, len(lags)) ), columns=[lags],
                       index=['EDI', 'con_low', 'con_high'])
-    
+
     for lag in lags:
         y_pred = y_pred_all[[lag]].values
 
         metrics_dict = metrics_sklearn(
                     y, y_pred, y_pred_c.values,
-                    alpha=alpha, n_boot=n_boot, blocksize=blocksize, 
+                    alpha=alpha, n_boot=n_boot, blocksize=blocksize,
                     threshold_pred=threshold_pred)
         if cont_pred:
             # AUC
             AUC_score, conf_lower, conf_upper, sorted_AUC = metrics_dict['AUC']
-            df_auc[[lag]] = (AUC_score, conf_lower, conf_upper) 
-            # AUC Precision-Recall 
+            df_auc[[lag]] = (AUC_score, conf_lower, conf_upper)
+            # AUC Precision-Recall
             AUCPR_score, ci_low_AUCPR, ci_high_AUCPR, sorted_AUCPRs = metrics_dict['AUCPR']
             df_aucPR[[lag]] = (AUCPR_score, ci_low_AUCPR, ci_high_AUCPR)
             # Brier score
             brier_score, brier_clim, ci_low_brier, ci_high_brier, sorted_briers = metrics_dict['brier']
             BSS = (brier_clim - brier_score) / brier_clim
-            BSS_low = (brier_clim - ci_high_brier) / brier_clim    
-            BSS_high = (brier_clim - ci_low_brier) / brier_clim    
-            df_brier[[lag]] = (BSS, BSS_low, BSS_high, 
+            BSS_low = (brier_clim - ci_high_brier) / brier_clim
+            BSS_high = (brier_clim - ci_low_brier) / brier_clim
+            df_brier[[lag]] = (BSS, BSS_low, BSS_high,
                             brier_score, ci_low_brier, ci_high_brier, brier_clim)
         # HKSS
         KSS_score, ci_low_KSS, ci_high_KSS, sorted_KSSs = metrics_dict['KSS']
@@ -104,20 +104,20 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksiz
         # EDI
         EDI, ci_low_EDI, ci_high_EDI, sorted_EDIs = metrics_dict['EDI']
         df_EDI[[lag]] = EDI, ci_low_EDI, ci_high_EDI
-    
+
     if cont_pred:
-        df_valid = pd.concat([df_brier, df_auc, df_aucPR, df_KSS, df_prec, df_acc, df_EDI], 
+        df_valid = pd.concat([df_brier, df_auc, df_aucPR, df_KSS, df_prec, df_acc, df_EDI],
                          keys=['BSS', 'AUC-ROC', 'AUC-PR', 'KSS', 'Precision', 'Accuracy', 'EDI'])
         print("ROC area\t: {:0.3f}".format( float(df_auc.iloc[0][0]) ))
         print("P-R area\t: {:0.3f}".format( float(df_aucPR.iloc[0][0]) ))
         print("BSS     \t: {:0.3f}".format( float(df_brier.iloc[0][0]) ))
-        
+
     else:
-        df_valid = pd.concat([df_KSS, df_prec, df_acc], 
+        df_valid = pd.concat([df_KSS, df_prec, df_acc],
                          keys=['KSS', 'Precision', 'Accuracy'])
     print("Precision       : {:0.3f}".format( float(df_prec.iloc[0][0]) ))
     print("Accuracy        : {:0.3f}".format( float(df_acc.iloc[0][0]) ))
-    
+
 
     #%%
     return df_valid, metrics_dict
@@ -145,7 +145,7 @@ def get_metrics_bin(y_true, y_pred, t=None):
     SP = tn / (tn + fp)
     Acc  = metrics.accuracy_score(y_true, y_pred_b)
     f1  = metrics.f1_score(y_true, y_pred_b)
-    # Hansen Kuiper score (TPR - FPR): 
+    # Hansen Kuiper score (TPR - FPR):
     tpr = tp / (tp+fn) ; fpr = fp / (fp+tn)
     KSS_score = tpr - fpr
     # Extremal Dependence Index (EDI) from :
@@ -155,7 +155,7 @@ def get_metrics_bin(y_true, y_pred, t=None):
     return prec, recall, FPR, SP, Acc, f1, KSS_score, EDI
 
 def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle=0):
-    #%%                    
+    #%%
     lags = y_pred_all.columns
     y_true = RV.RV_bin
     if thr[0] == 'clim':
@@ -166,7 +166,7 @@ def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle
     perc_thr = [t/100. if type(t) == int else t for t in thr ]
     thresholds.append([t for t in perc_thr])
     thresholds = flatten(thresholds)
-    
+
 
     list_dfs = []
     for lag in lags:
@@ -174,25 +174,25 @@ def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle
         if n_shuffle == 0:
             stats = ['fc']
         else:
-            stats = ['fc', 'fc shuf', 'best shuf', 'impr.'] 
+            stats = ['fc', 'fc shuf', 'best shuf', 'impr.']
         stats_keys = stats * len(thresholds)
         thres_keys = np.repeat(thresholds, len(stats))
         data = np.zeros( (len(metric_names), len(stats_keys) ) )
-        df_lag = pd.DataFrame(data=data, dtype=str, 
+        df_lag = pd.DataFrame(data=data, dtype=str,
                          columns=pd.MultiIndex.from_tuples(zip(thres_keys,stats_keys)),
                           index=metric_names)
-    
+
         for t in thresholds:
             y_pred = y_pred_all[[lag]].values
             y_pred_b = np.array(y_pred > np.percentile(y_pred, 100*t),dtype=int)
-           
-            
+
+
             out = get_metrics_bin(y_true, y_pred_b, t=None)
             (prec_f, recall_f, FPR_f, SP_f, Acc_f, f1_f, KSS) = out
-            # shuffle the predictions 
+            # shuffle the predictions
             prec = [] ; recall = [] ; FPR = [] ; SP = [] ; Acc = [] ; f1 = []
             for i in range(n_shuffle):
-                np.random.shuffle(y_pred_b); 
+                np.random.shuffle(y_pred_b);
                 out = get_metrics_bin(y_true, y_pred_b, t=None)
                 (prec_s, recall_s, FPR_s, SP_s, Acc_s, f1_s, KSS) = out
                 prec.append(prec_s)
@@ -201,7 +201,7 @@ def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle
                 SP.append(SP_s)
                 Acc.append(Acc_s)
                 f1.append(f1_s)
-            
+
             if n_shuffle > 0:
                 precision_  = [prec_f, np.mean(prec),
                                           np.percentile(prec, 97.5), prec_f/np.mean(prec)]
@@ -210,9 +210,9 @@ def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle
                                                      recall_f/np.mean(recall)]
                 FPR_        = [FPR_f, np.mean(FPR), np.percentile(FPR, 2.5),
                                                      np.mean(FPR)/FPR_f]
-                specif_     = [SP_f, np.mean(SP), np.percentile(SP, 97.5), 
+                specif_     = [SP_f, np.mean(SP), np.percentile(SP, 97.5),
                                                      SP_f/np.mean(SP)]
-                acc_        = [Acc_f, np.mean(Acc), np.percentile(Acc, 97.5), 
+                acc_        = [Acc_f, np.mean(Acc), np.percentile(Acc, 97.5),
                                                       Acc_f/np.mean(Acc)]
                 F1_         = [f1_f, np.mean(f1), np.percentile(f1, 97.5),
                                                      f1_f/np.mean(f1)]
@@ -223,14 +223,13 @@ def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle
                 specif_     = [SP_f]
                 acc_        = [Acc_f]
                 F1_         = [f1_f]
-            
+
             df_lag.loc['Precision'][t] = pd.Series(precision_,
                                             index=stats)
             df_lag.loc['Recall'][t]  = pd.Series(recall_,
                                                     index=stats)
             tn, fp, fn, tp = metrics.confusion_matrix(y_true, y_pred_b).ravel()
             df_lag.loc['FPR'][t] = pd.Series(FPR_, index=stats)
-                                                     
             df_lag.loc['Specifity'][t] = pd.Series(specif_, index=stats)
             df_lag.loc['Accuracy'][t] = pd.Series(acc_, index=stats)
             df_lag.loc['F1_score'][t] = pd.Series(F1_, index=stats)
@@ -250,7 +249,7 @@ def loop_df(df, function, colwrap=3, sharex='col', kwrgs=None):
     #%%
     type_check = np.logical_or(df.dtypes == 'float',df.dtypes == 'float32')
     keys = type_check[type_check].index
-    
+
     df = df.loc[:,keys]
     if (df.columns.size) % colwrap == 0:
         rows = int(df.columns.size / colwrap)
@@ -259,7 +258,7 @@ def loop_df(df, function, colwrap=3, sharex='col', kwrgs=None):
     gridspec_kw = {'hspace':0.5}
     fig, ax = plt.subplots(rows, colwrap, sharex=sharex, sharey='row',
                            figsize = (3*colwrap,rows*2.5), gridspec_kw=gridspec_kw)
-    
+
     for i, ax in enumerate(fig.axes):
         if i >= df.columns.size:
             ax.axis('off')
@@ -272,31 +271,31 @@ def loop_df(df, function, colwrap=3, sharex='col', kwrgs=None):
                          'ax'   : ax}
             else:
                 kwrgs['title'] = header
-                kwrgs['ax'] = ax      
-                
+                kwrgs['ax'] = ax
+
             function(y, **kwrgs)
     return fig
     #%%
-        
+
 def autocorr_sm(ts, max_lag=None, alpha=0.01):
     import statsmodels as sm
     if max_lag == None:
         max_lag = ts.size
-    ac, con_int = sm.tsa.stattools.acf(ts.values, nlags=max_lag-1, 
-                                unbiased=True, alpha=0.01, 
+    ac, con_int = sm.tsa.stattools.acf(ts.values, nlags=max_lag-1,
+                                unbiased=True, alpha=0.01,
                                  fft=True)
     return ac, con_int
 
 def plot_ac(y=pd.Series, s='auto', title=None, ax=None):
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
-        
+
     ac, con_int = autocorr_sm(y)
-    
+
     time = y.index
     tfreq = (time[1] - time[0]).days
 
-    # auto xlabels 
+    # auto xlabels
     if s=='auto':
         where = np.where(con_int[:,0] < 0 )[0]
         # has to be below 0 for n times (not necessarily consecutive):
@@ -331,7 +330,7 @@ def plot_ac(y=pd.Series, s='auto', title=None, ax=None):
 def plot_scatter(y, tv=pd.Series, aggr=None, title=None, ax=None):
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
-    
+
     if aggr == 'annual':
         y_gr = y.groupby(y.index.year).mean()
         tv_gr  = tv.groupby(y.index.year).mean()
@@ -342,15 +341,15 @@ def plot_scatter(y, tv=pd.Series, aggr=None, title=None, ax=None):
     if title is not None:
         ax.set_title(title, fontsize=10)
     return ax
-    
+
 
 def get_bstrap_size(ts, max_lag=200, n=1, plot=True):
     max_lag = min(max_lag, ts.size)
     ac, con_int = autocorr_sm(ts, max_lag=max_lag, alpha=0.01)
-    
+
     if plot == True:
         plot_ac(ac, con_int, s='auto', ax=None)
-        
+
     where = np.where(con_int[:,0] < 0 )[0]
     # has to be below 0 for n times (not necessarily consecutive):
     n_of_times = np.array([idx+1 - where[0] for idx in where])
@@ -358,7 +357,7 @@ def get_bstrap_size(ts, max_lag=200, n=1, plot=True):
     return cutoff
 
 
-def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray, 
+def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
                     alpha=0.05, n_boot=5, blocksize=1, threshold_pred='upper clim'):
 #    y_true, y_pred, y_pred_c = y_true_c, ts_logit_c, y_pred_c_c
     #%%
@@ -366,7 +365,7 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
     y_true = np.array(y_true).squeeze()
     cont_pred = np.unique(y_pred).size > 5
     metrics_dict = {}
-    
+
     if threshold_pred == 'clim':
     ##     binary metrics for clim prevailance
         clim_prev = np.round((y_true[(y_true==1)].size / y_true.size),2)
@@ -375,42 +374,42 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
         # top 75% of 'above clim prob'
         bin_threshold = (100 - 75*clim_prev)
         percentile_t = bin_threshold
-    
+
     y_pred_b = np.array(y_pred > np.percentile(y_pred, percentile_t),dtype=int)
 
-    
+
     out = get_metrics_bin(y_true, y_pred, t=percentile_t)
     (prec, recall, FPR, SP, Acc, f1, KSS_score, EDI) = out
     prec = metrics.precision_score(y_true, y_pred_b)
     acc = metrics.accuracy_score(y_true, y_pred_b)
 
     if cont_pred:
-        
+
         AUC_score = metrics.roc_auc_score(y_true, y_pred)
         fpr, tpr, thresholds = metrics.roc_curve(y_true, y_pred_b)
-        # P : Precision at threshold, R : Recall at threshold, PRthresholds 
+        # P : Precision at threshold, R : Recall at threshold, PRthresholds
         P, R, PRthresholds = metrics.precision_recall_curve(y_true, y_pred)
         AUCPR_score = metrics.average_precision_score(y_true, y_pred)
-        
+
         # convert y_pred to fake probabilities if spatcov is given
-        if y_pred.max() > 1 or y_pred.min() < 0: 
+        if y_pred.max() > 1 or y_pred.min() < 0:
             y_pred = (y_pred+abs(y_pred.min()))/( y_pred.max()+abs(y_pred.min()) )
         else:
             y_pred = y_pred
-        
+
         brier_score = metrics.brier_score_loss(y_true, y_pred)
         brier_score_clim = metrics.brier_score_loss(y_true, y_pred_c)
-    
+
     rng_seed = 42  # control reproducibility
     boots_AUC = []
     boots_AUCPR = []
     boots_KSS = []
-    boots_brier = []   
+    boots_brier = []
     boots_prec = []
     boots_acc = []
     boots_EDI = []
-    
-    
+
+
     old_index = range(0,len(y_pred),1)
     n_bl = blocksize
     chunks = [old_index[n_bl*i:n_bl*(i+1)] for i in range(int(len(old_index)/n_bl))]
@@ -423,7 +422,7 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
         ran_blok = [chunks[i] for i in ran_ind]
 #        indices = random.sample(chunks, len(chunks))
         indices = list(chain.from_iterable(ran_blok))
-        
+
         if len(np.unique(y_true[indices])) < 2:
             # We need at least one positive and one negative sample for ROC AUC
             # to be defined: reject the sample
@@ -432,12 +431,12 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
         out = get_metrics_bin(y_true[indices], y_pred[indices], t=percentile_t)
         (score_prec, recall, FPR, SP, score_acc, f1, score_KSS, score_EDI) = out
 
-        
+
         if cont_pred:
             score_AUC = metrics.roc_auc_score(y_true[indices], y_pred[indices])
             score_AUCPR = metrics.average_precision_score(y_true[indices], y_pred[indices])
-            score_brier = metrics.brier_score_loss(y_true[indices], y_pred[indices])    
-            
+            score_brier = metrics.brier_score_loss(y_true[indices], y_pred[indices])
+
             boots_AUC.append(score_AUC)
             boots_AUCPR.append(score_AUCPR)
             boots_brier.append(score_brier)
@@ -456,40 +455,40 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
         ci_low = sorted_scores[int(alpha * len(sorted_scores))]
         ci_high = sorted_scores[int((1-alpha) * len(sorted_scores))]
         return ci_low, ci_high, sorted_scores
-    
+
     if len(boots_AUC) != 0:
         if cont_pred:
             ci_low_AUC, ci_high_AUC, sorted_AUCs = get_ci(boots_AUC, alpha)
-            
+
             ci_low_AUCPR, ci_high_AUCPR, sorted_AUCPRs = get_ci(boots_AUCPR, alpha)
-        
+
             ci_low_brier, ci_high_brier, sorted_briers = get_ci(boots_brier, alpha)
 
         ci_low_KSS, ci_high_KSS, sorted_KSSs = get_ci(boots_KSS, alpha)
-    
+
         ci_low_prec, ci_high_prec, sorted_precs = get_ci(boots_prec, alpha)
-        
+
         ci_low_acc, ci_high_acc, sorted_accs = get_ci(boots_acc, alpha)
-        
+
         ci_low_EDI, ci_high_EDI, sorted_EDIs = get_ci(boots_EDI, alpha)
-        
-        
+
+
     else:
         if cont_pred:
             ci_low_AUC, ci_high_AUC, sorted_AUCs = (AUC_score, AUC_score, [AUC_score])
-            
+
             ci_low_AUCPR, ci_high_AUCPR, sorted_AUCPRs = (AUCPR_score, AUCPR_score, [AUCPR_score])
-        
+
             ci_low_brier, ci_high_brier, sorted_briers = (brier_score, brier_score, [brier_score])
-        
+
         ci_low_KSS, ci_high_KSS, sorted_KSSs = (KSS_score, KSS_score, [KSS_score])
-        
+
         ci_low_prec, ci_high_prec, sorted_precs = (prec, prec, [prec])
-        
+
         ci_low_acc, ci_high_acc, sorted_accs = (acc, acc, [acc])
-        
+
         ci_low_EDI, ci_high_EDI, sorted_EDIs = (EDI, EDI, [EDI])
-    
+
     if cont_pred:
         metrics_dict['AUC'] = (AUC_score, ci_low_AUC, ci_high_AUC, sorted_AUCs)
         metrics_dict['AUCPR'] = (AUCPR_score, ci_low_AUCPR, ci_high_AUCPR, sorted_AUCPRs)
@@ -500,7 +499,7 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
     metrics_dict['prec'] = (prec, ci_low_prec, ci_high_prec, sorted_precs)
     metrics_dict['acc'] = (acc, ci_low_acc, ci_high_acc, sorted_accs)
     metrics_dict['EDI'] = EDI, ci_low_EDI, ci_high_EDI, sorted_EDIs
-    
+
 #    print("Confidence interval for the score: [{:0.3f} - {:0.3}]".format(
 #        confidence_lower, confidence_upper))
     #%%
@@ -510,7 +509,7 @@ def get_KSS_clim(y_true, y_pred, threshold_clim_events):
     fpr, tpr, thresholds = metrics.roc_curve(y_true, y_pred)
     idx_clim_events = np.argmin(abs(thresholds[::-1] - threshold_clim_events))
     KSS_score = tpr[idx_clim_events] - fpr[idx_clim_events]
-    return KSS_score 
+    return KSS_score
 
 
 def get_testyrs(df_splits):
@@ -522,6 +521,6 @@ def get_testyrs(df_splits):
         test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
         traintest_yrs.append(test_yrs)
     return traintest_yrs
-             
+
 
 
