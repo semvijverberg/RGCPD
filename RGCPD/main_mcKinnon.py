@@ -221,12 +221,13 @@ if importRV_1dts == True:
 # needed to download and post process the data. Along the way, information is added
 # to class based on decisions that you make.
 # =============================================================================
-if ECMWFdownload == True:
-    for idx in range(len(ex['vars'][0]))[:]:
-        # class for ECMWF downloads
-        var_class = ECMWF.Var_ECMWF_download(ex, idx)
-        ECMWF.retrieve_field(var_class)
-        ex[ex['vars'][0][idx]] = var_class
+
+#if ECMWFdownload == True:
+#    for idx in range(len(ex['vars'][0]))[:]:
+#        # class for ECMWF downloads
+#        var_class = ECMWF.Var_ECMWF_download(ex, idx)
+#        ECMWF.retrieve_field(var_class)
+#        ex[ex['vars'][0][idx]] = var_class
 
 
 if import_RV_ncdf == True and importRV_1dts == False:

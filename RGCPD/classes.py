@@ -10,6 +10,46 @@ import numpy as np
 import pandas as pd
 import func_fc
 import functions_pp
+from pathlib import Path
+import functions_pp
+
+
+
+class RGCPD:
+    
+    
+    def __init__(self, list_of_name_path, TV_period, path_outmain=None, 
+                 kwrgs_pp=None, verbosity=1):
+        '''
+        list_of_name_path : list of name, path tuples. 
+        Convention: first entry should be (name, path) of target variable (TV).
+        list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
+        
+        TV period : tuple of start- and enddate in format ('mm-dd', 'mm-dd')
+        
+        '''
+        self.list_of_name_path = list_of_name_path
+        self.TV_period = TV_period
+        self.kwrgs_pp  = kwrgs_pp
+        self.verbosity = verbosity
+        
+        
+        if path_outmain is None:
+            path_outmain = str(Path.home()) + '/Downloads/output_RGCPD'
+        else:
+            path_outmain = path_outmain
+            
+        return
+    
+    def pp_precursors(self):
+        functions_pp.perform_post_processing(self.list_of_name_path, 
+                                             kwrgs_pp=self.kwrgs_pp, 
+                                             verbosity=self.verbosity)
+        return
+    
+    
+    
+            
 
 
 class RV_class:
@@ -181,17 +221,18 @@ class RV_class:
             self.RV_bin[self.RV_bin>0] = 1
     #%%
 
-def Variable(self, ex):
-    self.startyear = ex['startyear']
-    self.endyear = ex['endyear']
-    self.startmonth = 1
-    self.endmonth = 12
-    self.grid = ex['grid_res']
-    self.dataset = ex['dataset']
-    self.base_path = ex['base_path']
-    self.path_raw = ex['path_raw']
-    self.path_pp = ex['path_pp']
-    return self
+#def Variable(self, startyear, endyear, startmonth, endmonth, grid, dataset, 
+#             path_outmain):
+#    self.startyear = ex['startyear']
+#    self.endyear = ex['endyear']
+#    self.startmonth = 1
+#    self.endmonth = 12
+#    self.grid = ex['grid_res']
+#    self.dataset = ex['dataset']
+##    self.base_path = ex['base_path']
+##    self.path_raw = ex['path_raw']
+##    self.path_pp = ex['path_pp']
+#    return self
 
 
 class Var_import_RV_netcdf:
@@ -204,10 +245,9 @@ class Var_import_RV_netcdf:
                vclass.startyear, vclass.endyear, vclass.grid)))
 
 class Var_import_precursor_netcdf:
-    def __init__(self, ex, idx):
-        vclass = Variable(self, ex)
+    def __init__(self, tuple_name_path):
+#        vclass = Variable(self, ex)
 
-        vclass.name = ex['precursor_ncdf'][idx][0]
-        vclass.filename = ex['precursor_ncdf'][idx][1]
-        ex['vars'][0].append(vclass.name)      
+        vclass.name = tuple_name_path[0]
+        vclass.filename = tuple_name_path[1] 
             
