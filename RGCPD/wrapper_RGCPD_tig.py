@@ -23,46 +23,40 @@ import classes
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 #%%
-def RV_and_traintest(RV, ex, method=str, kwrgs_events=None, precursor_ts=None,
-                     seed=int):
+def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=None,
+                     seed=int, verbosity=1):
 
-    ex['time_cycle'] = RV.dates[RV.dates.year == RV.startyear].size # time-cycle of data. total timesteps in one year
-    ex['time_range_all'] = [0, RV.dates.size]
-    verbosity=ex['verbosity']
-    #==================================================================================
-    # Start of experiment
-    #==================================================================================
 
     # Define traintest:
-    df_RVfullts = pd.DataFrame(RV.RVfullts.values, 
-                               index=pd.to_datetime(RV.RVfullts.time.values))
-    df_RV_ts    = pd.DataFrame(RV.RV_ts.values,
-                               index=pd.to_datetime(RV.RV_ts.time.values))
+    df_RVfullts = pd.DataFrame(fullts.values, 
+                               index=pd.to_datetime(fullts.time.values))
+    df_RV_ts    = pd.DataFrame(TV_ts.values,
+                               index=pd.to_datetime(TV_ts.time.values))
     if method[:9] == 'ran_strat':
         kwrgs_events = kwrgs_events
-        RV = classes.RV_class(df_RVfullts, df_RV_ts, kwrgs_events)
+        TV = classes.RV_class(df_RVfullts, df_RV_ts, kwrgs_events)
     else:
-        RV = classes.RV_class(df_RVfullts, df_RV_ts)
+        TV = classes.RV_class(df_RVfullts, df_RV_ts)
     
     if precursor_ts is not None:
         # Retrieve same train test split as imported ts
         path_data = ''.join(precursor_ts[0][1])
         df_splits = func_fc.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
         test_yrs_imp  = functions_pp.get_testyrs(df_splits)
-        df_splits = functions_pp.rand_traintest_years(RV, method=method,
+        df_splits = functions_pp.rand_traintest_years(TV, method=method,
                                                           seed=seed, 
                                                           kwrgs_events=kwrgs_events, 
                                                           verb=verbosity)
         test_yrs_set  = functions_pp.get_testyrs(df_splits)
         assert (np.equal(test_yrs_imp, test_yrs_set)).all(), "Train test split not equal"
     else:
-        df_splits = functions_pp.rand_traintest_years(RV, method=method,
+        df_splits = functions_pp.rand_traintest_years(TV, method=method,
                                                           seed=seed, 
                                                           kwrgs_events=kwrgs_events, 
                                                           verb=verbosity)
-    return RV, df_splits
+    return TV, df_splits
 
-def calculate_corr_maps(RV, df_splits, ex, list_varclass=list, lags=[0], alpha=0.05,
+def calculate_corr_maps(RV, df_splits, kwrgs_load, list_varclass=list, lags=[0], alpha=0.05,
                         FDR_control=True, plot=True):
                          
     #%%
@@ -393,45 +387,6 @@ def run_PCMCI(ex, outdic_actors, s, df_splits, map_proj):
 def standard_settings_and_tests(ex, kwrgs_RV, kwrgs_corr):
     '''Some boring settings and Perform some test'''
 
-    RV = ex[ex['RV_name']]
-    # =============================================================================
-    # Test if you're not have a lag that will precede the start date of the year
-    # =============================================================================
-    # first date of year to be analyzed:
-    if ex['input_freq'] == 'daily':
-        f = 'D'
-    elif ex['input_freq'] == 'monthly':
-        f = 'M'
-
-    firstdoy = RV.dates_RV.min() - np.timedelta64(int(max(ex['lags'])), f)
-    if firstdoy < RV.dates[0] and (RV.dates[0].month,RV.dates[0].day) != (1,1):
-        tdelta = RV.dates_RV.min() - RV.dates.min()
-        lag_max = int(tdelta / np.timedelta64(ex['tfreq'], 'D'))
-        ex['lags'] = ex['lags'][ex['lags'] < lag_max]
-        ex['lags_i'] = ex['lags_i'][ex['lags_i'] < lag_max]
-        print(('Changing maximum lag to {}, so that you not skip part of the '
-              'year.'.format(max(ex['lags'])) ) )
-        
-#    # How many splits will be made?
-#    method = kwrgs_RV['method']
-#    seed   = kwrgs_RV['seed']
-#    all_yrs = list(np.unique(RV.RV_ts.time.dt.year))
-#    n_yrs   = len(all_yrs)
-#    if method[:6] == 'random' or method[:9] == 'ran_strat':
-#        if seed is None:
-#            seed = 30 # control reproducibility train/test split
-#        else:
-#            seed = seed
-#        if method[:6] == 'random':
-#            n_spl = int(method[6:8])
-#        else:
-#             n_spl = int(method[9:])
-#    elif method[:5] == 'leave':
-#        n_spl = int(n_yrs / int(method.split('_')[1]) )
-#    elif method == 'no_train_test_split': 
-#        n_spl = 1
-#    kwrgs_RV['n_yrs'] = n_yrs
-#    kwrgs_RV['n_spl'] = n_spl
 
     # Some IO settings
     ex['store_format']   = 'hdf5'
@@ -440,8 +395,7 @@ def standard_settings_and_tests(ex, kwrgs_RV, kwrgs_corr):
     mpl.rcParams['figure.dpi'] = 100
     mpl.rcParams['savefig.dpi'] = 600
     ex['SaveTF'] = True # if false, output will be printed in console
-    ex['plotin1fig'] = False
-    ex['showplot'] = False
+    
     # output paths
     method_str = '_'.join([kwrgs_RV['method'], 's'+ str(kwrgs_RV['seed'])])
     ex['subfolder_exp'] = ex['path_exp_periodmask'] +'_'+ method_str
@@ -455,8 +409,6 @@ def standard_settings_and_tests(ex, kwrgs_RV, kwrgs_corr):
     if os.path.isdir(ex['fig_subpath']) != True : os.makedirs(ex['fig_subpath'])
 
 
-    assert RV.startyear == ex['startyear'], ('Make sure the dates '
-             'of the RV match with the actors')
     # =============================================================================
     # Save Experiment design
     # =============================================================================

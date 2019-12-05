@@ -482,7 +482,19 @@ def Ev_threshold(xarray, event_percentile):
 def Ev_timeseries(xr_or_df, threshold, min_dur=1, max_break=0, grouped=False,
                   high_ano_events=True):
     #%%
-
+    '''
+    Binary events timeseries is created according to parameters:
+    threshold   : if ts exceeds threshold hold, timestep is 1, else 0
+    min_dur     : minimal duration of exceeding a threshold, else 0
+    max_break   : break in minimal duration e.g. ts=[1,0,1], is still kept
+                  with min_dur = 2 and max_break = 1.
+    grouped     : boolean. 
+                  If consecutive events (with possible max_break) are grouped
+                  the centered date is set is to 1. 
+    high_ano_events : boolean. 
+                      if True: all timesteps above threshold is 1,
+                      if False, all timesteps below threshold is 1.
+    '''
     types = [type(xr.Dataset()), type(xr.DataArray([0])), type(pd.DataFrame([0]))]
 
     assert (type(xr_or_df) in types), ('{} given, should be in {}'.format(type(xr_or_df), types) )

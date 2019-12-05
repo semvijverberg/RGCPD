@@ -35,17 +35,18 @@ def get_oneyr(pddatetime, *args):
 
 def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
     
-    for name, filename in list_of_name_path[1:]:
-
+    list_precur_pp = []
+    for idx, (name, filename) in enumerate(list_of_name_path[1:]):
+        
         outfile = check_pp_done(name, filename)
-
+        list_precur_pp.append( (name, outfile) )
         if os.path.isfile(outfile) == True:
             if verbosity == 1:
-                print('\nLoading post-processed: {}\n'.format(name))
+                print('Loaded post-processed data of {}\n'.format(name))
             pass
         else:
             if verbosity == 1:
-                print('output file of pp will be saved as: \n' + outfile)
+                print('Output file of pp will be saved as: \n' + outfile)
             print('\nPerforming the post-processing {}'.format(name))
             
             if kwrgs_pp is None:
@@ -53,6 +54,7 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
                             'loadleap':False, 'detrend':True, 'anomaly':True}
             
             core_pp.detrend_anom_ncdf3D(filename, outfile, **kwrgs_pp)
+    return list_precur_pp
         # update the dates stored in var_class:
 #        var_class, ex = update_dates(var_class, ex)
         # store updates
@@ -94,7 +96,7 @@ def check_pp_done(name, filename, verbosity=1):
     outfilename = outfilename.replace('_{}_'.format(12), enddatestr)
 #    filename_pp = outfilename
     path_raw = '/'.join(filename.split('/')[:-1])
-    path_pp = os.path.join(path_raw, 'postprocess')
+    path_pp = os.path.join(path_raw, 'preprocessed')
     if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
     outfile = os.path.join(path_pp, outfilename)
 #    dates_fit_tfreq = dates
@@ -143,14 +145,18 @@ def update_dates(cls, ex):
     return cls, ex
 
 def load_TV(list_of_name_path):
-    
+    '''
+    function will load first item of list_of_name_path
+    list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
+    output fulltso : full timeseries original
+    '''
     name = list_of_name_path[0][0]
     filename = list_of_name_path[0][1]
     
     if filename.split('.')[-1] == 'npy':
-        fullts = load_npy(filename, name=name)
+        fulltso = load_npy(filename, name=name)
     
-    return fullts
+    return fulltso
 
 def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=True, verbosity=1):
@@ -161,6 +167,9 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
     n_timesteps = dates.size
     n_yrs       = (endyear - startyear) + 1
 
+#    if start_end_date is None:
+#        start_end_date = ('01-01', '12-31')
+
     timestep = (dates[1] - dates[0])
     if timestep == pd.Timedelta('1d'):
         input_freq = 'daily'
@@ -170,7 +179,7 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
         same_freq = (dates[1].month - dates[0].month) == tfreq
     else:
         same_freq = True
-#    same_len_yr = dates.size == ex[ex['vars'][0][0]].dates.size
+
 
     if same_freq == False:
         if verbosity == 1:
@@ -180,85 +189,34 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
 
         fullts, dates = time_mean_bins(fullts, to_freq,
                                                 start_end_date,
-                                                start_end_year,
-                                                seldays='part')
-
+                                                start_end_year)
+                                                
 
     if same_freq == True:
-        fullts = timeseries_tofit_bins(fullts, to_freq, 
-                                                      start_end_date, start_end_year, seldays='part')
+        fullts = timeseries_tofit_bins(fullts, to_freq, start_end_date,
+                                       start_end_year)
         print('The amount of timesteps in the RV ts and the precursors'
                           ' do not match, selecting desired dates. ')
-
 
     if RV_detrend == True:
         print('Detrending Respone Variable.')
         fullts = detrend1D(fullts)
     
-
     if input_freq == 'daily':
 #        dates_RV = make_TVdatestr(pd.to_datetime(fullts.time.values), ex)
         dates_RV = make_TVdatestr(pd.to_datetime(fullts.time.values), start_end_TVdate,
                                   start_end_year)
-
     elif input_freq == 'monthly':
-
-        want_month = np.arange(int(ex['startperiod'].split('-')[0]),
-                           int(ex['endperiod'].split('-')[0])+1)
-        months = fullts.time.dt.month
-        months_pres = np.unique(months)
-        selmon = [m for m in want_month if m in list(months_pres)]
-        if len(selmon) == 0:
-            print('The RV months are no longer in the time series, perhaps due to '
-                  'time mean bins, in which time axis is changed, i.e. new time axis'
-                  'takes the center month of the bin')
-            new_want_m = []
-            for want_m in want_month:
-                idx_close = max(months_pres)
-                diff = []
-                for m in months_pres:
-                    diff.append(abs(m - want_m))
-                    # choosing month present closest to desired month in ex['startperiod']
-                    min_diff = min(diff[-1], idx_close)
-                new_want_m.append(months_pres[diff.index(min_diff)])
-            selmon = [m for m in new_want_m if m in list(months_pres)]
-        mask = np.zeros(months.size, dtype=bool)
-        idx = [i for i in range(months.size) if months[i] in selmon]
-        mask[idx] = True
-        xrdates = fullts.time.where(mask).dropna(dim='time')
-        dates_RV = pd.to_datetime(xrdates.values)
+        dates_RV = TVmonthrange(fullts, start_end_TVdate)
 
     # get indices of RVdates
     string_RV = list(dates_RV.strftime('%Y-%m-%d'))
     string_full = list(dates.strftime('%Y-%m-%d'))
     RV_period = [string_full.index(date) for date in string_full if date in string_RV]
 
-    RV_ts = fullts[RV_period] # extract specific months of MT index
+    TV_ts = fullts[RV_period] # extract specific months of MT index
     
-    
-    # Store added information in RV class to the exp dictionary
-
-    months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',
-                    7:'jul',8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
-    RV_name_range = '{}{}-{}{}_'.format(dates_RV[0].day, months[dates_RV.month[0]],
-                     dates_RV[-1].day, months[dates_RV.month[-1]] )
-
-    info_lags = 'lag{}-{}'.format(min(ex['lags']), max(ex['lags']))
-
-    # Creating a folder for the specific spatial mask, RV period and traintest set
-    if importRV_1dts == True:
-        ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range + \
-                                          info_lags )
-
-
-    elif importRV_1dts == False:
-        ex['path_exp_periodmask'] = os.path.join(ex['path_exp'], RV_name_range +
-                                      ex['spatial_mask_naming'] + info_lags )
-
-    RV_name_range = RV_name_range
-    #%%
-    return RV, ex
-    
+    return fullts, TV_ts, input_freq
 
 def load_npy(filename, name=None):
     '''
@@ -276,8 +234,30 @@ def load_npy(filename, name=None):
             pass
     return fullts
 
-    
+def import_ds_timemeanbins(filepath, tfreq, start_end_date=None, 
+                           start_end_year=None,
+                           selbox=None,
+                           loadleap=False, 
+                           to_xarr=True,
+                           seldates=None,
+                           format_lon='only_east'):
 
+    ds = core_pp.import_ds_lazy(filepath, loadleap=loadleap, 
+                                seldates=seldates, selbox=selbox, 
+                                format_lon=format_lon)
+    to_freq = tfreq
+    if to_freq != 1:
+        ds, dates = time_mean_bins(ds, to_freq,
+                                        start_end_date,
+                                        start_end_year)
+#    print('temporal frequency \'dt\' is: \n{}'.format(dates[1]- dates[0]))
+    if to_xarr:
+        if type(ds) == type(xr.DataArray(data=[0])):
+            ds = ds.squeeze()
+        else:
+            ds = ds.to_array().squeeze()
+
+    return ds
 
 
 
@@ -496,7 +476,7 @@ def csv_to_npy(ex):
 
 
 def time_mean_bins(xr_or_df, to_freq=int, start_end_date=None, start_end_year=None, 
-                   seldays='all', verbosity=0):
+                   verbosity=0):
    #%%
 
     types = [type(xr.Dataset()), type(xr.DataArray([0])), type(pd.DataFrame([0]))]
@@ -542,8 +522,7 @@ def time_mean_bins(xr_or_df, to_freq=int, start_end_date=None, start_end_year=No
         datetime = timeseries_tofit_bins(datetime, to_freq, 
                                                      start_end_date=start_end_date, 
                                                      start_end_year=start_end_year, 
-                                                     seldays=seldays,
-                                                     verb=0)
+                                                     verbosity=verbosity)
 #        datetime = timeseries_tofit_bins(datetime, ex, to_freq, seldays=seldays, verb=0)
         xarray = xarray.sel(time=datetime)
         one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
@@ -567,8 +546,14 @@ def time_mean_bins(xr_or_df, to_freq=int, start_end_date=None, start_end_year=No
     newidx = np.arange(half_step, datetime.size, to_freq, dtype=int)
     newdate = label_dates[newidx]
 
-
-    group_bins = xarray.groupby('bins').mean(dim='time', keep_attrs=True)
+    # suppres warning for nans in field
+    import warnings
+    warnings.simplefilter("ignore", category=RuntimeWarning)
+    group_bins = xarray.groupby('bins', restore_coord_dims=True).mean(dim='time', 
+                               skipna=True,
+                               keep_attrs=True)
+    
+    
     group_bins['bins'] = newdate.values
     xarray = group_bins.rename({'bins' : 'time'})
     dates = pd.to_datetime(newdate.values)
@@ -593,7 +578,8 @@ def time_mean_bins(xr_or_df, to_freq=int, start_end_date=None, start_end_year=No
     return return_obj, dates
 
 
-def timeseries_tofit_bins(xr_or_dt, to_freq, start_end_date=None, start_end_year=None, seldays='part', verb=1):
+def timeseries_tofit_bins(xr_or_dt, to_freq, start_end_date=None, start_end_year=None, 
+                          verbosity=0):
     #%%
     '''
     if to_freq is an even number, the centered date will be 
@@ -610,11 +596,17 @@ def timeseries_tofit_bins(xr_or_dt, to_freq, start_end_date=None, start_end_year
 #   # select dates
 # =============================================================================
     if start_end_date is None:
+        seldays = 'all'
         d_s = datetime[0]
         d_e = datetime[-1]
         sstartdate = '{}-{}'.format(d_s.month, d_s.day)
         senddate   = '{}-{}'.format(d_e.month, d_e.day)
+        one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
+        sdate = one_yr[0]
+        seldays_pp = pd.date_range(start=one_yr[0], end=one_yr[-1],
+                                freq=datetime[1] - datetime[0])
     else:
+        seldays = 'part'
         sstartdate, senddate = start_end_date
     
     if start_end_year is None:
@@ -638,14 +630,6 @@ def timeseries_tofit_bins(xr_or_dt, to_freq, start_end_date=None, start_end_year
         sdate = pd.to_datetime(adjhrsstartdate)
         seldays_pp = pd.date_range(start=adjhrsstartdate, end=adjhrsenddate,
                                 freq=pd.Timedelta(datetime[1] - datetime[0]))
-
-
-    if seldays == 'all':
-        one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
-        sdate = one_yr[0]
-        seldays_pp = pd.date_range(start=one_yr[0], end=one_yr[-1],
-                                freq=datetime[1] - datetime[0])
-
 
     seldays_pp = core_pp.remove_leapdays(seldays_pp)
 
@@ -703,7 +687,7 @@ def timeseries_tofit_bins(xr_or_dt, to_freq, start_end_date=None, start_end_year
     datesdt = make_dates(start_yr, years)
 
 #    n_yrs = datesdt.size / n_oneyr
-    if verb==1:
+    if verbosity==1:
         months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
                              8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
         startdatestr = '{} {}'.format(start_day.day, months[start_day.month])
@@ -847,6 +831,37 @@ def make_TVdatestr(dates, start_end_TVdate, start_end_year=None, lpyr=False):
     return datesmcK
 
 
+def TVmonthrange(fullts, start_end_TVdate):
+    '''
+    fullts : 1-D xarray timeseries
+    start_end_TVdate is tuple of start- and enddate in format ('mm-dd', 'mm-dd')
+    '''
+    want_month = np.arange(int(start_end_TVdate[0].split('-')[0]),
+                       int(start_end_TVdate[1].split('-')[0])+1)
+    months = fullts.time.dt.month
+    months_pres = np.unique(months)
+    selmon = [m for m in want_month if m in list(months_pres)]
+    if len(selmon) == 0:
+        print('The RV months are no longer in the time series, perhaps due to '
+              'time mean bins, in which time axis is changed, i.e. new time axis'
+              'takes the center month of the bin')
+        new_want_m = []
+        for want_m in want_month:
+            idx_close = max(months_pres)
+            diff = []
+            for m in months_pres:
+                diff.append(abs(m - want_m))
+                # choosing month present closest to desired month in ex['startperiod']
+                min_diff = min(diff[-1], idx_close)
+            new_want_m.append(months_pres[diff.index(min_diff)])
+        selmon = [m for m in new_want_m if m in list(months_pres)]
+    mask = np.zeros(months.size, dtype=bool)
+    idx = [i for i in range(months.size) if months[i] in selmon]
+    mask[idx] = True
+    xrdates = fullts.time.where(mask).dropna(dim='time')
+    dates_RV = pd.to_datetime(xrdates.values)
+    return dates_RV
+
 #def make_TVdatestr(dates, ex):
 #
 #    startyr = dates[0].year
@@ -881,33 +896,7 @@ def import_array(cls, path='pp'):
     cls.dates = dates
     return marray, cls
 
-def import_ds_timemeanbins(file_path, ex, loadleap=False, to_xarr=True,
-                           seldates=None):
 
-
-    kwrgs_pp = {'selbox':ex['selbox'],
-                'loadleap':loadleap,
-                'seldates':seldates }
-
-    ds = core_pp.import_ds_lazy(file_path, **kwrgs_pp)
-    to_freq = ex['tfreq']
-    if to_freq != 1:
-        start_end_date = (ex['sstartdate'], ex['senddate'])
-        start_end_year = (ex['startyear'], ex['endyear'])
-        ds, dates = time_mean_bins(ds, to_freq,
-                                        start_end_date,
-                                        start_end_year,
-                                        seldays='part')
-#        ds, dates = time_mean_bins(ds, to_freq=to_freq, seldays='part')
-        ds['time'] = dates
-#    print('temporal frequency \'dt\' is: \n{}'.format(dates[1]- dates[0]))
-    if to_xarr:
-        if type(ds) == type(xr.DataArray(data=[0])):
-            ds = ds.squeeze()
-        else:
-            ds = ds.to_array().squeeze()
-
-    return ds
 
 def area_weighted(xarray):
    # Area weighted, taking cos of latitude in radians

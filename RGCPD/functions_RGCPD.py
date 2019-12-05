@@ -793,11 +793,11 @@ def print_particular_region_new(links_RV, var_names, s, outdic_actors, map_proj,
 #%%
     return
 
-def plot_regs_xarray(for_plt, ex):
+def plot_regs_xarray(for_plt):
     #%%
-    ex['max_N_regs'] = min(20, int(for_plt.max() + 0.5))
-    label_weak = np.nan_to_num(for_plt.values) >=  ex['max_N_regs']
-    for_plt.values[label_weak] = ex['max_N_regs']
+    max_N_regs = min(20, int(for_plt.max() + 0.5))
+    label_weak = np.nan_to_num(for_plt.values) >=  max_N_regs
+    for_plt.values[label_weak] = max_N_regs
 
 
     adjust_vert_cbar = 0.0 ; adj_fig_h = 1.0

@@ -10,16 +10,23 @@ import numpy as np
 import pandas as pd
 import func_fc
 import functions_pp
+import find_precursors
 from pathlib import Path
-import functions_pp
+import inspect, os
+curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+path_test = os.path.join(curr_dir, '..', 'data')
 
-
+#list_of_name_path = [('t2m_eUS', os.path.join(path_test, 't2m_eUS.npy')),
+#                     ('sst_test', os.path.join(path_test, 'data/sst_1979-2018_2.5deg_Pacific.nc'))]
+#TV_period = ('06-15', '08-20')
 
 class RGCPD:
     
     
-    def __init__(self, list_of_name_path, TV_period, path_outmain=None, 
-                 kwrgs_pp=None, verbosity=1):
+    def __init__(self, list_of_name_path=None, start_end_TVdate=None, tfreq=10, 
+                 start_end_date=None, start_end_year=None,
+                 path_outmain=None, lags_i=np.array([1]),
+                 kwrgs_pp=None, kwrgs_corr=None, kwrgs_cluster=None, verbosity=1):
         '''
         list_of_name_path : list of name, path tuples. 
         Convention: first entry should be (name, path) of target variable (TV).
@@ -28,27 +35,174 @@ class RGCPD:
         TV period : tuple of start- and enddate in format ('mm-dd', 'mm-dd')
         
         '''
-        self.list_of_name_path = list_of_name_path
-        self.TV_period = TV_period
-        self.kwrgs_pp  = kwrgs_pp
-        self.verbosity = verbosity
+        if list_of_name_path is None:
+            print('initializing with test data')
+            list_of_name_path = [('t2m_eUS', 
+                                  os.path.join(path_test, 't2m_eUS.npy')),
+                                 ('sst_test', 
+                                  os.path.join(path_test, 'sst_1979-2018_2.5deg_Pacific.nc'))]
+        if start_end_TVdate is None:
+            start_end_TVdate = ('06-15', '08-20')
         
-        
+        if kwrgs_pp is None:
+            kwrgs_pp = dict(loadleap=False, seldates=None, selbox=None,
+                            format_lon='east_west',
+                            detrend=True, anomaly=True)
+
         if path_outmain is None:
             path_outmain = str(Path.home()) + '/Downloads/output_RGCPD'
+            
+        self.list_of_name_path = list_of_name_path
+        self.start_end_TVdate  = start_end_TVdate
+        self.start_end_date = start_end_date
+        self.start_end_year = start_end_year
+        self.verbosity  = verbosity
+        self.tfreq      = tfreq
+        self.lags_i     = lags_i
+        self.lags       = np.array([l*self.tfreq for l in self.lags_i], dtype=int)
+        self.kwrgs_pp   = kwrgs_pp
+        self.path_outmain = path_outmain
+
+        if kwrgs_corr is None:
+                self.kwrgs_corr = dict(alpha=1E-2, # set significnace level for correlation maps
+                                       lags=self.lags,
+                                       FDR_control=True) # Accounting for false discovery rate
+                
+        # =============================================================================
+        # settings precursor region selection
+        # =============================================================================   
+        # bigger distance_eps means more and smaller clusters
+        # bigger min_area_in_degrees2 will interpet more small individual clusters as noise
+        if kwrgs_cluster is None:
+            self.kwrgs_cluster = dict(distance_eps=300,       # proportional to km apart from a core sample, standard = 400 km
+                                 min_area_in_degrees2=2, # minimal size to become precursor region (core sample)
+                                 group_split='together') # choose 'together' or 'seperate'
         else:
-            path_outmain = path_outmain
+            self.kwrgs_cluster = kwrgs_cluster 
             
         return
     
     def pp_precursors(self):
-        functions_pp.perform_post_processing(self.list_of_name_path, 
+        self.list_precur_pp = functions_pp.perform_post_processing(self.list_of_name_path, 
                                              kwrgs_pp=self.kwrgs_pp, 
                                              verbosity=self.verbosity)
-        return
     
     
+    def pp_TV(self):
+        self.fulltso = functions_pp.load_TV(self.list_of_name_path)
+        self.fullts, self.TV_ts, inf = functions_pp.process_TV(self.fulltso, 
+                                                              self.tfreq,
+                                                              self.start_end_TVdate)
+        self.input_freq = inf
+        self.dates_or  = pd.to_datetime(self.fulltso.time.values)
+        self.dates_all = pd.to_datetime(self.fullts.time.values)
+        self.dates_TV = pd.to_datetime(self.TV_ts.time.values)    
+        # Store added information in RV class to the exp dictionary
+        if self.start_end_date is None:
+            self.start_end_date = ('{}-{}'.format(self.dates_or.month[0],
+                                                 self.dates_or[0].day),
+                                '{}-{}'.format(self.dates_or.month[-1],
+                                                 self.dates_or[-1].day))
+        if self.start_end_year is None:
+            self.start_end_year = (self.dates_or.year[0],
+                                   self.dates_or.year[-1])
+        months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',
+                        7:'jul',8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
+        RV_name_range = '{}{}-{}{}_'.format(self.dates_TV[0].day, 
+                                         months[self.dates_TV.month[0]],
+                                         self.dates_TV[-1].day, 
+                                         months[self.dates_TV.month[-1]] )
+        info_lags = 'lag{}-{}'.format(min(self.lags), max(self.lags))
+        # Creating a folder for the specific spatial mask, RV period and traintest set
+        self.path_outsub0 = os.path.join(self.path_outmain, RV_name_range + \
+                                              info_lags ) 
     
+        # =============================================================================
+        # Test if you're not have a lag that will precede the start date of the year
+        # =============================================================================
+        # first date of year to be analyzed:
+        if self.input_freq == 'daily':
+            f = 'D'
+        elif self.input_freq != 'monthly':
+            f = 'M'
+        firstdoy = self.dates_TV.min() - np.timedelta64(int(max(self.lags)), f)
+        if firstdoy < self.dates_all[0] and (self.dates_all[0].month,self.dates_all[0].day) != (1,1):
+            tdelta = self.dates_all.min() - self.dates_all.min()
+            lag_max = int(tdelta / np.timedelta64(self.tfreq, 'D'))
+            self.lags = self.lags[self.lags < lag_max]
+            self.lags_i = self.lags_i[self.lags_i < lag_max]
+            print(('Changing maximum lag to {}, so that you not skip part of the '
+                  'year.'.format(max(self.lags)) ) )
+    
+    def traintest(self, kwrgs_TV=None):
+        '''
+        krwgs_TV has format:
+            
+        kwrgs_RV = dict(method=method,
+                seed=seed,
+                kwrgs_events=kwrgs_events,
+                precursor_ts=precursor_ts)
+            
+
+        'method'        : str referring to method to split train test, see 
+                          options for method below.        
+        seed            : the seed to draw random samples for train test split
+        kwrgs_events    : dict needed to create binary event timeseries, which 
+                          is used to create stratified folds. 
+                          See func_fc.Ev_timeseries? for more info.
+        precursor_ts    : Load in precursor 1-d timeseries in format:
+                          [(name1, path_to_h5_file1), [(name2, path_to_h5_file2)]]
+                          precursor_ts should follow the RGCPD traintest format
+
+        Options for method:
+        (1) random{int}   :   with the int(ex['method'][6:8]) determining the amount of folds
+        (2) ran_strat{int}:   random stratified folds, stratified based upon events, 
+                              requires kwrgs_events.    
+        (3) leave{int}    :   chronologically split train and test years.
+        (4) split{int}    :   split dataset into single train and test set
+        (5) no_train_test_split
+        
+        # Extra: RV events settings are needed to make balanced traintest splits
+        '''
+        if kwrgs_TV is None:
+            kwrgs_TV = dict(method='no_train_test_split',
+                    seed=1,
+                    kwrgs_events=None,
+                    precursor_ts=None)
+            
+        
+        TV, df_splits = find_precursors.RV_and_traintest(self.fullts, 
+                                                         self.TV_ts, 
+                                                         verbosity=self.verbosity, 
+                                                         **kwrgs_TV)
+        self.TV = TV
+        self.df_splits = df_splits
+    
+    def calc_corr_maps(self):
+        keys = ['selbox', 'loadleap', 'seldates', 'format_lon']
+        kwrgs_load = {k: self.kwrgs_pp[k] for k in keys}
+        kwrgs_load['start_end_date']= self.start_end_date
+        kwrgs_load['start_end_year']= self.start_end_year
+        kwrgs_load['selbox']        = None
+        kwrgs_load['loadleap']      = False
+        kwrgs_load['format_lon']    = 'only_east'
+        kwrgs_load['tfreq']         = self.tfreq
+        self.kwrgs_load = kwrgs_load
+        self.outdic_precur = find_precursors.calculate_corr_maps(self.TV, self.df_splits, 
+                                            self.kwrgs_load, 
+                                            self.list_precur_pp, 
+                                            **self.kwrgs_corr)
+                    
+    def cluster_regions(self):
+        for name, actor in self.outdic_precur.items():
+            actor = find_precursors.cluster_DBSCAN_regions(actor, 
+                                                           **self.kwrgs_cluster)
+            self.outdic_precur[name] = actor
+                   
+#        kwrgs_load['tfreq'] = self.tfreq
+#        kwrgs_load['start_end_date']
+        
+
             
 
 

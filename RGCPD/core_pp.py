@@ -21,25 +21,26 @@ def get_oneyr(datetime):
 
 
 
-def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_lon='west_east'):
+def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_lon='east_west'):
+
     ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
     variables = list(ds.variables.keys())
     strvars = [' {} '.format(var) for var in variables]
     common_fields = ' time time_bnds longitude latitude lev lon lat level mask lsm '
-    
-    
+
+
     var = [var for var in strvars if var not in common_fields]
     if len(var) != 0:
         var = var[0].replace(' ', '')
         ds = ds[var]
     else:
         ds = ds
-    
+
 
     if 'latitude' and 'longitude' not in ds.dims:
         ds = ds.rename({'lat':'latitude',
                   'lon':'longitude'})
-    
+
     if format_lon is not None:
         ds = convert_longitude(ds, format_lon)
 
@@ -53,6 +54,8 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
         min_lon = min([selbox['lo_min'], selbox['lo_max']])
         max_lon = max([selbox['lo_min'], selbox['lo_max']])
         ds = ds.sel(longitude=slice(min_lon, max_lon))
+
+    ds = ds.sortby('latitude') #ensure latitude is in increasing order
 
     # get dates
     if 'time' in ds.dims:
@@ -104,7 +107,7 @@ def remove_leapdays(datetime):
 
 
 def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
-                        seldates=None, selbox=None, format_lon='west_east',
+                        seldates=None, selbox=None, format_lon='east_west',
                         detrend=True, anomaly=True, encoding=None):
     '''
     Function for preprocessing
@@ -267,12 +270,12 @@ def rolling_mean_np(arr, win, center=True):
     return rollmean.values.reshape( (arr.shape))
 
 
-def convert_longitude(data, to_format='west_east'):
+def convert_longitude(data, to_format='east_west'):
     '''
-    to_format = 'only_east' or 'west_east'
+    to_format = 'only_east' or 'east_west'
     '''
     longitude = data.longitude
-    if to_format == 'west_east':
+    if to_format == 'east_west':
         lon_above = longitude[np.where(longitude > 180)[0]]
         lon_normal = longitude[np.where(longitude <= 180)[0]]
         # roll all values to the right for len(lon_above amount of steps)
