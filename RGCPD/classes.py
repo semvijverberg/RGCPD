@@ -8,8 +8,11 @@ Created on Tue Oct  1 15:13:58 2019
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import cartopy.crs as ccrs
 import func_fc
 import functions_pp
+import plot_maps
 import find_precursors
 from pathlib import Path
 import inspect, os
@@ -19,6 +22,7 @@ path_test = os.path.join(curr_dir, '..', 'data')
 #list_of_name_path = [('t2m_eUS', os.path.join(path_test, 't2m_eUS.npy')),
 #                     ('sst_test', os.path.join(path_test, 'data/sst_1979-2018_2.5deg_Pacific.nc'))]
 #TV_period = ('06-15', '08-20')
+#
 
 class RGCPD:
     
@@ -26,7 +30,7 @@ class RGCPD:
     def __init__(self, list_of_name_path=None, start_end_TVdate=None, tfreq=10, 
                  start_end_date=None, start_end_year=None,
                  path_outmain=None, lags_i=np.array([1]),
-                 kwrgs_pp=None, kwrgs_corr=None, kwrgs_cluster=None, verbosity=1):
+                 kwrgs_pp=None, kwrgs_corr=None, verbosity=1):
         '''
         list_of_name_path : list of name, path tuples. 
         Convention: first entry should be (name, path) of target variable (TV).
@@ -37,10 +41,11 @@ class RGCPD:
         '''
         if list_of_name_path is None:
             print('initializing with test data')
-            list_of_name_path = [('t2m_eUS', 
+            list_of_name_path = [('t2m_eUS',
                                   os.path.join(path_test, 't2m_eUS.npy')),
                                  ('sst_test', 
                                   os.path.join(path_test, 'sst_1979-2018_2.5deg_Pacific.nc'))]
+
         if start_end_TVdate is None:
             start_end_TVdate = ('06-15', '08-20')
         
@@ -68,17 +73,6 @@ class RGCPD:
                                        lags=self.lags,
                                        FDR_control=True) # Accounting for false discovery rate
                 
-        # =============================================================================
-        # settings precursor region selection
-        # =============================================================================   
-        # bigger distance_eps means more and smaller clusters
-        # bigger min_area_in_degrees2 will interpet more small individual clusters as noise
-        if kwrgs_cluster is None:
-            self.kwrgs_cluster = dict(distance_eps=300,       # proportional to km apart from a core sample, standard = 400 km
-                                 min_area_in_degrees2=2, # minimal size to become precursor region (core sample)
-                                 group_split='together') # choose 'together' or 'seperate'
-        else:
-            self.kwrgs_cluster = kwrgs_cluster 
             
         return
     
@@ -92,7 +86,9 @@ class RGCPD:
         self.fulltso = functions_pp.load_TV(self.list_of_name_path)
         self.fullts, self.TV_ts, inf = functions_pp.process_TV(self.fulltso, 
                                                               self.tfreq,
-                                                              self.start_end_TVdate)
+                                                              self.start_end_TVdate,
+                                                              self.start_end_date,
+                                                              self.start_end_year)
         self.input_freq = inf
         self.dates_or  = pd.to_datetime(self.fulltso.time.values)
         self.dates_all = pd.to_datetime(self.fullts.time.values)
@@ -133,6 +129,7 @@ class RGCPD:
             self.lags_i = self.lags_i[self.lags_i < lag_max]
             print(('Changing maximum lag to {}, so that you not skip part of the '
                   'year.'.format(max(self.lags)) ) )
+            
     
     def traintest(self, kwrgs_TV=None):
         '''
@@ -171,12 +168,12 @@ class RGCPD:
                     precursor_ts=None)
             
         
-        TV, df_splits = find_precursors.RV_and_traintest(self.fullts, 
+        TV, self.df_splits = find_precursors.RV_and_traintest(self.fullts, 
                                                          self.TV_ts, 
                                                          verbosity=self.verbosity, 
                                                          **kwrgs_TV)
+        TV.name = self.list_of_name_path[0][0]
         self.TV = TV
-        self.df_splits = df_splits
     
     def calc_corr_maps(self):
         keys = ['selbox', 'loadleap', 'seldates', 'format_lon']
@@ -193,32 +190,96 @@ class RGCPD:
                                             self.list_precur_pp, 
                                             **self.kwrgs_corr)
                     
-    def cluster_regions(self):
+    def cluster_regions(self, distance_eps=700, min_area_in_degrees2=2, 
+                        group_split='together'):
+        '''
+        Settings precursor region selection.
+
+        Bigger distance_eps means more and smaller clusters
+        Bigger min_area_in_degrees2 will interpet more small individual clusters as noise
+        '''
+        self.kwrgs_cluster = dict(distance_eps=distance_eps,  # proportional to km apart from a core sample, standard = 400 km
+                                 min_area_in_degrees2=min_area_in_degrees2, # minimal size to become precursor region (core sample)
+                                 group_split=group_split) # choose 'together' or 'seperate
+        
         for name, actor in self.outdic_precur.items():
             actor = find_precursors.cluster_DBSCAN_regions(actor, 
                                                            **self.kwrgs_cluster)
             self.outdic_precur[name] = actor
-                   
-#        kwrgs_load['tfreq'] = self.tfreq
-#        kwrgs_load['start_end_date']
-        
+    
+    def quick_view_labels(self, map_proj=None):
+        for name, actor in self.outdic_precur.items():
+            prec_labels = actor.prec_labels
+            
+            # colors of cmap are dived over min to max in n_steps. 
+            # We need to make sure that the maximum value in all dimensions will be 
+            # used for each plot (otherwise it assign inconsistent colors)
+            max_N_regs = min(20, int(prec_labels.max() + 0.5))
+            label_weak = np.nan_to_num(prec_labels.values) >=  max_N_regs
+            contour_mask = None
+            prec_labels.values[label_weak] = max_N_regs
+            steps = max_N_regs+1
+            cmap = plt.cm.tab20
+            prec_labels.values = prec_labels.values-0.5
+            clevels = np.linspace(0, max_N_regs,steps)
+            
+            if prec_labels.split.size == 1:
+                cbar_vert = -0.1
+            else:
+                cbar_vert = -0.025
+            
+            if map_proj is None:            
+                cen_lon = int(prec_labels.longitude.mean().values)
+                map_proj = ccrs.LambertCylindrical(central_longitude=cen_lon)
+            
+            kwrgs_corr = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35, 
+                          'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
+                          'subtitles' : None, 'lat_labels':True, 
+                          'cticks_center':True,
+                          'cmap':cmap}        
+            
+            plot_maps.plot_corr_maps(prec_labels, 
+                             contour_mask, 
+                             map_proj, **kwrgs_corr)
 
+    def get_ts_prec(self, import_prec_ts=None):
+        self.outdic_precur = find_precursors.get_prec_ts(self.outdic_precur)
+        
+        self.df_data = find_precursors.df_data_prec_regs(self.TV, 
+                                                         self.outdic_precur, 
+                                                         self.df_splits)
+        if import_prec_ts is not None:
+            self.df_data_ext = find_precursors.import_precur_ts(import_prec_ts, 
+                                                             self.df_splits, 
+                                                             self.tfreq, 
+                                                             self.start_end_date,
+                                                             self.start_end_year)
+            
+
+            
+#%%        
+            
+rg = RGCPD(start_end_date=('01-01', '09-30')) ;rg.pp_precursors() ; rg.pp_TV() ; rg.traintest() ; rg.calc_corr_maps() ; 
+rg.cluster_regions() ; rg.quick_view_labels() ; 
+rg.get_ts_prec(import_prec_ts=[('CPPA', 
+                                '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5')])
+#%%
             
 
 
 class RV_class:
-    def __init__(self, RVfullts, RV_ts, kwrgs_events=None, only_RV_events=True,
+    def __init__(self, fullts, RV_ts, kwrgs_events=None, only_RV_events=True,
                  fit_model_dates=None):
         '''
         only_RV_events : bool. Decides whether to calculate the RV_bin on the 
-        whole RVfullts timeseries, or only on RV_ts
+        whole fullts timeseries, or only on RV_ts
         '''
         #%%
 #        self.RV_ts = pd.DataFrame(df_data[df_data.columns[0]][0][df_data['RV_mask'][0]] )
-#        self.RVfullts = pd.DataFrame(df_data[df_data.columns[0]][0])
+#        self.fullts = pd.DataFrame(df_data[df_data.columns[0]][0])
         self.RV_ts = RV_ts
-        self.RVfullts = RVfullts
-        self.dates_all = RVfullts.index
+        self.fullts = fullts
+        self.dates_all = fullts.index
         self.dates_RV = RV_ts.index
         self.n_oneRVyr = self.dates_RV[self.dates_RV.year == self.dates_RV.year[0]].size
         self.tfreq = (self.dates_all[1] - self.dates_all[0]).days
@@ -245,7 +306,7 @@ class RV_class:
                 fit_model_mask = pd.DataFrame(bool_mask, columns=['fit_model_mask'],
                                                    index=dates_all)
                 
-                RV_ts_fit = RVfullts[fit_model_mask.values]
+                RV_ts_fit = fullts[fit_model_mask.values]
                 fit_dates = fit_dates
             return fit_model_mask, fit_dates, RV_ts_fit
         
@@ -272,7 +333,7 @@ class RV_class:
                                grouped=kwrgs_events['grouped'])[0]
                 self.RV_bin = self.RV_bin_fit.loc[self.dates_RV]
             elif only_RV_events == False:
-                self.RV_b_full = func_fc.Ev_timeseries(self.RVfullts,
+                self.RV_b_full = func_fc.Ev_timeseries(self.fullts,
                                threshold=self.threshold ,
                                min_dur=kwrgs_events['min_dur'],
                                max_break=kwrgs_events['max_break'],
@@ -290,7 +351,7 @@ class RV_class:
             filename_ts = kwrgs_events[0]
             kwrgs_events_daily = kwrgs_events[1]
             # loading in daily timeseries
-            RVfullts_xr = np.load(filename_ts, encoding='latin1',
+            fullts_xr = np.load(filename_ts, encoding='latin1',
                                      allow_pickle=True).item()['RVfullts95']
         
             # Retrieve information on input timeseries
@@ -310,12 +371,12 @@ class RV_class:
             dates_RVe = aggr_to_daily_dates(self.dates_RV)
             dates_alle  = aggr_to_daily_dates(self.dates_all)
             
-            df_RV_ts_e = pd.DataFrame(RVfullts_xr.sel(time=dates_RVe).values, 
+            df_RV_ts_e = pd.DataFrame(fullts_xr.sel(time=dates_RVe).values, 
                                       index=dates_RVe, columns=['RV_ts'])
             
-            df_RVfullts_e = pd.DataFrame(RVfullts_xr.sel(time=dates_alle).values, 
+            df_fullts_e = pd.DataFrame(fullts_xr.sel(time=dates_alle).values, 
                                       index=dates_alle, 
-                                      columns=['RVfullts'])
+                                      columns=['fullts'])
             
 
             out = handle_fit_model_dates(dates_RVe, dates_alle, df_RV_ts_e, fit_model_dates)
@@ -338,37 +399,23 @@ class RV_class:
                                grouped=kwrgs_events_daily['grouped'])[0]
                 self.RV_bin = self.RV_bin_fit.loc[dates_RVe]
             elif only_RV_events == False:
-                self.RV_b_full = func_fc.Ev_timeseries(self.RVfullts,
+                self.RV_b_full = func_fc.Ev_timeseries(self.fullts,
                                threshold=self.threshold ,
                                min_dur=kwrgs_events_daily['min_dur'],
                                max_break=kwrgs_events_daily['max_break'],
                                grouped=kwrgs_events_daily['grouped'])[0]
                 self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
             
-            # convert daily binary to aggregated binary
-            tfreq = (self.dates_all[1]  - self.dates_all[0]).days
-            if tfreq != 1:
+            # convert daily binary to window probability binary
+            if self.tfreq != 1:
                 self.RV_bin, dates_gr = functions_pp.time_mean_bins(self.RV_bin.astype('float'), 
-                                                                tfreq,
+                                                                self.tfreq,
                                                                 None,
                                                                 None)
                 self.RV_bin_fit, dates_gr = functions_pp.time_mean_bins(self.RV_bin_fit.astype('float'), 
-                                                                        tfreq,         
+                                                                        self.tfreq,         
                                                                         None,
-                                                                        None)
-                                                                        
-#                start_end_date = (ex['sstartdate'], ex['senddate'])
-#                start_end_year = (ex['startyear'], ex['endyear'])
-#                ds, dates = time_mean_bins(ds, tfreq,
-#                                                start_end_date,
-#                                                start_end_year,
-#                                                seldays='part')
-#            ex = dict(,
-#                      startyear  = dates_RVe.year[0],
-#                      endyear    = dates_RVe.year[-1])
-            
-            
-            
+                                                                        None)                      
 
             # all bins, with mean > 0 contained an 'extreme' event
             self.RV_bin_fit[self.RV_bin_fit>0] = 1

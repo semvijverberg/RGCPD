@@ -22,7 +22,10 @@ def get_oneyr(datetime):
 
 
 def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_lon='east_west'):
-
+    '''
+    selbox has format of (lon_min, lon_max, lat_min, lat_max)
+    '''
+    
     ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
     variables = list(ds.variables.keys())
     strvars = [' {} '.format(var) for var in variables]
@@ -42,18 +45,13 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
                   'lon':'longitude'})
 
     if format_lon is not None:
+        if test_periodic(ds)==False and 0 not in ds.longitude:
+            format_lon = 'only_east'
         ds = convert_longitude(ds, format_lon)
 
 
     if selbox is not None:
-        if ds.latitude[0] > ds.latitude[1]:
-            slice_ = slice(selbox['la_max'], selbox['la_min'])
-        else:
-            slice_ = slice(selbox['la_min'], selbox['la_max'])
-        ds = ds.sel(latitude=slice_)
-        min_lon = min([selbox['lo_min'], selbox['lo_max']])
-        max_lon = max([selbox['lo_min'], selbox['lo_max']])
-        ds = ds.sel(longitude=slice(min_lon, max_lon))
+        get_selbox(ds, selbox)
 
     ds = ds.sortby('latitude') #ensure latitude is in increasing order
 
@@ -105,6 +103,19 @@ def remove_leapdays(datetime):
     dates_noleap = datetime[mask_lpyrfeb==False]
     return dates_noleap
 
+def get_selbox(ds, selbox):
+    '''
+    selbox has format of (lon_min, lon_max, lat_min, lat_max)
+    '''
+    if ds.latitude[0] > ds.latitude[1]:
+        slice_lat = slice(max(selbox[2:]), min(selbox[2:]))
+    else:
+        slice_lat = slice(min(selbox[2:]), max(selbox[2:]))
+    ds = ds.sel(latitude=slice_lat)
+    min_lon = min(selbox[:2])
+    max_lon = max(selbox[:2])
+    ds = ds.sel(longitude=slice(min_lon, max_lon))
+    return ds
 
 def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
                         seldates=None, selbox=None, format_lon='east_west',
@@ -269,6 +280,9 @@ def rolling_mean_np(arr, win, center=True):
 
     return rollmean.values.reshape( (arr.shape))
 
+def test_periodic(ds):
+    dlon = ds.longitude[1] - ds.longitude[0]
+    return (360 / dlon == ds.longitude.size).values
 
 def convert_longitude(data, to_format='east_west'):
     '''

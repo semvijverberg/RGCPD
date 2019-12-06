@@ -27,15 +27,15 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
 
 
     # Define traintest:
-    df_RVfullts = pd.DataFrame(fullts.values, 
+    df_fullts = pd.DataFrame(fullts.values, 
                                index=pd.to_datetime(fullts.time.values))
     df_RV_ts    = pd.DataFrame(TV_ts.values,
                                index=pd.to_datetime(TV_ts.time.values))
     if method[:9] == 'ran_strat':
         kwrgs_events = kwrgs_events
-        TV = classes.RV_class(df_RVfullts, df_RV_ts, kwrgs_events)
+        TV = classes.RV_class(df_fullts, df_RV_ts, kwrgs_events)
     else:
-        TV = classes.RV_class(df_RVfullts, df_RV_ts)
+        TV = classes.RV_class(df_fullts, df_RV_ts)
     
     if precursor_ts is not None:
         # Retrieve same train test split as imported ts
@@ -223,7 +223,7 @@ def calc_corr_coeffs_new(precur_arr, RV, df_splits, lags=np.array([0]),
         # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']
         # =============================================================================
         RV_train_mask = np.logical_and(RV_mask, df_splits.loc[s]['TrainIsTrue'])
-        RV_ts = RV.RVfullts[RV_train_mask.values]
+        RV_ts = RV.fullts[RV_train_mask.values]
         precur = precur_arr[df_splits.loc[s]['TrainIsTrue'].values]
 
 #        dates_RV  = pd.to_datetime(RV_ts.time.values)
@@ -473,17 +473,33 @@ def relabel(prec_labels_s, reassign):
         prec_labels_ord[prec_labels_s == reg] = reassign[reg]
     return prec_labels_ord
 
+def get_prec_ts(outdic_precur):
+    # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
+    # stacked on top of each other (from lag_min to lag_max)
 
-def spatial_mean_regions(actor, ex):
+    n_tot_regs = 0
+    allvar = list(outdic_precur.keys()) # list of all variable names
+    for var in allvar[:]: # loop over all variables
+        precur = outdic_precur[var]
+        splits = precur.corr_xr.split
+        if np.isnan(precur.prec_labels.values).all():
+            precur.ts_corr = np.array(splits.size*[[]])
+        else:
+            precur.ts_corr = spatial_mean_regions(precur)
+            outdic_precur[var] = precur
+            n_tot_regs += max([precur.ts_corr[s].shape[1] for s in range(splits.size)])
+    return outdic_precur
+
+def spatial_mean_regions(precur):
     #%%
 
-    var             = actor.name
-    corr_xr         = actor.corr_xr
-    prec_labels     = actor.prec_labels
+    var             = precur.name
+    corr_xr         = precur.corr_xr
+    prec_labels     = precur.prec_labels
     n_spl           = corr_xr.split.size
-    lags = ex['lags']
+    lags = precur.corr_xr.lag.values
 
-    actbox = actor.precur_arr.values
+    actbox = precur.precur_arr.values
     ts_corr = np.zeros( (n_spl), dtype=object)
 
     for s in range(n_spl):
@@ -496,7 +512,7 @@ def spatial_mean_regions(actor, ex):
             labels_lag = labels.isel(lag=l_idx).values
 
             regions_for_ts = list(np.unique(labels_lag[~np.isnan(labels_lag)]))
-            a_wghts = actor.area_grid / actor.area_grid.mean()
+            a_wghts = precur.area_grid / precur.area_grid.mean()
 
             # this array will be the time series for each feature
             ts_regions_lag_i = np.zeros((actbox.shape[0], len(regions_for_ts)))
@@ -507,7 +523,7 @@ def spatial_mean_regions(actor, ex):
 
             # calculate area-weighted mean over features
             for r in regions_for_ts:
-                track_names.append(f'{lag}_{int(r)}_{var}')
+                track_names.append(f'{lag}..{int(r)}..{var}')
                 idx = regions_for_ts.index(r)
                 # start with empty lonlat array
                 B = np.zeros(labels_lag.shape)
@@ -523,13 +539,103 @@ def spatial_mean_regions(actor, ex):
             ts_list[l_idx] = ts_regions_lag_i
 
         tsCorr = np.concatenate(tuple(ts_list), axis = 1)
-        df_tscorr = pd.DataFrame(tsCorr, index=pd.to_datetime(actor.precur_arr.time.values),
+        df_tscorr = pd.DataFrame(tsCorr, index=pd.to_datetime(precur.precur_arr.time.values),
                                  columns=track_names)
         df_tscorr.name = str(s)
         ts_corr[s] = df_tscorr
     #%%
     return ts_corr
 
+def df_data_prec_regs(TV, outdic_precur, df_splits):
+    
+    #%%
+    splits = df_splits.index.levels[0]
+    n_regions_list = []
+    df_data_s   = np.zeros( (splits.size) , dtype=object)
+    for s in range(splits.size):
+
+        # create list with all actors, these will be merged into the fulldata array
+        allvar = list(outdic_precur.keys())
+        var_names_corr = [] ; actorlist = [] ; cols = [[TV.name]]
+    
+        for var in allvar[:]:
+            print(var)
+            actor = outdic_precur[var]
+            if actor.ts_corr[s].size != 0:
+                ts_train = actor.ts_corr[s].values
+                actorlist.append(ts_train)
+                # create array which numbers the regions
+                var_idx = allvar.index(var) 
+                n_regions = actor.ts_corr[s].shape[1]
+                actor.var_info = [[i+1, actor.ts_corr[s].columns[i], var_idx] for i in range(n_regions)]
+                # Array of corresponing regions with var_names_corr (first entry is RV)
+                var_names_corr = var_names_corr + actor.var_info
+                cols.append(list(actor.ts_corr[s].columns))
+                index_dates = actor.ts_corr[s].index
+        var_names_corr.insert(0, TV.name)
+        # stack actor time-series together:
+        fulldata = np.concatenate(tuple(actorlist), axis = 1)
+        n_regions_list.append(fulldata.shape[1])
+        # add the full 1D time series of interest as first entry:
+        fulldata = np.column_stack((TV.fullts, fulldata))
+        df_data_s[s] = pd.DataFrame(fulldata, columns=flatten(cols), index=index_dates)
+    print('There are {} regions (list of different splits)'.format(n_regions_list))
+    df_data  = pd.concat(list(df_data_s), keys= range(splits.size))
+    #%%
+    return df_data
+   
+def import_precur_ts(import_prec_ts, df_splits, to_freq, start_end_date,
+                     start_end_year):
+    '''
+    import_prec_ts has format tuple (name, path_data)
+    '''
+    splits = df_splits.index.levels[0]
+    df_data_ext_s   = np.zeros( (splits.size) , dtype=object)
+    counter = 0
+    for i, (name, path_data) in enumerate(import_prec_ts):
+        for s in range(splits.size):
+            # skip first col because it is the RV ts
+            df_data_e = func_fc.load_hdf5(path_data)['df_data'].iloc[:,1:].loc[s]
+            cols_ts = np.logical_or(df_data_e.dtypes == 'float64', df_data_e.dtypes == 'float32')
+            cols_ext = list(df_data_e.columns[cols_ts])
+            # cols_ext must be of format '{}_{int}_{}'
+            lab_int = 100
+            for i, c in enumerate(cols_ext):
+                char = c.split('_')[1]
+                if char.isdigit():
+                    pass
+                else:
+                    cols_ext[i] = c.replace(char, str(lab_int)) + char
+                    lab_int += 1
+                    
+            df_data_ext_s[s] = df_data_e[cols_ext]
+            tfreq_date_e = (df_data_e.index[1] - df_data_e.index[0]).days
+            
+            if to_freq != tfreq_date_e:
+                try:
+                    df_data_ext_s[s] = functions_pp.time_mean_bins(df_data_ext_s[s], 
+                                                         to_freq,
+                                                        start_end_date,
+                                                        start_end_year)[0]
+                except KeyError as e:
+                    print('KeyError captured, likely the requested dates '
+                          'given by start_end_date and start_end_year are not' 
+                          'found in external pandas timeseries.\n{}'.format(str(e)))
+                                                        
+        if counter == 0:
+            df_data_ext = pd.concat(list(df_data_ext_s), keys=range(splits.size))
+        else:
+            df_data_ext.merge(df_data_ext, left_index=True, right_index=True)
+    return df_data_ext
+
+#            df_data_ext = functions_pp.time_mean_bins(df_data_ext,
+#                                                     ex, ex['tfreq'], 
+#                                                     seldays='part')[0]
+#    # Expand var_names_corr
+#    n = var_names_full[-1][0] + 1 ; add_n = n + len(cols_ext)
+#    n_var_idx = var_names_full[-1][-1] + 1
+#    for i in range(n, add_n):
+#        var_names_full.append([i, cols_ext[i-n], n_var_idx])
 
 def get_spatcovs(dict_ds, df_split, s, outdic_actors, normalize=True):
     #%%

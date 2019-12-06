@@ -1200,10 +1200,10 @@ def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
     if test_yrs is not None:
         method = 'copied_from_import_ts'
 
-    full_time  = pd.to_datetime(RV.RVfullts.index)
+    full_time  = pd.to_datetime(RV.fullts.index)
     RV_time  = pd.to_datetime(RV_ts.index.values)
     RV_mask = np.array([True if d in RV_time else False for d in full_time])
-    full_years  = list(RV.RVfullts.index.year.values)
+    full_years  = list(RV.fullts.index.year.values)
     RV_years  = list(RV_ts.index.year.values)
 
     traintest = [] ; list_splits = []
