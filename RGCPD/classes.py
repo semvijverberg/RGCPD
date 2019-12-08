@@ -243,8 +243,8 @@ class RGCPD:
                              map_proj, **kwrgs_corr)
 
     def get_ts_prec(self, import_prec_ts=None):
-        self.outdic_precur = find_precursors.get_prec_ts(self.outdic_precur)
         
+        self.outdic_precur = find_precursors.get_prec_ts(self.outdic_precur)
         self.df_data = find_precursors.df_data_prec_regs(self.TV, 
                                                          self.outdic_precur, 
                                                          self.df_splits)
@@ -254,16 +254,11 @@ class RGCPD:
                                                              self.tfreq, 
                                                              self.start_end_date,
                                                              self.start_end_year)
-            
+        self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
+        self.df_data = self.df_data.merge(self.df_splits, left_index=True, right_index=True)
 
             
-#%%        
-            
-rg = RGCPD(start_end_date=('01-01', '09-30')) ;rg.pp_precursors() ; rg.pp_TV() ; rg.traintest() ; rg.calc_corr_maps() ; 
-rg.cluster_regions() ; rg.quick_view_labels() ; 
-rg.get_ts_prec(import_prec_ts=[('CPPA', 
-                                '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5')])
-#%%
+
             
 
 
@@ -435,6 +430,12 @@ class RV_class:
 ##    self.path_pp = ex['path_pp']
 #    return self
 
+
+rg = RGCPD(start_end_date=('01-01', '09-30')) ;rg.pp_precursors() ; rg.pp_TV() ; rg.traintest() ; rg.calc_corr_maps() ; 
+rg.cluster_regions() ; rg.quick_view_labels() ; 
+rg.get_ts_prec(import_prec_ts=[('CPPA', 
+                                '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5')])
+  
 
 class Var_import_RV_netcdf:
     def __init__(self, ex):
