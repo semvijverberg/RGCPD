@@ -8,7 +8,6 @@ Created on Wed Sep  4 12:08:45 2019
 import os
 
 import matplotlib.pyplot as plt
-import functions_RGCPD as rgcpd
 import cartopy.feature as cfeature
 import itertools
 import numpy as np
@@ -290,18 +289,17 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     #%%
     return 
 
-def causal_reg_to_xarray(ex, df, outdic_actors):
+def causal_reg_to_xarray(RV_name, df_sum, outdic_actors):
     #%%    
     '''
     Returns Dataset of merged variables, this aligns there coordinates (easy for plots)
     Returns list_ds to keep the original dimensions
     '''
 #    outdic_actors_c = outdic_actors.copy()
-    df_c = df.loc[ df['causal']==True ]
+    df_c = df_sum.loc[ df_sum['causal']==True ]
     # remove response variable if the ac is a causal link
-    splits = df.index.levels[0]
+    splits = df_sum.index.levels[0]
     for s in splits:
-        RV_name = ex['RV_name']
         try:
             # try because can be no causal regions in split s
             if RV_name in df_c.loc[s].index:
@@ -345,7 +343,7 @@ def causal_reg_to_xarray(ex, df, outdic_actors):
                 var_tig = label_tig.sel(lag=lag_cor)
                 for lag_t in np.unique(regs_c['lag_tig']):
                     reg_c_l = regs_c.loc[ regs_c['lag_tig'] == lag_t]
-                    labels = list(reg_c_l.label.values)
+                    labels = list(reg_c_l.region_number.values)
                     
                     new_mask = np.zeros( shape=var_tig.shape, dtype=bool)
                     
@@ -374,7 +372,8 @@ def causal_reg_to_xarray(ex, df, outdic_actors):
     #%%
     return dict_ds
 
-def plot_labels_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
+def plot_labels_vars_splits(dict_ds, df_sum, map_proj, figpath, paramsstr, RV_name, 
+                            filetype='.pdf', mean_splits=True):
     #%%
     # =============================================================================
     print('\nPlotting all fields significant at alpha_level_tig, while conditioning on parents'
@@ -384,10 +383,13 @@ def plot_labels_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
     # There can be duplicates because tigramite extract the same region at 
     # different lags, this is not important for plotting the spatial regions.
     df_c = df_c.drop_duplicates()
+    
+
+    
+    
     # remove response variable if the ac is a causal link
     splits = df_sum.index.levels[0]
     for s in splits:
-        RV_name = ex['RV_name']
         try:
             # try because can be no causal regions in split s
             if RV_name in df_c.loc[s].index:
@@ -403,11 +405,11 @@ def plot_labels_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
             ds = dict_ds[var]
             
             if mean_splits == True:
-                f_name = '{}_{}_vs_{}_labels_mean'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
+                f_name = '{}_{}_vs_{}_labels_mean'.format(paramsstr, RV_name, var) + filetype
             else:
-                f_name = '{}_{}_vs_{}_labels'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
+                f_name = '{}_{}_vs_{}_labels'.format(paramsstr, RV_name, var) + filetype
             
-            filepath = os.path.join(ex['fig_path'], f_name)
+            filepath = os.path.join(figpath, f_name)
             plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits)
     #%%
     return 
@@ -509,7 +511,8 @@ def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
     #%%
     return
 
-def plot_corr_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
+def plot_corr_vars_splits(dict_ds, df_sum, map_proj, figpath, paramsstr, RV_name, 
+                          filetype='.pdf', mean_splits=True):
     #%%
     # =============================================================================
     print('\nPlotting all fields significant at alpha_level_tig, while conditioning on parents'
@@ -522,7 +525,6 @@ def plot_corr_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
     # remove response variable if the ac is a causal link
     splits = df_sum.index.levels[0]
     for s in splits:
-        RV_name = ex['RV_name']
         try:
             # try because can be no causal regions in split s
             if RV_name in df_c.loc[s].index:
@@ -538,10 +540,10 @@ def plot_corr_vars_splits(dict_ds, df_sum, map_proj, ex, mean_splits=True):
             ds = dict_ds[var]
             
             if mean_splits == True:
-                f_name = '{}_{}_vs_{}_tigr_corr_mean'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
+                f_name = '{}_{}_vs_{}_tigr_corr_mean'.format(paramsstr, RV_name, var) + filetype
             else:
-                f_name = '{}_{}_vs_{}_tigr_corr'.format(ex['params'], ex['RV_name'], var) + ex['file_type2']  
-            filepath = os.path.join(ex['fig_path'], f_name)
+                f_name = '{}_{}_vs_{}_tigr_corr'.format(paramsstr, RV_name, var) + filetype
+            filepath = os.path.join(figpath, f_name)
             plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits)
     #%%
     return

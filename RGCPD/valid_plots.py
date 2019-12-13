@@ -239,7 +239,8 @@ def plot_score_expers(d_expers=dict, model=str, metric=str, lags_t=None,
     return fig
 
 def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
-                    clim=None, cv_lines=False, col=0, ax=None):
+                    clim=None, cv_lines=False, col=0, threshold_bin=None,
+                    ax=None):
 
     #%%
 
@@ -317,12 +318,38 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
         y_b = clim
         ax.hlines(y=y_b, xmin=min(x), xmax=max(x), linewidth=1)
 
-    if metric in ['Precision', 'Accuracy']:
-#        threshold = int(100 * clim/2)
-        ax.text(0.00, 0.05, 'Pos. pred. for top 75% of above clim. prob.',
-                horizontalalignment='left', fontsize=10,
-                verticalalignment='center', transform=ax.transAxes,
-                rotation=0, rotation_mode='anchor', alpha=0.5)
+    if metric in ['Precision', 'Accuracy'] and threshold_bin is not None:
+        if threshold_bin == 'clim':
+        # binary metrics calculated for clim prevailance
+            ax.text(0.00, 0.05, r'Event pred. when fc $\geq$ clim. prob.',
+                    horizontalalignment='left', fontsize=10,
+                    verticalalignment='center', transform=ax.transAxes,
+                    rotation=0, rotation_mode='anchor', alpha=0.5)
+            # old : percentile_t = 100 * clim_prev
+        elif threshold_bin == 'upper_clim':
+            # binary metrics calculated for top 75% of 'above clim prob'
+            ax.text(0.00, 0.05, r'Event pred. when fc$\geq$1.25 * clim. prob.',
+                    horizontalalignment='left', fontsize=10,
+                    verticalalignment='center', transform=ax.transAxes,
+                    rotation=0, rotation_mode='anchor', alpha=0.5)
+            # old: bin_threshold = 100 * (1 - 0.75*clim_prev)
+            # old:  percentile_t = bin_threshold
+        elif isinstance(threshold_bin, int) or isinstance(threshold_bin, float):
+            if threshold_bin < 1:
+                threshold_bin = int(100*threshold_bin)
+            else:
+                threshold_bin = int(threshold_bin)
+            ax.text(0.00, 0.05, r'Event pred. when fc$\geq${}'.format(threshold_bin),
+                    horizontalalignment='left', fontsize=10,
+                    verticalalignment='center', transform=ax.transAxes,
+                    rotation=0, rotation_mode='anchor', alpha=0.5)
+        elif isinstance(threshold_bin, tuple):
+            times = threshold_bin[0]
+            ax.text(0.00, 0.05, r'Event pred. when fc$\geq${} * clim. prob.'.format(times),
+                    horizontalalignment='left', fontsize=10,
+                    verticalalignment='center', transform=ax.transAxes,
+                    rotation=0, rotation_mode='anchor', alpha=0.5)
+            
     if metric in ['AUC-ROC', 'AUC-PR', 'Precision']:
         ax.text(max(x), y_b-0.05, 'Benchmark rand. pred.',
                 horizontalalignment='right', fontsize=12,
@@ -618,7 +645,7 @@ def plot_freq_per_yr(RV):
 
 
 def valid_figures(dict_experiments, expers, models, line_dim='model', group_line_by=None,
-                  met='default', wspace=0.08, col_wrap=None):
+                  met='default', wspace=0.08, col_wrap=None, threshold_bin=None):
     #%%
     '''
     3 dims to plot: [metrics, experiments, stat_models]
@@ -732,8 +759,9 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
                         clim = None
                     plot_score_lags(df_metric, metric, color, lags_tf,
                                     linestyle=line_styles[l], clim=clim,
-                                    cv_lines=False, col=col,
-                                    ax=ax)
+                                    cv_lines=False, col=col, 
+                                    threshold_bin=threshold_bin, ax=ax)
+                                    
                 if metric == 'Rel. Curve':
                     if l == 0:
                         ax, n_bins = rel_curve_base(RV, lags_tf, col=col, ax=ax)

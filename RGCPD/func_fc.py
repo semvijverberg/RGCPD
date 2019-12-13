@@ -22,29 +22,46 @@ curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe(
 class fcev():
     
     number_of_times_called = 0
-    def __init__(self, path_data, name=None, stat_model_l=None, keys_d=None, 
-                 causal=False, lead_max=70, kwrgs_events=None, kwrgs_pp=None, n_boot=2000):
+    def __init__(self, path_data, name=None):
         '''
         Instance for certain dataset with keys and list of stat models
         
-        stat_model_l:   list of with model string and kwrgs 
-        keys_d      :   dict, with keys : list of variable to fit, if None
-                        all keys in each training set will be used to fit
-                        if string is given, exp_py will follow some rules to 
-                        keep only keys you want to fit.
         n_boot      :   times to bootstrap
         '''
         
         self.path_data = path_data
-        self.n_boot = n_boot
+
         if name is None:
             self.name = 'exper1'
         else:    
             self.name = name
-        if stat_model_l is None:
-            self.stat_model_l = [('logit', None)]
-        else:
-            self.stat_model_l = stat_model_l
+            
+        if fcev.number_of_times_called == 0:
+            fcev.df_data = load_hdf5(self.path_data)['df_data']
+            fcev.splits  = fcev.df_data.index.levels[0]
+            fcev.tfreq = (fcev.df_data.loc[0].index[1] - fcev.df_data.loc[0].index[0]).days
+            fcev.RV_mask = fcev.df_data['RV_mask']
+            fcev.TrainIsTrue = fcev.df_data['TrainIsTrue']
+#            fcev.test_years = valid.get_testyrs(fcev.splits)
+
+        fcev.number_of_times_called += 1
+        return 
+
+    
+    
+    
+    @classmethod
+    def get_test_data(cls, stat_model_l=None, keys_d=None, causal=False, n_boot=100):
+        path_py   = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+        name = 'E-US_temp_test'
+        test_fname = 'test_TV-US-temp_X_sst-z500-sm.h5'
+        path_data = os.path.join('/'.join(path_py.split('/')[:-1]), 'data', test_fname)
+        return cls(path_data, name=name, stat_model_l=stat_model_l, 
+                   keys_d=keys_d, n_boot=n_boot)
+         
+    
+    def get_TV(self, kwrgs_events=None, kwrgs_pp=None):
+        
         # target events
         if kwrgs_events is None:
             self.kwrgs_events = {'event_percentile': 66,
@@ -53,15 +70,55 @@ class fcev():
                         'grouped' : False}
         else:
             self.kwrgs_events = kwrgs_events
+            
+        if kwrgs_pp is None:
+            self.kwrgs_pp = {'EOF':False, 
+                    'expl_var':0.5,
+                    'fit_model_dates' : None}
+        else:
+            self.kwrgs_pp = kwrgs_pp
+            
+        TV = df_data_to_RV(self.df_data, kwrgs_pp=self.kwrgs_pp, 
+                           kwrgs_events=self.kwrgs_events)
+        TV.TrainIsTrue = self.df_data['TrainIsTrue']
+        TV.RV_mask = self.df_data['RV_mask']
+    
+        splits  = self.df_data.index.levels[0]
+        fit_model_mask = pd.concat([TV.fit_model_mask] * splits.size, keys=splits)
+        self.df_data = self.df_data.merge(fit_model_mask, left_index=True, right_index=True)
+        TV.prob_clim = get_obs_clim(TV)
+        self.TV = TV
+        return 
+    
+    def fit_models(self, stat_model_l=[('logit', None)], lead_max=np.array([1]), 
+                   keys_d=None, causal=False):
+        '''
+        stat_model_l:   list of with model string and kwrgs 
+        keys_d      :   dict, with keys : list of variable to fit, if None
+                        all keys in each training set will be used to fit
+                        if string is given, exp_py will follow some rules to 
+                        keep only keys you want to fit.
         
-        if fcev.number_of_times_called == 0:
-            fcev.df_data = load_hdf5(self.path_data)['df_data']
-            fcev.splits  = fcev.df_data.index.levels[0]
-            fcev.tfreq = (fcev.df_data.loc[0].index[1] - fcev.df_data.loc[0].index[0]).days
-            fcev.RV_mask = fcev.df_data['RV_mask']
-            fcev.TrainIsTrue = fcev.df_data['TrainIsTrue']
-#            fcev.test_years = valid.get_testyrs(fcev.splits)
+        '''
         
+        self.stat_model_l = stat_model_l
+        self.causal = causal
+            
+        if keys_d is None:
+            print('keys is None: Using all keys in training sets')
+            self.experiment = 'all'
+            self.keys_d = exp_fc.normal_precursor_regions(self.path_data, causal=False)['all']
+        if isinstance(keys_d, dict):
+            self.experiment = 'manual'
+            # expecting dict with traintest number as key and associated list of keys
+            self.keys_d = keys_d
+        if isinstance(keys_d, str):
+            print(f'getting keys associated with name {keys_d}')
+            self.experiment = keys_d
+            self.keys_d = exp_fc.normal_precursor_regions(self.path_data, 
+                                                          keys_options=[keys_d], 
+                                                          causal=self.causal)[keys_d]
+
         if isinstance(lead_max, int): 
             if fcev.tfreq == 1:
                 self.lags_i = np.arange(0, lead_max+1E-9, max(10,fcev.tfreq), dtype=int)
@@ -86,51 +143,41 @@ class fcev():
             self.lags_t = np.array(self.lags_t)
         print(f'tfreq: {fcev.tfreq}, max lag: {self.lags_i[-1]}, i.e. {self.lags_t[-1]} days')
         
-    
-        if keys_d is None:
-            print('keys is None: Using all keys in training sets')
-            self.experiment = 'all'
-            self.keys_d = exp_fc.normal_precursor_regions(path_data, causal=False)['all']
-        if isinstance(keys_d, dict):
-            self.experiment = 'manual'
-            # expecting dict with traintest number as key and associated list of keys
-            self.keys_d = keys_d
-        if isinstance(keys_d, str):
-            print(f'getting keys associated with name {keys_d}')
-            self.experiment = keys_d
-            self.keys_d = exp_fc.normal_precursor_regions(path_data, 
-                                                          keys_options=[keys_d], 
-                                                          causal=causal)[keys_d]
-        if kwrgs_pp is None:
-            self.kwrgs_pp = {'EOF':False, 
-                    'expl_var':0.5,
-                    'fit_model_dates' : None}
-        else:
-            self.kwrgs_pp = kwrgs_pp
-        fcev.number_of_times_called += 1
-        
-        
+        self.dict_models = {}
+        for stat_model in stat_model_l:
+            name = stat_model[0]
+            y_pred_all, y_pred_c = fit_model(self.TV, 
+                                                      df_data=self.df_data, 
+                                                      keys_d=self.keys_d, 
+                                                      kwrgs_pp=self.kwrgs_pp, 
+                                                      stat_model=stat_model, 
+                                                      lags_i=self.lags_i)
+            
+            self.dict_models[name] = (y_pred_all, y_pred_c)
+                     
         return 
 
-    
-    
-    
-    @classmethod
-    def test_data(cls, stat_model_l=None, keys_d=None, causal=False, n_boot=100):
-        path_py   = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-        name = 'E-US_temp_test'
-        test_fname = 'test_TV-US-temp_X_sst-z500-sm.h5'
-        path_data = os.path.join('/'.join(path_py.split('/')[:-1]), 'data', test_fname)
-        return cls(path_data, name=name, stat_model_l=stat_model_l, 
-                   keys_d=keys_d, n_boot=n_boot)
-         
-    
-    def fit_and_valid(self):
-        self.dict_sum = forecast_wrapper(df_data=self.df_data, keys_d=self.keys_d, 
-                         kwrgs_pp=self.kwrgs_pp, kwrgs_events=self.kwrgs_events, 
-                     stat_model_l=self.stat_model_l, lags_i=self.lags_i, 
-                     n_boot=self.n_boot)
-        return
+    def perform_validation(self, n_boot=2000, blocksize='auto', 
+                           threshold_pred='upper_clim'):
+        self.n_boot = n_boot
+        self.threshold_pred = threshold_pred
+        self.dict_sum = {}
+        for stat_model in self.stat_model_l:
+            name = stat_model[0]
+            y_pred_all, y_pred_c = self.dict_models[name]
+            
+            if blocksize == 'auto':    
+                self.blocksize = valid.get_bstrap_size(self.TV.fullts, plot=False)
+            else:
+                self.blocksize = blocksize
+            out = valid.get_metrics_sklearn(self.TV, y_pred_all, y_pred_c, 
+                                            n_boot=n_boot,
+                                            blocksize=self.blocksize, 
+                                            threshold_pred=threshold_pred)
+            df_valid, metrics_dict = out
+            self.dict_sum[name] = (df_valid, self.TV, y_pred_all)
+            self.metrics_dict = metrics_dict
+        return 
 
     @classmethod
     def plot_scatter(cls, colwrap=3, sharex='none', s=0, mask='RV_mask', aggr=None, 
@@ -170,34 +217,9 @@ def df_data_to_RV(df_data=pd.DataFrame, kwrgs_pp=dict, kwrgs_events=dict):
     return RV
 
 
-def forecast_wrapper(df_data=pd.DataFrame, keys_d=dict, kwrgs_pp=dict, kwrgs_events=dict, 
-                     stat_model_l=list, lags_i=list, n_boot=0):
-    '''
-    dict should have splits (as keys) and concomitant list of keys of that particular split 
-    '''
-    
-    RV = df_data_to_RV(df_data, kwrgs_pp=kwrgs_pp, kwrgs_events=kwrgs_events)
-    RV.TrainIsTrue = df_data['TrainIsTrue']
-    RV.RV_mask = df_data['RV_mask']
 
-    splits  = df_data.index.levels[0]
-    fit_model_mask = pd.concat([RV.fit_model_mask] * splits.size, keys=splits)
-    df_data = df_data.merge(fit_model_mask, left_index=True, right_index=True)
-    RV.prob_clim = get_obs_clim(RV)
-    
-    dict_sum = {}
-    for stat_model in stat_model_l:
-        name = stat_model[0]
-        df_valid, RV, y_pred_all = forecast_and_valid(RV, df_data, keys_d, kwrgs_pp, 
-                                                              stat_model=stat_model, 
-                                                              lags_i=lags_i, n_boot=n_boot)
-        dict_sum[name] = (df_valid, RV, y_pred_all)
-   
-    return dict_sum  
-
-
-def forecast_and_valid(RV, df_data, keys_d, kwrgs_pp={}, stat_model=tuple, lags_i=list,
-                       n_boot=0, verbosity=0):
+def fit_model(RV, df_data, keys_d, kwrgs_pp={}, stat_model=tuple, lags_i=list,
+              verbosity=0):
     #%%
     # do forecasting accros lags
     splits  = df_data.index.levels[0]
@@ -281,16 +303,9 @@ def forecast_and_valid(RV, df_data, keys_d, kwrgs_pp={}, stat_model=tuple, lags_
     # do validation
 
     print(f'{stat_model} ')
+    return y_pred_all, y_pred_c
 
 
-    blocksize = valid.get_bstrap_size(RV.RVfullts, plot=False)
-    out = valid.get_metrics_sklearn(RV, y_pred_all, y_pred_c, n_boot=n_boot,
-                                    blocksize=blocksize)
-    df_valid, metrics_dict = out
-    #%%
-
-#    y_pred_all.iloc[1][y_pred_all.iloc[1]==1].size / RV.RV_bin[RV.RV_bin==1].size
-    return df_valid, RV, y_pred_all
 
 
 

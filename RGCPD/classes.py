@@ -14,19 +14,15 @@ import func_fc
 import functions_pp
 import plot_maps
 import find_precursors
+import functions_RGCPD
 from pathlib import Path
 import inspect, os
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 path_test = os.path.join(curr_dir, '..', 'data')
 
-#list_of_name_path = [('t2m_eUS', os.path.join(path_test, 't2m_eUS.npy')),
-#                     ('sst_test', os.path.join(path_test, 'data/sst_1979-2018_2.5deg_Pacific.nc'))]
-#TV_period = ('06-15', '08-20')
-#
 
 class RGCPD:
-    
-    
+
     def __init__(self, list_of_name_path=None, start_end_TVdate=None, tfreq=10, 
                  start_end_date=None, start_end_year=None,
                  path_outmain=None, lags_i=np.array([1]),
@@ -132,9 +128,11 @@ class RGCPD:
             
     
     def traintest(self, kwrgs_TV=None):
-        '''
-        krwgs_TV has format:
-            
+        ''' Splits the training and test dates, either via cross-validation or 
+        via a simple single split.
+ 
+        
+        agrs:          
         kwrgs_RV = dict(method=method,
                 seed=seed,
                 kwrgs_events=kwrgs_events,
@@ -160,20 +158,29 @@ class RGCPD:
         (5) no_train_test_split
         
         # Extra: RV events settings are needed to make balanced traintest splits
+        
+        Returns panda dataframe with traintest mask and Target variable mask 
+        concomitant to each split. 
         '''
         if kwrgs_TV is None:
-            kwrgs_TV = dict(method='no_train_test_split',
+            self.kwrgs_TV = dict(method='no_train_test_split',
                     seed=1,
                     kwrgs_events=None,
                     precursor_ts=None)
+        else:
+            self.kwrgs_TV = kwrgs_TV
             
         
         TV, self.df_splits = find_precursors.RV_and_traintest(self.fullts, 
                                                          self.TV_ts, 
                                                          verbosity=self.verbosity, 
-                                                         **kwrgs_TV)
+                                                         **self.kwrgs_TV)
         TV.name = self.list_of_name_path[0][0]
         self.TV = TV
+        self.path_outsub1 = os.path.join(self.path_outsub0, 
+                                      '_'.join([self.kwrgs_TV['method'], 
+                                                's'+ str(self.kwrgs_TV['seed'])]))
+        if os.path.isdir(self.path_outsub1) == False : os.makedirs(self.path_outsub1)
     
     def calc_corr_maps(self):
         keys = ['selbox', 'loadleap', 'seldates', 'format_lon']
@@ -209,7 +216,7 @@ class RGCPD:
     
     def quick_view_labels(self, map_proj=None):
         for name, actor in self.outdic_precur.items():
-            prec_labels = actor.prec_labels
+            prec_labels = actor.prec_labels.copy()
             
             # colors of cmap are dived over min to max in n_steps. 
             # We need to make sure that the maximum value in all dimensions will be 
@@ -244,6 +251,7 @@ class RGCPD:
 
     def get_ts_prec(self, import_prec_ts=None):
         
+        
         self.outdic_precur = find_precursors.get_prec_ts(self.outdic_precur)
         self.df_data = find_precursors.df_data_prec_regs(self.TV, 
                                                          self.outdic_precur, 
@@ -254,12 +262,65 @@ class RGCPD:
                                                              self.tfreq, 
                                                              self.start_end_date,
                                                              self.start_end_year)
-        self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
+            self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
         self.df_data = self.df_data.merge(self.df_splits, left_index=True, right_index=True)
 
-            
 
+    def PCMCI_df_data(self, path_txtoutput=None, tau_min=0, tau_max=1, 
+                    pc_alpha=None, alpha_level=0.05, max_conds_dim=4,
+                    max_combinations=1, max_conds_py=None, max_conds_px=None,
+                    verbosity=4):
+        
+        kwrgs_pcmci = dict(tau_min=tau_min,
+                           tau_max=tau_max,
+                           pc_alpha=pc_alpha,
+                           alpha_level=alpha_level,
+                           max_conds_dim=max_conds_dim,
+                           max_combinations=max_combinations,
+                           max_conds_py=max_conds_py,
+                           max_conds_px=max_conds_px,
+                           verbosity=4)
+        
+
+        
+        
+        if path_txtoutput is None:
+            self.params_str = '{}_at{}_tau_{}-{}_conds_dim{}_combin{}'.format(pc_alpha, 
+                          self.kwrgs_corr['alpha'], tau_min, tau_max, max_conds_dim, max_combinations)
+            self.path_outsub2 = os.path.join(self.path_outsub1, self.params_str)
+        else:
+            self.path_outsub2 = path_txtoutput
+        
+        if os.path.isdir(self.path_outsub2) == False : os.makedirs(self.path_outsub2)
             
+        self.pcmci_dict = functions_RGCPD.loop_train_test(self.df_data, self.path_outsub2, 
+                                                          **kwrgs_pcmci)
+        self.df_sum = functions_RGCPD.get_df_sum(self.pcmci_dict, kwrgs_pcmci['alpha_level'])
+        print(self.df_sum)
+        # get xarray dataset for each variable
+        self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_sum, 
+                                                      self.outdic_precur)
+        
+    def plot_maps_sum(self, map_proj=None, figpath=None, paramsstr=None):
+        
+        if map_proj is None:
+            central_lon_plots = 200
+            map_proj = ccrs.LambertCylindrical(central_longitude=central_lon_plots)
+        
+        if figpath is None:
+            figpath = self.path_outsub1
+        if paramsstr is None:
+            paramsstr = self.params_str
+        
+        plot_maps.plot_labels_vars_splits(self.dict_ds, self.df_sum, map_proj, 
+                                          figpath, paramsstr, self.TV.name)
+        
+        
+        plot_maps.plot_corr_vars_splits(self.dict_ds, self.df_sum, map_proj, 
+                                          figpath, paramsstr, self.TV.name)
+        
+        
+        
 
 
 class RV_class:
@@ -431,25 +492,25 @@ class RV_class:
 #    return self
 
 
-rg = RGCPD(start_end_date=('01-01', '09-30')) ;rg.pp_precursors() ; rg.pp_TV() ; rg.traintest() ; rg.calc_corr_maps() ; 
-rg.cluster_regions() ; rg.quick_view_labels() ; 
-rg.get_ts_prec(import_prec_ts=[('CPPA', 
-                                '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5')])
-  
+    
+#rg.get_ts_prec(import_prec_ts=[('CPPA', 
+#                                '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5')])
 
-class Var_import_RV_netcdf:
-    def __init__(self, ex):
-        vclass = Variable(self, ex)
-
-        vclass.name = ex['RVnc_name'][0]
-        vclass.filename = ex['RVnc_name'][1]
-        print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(vclass.name,
-               vclass.startyear, vclass.endyear, vclass.grid)))
-
-class Var_import_precursor_netcdf:
-    def __init__(self, tuple_name_path):
+#%%
+#
+#class Var_import_RV_netcdf:
+#    def __init__(self, ex):
 #        vclass = Variable(self, ex)
-
-        vclass.name = tuple_name_path[0]
-        vclass.filename = tuple_name_path[1] 
+#
+#        vclass.name = ex['RVnc_name'][0]
+#        vclass.filename = ex['RVnc_name'][1]
+#        print(('\n\t**\n\t{} {}-{} on {} grid\n\t**\n'.format(vclass.name,
+#               vclass.startyear, vclass.endyear, vclass.grid)))
+#
+#class Var_import_precursor_netcdf:
+#    def __init__(self, tuple_name_path):
+##        vclass = Variable(self, ex)
+#
+#        vclass.name = tuple_name_path[0]
+#        vclass.filename = tuple_name_path[1] 
             

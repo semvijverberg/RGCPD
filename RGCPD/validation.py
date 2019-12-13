@@ -40,10 +40,13 @@ mpl.rcParams['font.size'] = 13
 mpl.rcParams['legend.fontsize'] = 'medium'
 mpl.rcParams['figure.titlesize'] = 'medium'
 
-def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksize=10, threshold_pred='clim'):
+def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, 
+                        blocksize=10, threshold_pred='upper_clim'):
+                        
     #%%
 
     y = RV.RV_bin.values
+    clim_prob = np.mean(RV.prob_clim.values)
     lags = y_pred_all.columns
     cont_pred = np.unique(y_pred_all).size > 5
 
@@ -77,6 +80,7 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5, blocksiz
         metrics_dict = metrics_sklearn(
                     y, y_pred, y_pred_c.values,
                     alpha=alpha, n_boot=n_boot, blocksize=blocksize,
+                    clim_prob=clim_prob,
                     threshold_pred=threshold_pred)
         if cont_pred:
             # AUC
@@ -159,8 +163,8 @@ def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle
     lags = y_pred_all.columns
     y_true = RV.RV_bin
     if thr[0] == 'clim':
-        clim_prev = np.round((1-y_true[y_true.values==1.].size / y_true.size),2)
-        thresholds = [[clim_prev]]
+        clim_prob = np.round((1-y_true[y_true.values==1.].size / y_true.size),2)
+        thresholds = [[clim_prob]]
     else:
         thresholds = []
     perc_thr = [t/100. if type(t) == int else t for t in thr ]
@@ -188,13 +192,13 @@ def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle
 
 
             out = get_metrics_bin(y_true, y_pred_b, t=None)
-            (prec_f, recall_f, FPR_f, SP_f, Acc_f, f1_f, KSS) = out
+            (prec_f, recall_f, FPR_f, SP_f, Acc_f, f1_f, KSS, EDI) = out
             # shuffle the predictions
             prec = [] ; recall = [] ; FPR = [] ; SP = [] ; Acc = [] ; f1 = []
             for i in range(n_shuffle):
                 np.random.shuffle(y_pred_b);
                 out = get_metrics_bin(y_true, y_pred_b, t=None)
-                (prec_s, recall_s, FPR_s, SP_s, Acc_s, f1_s, KSS) = out
+                (prec_s, recall_s, FPR_s, SP_s, Acc_s, f1_s, KSS, EDI) = out
                 prec.append(prec_s)
                 recall.append(recall_s)
                 FPR.append(FPR_s)
@@ -237,7 +241,7 @@ def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle
         if n_shuffle > 0:
             df_lag['mean_impr'] = df_lag.iloc[:, df_lag.columns.get_level_values(1)=='impr.'].mean(axis=1)
             if 'clim' in thr:
-                df_lag = df_lag.rename(columns={clim_prev: 'clim'})
+                df_lag = df_lag.rename(columns={clim_prob: 'clim'})
         list_dfs.append(df_lag)
 
     df_cm = pd.concat(list_dfs, keys= lags)
@@ -358,22 +362,48 @@ def get_bstrap_size(ts, max_lag=200, n=1, plot=True):
 
 
 def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
-                    alpha=0.05, n_boot=5, blocksize=1, threshold_pred='upper clim'):
-#    y_true, y_pred, y_pred_c = y_true_c, ts_logit_c, y_pred_c_c
+                    alpha=0.05, n_boot=5, blocksize=1, clim_prob=None, threshold_pred='upper_clim'):
+    '''
+    threshold_pred  options: 'clim', 'upper_clim', 'int or float'
+                    if 'clim' is passed then all positive prediction is forecasted
+                    for all values of y_pred above clim_prob
+                    if 'upper_clim' is passed, from all values that are above 
+                    the clim_prob, only the upper 75% of the prediction is used
+                    
+    '''
+    
+    #    y_true, y_pred, y_pred_c = y_true_c, ts_logit_c, y_pred_c_c
     #%%
 
     y_true = np.array(y_true).squeeze()
     cont_pred = np.unique(y_pred).size > 5
     metrics_dict = {}
-
+    
+    if clim_prob is None:
+        clim_prob = np.round((y_true[(y_true==1)].size / y_true.size),2)
+    
+    sorval = np.array(sorted(y_pred))
+    # probability to percentile
     if threshold_pred == 'clim':
-    ##     binary metrics for clim prevailance
-        clim_prev = np.round((y_true[(y_true==1)].size / y_true.size),2)
-        percentile_t = 100 * clim_prev
-    if threshold_pred == 'upper clim':
-        # top 75% of 'above clim prob'
-        bin_threshold = (100 - 75*clim_prev)
-        percentile_t = bin_threshold
+        # binary metrics calculated for clim prevailance
+        quantile = 1 - y_pred[sorval > clim_prob].size / y_pred.size
+        # old : quantile = 100 * clim_prob
+    elif threshold_pred == 'upper_clim':
+        # binary metrics calculated for top 75% of 'above clim prob'
+        No_vals_above_clim = y_pred[sorval > clim_prob].size / y_pred.size
+        upper_75 = 0.75 * No_vals_above_clim # 0.75 * percentage values above clim
+        quantile = 1-upper_75
+        # old: bin_threshold = 100 * (1 - 0.75*clim_prob)
+        # old:  quantile = bin_threshold
+    elif isinstance(threshold_pred, int) or isinstance(threshold_pred, float):
+        if threshold_pred < 1:
+            quantile = 1 - y_pred[sorval > threshold_pred].size / y_pred.size
+        else:
+            quantile = 1 - y_pred[sorval > threshold_pred/100.].size / y_pred.size
+    elif isinstance(threshold_pred, tuple):
+        times = threshold_pred[0]
+        quantile = 1 - (y_pred[sorval > times*clim_prob].size / y_pred.size) 
+    percentile_t = 100 * quantile 
 
     y_pred_b = np.array(y_pred > np.percentile(y_pred, percentile_t),dtype=int)
 

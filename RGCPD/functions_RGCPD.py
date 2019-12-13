@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-import os
+import os, io, sys
 from tigramite import data_processing as pp
 from tigramite.pcmci import PCMCI
 from tigramite.independence_tests import ParCorr #, GPDC, CMIknn, CMIsymb
 import numpy as np
+import pandas as pd
 
 
 
@@ -19,11 +20,16 @@ def loop_train_test(df_data, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None
     max_conds_px (int or None) – Maximum number of conditions from parents of X to use. If None is passed, this number is unrestricted.
     '''
     #%%
+#    df_data = rg.df_data
+#    path_txtoutput=rg.path_outsub2; tau_min=0; tau_max=1; pc_alpha=0.05; 
+#    alpha_level=0.05; max_conds_dim=2; max_combinations=1; 
+#    max_conds_py=None; max_conds_px=None; verbosity=4
+                    
     splits = df_data.index.levels[0]
     
-    df_sum_s = np.zeros( (splits.size) , dtype=object)
     
-    output_list = []
+    
+    pcmci_dict = {}
     TrainIsTrue = df_data['TrainIsTrue']
     RV_mask = df_data['RV_mask']
     for s in range(splits.size):
@@ -36,23 +42,57 @@ def loop_train_test(df_data, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None
         data = df_data_s.values
         data_mask = RV_mask.loc[s][TrainIsTrue.values].values
         data_mask = np.repeat(data_mask, data.shape[1]).reshape(data.shape)
-    
+        out = run_pcmci(data, data_mask, var_names, path_txtoutput, s,
+                        tau_min, tau_max, pc_alpha, alpha_level, max_conds_dim, 
+                        max_combinations, max_conds_py, max_conds_px,  
+                        verbosity)
+        
+        pcmci_dict[s] = out # tuple containing pcmci, q_matrix, results
         
     
     #%%
-    return sig, results, pcmci
+    return pcmci_dict
+
+def get_df_sum(pcmci_dict, alpha_level):
+    #%%
+    splits = np.array(pcmci_dict.keys())
+    df_sum_s = np.zeros( (splits.size) , dtype=object)
+    
+    for s in range(splits.size):
         
-        
+        pcmci = pcmci_dict[s][0]
+        q_matrix = pcmci_dict[s][1]
+        results = pcmci_dict[s][2]
+        # returns all causal links, not just causal parents/precursors (of lag>0)
+        sig = return_sign_links(pcmci, pq_matrix=q_matrix,
+                                            val_matrix=results['val_matrix'],
+                                            alpha_level=alpha_level)
+
+        all_parents = sig['parents']
+    #    link_matrix = sig['link_matrix']
+    
+        links_RV = all_parents[0]
+    
+        df = bookkeeping_precursors(links_RV, pcmci.var_names)
+        df_sum_s[s] = df
+    df_sum = pd.concat(list(df_sum_s), keys= range(splits.size))
+    return df_sum
+
+    #%%
+def run_pcmci(data, data_mask, var_names, path_outsub2, s, tau_min=0, tau_max=1, 
+              pc_alpha=None, alpha_level=0.05, max_conds_dim=4, max_combinations=1, 
+              max_conds_py=None, max_conds_px=None, verbosity=4):
+    
 
     
-    
-    
-def run_pcmci(data, data_mask, var_names, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None, 
-                    alpha_level=0.05, max_conds_dim=4, max_combinations=1, 
-                    max_conds_py=None, max_conds_px=None, SaveTF=True, 
-                    verbosity=4):
-    
-    
+    #%%
+    if path_outsub2 is not False:
+        txt_fname = os.path.join(path_outsub2, f'split_{s}_PCMCI_out.txt')
+#        from contextlib import redirect_stdout
+        orig_stdout = sys.stdout
+        # buffer print statement output to f
+        sys.stdout = f = io.StringIO()
+    #%%            
     # ======================================================================================================================
     # tigramite 4
     # ======================================================================================================================
@@ -95,14 +135,19 @@ def run_pcmci(data, data_mask, var_names, path_txtoutput, tau_min=0, tau_max=1, 
                                    q_matrix=q_matrix,
                                    val_matrix=results['val_matrix'],
                                    alpha_level=alpha_level)
+    #%%
+    if path_outsub2 is not False:
+        file = io.open(txt_fname, mode='w+')
+        file.write(f.getvalue())
+        file.close()
+        f.close()
 
-    # returns all parents, not just causal precursors (of lag>0)
-    sig = return_sign_parents(pcmci, pq_matrix=q_matrix,
-                                            val_matrix=results['val_matrix'],
-                                            alpha_level=alpha_level)
-    return sig, pcmci
+        sys.stdout = orig_stdout
 
-def return_sign_parents(pc_class, pq_matrix, val_matrix,
+
+    return pcmci, q_matrix, results
+
+def return_sign_links(pc_class, pq_matrix, val_matrix,
                             alpha_level=0.05):
       # Initialize the return value
     all_parents = dict()
@@ -122,8 +167,9 @@ def return_sign_parents(pc_class, pq_matrix, val_matrix,
 def bookkeeping_precursors(links_RV, var_names):
     #%%
     var_names_ = var_names.copy()
-    index = [n[1] for n in var_names_[1:]] ; index.insert(0, var_names_[0])
-    link_names = [var_names_[l[0]][1] if l[0] !=0 else var_names_[l[0]] for l in links_RV]
+    links_RV = sorted(links_RV)
+    index = [n.split('..')[1] for n in var_names_[1:]] ; index.insert(0, var_names_[0])
+    link_names = [var_names_[l[0]].split('..')[1] if l[0] !=0 else var_names_[l[0]] for l in links_RV]
 
     # check if two lags of same region and are tigr significant
     idx_tigr = [l[0] for l in links_RV] ;
@@ -132,30 +178,31 @@ def bookkeeping_precursors(links_RV, var_names):
     for r in np.unique(idx_tigr):
         # counting double indices (but with different lags)
         if idx_tigr.count(r) != 1:
-            double = var_names_[r][1]
-            print(double)
+            double = var_names_[r].split('..')[1]
+#            print(double)
             idx = int(np.argwhere(np.array(index)==double)[0])
             # append each double to index for the dataframe
             for i in range(idx_tigr.count(r)-1):
                 index_ext.insert(idx+i, double)
                 d = len(index) - len(var_names_)
-                var_names_ext.insert(idx+i+1, var_names_[idx+1-d])
+#                var_names_ext.insert(idx+i+1, var_names_[idx+1-d])
+                var_names_ext.insert(idx+i, var_names_[idx-d])            
 
     # retrieving only var name
-    l = [n[1].split('_')[-1] for n in var_names_ext[1:]]
+    l = [n.split('..')[-1] for n in var_names_ext[1:]]
     l.insert(0, var_names_ext[0])
     var = np.array(l)
     # creating mask (True) of causal links
     mask_causal = np.array([True if i in link_names else False for i in index_ext])
     # retrieving lag of corr map
-    lag_corr_map = np.array([int(n[1][0]) for n in var_names_ext[1:]]) ;
-    lag_corr_map = np.insert(lag_corr_map, 0, 0)
+    lag_corr_map = np.array([int(n.split('..')[0]) for n in var_names_ext[1:]]) ;
+    lag_corr_map = np.insert(lag_corr_map, 0, 0) # unofficial lag for TV
     # retrieving region number, corresponding to figures
-    region_number = np.array([int(n[0]) for n in var_names_ext[1:]])
+    region_number = np.array([int(n.split('..')[1]) for n in var_names_ext[1:]])
     region_number = np.insert(region_number, 0, 0)
-    # retrieving ?
-    label = np.array([int(n[1].split('_')[1]) for n in var_names_ext[1:]])
-    label = np.insert(label, 0, 0)
+#    # retrieving ?
+#    label = np.array([int(n[1].split('..')[1]) for n in var_names_ext[1:]])
+#    label = np.insert(label, 0, 0)
     # retrieving lag of tigramite link
     # all Tigr links, can include same region at multiple lags:
     # looping through all unique tigr var labels format {lag..var_name}
@@ -177,12 +224,12 @@ def bookkeeping_precursors(links_RV, var_names):
 
 #    print(var.shape, lag_corr_map.shape, region_number.shape, mask_causal.shape, lag_caus.shape)
 
-    data = np.concatenate([label[None,:],  lag_corr_map[None,:], region_number[None,:], var[None,:],
+    data = np.concatenate([lag_corr_map[None,:], region_number[None,:], var[None,:],
                             mask_causal[None,:], lag_tigr_[None,:]], axis=0)
-    df = pd.DataFrame(data=data.T, index=index_ext,
-                      columns=['label', 'lag_corr', 'region_number', 'var', 'causal', 'lag_tig'])
+    df = pd.DataFrame(data=data.T, index=var_names_ext,
+                      columns=['lag_corr', 'region_number', 'var', 'causal', 'lag_tig'])
     df['causal'] = df['causal'] == 'True'
-    df = df.astype({'label':int, 'lag_corr':int,
+    df = df.astype({'lag_corr':int,
                                'region_number':int, 'var':str, 'causal':bool, 'lag_tig':float})
     #%%
     print("\n\n")
