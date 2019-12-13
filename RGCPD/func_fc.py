@@ -56,8 +56,7 @@ class fcev():
         name = 'E-US_temp_test'
         test_fname = 'test_TV-US-temp_X_sst-z500-sm.h5'
         path_data = os.path.join('/'.join(path_py.split('/')[:-1]), 'data', test_fname)
-        return cls(path_data, name=name, stat_model_l=stat_model_l, 
-                   keys_d=keys_d, n_boot=n_boot)
+        return cls(path_data, name=name)
          
     
     def get_TV(self, kwrgs_events=None, kwrgs_pp=None):
