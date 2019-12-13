@@ -233,7 +233,6 @@ def bookkeeping_precursors(links_RV, var_names):
                                'region_number':int, 'var':str, 'causal':bool, 'lag_tig':float})
     #%%
     print("\n\n")
-    print(df)
     return df
 
 

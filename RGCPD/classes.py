@@ -26,7 +26,7 @@ class RGCPD:
     def __init__(self, list_of_name_path=None, start_end_TVdate=None, tfreq=10, 
                  start_end_date=None, start_end_year=None,
                  path_outmain=None, lags_i=np.array([1]),
-                 kwrgs_pp=None, kwrgs_corr=None, verbosity=1):
+                 kwrgs_corr=None, verbosity=1):
         '''
         list_of_name_path : list of name, path tuples. 
         Convention: first entry should be (name, path) of target variable (TV).
@@ -45,10 +45,7 @@ class RGCPD:
         if start_end_TVdate is None:
             start_end_TVdate = ('06-15', '08-20')
         
-        if kwrgs_pp is None:
-            kwrgs_pp = dict(loadleap=False, seldates=None, selbox=None,
-                            format_lon='east_west',
-                            detrend=True, anomaly=True)
+        
 
         if path_outmain is None:
             path_outmain = str(Path.home()) + '/Downloads/output_RGCPD'
@@ -61,7 +58,6 @@ class RGCPD:
         self.tfreq      = tfreq
         self.lags_i     = lags_i
         self.lags       = np.array([l*self.tfreq for l in self.lags_i], dtype=int)
-        self.kwrgs_pp   = kwrgs_pp
         self.path_outmain = path_outmain
 
         if kwrgs_corr is None:
@@ -72,7 +68,14 @@ class RGCPD:
             
         return
     
-    def pp_precursors(self):
+    def pp_precursors(self, kwrgs_pp=None):
+        
+        if kwrgs_pp is None:
+            kwrgs_pp = dict(loadleap=False, seldates=None, selbox=None,
+                            format_lon='east_west',
+                            detrend=True, anomaly=True)
+            
+        self.kwrgs_pp = kwrgs_pp
         self.list_precur_pp = functions_pp.perform_post_processing(self.list_of_name_path, 
                                              kwrgs_pp=self.kwrgs_pp, 
                                              verbosity=self.verbosity)
@@ -490,6 +493,7 @@ class RV_class:
 ##    self.path_raw = ex['path_raw']
 ##    self.path_pp = ex['path_pp']
 #    return self
+
 
 
     
