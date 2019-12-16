@@ -32,8 +32,7 @@ RGCPD_sst_sm_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_ss
 RGCPD_sst_sm_z500_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/list_tf_8_11_19/t2mmax_E-US_sst_sm123_z500hpa_m01-08_dt10/18jun-27aug_lag10-10_random10_s30/pcA_none_ac0.002_at0.05_subinfo/fulldata_pcA_none_ac0.002_at0.05_2019-11-17.h5'
 RGCPD_sst_sm_z500_20d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/list_tf_8_11_19/t2mmax_E-US_sst_sm123_z500hpa_m01-08_dt20/14may-22aug_lag20-20_random10_s30/pcA_none_ac0.002_at0.05_subinfo/fulldata_pcA_none_ac0.002_at0.05_2019-11-19.h5'
 RGCPD_sst_sm_z500_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/list_tf_8_11_19/t2mmax_E-US_sst_sm123_z500hpa_m01-08_dt30/19may-17aug_lag30-30_random10_s30/pcA_none_ac0.002_at0.05_subinfo/fulldata_pcA_none_ac0.002_at0.05_2019-11-17.h5'
-n_boot = 2000
-verbosity = 0
+
 
 
 
@@ -58,7 +57,7 @@ GBR_logitCV = ('GBR-logitCV',
                'n_estimators' : 750,
                'max_features':'sqrt',
                'subsample' : 0.6,
-               'random_state':200} )  
+               'random_state':60} )  
 
 GBR_logitCV_tuned = ('GBR-logitCV', 
           {'max_depth':[3,5,7],
@@ -71,9 +70,9 @@ GBR_logitCV_tuned = ('GBR-logitCV',
 # format {'dataset' : (path_data, list(keys_options) ) }
 
 ERA_and_EC_daily  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
-                 'EC-earth 2.3':(strat_1d_CPPA_EC, ['PEP', 'CPPA'])}
+                 'EC-earth 2.3':(strat_1d_CPPA_EC, ['PEP', 'CPPA'])} # random_state 60
 stat_model_l = [GBR_logitCV, logit]
-stat_model_l = [GBR_logitCV]
+
 
    
 #
@@ -89,8 +88,8 @@ stat_model_l = [GBR_logitCV]
 #ERA5_sm_30d         = {'ERA-5:':(CPPA_sm_30d, ['sst(CPPA)+sm'])}
 #stat_model_l = [logit, logitCV]
 
-ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
-stat_model_l = [GBR_logitCV, logit]
+#ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
+#stat_model_l = [GBR_logitCV]
 
 #RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_z500_10d, ['only_db_regs'])}
 #stat_model_l = [logitCV, GBR_logitCV]
@@ -136,7 +135,9 @@ kwrgs_pp = {'EOF':False,
 
 
 #%%
-lead_max = 65
+n_boot = 2000
+verbosity = 0
+lead_max = 75
 from func_fc import fcev
 #stat_model_l = [logit]
 dict_experiments = {} ; list_fc = []
@@ -206,7 +207,8 @@ pdfs_folder = os.path.join(working_folder,'pdfs')
 if os.path.isdir(pdfs_folder) != True : os.makedirs(pdfs_folder)
 today = datetime.datetime.today().strftime('%Hhr_%Mmin_%d-%m-%Y')
 f_name = f'{RV_name}_{fcev.tfreq}d_{today}'
-print_sett(list_fc, stat_model_l, f_name)
+filename = os.path.join(working_folder, f_name)
+print_sett(list_fc, stat_model_l, filename)
 
 #%%
 import valid_plots as dfplots

@@ -159,7 +159,7 @@ def GBR_logitCV(RV, df_norm, keys, kwrgs_GBR=None, verbosity=0):
     [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
     
     X = df_norm[keys]
-    X = add_constant(X)
+    X = add_constant(X.values)
     RV_ts = RV.RV_ts_fit
     # Get training years
     TrainIsTrue = df_norm['TrainIsTrue'] 
@@ -195,9 +195,9 @@ def GBR_logitCV(RV, df_norm, keys, kwrgs_GBR=None, verbosity=0):
     
         
     prediction = pd.DataFrame(regressor.predict(X), 
-                              index=X.index, columns=[0])
-    prediction['TrainIsTrue'] = pd.Series(TrainIsTrue.values, index=X.index)
-    prediction['RV_mask'] = pd.Series(pred_mask.values, index=X.index)
+                              index=df_norm.index, columns=[0])
+    prediction['TrainIsTrue'] = pd.Series(TrainIsTrue.values, index=df_norm.index)
+    prediction['RV_mask'] = pd.Series(pred_mask.values, index=df_norm.index)
     logit_pred, model_logit = logit_skl(RV, prediction, keys=None)
     
     

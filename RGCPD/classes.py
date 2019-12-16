@@ -14,7 +14,6 @@ import func_fc
 import functions_pp
 import plot_maps
 import find_precursors
-import functions_RGCPD
 from pathlib import Path
 import inspect, os
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
@@ -273,6 +272,8 @@ class RGCPD:
                     pc_alpha=None, alpha_level=0.05, max_conds_dim=4,
                     max_combinations=1, max_conds_py=None, max_conds_px=None,
                     verbosity=4):
+
+        import wrapper_PCMCI
         
         kwrgs_pcmci = dict(tau_min=tau_min,
                            tau_max=tau_max,
@@ -296,9 +297,9 @@ class RGCPD:
         
         if os.path.isdir(self.path_outsub2) == False : os.makedirs(self.path_outsub2)
             
-        self.pcmci_dict = functions_RGCPD.loop_train_test(self.df_data, self.path_outsub2, 
+        self.pcmci_dict = wrapper_PCMCI.loop_train_test(self.df_data, self.path_outsub2, 
                                                           **kwrgs_pcmci)
-        self.df_sum = functions_RGCPD.get_df_sum(self.pcmci_dict, kwrgs_pcmci['alpha_level'])
+        self.df_sum = wrapper_PCMCI.get_df_sum(self.pcmci_dict, kwrgs_pcmci['alpha_level'])
         print(self.df_sum)
         # get xarray dataset for each variable
         self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_sum, 

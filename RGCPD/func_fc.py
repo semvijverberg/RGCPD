@@ -93,9 +93,9 @@ class fcev():
                    keys_d=None, causal=False):
         '''
         stat_model_l:   list of with model string and kwrgs 
-        keys_d      :   dict, with keys : list of variable to fit, if None
-                        all keys in each training set will be used to fit
-                        if string is given, exp_py will follow some rules to 
+        keys_d      :   dict, with keys : list of variables to fit, if None
+                        all keys in each training set will be used to fit.
+                        If string is given, exp_py will follow some rules to 
                         keep only keys you want to fit.
         
         '''
