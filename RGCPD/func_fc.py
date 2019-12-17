@@ -13,6 +13,7 @@ import eofs
 import stat_models
 import classes
 import validation as valid
+import df_analysis as df_ana
 import inspect, os
 import exp_fc
 
@@ -47,9 +48,6 @@ class fcev():
         fcev.number_of_times_called += 1
         return 
 
-    
-    
-    
     @classmethod
     def get_test_data(cls, stat_model_l=None, keys_d=None, causal=False, n_boot=100):
         path_py   = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
@@ -58,7 +56,6 @@ class fcev():
         path_data = os.path.join('/'.join(path_py.split('/')[:-1]), 'data', test_fname)
         return cls(path_data, name=name)
          
-    
     def get_TV(self, kwrgs_events=None, kwrgs_pp=None):
         
         # target events
@@ -117,7 +114,6 @@ class fcev():
             self.keys_d = exp_fc.normal_precursor_regions(self.path_data, 
                                                           keys_options=[keys_d], 
                                                           causal=self.causal)[keys_d]
-
         if isinstance(lead_max, int): 
             if fcev.tfreq == 1:
                 self.lags_i = np.arange(0, lead_max+1E-9, max(10,fcev.tfreq), dtype=int)
@@ -151,7 +147,6 @@ class fcev():
                                                       kwrgs_pp=self.kwrgs_pp, 
                                                       stat_model=stat_model, 
                                                       lags_i=self.lags_i)
-            
             self.dict_models[name] = (y_pred_all, y_pred_c)
                      
         return 
@@ -179,7 +174,7 @@ class fcev():
         return 
 
     @classmethod
-    def plot_scatter(cls, colwrap=3, sharex='none', s=0, mask='RV_mask', aggr=None, 
+    def plot_scatter(cls, keys=None, colwrap=3, sharex='none', s=0, mask='RV_mask', aggr=None, 
                      title=None):
         df_d = cls.df_data.loc[s]
         if mask is None:
@@ -194,7 +189,7 @@ class fcev():
         kwrgs = {'tv':tv,
                 'aggr':aggr,
                  'title':title}
-        valid.loop_df(df_d, valid.plot_scatter, colwrap=colwrap, 
+        df_ana.loop_df(df_d, df_ana.plot_scatter, keys=keys, colwrap=colwrap, 
                             sharex=sharex, kwrgs=kwrgs)
         return 
     

@@ -9,7 +9,6 @@ Created on Sun Sep 29 20:15:50 2019
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import matplotlib.patches as patches
 #from sklearn import metrics
 import functions_pp
@@ -18,7 +17,7 @@ import seaborn as sns
 from itertools import chain
 flatten = lambda l: list(chain.from_iterable(l))
 
-
+import matplotlib as mpl
 from matplotlib import cycler
 nice_colors = ['#EE6666', '#3388BB', '#9988DD',
                  '#EECC55', '#88BB44', '#FFBBBB']
@@ -46,124 +45,6 @@ mpl.rcParams['font.size'] = 13
 mpl.rcParams['legend.fontsize'] = 'medium'
 mpl.rcParams['figure.titlesize'] = 'medium'
 
-
-
-def corr_matrix_pval(df, alpha=0.05):
-    from scipy import stats
-    if type(df) == type(pd.DataFrame()):
-        cross_corr = np.zeros( (df.columns.size, df.columns.size) )
-        pval_matrix = np.zeros_like(cross_corr)
-        for i1, col1 in enumerate(df.columns):
-            for i2, col2 in enumerate(df.columns):
-                pval = stats.pearsonr(df[col1].values, df[col2].values)
-                pval_matrix[i1, i2] = pval[-1]
-                cross_corr[i1, i2]  = pval[0]
-        # recreate pandas cross corr
-        cross_corr = pd.DataFrame(data=cross_corr, columns=df.columns,
-                                  index=df.columns)
-    sig_mask = pval_matrix < alpha
-    return cross_corr, sig_mask, pval_matrix
-
-def build_ts_matric(df_init, win=20, lag=0, columns=list, rename=dict, period='fullyear'):
-    #%%
-    '''
-    period = ['fullyear', 'summer60days', 'pre60days']
-    '''
-    splits = df_init.index.levels[0]
-    dates_full_orig = df_init.loc[0].index
-    dates_RV_orig   = df_init.loc[0].index[df_init.loc[0]['RV_mask']==True]
-
-
-    if columns is None:
-        columns = df_init.columns
-
-    df_cols = df_init[columns]
-
-    TrainIsTrue = df_init['TrainIsTrue']
-
-    list_test = []
-    for s in range(splits.size):
-        TestIsTrue = TrainIsTrue[s]==False
-        list_test.append(df_cols.loc[s][TestIsTrue])
-
-    df_test = pd.concat(list_test).sort_index()
-
-
-    # shift precursor vs. tmax
-    for c in df_test.columns[1:]:
-        df_test[c] = df_test[c].shift(periods=-lag)
-
-    # bin means
-    df_test = df_test.resample(f'{win}D').mean()
-
-    if period=='fullyear':
-        dates_sel = dates_full_orig.strftime('%Y-%m-%d')
-    elif period == 'summer60days':
-        dates_sel = dates_RV_orig.strftime('%Y-%m-%d')
-    elif period == 'pre60days':
-        dates_sel = (dates_RV_orig - pd.Timedelta(60, unit='d')).strftime('%Y-%m-%d')
-
-    # after resampling, not all dates are in their:
-    dates_sel =  pd.to_datetime([d for d in dates_sel if d in df_test.index] )
-    df_period = df_test.loc[dates_sel, :].dropna()
-
-    if rename is not None:
-        df_period = df_period.rename(rename, axis=1)
-
-    corr, sig_mask, pvals = corr_matrix_pval(df_period, alpha=0.01)
-
-    # Generate a mask for the upper triangle
-    mask_tri = np.zeros_like(corr, dtype=np.bool)
-
-    mask_tri[np.triu_indices_from(mask_tri)] = True
-    mask_sig = mask_tri.copy()
-    mask_sig[sig_mask==False] = True
-
-    # removing meaningless row and column
-    cols = corr.columns
-    corr = corr.drop(cols[0], axis=0).drop(cols[-1], axis=1)
-    mask_sig = mask_sig[1:, :-1]
-    mask_tri = mask_tri[1:, :-1]
-    # Set up the matplotlib figure
-    f, ax = plt.subplots(figsize=(10, 10))
-
-    # Generate a custom diverging colormap
-    cmap = sns.diverging_palette(220, 10, n=9, l=30, as_cmap=True)
-
-
-    ax = sns.heatmap(corr, ax=ax, mask=mask_tri, cmap=cmap, vmax=1E99, center=0,
-                square=True, linewidths=.5,
-                 annot=False, annot_kws={'size':30}, cbar=False)
-
-
-    sig_bold_labels = sig_bold_annot(corr, mask_sig)
-    # Draw the heatmap with the mask and correct aspect ratio
-    ax = sns.heatmap(corr, ax=ax, mask=mask_tri, cmap=cmap, vmax=1, center=0,
-                square=True, linewidths=.5, cbar_kws={"shrink": .8},
-                 annot=sig_bold_labels, annot_kws={'size':30}, cbar=False, fmt='s')
-
-    ax.tick_params(axis='both', labelsize=15,
-                   bottom=True, top=False, left=True, right=False,
-                   labelbottom=True, labeltop=False, labelleft=True, labelright=False)
-
-    ax.set_xticklabels(corr.columns, fontdict={'fontweight':'bold',
-                                               'fontsize':25})
-    ax.set_yticklabels(corr.index, fontdict={'fontweight':'bold',
-                                               'fontsize':25}, rotation=0)
-    #%%
-    return
-
-def sig_bold_annot(corr, pvals):
-    corr_str = np.zeros_like( corr, dtype=str ).tolist()
-    for i1, r in enumerate(corr.values):
-        for i2, c in enumerate(r):
-            if pvals[i1, i2] <= 0.05 and pvals[i1, i2] > 0.01:
-                corr_str[i1][i2] = '{:.2f}*'.format(c)
-            if pvals[i1, i2] <= 0.01:
-                corr_str[i1][i2]= '{:.2f}**'.format(c)
-            elif pvals[i1, i2] > 0.05:
-                corr_str[i1][i2]= '{:.2f}'.format(c)
-    return np.array(corr_str)
 
 
 def plot_score_expers(d_expers=dict, model=str, metric=str, lags_t=None,
