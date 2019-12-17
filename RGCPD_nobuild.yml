@@ -14,9 +14,7 @@ dependencies:
   - hdf4=4.2.13
   - hdf5=1.10.5
   - ipython=7.5.0
-  - jupyter_client=5.3.3
-  - jupyter_core=4.4.0
-  - jupyter-lab
+  - jupyterlab=1.2.4
   - matplotlib=2.2.3
   - matplotlib-base=3.1.1
   - nbconvert=5.6.0
