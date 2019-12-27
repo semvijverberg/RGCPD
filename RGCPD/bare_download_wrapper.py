@@ -50,11 +50,12 @@ ex = dict(
      {'dataset'     :       dataset,
      'grid_res'     :       2.5,
      'startyear'    :       1979, # download startyear
-     'endyear'      :       2019, # download endyear
+     'endyear'      :       2018, # download endyear
      'months'       :       list(range(1,12+1)), #downoad months
-     'input_freq'  :       'daily',
-     'stream'       :       'enda', # for daily choose 'oper' or 'enda' 
-     'time'         :       pd.DatetimeIndex(start='00:00', end='23:00',
+     # for monthly means of daily means, choose 'moda' or 'mnth'
+     # for daily means choose 'oper' or 'enda' (for accumulations)
+     'stream'       :       'oper', 
+     'time'         :       pd.date_range(start='00:00', end='23:00',
                                 freq=(pd.Timedelta(6, unit='h'))),
      'area'         :       'global', # [North, West, South, East]. Default: global
      'base_path'    :       base_path,
@@ -77,11 +78,11 @@ elif ex['dataset'] == 'era5':
 
 # See https://confluence.ecmwf.int/display/CKB/How+to+download+ERA5
 
-ex['vars']     =   [
-                    ['E'],              # ['name_var1','name_var2', ...]
-                    ['Evaporation'],    # ECMWF param ids
-                    ['sfc'],             # Levtypes ('sfc' or 'pl')
-                    [['0']],                  # Vertical levels
+ex['vars']     =    [
+                    ['v500hpa'],              # ['name_var1','name_var2', ...]
+                    ['v_component_of_wind'],    # ECMWF param ids
+                    ['pl'],             # Levtypes ('sfc' or 'pl')
+                    [['500']],                  # Vertical levels
                     ]
 
 for idx in range(len(ex['vars'][0]))[:]:
