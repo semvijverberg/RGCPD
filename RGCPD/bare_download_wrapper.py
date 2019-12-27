@@ -12,9 +12,13 @@ import numpy as np
 import pandas as pd
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 local_base_path = "/Users/semvijverberg/surfdrive/"
-cluster_base_path = "/p/projects/climber3/atm_data/"
 local_script_dir = os.path.join(local_base_path, "Scripts/RGCPD/RGCPD" )
-cluster_script_dir = "/home/semvij/Scripts/RGCPD/RGCPD"
+
+# cluster_base_path = "/p/projects/climber3/atm_data/"
+cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/ERA5/"
+
+cluster_script_dir = "/scistor/ivm/svg460/Scripts/RGCPD/RGCPD"
+
 
 
 try:
@@ -32,12 +36,10 @@ except:
 
 dataset   = 'era5' # choose 'era5' or 'ERAint' or era20c
 exp_folder = ''
-path_raw = os.path.join(base_path,'Data_{}/'
-                        'input_raw'.format(dataset))
-path_pp  = os.path.join(base_path, exp_folder, 'Data_{}/'
-                        'input_pp'.format(dataset))
+path_raw = os.path.join(base_path,f'Data_{dataset}/{exp_folder}')
+                        
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
-if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
+
 
 # *****************************************************************************
 # Step 1 Create dictionary and variable class (and optionally download ncdfs)
@@ -56,8 +58,7 @@ ex = dict(
                                 freq=(pd.Timedelta(6, unit='h'))),
      'area'         :       'global', # [North, West, South, East]. Default: global
      'base_path'    :       base_path,
-     'path_raw'     :       path_raw,
-     'path_pp'      :        path_pp}
+     'path_raw'     :       path_raw}
      )
 
 if ex['dataset'] == 'ERAint' or ex['dataset'] == 'era20c':

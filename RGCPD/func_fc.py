@@ -5,6 +5,8 @@ Created on Thu Aug 22 12:54:45 2019
 
 @author: semvijverberg
 """
+import inspect, os, sys
+curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 import h5py
 import pandas as pd
 import numpy as np
@@ -14,10 +16,11 @@ import stat_models
 import classes
 import validation as valid
 import df_analysis as df_ana
-import inspect, os
+if '.df_analysis/df_analysis/' not in sys.path:
+    sys.path.append('.df_analysis/df_analysis/')
 import exp_fc
 
-curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+
 
 
 class fcev():

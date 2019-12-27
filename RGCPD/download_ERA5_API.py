@@ -21,7 +21,6 @@ def Variable(self, ex):
     self.grid = ['{}'.format(ex['grid_res']),'{}'.format(ex['grid_res'])]
     self.dataset = ex['dataset']
     self.path_raw = ex['path_raw']
-    self.path_pp = ex['path_pp']
     self.base_path = ex['base_path']
     return self
 
