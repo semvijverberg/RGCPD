@@ -942,33 +942,33 @@ def xarray_plot(data, path='default', name = 'default', saving=False):
         save_figure(data, path=path)
     plt.show()
 
-def convert_longitude(data, to_format='west_east'):
-    import numpy as np
-    import xarray as xr
-    if to_format == 'west_east':
-        lon_above = data.longitude[np.where(data.longitude > 180)[0]]
-        lon_normal = data.longitude[np.where(data.longitude <= 180)[0]]
-        # roll all values to the right for len(lon_above amount of steps)
-        data = data.roll(longitude=len(lon_above))
-        # adapt longitude values above 180 to negative values
-        substract = lambda x, y: (x - y)
-        lon_above = xr.apply_ufunc(substract, lon_above, 360)
-        if lon_normal.size != 0:
-            if lon_normal[0] == 0.:
-                convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
-            else:
-                convert_lon = xr.concat([lon_normal, lon_above], dim='longitude')
-        else:
-            convert_lon = lon_above
+# def convert_longitude(data, to_format='west_east'):
+#     import numpy as np
+#     import xarray as xr
+#     if to_format == 'west_east':
+#         lon_above = data.longitude[np.where(data.longitude > 180)[0]]
+#         lon_normal = data.longitude[np.where(data.longitude <= 180)[0]]
+#         # roll all values to the right for len(lon_above amount of steps)
+#         data = data.roll(longitude=len(lon_above))
+#         # adapt longitude values above 180 to negative values
+#         substract = lambda x, y: (x - y)
+#         lon_above = xr.apply_ufunc(substract, lon_above, 360)
+#         if lon_normal.size != 0:
+#             if lon_normal[0] == 0.:
+#                 convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
+#             else:
+#                 convert_lon = xr.concat([lon_normal, lon_above], dim='longitude')
+#         else:
+#             convert_lon = lon_above
 
-    elif to_format == 'only_east':
-        lon_above = data.longitude[np.where(data.longitude >= 0)[0]]
-        lon_below = data.longitude[np.where(data.longitude < 0)[0]]
-        lon_below += 360
-        data = data.roll(longitude=len(lon_below))
-        convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
-    data['longitude'] = convert_lon
-    return data
+#     elif to_format == 'only_east':
+#         lon_above = data.longitude[np.where(data.longitude >= 0)[0]]
+#         lon_below = data.longitude[np.where(data.longitude < 0)[0]]
+#         lon_below += 360
+#         data = data.roll(longitude=len(lon_below))
+#         convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
+#     data['longitude'] = convert_lon
+#     return data
 
 def find_region(data, region='EU'):
     import numpy as np

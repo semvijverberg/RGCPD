@@ -24,6 +24,8 @@ def get_oneyr(datetime):
 def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_lon='east_west'):
     '''
     selbox has format of (lon_min, lon_max, lat_min, lat_max)
+    # in format east_west
+    # test selbox assumes [west_lon, east_lon, south_lat, north_lat]
     '''
     
     ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
@@ -51,7 +53,7 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
 
 
     if selbox is not None:
-        get_selbox(ds, selbox)
+        ds = get_selbox(ds, selbox)
 
     ds = ds.sortby('latitude') #ensure latitude is in increasing order
 
@@ -106,7 +108,17 @@ def remove_leapdays(datetime):
 def get_selbox(ds, selbox):
     '''
     selbox has format of (lon_min, lon_max, lat_min, lat_max)
+    # test selbox assumes [west_lon, east_lon, south_lat, north_lat]
     '''
+    
+    except_cross180_westeast = test_periodic(ds)==False and 0 not in ds.longitude
+        
+    if except_cross180_westeast:
+        # convert selbox to degrees east
+        selbox = np.array(selbox)
+        selbox[selbox < 0] += 360
+        selbox = list(selbox)
+    
     if ds.latitude[0] > ds.latitude[1]:
         slice_lat = slice(max(selbox[2:]), min(selbox[2:]))
     else:
