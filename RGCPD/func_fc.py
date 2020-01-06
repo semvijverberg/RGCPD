@@ -13,7 +13,7 @@ import numpy as np
 import xarray as xr
 import eofs
 import stat_models
-import classes
+from class_RV import RV_class
 import validation as valid
 import df_analysis as df_ana
 if '.df_analysis/df_analysis/' not in sys.path:
@@ -209,7 +209,7 @@ def df_data_to_RV(df_data=pd.DataFrame, kwrgs_pp=dict, kwrgs_events=dict):
     RVfullts = pd.DataFrame(df_data[df_data.columns[0]][0])
     RV_ts    = pd.DataFrame(df_data[df_data.columns[0]][0][df_data['RV_mask'][0]] )
     fit_model_dates = kwrgs_pp['fit_model_dates']
-    RV = classes.RV_class(RVfullts, RV_ts, kwrgs_events, 
+    RV = RV_class(RVfullts, RV_ts, kwrgs_events, 
                           fit_model_dates=fit_model_dates)
     return RV
 
@@ -297,7 +297,6 @@ def fit_model(RV, df_data, keys_d, kwrgs_pp={}, stat_model=tuple, lags_i=list,
         y_pred_all.append(y_pred_l)
     y_pred_all = pd.concat(y_pred_all, axis=1)
     print("\n")
-    # do validation
 
     print(f'{stat_model} ')
     return y_pred_all, y_pred_c

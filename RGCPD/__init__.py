@@ -2,7 +2,7 @@
 """Documentation about RGCPD"""
 import sys
 sys.path.append('./RGCPD')
-from classes import RGCPD
+from class_RGCPD import RGCPD
 from func_fc import fcev
 
 

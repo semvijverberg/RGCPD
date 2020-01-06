@@ -8,7 +8,6 @@ Created on Fri May 17 16:31:11 2019
 import os
 import numpy as np
 import pandas as pd
-from netCDF4 import num2date
 import matplotlib.pyplot as plt
 import xarray as xr
 import itertools
@@ -59,6 +58,7 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
 
     # get dates
     if 'time' in ds.dims:
+        from netCDF4 import num2date
         numtime = ds['time']
         dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
 
@@ -141,6 +141,7 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
 
     #%%
     import xarray as xr
+    from netCDF4 import num2date
     ds = import_ds_lazy(infile, loadleap=loadleap,
                         seldates=seldates, selbox=selbox, format_lon=format_lon)
 

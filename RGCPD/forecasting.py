@@ -17,7 +17,7 @@ sys.path.append(script_dir)
 from importlib import reload as rel
 import os, datetime
 import numpy as np
-import func_fc
+#import func_fc
 
 # =============================================================================
 # load data 
@@ -71,7 +71,7 @@ GBR_logitCV_tuned = ('GBR-logitCV',
 
 ERA_and_EC_daily  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
                  'EC-earth 2.3':(strat_1d_CPPA_EC, ['PEP', 'CPPA'])} # random_state 60
-stat_model_l = [GBR_logitCV, logit]
+
 
 
    
@@ -88,8 +88,8 @@ stat_model_l = [GBR_logitCV, logit]
 #ERA5_sm_30d         = {'ERA-5:':(CPPA_sm_30d, ['sst(CPPA)+sm'])}
 #stat_model_l = [logit, logitCV]
 
-#ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
-#stat_model_l = [GBR_logitCV]
+ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
+stat_model_l = [GBR_logitCV]
 
 #RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_z500_10d, ['only_db_regs'])}
 #stat_model_l = [logitCV, GBR_logitCV]
@@ -123,7 +123,7 @@ kwrgs_events_daily =    (filename_ts,
 
 kwrgs_events = kwrgs_events_daily
     
-#kwrgs_events = {'event_percentile': 90,
+#kwrgs_events = {'event_percentile': 66,
 #                'min_dur' : 1,
 #                'max_break' : 0,
 #                'grouped' : False}
@@ -135,7 +135,7 @@ kwrgs_pp = {'EOF':False,
 
 
 #%%
-n_boot = 2000
+n_boot = 100
 verbosity = 0
 lead_max = 75
 from func_fc import fcev

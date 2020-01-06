@@ -8,7 +8,6 @@ Created on Mon Jul  9 17:48:31 2018
 import os
 import numpy as np
 import pandas as pd
-from netCDF4 import num2date
 import matplotlib.pyplot as plt
 import xarray as xr
 import itertools
@@ -871,31 +870,6 @@ def TVmonthrange(fullts, start_end_TVdate):
 #    last_d  = senddate.dayofyear
 #    datesRV = pd.to_datetime([d for d in dates if d.dayofyear >= first_d and d.dayofyear <= last_d])
 #    return datesRV
-
-
-def import_array(cls, path='pp'):
-    import os
-    import xarray as xr
-
-    import pandas as pd
-    import numpy as np
-    if path == 'raw':
-        file_path = os.path.join(cls.path_raw, cls.filename)
-
-    else:
-        file_path = os.path.join(cls.path_pp, cls.filename_pp)
-    ncdf = xr.open_dataset(file_path, decode_cf=True, decode_coords=True, decode_times=False)
-    marray = np.squeeze(ncdf.to_array(file_path).rename(({file_path: cls.name.replace(' ', '_')})))
-    numtime = marray['time']
-    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
-    if numtime.attrs['calendar'] != 'gregorian':
-        dates = [d.strftime('%Y-%m-%d') for d in dates]
-    dates = pd.to_datetime(dates)
-#    print('temporal frequency \'dt\' is: \n{}'.format(dates[1]- dates[0]))
-    marray['time'] = dates
-    cls.dates = dates
-    return marray, cls
-
 
 
 def area_weighted(xarray):

@@ -17,7 +17,7 @@ import pandas as pd
 from statsmodels.sandbox.stats import multicomp
 import functions_pp
 import func_fc
-import classes
+from class_RV import RV_class
 #import plot_maps
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
@@ -33,9 +33,9 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
                                index=pd.to_datetime(TV_ts.time.values))
     if method[:9] == 'ran_strat':
         kwrgs_events = kwrgs_events
-        TV = classes.RV_class(df_fullts, df_RV_ts, kwrgs_events)
+        TV = RV_class(df_fullts, df_RV_ts, kwrgs_events)
     else:
-        TV = classes.RV_class(df_fullts, df_RV_ts)
+        TV = RV_class(df_fullts, df_RV_ts)
     
     if precursor_ts is not None:
         # Retrieve same train test split as imported ts
