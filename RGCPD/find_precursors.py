@@ -6,8 +6,6 @@ Created on Thu Dec  5 12:17:25 2019
 @author: semvijverberg
 """
 
-import os
-
 import itertools
 import numpy as np
 import xarray as xr

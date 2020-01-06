@@ -21,8 +21,6 @@ if '.df_analysis/df_analysis/' not in sys.path:
 import exp_fc
 
 
-
-
 class fcev():
     
     number_of_times_called = 0
@@ -97,7 +95,6 @@ class fcev():
                         all keys in each training set will be used to fit.
                         If string is given, exp_py will follow some rules to 
                         keep only keys you want to fit.
-        
         '''
         
         self.stat_model_l = stat_model_l
@@ -194,13 +191,8 @@ class fcev():
                  'title':title}
         df_ana.loop_df(df_d, df_ana.plot_scatter, keys=keys, colwrap=colwrap, 
                             sharex=sharex, kwrgs=kwrgs)
-        return 
-    
-
+        return        
         
-        
-    
-    
 def df_data_to_RV(df_data=pd.DataFrame, kwrgs_pp=dict, kwrgs_events=dict):
     '''
     input df_data according to RGCPD format
@@ -213,9 +205,7 @@ def df_data_to_RV(df_data=pd.DataFrame, kwrgs_pp=dict, kwrgs_events=dict):
                           fit_model_dates=fit_model_dates)
     return RV
 
-
-
-def fit_model(RV, df_data, keys_d, kwrgs_pp={}, stat_model=tuple, lags_i=list,
+def fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=list,
               verbosity=0):
     #%%
     # do forecasting accros lags
@@ -226,15 +216,17 @@ def fit_model(RV, df_data, keys_d, kwrgs_pp={}, stat_model=tuple, lags_i=list,
     c = 0
 
     for lag in lags_i:
-
         y_pred_l = []
-
         for s in splits:
             c += 1
             progress = int(100 * (c) / (len(splits) * len(lags_i)))
             print(f"\rProgress {progress}%", end="")
-
-            keys = keys_d[s].copy()
+            
+            if keys_d is not None:
+                keys = keys_d[s].copy()
+            else:
+                keys = None
+                
             model_name, kwrgs = stat_model
 
             df_split = df_data.loc[s]
@@ -301,110 +293,96 @@ def fit_model(RV, df_data, keys_d, kwrgs_pp={}, stat_model=tuple, lags_i=list,
     print(f'{stat_model} ')
     return y_pred_all, y_pred_c
 
-
-
-
-
-
-
-def load_hdf5(path_data):
-    hdf = h5py.File(path_data,'r+')
-    dict_of_dfs = {}
-    for k in hdf.keys():
-        dict_of_dfs[k] = pd.read_hdf(path_data, k)
-    hdf.close()
-    return dict_of_dfs
-
-def prepare_data(df_split, lag_i=int, TrainIsTrue=None, RV_mask=None,
-                 fit_model_dates=None, norm_datesRV=True, remove_RV=True, keys=None,
-                 add_autocorr=True, EOF=False, expl_var=None):
+def prepare_data(df_split, lag_i=int, normalize='datesRV', remove_RV=True, 
+                 keys=None, add_autocorr=True, EOF=False, expl_var=None):
+                 
 
     #%%
     '''
-    TrainisTrue     : Specifies train and test dates.
-    RV_mask         : Specifies what data will be predicted.
-    fit_model_dates : It can be desirable to train on
-                      more dates than what you want to predict.
-    RV              : Response Variable (raw data).
-    df_norm         : Normalized precursor data.
+    TrainisTrue     : Specifies train and test dates, col of df_split.
+    RV_mask         : Specifies what data will be predicted, col of df_split.
+    fit_model_dates : Optional: It can be desirable to train on
+                      more dates than what you want to predict, col of df_split.
     remove_RV       : First column is the RV, and is removed.
     lag_i           : Data will be shifted with 'lag' periods, the index (dates).
                       will artificially be kept the same for each lag.
-
+     
+    returns:
+        df_norm     : Dataframe
+        x_keys      : updated set of keys to fit model
     '''
 
-    dates_orig = df_split.index
+    if keys is None:
+        keys = np.array(df_split.dtypes.index[df_split.dtypes != bool], dtype='object') 
 
-
-    TrainIsTrue = df_split['TrainIsTrue']
-    RV_mask = df_split['RV_mask']
-
-    if fit_model_dates is None:
-        fit_model_mask = RV_mask
+    RV_name = df_split.columns[0]
+    df_RV = df_split[RV_name]
+    if remove_RV is True:
+        # completely remove RV timeseries
+        df_prec = df_split.drop([RV_name], axis=1)
+        keys = np.array([k for k in keys if k != RV_name], dtype='object')
     else:
-        fit_model_mask = df_split['fit_model_mask']
+        keys = np.array(keys, dtype='object')
+        df_prec = df_split
 
-    if remove_RV is True and add_autocorr==False:
+    if remove_RV is True:
         # completely remove RV timeseries
         RV_name = df_split.columns[0]
         df_prec = df_split.drop([RV_name], axis=1)
-    else:
-        # first column should contain RV timeseries
-        RV_name = df_split.columns[0]
-        df_RV = df_split[RV_name]
-        df_prec = df_split.drop([RV_name], axis=1)
-        keys = [k for k in keys if k != RV_name]
 
-    # =============================================================================
-    # Shifting data w.r.t. index dates
-    # =============================================================================
-#    df_prec.ix[:,0][:10]
-    df_prec = df_prec.shift(periods=int(lag_i))
-#    df_prec.ix[:,0][:10]
-
-    if keys is None:
-        x_keys = np.unique((df_prec.dtypes == np.float64).index)
-    else:
-        x_keys  = keys
-
+    x_keys = np.array(keys, dtype='object')
     if add_autocorr:
-        # ensure that autocorr never contains the RV timeseries at lag = 0
-        df_prec.insert(0, 'RV_ac', df_RV.shift(periods=max(1,int(lag_i))))
+        # minimal shift of lag 1 or it will follow shift with x_fit mask
+        lag_ac = 0 if lag_i > 1 else 1
+        df_prec.insert(0, 'RV_ac', df_RV.shift(periods=-lag_ac))
+        # add key to keys
         if 'RV_ac' not in keys:
-            x_keys = np.insert(keys, 0, 'RV_ac')
-
-
-
-
-    # drop nans
-    mask_nonans = ~df_prec.iloc[:,0].isna().values
-    # last dates are no longer present in shifted data. But we want restore
-    # original dates. We are going to delete the first chronologicall dates
-    # to make them equal length.
-    dates_new  = dates_orig[mask_nonans]
-    df_prec = pd.DataFrame(df_prec[mask_nonans].values, columns=df_prec.columns,
-                           index=dates_new, dtype='float64')
-    TrainIsTrue =   pd.Series(TrainIsTrue[mask_nonans], index=dates_new)
-    RV_mask =       pd.Series(RV_mask[mask_nonans], index=dates_new)
-    fit_model_mask =pd.Series(fit_model_mask[mask_nonans], index=dates_new)
-
+            x_keys = np.insert(keys, 0, 'RV_ac')    
 
     # =============================================================================
     # Select features / variables
     # =============================================================================
     df_prec = df_prec[x_keys]
+
+    # =============================================================================
+    # Shifting data w.r.t. index dates
+    # =============================================================================
+    if 'fit_model_mask' not in df_split.columns:
+        df_split['fit_model_mask'] = df_split['RV_mask'].copy()
+    fit_masks = df_split.loc[:,['TrainIsTrue', 'RV_mask', 'fit_model_mask']].copy()
+    print(fit_masks[fit_masks.index.year==1979])
+    fit_masks = apply_shift_lag(fit_masks, lag_i)
+    print(fit_masks[fit_masks.index.year==1979])
+
+#    # drop nans
+#    mask_nonans = ~df_prec.iloc[:,0].isna().values
+#    # last dates are no longer present in shifted data. But we want restore
+#    # original dates. We are going to delete the first chronologicall dates
+#    # to make them equal length.
+#    dates_new  = df_split.index[mask_nonans]
+#    df_prec = pd.DataFrame(df_prec[mask_nonans].values, columns=df_prec.columns,
+#                           index=dates_new, dtype='float64')
+#    TrainIsTrue =   pd.Series(TrainIsTrue[mask_nonans], index=dates_new)
+#    RV_mask =       pd.Series(RV_mask[mask_nonans], index=dates_new)
+#    fit_model_mask =pd.Series(fit_model_mask[mask_nonans], index=dates_new)
+
     # =============================================================================
     # Normalize data using datesRV or all training data in dataframe
     # =============================================================================
-    if norm_datesRV == False:
-        # Normalize using all dates
+    
+
+    if normalize=='all':
+        # Normalize using all training dates
+        TrainIsTrue = fit_masks['TrainIsTrue']
         df_prec[x_keys]  = (df_prec[x_keys] - df_prec[x_keys][TrainIsTrue].mean(0)) \
                 / df_prec[x_keys][TrainIsTrue].std(0)
-    elif norm_datesRV == True:
+    elif normalize=='datesRV':
         # Normalize only using the RV dates
-        TrainRV = np.logical_and(TrainIsTrue,fit_model_mask).values
+        TrainRV = np.logical_and(TrainIsTrue,fit_masks['x_fit']).values
         df_prec[x_keys]  = (df_prec[x_keys] - df_prec[x_keys][TrainRV].mean(0)) \
                 / df_prec[x_keys][TrainRV].std(0)
+    elif normalize==False:
+        pass
 
 
     if EOF:
@@ -412,21 +390,42 @@ def prepare_data(df_split, lag_i=int, TrainIsTrue=None, RV_mask=None,
             expl_var = 0.75
         else:
             expl_var = expl_var
-        df_prec = transform_EOF(df_prec, TrainIsTrue, fit_model_mask, expl_var=0.8)
+        df_prec = transform_EOF(df_prec, fit_masks['TrainIsTrue'], 
+                                fit_masks['x_fit'], expl_var=0.8)
         df_prec.columns = df_prec.columns.astype(str)
         upd_keys = np.array(df_prec.columns.values.ravel(), dtype=str)
     else:
-        upd_keys = keys
+        upd_keys = x_keys
 
     # =============================================================================
     # Replace masks
     # =============================================================================
-    df_prec['TrainIsTrue']  = TrainIsTrue
-    df_prec['RV_mask']      = RV_mask
-    df_prec['fit_model_mask']  = fit_model_mask
-    df_prec.index = dates_new
+    df_prec = xr.concat([df_prec, fit_masks], dim='time').sortby('time')
     #%%
     return df_prec, upd_keys
+
+def apply_shift_lag(fit_masks, lag_i):
+    '''
+    only shifting the boolean masks, Traintest split info is contained
+    in the TrainIsTrue mask.
+    '''
+    RV_mask = fit_masks['RV_mask'].copy()
+    y_fit = fit_masks['fit_model_mask'].copy()
+    x_fit = y_fit.shift(periods=-int(lag_i))
+    x_fit[~x_fit.notna()] = False
+    x_pred = RV_mask.shift(periods=-int(lag_i))
+    x_pred[~x_pred.notna()] = False
+    # last indices of RV_mask cannot be predicted at lag > lag_i
+    if lag_i > 0:
+        RV_mask.at[-int(lag_i):] = False
+        y_fit.at[-int(lag_i):] = False
+    fit_masks['x_fit'] = x_fit
+    fit_masks['y_fit'] = y_fit
+    fit_masks['x_pred'] = x_pred
+    fit_masks['y_pred'] = RV_mask
+    fit_masks = fit_masks.drop(['RV_mask'], axis=1)
+    fit_masks = fit_masks.drop(['fit_model_mask'], axis=1)
+    return fit_masks
 
 def transform_EOF(df_prec, TrainIsTrue, RV_mask, expl_var=0.8):
     '''
@@ -637,3 +636,10 @@ def func_dates_min_lag(dates, lag, indays = True):
     dates_min_lag_str = [d.strftime('%Y-%m-%d %H:%M:%S') for d in dates_min_lag]
     return dates_min_lag_str, dates_min_lag
 
+def load_hdf5(path_data):
+    hdf = h5py.File(path_data,'r+')
+    dict_of_dfs = {}
+    for k in hdf.keys():
+        dict_of_dfs[k] = pd.read_hdf(path_data, k)
+    hdf.close()
+    return dict_of_dfs
