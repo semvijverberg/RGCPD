@@ -7,6 +7,7 @@ Created on Thu Aug 22 12:54:45 2019
 """
 import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+main_dir = '/'.join(curr_dir.split('/')[:-1])
 import h5py
 import pandas as pd
 import numpy as np
@@ -15,9 +16,10 @@ import eofs
 import stat_models
 import class_RV
 import validation as valid
-import df_analysis as df_ana
-if '.df_analysis/df_analysis/' not in sys.path:
-    sys.path.append('.df_analysis/df_analysis/')
+df_ana_path = os.path.join(main_dir, 'df_analysis/df_analysis/')
+if df_ana_path not in sys.path:
+    sys.path.append(df_ana_path)
+import df_ana
 import exp_fc
 
 
