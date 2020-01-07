@@ -49,7 +49,8 @@ GBR_model = ('GBR',
 logitCV = ('logit-CV', { 'class_weight':{ 0:1, 1:1},
                 'scoring':'brier_score_loss',
                 'penalty':'l2',
-                'solver':'lbfgs'})
+                'solver':'lbfgs',
+                'max_iter':150}) #100 is default
     
 GBR_logitCV = ('GBR-logitCV', 
               {'max_depth':3,
@@ -89,7 +90,7 @@ ERA_and_EC_daily  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
 #stat_model_l = [logit, logitCV]
 
 ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
-stat_model_l = [GBR_logitCV]
+
 
 #RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_z500_10d, ['only_db_regs'])}
 #stat_model_l = [logitCV, GBR_logitCV]
@@ -107,7 +108,7 @@ stat_model_l = [GBR_logitCV]
 datasets_path = ERA_Bram
 
 causal = False
-
+stat_model_l = [GBR_logitCV]
 
 #%%
 # import original Response Variable timeseries:
@@ -115,7 +116,7 @@ path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
 RVts_filename = 'era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19.npy'
 filename_ts = os.path.join(path_ts, RVts_filename)
 kwrgs_events_daily =    (filename_ts, 
-                         {  'event_percentile': 90,
+                         {  'event_percentile': 80,
                         'min_dur' : 1,
                         'max_break' : 0,
                         'grouped' : False   }
@@ -130,14 +131,15 @@ kwrgs_events = kwrgs_events_daily
 
 kwrgs_pp = {'EOF':False, 
             'expl_var':0.5,
-            'fit_model_dates' : None}
+            'add_autocorr':True,
+            'normalize':'datesRV'}
 
 
 
 #%%
 n_boot = 100
 verbosity = 0
-lead_max = 75
+lead_max = 75 # np.array([0,1])
 from func_fc import fcev
 #stat_model_l = [logit]
 dict_experiments = {} ; list_fc = []
@@ -151,10 +153,10 @@ for dataset, path_key in datasets_path.items():
         
         fc = fcev(path_data, name=name)
         
-        fc.get_TV(kwrgs_events=kwrgs_events, kwrgs_pp=kwrgs_pp)
+        fc.get_TV(kwrgs_events=kwrgs_events)
         
         fc.fit_models(stat_model_l=stat_model_l, lead_max=lead_max, 
-                   keys_d=keys_d, causal=False)
+                   keys_d=keys_d, causal=False, kwrgs_pp=kwrgs_pp)
         
         fc.perform_validation(n_boot=n_boot, blocksize='auto', 
                               threshold_pred=(2, 'times_clim'))
@@ -255,7 +257,8 @@ import valid_plots as dfplots
 #            pass
         
 f_formats = ['.pdf']
-f_format = '.png' 
+#f_format = '.png' 
+#f_format = None
 for f_format in f_formats:
     filename = os.path.join(working_folder, f_name)
     

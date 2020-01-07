@@ -31,29 +31,35 @@ def logit(RV, df_norm, keys):
         keys = df_norm.columns
         keys = [k for k in keys if k not in no_data_col]
         
+    # Get training years
+    x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = get_masks(df_norm)
+    
     X = df_norm[keys]
     X = add_constant(X)
-    y = RV.RV_bin_fit
-    # Get training years
-    TrainIsTrue = df_norm['TrainIsTrue'] 
-    # Get mask to make only prediction for RV_mask dates
-    pred_mask   = df_norm['RV_mask']
-
-    model_set = sm.Logit(y['RV_binary'][TrainIsTrue] , 
-                         X[TrainIsTrue], disp=0)
+    X_train = X[x_fit_mask.values]
+    X_pred  = X[x_pred_mask.values]
+    if y_fit_mask is not None:
+        y_train = RV.RV_ts_fit[y_fit_mask.values] 
+    if y_pred_mask is not None:
+        y_dates = RV.RV_ts_fit[y_pred_mask.values].index
+        
+    model_set = sm.Logit(y_train, 
+                         X_train, disp=0)
     try:
         model = model_set.fit( disp=0, maxfun=60 )
-        prediction = model.predict(X[pred_mask])
+        prediction = model.predict(X_pred)
     except np.linalg.LinAlgError as err:
         if 'Singular matrix' in str(err):
             model = model_set.fit(method='bfgs', disp=0 )
-            prediction = model.predict(X[pred_mask])
+            prediction = model.predict(X_pred)
         else:
             raise
     except Exception as e:
         print(e)
         model = model_set.fit(method='bfgs', disp=0 )
-        prediction = model.predict(X)
+        prediction = model.predict(X_pred)
+    
+    prediction = pd.DataFrame(prediction.values, index=y_dates, columns=[0])                          
     #%%
     return prediction, model
 
@@ -146,7 +152,7 @@ def GBR_logitCV(RV, df_norm, keys, kwrgs_GBR=None, verbosity=0):
         
     if kwrgs_GBR == None:
         # use Bram settings
-        kwrgs_GBR = {'max_depth':1,
+        kwrgs_GBR = {'max_depth':3,
                  'learning_rate':0.001,
                  'n_estimators' : 1250,
                  'max_features':'sqrt',
@@ -157,17 +163,21 @@ def GBR_logitCV(RV, df_norm, keys, kwrgs_GBR=None, verbosity=0):
     # only the constant parameters are kept
     kwrgs = kwrgs_GBR.copy()
     [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
+
+
+#    X = add_constant(X.values)   
+
+    # Get training years
+    x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = get_masks(df_norm)
     
     X = df_norm[keys]
-    X = add_constant(X.values)
-    RV_ts = RV.RV_ts_fit
-    # Get training years
-    TrainIsTrue = df_norm['TrainIsTrue'] 
-    # Get mask to make only prediction for RV_mask dates
-    pred_mask   = df_norm['RV_mask']
-  
-    X_train = X[TrainIsTrue.values]
-    y_train = RV_ts[TrainIsTrue.values] 
+    X_train = X[x_fit_mask.values]
+    X_pred  = X[x_pred_mask.values]
+
+    y_train = RV.RV_ts_fit[y_fit_mask.values] 
+    
+    if y_pred_mask is not None:
+        y_dates = RV.RV_ts_fit[y_pred_mask.values].index
     # add sample weight mannually
 #    y_train[y_train > y_train.mean()] = 10 * y_train[y_train > y_train.mean()]
     
@@ -194,10 +204,13 @@ def GBR_logitCV(RV, df_norm, keys, kwrgs_GBR=None, verbosity=0):
         regressor.fit(X_train, y_train.values.ravel())
     
         
-    prediction = pd.DataFrame(regressor.predict(X), 
-                              index=df_norm.index, columns=[0])
-    prediction['TrainIsTrue'] = pd.Series(TrainIsTrue.values, index=df_norm.index)
-    prediction['RV_mask'] = pd.Series(pred_mask.values, index=df_norm.index)
+    prediction = pd.DataFrame(regressor.predict(X_pred), 
+                              index=y_dates, columns=[0])
+    # add masks for second fit with logitCV
+    TrainIsTrue_ = df_norm['TrainIsTrue'].loc[y_pred_mask[y_pred_mask.values].index]
+    prediction['TrainIsTrue'] = pd.Series(TrainIsTrue_.values, 
+                                  index=TrainIsTrue_.index)
+
     logit_pred, model_logit = logit_skl(RV, prediction, keys=None)
     
     
@@ -210,7 +223,7 @@ def GBR_logitCV(RV, df_norm, keys, kwrgs_GBR=None, verbosity=0):
     return logit_pred, (model_logit, regressor)
 
 
-def logit_skl(RV, df_norm, keys, kwrgs_logit=None):
+def logit_skl(RV, df_norm, keys=None, kwrgs_logit=None):
     #%%
     '''
     X contains all precursor data, incl train and test
@@ -222,8 +235,9 @@ def logit_skl(RV, df_norm, keys, kwrgs_logit=None):
             no_data_col = ['TrainIsTrue', 'RV_mask', 'fit_model_mask']
             keys = df_norm.columns
             keys = [k for k in keys if k not in no_data_col]
-    import warnings
+    import warnings 
     warnings.filterwarnings("ignore", category=DeprecationWarning) 
+#    warnings.filterwarnings("ignore", category=FutureWarning) 
         
     if kwrgs_logit == None:
         # use Bram settings
@@ -239,16 +253,25 @@ def logit_skl(RV, df_norm, keys, kwrgs_logit=None):
     kwrgs = kwrgs_logit.copy()
     [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
     
-    X = df_norm[keys]
-    X = add_constant(X.values)
-    RV_bin = RV.RV_bin_fit
     # Get training years
-    TrainIsTrue = df_norm['TrainIsTrue'] 
-    # Get mask to make only prediction for RV_mask dates
-    pred_mask   = df_norm['RV_mask'].values
-  
-    X_train = X[TrainIsTrue.values] 
-    y_train = RV_bin[TrainIsTrue.values].squeeze().values 
+    x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = get_masks(df_norm)
+    
+    X = df_norm[keys]
+#    X = add_constant(X)
+    X_train = X[x_fit_mask.values]
+    X_pred  = X[x_pred_mask.values]
+    if y_fit_mask is not None:
+        y_train = RV.RV_bin_fit[y_fit_mask.values].squeeze() 
+    else:
+        y_train = RV.RV_bin_fit
+    if y_pred_mask is not None:
+        y_dates = RV.RV_bin_fit[y_pred_mask.values].index
+    else:
+        y_dates = X.index
+    
+#    if df_norm[~df_norm['TrainIsTrue']].index.year[0] == 1981:
+#        print(X_train)
+    
 #    RV_ts_train = RV.RV_ts[TrainIsTrue.values] 
 #    high_ano = metrics.roc_auc_score(RV.RV_bin.squeeze().values, RV.RV_ts.values)
 #    if high_ano == 1.0:
@@ -262,11 +285,11 @@ def logit_skl(RV, df_norm, keys, kwrgs_logit=None):
     strat_cv = StratifiedKFold(5, shuffle=False)
     model = LogisticRegressionCV(Cs=10, fit_intercept=True, 
                                  cv=strat_cv,
-                                 n_jobs=2, 
+                                 n_jobs=3, 
                                  **kwrgs_logit)
                                  
     model.fit(X_train, y_train)
-    y_pred = model.predict_proba(X[pred_mask])[:,1]
+    y_pred = model.predict_proba(X_pred)[:,1]
 #    regressor = GradientBoostingClassifier(**kwrgs)
 #
 #    if len(kwrgs_gridsearch) != 0:
@@ -289,7 +312,7 @@ def logit_skl(RV, df_norm, keys, kwrgs_logit=None):
     
 #    y_pred = regressor.predict(X)
 #    y_pred[y_pred!=1] = 0
-    prediction = pd.DataFrame(y_pred, index=df_norm[pred_mask].index, columns=[0])
+    prediction = pd.DataFrame(y_pred, index=y_dates, columns=[0])
 
     #%%
     return prediction, model
@@ -436,3 +459,35 @@ def GBC(RV, df_norm, keys, kwrgs_GBR=None, verbosity=0):
 
     #%%
     return prediction, regressor
+
+def get_masks(df_norm):
+    '''
+    x_fit and y_fit can be encompass more data then x_pred, therefore they
+    are split from x_pred and y_pred.
+    y_pred is needed in the special occasion no past (lagged) data for X avaible
+    if these are not given, then model x_fit, y_fit, x_pred & y_pred are 
+    fitted according to TrainIsTrue at lag=0. 
+    '''
+    TrainIsTrue = df_norm['TrainIsTrue']
+    if 'x_fit' in df_norm.columns:
+        x_fit_mask = np.logical_and(TrainIsTrue, df_norm['x_fit'])
+    else:
+        x_fit_mask = TrainIsTrue
+    if 'y_fit' in df_norm.columns:
+        y_fit_dates = df_norm['y_fit'][df_norm['y_fit']].index
+        y_fit_mask = np.logical_and(TrainIsTrue, df_norm['y_fit'])
+        y_fit_mask = y_fit_mask.loc[y_fit_dates]
+    else:
+        y_fit_mask = x_fit_mask
+    if 'x_pred' in df_norm.columns:
+        x_pred_mask = df_norm['x_pred']
+    else:
+        x_pred_mask = pd.Series(np.repeat(True, x_fit_mask.size),
+                                index=x_fit_mask.index)
+    if 'y_pred' in df_norm.columns:
+        y_pred_dates = df_norm['y_pred'][df_norm['y_pred']].index
+        y_pred_mask = df_norm['y_pred'] 
+        y_pred_mask = y_pred_mask.loc[y_pred_dates]
+    else:
+        y_pred_mask = None
+    return x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask
