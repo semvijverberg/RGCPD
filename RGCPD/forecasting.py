@@ -32,7 +32,7 @@ RGCPD_sst_sm_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_ss
 RGCPD_sst_sm_z500_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/list_tf_8_11_19/t2mmax_E-US_sst_sm123_z500hpa_m01-08_dt10/18jun-27aug_lag10-10_random10_s30/pcA_none_ac0.002_at0.05_subinfo/fulldata_pcA_none_ac0.002_at0.05_2019-11-17.h5'
 RGCPD_sst_sm_z500_20d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/list_tf_8_11_19/t2mmax_E-US_sst_sm123_z500hpa_m01-08_dt20/14may-22aug_lag20-20_random10_s30/pcA_none_ac0.002_at0.05_subinfo/fulldata_pcA_none_ac0.002_at0.05_2019-11-19.h5'
 RGCPD_sst_sm_z500_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/list_tf_8_11_19/t2mmax_E-US_sst_sm123_z500hpa_m01-08_dt30/19may-17aug_lag30-30_random10_s30/pcA_none_ac0.002_at0.05_subinfo/fulldata_pcA_none_ac0.002_at0.05_2019-11-17.h5'
-
+synthetic = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD/df_analysis/df_data.h5'
 
 
 
@@ -89,7 +89,7 @@ ERA_and_EC_daily  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
 #ERA5_sm_30d         = {'ERA-5:':(CPPA_sm_30d, ['sst(CPPA)+sm'])}
 #stat_model_l = [logit, logitCV]
 
-ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
+ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, [None])}
 
 
 #RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_z500_10d, ['only_db_regs'])}
@@ -105,7 +105,9 @@ ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
 #ERA_sp      = {'ERA-5:':(CPPA_sm_10d, ['CPPAregs+sm', 'CPPApattern+sm', 'sst(CPPA)+sm'])}
 #stat_model_l = [GBR_logitCV]
 
-datasets_path = ERA_Bram
+syn       = {'syn':(synthetic, [None])}
+
+datasets_path = syn
 
 causal = False
 stat_model_l = [GBR_logitCV]
@@ -116,7 +118,7 @@ path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
 RVts_filename = 'era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19.npy'
 filename_ts = os.path.join(path_ts, RVts_filename)
 kwrgs_events_daily =    (filename_ts, 
-                         {  'event_percentile': 80,
+                         {  'event_percentile': 90,
                         'min_dur' : 1,
                         'max_break' : 0,
                         'grouped' : False   }
@@ -124,10 +126,10 @@ kwrgs_events_daily =    (filename_ts,
 
 kwrgs_events = kwrgs_events_daily
     
-#kwrgs_events = {'event_percentile': 66,
-#                'min_dur' : 1,
-#                'max_break' : 0,
-#                'grouped' : False}
+kwrgs_events = {'event_percentile': 66,
+                'min_dur' : 1,
+                'max_break' : 0,
+                'grouped' : False}
 
 kwrgs_pp = {'EOF':False, 
             'expl_var':0.5,
@@ -139,7 +141,7 @@ kwrgs_pp = {'EOF':False,
 #%%
 n_boot = 100
 verbosity = 0
-lead_max = 75 # np.array([0,1])
+lead_max = np.array([1]) # np.array([0,1])
 from func_fc import fcev
 #stat_model_l = [logit]
 dict_experiments = {} ; list_fc = []
@@ -149,7 +151,7 @@ for dataset, path_key in datasets_path.items():
     path_data = path_key[0]
     keys_options = path_key[1]
     for i, keys_d in enumerate(keys_options):
-        name = dataset+' '+keys_d
+        name = dataset+' '+str(keys_d)
         
         fc = fcev(path_data, name=name)
         
@@ -204,7 +206,7 @@ def print_sett(list_fc, stat_model_l, filename=None):
         
   
 RV_name = 't2mmax'
-working_folder = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/forecasting'
+working_folder = '/Users/semvijverberg/surfdrive/RGCPD/forecasting'
 pdfs_folder = os.path.join(working_folder,'pdfs')
 if os.path.isdir(pdfs_folder) != True : os.makedirs(pdfs_folder)
 today = datetime.datetime.today().strftime('%Hhr_%Mmin_%d-%m-%Y')
@@ -256,9 +258,9 @@ import valid_plots as dfplots
 #        except:
 #            pass
         
-f_formats = ['.pdf']
+#f_formats = ['.pdf']
 #f_format = '.png' 
-#f_format = None
+f_formats = [None]
 for f_format in f_formats:
     filename = os.path.join(working_folder, f_name)
     

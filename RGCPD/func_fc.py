@@ -44,7 +44,7 @@ class fcev():
             fcev.tfreq = (fcev.df_data.loc[0].index[1] - fcev.df_data.loc[0].index[0]).days
             fcev.RV_mask = fcev.df_data['RV_mask']
             fcev.TrainIsTrue = fcev.df_data['TrainIsTrue']
-#            fcev.test_years = valid.get_testyrs(fcev.splits)
+            fcev.test_years = valid.get_testyrs(fcev.df_data)
 
         fcev.number_of_times_called += 1
         return 
@@ -218,6 +218,13 @@ def df_data_to_RV(df_data=pd.DataFrame, kwrgs_events=dict, only_RV_events=True,
 def fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=list,
               verbosity=0):
     #%%
+#    stat_model = fc.stat_model_l[0]
+#    RV = fc.TV
+#    lags_i = [1]
+#    kwrgs_pp={}
+#    keys_d=None
+#    df_data = fc.df_data
+#    
     # do forecasting accros lags
     splits  = df_data.index.levels[0]
     y_pred_all = []
@@ -245,8 +252,11 @@ def fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=li
                                            keys=keys,
                                            **kwrgs_pp)
             
-#            if s == 0:
-#                x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = stat_models.get_masks(df_norm)
+#             if s == 0 and lag ==1:
+#                 x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = stat_models.get_masks(df_norm)
+#                 print(x_fit_mask)
+#                 print(y_fit_mask)
+            
 #                print(keys, f'\n lag {lag}\n')
 #                print(df_norm[x_fit_mask]['RV_ac'])
 #                print(RV.RV_bin)
@@ -273,20 +283,27 @@ def fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=li
                                                             kwrgs_GBR=kwrgs_GBR,
                                                             verbosity=verbosity)
 
-            prediction = pd.DataFrame(prediction.values, index=RV.dates_RV,
+            prediction = pd.DataFrame(prediction.values, index=prediction.index,
                                       columns=[lag])
-            TrainRV = (df_norm['TrainIsTrue'])[df_norm['y_pred']]
+            
             TestRV  = (df_norm['TrainIsTrue']==False)[df_norm['y_pred']]
             y_pred_l.append(prediction[TestRV.values])
 
             if lag == lags_i[0]:
+                # ensure that RV timeseries matches y_pred
+                TrainRV = (df_norm['TrainIsTrue'])[df_norm['y_pred']]
+                RV_bin = RV.RV_bin.loc[TrainRV.index]
+                # track test years
                 test_yr = np.unique(TestRV[TestRV].index.year)
                 test_yrs.append(test_yr)
+                # predicting RV might not be possible 
                 # determining climatological prevailance in training data
-                y_c_mask = np.logical_and(TrainRV, RV.RV_bin.squeeze().values==1)
-                y_clim_val = RV.RV_bin[y_c_mask].size / RV.RV_bin[TrainRV].size
+
+                
+                y_c_mask = np.logical_and(TrainRV, RV_bin.squeeze()==1)
+                y_clim_val = RV_bin[y_c_mask].size / RV_bin.size
                 # filling test years with clim of training data
-                y_clim = RV.RV_bin[TestRV==True].copy()
+                y_clim = RV_bin[TestRV==True].copy()
                 y_clim[:] = y_clim_val
                 y_pred_c.append(y_clim)
 
@@ -344,7 +361,7 @@ def prepare_data(df_split, lag_i=int, normalize='datesRV', remove_RV=True,
         df_prec = df_split.copy()
     x_keys = np.array(keys, dtype='object')
     
-    if add_autocorr and lag_i < 4:
+    if add_autocorr and lag_i <= 2:
         # minimal shift of lag 1 or it will follow shift with x_fit mask
         if lag_i == 0:
             RV_ac = df_RV.shift(periods=-1).copy()
@@ -367,6 +384,7 @@ def prepare_data(df_split, lag_i=int, normalize='datesRV', remove_RV=True,
     # =============================================================================
     fit_masks = df_split.loc[:,['TrainIsTrue', 'RV_mask', 'fit_model_mask']].copy()
     fit_masks = apply_shift_lag(fit_masks, lag_i)
+#    if 
     # =============================================================================
     # Normalize data using datesRV or all training data in dataframe
     # =============================================================================
@@ -416,13 +434,25 @@ def apply_shift_lag(fit_masks, lag_i):
     RV_mask = fit_masks['RV_mask'].copy()
     y_fit = fit_masks['fit_model_mask'].copy()
     x_fit = y_fit.shift(periods=-int(lag_i))
-    x_fit[~x_fit.notna()] = False
+    n_nans = x_fit[~x_fit.notna()].size
+    # set last x_fit date to False if x_fit caused nan
+    if n_nans > 0:
+        # take into account that last x_fit_train should be False to have
+        # equal length y_train & x_fit and to avoid Train-test mix-up due to lag
+        x_fit[~x_fit.notna()] = False
+        x_date = x_fit[fit_masks['TrainIsTrue']].index[-n_nans:]
+        x_fit.loc[x_date] = False
+    
     x_pred = RV_mask.shift(periods=-int(lag_i))
     x_pred[~x_pred.notna()] = False
     # first indices of RV_mask cannot be predicted at lag > lag_i
     if lag_i > 0:
-        RV_mask.at[:int(lag_i)] = False
-        y_fit.at[:int(lag_i)] = False
+        # y_date cannot be predicted elsewise mixing
+        # Train test dates
+        y_date = RV_mask[fit_masks['TrainIsTrue']].index[:int(lag_i)]
+        RV_mask.loc[y_date] = False
+        y_fit.loc[y_date] = False # 
+
     fit_masks['x_fit'] = x_fit
     fit_masks['y_fit'] = y_fit
     fit_masks['x_pred'] = x_pred

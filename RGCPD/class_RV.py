@@ -36,11 +36,11 @@ class RV_class:
         def handle_fit_model_dates(dates_RV, dates_all, RV_ts, fit_model_dates):
             if fit_model_dates is None:
                 # RV_ts and RV_ts_fit are equal if fit_model_dates = None
-                bool_mask = [True if d in self.dates_RV else False for d in self.dates_all]
+                bool_mask = [True if d in dates_RV else False for d in dates_all]
                 fit_model_mask = pd.DataFrame(bool_mask, columns=['fit_model_mask'],
-                                                   index=self.dates_all)
-                RV_ts_fit = self.RV_ts
-                fit_dates = self.dates_RV
+                                                   index=dates_all)
+                RV_ts_fit = RV_ts
+                fit_dates = dates_RV
             else:
                 startperiod, endperiod = fit_model_dates
                 startyr = dates_all[0].year
