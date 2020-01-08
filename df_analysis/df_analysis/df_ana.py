@@ -3,10 +3,9 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-
 import scipy as sp
 import seaborn as sns
-import mtspec
+# import mtspec
 flatten = lambda l: [item for sublist in l for item in sublist]
 
 
@@ -197,6 +196,7 @@ def plot_scatter(y, tv=pd.Series, aggr=None, title=None, ax=None):
     return ax
 
 def mtspectrum(ts, d=1., tb=4, nt=4):
+    import mtspec
     """ multi-taper spectrum 
     
     input:

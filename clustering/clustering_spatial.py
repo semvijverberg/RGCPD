@@ -5,9 +5,13 @@ Created on Wed Jan 1 2020
 
 @author: semvijverberg
 """
-
+import inspect, os, sys
+curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+main_dir = '/'.join(curr_dir.split('/')[:-1])
+RGCPD_func = os.path.join(main_dir, 'RGCPD/')
+if RGCPD_func not in sys.path:
+    sys.path.append(RGCPD_func)
 import numpy as np
-import os
 import sklearn.cluster as cluster
 import core_pp
 
@@ -53,6 +57,17 @@ def create_vector(time_space_3d, mask2d):
     space_time_vec = space_time_2d.reshape( (indices_mask.size, time_space_3d.time.size)  )
     return space_time_vec, output_space_time, indices_mask
 
+
+def dendogram_clustering(var_filename, mask=None, q=70, 
+                         clustermethodkey='AgglomerativeClustering', kwrgs={'n_clusters':3}):
+    
+    xarray = core_pp.import_ds_lazy(var_filename)        
+    npmask = get_spatial_ma(var_filename, mask)
+    xarray = binary_occurences_quantile(xarray, q=q)
+    xrclustered, results = skclustering(xarray, npmask, 
+                                           clustermethodkey=clustermethodkey, kwrgs=kwrgs)
+    return xrclustered, results
+
 def binary_occurences_quantile(xarray, q=95):
     '''
     creates binary occuences of 'extreme' events defined as exceeding the qth percentile
@@ -95,9 +110,9 @@ def get_spatial_ma(var_filename, mask=None):
     elif type(mask) is list:
         selregion = core_pp.import_ds_lazy(var_filename, selbox=mask)
         lons_mask = list(selregion.longitude.values)
-        lon_mask  = [True if l in lons_mask else False for l in xarray.longitude]
+        lon_mask  = [True if l in lons_mask else False for l in selregion.longitude]
         lats_mask = list(selregion.latitude.values)
-        lat_mask  = [True if l in lats_mask else False for l in xarray.latitude]
+        lat_mask  = [True if l in lats_mask else False for l in selregion.latitude]
         npmask = np.meshgrid(lon_mask, lat_mask)[0]
     
     return npmask
