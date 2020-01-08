@@ -144,16 +144,19 @@ class fcev():
         else:
             self.kwrgs_pp = kwrgs_pp
 
+        self.dict_preds = {}
         self.dict_models = {}
         for stat_model in stat_model_l:
             name = stat_model[0]
-            y_pred_all, y_pred_c = fit_model(self.TV, 
+            y_pred_all, y_pred_c, models = fit_model(self.TV, 
                                                       df_data=self.df_data, 
                                                       keys_d=self.keys_d, 
                                                       kwrgs_pp=kwrgs_pp, 
                                                       stat_model=stat_model, 
                                                       lags_i=self.lags_i)
-            self.dict_models[name] = (y_pred_all, y_pred_c)
+            self.dict_preds[name] = (y_pred_all, y_pred_c)
+            self.dict_models[name] = models
+            
                      
         return 
 
@@ -164,7 +167,7 @@ class fcev():
         self.dict_sum = {}
         for stat_model in self.stat_model_l:
             name = stat_model[0]
-            y_pred_all, y_pred_c = self.dict_models[name]
+            y_pred_all, y_pred_c = self.dict_preds[name]
             
             if blocksize == 'auto':    
                 self.blocksize = valid.get_bstrap_size(self.TV.fullts, plot=False)
@@ -232,6 +235,7 @@ def fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=li
     y_pred_all = []
     y_pred_c = []
     test_yrs = []
+    models = []
     c = 0
 
     for lag in lags_i:
@@ -284,7 +288,7 @@ def fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=li
                 prediction, model = stat_models.GBR_classes(RV, df_norm, keys,
                                                             kwrgs_GBR=kwrgs_GBR,
                                                             verbosity=verbosity)
-
+            models.append(model)
             prediction = pd.DataFrame(prediction.values, index=prediction.index,
                                       columns=[lag])
             
@@ -323,7 +327,7 @@ def fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=li
 
     print(f'{stat_model} ')
     #%%
-    return y_pred_all, y_pred_c
+    return y_pred_all, y_pred_c, models
 
 def prepare_data(df_split, lag_i=int, normalize='datesRV', remove_RV=True, 
                  keys=None, add_autocorr=True, EOF=False, 

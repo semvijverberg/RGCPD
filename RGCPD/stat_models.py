@@ -240,7 +240,7 @@ def GBR_logitCV(RV, df_norm, keys, kwrgs_GBR=None, verbosity=0):
 #    prediction.plot() ; plt.plot(RV.RV_ts)
 #    metrics_sklearn(RV.RV_bin, logit_pred.values, y_pred_c)
     #%%
-    return logit_pred, (model_logit, regressor)
+    return logit_pred, (regressor, model_logit)
 
 
 def logit_skl(RV, df_norm, keys=None, kwrgs_logit=None):

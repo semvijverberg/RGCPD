@@ -108,11 +108,12 @@ def get_spatial_ma(var_filename, mask=None):
         else:
             npmask = xrmask.values
     elif type(mask) is list:
+        xarray = core_pp.import_ds_lazy(var_filename)
         selregion = core_pp.import_ds_lazy(var_filename, selbox=mask)
         lons_mask = list(selregion.longitude.values)
-        lon_mask  = [True if l in lons_mask else False for l in selregion.longitude]
+        lon_mask  = [True if l in lons_mask else False for l in xarray.longitude]
         lats_mask = list(selregion.latitude.values)
-        lat_mask  = [True if l in lats_mask else False for l in selregion.latitude]
+        lat_mask  = [True if l in lats_mask else False for l in xarray.latitude]
         npmask = np.meshgrid(lon_mask, lat_mask)[0]
     
     return npmask

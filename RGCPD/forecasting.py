@@ -32,7 +32,7 @@ RGCPD_sst_sm_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_ss
 RGCPD_sst_sm_z500_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/list_tf_8_11_19/t2mmax_E-US_sst_sm123_z500hpa_m01-08_dt10/18jun-27aug_lag10-10_random10_s30/pcA_none_ac0.002_at0.05_subinfo/fulldata_pcA_none_ac0.002_at0.05_2019-11-17.h5'
 RGCPD_sst_sm_z500_20d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/list_tf_8_11_19/t2mmax_E-US_sst_sm123_z500hpa_m01-08_dt20/14may-22aug_lag20-20_random10_s30/pcA_none_ac0.002_at0.05_subinfo/fulldata_pcA_none_ac0.002_at0.05_2019-11-19.h5'
 RGCPD_sst_sm_z500_30d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/list_tf_8_11_19/t2mmax_E-US_sst_sm123_z500hpa_m01-08_dt30/19may-17aug_lag30-30_random10_s30/pcA_none_ac0.002_at0.05_subinfo/fulldata_pcA_none_ac0.002_at0.05_2019-11-17.h5'
-synthetic = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD/df_analysis/df_data.h5'
+synthetic = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/df_analysis/df_data.h5'
 
 
 
