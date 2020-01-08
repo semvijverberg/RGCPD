@@ -12,10 +12,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from sklearn import metrics
-import scipy as sp
 import seaborn as sns
+from concurrent.futures import ProcessPoolExecutor
 from itertools import chain
 flatten = lambda l: list(chain.from_iterable(l))
+import multiprocessing
+max_cpu = multiprocessing.cpu_count()
 
 
 from matplotlib import cycler
@@ -46,7 +48,7 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5,
                         
     #%%
 
-    y = RV.RV_bin.values
+    y = RV.RV_bin.squeeze().values
     clim_prob = np.mean(RV.prob_clim.values)
     lags = y_pred_all.columns
     cont_pred = np.unique(y_pred_all).size > 5
@@ -142,27 +144,50 @@ def get_metrics_bin(y_true, y_pred, t=None):
         y_pred_b = np.array(y_pred > np.percentile(y_pred, t),dtype=int)
     else:
         y_pred_b = y_pred
-    prec = metrics.precision_score(y_true, y_pred_b)
-    recall = metrics.recall_score(y_true, y_pred_b) # TPR
-    #        cm = metrics.confusion_matrix(y_true,  y_pred_b_lags[l])
+#    y_true = np.repeat(1, 100); y_pred_b = np.repeat(1, 100)
+#    y_pred_b[-1] = 0
+    try:
+        if np.sum(y_true) != 0 or np.sum(y_pred_b) != 0:
+            prec = metrics.precision_score(y_true, y_pred_b)
+            recall = metrics.recall_score(y_true, y_pred_b) # recall is TPR
+        else:
+            prec = 0.
+            recall = 0.
+    except:
+        print(y_true)
+        print(y_pred_b)
+    
     tn, fp, fn, tp = metrics.confusion_matrix(y_true, y_pred_b).ravel()
-    FPR = fp / (fp + tn)
-    SP = tn / (tn + fp)
+    if (fp + tn) != 0:
+        fpr = fp / (fp + tn)
+    else:
+        fpr = 0.
+    if (tn + fp) != 0:
+        SP = tn / (tn + fp) # specifity / true negative rate
+    else:
+        SP = 1.
     Acc  = metrics.accuracy_score(y_true, y_pred_b)
-    f1  = metrics.f1_score(y_true, y_pred_b)
+    if (tp + fp) == 0 or (tp + fn) == 0:
+        f1 = 0
+    else:
+        f1  = metrics.f1_score(y_true, y_pred_b)
     # Hansen Kuiper score (TPR - FPR):
-    tpr = tp / (tp+fn) ; fpr = fp / (fp+tn)
+#     ; fpr = fp / (fp+tn)
+    tpr = recall
     KSS_score = tpr - fpr
     # Extremal Dependence Index (EDI) from :
     # Higher Subseasonal Predictability of Extreme Hot European Summer Temperatures as Compared to Average Summers, 2019
     # EDI = log(FPR) - log(TPR) / ( log(FPR) + log(TPR) )
-    EDI = ( np.log(fpr) - np.log(tpr) ) / (np.log(fpr) + np.log(tpr) )
-    return prec, recall, FPR, SP, Acc, f1, KSS_score, EDI
+    if fpr != 1. and fpr != 0. and tpr != 1. and tpr != 0.:
+        EDI = ( np.log(fpr) - np.log(tpr) ) / (np.log(fpr) + np.log(tpr) )
+    else:
+        EDI = 1.
+    return prec, recall, fpr, SP, Acc, f1, KSS_score, EDI
 
 def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle=0):
     #%%
     lags = y_pred_all.columns
-    y_true = RV.RV_bin
+    y_true = RV.RV_bin.squeeze().values
     if thr[0] == 'clim':
         clim_prob = np.round((1-y_true[y_true.values==1.].size / y_true.size),2)
         thresholds = [[clim_prob]]
@@ -340,57 +365,91 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
 
         brier_score = metrics.brier_score_loss(y_true, y_pred)
         brier_score_clim = metrics.brier_score_loss(y_true, y_pred_c)
+ 
+      
+    def _bootstrap(y_true, y_pred, n_boot_sub, chunks, percentile_t, rng_seed):  
+        rng = np.random.RandomState(rng_seed)
+        boots_AUC = []
+        boots_AUCPR = []
+        boots_brier = []        
+        boots_prec = []
+        boots_acc = []
+        boots_KSS = []
+        boots_EDI = [] 
+        for i in range(n_boot_sub):        
+            # bootstrap by sampling with replacement on the prediction indices
+            ran_ind = rng.randint(0, len(chunks) - 1, len(chunks))
+            ran_blok = [chunks[i] for i in ran_ind]
+    #        indices = random.sample(chunks, len(chunks))
+            indices = list(chain.from_iterable(ran_blok))
+    
+            if len(np.unique(y_true[indices])) < 2:
+                # We need at least one positive and one negative sample for ROC AUC
+                # to be defined: reject the sample
+                continue
+    
+#            cont_pred = np.unique(y_pred).size > 5
+#            if cont_pred:
+#                score_AUC = metrics.roc_auc_score(y_true[indices], y_pred[indices])
+#                score_AUCPR = metrics.average_precision_score(y_true[indices], y_pred[indices])
+#                score_brier = metrics.brier_score_loss(y_true[indices], y_pred[indices])
+#    
+#                boots_AUC.append(score_AUC)
+#                boots_AUCPR.append(score_AUCPR)
+#                boots_brier.append(score_brier)
+                
+#            out = get_metrics_bin(y_true[indices], y_pred[indices], t=percentile_t)
+#            (score_prec, recall, FPR, SP, score_acc, f1, score_KSS, score_EDI) = out
+#            boots_prec.append(score_prec)
+#            boots_acc.append(score_acc)
+#            boots_KSS.append(score_KSS)
+#            boots_EDI.append(score_EDI)
+        return (boots_AUC, boots_AUCPR, boots_brier, boots_prec, boots_acc, boots_KSS, boots_EDI)
 
     rng_seed = 42  # control reproducibility
-    boots_AUC = []
-    boots_AUCPR = []
-    boots_KSS = []
-    boots_brier = []
-    boots_prec = []
-    boots_acc = []
-    boots_EDI = []
-
-
+ 
+    
     old_index = range(0,len(y_pred),1)
     n_bl = blocksize
     chunks = [old_index[n_bl*i:n_bl*(i+1)] for i in range(int(len(old_index)/n_bl))]
 
-    rng = np.random.RandomState(rng_seed)
-#    random.seed(rng_seed)
-    for i in range(n_boot):
-        # bootstrap by sampling with replacement on the prediction indices
-        ran_ind = rng.randint(0, len(chunks) - 1, len(chunks))
-        ran_blok = [chunks[i] for i in ran_ind]
-#        indices = random.sample(chunks, len(chunks))
-        indices = list(chain.from_iterable(ran_blok))
+    
+    n_boot_sub = int(round((n_boot / max_cpu) + 0.4, 0))
+    from time import time
+    t0 = time()
+    with ProcessPoolExecutor(max_workers=max_cpu) as pool:
+        futures = []
+        for i_cpu in range(max_cpu):
 
-        if len(np.unique(y_true[indices])) < 2:
-            # We need at least one positive and one negative sample for ROC AUC
-            # to be defined: reject the sample
-            continue
-
-        out = get_metrics_bin(y_true[indices], y_pred[indices], t=percentile_t)
-        (score_prec, recall, FPR, SP, score_acc, f1, score_KSS, score_EDI) = out
-
-
-        if cont_pred:
-            score_AUC = metrics.roc_auc_score(y_true[indices], y_pred[indices])
-            score_AUCPR = metrics.average_precision_score(y_true[indices], y_pred[indices])
-            score_brier = metrics.brier_score_loss(y_true[indices], y_pred[indices])
-
-            boots_AUC.append(score_AUC)
-            boots_AUCPR.append(score_AUCPR)
-            boots_brier.append(score_brier)
-        boots_prec.append(score_prec)
-        boots_acc.append(score_acc)
-        boots_KSS.append(score_KSS)
-        boots_EDI.append(score_EDI)
-#        print("Bootstrap #{} ROC area: {:0.3f}".format(i + 1, score))
-
+            futures.append(pool.submit(_bootstrap, y_true, y_pred, n_boot_sub, 
+                                       chunks, percentile_t, rng_seed))
+        out = [future.result() for future in futures]
+        
+    
+    boots_AUC = []
+    boots_AUCPR = []
+    boots_brier = []
+    boots_prec = []
+    boots_acc = []
+    boots_KSS = []
+    boots_EDI = []     
+    for i_cpu in range(max_cpu):
+        _AUC, _AUCPR, _brier, _prec, _acc, _KSS, _EDI = out[i_cpu]
+        boots_AUC.append(_AUC)
+        boots_AUCPR.append(_AUCPR)
+        boots_brier.append(_brier)
+        boots_prec.append(_prec)
+        boots_acc.append(_acc)
+        boots_KSS.append(_KSS)
+        boots_EDI.append(_EDI)
+        
+    print(time() - t0)
     # Computing the lower and upper bound of the 90% confidence interval
     # You can change the bounds percentiles to 0.025 and 0.975 to get
     # a 95% confidence interval instead.
-    def get_ci(boots, alpha=alpha):
+    def get_ci(boots, alpha=0.05):
+        if len(np.array(boots).shape) == 2:
+            boots = flatten(boots)
         sorted_scores = np.array(boots)
         sorted_scores.sort()
         ci_low = sorted_scores[int(alpha * len(sorted_scores))]

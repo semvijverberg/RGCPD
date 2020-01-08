@@ -50,7 +50,7 @@ logitCV = ('logit-CV', { 'class_weight':{ 0:1, 1:1},
                 'scoring':'brier_score_loss',
                 'penalty':'l2',
                 'solver':'lbfgs',
-                'max_iter':150}) #100 is default
+                'max_iter':100}) #100 is default
     
 GBR_logitCV = ('GBR-logitCV', 
               {'max_depth':3,
@@ -89,7 +89,7 @@ ERA_and_EC_daily  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
 #ERA5_sm_30d         = {'ERA-5:':(CPPA_sm_30d, ['sst(CPPA)+sm'])}
 #stat_model_l = [logit, logitCV]
 
-ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, [None])}
+ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
 
 
 #RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_z500_10d, ['only_db_regs'])}
@@ -107,10 +107,10 @@ ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, [None])}
 
 syn       = {'syn':(synthetic, [None])}
 
-datasets_path = syn
+datasets_path = ERA_Bram
 
 causal = False
-stat_model_l = [GBR_logitCV]
+stat_model_l = [logit]
 
 #%%
 # import original Response Variable timeseries:
@@ -126,22 +126,20 @@ kwrgs_events_daily =    (filename_ts,
 
 kwrgs_events = kwrgs_events_daily
     
-kwrgs_events = {'event_percentile': 66,
-                'min_dur' : 1,
-                'max_break' : 0,
-                'grouped' : False}
+#kwrgs_events = {'event_percentile': 66,
+#                'min_dur' : 1,
+#                'max_break' : 0,
+#                'grouped' : False}
 
-kwrgs_pp = {'EOF':False, 
-            'expl_var':0.5,
-            'add_autocorr':True,
+kwrgs_pp = {'add_autocorr':True,
             'normalize':'datesRV'}
 
 
 
 #%%
-n_boot = 100
+n_boot = 500
 verbosity = 0
-lead_max = np.array([1]) # np.array([0,1])
+lead_max = 45 # np.array([0,1])
 from func_fc import fcev
 #stat_model_l = [logit]
 dict_experiments = {} ; list_fc = []
@@ -258,9 +256,8 @@ import valid_plots as dfplots
 #        except:
 #            pass
         
-#f_formats = ['.pdf']
-#f_format = '.png' 
-f_formats = [None]
+f_formats = ['.pdf']
+#f_formats = [None]
 for f_format in f_formats:
     filename = os.path.join(working_folder, f_name)
     

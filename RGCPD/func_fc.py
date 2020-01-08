@@ -12,7 +12,7 @@ import h5py
 import pandas as pd
 import numpy as np
 import xarray as xr
-import eofs
+from concurrent.futures import ProcessPoolExecutor
 import stat_models
 import class_RV
 import validation as valid
@@ -21,6 +21,9 @@ if df_ana_path not in sys.path:
     sys.path.append(df_ana_path)
 import df_ana
 import exp_fc
+import multiprocessing
+max_cpu = multiprocessing.cpu_count()
+print(f'{max_cpu} cpu\'s detected')
 
 
 class fcev():
@@ -148,7 +151,7 @@ class fcev():
         self.dict_models = {}
         for stat_model in stat_model_l:
             name = stat_model[0]
-            y_pred_all, y_pred_c, models = fit_model(self.TV, 
+            y_pred_all, y_pred_c, models = _fit_model(self.TV, 
                                                       df_data=self.df_data, 
                                                       keys_d=self.keys_d, 
                                                       kwrgs_pp=kwrgs_pp, 
@@ -220,8 +223,8 @@ def df_data_to_RV(df_data=pd.DataFrame, kwrgs_events=dict, only_RV_events=True,
                           only_RV_events=only_RV_events, fit_model_dates=fit_model_dates)
     return RV
 
-def fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=list,
-              verbosity=0):
+def fit_model(RV, df_data, keys_d=None, stat_model=tuple, lags_i=list,
+              kwrgs_pp={}, verbosity=0):
     #%%
 #    stat_model = fc.stat_model_l[0]
 #    RV = fc.TV
@@ -238,6 +241,15 @@ def fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=li
     models = []
     c = 0
 
+    from time import time
+    t0 = time()
+
+    # store target variable (continuous and binary in y_ts dict) 
+    if hasattr(RV, 'RV_bin_fit'):
+        y_ts = {'cont':RV.RV_ts_fit, 'bin':RV.RV_bin_fit}
+    else:
+        y_ts = {'cont':RV.RV_ts_fit}
+        
     for lag in lags_i:
         y_pred_l = []
         for s in splits:
@@ -268,7 +280,7 @@ def fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=li
 #                print(RV.RV_bin)
             # forecasting models
             if model_name == 'logit':
-                prediction, model = stat_models.logit(RV, df_norm, keys=keys)
+                prediction, model = stat_models.logit(y_ts, df_norm, keys=keys)
             if model_name == 'GBR':
                 kwrgs_GBR = kwrgs
                 prediction, model = stat_models.GBR(RV, df_norm, keys,
@@ -276,18 +288,14 @@ def fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=li
                                                     verbosity=verbosity)
             if model_name == 'logit-CV':
                 kwrgs_logit = kwrgs
-                prediction, model = stat_models.logit_skl(RV, df_norm, keys,
+                prediction, model = stat_models.logit_skl(y_ts, df_norm, keys,
                                                           kwrgs_logit=kwrgs_logit)
             if model_name == 'GBR-logitCV':
                 kwrgs_GBR = kwrgs
-                prediction, model = stat_models.GBR_logitCV(RV, df_norm, keys,
+                prediction, model = stat_models.GBR_logitCV(y_ts, df_norm, keys,
                                                             kwrgs_GBR=kwrgs_GBR,
                                                             verbosity=verbosity)
-            if model_name == 'GBR_classes':
-                kwrgs_GBR = kwrgs
-                prediction, model = stat_models.GBR_classes(RV, df_norm, keys,
-                                                            kwrgs_GBR=kwrgs_GBR,
-                                                            verbosity=verbosity)
+
             models.append(model)
             prediction = pd.DataFrame(prediction.values, index=prediction.index,
                                       columns=[lag])
@@ -324,7 +332,141 @@ def fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=li
         y_pred_all.append(y_pred_l)
     y_pred_all = pd.concat(y_pred_all, axis=1)
     print("\n")
+    print(time() - t0)
+    print(f'{stat_model} ')
+    #%%
+    return y_pred_all, y_pred_c, models
 
+def fit(y_ts, df_data, lag, split, stat_model=str, keys_d=None, 
+        kwrgs_pp={}, verbosity=0):
+    #%%
+    
+    if keys_d is not None:
+        keys = keys_d[split].copy()
+    else:
+        keys = None
+        
+    model_name, kwrgs = stat_model
+    df_split = df_data.loc[split].copy()
+    df_norm, keys = prepare_data(df_split, lag_i=int(lag),
+                                   keys=keys,
+                                   **kwrgs_pp)
+#             if s == 0 and lag ==1:
+#                 x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = stat_models.get_masks(df_norm)
+#                 print(x_fit_mask)
+#                 print(y_fit_mask)
+    
+#                print(keys, f'\n lag {lag}\n')
+#                print(df_norm[x_fit_mask]['RV_ac'])
+#                print(RV.RV_bin)
+    # forecasting models
+    if model_name == 'logit':
+        prediction, model = stat_models.logit(y_ts, df_norm, keys=keys)
+    if model_name == 'GBR':
+        kwrgs_GBR = kwrgs
+        prediction, model = stat_models.GBR(y_ts, df_norm, keys,
+                                            kwrgs_GBR=kwrgs_GBR,
+                                            verbosity=verbosity)
+    if model_name == 'logit-CV':
+        kwrgs_logit = kwrgs
+        prediction, model = stat_models.logit_skl(y_ts, df_norm, keys,
+                                                  kwrgs_logit=kwrgs_logit)
+    if model_name == 'GBR-logitCV':
+        kwrgs_GBR = kwrgs
+        prediction, model = stat_models.GBR_logitCV(y_ts, df_norm, keys,
+                                                    kwrgs_GBR=kwrgs_GBR,
+                                                    verbosity=verbosity)
+        
+    prediction = pd.DataFrame(prediction.values, index=prediction.index,
+                              columns=[lag])
+    #%%
+    return (prediction, model, df_norm)
+            
+
+def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=list,
+              verbosity=0):
+    #%%
+#    stat_model = fc.stat_model_l[0]
+#    RV = fc.TV
+#    lags_i = [1]
+#    kwrgs_pp={}
+#    keys_d=None
+#    df_data = fc.df_data
+#    
+    # do forecasting accros lags
+    splits  = df_data.index.levels[0]
+    y_pred_all = []
+    y_pred_c = []
+
+    models = []
+    
+    # store target variable (continuous and binary in y_ts dict) 
+    if hasattr(RV, 'RV_bin_fit'):
+        y_ts = {'cont':RV.RV_ts_fit, 'bin':RV.RV_bin_fit}
+    else:
+        y_ts = {'cont':RV.RV_ts_fit}
+        
+    from time import time
+    t0 = time()
+    futures = {}
+    with ProcessPoolExecutor(max_workers=max_cpu) as pool:
+        for lag in lags_i:
+#            y_pred_l = []
+            for split in splits:
+#                c += 1
+#                progress = int(100 * (c) / (len(splits) * len(lags_i)))
+#                print(f"\rProgress {progress}%", end="")
+                fitkey = f'{lag}_{split}'
+
+#                RV_ts_fit = RV.RV_bin_fit
+                futures[fitkey] = pool.submit(fit, y_ts, df_data, lag, split, 
+                                           stat_model=stat_model, keys_d=keys_d, 
+                                           kwrgs_pp=kwrgs_pp, verbosity=verbosity)
+        results = {key:future.result() for key, future in futures.items()}
+    
+    
+    # unpack results
+    models = dict()
+    for lag in lags_i:
+        y_pred_l = []
+        model_lag = dict()
+        for split in splits:
+            prediction, model, df_norm = results[f'{lag}_{split}']
+            
+            # store model
+            model_lag['f{split}'] = model
+            
+            TestRV  = (df_norm['TrainIsTrue']==False)[df_norm['y_pred']]
+            y_pred_l.append(prediction[TestRV.values])
+
+            if lag == lags_i[0]:
+                # ensure that RV timeseries matches y_pred
+                TrainRV = (df_norm['TrainIsTrue'])[df_norm['y_pred']]
+                RV_bin = RV.RV_bin.loc[TrainRV.index]
+
+                # predicting RV might not be possible 
+                # determining climatological prevailance in training data                
+                y_c_mask = np.logical_and(TrainRV, RV_bin.squeeze()==1)
+                y_clim_val = RV_bin[y_c_mask].size / RV_bin.size
+                # filling test years with clim of training data
+                y_clim = RV_bin[TestRV==True].copy()
+                y_clim[:] = y_clim_val
+                y_pred_c.append(y_clim)
+        
+        models[f'{lag}'] = model_lag
+        
+        y_pred_l = pd.concat(y_pred_l)
+        y_pred_l = y_pred_l.sort_index()
+
+        if lag == lags_i[0]:
+            y_pred_c = pd.concat(y_pred_c)
+            y_pred_c = y_pred_c.sort_index()
+
+
+        y_pred_all.append(y_pred_l)
+    y_pred_all = pd.concat(y_pred_all, axis=1)
+    print("\n")
+    print(time() - t0)
     print(f'{stat_model} ')
     #%%
     return y_pred_all, y_pred_c, models
@@ -333,8 +475,6 @@ def prepare_data(df_split, lag_i=int, normalize='datesRV', remove_RV=True,
                  keys=None, add_autocorr=True, EOF=False, 
                  expl_var=None):
                  
-                 
-
     #%%
     '''
     TrainisTrue     : Specifies train and test dates, col of df_split.
@@ -472,6 +612,7 @@ def transform_EOF(df_prec, TrainIsTrue, RV_mask, expl_var=0.8):
     EOF is based upon all Training data.
     '''
     #%%
+    import eofs
     dates_train = df_prec[TrainIsTrue].index
     dates_test  = df_prec[TrainIsTrue==False].index
 
