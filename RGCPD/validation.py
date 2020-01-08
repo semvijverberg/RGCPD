@@ -80,11 +80,10 @@ def get_metrics_sklearn(RV, y_pred_all, y_pred_c, alpha=0.05, n_boot=5,
     for lag in lags:
         y_pred = y_pred_all[[lag]].values
 
-        metrics_dict = metrics_sklearn(
-                    y, y_pred, y_pred_c.values,
-                    alpha=alpha, n_boot=n_boot, blocksize=blocksize,
-                    clim_prob=clim_prob,
-                    threshold_pred=threshold_pred)
+        metrics_dict = metrics_sklearn(y, y_pred, y_pred_c.values,
+                                       alpha=alpha, n_boot=n_boot, blocksize=blocksize,
+                                       clim_prob=clim_prob,
+                                       threshold_pred=threshold_pred)
         if cont_pred:
             # AUC
             AUC_score, conf_lower, conf_upper, sorted_AUC = metrics_dict['AUC']
@@ -367,62 +366,21 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
         brier_score_clim = metrics.brier_score_loss(y_true, y_pred_c)
  
       
-    def _bootstrap(y_true, y_pred, n_boot_sub, chunks, percentile_t, rng_seed):  
-        rng = np.random.RandomState(rng_seed)
-        boots_AUC = []
-        boots_AUCPR = []
-        boots_brier = []        
-        boots_prec = []
-        boots_acc = []
-        boots_KSS = []
-        boots_EDI = [] 
-        for i in range(n_boot_sub):        
-            # bootstrap by sampling with replacement on the prediction indices
-            ran_ind = rng.randint(0, len(chunks) - 1, len(chunks))
-            ran_blok = [chunks[i] for i in ran_ind]
-    #        indices = random.sample(chunks, len(chunks))
-            indices = list(chain.from_iterable(ran_blok))
     
-            if len(np.unique(y_true[indices])) < 2:
-                # We need at least one positive and one negative sample for ROC AUC
-                # to be defined: reject the sample
-                continue
-    
-#            cont_pred = np.unique(y_pred).size > 5
-#            if cont_pred:
-#                score_AUC = metrics.roc_auc_score(y_true[indices], y_pred[indices])
-#                score_AUCPR = metrics.average_precision_score(y_true[indices], y_pred[indices])
-#                score_brier = metrics.brier_score_loss(y_true[indices], y_pred[indices])
-#    
-#                boots_AUC.append(score_AUC)
-#                boots_AUCPR.append(score_AUCPR)
-#                boots_brier.append(score_brier)
-                
-#            out = get_metrics_bin(y_true[indices], y_pred[indices], t=percentile_t)
-#            (score_prec, recall, FPR, SP, score_acc, f1, score_KSS, score_EDI) = out
-#            boots_prec.append(score_prec)
-#            boots_acc.append(score_acc)
-#            boots_KSS.append(score_KSS)
-#            boots_EDI.append(score_EDI)
-        return (boots_AUC, boots_AUCPR, boots_brier, boots_prec, boots_acc, boots_KSS, boots_EDI)
-
-    rng_seed = 42  # control reproducibility
  
-    
     old_index = range(0,len(y_pred),1)
     n_bl = blocksize
     chunks = [old_index[n_bl*i:n_bl*(i+1)] for i in range(int(len(old_index)/n_bl))]
 
-    
+    # divide subchunks to boostrap to all cpus
     n_boot_sub = int(round((n_boot / max_cpu) + 0.4, 0))
-    from time import time
-    t0 = time()
     with ProcessPoolExecutor(max_workers=max_cpu) as pool:
         futures = []
+        unique_seed = 42    
         for i_cpu in range(max_cpu):
-
+            unique_seed += 1 # ensure that no same shuffleling is done
             futures.append(pool.submit(_bootstrap, y_true, y_pred, n_boot_sub, 
-                                       chunks, percentile_t, rng_seed))
+                                       chunks, percentile_t, unique_seed))
         out = [future.result() for future in futures]
         
     
@@ -443,7 +401,6 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
         boots_KSS.append(_KSS)
         boots_EDI.append(_EDI)
         
-    print(time() - t0)
     # Computing the lower and upper bound of the 90% confidence interval
     # You can change the bounds percentiles to 0.025 and 0.975 to get
     # a 95% confidence interval instead.
@@ -456,7 +413,7 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
         ci_high = sorted_scores[int((1-alpha) * len(sorted_scores))]
         return ci_low, ci_high, sorted_scores
 
-    if len(boots_AUC) != 0:
+    if np.array(boots_AUC).ravel().size != 0:
         if cont_pred:
             ci_low_AUC, ci_high_AUC, sorted_AUCs = get_ci(boots_AUC, alpha)
 
@@ -504,6 +461,45 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
 #        confidence_lower, confidence_upper))
     #%%
     return metrics_dict
+
+def _bootstrap(y_true, y_pred, n_boot_sub, chunks, percentile_t, rng_seed):  
+    rng = np.random.RandomState(rng_seed)
+    boots_AUC = []
+    boots_AUCPR = []
+    boots_brier = []        
+    boots_prec = []
+    boots_acc = []
+    boots_KSS = []
+    boots_EDI = [] 
+    for i in range(n_boot_sub):        
+        # bootstrap by sampling with replacement on the prediction indices
+        ran_ind = rng.randint(0, len(chunks) - 1, len(chunks))
+        ran_blok = [chunks[i] for i in ran_ind]
+#        indices = random.sample(chunks, len(chunks))
+        indices = list(chain.from_iterable(ran_blok))
+
+        if len(np.unique(y_true[indices])) < 2:
+            # We need at least one positive and one negative sample for ROC AUC
+            # to be defined: reject the sample
+            continue
+
+        cont_pred = np.unique(y_pred).size > 5
+        if cont_pred:
+            score_AUC = metrics.roc_auc_score(y_true[indices], y_pred[indices])
+            score_AUCPR = metrics.average_precision_score(y_true[indices], y_pred[indices])
+            score_brier = metrics.brier_score_loss(y_true[indices], y_pred[indices])
+
+            boots_AUC.append(score_AUC)
+            boots_AUCPR.append(score_AUCPR)
+            boots_brier.append(score_brier)
+        
+        out = get_metrics_bin(y_true[indices], y_pred[indices], t=percentile_t)
+        (score_prec, recall, FPR, SP, score_acc, f1, score_KSS, score_EDI) = out
+        boots_prec.append(score_prec)
+        boots_acc.append(score_acc)
+        boots_KSS.append(score_KSS)
+        boots_EDI.append(score_EDI)
+    return (boots_AUC, boots_AUCPR, boots_brier, boots_prec, boots_acc, boots_KSS, boots_EDI)
 
 def get_KSS_clim(y_true, y_pred, threshold_clim_events):
     fpr, tpr, thresholds = metrics.roc_curve(y_true, y_pred)

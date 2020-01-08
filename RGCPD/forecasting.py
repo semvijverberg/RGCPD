@@ -110,7 +110,7 @@ syn       = {'syn':(synthetic, [None])}
 datasets_path = ERA_Bram
 
 causal = False
-stat_model_l = [logit]
+stat_model_l = [GBR_logitCV]
 
 #%%
 # import original Response Variable timeseries:
