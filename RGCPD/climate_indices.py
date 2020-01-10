@@ -8,12 +8,12 @@ Created on Thu Sep  5 09:25:11 2019
 import sys, os, io
 
 
-import functions_RGCPD as rgcpd
-import itertools
+import find_precursors
+from time import time
 import numpy as np
 import xarray as xr
-import datetime
-import cartopy.crs as ccrs
+#import datetime
+#import cartopy.crs as ccrs
 import pandas as pd
 import functions_pp
 from concurrent.futures import ProcessPoolExecutor
@@ -122,8 +122,8 @@ def PDO(filename, ex, df_splits=None):
         print(f"\rProgress PDO traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
         
         PDO_pattern, solver, adjust_sign = get_PDO(ds.sel(time=dates_all_train))
-        data_train = rgcpd.calc_spatcov(ds.sel(time=dates_train), PDO_patterns[s])
-        data_test = rgcpd.calc_spatcov(ds.sel(time=dates_test), PDO_patterns[s])
+        data_train = find_precursors.calc_spatcov(ds.sel(time=dates_train), PDO_patterns[s])
+        data_test = find_precursors.calc_spatcov(ds.sel(time=dates_test), PDO_patterns[s])
         
         df_test = pd.DataFrame(data=data_test.values, index=dates_test, columns=['0_901_PDO'])
         df_train = pd.DataFrame(data=data_train.values, index=dates_train, columns=['0_901_PDO'])        
@@ -203,8 +203,8 @@ def PDO_temp(filename, ex, df_splits=None):
         PDO_patterns[s], solver, adjust_sign = get_PDO(ds.sel(time=dates_all_train))
         
         PDO_patterns[s] = PDO_patterns[s].interpolate_na(dim='longitude')
-        data_train = rgcpd.calc_spatcov(ds.sel(time=dates_train), PDO_patterns[s])
-        data_test = rgcpd.calc_spatcov(ds.sel(time=dates_test), PDO_patterns[s])
+        data_train = find_precursors.calc_spatcov(ds.sel(time=dates_train), PDO_patterns[s])
+        data_test = find_precursors.calc_spatcov(ds.sel(time=dates_test), PDO_patterns[s])
         
         df_test = pd.DataFrame(data=data_test.values, index=dates_test, columns=['0_901_PDO'])
         df_train = pd.DataFrame(data=data_train.values, index=dates_train, columns=['0_901_PDO'])  

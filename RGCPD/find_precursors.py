@@ -29,11 +29,20 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
                                index=pd.to_datetime(fullts.time.values))
     df_RV_ts    = pd.DataFrame(TV_ts.values,
                                index=pd.to_datetime(TV_ts.time.values))
-    if method[:9] == 'ran_strat':
-        kwrgs_events = kwrgs_events
-        TV = RV_class(df_fullts, df_RV_ts, kwrgs_events)
-    else:
-        TV = RV_class(df_fullts, df_RV_ts)
+
+    if method[:9] == 'ran_strat' and kwrgs_events is None:
+            # events need to be defined to enable stratified traintest.
+            kwrgs_events = {'event_percentile': 66,
+                            'min_dur' : 1,
+                            'max_break' : 0,
+                            'grouped' : False}
+            if verbosity == 1:
+                print("kwrgs_events not given, creating stratified traintest split "
+                     "based on events defined as exceeding the {}th percentile".format(
+                         kwrgs_events['event_percentile']))
+
+    TV = RV_class(df_fullts, df_RV_ts, kwrgs_events)
+
     
     if precursor_ts is not None:
         # Retrieve same train test split as imported ts
@@ -84,7 +93,6 @@ def calculate_corr_maps(TV, df_splits, kwrgs_load, list_precur_pp=list, lags=np.
         # 3c) Precursor field
         #===========================================
         precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs_load)
-#        precur_arr = rgcpd.convert_longitude(precur_arr, 'only_east')
         # =============================================================================
         # Calculate correlation
         # =============================================================================
@@ -557,7 +565,6 @@ def df_data_prec_regs(TV, outdic_precur, df_splits):
         var_names_corr = [] ; actorlist = [] ; cols = [[TV.name]]
     
         for var in allvar[:]:
-            print(var)
             actor = outdic_precur[var]
             if actor.ts_corr[s].size != 0:
                 ts_train = actor.ts_corr[s].values
@@ -577,7 +584,7 @@ def df_data_prec_regs(TV, outdic_precur, df_splits):
         # add the full 1D time series of interest as first entry:
         fulldata = np.column_stack((TV.fullts, fulldata))
         df_data_s[s] = pd.DataFrame(fulldata, columns=flatten(cols), index=index_dates)
-    print('There are {} regions (list of different splits)'.format(n_regions_list))
+    print(f'There are {n_regions_list} regions for {var} (list of different splits)')
     df_data  = pd.concat(list(df_data_s), keys= range(splits.size))
     #%%
     return df_data

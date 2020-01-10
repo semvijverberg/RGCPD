@@ -12,6 +12,7 @@ import h5py
 import pandas as pd
 import numpy as np
 import xarray as xr
+import matplotlib.pyplot as plt
 from concurrent.futures import ProcessPoolExecutor
 import stat_models
 import class_RV
@@ -205,9 +206,17 @@ class fcev():
                             sharex=sharex, kwrgs=kwrgs)
         return    
 
+    
     def plot_freq_year(self):
         import valid_plots as df_plots
         df_plots.plot_freq_per_yr(self.TV)
+    
+    def plot_GBR_feature_importances(self, lag=None):
+        GBR_models_split_lags = self.dict_models['GBR-logitCV']
+        if lag is None:
+            lag = self.lags_i
+        stat_models.plot_importances(GBR_models_split_lags, lag=lag)
+
 
         
         
@@ -223,119 +232,6 @@ def df_data_to_RV(df_data=pd.DataFrame, kwrgs_events=dict, only_RV_events=True,
                           only_RV_events=only_RV_events, fit_model_dates=fit_model_dates)
     return RV
 
-def fit_model(RV, df_data, keys_d=None, stat_model=tuple, lags_i=list,
-              kwrgs_pp={}, verbosity=0):
-    #%%
-#    stat_model = fc.stat_model_l[0]
-#    RV = fc.TV
-#    lags_i = [1]
-#    kwrgs_pp={}
-#    keys_d=None
-#    df_data = fc.df_data
-#    
-    # do forecasting accros lags
-    splits  = df_data.index.levels[0]
-    y_pred_all = []
-    y_pred_c = []
-    test_yrs = []
-    models = []
-    c = 0
-
-    from time import time
-    t0 = time()
-
-    # store target variable (continuous and binary in y_ts dict) 
-    if hasattr(RV, 'RV_bin_fit'):
-        y_ts = {'cont':RV.RV_ts_fit, 'bin':RV.RV_bin_fit}
-    else:
-        y_ts = {'cont':RV.RV_ts_fit}
-        
-    for lag in lags_i:
-        y_pred_l = []
-        for s in splits:
-            c += 1
-            progress = int(100 * (c) / (len(splits) * len(lags_i)))
-            print(f"\rProgress {progress}%", end="")
-            
-            if keys_d is not None:
-                keys = keys_d[s].copy()
-            else:
-                keys = None
-                
-            model_name, kwrgs = stat_model
-
-            df_split = df_data.loc[s].copy()
-
-            df_norm, keys = prepare_data(df_split, lag_i=int(lag),
-                                           keys=keys,
-                                           **kwrgs_pp)
-            
-#             if s == 0 and lag ==1:
-#                 x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = stat_models.get_masks(df_norm)
-#                 print(x_fit_mask)
-#                 print(y_fit_mask)
-            
-#                print(keys, f'\n lag {lag}\n')
-#                print(df_norm[x_fit_mask]['RV_ac'])
-#                print(RV.RV_bin)
-            # forecasting models
-            if model_name == 'logit':
-                prediction, model = stat_models.logit(y_ts, df_norm, keys=keys)
-            if model_name == 'GBR':
-                kwrgs_GBR = kwrgs
-                prediction, model = stat_models.GBR(RV, df_norm, keys,
-                                                    kwrgs_GBR=kwrgs_GBR,
-                                                    verbosity=verbosity)
-            if model_name == 'logit-CV':
-                kwrgs_logit = kwrgs
-                prediction, model = stat_models.logit_skl(y_ts, df_norm, keys,
-                                                          kwrgs_logit=kwrgs_logit)
-            if model_name == 'GBR-logitCV':
-                kwrgs_GBR = kwrgs
-                prediction, model = stat_models.GBR_logitCV(y_ts, df_norm, keys,
-                                                            kwrgs_GBR=kwrgs_GBR,
-                                                            verbosity=verbosity)
-
-            models.append(model)
-            prediction = pd.DataFrame(prediction.values, index=prediction.index,
-                                      columns=[lag])
-            
-            TestRV  = (df_norm['TrainIsTrue']==False)[df_norm['y_pred']]
-            y_pred_l.append(prediction[TestRV.values])
-
-            if lag == lags_i[0]:
-                # ensure that RV timeseries matches y_pred
-                TrainRV = (df_norm['TrainIsTrue'])[df_norm['y_pred']]
-                RV_bin = RV.RV_bin.loc[TrainRV.index]
-                # track test years
-                test_yr = np.unique(TestRV[TestRV].index.year)
-                test_yrs.append(test_yr)
-                # predicting RV might not be possible 
-                # determining climatological prevailance in training data
-
-                
-                y_c_mask = np.logical_and(TrainRV, RV_bin.squeeze()==1)
-                y_clim_val = RV_bin[y_c_mask].size / RV_bin.size
-                # filling test years with clim of training data
-                y_clim = RV_bin[TestRV==True].copy()
-                y_clim[:] = y_clim_val
-                y_pred_c.append(y_clim)
-
-        y_pred_l = pd.concat(y_pred_l)
-        y_pred_l = y_pred_l.sort_index()
-
-        if lag == lags_i[0]:
-            y_pred_c = pd.concat(y_pred_c)
-            y_pred_c = y_pred_c.sort_index()
-
-
-        y_pred_all.append(y_pred_l)
-    y_pred_all = pd.concat(y_pred_all, axis=1)
-    print("\n")
-    print(time() - t0)
-    print(f'{stat_model} ')
-    #%%
-    return y_pred_all, y_pred_c, models
 
 def fit(y_ts, df_data, lag, split, stat_model=str, keys_d=None, 
         kwrgs_pp={}, verbosity=0):
@@ -376,11 +272,14 @@ def fit(y_ts, df_data, lag, split, stat_model=str, keys_d=None,
         prediction, model = stat_models.GBR_logitCV(y_ts, df_norm, keys,
                                                     kwrgs_GBR=kwrgs_GBR,
                                                     verbosity=verbosity)
+    
+    # store original data used for fit into model
+    model.X = df_norm 
         
     prediction = pd.DataFrame(prediction.values, index=prediction.index,
                               columns=[lag])
     #%%
-    return (prediction, model, df_norm)
+    return (prediction, model)
             
 
 def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=list,
@@ -411,14 +310,10 @@ def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=l
     futures = {}
     with ProcessPoolExecutor(max_workers=max_cpu) as pool:
         for lag in lags_i:
-#            y_pred_l = []
+
             for split in splits:
-#                c += 1
-#                progress = int(100 * (c) / (len(splits) * len(lags_i)))
-#                print(f"\rProgress {progress}%", end="")
                 fitkey = f'{lag}_{split}'
 
-#                RV_ts_fit = RV.RV_bin_fit
                 futures[fitkey] = pool.submit(fit, y_ts, df_data, lag, split, 
                                            stat_model=stat_model, keys_d=keys_d, 
                                            kwrgs_pp=kwrgs_pp, verbosity=verbosity)
@@ -431,11 +326,12 @@ def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=l
         y_pred_l = []
         model_lag = dict()
         for split in splits:
-            prediction, model, df_norm = results[f'{lag}_{split}']
-            
+            prediction, model = results[f'{lag}_{split}']
             # store model
-            model_lag['f{split}'] = model
+            model_lag[f'split_{split}'] = model
             
+            # retrieve original input data
+            df_norm = model.X            
             TestRV  = (df_norm['TrainIsTrue']==False)[df_norm['y_pred']]
             y_pred_l.append(prediction[TestRV.values])
 
@@ -453,7 +349,7 @@ def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=l
                 y_clim[:] = y_clim_val
                 y_pred_c.append(y_clim)
         
-        models[f'{lag}'] = model_lag
+        models[f'lag_{lag}'] = model_lag
         
         y_pred_l = pd.concat(y_pred_l)
         y_pred_l = y_pred_l.sort_index()
@@ -507,7 +403,12 @@ def prepare_data(df_split, lag_i=int, normalize='datesRV', remove_RV=True,
         df_prec = df_split.copy()
     x_keys = np.array(keys, dtype='object')
     
-    if add_autocorr and lag_i <= 2:
+    if type(add_autocorr) is int:
+        adding_ac_mlag = lag_i <= 2
+    else:
+        adding_ac_mlag = True
+        
+    if add_autocorr and adding_ac_mlag:
         # minimal shift of lag 1 or it will follow shift with x_fit mask
         if lag_i == 0:
             RV_ac = df_RV.shift(periods=-1).copy()
@@ -518,10 +419,10 @@ def prepare_data(df_split, lag_i=int, normalize='datesRV', remove_RV=True,
         # is available to shift backward
         RV_ac.loc[RV_ac.isna()] = RV_ac.mean()
 
-        df_prec.insert(0, 'RV_ac', RV_ac)
+        df_prec.insert(0, 'autocorr', RV_ac)
         # add key to keys
-        if 'RV_ac' not in keys:
-            x_keys = np.array(np.insert(x_keys, 0, 'RV_ac'), dtype='object')
+        if 'autocorr' not in keys:
+            x_keys = np.array(np.insert(x_keys, 0, 'autocorr'), dtype='object')
 
     df_prec = df_prec[x_keys]
 

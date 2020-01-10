@@ -8,11 +8,14 @@ Created on Sat Aug 24 20:01:23 2019
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
 import statsmodels.api as sm
 from statsmodels.api import add_constant
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
+import itertools
+flatten = lambda l: list(itertools.chain.from_iterable(l))
 #from sklearn import metrics
 #from sklearn.metrics import make_scorer
 
@@ -260,6 +263,96 @@ def get_masks(df_norm):
     else:
         y_pred_mask = None
     return x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask
+
+def plot_importances(GBR_models_split_lags, lag=1, plot=True, cutoff=6):
+    #%%
+
+    if type(lag) is int:
+        df_all = _get_importances(GBR_models_split_lags, lag=lag)
+        
+        if plot:
+            fig, ax = plt.subplots(constrained_layout=True)
+            lag_d = df_all.index[0]
+            df_r = df_all.loc[lag_d].sort_values()
+            ax.set_title(f"Relative Feature Importances")
+            ax.barh(np.arange(df_all.columns.size), df_r.squeeze().values, tick_label=df_r.index)
+            ax.text(0.97, 0.07, f'lead time: {lag_d} days',
+                    fontsize=12,
+                    bbox=dict(boxstyle='round', facecolor='wheat', 
+                              edgecolor='black', alpha=0.5),
+                horizontalalignment='right',
+                verticalalignment='top',
+                transform=ax.transAxes)
+    elif type(lag) is list or type(lag) is np.ndarray:
+        
+        dfs = []
+        for i, l in enumerate(lag):
+            dfs.append(_get_importances(GBR_models_split_lags, lag=l))
+        all_vars = []
+        all_vars.append([list(df.columns.values) for df in dfs])
+        all_vars = np.unique(flatten(flatten(all_vars)))
+        df_all = pd.DataFrame(columns=all_vars)
+        for i, l in enumerate(lag):
+            df_n = dfs[i] 
+            df_all = df_all.append(df_n, sort=False)
+        sort_index = df_all.mean(0).sort_values(ascending=False).index
+        df_all = df_all.reindex(sort_index, axis='columns')
+        
+        if plot:
+
+            # plot vs lags
+            fig, ax = plt.subplots(constrained_layout=True)
+            styles_ = [['solid'], ['dashed']]
+            styles = flatten([6*s for i, s in enumerate(styles_)])[:cutoff]
+            linewidths = np.linspace(cutoff/3, 1, cutoff)
+            for col, style, lw in zip(df_all.columns, styles, linewidths):
+                df_all.loc[:,col].plot(figsize=(8,5), 
+                                      linestyle=style,
+                                      linewidth=lw,
+                                      ax=ax)
+            ax.legend()
+            ax.set_title('relative feature importance vs. lead time')
+            ax.set_xlabel('lead time [days]')
+    #%%
+    return df_all
+
+
+def _get_importances(GBR_models_split_lags, lag=1, plot=True, _ax=None):
+    #%%
+    '''
+    get feature importance for single lag
+    '''
+
+    GBR_models_split = GBR_models_split_lags[f'lag_{lag}']
+    feature_importances = {}
+    
+    for years, regressor in GBR_models_split.items():
+        for name, importance in zip(regressor.X.columns, regressor.feature_importances_):
+            if name not in feature_importances:
+                feature_importances[name] = [0, 0]
+            feature_importances[name][0] += importance
+            feature_importances[name][1] += 1
+
+    names, importances = [], []
+
+    for name, (importance, count) in feature_importances.items():
+        names.append(name)
+        importances.append(float(importance) / float(count))
+
+    importances = np.array(importances) / np.sum(importances)
+    order = np.argsort(importances)
+    names_order = [names[index] for index in order] ; names_order.reverse()
+    freq = (regressor.X.index[1] - regressor.X.index[0]).days
+    lags_tf = [l*freq for l in [lag]]
+    if freq != 1:
+        # the last day of the time mean bin is tfreq/2 later then the centerered day
+        lags_tf = [l_tf- int(freq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
+    df = pd.DataFrame([sorted(importances, reverse=True)], columns=names_order, index=lags_tf)      
+
+    #%%
+    return df
+    
+
 
 #def GBR(y_ts, df_norm, keys=None, kwrgs_GBR=None, verbosity=0):
 #    #%%

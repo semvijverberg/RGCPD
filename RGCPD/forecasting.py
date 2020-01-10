@@ -86,20 +86,20 @@ ERA_and_EC_daily  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
 
 #CPPA_sm_30d
 #ERA5_sm_30d         = {'ERA-5:':(CPPA_sm_30d, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
-#ERA5_sm_30d         = {'ERA-5:':(CPPA_sm_30d, ['sst(CPPA)+sm'])}
+ERA5_sm_30d         = {'ERA-5:':(CPPA_sm_30d, ['sst(CPPA)+sm'])}
 #stat_model_l = [logit, logitCV]
 
 ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
 
 
-#RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_z500_10d, ['only_db_regs'])}
-#stat_model_l = [logitCV, GBR_logitCV]
+RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_z500_10d, ['only_db_regs'])}
+stat_model_l = [logitCV, GBR_logitCV]
 
 
 #RGCPD_20    = {'RGCPD:' : (RGCPD_sst_sm_z500_20d, ['only_db_regs'])}
 
 #RGCPD_30       = {'RGCPD:' : (RGCPD_sst_sm_z500_30d, ['only_db_regs', 'causal only_db_regs'])}
-#RGCPD_30       = {'RGCPD:' : (RGCPD_sst_sm_z500_30d, ['only_db_regs'])}
+RGCPD_30       = {'RGCPD:' : (RGCPD_sst_sm_z500_30d, ['only_db_regs'])}
 #stat_model_l = [logit, logitCV]
 #
 #ERA_sp      = {'ERA-5:':(CPPA_sm_10d, ['CPPAregs+sm', 'CPPApattern+sm', 'sst(CPPA)+sm'])}
@@ -107,7 +107,7 @@ ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
 
 syn       = {'syn':(synthetic, [None])}
 
-datasets_path = ERA_Bram
+datasets_path = ERA5_sm_30d
 
 causal = False
 stat_model_l = [GBR_logitCV]
@@ -126,10 +126,10 @@ kwrgs_events_daily =    (filename_ts,
 
 kwrgs_events = kwrgs_events_daily
     
-#kwrgs_events = {'event_percentile': 66,
-#                'min_dur' : 1,
-#                'max_break' : 0,
-#                'grouped' : False}
+kwrgs_events = {'event_percentile': 50,
+                'min_dur' : 1,
+                'max_break' : 0,
+                'grouped' : False}
 
 kwrgs_pp = {'add_autocorr':True,
             'normalize':'datesRV'}
@@ -139,7 +139,7 @@ kwrgs_pp = {'add_autocorr':True,
 #%%
 n_boot = 500
 verbosity = 0
-lead_max = 45 # np.array([0,1])
+lead_max = 75 # np.array([0,1])
 from func_fc import fcev
 #stat_model_l = [logit]
 dict_experiments = {} ; list_fc = []

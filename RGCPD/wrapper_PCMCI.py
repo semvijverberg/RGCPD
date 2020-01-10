@@ -30,12 +30,12 @@ def loop_train_test(df_data, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None
     
     
     pcmci_dict = {}
-    TrainIsTrue = df_data['TrainIsTrue']
     RV_mask = df_data['RV_mask']
     for s in range(splits.size):
         progress = 100 * (s+1) / splits.size
         print(f"\rProgress causal inference - traintest set {progress}%", end="")
         
+        TrainIsTrue = df_data['TrainIsTrue'].loc[s]
         df_data_s = df_data.loc[s][TrainIsTrue.values]
         var_names = list(df_data.columns[(df_data_s.dtypes != np.bool)])
         df_data_s = df_data_s.loc[:,var_names]
@@ -48,14 +48,12 @@ def loop_train_test(df_data, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None
                         verbosity)
         
         pcmci_dict[s] = out # tuple containing pcmci, q_matrix, results
-        
-    
     #%%
     return pcmci_dict
 
 def get_df_sum(pcmci_dict, alpha_level):
     #%%
-    splits = np.array(pcmci_dict.keys())
+    splits = np.array(list(pcmci_dict.keys()))
     df_sum_s = np.zeros( (splits.size) , dtype=object)
     
     for s in range(splits.size):

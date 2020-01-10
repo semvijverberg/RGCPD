@@ -124,14 +124,11 @@ class RGCPD:
                   'year.'.format(max(self.lags)) ) )
 
 
-    def traintest(self, kwrgs_TV=None):
+    def traintest(self, method='no_train_test_split', seed=1, 
+                  kwrgs_events=None, precursor_ts=None):
         ''' Splits the training and test dates, either via cross-validation or
         via a simple single split.
         agrs:
-        kwrgs_RV = dict(method=method,
-                seed=seed,
-                kwrgs_events=kwrgs_events,
-                precursor_ts=precursor_ts)
         'method'        : str referring to method to split train test, see
                           options for method below.
         seed            : the seed to draw random samples for train test split
@@ -152,13 +149,13 @@ class RGCPD:
         Returns panda dataframe with traintest mask and Target variable mask
         concomitant to each split.
         '''
-        if kwrgs_TV is None:
-            self.kwrgs_TV = dict(method='no_train_test_split',
-                    seed=1,
-                    kwrgs_events=None,
-                    precursor_ts=None)
-        else:
-            self.kwrgs_TV = kwrgs_TV
+
+           
+        self.kwrgs_TV = dict(method=method,
+                    seed=seed,
+                    kwrgs_events=kwrgs_events,
+                    precursor_ts=precursor_ts)
+
 
 
         TV, self.df_splits = find_precursors.RV_and_traintest(self.fullts,
@@ -284,7 +281,7 @@ class RGCPD:
         self.pcmci_dict = wrapper_PCMCI.loop_train_test(self.df_data, self.path_outsub2,
                                                           **kwrgs_pcmci)
         self.df_sum = wrapper_PCMCI.get_df_sum(self.pcmci_dict, kwrgs_pcmci['alpha_level'])
-        print(self.df_sum)
+#         print(self.df_sum)
         # get xarray dataset for each variable
         self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_sum,
                                                       self.outdic_precur)

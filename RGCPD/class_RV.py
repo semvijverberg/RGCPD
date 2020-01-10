@@ -74,19 +74,18 @@ class RV_class:
                                               kwrgs_events['event_percentile'])
             self.threshold_ts_fit = func_fc.Ev_threshold(self.RV_ts_fit,
                                               kwrgs_events['event_percentile'])
+
+            # unpack other optional arguments for defining event timeseries 
+            kwrgs = {key:item for key, item in kwrgs_events.items() if key != 'event_percentile'}
             if only_RV_events == True:
                 self.RV_bin_fit = func_fc.Ev_timeseries(self.RV_ts_fit,
                                threshold=self.threshold_ts_fit ,
-                               min_dur=kwrgs_events['min_dur'],
-                               max_break=kwrgs_events['max_break'],
-                               grouped=kwrgs_events['grouped'])[0]
+                               **kwrgs)[0]
                 self.RV_bin = self.RV_bin_fit.loc[self.dates_RV]
             elif only_RV_events == False:
                 self.RV_b_full = func_fc.Ev_timeseries(self.fullts,
                                threshold=self.threshold ,
-                               min_dur=kwrgs_events['min_dur'],
-                               max_break=kwrgs_events['max_break'],
-                               grouped=kwrgs_events['grouped'])[0]
+                               **kwrgs)[0]
                 self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
 
             self.freq      = func_fc.get_freq_years(self.RV_bin)
