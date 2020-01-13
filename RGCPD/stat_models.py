@@ -14,10 +14,11 @@ from statsmodels.api import add_constant
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.inspection import partial_dependence
+from matplotlib.lines import Line2D
 import itertools
 flatten = lambda l: list(itertools.chain.from_iterable(l))
-#from sklearn import metrics
-#from sklearn.metrics import make_scorer
+
 
 
 def logit(y_ts, df_norm, keys):
@@ -264,6 +265,19 @@ def get_masks(df_norm):
         y_pred_mask = None
     return x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask
 
+# =============================================================================
+# Plotting
+# =============================================================================
+import seaborn as sns
+from matplotlib import cycler
+nice_colors = ['#EE6666', '#3388BB', '#9988DD',
+                 '#EECC55', '#88BB44', '#FFBBBB']
+colors_nice = cycler('color',
+                nice_colors)
+colors_datasets = sns.color_palette('deep')
+
+line_styles = ['solid', 'dashed', (0, (3, 5, 1, 5, 1, 5)), 'dotted']
+
 def plot_importances(GBR_models_split_lags, lag=1, plot=True, cutoff=6):
     #%%
 
@@ -326,7 +340,7 @@ def _get_importances(GBR_models_split_lags, lag=1, plot=True, _ax=None):
     GBR_models_split = GBR_models_split_lags[f'lag_{lag}']
     feature_importances = {}
     
-    for years, regressor in GBR_models_split.items():
+    for splitkey, regressor in GBR_models_split.items():
         for name, importance in zip(regressor.X.columns, regressor.feature_importances_):
             if name not in feature_importances:
                 feature_importances[name] = [0, 0]
@@ -352,6 +366,125 @@ def _get_importances(GBR_models_split_lags, lag=1, plot=True, _ax=None):
     #%%
     return df
     
+
+def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None):
+    #%%
+    
+
+#                        'grid.color': 'black'})
+    sns.set_style("whitegrid")
+    sns.set_style(rc = {'axes.edgecolor': 'black'})    
+
+
+    if lags is None:
+        lag_keys = GBR_models_split_lags.keys()
+        lags = [int(l.split('_')[1]) for l in lag_keys][:3]
+    
+    
+    if keys is None: 
+        keys = set()
+        for l, lag in enumerate(lags):
+            # get models at lag
+            GBR_models_split = GBR_models_split_lags[f'lag_{lag}']
+        [keys.update(list(r.X.columns)) for k, r in GBR_models_split.items()]
+        masks = ['TrainIsTrue', 'x_fit', 'x_pred', 'y_fit', 'y_pred']
+        keys = [k for k in keys if k not in masks]
+    
+    df_temp = pd.DataFrame(data=keys)
+    g = sns.FacetGrid(df_temp, col=0, col_wrap=3, aspect=1.5, sharex=False)
+    
+    custom_lines = [] ; _legend = []
+    for l, lag in enumerate(lags):
+
+        # get models at lag
+        GBR_models_split = GBR_models_split_lags[f'lag_{lag}']
+        style = line_styles[l]
+        color = colors_datasets[l]
+        custom_lines.append(Line2D([0],[0],linestyle=style, color=color, lw=4,
+                                   markersize=10))
+        _legend.append(f'lag {lag}')
+        for i, key in enumerate(keys):
+            ax = g.axes[i]
+            y = [] ; x = []
+            for splitkey, regressor in GBR_models_split.items():
+                if key in list(regressor.X.columns):
+                    index = list(regressor.X.columns).index(key)
+                    _y, _x = partial_dependence(regressor, X=regressor.X, features=[index])
+                    y.append(_y[0])
+                    x.append(_x[0])
+            
+            
+            y_mean = np.array(y).mean(0)
+            y_std = 2*np.std(y, 0).ravel()
+            x_vals = np.mean(x, 0)
+            
+            ax.fill_between(x_vals, y_mean - y_std, y_mean + y_std, 
+                            color=color, linestyle=style, alpha=0.2)
+            ax.plot(x_vals, y_mean, color=color, linestyle=style)
+            ax.set_title(key)
+            if i == 0:
+                ax.legend(custom_lines, _legend, handlelength=3)
+
+
+            
+    #%%
+#    
+def plot_twoway_partial_dependence(GBR_models_split_lags, keys=None, lag_i=0):
+    import df_ana
+    #%%
+    GBR_models_split = GBR_models_split_lags[f'lag_{lag_i}']
+    min_corrcoeff = 0.3
+    if keys is None:
+        all_keys = set()
+        # plot two way depend. if timeseries are correlated
+        keep = {}
+        # first calculating cross corr matrix per split
+        for splitkey, regressor in GBR_models_split.items():
+            keys = regressor.X.columns[(regressor.X.dtypes != bool)]
+            X_test = regressor.X.loc[:,keys][regressor.X['x_pred']]
+            cross_corr, sig_mask = df_ana.corr_matrix_pval(X_test)[:2]
+            np.fill_diagonal(sig_mask, False)
+            mask = np.logical_and(sig_mask, cross_corr.values > min_corrcoeff)
+            sig_cross = cross_corr.where(mask)
+            
+            keep_s = {}
+            for index, row in sig_cross.iterrows():
+                notnan = row.dropna()
+                corr_vs_index = [key for key, v in notnan.iteritems() if v != 1.0]
+                if len(corr_vs_index) != 0:
+                    keep_s[index] = corr_vs_index
+                    all_keys.update([index])
+            keep[splitkey] = keep_s
+            
+    for key in all_keys:
+        for splitkey, corr_with in keep.items():
+            if key in corr_with.keys():
+                print(key, corr_with[key])
+    # now convert to var1 vs [list of vars]
+#    
+#    # get models at lag
+#    GBR_models_split = GBR_models_split_lags[f'lag_{lag}']
+#    style = line_styles[l]
+#    color = colors_datasets[l]
+#    custom_lines.append(Line2D([0],[0],linestyle=style, color=color, lw=4,
+#                               markersize=10))
+#
+#    for i, key in enumerate(keys):
+##        ax = g.axes[i]
+#        y = [] ; x = []
+#        for splitkey, regressor in GBR_models_split.items():
+#            if key in list(regressor.X.columns):
+#                index = list(regressor.X.columns).index(key)
+#                _y, _x = partial_dependence(regressor, X=regressor.X, features=[index])
+#                y.append(_y[0])
+#                x.append(_x[0])
+
+#%%
+
+            
+#        keep.append( {index : corr_vs_index} )
+#    zz = sig_cross.loc[row]
+
 
 
 #def GBR(y_ts, df_norm, keys=None, kwrgs_GBR=None, verbosity=0):

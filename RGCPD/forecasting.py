@@ -92,7 +92,7 @@ ERA5_sm_30d         = {'ERA-5:':(CPPA_sm_30d, ['sst(CPPA)+sm'])}
 ERA_Bram         = {'ERA-5:':(CPPA_sm_10d, ['sst(CPPA)+sm'])}
 
 
-RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_z500_10d, ['only_db_regs'])}
+RGCPD       = {'RGCPD:' : (RGCPD_sst_sm_z500_10d, [None])}
 stat_model_l = [logitCV, GBR_logitCV]
 
 
@@ -107,7 +107,7 @@ RGCPD_30       = {'RGCPD:' : (RGCPD_sst_sm_z500_30d, ['only_db_regs'])}
 
 syn       = {'syn':(synthetic, [None])}
 
-datasets_path = ERA5_sm_30d
+datasets_path = RGCPD
 
 causal = False
 stat_model_l = [GBR_logitCV]
@@ -126,7 +126,7 @@ kwrgs_events_daily =    (filename_ts,
 
 kwrgs_events = kwrgs_events_daily
     
-kwrgs_events = {'event_percentile': 50,
+kwrgs_events = {'event_percentile': 66,
                 'min_dur' : 1,
                 'max_break' : 0,
                 'grouped' : False}

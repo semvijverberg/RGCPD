@@ -211,11 +211,12 @@ class fcev():
         import valid_plots as df_plots
         df_plots.plot_freq_per_yr(self.TV)
     
-    def plot_GBR_feature_importances(self, lag=None):
+    def plot_GBR_feature_importances(self, lag=None, cutoff=6):
         GBR_models_split_lags = self.dict_models['GBR-logitCV']
         if lag is None:
             lag = self.lags_i
-        stat_models.plot_importances(GBR_models_split_lags, lag=lag)
+        self.df_importance = stat_models.plot_importances(GBR_models_split_lags, lag=lag, 
+                                     cutoff=cutoff)
 
 
         
@@ -258,11 +259,6 @@ def fit(y_ts, df_data, lag, split, stat_model=str, keys_d=None,
     # forecasting models
     if model_name == 'logit':
         prediction, model = stat_models.logit(y_ts, df_norm, keys=keys)
-    if model_name == 'GBR':
-        kwrgs_GBR = kwrgs
-        prediction, model = stat_models.GBR(y_ts, df_norm, keys,
-                                            kwrgs_GBR=kwrgs_GBR,
-                                            verbosity=verbosity)
     if model_name == 'logit-CV':
         kwrgs_logit = kwrgs
         prediction, model = stat_models.logit_skl(y_ts, df_norm, keys,
@@ -291,7 +287,8 @@ def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=l
 #    kwrgs_pp={}
 #    keys_d=None
 #    df_data = fc.df_data
-#    
+#    verbosity=0
+   
     # do forecasting accros lags
     splits  = df_data.index.levels[0]
     y_pred_all = []
@@ -385,7 +382,15 @@ def prepare_data(df_split, lag_i=int, normalize='datesRV', remove_RV=True,
         df_norm     : Dataframe
         x_keys      : updated set of keys to fit model
     '''
-
+# lag_i=1
+# normalize='datesRV'
+# remove_RV=True
+# keys=None
+# add_autocorr=True
+# EOF=False
+# expl_var=None
+    
+    
     # =============================================================================
     # Select features / variables
     # =============================================================================
@@ -506,7 +511,7 @@ def apply_shift_lag(fit_masks, lag_i):
     fit_masks['y_pred'] = RV_mask
     fit_masks = fit_masks.drop(['RV_mask'], axis=1)
     fit_masks = fit_masks.drop(['fit_model_mask'], axis=1)
-    return fit_masks
+    return fit_masks.astype(bool)
 
 def transform_EOF(df_prec, TrainIsTrue, RV_mask, expl_var=0.8):
     '''

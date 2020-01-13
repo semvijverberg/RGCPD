@@ -15,7 +15,7 @@ The final step is the same, where the 1-d time series are processed by Tigramite
 Correlated (left) and 'Causal' (right) SST regions with eastern U.S. temperature. No scientific output.
 ![corr_field](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.01_at0.01_t2mmax_E-US_vs_sst_tigr_corr_mean.png)
 Clustering of the precursor regions.
-![precursor_labels](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.01_at0.01_t2mmax_E-US_vs_sst_labels_mean.png)
+![precursor_labels](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.002_at0.05_t2mmax_E-US_vs_sst_labels_mean.png)
 
 Output is stored in .hdf5 format (pandas dataframe) and can be used by forecasting.py to predict events and validate the forecast. Forecasting and evaluating Continuous timeseries is not fully supported yet. 
 
