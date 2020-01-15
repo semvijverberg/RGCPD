@@ -106,7 +106,7 @@ class fcev():
         if keys_d is None:
             print('keys is None: Using all keys in training sets')
             self.experiment = 'all'
-            self.keys_d = exp_fc.normal_precursor_regions(self.path_data, causal=False)['all']
+            self.keys_d = None
         if isinstance(keys_d, dict):
             self.experiment = 'manual'
             # expecting dict with traintest number as key and associated list of keys
@@ -211,14 +211,16 @@ class fcev():
         import valid_plots as df_plots
         df_plots.plot_freq_per_yr(self.TV)
     
-    def plot_GBR_feature_importances(self, lag=None, cutoff=6):
+    def plot_GBR_feature_importances(self, lag=None, keys=None, cutoff=6):
         GBR_models_split_lags = self.dict_models['GBR-logitCV']
         if lag is None:
             lag = self.lags_i
         self.df_importance = stat_models.plot_importances(GBR_models_split_lags, lag=lag, 
-                                     cutoff=cutoff)
-
-
+                                                         keys=keys, cutoff=cutoff)
+    
+    def plot_oneway_partial_dependence(self, keys=None, lags=None):
+        GBR_models_split_lags = self.dict_models['GBR-logitCV']
+        stat_models.plot(GBR_models_split_lags, keys=keys, lags=lags)
         
         
 def df_data_to_RV(df_data=pd.DataFrame, kwrgs_events=dict, only_RV_events=True,

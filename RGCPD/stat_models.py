@@ -15,6 +15,9 @@ from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.inspection import partial_dependence
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
+max_cpu = multiprocessing.cpu_count()
 from matplotlib.lines import Line2D
 import itertools
 flatten = lambda l: list(itertools.chain.from_iterable(l))
@@ -278,18 +281,23 @@ colors_datasets = sns.color_palette('deep')
 
 line_styles = ['solid', 'dashed', (0, (3, 5, 1, 5, 1, 5)), 'dotted']
 
-def plot_importances(GBR_models_split_lags, lag=1, plot=True, cutoff=6):
+def plot_importances(GBR_models_split_lags, lag=1, keys=None, cutoff=6, 
+                     plot=True):
     #%%
-
+#    keys = ['autocorr', '10_1_sst']
     if type(lag) is int:
         df_all = _get_importances(GBR_models_split_lags, lag=lag)
         
         if plot:
             fig, ax = plt.subplots(constrained_layout=True)
             lag_d = df_all.index[0]
-            df_r = df_all.loc[lag_d].sort_values()
+            if keys is None:
+                # take show up to cutoff most important features
+                df_r = df_all.loc[lag_d].sort_values()[-cutoff:]
+            else:
+                df_r = df_all.loc[lag_d].loc[keys]
             ax.set_title(f"Relative Feature Importances")
-            ax.barh(np.arange(df_all.columns.size), df_r.squeeze().values, tick_label=df_r.index)
+            ax.barh(np.arange(df_r.size), df_r.squeeze().values, tick_label=df_r.index)
             ax.text(0.97, 0.07, f'lead time: {lag_d} days',
                     fontsize=12,
                     bbox=dict(boxstyle='round', facecolor='wheat', 
@@ -313,25 +321,31 @@ def plot_importances(GBR_models_split_lags, lag=1, plot=True, cutoff=6):
         df_all = df_all.reindex(sort_index, axis='columns')
         
         if plot:
-
+            
+            if keys is None:
+                # take show up to cutoff most important features
+                df_pl = df_all.loc[:,sort_index[:cutoff]]
+            else:
+                df_pl = df_all.loc[:,[k for k in sort_index if k in keys]]
             # plot vs lags
             fig, ax = plt.subplots(constrained_layout=True)
             styles_ = [['solid'], ['dashed']]
-            styles = flatten([6*s for i, s in enumerate(styles_)])[:cutoff]
+            styles = flatten([6*s for i, s in enumerate(styles_)])[:df_pl.size]
             linewidths = np.linspace(cutoff/3, 1, cutoff)
-            for col, style, lw in zip(df_all.columns, styles, linewidths):
+            for col, style, lw in zip(df_pl.columns, styles, linewidths):
                 df_all.loc[:,col].plot(figsize=(8,5), 
                                       linestyle=style,
                                       linewidth=lw,
                                       ax=ax)
             ax.legend()
-            ax.set_title('relative feature importance vs. lead time')
+            ax.set_title('Relative Feature importance vs. lead time')
             ax.set_xlabel('lead time [days]')
     #%%
     return df_all
 
 
-def _get_importances(GBR_models_split_lags, lag=1, plot=True, _ax=None):
+def _get_importances(GBR_models_split_lags, lag=1, _ax=None):
+                     
     #%%
     '''
     get feature importance for single lag
@@ -341,7 +355,9 @@ def _get_importances(GBR_models_split_lags, lag=1, plot=True, _ax=None):
     feature_importances = {}
     
     for splitkey, regressor in GBR_models_split.items():
-        for name, importance in zip(regressor.X.columns, regressor.feature_importances_):
+        all_keys = list(regressor.X.columns[(regressor.X.dtypes != bool)])
+        importances = regressor.feature_importances_
+        for name, importance in zip(all_keys, importances):
             if name not in feature_importances:
                 feature_importances[name] = [0, 0]
             feature_importances[name][0] += importance
@@ -349,9 +365,12 @@ def _get_importances(GBR_models_split_lags, lag=1, plot=True, _ax=None):
 
     names, importances = [], []
 
+    
     for name, (importance, count) in feature_importances.items():
+
         names.append(name)
         importances.append(float(importance) / float(count))
+    
 
     importances = np.array(importances) / np.sum(importances)
     order = np.argsort(importances)
@@ -367,11 +386,9 @@ def _get_importances(GBR_models_split_lags, lag=1, plot=True, _ax=None):
     return df
     
 
-def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None):
+def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
+                                   grid_resolution=20):
     #%%
-    
-
-#                        'grid.color': 'black'})
     sns.set_style("whitegrid")
     sns.set_style(rc = {'axes.edgecolor': 'black'})    
 
@@ -389,35 +406,56 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None):
         [keys.update(list(r.X.columns)) for k, r in GBR_models_split.items()]
         masks = ['TrainIsTrue', 'x_fit', 'x_pred', 'y_fit', 'y_pred']
         keys = [k for k in keys if k not in masks]
+    keys = keys
     
-    df_temp = pd.DataFrame(data=keys)
-    g = sns.FacetGrid(df_temp, col=0, col_wrap=3, aspect=1.5, sharex=False)
-    
-    custom_lines = [] ; _legend = []
+    df_lags = []
     for l, lag in enumerate(lags):
-
         # get models at lag
         GBR_models_split = GBR_models_split_lags[f'lag_{lag}']
+
+        df_keys = []
+        for i, key in enumerate(keys):
+            y = [] ; x = []
+            for splitkey, regressor in GBR_models_split.items():
+                if key in list(regressor.X.columns):
+                    index = list(regressor.X.columns).index(key)
+                    all_keys = regressor.X.columns[(regressor.X.dtypes != bool)]
+                    X_test = regressor.X.loc[:,all_keys][regressor.X['x_pred']]
+                    _y, _x = partial_dependence(regressor, X=X_test, features=[index],
+                                                grid_resolution=grid_resolution)
+                    y.append(_y[0])
+                    x.append(_x[0])
+            
+            y_mean = np.array(y).mean(0)
+            y_std = np.std(y, 0).ravel()
+            x_vals = np.mean(x, 0)
+            data = np.concatenate([y_mean[:,None], y_std[:,None], x_vals[:,None]], axis=1)
+            df_key = pd.DataFrame(data, columns=['y_mean', 'y_std', 'x_vals'])
+            df_keys.append(df_key)
+        df_keys = pd.concat(df_keys, keys=keys)
+        df_lags.append(df_keys)
+    df_lags = pd.concat(df_lags, keys=lags)
+    # =============================================================================
+    # Plotting    
+    # =============================================================================
+    #%%
+    g = sns.FacetGrid(pd.DataFrame(data=keys), col=0, col_wrap=3, 
+                      aspect=1.5, sharex=False)   
+    custom_lines = [] ; _legend = []
+    for l, lag in enumerate(lags):
+        
         style = line_styles[l]
         color = colors_datasets[l]
         custom_lines.append(Line2D([0],[0],linestyle=style, color=color, lw=4,
                                    markersize=10))
         _legend.append(f'lag {lag}')
+        
         for i, key in enumerate(keys):
             ax = g.axes[i]
-            y = [] ; x = []
-            for splitkey, regressor in GBR_models_split.items():
-                if key in list(regressor.X.columns):
-                    index = list(regressor.X.columns).index(key)
-                    _y, _x = partial_dependence(regressor, X=regressor.X, features=[index])
-                    y.append(_y[0])
-                    x.append(_x[0])
-            
-            
-            y_mean = np.array(y).mean(0)
-            y_std = 2*np.std(y, 0).ravel()
-            x_vals = np.mean(x, 0)
-            
+            df_plot = df_lags.loc[lag, key]
+            y_mean = df_plot['y_mean']
+            y_std  = 2 * df_plot['y_std']
+            x_vals = df_plot['x_vals']
             ax.fill_between(x_vals, y_mean - y_std, y_mean + y_std, 
                             color=color, linestyle=style, alpha=0.2)
             ax.plot(x_vals, y_mean, color=color, linestyle=style)
@@ -425,62 +463,196 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None):
             if i == 0:
                 ax.legend(custom_lines, _legend, handlelength=3)
 
-
+    return df_lags
             
     #%%
-#    
-def plot_twoway_partial_dependence(GBR_models_split_lags, keys=None, lag_i=0):
+
+
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx, array[idx]
+
+def _get_twoway_pairdepend(GBR_models_split, i, pair, grid_resolution): 
+    y = [] ; x = []
+    for split, regressor in GBR_models_split.items():
+        check_pair = [True for p in pair if p in list(regressor.X.columns)]
+        if all(check_pair):
+            # retrieve index of two variables
+            index = [list(regressor.X.columns).index(p) for p in pair]
+            all_keys = regressor.X.columns[(regressor.X.dtypes != bool)]
+            X_test = regressor.X.loc[:,all_keys][regressor.X['x_pred']]
+            _y, _x = partial_dependence(regressor, X=X_test, features=[index],
+                                        grid_resolution=grid_resolution)
+            y.append(_y.squeeze())
+            x.append(_x)
+    result = np.mean(y, axis=0)
+    x_tick = np.mean(x, axis=0)
+    return result, x_tick   
+
+def plot_twoway_partial_dependence(GBR_models_split_lags, lag_i=0, keys=None,
+                                   plot_pairs=None, min_corrcoeff=0.1, 
+                                   grid_resolution=20):
+    '''
+    Parameters
+    ----------
+    keys : list or tuple.
+        if keys is list: find all pairwise relationships based on correlation.
+        Criteria for corr matrix: relation must be (sign corr and > min_corrcoeff)
+        if key is tuple, will plot pairwise dependencies among the given variables
+    plot_pairs : list of tuples.
+        if list of tuples is supplied, only plot the pairs inside the tuples.
+        if plot_pairs is not None, keys is overwritten.
+
+    '''                                   
+
     import df_ana
     #%%
     GBR_models_split = GBR_models_split_lags[f'lag_{lag_i}']
-    min_corrcoeff = 0.3
-    if keys is None:
-        all_keys = set()
+
+    if plot_pairs is None and type(keys) is list:
+        # collect all pairwise relationship that pass criteria 
+        # Criteria: relation must be (sign corr and > min_corrcoeff)
+        all_pairs = set()
         # plot two way depend. if timeseries are correlated
-        keep = {}
         # first calculating cross corr matrix per split
         for splitkey, regressor in GBR_models_split.items():
-            keys = regressor.X.columns[(regressor.X.dtypes != bool)]
-            X_test = regressor.X.loc[:,keys][regressor.X['x_pred']]
+            all_keys = regressor.X.columns[(regressor.X.dtypes != bool)]
+            X_test = regressor.X.loc[:,all_keys][regressor.X['x_pred']]
             cross_corr, sig_mask = df_ana.corr_matrix_pval(X_test)[:2]
             np.fill_diagonal(sig_mask, False)
             mask = np.logical_and(sig_mask, cross_corr.values > min_corrcoeff)
             sig_cross = cross_corr.where(mask)
             
-            keep_s = {}
             for index, row in sig_cross.iterrows():
                 notnan = row.dropna()
                 corr_vs_index = [key for key, v in notnan.iteritems() if v != 1.0]
-                if len(corr_vs_index) != 0:
-                    keep_s[index] = corr_vs_index
-                    all_keys.update([index])
-            keep[splitkey] = keep_s
-            
-    for key in all_keys:
-        for splitkey, corr_with in keep.items():
-            if key in corr_with.keys():
-                print(key, corr_with[key])
-    # now convert to var1 vs [list of vars]
-#    
-#    # get models at lag
-#    GBR_models_split = GBR_models_split_lags[f'lag_{lag}']
-#    style = line_styles[l]
-#    color = colors_datasets[l]
-#    custom_lines.append(Line2D([0],[0],linestyle=style, color=color, lw=4,
-#                               markersize=10))
-#
-#    for i, key in enumerate(keys):
-##        ax = g.axes[i]
-#        y = [] ; x = []
-#        for splitkey, regressor in GBR_models_split.items():
-#            if key in list(regressor.X.columns):
-#                index = list(regressor.X.columns).index(key)
-#                _y, _x = partial_dependence(regressor, X=regressor.X, features=[index])
-#                y.append(_y[0])
-#                x.append(_x[0])
+                pairwise = [sorted([index, k]) for k in corr_vs_index]
+                if len(pairwise) != 0:
+    #                keep_s[index] = corr_vs_index
+                    all_pairs.update([tuple(pair) for pair in pairwise])
+        all_pairs = list(all_pairs)            
+    
+    if keys is None and plot_pairs is None:
+        plot_pairs = all_pairs
+    elif type(keys) is list and plot_pairs is None:
+        plot_pairs = [p for p in all_pairs if any(x in p for x in keys)]
+    elif type(keys) is tuple and plot_pairs is None:
+        zz = [tuple(sorted((x,y))) for x in keys for y in keys if x != y]
+        plot_pairs = [tuple(t) for t in np.unique(zz, axis=0)]
+    if plot_pairs is not None:
+        plot_pairs = plot_pairs    
 
+    from time import time
+    t0 = time()
+    results = np.zeros( (len(plot_pairs), grid_resolution, grid_resolution) )
+    x_ticks = np.zeros( (len(plot_pairs)), dtype=object)
+    futures = {}
+    with ProcessPoolExecutor(max_workers=max_cpu) as pool:
+        for i, pair in enumerate(plot_pairs):   
+            futures[i] = pool.submit(_get_twoway_pairdepend, GBR_models_split, 
+                                       i, pair, grid_resolution)
+                                       
+    for key, future in enumerate(futures.items()):
+        results[key], x_ticks[key] = future[1].result()
+    print(round(time() - t0, 1))
+
+    df_all = {}
+    for i, pair in enumerate(plot_pairs):
+        x_coord = np.round(x_ticks[i][0],3)
+        y_coord = np.round(x_ticks[i][1],3)[::-1]
+        img2d = results[i]
+        img2d = np.flip(img2d, axis=1)
+        df = pd.DataFrame(data=np.array([np.repeat(x_coord,len(y_coord)), 
+                                         np.tile(y_coord,len(x_coord)), 
+                                         img2d.flatten()]).T, 
+                                         columns=[pair[0], pair[1], 'vals'])
+
+        df_p = df.pivot(pair[0], pair[1], 'vals').round(3)
+        df_all[str(pair)] = df_p
+#    df_all = pd.concat(dfs, keys=plot_pairs)
+    
+    #%%
+    
+    df_temp = pd.DataFrame(data=range(len(plot_pairs)), index=plot_pairs)
+    g = sns.FacetGrid(df_temp, col=0, col_wrap=3, aspect=1.5, 
+                      sharex=False, sharey=False)
+    
+    for i, pair in enumerate(plot_pairs):
+        
+        ax = g.axes[i]
+        df_p = df_all[str(pair)]
+        vmin = np.min(results) ; vmax = np.max(results)
+        ax = sns.heatmap(df_p, vmin=-max(abs(vmin),vmax), 
+                         vmax=max(abs(vmin),vmax), center=0,
+                         cmap=plt.cm.afmhot_r, 
+                         yticklabels=4,
+                         xticklabels=4,
+                         ax=ax)
+        ax.invert_yaxis()
+        ax.tick_params(axis='both')
+        orig = [float(item.get_text()) for item in ax.get_xticklabels()]
+#        x_want = [-1,0,1]        
+#        x_close = [find_nearest(orig, t)[0] for t in x_want]
+#        x_tl = np.array(np.repeat('', len(orig)), dtype=object)
+#        for i, ind in enumerate(x_close):
+#            x_tl[ind] = str(x_want[i])
+        ax.set_xticklabels(np.round(orig, 1))
+        orig = [float(item.get_text()) for item in ax.get_yticklabels()]
+#        y_want = [-1,0,1]
+#        y_close = [find_nearest(orig, t)[0] for t in y_want]
+#        y_tl = np.array(np.repeat('', len(orig)), dtype=object)
+#        for i, ind in enumerate(y_close):
+#            y_tl[ind] = str(y_want[i])
+        ax.set_yticklabels(np.round(orig, 1))
+#        vmin = np.min(results) ; vmax = np.max(results)
+#        im = ax.pcolormesh(x_coord, y_coord, img2d, cmap=plt.cm.afmhot_r,
+#                      vmin=-max(abs(vmin),vmax), vmax=max(abs(vmin),vmax))
+#        ax.set_ylabel(pair[0], labelpad=-3)
+#        ax.set_xlabel(pair[1], labelpad=-1.5)   
+#    cax = g.fig.add_axes([0.4, -0.03, 0.2, 0.02]) # [left, bottom, width, height]
+#    g.fig.colorbar(im, cax=cax, orientation='horizontal')
+    g.fig.subplots_adjust(wspace=0.3)
+    g.fig.subplots_adjust(hspace=0.3)
+    
+    #%%
+    return df_all 
+
+def _get_synergy(GBR_models_split_lags, lag_i=0, plot_pairs=None, 
+                 grid_resolution=20):
+    #%%
+    i=0
+    pair = plot_pairs[i]
+    df_single = plot_oneway_partial_dependence(GBR_models_split_lags, 
+                                               keys=list(pair), lags=[lag_i],
+                                               grid_resolution=grid_resolution).loc[lag_i]
+    df_key1 = df_single.loc[pair[0]]
+    df_key2 = df_single.loc[pair[1]]
+    x_coord = df_key1['x_vals']           
+    y_coord = df_key2['x_vals'][::-1]         
+    v1, v2 = np.meshgrid(df_key1['y_mean'], df_key2['y_mean'])
+    # flip v2 to match df_pair
+    v2 = np.flip(v2, axis=0)
+    img2d = v1 + v2     
+    df_flat = pd.DataFrame(data=np.array([np.repeat(x_coord,len(y_coord)), 
+                                         np.tile(y_coord,len(x_coord)), 
+                                         img2d.flatten()]).T, 
+                                         columns=[pair[0], pair[1], 'vals'])  
+    df_p = df_flat.pivot(pair[0], pair[1], 'vals').round(3)                
+
+    plt.figure()
+    plt.imshow(df_p, cmap=plt.cm.RdBu) ; plt.colorbar()
+    
+    
+    df_pair = plot_twoway_partial_dependence(GBR_models_split_lags, lag_i=lag_i, 
+                                   plot_pairs=plot_pairs, grid_resolution=grid_resolution)
+        
+    plt.figure()
+    plt.imshow(df_pair.values, cmap=plt.cm.RdBu) ; plt.colorbar()        
 #%%
+                                   
 
+#    plot_twoway_partial_dependence()
             
 #        keep.append( {index : corr_vs_index} )
 #    zz = sig_cross.loc[row]

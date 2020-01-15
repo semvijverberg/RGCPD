@@ -291,38 +291,4 @@ print_sett(list_fc, stat_model_l, filename)
 
 np.save(filename + '.npy', dict_experiments)
 #%%
-#fcev.plot_scatter()
-#%%
 
-#valid.loop_df(fcev.df_data.loc[0], valid.plot_ac, sharex='none')
-
-#%%
-# =============================================================================
-# Cross-correlation matrix
-# =============================================================================
-#f_format = '.pdf' 
-#
-#path_data = strat_1d_CPPA_era5
-#win = 1
-#
-#period = ['fullyear', 'summer60days', 'pre60days'][1]
-#df_data = func_fc.load_hdf5(path_data)['df_data']
-##df_data['0_104_PDO'] = df_data['0_104_PDO'] * -1
-#f_name = f'Cross_corr_strat_1d_CPPA_era5_win{win}_{period}'
-#columns = ['t2mmax', '0_100_CPPAspatcov', '0_101_PEPspatcov', '0_901_PDO', '0_900_ENSO34']
-#rename = {'t2mmax':'T95', 
-#          '0_100_CPPAspatcov':'CPPA', 
-#          '0_101_PEPspatcov':'PEP',
-#          '0_901_PDO' : 'PDO',
-#          '0_900_ENSO34': 'ENSO'}
-#dfplots.build_ts_matric(df_data, win=win, lag=0, columns=columns, rename=rename, period=period)
-#if f_format == '.png':
-#    plt.savefig(os.path.join(working_folder, f_name + f_format), 
-#                bbox_inches='tight') # dpi auto 600
-#elif f_format == '.pdf':
-#    plt.savefig(os.path.join(pdfs_folder,f_name+ f_format), 
-#                bbox_inches='tight')
-
-# =============================================================================
-#%% Translation to extremes
-# =============================================================================
