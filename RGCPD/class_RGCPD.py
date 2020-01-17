@@ -42,7 +42,9 @@ class RGCPD:
 
 
         if path_outmain is None:
-            path_outmain = str(Path.home()) + '/Downloads/output_RGCPD'
+            user_download_path = get_download_path()
+            path_outmain = user_download_path + '/output_RGCPD/'
+        if os.path.isdir(path_outmain) != True : os.makedirs(path_outmain)
 
         self.list_of_name_path = list_of_name_path
         self.start_end_TVdate  = start_end_TVdate
@@ -304,3 +306,14 @@ class RGCPD:
         plot_maps.plot_corr_vars_splits(self.dict_ds, self.df_sum, map_proj,
                                           figpath, paramsstr, self.TV.name)
 
+def get_download_path():
+    """Returns the default downloads path for linux or windows"""
+    if os.name == 'nt':
+        import winreg
+        sub_key = r'SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders'
+        downloads_guid = '{374DE290-123F-4565-9164-39C4925E467B}'
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, sub_key) as key:
+            location = winreg.QueryValueEx(key, downloads_guid)[0]
+        return location
+    else:
+        return os.path.join(os.path.expanduser('~'), 'Downloads')

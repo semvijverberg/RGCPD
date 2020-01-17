@@ -177,7 +177,8 @@ class fcev():
                 self.blocksize = valid.get_bstrap_size(self.TV.fullts, plot=False)
             else:
                 self.blocksize = blocksize
-            out = valid.get_metrics_sklearn(self.TV, y_pred_all, y_pred_c, 
+            y = self.TV.RV_bin.squeeze().values
+            out = valid.get_metrics_sklearn(y, y_pred_all, y_pred_c, 
                                             n_boot=n_boot,
                                             blocksize=self.blocksize, 
                                             threshold_pred=threshold_pred)
@@ -613,10 +614,10 @@ def Ev_timeseries(xr_or_df, threshold, min_dur=1, max_break=0, grouped=False,
         give_df_back = False
 
 
-    tfreq_RVts = pd.Timedelta((xarray.time[1]-xarray.time[0]).values)
-    min_dur = min_dur ; max_break = max_break  + 1
-    min_dur = pd.Timedelta(min_dur, 'd') / tfreq_RVts
-    max_break = pd.Timedelta(max_break, 'd') / tfreq_RVts
+#    tfreq_RVts = pd.Timedelta((xarray.time[1]-xarray.time[0]).values)
+    min_dur = min_dur ; 
+#    min_dur = pd.Timedelta(min_dur, 'd') / tfreq_RVts
+#    max_break = pd.Timedelta(max_break, 'd') / tfreq_RVts
 
     if high_ano_events:
         Ev_ts = xarray.where( xarray.values > threshold)
@@ -629,25 +630,24 @@ def Ev_timeseries(xr_or_df, threshold, min_dur=1, max_break=0, grouped=False,
 
     peak_o_thresh = Ev_binary(events_idx, n_timesteps, min_dur, max_break, grouped)
     event_binary_np  = np.array(peak_o_thresh != 0, dtype=int)
-
-    dur = np.zeros( (peak_o_thresh.size) )
-    for i in np.arange(1, max(peak_o_thresh)+1):
-        size = peak_o_thresh[peak_o_thresh==i].size
-        dur[peak_o_thresh==i] = size
-
+    
+    # get duration of events
+    if np.unique(peak_o_thresh).size == 2:
+        dur = np.zeros( (peak_o_thresh.size) )
+        for i in np.arange(1, max(peak_o_thresh)+1):
+            size = peak_o_thresh[peak_o_thresh==i].size
+            dur[peak_o_thresh==i] = size
+    else:
+        dur = 'dur_events_1'
+        
     if np.sum(peak_o_thresh) < 1:
         Events = Ev_ts.where(peak_o_thresh > 0 ).dropna(how='all', dim='time').time
-        pass
     else:
         peak_o_thresh[peak_o_thresh == 0] = np.nan
         Ev_labels = xr.DataArray(peak_o_thresh, coords=[Ev_ts.coords['time']])
         Ev_dates = Ev_labels.dropna(how='all', dim='time').time
-
-#        Ev_dates = Ev_ts.time.copy()
-#        Ev_dates['Ev_label'] = Ev_labels
-#        Ev_dates = Ev_dates.groupby('Ev_label').max().values
-#        Ev_dates.sort()
         Events = xarray.sel(time=Ev_dates)
+        
     if give_df_back:
         event_binary = pd.DataFrame(event_binary_np, index=pd.to_datetime(xarray.time.values),
                                    columns=['RV_binary'])
@@ -662,40 +662,46 @@ def Ev_binary(events_idx, n_timesteps, min_dur, max_break, grouped=False):
 
     max_break = max_break + 1
     peak_o_thresh = np.zeros((n_timesteps))
-    ev_num = 1
-    # group events inter event time less than max_break
-    for i in range(len(events_idx)):
-        if i < len(events_idx)-1:
-            curr_ev = events_idx[i]
-            next_ev = events_idx[i+1]
-        elif i == len(events_idx)-1:
-            curr_ev = events_idx[i]
-            next_ev = events_idx[i-1]
-
-        if abs(next_ev - curr_ev) <= max_break:
-            peak_o_thresh[curr_ev] = ev_num
-        elif abs(next_ev - curr_ev) > max_break:
-            peak_o_thresh[curr_ev] = ev_num
-            ev_num += 1
-
-    # remove events which are too short
-    for i in np.arange(1, max(peak_o_thresh)+1):
-        No_ev_ind = np.where(peak_o_thresh==i)[0]
-        # if shorter then min_dur, then not counted as event
-        if No_ev_ind.size < min_dur:
-            peak_o_thresh[No_ev_ind] = 0
-
-    if grouped == True:
-        data = np.concatenate([peak_o_thresh[:,None],
-                               np.arange(len(peak_o_thresh))[:,None]],
-                                axis=1)
-        df = pd.DataFrame(data, index = range(len(peak_o_thresh)),
-                                  columns=['values', 'idx'], dtype=int)
-        grouped = df.groupby(df['values']).mean().values.squeeze()[1:]
-        peak_o_thresh[:] = 0
-        peak_o_thresh[np.array(grouped, dtype=int)] = 1
+    
+    if min_dur != 1 or max_break > 1:
+        ev_num = 1
+        # group events inter event time less than max_break
+        for i in range(len(events_idx)):
+            if i < len(events_idx)-1:
+                curr_ev = events_idx[i]
+                next_ev = events_idx[i+1]
+            elif i == len(events_idx)-1:
+                curr_ev = events_idx[i]
+                next_ev = events_idx[i-1]
+    
+            if abs(next_ev - curr_ev) <= max_break:
+                # if i_steps >= max_break, same event
+                peak_o_thresh[curr_ev] = ev_num
+            elif abs(next_ev - curr_ev) > max_break:
+                # elif i_steps > max_break, assign new event number
+                peak_o_thresh[curr_ev] = ev_num
+                ev_num += 1
+    
+        # remove events which are too short
+        for i in np.arange(1, max(peak_o_thresh)+1):
+            No_ev_ind = np.where(peak_o_thresh==i)[0]
+            # if shorter then min_dur, then not counted as event
+            if No_ev_ind.size < min_dur:
+                peak_o_thresh[No_ev_ind] = 0
+    
+        if grouped == True:
+            data = np.concatenate([peak_o_thresh[:,None],
+                                   np.arange(len(peak_o_thresh))[:,None]],
+                                    axis=1)
+            df = pd.DataFrame(data, index = range(len(peak_o_thresh)),
+                                      columns=['values', 'idx'], dtype=int)
+            grouped = df.groupby(df['values']).mean().values.squeeze()[1:]
+            peak_o_thresh[:] = 0
+            peak_o_thresh[np.array(grouped, dtype=int)] = 1
+        else:
+            pass
     else:
-        pass
+        peak_o_thresh[events_idx] = 1
 
     return peak_o_thresh
 

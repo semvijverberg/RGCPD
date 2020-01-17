@@ -14,6 +14,10 @@ if RGCPD_func not in sys.path:
 import numpy as np
 import sklearn.cluster as cluster
 import core_pp
+import find_precursors
+import xarray as xr
+import plot_maps
+import uuid
 
 def labels_to_latlon(time_space_3d, labels, output_space_time, indices_mask, mask2d):
     xrspace = time_space_3d[0].copy()
@@ -58,14 +62,21 @@ def create_vector(time_space_3d, mask2d):
     return space_time_vec, output_space_time, indices_mask
 
 
-def dendogram_clustering(var_filename, mask=None, q=70, 
-                         clustermethodkey='AgglomerativeClustering', kwrgs={'n_clusters':3}):
+def dendogram_clustering(var_filename, mask=None, kwrgs_load={}, q=70, 
+                         clustermethodkey='AgglomerativeClustering', 
+                         kwrgs_clust={'n_clusters':3}):
     
-    xarray = core_pp.import_ds_lazy(var_filename)        
+    xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_load)        
     npmask = get_spatial_ma(var_filename, mask)
     xarray = binary_occurences_quantile(xarray, q=q)
     xrclustered, results = skclustering(xarray, npmask, 
-                                           clustermethodkey=clustermethodkey, kwrgs=kwrgs)
+                                        clustermethodkey=clustermethodkey, 
+                                       kwrgs=kwrgs_clust)
+    xrclustered.attrs['method'] = clustermethodkey
+    xrclustered.attrs['kwrgs'] = str(kwrgs_clust)
+    xrclustered.attrs['target'] = f'{xarray.name}_exceedances_of_{q}th_percentile'
+    if 'hash' not in xrclustered.attrs.keys():
+        xrclustered.attrs['hash']   = uuid.uuid4().hex[:5]
     return xrclustered, results
 
 def binary_occurences_quantile(xarray, q=95):
@@ -98,13 +109,14 @@ def get_spatial_ma(var_filename, mask=None):
         print(f'no mask given, entire array of box {mask} will be clustered')
     if type(mask) is str:
         xrmask = core_pp.import_ds_lazy(mask)
-        variables = list(xrmask.variables.keys())
-        strvars = [' {} '.format(var) for var in variables]
-        common_fields = ' time time_bnds longitude latitude lev lon lat level '
-        var = [var for var in strvars if var not in common_fields]
-        if len(var) != 0:
-            var = var[0].replace(' ', '')
-            npmask = xrmask[var].values
+        if xrmask.attrs['is_DataArray'] == False:
+            variables = list(xrmask.variables.keys())
+            strvars = [' {} '.format(var) for var in variables]
+            common_fields = ' time time_bnds longitude latitude lev lon lat level '
+            var = [var for var in strvars if var not in common_fields]
+            if len(var) != 0:
+                var = var[0].replace(' ', '')
+                npmask = xrmask[var].values
         else:
             npmask = xrmask.values
     elif type(mask) is list:
@@ -117,3 +129,88 @@ def get_spatial_ma(var_filename, mask=None):
         npmask = np.meshgrid(lon_mask, lat_mask)[0]
     
     return npmask
+
+def store_netcdf(xarray, filepath=None, append_hash=None):
+    if 'is_DataArray' in xarray.attrs.keys():
+        del xarray.attrs['is_DataArray']
+    if filepath is None:
+        path = get_download_path()
+        if hasattr(xarray, 'name'):
+            name = xarray.name
+            filename = name + '.nc'
+        elif type(xr.Dataset()) == type(xarray):
+            # guessing I need to fillvalue for 'xrclustered'
+            name = 'xrclustered'
+            filename = name + '.nc'
+        else:
+            name = 'no_name'
+            filename = name + '.nc'
+        filepath = os.path.join(path, filename)
+    if append_hash is not None:
+        filepath = filepath.split('.')[0] +'_'+ append_hash + '.nc'
+    # ensure mask
+    xarray = xarray.where(xarray.values != 0.).fillna(-9999)
+    encoding = ( {name : {'_FillValue': -9999}} )
+    print(f'to file:\n{filepath}')
+    # save netcdf
+    xarray.to_netcdf(filepath, mode='w', encoding=encoding)    
+    return 
+
+
+def get_download_path():
+    """Returns the default downloads path for linux or windows"""
+    if os.name == 'nt':
+        import winreg
+        sub_key = r'SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders'
+        downloads_guid = '{374DE290-123F-4565-9164-39C4925E467B}'
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, sub_key) as key:
+            location = winreg.QueryValueEx(key, downloads_guid)[0]
+        return location
+    else:
+        return os.path.join(os.path.expanduser('~'), 'Downloads')
+    
+def spatial_mean_clusters(var_filename, xrclustered):
+    #%%
+    xarray = core_pp.import_ds_lazy(var_filename)
+    labels = xrclustered.values
+    nparray = xarray.values
+    track_names = []
+    area_grid = find_precursors.get_area(xarray)
+    regions_for_ts = list(np.unique(labels[~np.isnan(labels)]))
+    a_wghts = area_grid / area_grid.mean()
+
+    # this array will be the time series for each feature
+    ts_clusters = np.zeros((xarray.shape[0], len(regions_for_ts)))
+
+
+    # calculate area-weighted mean over labels
+    for r in regions_for_ts:
+        track_names.append(int(r))
+        idx = regions_for_ts.index(r)
+        # start with empty lonlat array
+        B = np.zeros(xrclustered.shape)
+        # Mask everything except region of interest
+        B[labels == r] = 1
+        # Calculates how values inside region vary over time
+        ts_clusters[:,idx] = np.nanmean(nparray[:,B==1] * a_wghts[B==1], axis =1)
+    xrts = xr.DataArray(ts_clusters.T, 
+                        coords={'cluster':track_names, 'time':xarray.time}, 
+                        dims=['cluster', 'time'])
+    ds = xr.Dataset({'xrclustered':xrclustered, 'ts':xrts})
+    #%%
+    return ds
+
+def regrid_array(xr_or_filestr, to_grid, periodic=False):
+    import functions_pp
+    
+    if type(xr_or_filestr) == str:
+        xarray = core_pp.import_ds_lazy(xr_or_filestr)
+        plot_maps.plot_corr_maps(xarray[0])
+        xr_regrid = functions_pp.regrid_xarray(xarray, to_grid, periodic=periodic)
+        plot_maps.plot_corr_maps(xr_regrid[0])
+    else:
+        plot_maps.plot_labels(xr_or_filestr)
+        xr_regrid = functions_pp.regrid_xarray(xr_or_filestr, to_grid, periodic=periodic)
+        plot_maps.plot_labels(xr_regrid)
+        plot_maps.plot_labels(xr_regrid.where(xr_regrid.values==3))
+    return xr_regrid

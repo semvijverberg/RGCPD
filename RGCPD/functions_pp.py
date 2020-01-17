@@ -147,14 +147,24 @@ def load_TV(list_of_name_path):
     '''
     function will load first item of list_of_name_path
     list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
-    output fulltso : full timeseries original
+    
+    if TVpath refers to .npy file: 
+        it tries to import the variable {TVname}
+    if TVpath refers to .nc file:
+        it tries to import the timeseries of cluster {TVname}.
+    
+    
+    returns:
+    fulltso : full timeseries original
     '''
     name = list_of_name_path[0][0]
     filename = list_of_name_path[0][1]
     
     if filename.split('.')[-1] == 'npy':
         fulltso = load_npy(filename, name=name)
-    
+    elif filename.split('.')[-1] == 'nc':
+        ds = core_pp.import_ds_lazy(filename)
+        fulltso = ds['ts'].sel(cluster=name)
     return fulltso
 
 def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
@@ -202,8 +212,7 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
         fullts = detrend1D(fullts)
     
     if input_freq == 'daily':
-#        dates_RV = make_TVdatestr(pd.to_datetime(fullts.time.values), ex)
-        dates_RV = make_TVdatestr(pd.to_datetime(fullts.time.values), start_end_TVdate,
+        dates_RV = core_pp.get_subdates(pd.to_datetime(fullts.time.values), start_end_TVdate,
                                   start_end_year)
     elif input_freq == 'monthly':
         dates_RV = TVmonthrange(fullts, start_end_TVdate)
@@ -742,94 +751,6 @@ def make_dates(datetime, years):
 
 
 
-
-def make_TVdatestr(dates, start_end_TVdate, start_end_year=None, lpyr=False):
-    #%%
-    '''
-    dates is type pandas.core.indexes.datetimes.DatetimeIndex
-    start_end_TVdate is tuple of start- and enddate in format ('mm-dd', 'mm-dd')
-    lpyr is boolean if you want load the leap days yes or no.
-    '''
-    #%%
-    import calendar
-
-    def oneyr(datetime):
-        return datetime.where(datetime.year==datetime.year[0]).dropna()
-
-    if start_end_year is None:
-        startyr = dates.year.min()
-        endyr   = dates.year.max()
-    else:
-        startyr = start_end_year[0]
-        endyr   = start_end_year[1]
-        
-    sstartdate = pd.to_datetime(str(startyr) + '-' + start_end_TVdate[0])
-    senddate_   = pd.to_datetime(str(startyr) + '-' + start_end_TVdate[1])
-
-
-    tfreq = (dates[1] - dates[0]).days
-    oneyr_dates = pd.date_range(start=sstartdate, end=senddate_,
-                            freq=pd.Timedelta(1, 'd'))
-    daily_yr_fit = np.round(oneyr_dates.size / tfreq, 0)
-
-    # dont get following
-#    firstyr = oneyr(oneyr_dates)
-    firstyr = oneyr(dates)
-    #find closest senddate
-    closest_enddate_idx = np.argmin(abs(firstyr - senddate_))
-    senddate = firstyr[closest_enddate_idx]
-    if senddate > senddate_ :
-        senddate = firstyr[closest_enddate_idx-1]
-
-    #update startdate of RV period to fit bins
-    if tfreq == 1:
-        sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd') + \
-                             np.timedelta64(1, 'D')
-    else:
-        sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
-
-
-
-    start_yr = pd.date_range(start=sstartdate, end=senddate,
-                                freq=(dates[1] - dates[0]))
-    if lpyr==True and calendar.isleap(startyr):
-        start_yr -= pd.Timedelta( '1 days')
-    else:
-        pass
-    breakyr = endyr
-    datesstr = [str(date).split('.', 1)[0] for date in start_yr.values]
-    nyears = (endyr - startyr)+1
-    startday = start_yr[0].strftime('%Y-%m-%dT%H:%M:%S')
-    endday = start_yr[-1].strftime('%Y-%m-%dT%H:%M:%S')
-    firstyear = startday[:4]
-    def plusyearnoleap(curr_yr, startday, endday, incr):
-        startday = startday.replace(firstyear, str(curr_yr+incr))
-        endday = endday.replace(firstyear, str(curr_yr+incr))
-
-        next_yr = pd.date_range(start=startday, end=endday,
-                        freq=(dates[1] - dates[0]))
-        if lpyr==True and calendar.isleap(curr_yr+incr):
-            next_yr -= pd.Timedelta( '1 days')
-        elif lpyr == False:
-            # excluding leap year again
-            noleapdays = (((next_yr.month==2) & (next_yr.day==29))==False)
-            next_yr = next_yr[noleapdays].dropna(how='all')
-        return next_yr
-
-
-    for yr in range(0,nyears):
-        curr_yr = yr+startyr
-        next_yr = plusyearnoleap(curr_yr, startday, endday, 1)
-        nextstr = [str(date).split('.', 1)[0] for date in next_yr.values]
-        datesstr = datesstr + nextstr
-
-        if next_yr.year[0] == breakyr:
-            break
-    datesmcK = pd.to_datetime(datesstr)
-    #%%
-    return datesmcK
-
-
 def TVmonthrange(fullts, start_end_TVdate):
     '''
     fullts : 1-D xarray timeseries
@@ -1081,6 +1002,9 @@ def rolling_mean_np(arr, win, center=True, plot=False):
 
 def regrid_xarray(xarray_in, to_grid_res, periodic=True):
     #%%
+    '''
+    Only supports 2 (lat, lon) or 3 (time, lat, lon) xr.DataArrays
+    '''
     import xesmf as xe
     method_list = ['bilinear', 'conservative', 'nearest_s2d', 'nearest_d2s', 'patch']
     method = method_list[0]
@@ -1095,10 +1019,11 @@ def regrid_xarray(xarray_in, to_grid_res, periodic=True):
 
     lats = ds.lat
     lons = ds.lon
-
+    orig_grid = float(abs(ds.lat[1] - ds.lat[0] ))
+    
     if method == 'conservative':
         # add lon_b and lat_b
-        orig_grid = float(abs(ds.lat[1] - ds.lat[0] ))
+        
 
         lat_b = np.concatenate(([lats.max()+orig_grid/2.], (lats - orig_grid/2.).values))
         lon_b = np.concatenate(([lons.max()+orig_grid/2.], (lons - orig_grid/2.).values))
@@ -1121,10 +1046,23 @@ def regrid_xarray(xarray_in, to_grid_res, periodic=True):
     regridder.clean_weight_file()
     xarray_out = xarray_out.rename({'lon':'longitude',
                                     'lat':'latitude'})
-    xarray_out = xr.DataArray(xarray_out.values[::-1], dims=['latitude', 'longitude'],
-                 coords={'latitude':xarray_out.latitude[:,0].values[::-1],
-                         'longitude':xarray_out.longitude[0].values})
-    xarray_out['longitude'] -= xarray_out['longitude'][0]
+    if len(xarray_out.shape) == 2:
+        xarray_out = xr.DataArray(xarray_out.values[::-1], 
+                                  dims=['latitude', 'longitude'],
+                                  coords={'latitude':xarray_out.latitude[:,0].values[::-1],
+                                  'longitude':xarray_out.longitude[0].values})
+    elif len(xarray_out.shape) == 3:
+        xarray_out = xr.DataArray(xarray_out.values[:,::-1], 
+                                  dims=['time','latitude', 'longitude'],
+                                  coords={'time':xarray_out.time,
+                                          'latitude':xarray_out.latitude[:,0].values[::-1],
+                                          'longitude':xarray_out.longitude[0].values})   
+    xarray_out.attrs = xarray_in.attrs
+    xarray_out.name = xarray_in.name
+    if 'is_DataArray' in xarray_out.attrs:
+        del xarray_out.attrs['is_DataArray']
+    xarray_out.attrs['regridded'] = f'{method}_{orig_grid}d_to_{to_grid_res}d'
+#    xarray_out['longitude'] -= xarray_out['longitude'][0] # changed 17-11-20
     #%%
     return xarray_out
 

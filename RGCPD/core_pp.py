@@ -20,7 +20,8 @@ def get_oneyr(datetime):
 
 
 
-def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_lon='east_west'):
+def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, 
+                   format_lon='east_west', var=None):
     '''
     selbox has format of (lon_min, lon_max, lat_min, lat_max)
     # in format east_west
@@ -28,18 +29,24 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
     '''
     
     ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
+    
+    
     variables = list(ds.variables.keys())
     strvars = [' {} '.format(var) for var in variables]
     common_fields = ' time time_bnds longitude latitude lev lon lat level mask lsm '
 
-
-    var = [var for var in strvars if var not in common_fields]
-    if len(var) != 0:
+    if var is None:
+        # try to auto select var which is not a coordinate
+        var = [var for var in strvars if var not in common_fields]
+    else:
+        var = [var]
+        
+    if len(var) == 1:
         var = var[0].replace(' ', '')
         ds = ds[var]
-    else:
+    elif len(var) > 1:
+        # load whole dataset
         ds = ds
-
 
     if 'latitude' and 'longitude' not in ds.dims:
         ds = ds.rename({'lat':'latitude',
@@ -48,13 +55,16 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
     if format_lon is not None:
         if test_periodic(ds)==False and 0 not in ds.longitude:
             format_lon = 'only_east'
-        ds = convert_longitude(ds, format_lon)
+        if _check_format(ds) != format_lon:
+            ds = convert_longitude(ds, format_lon)
 
 
     if selbox is not None:
         ds = get_selbox(ds, selbox)
 
-    ds = ds.sortby('latitude') #ensure latitude is in increasing order
+    # ensure latitude is in increasing order
+    if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
+        ds = ds.sortby('latitude')
 
     # get dates
     if 'time' in ds.dims:
@@ -89,13 +99,23 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, format_
 
         if seldates is None:
             pass
-        else:
+        elif type(seldates) is tuple:
+            pddates = get_subdates(dates=pd.to_datetime(ds.time.values),
+                         start_end_date=seldates,
+                         start_end_year=None, lpyr=loadleap
+                         )
+            ds = ds.sel(time=pddates)
+        else:    
             ds = ds.sel(time=seldates)
 
         if loadleap==False:
             # mask away leapdays
             dates_noleap = remove_leapdays(pd.to_datetime(ds.time.values))
             ds = ds.sel(time=dates_noleap)
+    if type(ds) == type(xr.DataArray(data=[0])):
+        ds.attrs['is_DataArray'] = True
+    else:
+        ds.attrs['is_DataArray'] = False
     return ds
 
 
@@ -297,6 +317,14 @@ def test_periodic(ds):
     dlon = ds.longitude[1] - ds.longitude[0]
     return (360 / dlon == ds.longitude.size).values
 
+def _check_format(ds):
+    longitude = ds.longitude.values
+    if longitude[longitude > 180.].size != 0:
+        format_lon = 'only_east'    
+    else:
+        format_lon = 'west_east'
+    return format_lon
+        
 def convert_longitude(data, to_format='east_west'):
     '''
     to_format = 'only_east' or 'east_west'
@@ -324,18 +352,113 @@ def convert_longitude(data, to_format='east_west'):
         lon_above = longitude[np.where(longitude >= 0)[0]]
         lon_below = longitude[np.where(longitude < 0)[0]]
         lon_below += 360
-
-        if min(lon_above) < deg:
-            # crossing the meridional:
-            data = data.roll(longitude=-len(lon_below), roll_coords=False)
-            convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
+        
+        if lon_above.size != 0:
+            if min(lon_above) < deg:
+                # crossing the meridional:
+                data = data.roll(longitude=-len(lon_below), roll_coords=False)
+                convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
+            else:
+                # crossing - 180 line
+                data = data.roll(longitude=len(lon_below), roll_coords=False)
+                convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
         else:
             # crossing - 180 line
             data = data.roll(longitude=len(lon_below), roll_coords=False)
             convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
     data['longitude'] = convert_lon
     return data
+
+def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
+    #%%
+    '''
+    dates is type pandas.core.indexes.datetimes.DatetimeIndex
+    start_end_date is tuple of start- and enddate in format ('mm-dd', 'mm-dd')
+    lpyr is boolean if you want load the leap days yes or no.
+    '''
+    #%%
+    import calendar
+
+    def oneyr(datetime):
+        return datetime.where(datetime.year==datetime.year[0]).dropna()
+
+    if start_end_year is None:
+        startyr = dates.year.min()
+        endyr   = dates.year.max()
+    else:
+        startyr = start_end_year[0]
+        endyr   = start_end_year[1]
+        
+    sstartdate = pd.to_datetime(str(startyr) + '-' + start_end_date[0])
+    senddate_   = pd.to_datetime(str(startyr) + '-' + start_end_date[1])
+
+
+    tfreq = (dates[1] - dates[0]).days
+    oneyr_dates = pd.date_range(start=sstartdate, end=senddate_,
+                            freq=pd.Timedelta(1, 'd'))
+    daily_yr_fit = np.round(oneyr_dates.size / tfreq, 0)
+
+    # dont get following
+#    firstyr = oneyr(oneyr_dates)
+    firstyr = oneyr(dates)
+    #find closest senddate
+    closest_enddate_idx = np.argmin(abs(firstyr - senddate_))
+    senddate = firstyr[closest_enddate_idx]
+    if senddate > senddate_ :
+        senddate = firstyr[closest_enddate_idx-1]
+
+    #update startdate of RV period to fit bins
+    if tfreq == 1:
+        sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd') + \
+                             np.timedelta64(1, 'D')
+    else:
+        sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
+
+
+
+    start_yr = pd.date_range(start=sstartdate, end=senddate,
+                                freq=(dates[1] - dates[0]))
+    if lpyr==True and calendar.isleap(startyr):
+        start_yr -= pd.Timedelta( '1 days')
+    else:
+        pass
+    breakyr = endyr
+    datesstr = [str(date).split('.', 1)[0] for date in start_yr.values]
+    nyears = (endyr - startyr)+1
+    startday = start_yr[0].strftime('%Y-%m-%dT%H:%M:%S')
+    endday = start_yr[-1].strftime('%Y-%m-%dT%H:%M:%S')
+    firstyear = startday[:4]
+    def plusyearnoleap(curr_yr, startday, endday, incr):
+        startday = startday.replace(firstyear, str(curr_yr+incr))
+        endday = endday.replace(firstyear, str(curr_yr+incr))
+
+        next_yr = pd.date_range(start=startday, end=endday,
+                        freq=(dates[1] - dates[0]))
+        if lpyr==True and calendar.isleap(curr_yr+incr):
+            next_yr -= pd.Timedelta( '1 days')
+        elif lpyr == False:
+            # excluding leap year again
+            noleapdays = (((next_yr.month==2) & (next_yr.day==29))==False)
+            next_yr = next_yr[noleapdays].dropna(how='all')
+        return next_yr
+
+
+    for yr in range(0,nyears):
+        curr_yr = yr+startyr
+        next_yr = plusyearnoleap(curr_yr, startday, endday, 1)
+        nextstr = [str(date).split('.', 1)[0] for date in next_yr.values]
+        datesstr = datesstr + nextstr
+
+        if next_yr.year[0] == breakyr:
+            break
+    datessubset = pd.to_datetime(datesstr)
+    #%%
+    return datessubset
+
 #%%
+
+
+
 if __name__ == '__main__':
     ex = {}
     ex['input_freq'] = 'daily'

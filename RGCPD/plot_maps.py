@@ -412,11 +412,11 @@ def plot_labels_vars_splits(dict_ds, df_sum, map_proj, figpath, paramsstr, RV_na
                 f_name = '{}_{}_vs_{}_labels'.format(paramsstr, RV_name, var) + filetype
 
             filepath = os.path.join(figpath, f_name)
-            plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits)
+            plot_labels_RGCPD(ds, df_c, var, lag, map_proj, filepath, mean_splits)
     #%%
     return
 
-def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
+def plot_labels_RGCPD(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
     #%%
     ds_l = ds.sel(lag=lag)
     splits = ds.split
@@ -442,37 +442,23 @@ def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
 
     prec_labels = xr.concat(list_xr, dim='lag')
     prec_labels.lag.values = name
-
+    
     # colors of cmap are dived over min to max in n_steps.
     # We need to make sure that the maximum value in all dimensions will be
     # used for each plot (otherwise it assign inconsistent colors)
-    if np.isnan(prec_labels.values).all() == False:
-        max_N_regs = min(20, int(prec_labels.max() + 0.5))
-    else:
-        max_N_regs = 20
-    label_weak = np.nan_to_num(prec_labels.values) >=  max_N_regs
-    contour_mask = None
-    prec_labels.values[label_weak] = max_N_regs
-    steps = max_N_regs+1
-    cmap = plt.cm.tab20
-    prec_labels.values = prec_labels.values-0.5
-    clevels = np.linspace(0, max_N_regs,steps)
+    
+    kwrgs_labels = _get_kwrgs_labels(prec_labels)
+    kwrgs_labels['subtitles'] = np.array([[n.replace('_', ' ') for n in name]])
 
     if mean_splits == True:
-        cbar_vert = -0.1
+        kwrgs_labels['cbar_vert'] = -0.1
     else:
-        cbar_vert = -0.025
+        kwrgs_labels['cbar_vert'] = -0.025
 
-    kwrgs_labels = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
-                  'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
-                  'lat_labels':True, 'cticks_center':True,
-                  'cmap':cmap, 'subtitles':np.array([[n.replace('_', ' ') for n in name]]),
-                  'units': None}
 
     if np.isnan(prec_labels.values).all() == False:
 
         plot_corr_maps(prec_labels,
-                 contour_mask,
                  map_proj, **kwrgs_labels)
         plt.savefig(filepath, bbox_inches='tight')
         plt.show() ; plt.close()
@@ -499,7 +485,6 @@ def plot_labels(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
             robust.lag.values = subtitles
             robust = robust.where(robust.values != 0.)
             plot_corr_maps(robust-1E-9,
-                 contour_mask,
                  map_proj, **kwrgs_labels)
             f_name = f'robustness_{var}_lag{lag}.' + filepath.split('.')[-1]
             fig_path = '/'.join(filepath.split('/')[:-1])
@@ -550,7 +535,35 @@ def plot_corr_vars_splits(dict_ds, df_sum, map_proj, figpath, paramsstr, RV_name
     #%%
     return
 
+def _get_kwrgs_labels(prec_labels):
+    if np.isnan(prec_labels.values).all() == False:
+        max_N_regs = min(20, int(prec_labels.max() + 0.5))
+    else:
+        max_N_regs = 20
+    label_weak = np.nan_to_num(prec_labels.values) >=  max_N_regs
+    
+    prec_labels.values[label_weak] = max_N_regs
+    steps = max_N_regs+1
+    cmap = plt.cm.tab20
+    prec_labels.values = prec_labels.values-0.5
+    clevels = np.linspace(0, max_N_regs,steps)
 
+
+    kwrgs_labels = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
+                  'size':3, 'clevels':clevels,
+                  'lat_labels':True, 'cticks_center':True,
+                  'cmap':cmap, 
+                  'units': None}
+    if len(prec_labels.shape) == 2 or prec_labels.shape[0] == 1:
+        kwrgs_labels['cbar_vert'] = -0.1
+        
+    return kwrgs_labels
+
+def plot_labels(prec_labels):
+    xrlabels = prec_labels.copy()
+    xrlabels.values = prec_labels.values - 0.5
+    kwrgs_labels = _get_kwrgs_labels(xrlabels)
+    plot_corr_maps(xrlabels, **kwrgs_labels)
 
 def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
     #%%
