@@ -529,7 +529,7 @@ def spatial_mean_regions(precur):
 
             # calculate area-weighted mean over features
             for r in regions_for_ts:
-                track_names.append(f'{l_idx+1}..{int(r)}..{var}')
+                track_names.append(f'{lag}..{int(r)}..{var}')
                 idx = regions_for_ts.index(r)
                 # start with empty lonlat array
                 B = np.zeros(labels_lag.shape)

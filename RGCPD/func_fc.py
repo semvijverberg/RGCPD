@@ -91,17 +91,29 @@ class fcev():
         return 
     
     def fit_models(self, stat_model_l=[('logit', None)], lead_max=np.array([1]), 
-                   keys_d=None, causal=False, kwrgs_pp=None):
+                   keys_d=None, causal=False, kwrgs_pp=None, daily_to_aggr=None,
+                   on_train_fold=None):
         '''
         stat_model_l:   list of with model string and kwrgs 
         keys_d      :   dict, with keys : list of variables to fit, if None
                         all keys in each training set will be used to fit.
                         If string is given, exp_py will follow some rules to 
                         keep only keys you want to fit.
+        daily_to_aggr:  int: convert daily data to aggregated {int} day mean
         '''
         
         self.stat_model_l = stat_model_l
         self.causal = causal
+
+        df_data = self.df_data        
+        if type(on_train_fold) is int:
+            self.fold = on_train_fold
+            df_data = df_data.loc[self.fold][df_data.loc[self.fold]['TrainIsTrue'].values]
+
+        
+        if daily_to_aggr is not None:
+            self.daily_to_aggr=daily_to_aggr
+            df_data = daily_to_aggr(df_data, self.daily_to_aggr)
             
         if keys_d is None:
             print('keys is None: Using all keys in training sets')
@@ -153,7 +165,7 @@ class fcev():
         for stat_model in stat_model_l:
             name = stat_model[0]
             y_pred_all, y_pred_c, models = _fit_model(self.TV, 
-                                                      df_data=self.df_data, 
+                                                      df_data=df_data, 
                                                       keys_d=self.keys_d, 
                                                       kwrgs_pp=kwrgs_pp, 
                                                       stat_model=stat_model, 
@@ -739,3 +751,12 @@ def load_hdf5(path_data):
         dict_of_dfs[k] = pd.read_hdf(path_data, k)
     hdf.close()
     return dict_of_dfs
+
+def _daily_to_aggr(df_data, freq):
+    import functions_pp
+    df_data_train, dates = functions_pp.time_mean_bins(df_data, 
+                                                       to_freq=freq, 
+                                                       start_end_date=None, 
+                                                       start_end_year=None, 
+                                                       verbosity=0)
+    return df_data_train
