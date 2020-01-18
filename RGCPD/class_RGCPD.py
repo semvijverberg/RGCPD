@@ -12,7 +12,7 @@ import functions_pp
 import plot_maps
 import find_precursors
 from pathlib import Path
-import inspect, os
+import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 path_test = os.path.join(curr_dir, '..', 'data')
 
@@ -21,8 +21,8 @@ class RGCPD:
 
     def __init__(self, list_of_name_path=None, start_end_TVdate=None, tfreq=10,
                  start_end_date=None, start_end_year=None,
-                 path_outmain=None, lags_i=np.array([1]),
-                 kwrgs_corr=None, verbosity=1):
+                 path_outmain=None, lags_i=np.array([1]), 
+                 verbosity=1):
         '''
         list_of_name_path : list of name, path tuples.
         Convention: first entry should be (name, path) of target variable (TV).
@@ -55,11 +55,7 @@ class RGCPD:
         self.lags_i     = lags_i
         self.lags       = np.array([l*self.tfreq for l in self.lags_i], dtype=int)
         self.path_outmain = path_outmain
-
-        if kwrgs_corr is None:
-                self.kwrgs_corr = dict(alpha=1E-2, # set significnace level for correlation maps
-                                       lags=self.lags,
-                                       FDR_control=True) # Accounting for false discovery rate
+        self.orig_stdout = sys.stdout
 
 
         return
@@ -78,7 +74,7 @@ class RGCPD:
 
 
     def pp_TV(self):
-        self.fulltso = functions_pp.load_TV(self.list_of_name_path)
+        self.fulltso, self.hash = functions_pp.load_TV(self.list_of_name_path)
         self.fullts, self.TV_ts, inf = functions_pp.process_TV(self.fulltso,
                                                               self.tfreq,
                                                               self.start_end_TVdate,
@@ -105,8 +101,8 @@ class RGCPD:
                                          months[self.dates_TV.month[-1]] )
         info_lags = 'lag{}-{}'.format(min(self.lags), max(self.lags))
         # Creating a folder for the specific spatial mask, RV period and traintest set
-        self.path_outsub0 = os.path.join(self.path_outmain, RV_name_range + \
-                                              info_lags )
+        self.path_outsub0 = os.path.join(self.path_outmain, self.hash +'_'+\
+                                         RV_name_range + info_lags )
 
         # =============================================================================
         # Test if you're not have a lag that will precede the start date of the year
@@ -164,14 +160,14 @@ class RGCPD:
                                                          self.TV_ts,
                                                          verbosity=self.verbosity,
                                                          **self.kwrgs_TV)
-        TV.name = self.list_of_name_path[0][0]
+        TV.name = str(self.list_of_name_path[0][0])
         self.TV = TV
         self.path_outsub1 = os.path.join(self.path_outsub0,
                                       '_'.join([self.kwrgs_TV['method'],
                                                 's'+ str(self.kwrgs_TV['seed'])]))
         if os.path.isdir(self.path_outsub1) == False : os.makedirs(self.path_outsub1)
 
-    def calc_corr_maps(self):
+    def calc_corr_maps(self, alpha=0.01, FDR_control=True):
         keys = ['selbox', 'loadleap', 'seldates', 'format_lon']
         kwrgs_load = {k: self.kwrgs_pp[k] for k in keys}
         kwrgs_load['start_end_date']= self.start_end_date
@@ -181,6 +177,12 @@ class RGCPD:
         kwrgs_load['format_lon']    = 'only_east'
         kwrgs_load['tfreq']         = self.tfreq
         self.kwrgs_load = kwrgs_load
+        
+
+        self.kwrgs_corr = dict(alpha=alpha, # set significnace level for correlation maps
+                               lags=self.lags,
+                               FDR_control=FDR_control) # Accounting for false discovery rate
+    
         self.outdic_precur = find_precursors.calculate_corr_maps(self.TV, self.df_splits,
                                             self.kwrgs_load,
                                             self.list_precur_pp,
@@ -205,39 +207,43 @@ class RGCPD:
     def quick_view_labels(self, map_proj=None):
         for name, actor in self.outdic_precur.items():
             prec_labels = actor.prec_labels.copy()
-
-            # colors of cmap are dived over min to max in n_steps.
-            # We need to make sure that the maximum value in all dimensions will be
-            # used for each plot (otherwise it assign inconsistent colors)
-            max_N_regs = min(20, int(prec_labels.max() + 0.5))
-            label_weak = np.nan_to_num(prec_labels.values) >=  max_N_regs
-            contour_mask = None
-            prec_labels.values[label_weak] = max_N_regs
-            steps = max_N_regs+1
-            cmap = plt.cm.tab20
-            prec_labels.values = prec_labels.values-0.5
-            clevels = np.linspace(0, max_N_regs,steps)
-
-            if prec_labels.split.size == 1:
-                cbar_vert = -0.1
+            if all(np.isnan(prec_labels.values.flatten()))==False:
+                # colors of cmap are dived over min to max in n_steps.
+                # We need to make sure that the maximum value in all dimensions will be
+                # used for each plot (otherwise it assign inconsistent colors)
+                max_N_regs = min(20, int(prec_labels.max() + 0.5))
+                label_weak = np.nan_to_num(prec_labels.values) >=  max_N_regs
+                contour_mask = None
+                prec_labels.values[label_weak] = max_N_regs
+                steps = max_N_regs+1
+                cmap = plt.cm.tab20
+                prec_labels.values = prec_labels.values-0.5
+                clevels = np.linspace(0, max_N_regs,steps)
+    
+                if prec_labels.split.size == 1:
+                    cbar_vert = -0.1
+                else:
+                    cbar_vert = -0.025
+    
+    
+                kwrgs = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
+                              'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
+                              'subtitles' : None, 'lat_labels':True,
+                              'cticks_center':True,
+                              'cmap':cmap}
+    
+                plot_maps.plot_corr_maps(prec_labels,
+                                 contour_mask,
+                                 map_proj, **kwrgs)
             else:
-                cbar_vert = -0.025
-
-
-            kwrgs_corr = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
-                          'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
-                          'subtitles' : None, 'lat_labels':True,
-                          'cticks_center':True,
-                          'cmap':cmap}
-
-            plot_maps.plot_corr_maps(prec_labels,
-                             contour_mask,
-                             map_proj, **kwrgs_corr)
+                print(f'no {name} regions that pass distance_eps and min_area_in_degrees2 citeria')
 
     def get_ts_prec(self, import_prec_ts=None):
 
-
-        self.outdic_precur = find_precursors.get_prec_ts(self.outdic_precur)
+        if hasattr(self, 'outdic_precur'):
+            self.outdic_precur = find_precursors.get_prec_ts(self.outdic_precur)
+        else:
+            self.outdic_precur = None
         self.df_data = find_precursors.df_data_prec_regs(self.TV,
                                                          self.outdic_precur,
                                                          self.df_splits)
@@ -287,7 +293,13 @@ class RGCPD:
         # get xarray dataset for each variable
         self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_sum,
                                                       self.outdic_precur)
-
+        
+    def store_df_output(self, add_spatcov=False):
+        import wrapper_PCMCI
+        wrapper_PCMCI.store_ts(self.df_data, self.df_sum, self.dict_ds, 
+                               self.path_outsub2+'.h5', self.outdic_precur, 
+                               add_spatcov=add_spatcov)
+        
     def plot_maps_sum(self, map_proj=None, figpath=None, paramsstr=None):
 
 #         if map_proj is None:

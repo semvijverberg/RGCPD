@@ -113,9 +113,9 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None,
             dates_noleap = remove_leapdays(pd.to_datetime(ds.time.values))
             ds = ds.sel(time=dates_noleap)
     if type(ds) == type(xr.DataArray(data=[0])):
-        ds.attrs['is_DataArray'] = True
+        ds.attrs['is_DataArray'] = 1
     else:
-        ds.attrs['is_DataArray'] = False
+        ds.attrs['is_DataArray'] = 0
     return ds
 
 

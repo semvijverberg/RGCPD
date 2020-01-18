@@ -165,7 +165,8 @@ def load_TV(list_of_name_path):
     elif filename.split('.')[-1] == 'nc':
         ds = core_pp.import_ds_lazy(filename)
         fulltso = ds['ts'].sel(cluster=name)
-    return fulltso
+    hashh = filename.split('_')[-1].split('.')[0]
+    return fulltso, hashh
 
 def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=True, verbosity=1):
@@ -1292,6 +1293,7 @@ def get_testyrs(df_splits):
         test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
         traintest_yrs.append(test_yrs)
     return traintest_yrs
+
 
 
 

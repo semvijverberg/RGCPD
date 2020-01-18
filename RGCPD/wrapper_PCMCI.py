@@ -37,7 +37,11 @@ def loop_train_test(df_data, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None
         
         TrainIsTrue = df_data['TrainIsTrue'].loc[s]
         df_data_s = df_data.loc[s][TrainIsTrue.values]
-        var_names = list(df_data.columns[(df_data_s.dtypes != np.bool)])
+        df_data_s = df_data_s.dropna(axis=1, how='all')
+        if any(df_data_s.isna().values.flatten()):
+            print('Warnning: nans detected')
+#        print(np.unique(df_data_s.isna().values))
+        var_names = list(df_data_s.columns[(df_data_s.dtypes != np.bool)])
         df_data_s = df_data_s.loc[:,var_names]
         data = df_data_s.values
         data_mask = RV_mask.loc[s][TrainIsTrue.values].values
@@ -50,31 +54,6 @@ def loop_train_test(df_data, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None
         pcmci_dict[s] = out # tuple containing pcmci, q_matrix, results
     #%%
     return pcmci_dict
-
-def get_df_sum(pcmci_dict, alpha_level):
-    #%%
-    splits = np.array(list(pcmci_dict.keys()))
-    df_sum_s = np.zeros( (splits.size) , dtype=object)
-    
-    for s in range(splits.size):
-        
-        pcmci = pcmci_dict[s][0]
-        q_matrix = pcmci_dict[s][1]
-        results = pcmci_dict[s][2]
-        # returns all causal links, not just causal parents/precursors (of lag>0)
-        sig = return_sign_links(pcmci, pq_matrix=q_matrix,
-                                            val_matrix=results['val_matrix'],
-                                            alpha_level=alpha_level)
-
-        all_parents = sig['parents']
-    #    link_matrix = sig['link_matrix']
-    
-        links_RV = all_parents[0]
-    
-        df = bookkeeping_precursors(links_RV, pcmci.var_names)
-        df_sum_s[s] = df
-    df_sum = pd.concat(list(df_sum_s), keys= range(splits.size))
-    return df_sum
 
     #%%
 def run_pcmci(data, data_mask, var_names, path_outsub2, s, tau_min=0, tau_max=1, 
@@ -144,6 +123,32 @@ def run_pcmci(data, data_mask, var_names, path_outsub2, s, tau_min=0, tau_max=1,
 
 
     return pcmci, q_matrix, results
+
+def get_df_sum(pcmci_dict, alpha_level):
+    #%%
+    splits = np.array(list(pcmci_dict.keys()))
+    df_sum_s = np.zeros( (splits.size) , dtype=object)
+    
+    for s in range(splits.size):
+        
+        pcmci = pcmci_dict[s][0]
+        q_matrix = pcmci_dict[s][1]
+        results = pcmci_dict[s][2]
+        # returns all causal links, not just causal parents/precursors (of lag>0)
+        sig = return_sign_links(pcmci, pq_matrix=q_matrix,
+                                            val_matrix=results['val_matrix'],
+                                            alpha_level=alpha_level)
+
+        all_parents = sig['parents']
+    #    link_matrix = sig['link_matrix']
+    
+        links_RV = all_parents[0]
+    
+        df = bookkeeping_precursors(links_RV, pcmci.var_names)
+        df_sum_s[s] = df
+    df_sum = pd.concat(list(df_sum_s), keys= range(splits.size))
+    #%%
+    return df_sum
 
 def return_sign_links(pc_class, pq_matrix, val_matrix,
                             alpha_level=0.05):
@@ -306,7 +311,7 @@ def bookkeeping_precursors(links_RV, var_names):
 #    return 2 * avg_earth_radius * asin(sqrt(d))
 
 
-def print_particular_region_new(links_RV, var_names, s, outdic_actors, map_proj, ex):
+def print_particular_region_new(links_RV, var_names, s, outdic_precur, map_proj, ex):
 
     #%%
     n_parents = len(links_RV)
@@ -332,7 +337,7 @@ def print_particular_region_new(links_RV, var_names, s, outdic_actors, map_proj,
 
 
 
-            actor = outdic_actors[var_name]
+            actor = outdic_precur[var_name]
             prec_labels = actor.prec_labels.sel(split=s)
 
             for_plt = prec_labels.where(prec_labels.values==according_number).sel(lag=corr_lag)
@@ -399,6 +404,7 @@ def plot_regs_xarray(for_plt):
         plotting_wrapper(for_plt.sel(lag=l), ex, filename, kwrgs=kwrgs)
     #%%
     return
+
 
 def plotting_wrapper(plotarr, ex, filename=None,  kwrgs=None):
     import os
@@ -599,5 +605,28 @@ def finalfigure(xrdata, file_name, kwrgs):
     #%%
     return
 
+def store_ts(df_data, df_sum, dict_ds, filename, outdic_precur, add_spatcov=True):
+    import find_precursors
+    import functions_pp
+    
+    
+    splits = df_data.index.levels[0]
+    if add_spatcov:
+        df_sp_s   = np.zeros( (splits.size) , dtype=object)
+        for s in splits:
+            df_split = df_data.loc[s]
+            df_sp_s[s] = find_precursors.get_spatcovs(dict_ds, df_split, s, outdic_precur, normalize=True)
 
+        df_sp = pd.concat(list(df_sp_s), keys= range(splits.size))
+        df_data_to_store = pd.merge(df_data, df_sp, left_index=True, right_index=True)
+        df_sum_to_store = find_precursors.add_sp_info(df_sum, df_sp)
+    else:
+        df_data_to_store = df_data
+        df_sum_to_store = df_sum
+
+    dict_of_dfs = {'df_data':df_data_to_store, 'df_sum':df_sum_to_store}
+
+    functions_pp.store_hdf_df(dict_of_dfs, filename)
+    print('Data stored in \n{}'.format(filename))
+    return
 

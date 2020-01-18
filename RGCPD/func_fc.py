@@ -237,7 +237,7 @@ def df_data_to_RV(df_data=pd.DataFrame, kwrgs_events=dict, only_RV_events=True,
     return RV
 
 
-def fit(y_ts, df_data, lag, split, stat_model=str, keys_d=None, 
+def fit(y_ts, df_data, lag, split=int, stat_model=str, keys_d=None, 
         kwrgs_pp={}, verbosity=0):
     #%%
     
@@ -248,6 +248,7 @@ def fit(y_ts, df_data, lag, split, stat_model=str, keys_d=None,
         
     model_name, kwrgs = stat_model
     df_split = df_data.loc[split].copy()
+    df_split = df_split.dropna(axis=1, how='all')
     df_norm, keys = prepare_data(df_split, lag_i=int(lag),
                                    keys=keys,
                                    **kwrgs_pp)
@@ -262,7 +263,7 @@ def fit(y_ts, df_data, lag, split, stat_model=str, keys_d=None,
     # forecasting models
     if model_name == 'logit':
         prediction, model = stat_models.logit(y_ts, df_norm, keys=keys)
-    if model_name == 'logit-CV':
+    if model_name == 'logitCV':
         kwrgs_logit = kwrgs
         prediction, model = stat_models.logit_skl(y_ts, df_norm, keys,
                                                   kwrgs_logit=kwrgs_logit)

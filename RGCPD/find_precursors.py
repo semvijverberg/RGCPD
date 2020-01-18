@@ -549,11 +549,20 @@ def spatial_mean_regions(precur):
                                  columns=track_names)
         df_tscorr.name = str(s)
         ts_corr[s] = df_tscorr
+    if any(df_tscorr.isna().values.flatten()):
+        print('Warnning: nans detected')
     #%%
     return ts_corr
 
 def df_data_prec_regs(TV, outdic_precur, df_splits):
-    
+    '''
+    Be aware: the amount of precursor vary over train test splits,
+    each split will contain a column if a precursor was present in 
+    only one of the splits. These columns should be dropna'ed when 
+    extracting the actual timeseries belonging to a single split. 
+    If a precursor timeseries does not belong to a particular split
+    the columns will be filled with nans.
+    '''
     #%%
     splits = df_splits.index.levels[0]
     n_regions_list = []
@@ -584,8 +593,11 @@ def df_data_prec_regs(TV, outdic_precur, df_splits):
         # add the full 1D time series of interest as first entry:
         fulldata = np.column_stack((TV.fullts, fulldata))
         df_data_s[s] = pd.DataFrame(fulldata, columns=flatten(cols), index=index_dates)
+        if any(df_data_s[s].isna().values.flatten()):
+            print(df_data_s[s][df_data_s[s].isna().values])
     print(f'There are {n_regions_list} regions for {var} (list of different splits)')
-    df_data  = pd.concat(list(df_data_s), keys= range(splits.size))
+    df_data  = pd.concat(list(df_data_s), keys= range(splits.size), sort=False)
+
     #%%
     return df_data
    

@@ -22,6 +22,16 @@ from matplotlib.lines import Line2D
 import itertools
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
+logit = ('logit', None)
+
+GBR_logitCV = ('GBR-logitCV', 
+              {'max_depth':3,
+               'learning_rate':1E-3,
+               'n_estimators' : 750,
+               'max_features':'sqrt',
+               'subsample' : 0.6,
+               'random_state':60} )
+
 
 
 def logit(y_ts, df_norm, keys):
