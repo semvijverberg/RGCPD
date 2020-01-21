@@ -67,7 +67,7 @@ def ENSO_34(filepath, df_splits=None):
         data = functions_pp.area_weighted(ds).mean(dim=('latitude', 'longitude'))
         
         list_splits.append(pd.DataFrame(data=data.values, 
-                                     index=dates, columns=['0_900_ENSO34']))
+                                     index=dates, columns=['ENSO34']))
     
     df_ENSO = pd.concat(list_splits, axis=0, keys=splits)
     #%%
@@ -94,10 +94,10 @@ def PDO_single_split(s, ds_monthly, ds, df_splits):
     
     PDO_pattern, solver, adjust_sign = get_PDO(ds_monthly.sel(time=dates_all_train))
     data_train = find_precursors.calc_spatcov(ds.sel(time=dates_train_origtime), PDO_pattern)
-    df_train = pd.DataFrame(data=data_train.values, index=dates_train_origtime, columns=['0_901_PDO'])   
+    df_train = pd.DataFrame(data=data_train.values, index=dates_train_origtime, columns=['PDO'])   
     
     data_test = find_precursors.calc_spatcov(ds.sel(time=dates_test_origtime), PDO_pattern)
-    df_test = pd.DataFrame(data=data_test.values, index=dates_test_origtime, columns=['0_901_PDO'])
+    df_test = pd.DataFrame(data=data_test.values, index=dates_test_origtime, columns=['PDO'])
          
     
     df = pd.concat([df_test, df_train]).sort_index()
@@ -130,6 +130,9 @@ def PDO(filepath, df_splits):
 
 
     ds = core_pp.import_ds_lazy(filepath, **kwrgs_pp)
+    # ensure latitude is in increasing order
+    if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
+        ds = ds.sortby('latitude')
     ds_monthly = ds.resample(time='M',restore_coord_dims=False).mean(dim='time', skipna=True)
     
     

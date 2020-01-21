@@ -1087,6 +1087,9 @@ def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
     leave{int} : chronologically split train and test years
     split{int} : split dataset into single train and test set
     no_train_test_split.
+    
+    if test_yrs are given, all arguments are overwritten and we return the samme
+    train test masks that are in compliance with the test yrs
     '''
 
 
@@ -1094,6 +1097,10 @@ def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
     tested_yrs = [] ; # ex['n_events'] = []
     all_yrs = list(np.unique(RV_ts.index.year))
     n_yrs   = len(all_yrs)
+    
+    if test_yrs is not None:
+        method = 'copied_from_import_ts'
+        n_spl  = test_yrs.shape[0]
     if method[:6] == 'random' or method[:9] == 'ran_strat':
         if seed is None:
             seed = 30 # control reproducibility train/test split
@@ -1110,8 +1117,7 @@ def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
     elif method == 'no_train_test_split': 
         n_spl = 1
 
-    if test_yrs is not None:
-        method = 'copied_from_import_ts'
+
 
     full_time  = pd.to_datetime(RV.fullts.index)
     RV_time  = pd.to_datetime(RV_ts.index.values)
@@ -1292,7 +1298,7 @@ def get_testyrs(df_splits):
         df_split = df_splits.loc[s]
         test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
         traintest_yrs.append(test_yrs)
-    return traintest_yrs
+    return np.array(traintest_yrs)
 
 
 

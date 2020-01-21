@@ -30,7 +30,8 @@ print(f'{max_cpu} cpu\'s detected')
 class fcev():
     
     number_of_times_called = 0
-    def __init__(self, path_data, name=None):
+    def __init__(self, path_data, name=None, daily_to_aggr=None,
+                   use_fold=None):
         '''
         Instance for certain dataset with keys and list of stat models
         
@@ -44,15 +45,26 @@ class fcev():
         else:    
             self.name = name
             
-        if fcev.number_of_times_called == 0:
-            fcev.df_data = load_hdf5(self.path_data)['df_data']
-            fcev.splits  = fcev.df_data.index.levels[0]
-            fcev.tfreq = (fcev.df_data.loc[0].index[1] - fcev.df_data.loc[0].index[0]).days
-            fcev.RV_mask = fcev.df_data['RV_mask']
-            fcev.TrainIsTrue = fcev.df_data['TrainIsTrue']
-            fcev.test_years = valid.get_testyrs(fcev.df_data)
+#        if fcev.number_of_times_called == 0:
+        self.df_data_orig = load_hdf5(self.path_data)['df_data']
+        if type(use_fold) is int:
+            self.fold = use_fold
+            # overwriting self.df_data
+            df_data = self.df_data_orig.loc[self.fold][self.df_data_orig.loc[self.fold]['TrainIsTrue'].values]
+            self.df_data = self._create_new_traintest_split(df_data.copy())
+        else:
+            self.df_data = self.df_data_orig
+        if daily_to_aggr is not None:
+            self.daily_to_aggr = daily_to_aggr
+            self.df_data = _daily_to_aggr(self.df_data, self.daily_to_aggr)    
+        
+        self.splits  = self.df_data.index.levels[0]
+        self.tfreq = (self.df_data.loc[0].index[1] - self.df_data.loc[0].index[0]).days
+        self.RV_mask = self.df_data['RV_mask']
+        self.TrainIsTrue = self.df_data['TrainIsTrue']
+        self.test_years = valid.get_testyrs(self.df_data)
 
-        fcev.number_of_times_called += 1
+#        fcev.number_of_times_called += 1
         return 
 
     @classmethod
@@ -91,8 +103,7 @@ class fcev():
         return 
     
     def fit_models(self, stat_model_l=[('logit', None)], lead_max=np.array([1]), 
-                   keys_d=None, causal=False, kwrgs_pp=None, daily_to_aggr=None,
-                   on_train_fold=None):
+                   keys_d=None, causal=False, kwrgs_pp=None):
         '''
         stat_model_l:   list of with model string and kwrgs 
         keys_d      :   dict, with keys : list of variables to fit, if None
@@ -103,17 +114,9 @@ class fcev():
         '''
         
         self.stat_model_l = stat_model_l
-        self.causal = causal
-
-        df_data = self.df_data        
-        if type(on_train_fold) is int:
-            self.fold = on_train_fold
-            df_data = df_data.loc[self.fold][df_data.loc[self.fold]['TrainIsTrue'].values]
-
+        self.causal = causal             
         
-        if daily_to_aggr is not None:
-            self.daily_to_aggr=daily_to_aggr
-            df_data = daily_to_aggr(df_data, self.daily_to_aggr)
+
             
         if keys_d is None:
             print('keys is None: Using all keys in training sets')
@@ -130,28 +133,28 @@ class fcev():
                                                           keys_options=[keys_d], 
                                                           causal=self.causal)[keys_d]
         if isinstance(lead_max, int): 
-            if fcev.tfreq == 1:
-                self.lags_i = np.arange(0, lead_max+1E-9, max(10,fcev.tfreq), dtype=int)
+            if self.tfreq == 1:
+                self.lags_i = np.arange(0, lead_max+1E-9, max(10,self.tfreq), dtype=int)
             else:
-                self.lags_i = np.array(np.arange(0, lead_max+fcev.tfreq/2+1E-9, 
-                                            max(10,fcev.tfreq))/max(10,fcev.tfreq), 
+                self.lags_i = np.array(np.arange(0, lead_max+self.tfreq/2+1E-9, 
+                                            max(10,self.tfreq))/max(10,self.tfreq), 
                                             dtype=int)
         elif type(lead_max) == np.ndarray:
             self.lags_i = lead_max
         else:
             print('lead_max should be integer or np.ndarray')
 
-        if fcev.tfreq == 1: 
-            self.lags_t = np.array([l * fcev.tfreq for l in self.lags_i])
+        if self.tfreq == 1: 
+            self.lags_t = np.array([l * self.tfreq for l in self.lags_i])
         else:
             if self.lags_i[0] == 0:
                 self.lags_t = [0]
                 for l in self.lags_i[1:]:
-                    self.lags_t.append(int((l-1) * fcev.tfreq + fcev.tfreq/2))
+                    self.lags_t.append(int((l-1) * self.tfreq + self.tfreq/2))
             else:
-                self.lags_t = np.array([(l-1) * fcev.tfreq + fcev.tfreq/2 for l in self.lags_i])
+                self.lags_t = np.array([(l-1) * self.tfreq + self.tfreq/2 for l in self.lags_i])
             self.lags_t = np.array(self.lags_t)
-        print(f'tfreq: {fcev.tfreq}, max lag: {self.lags_i[-1]}, i.e. {self.lags_t[-1]} days')
+        print(f'tfreq: {self.tfreq}, max lag: {self.lags_i[-1]}, i.e. {self.lags_t[-1]} days')
 
         if kwrgs_pp is None:
             self.kwrgs_pp = {'EOF':False, 
@@ -165,16 +168,48 @@ class fcev():
         for stat_model in stat_model_l:
             name = stat_model[0]
             y_pred_all, y_pred_c, models = _fit_model(self.TV, 
-                                                      df_data=df_data, 
+                                                      df_data=self.df_data, 
                                                       keys_d=self.keys_d, 
                                                       kwrgs_pp=kwrgs_pp, 
                                                       stat_model=stat_model, 
                                                       lags_i=self.lags_i)
             self.dict_preds[name] = (y_pred_all, y_pred_c)
             self.dict_models[name] = models
-            
-                     
         return 
+    
+    #
+    def _create_new_traintest_split(self, df_data, method='random9', seed=1, kwrgs_events=None):
+        import functions_pp
+        # insert fake train test split to make RV
+        df_data = pd.concat([df_data], axis=0, keys=[0]) 
+        RV = df_data_to_RV(df_data, kwrgs_events=kwrgs_events)
+        df_data = df_data.loc[0][df_data.loc[0]['TrainIsTrue'].values]
+        df_data = df_data.drop(['TrainIsTrue', 'RV_mask'], axis=1)
+        # create CV inside training set
+        df_splits = functions_pp.rand_traintest_years(RV, method=method,
+                                                      seed=seed, 
+                                                      kwrgs_events=kwrgs_events)
+        # add Train test info
+        splits = df_splits.index.levels[0]
+        df_data_s   = np.zeros( (splits.size) , dtype=object)
+        for s in splits:
+            df_data_s[s] = pd.merge(df_data, df_splits.loc[s], left_index=True, right_index=True)
+            
+        df_data  = pd.concat(list(df_data_s), keys= range(splits.size))
+    
+    
+#        tfreq = (df_data.loc[0].index[1] - df_data.loc[0].index[0]).days
+    
+        
+#        lags_i = self.lags_i
+#        lags_t = []
+#        print(f'tfreq: {tfreq}, lag: {lags_i[0]}')
+#        if tfreq == 1: 
+#            lags_t.append(lags_i[0] * tfreq)
+#        else:
+#            lags_t.append((lags_i[0]-1) * tfreq + tfreq/2)
+#        self.lags_t = lags_t
+        return df_data
 
     def perform_validation(self, n_boot=2000, blocksize='auto', 
                            threshold_pred='upper_clim'):
@@ -208,7 +243,7 @@ class fcev():
             df_d = df_d
         elif mask == 'RV_mask':
             tv = cls.df_data.loc[0].iloc[:,0][cls.RV_mask.loc[s]]
-            df_d = df_d[fcev.RV_mask.loc[s]]
+            df_d = df_d[self.RV_mask.loc[s]]
         else:
             tv = cls.df_data.loc[0].iloc[:,0][mask]
             df_d = df_d[mask]
@@ -319,19 +354,35 @@ def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=l
         y_ts = {'cont':RV.RV_ts_fit}
         
     from time import time
-    t0 = time()
-    futures = {}
-    with ProcessPoolExecutor(max_workers=max_cpu) as pool:
-        for lag in lags_i:
-
-            for split in splits:
-                fitkey = f'{lag}_{split}'
-
-                futures[fitkey] = pool.submit(fit, y_ts, df_data, lag, split, 
-                                           stat_model=stat_model, keys_d=keys_d, 
-                                           kwrgs_pp=kwrgs_pp, verbosity=verbosity)
-        results = {key:future.result() for key, future in futures.items()}
+    try:
+        t0 = time()
+        futures = {}
+        with ProcessPoolExecutor(max_workers=max_cpu) as pool:
+            for lag in lags_i:
     
+                for split in splits:
+                    fitkey = f'{lag}_{split}'
+    
+                    futures[fitkey] = pool.submit(fit, y_ts, df_data, lag, split, 
+                                               stat_model=stat_model, keys_d=keys_d, 
+                                               kwrgs_pp=kwrgs_pp, verbosity=verbosity)
+            results = {key:future.result() for key, future in futures.items()}
+        print(time() - t0)
+    except:
+        print('parallel failed')
+        t0 = time()
+        results = {}
+        with ProcessPoolExecutor(max_workers=max_cpu) as pool:
+            for lag in lags_i:
+    
+                for split in splits:
+                    fitkey = f'{lag}_{split}'
+    
+                    results[fitkey] = fit(y_ts, df_data, lag, split, 
+                                               stat_model=stat_model, keys_d=keys_d, 
+                                               kwrgs_pp=kwrgs_pp, verbosity=verbosity)
+#            results = {future[key] for key, future in futures.items()}
+        print(time() - t0)
     
     # unpack results
     models = dict()
@@ -375,7 +426,7 @@ def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=l
         y_pred_all.append(y_pred_l)
     y_pred_all = pd.concat(y_pred_all, axis=1)
     print("\n")
-    print(time() - t0)
+    
     print(f'{stat_model} ')
     #%%
     return y_pred_all, y_pred_c, models
@@ -752,11 +803,23 @@ def load_hdf5(path_data):
     hdf.close()
     return dict_of_dfs
 
-def _daily_to_aggr(df_data, freq):
+def _daily_to_aggr(df_data, daily_to_aggr=int):
     import functions_pp
-    df_data_train, dates = functions_pp.time_mean_bins(df_data, 
-                                                       to_freq=freq, 
+    if hasattr(df_data.index, 'levels'):
+        splits = df_data.index.levels[0]
+        df_data_s   = np.zeros( (splits.size) , dtype=object)
+        for s in splits:
+            df_data_s[s] = functions_pp.time_mean_bins(df_data.loc[s], 
+                                                       to_freq=daily_to_aggr, 
                                                        start_end_date=None, 
                                                        start_end_year=None, 
-                                                       verbosity=0)
-    return df_data_train
+                                                       verbosity=0)[0]
+        df_data_resample  = pd.concat(list(df_data_s), keys= range(splits.size))
+    else:
+        df_data_resample = functions_pp.time_mean_bins(df_data, 
+                                                       to_freq=daily_to_aggr, 
+                                                       start_end_date=None, 
+                                                       start_end_year=None, 
+                                                       verbosity=0)[0]
+    return df_data_resample
+

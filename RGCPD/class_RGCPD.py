@@ -58,6 +58,7 @@ class RGCPD:
         self.orig_stdout = sys.stdout
 
 
+
         return
 
     def pp_precursors(self, kwrgs_pp=None):
@@ -241,12 +242,16 @@ class RGCPD:
     def get_ts_prec(self, import_prec_ts=None):
 
         if hasattr(self, 'outdic_precur'):
-            self.outdic_precur = find_precursors.get_prec_ts(self.outdic_precur)
+            if self.outdic_precur is not None: 
+                self.outdic_precur = find_precursors.get_prec_ts(self.outdic_precur)
         else:
             self.outdic_precur = None
-        self.df_data = find_precursors.df_data_prec_regs(self.TV,
-                                                         self.outdic_precur,
-                                                         self.df_splits)
+        
+        if self.outdic_precur is not None:
+            # if spatial precursors extracted, create df for timeseries
+            self.df_data = find_precursors.df_data_prec_regs(self.TV,
+                                                             self.outdic_precur,
+                                                             self.df_splits)
         if import_prec_ts is not None:
             self.df_data_ext = find_precursors.import_precur_ts(import_prec_ts,
                                                              self.df_splits,
@@ -317,6 +322,17 @@ class RGCPD:
 
         plot_maps.plot_corr_vars_splits(self.dict_ds, self.df_sum, map_proj,
                                           figpath, paramsstr, self.TV.name)
+    
+    def _get_testyrs(self):
+    #%%
+        df_splits = self.df_splits
+        traintest_yrs = []
+        splits = df_splits.index.levels[0]
+        for s in splits:
+            df_split = df_splits.loc[s]
+            test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
+            traintest_yrs.append(test_yrs)
+        return traintest_yrs
 
 def get_download_path():
     """Returns the default downloads path for linux or windows"""

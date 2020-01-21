@@ -380,14 +380,23 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
         
         # divide subchunks to boostrap to all cpus
         n_boot_sub = int(round((n_boot / max_cpu) + 0.4, 0))
-        with ProcessPoolExecutor(max_workers=max_cpu) as pool:
-            futures = []
-            unique_seed = 42    
+        try:
+            with ProcessPoolExecutor(max_workers=max_cpu) as pool:
+                futures = []
+                unique_seed = 42    
+                for i_cpu in range(max_cpu):
+                    unique_seed += 1 # ensure that no same shuffleling is done
+                    futures.append(pool.submit(_bootstrap, y_true, y_pred, n_boot_sub, 
+                                               chunks, percentile_t, unique_seed))
+                out = [future.result() for future in futures]
+        except:
+            print('parallel bootstrapping failed')
+            unique_seed = 42  
+            out = []
             for i_cpu in range(max_cpu):
                 unique_seed += 1 # ensure that no same shuffleling is done
-                futures.append(pool.submit(_bootstrap, y_true, y_pred, n_boot_sub, 
+                out.append(_bootstrap(y_true, y_pred, n_boot_sub, 
                                            chunks, percentile_t, unique_seed))
-            out = [future.result() for future in futures]
     
         
     

@@ -124,7 +124,7 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
                     ax=None):
 
     #%%
-
+#    ax=None
     if ax==None:
         print('ax == None')
         ax = plt.subplot(111)
@@ -144,10 +144,10 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
 
 
     x = lags_tf
-    if 0 in lags_tf:
-        tfreq = 2 * (lags_tf[1] - lags_tf[0])
-    else:
-        tfreq = (lags_tf[1] - lags_tf[0])
+#    if 0 in lags_tf:
+#        tfreq = 2 * (lags_tf[1] - lags_tf[0])
+#    else:
+#        tfreq = (lags_tf[1] - lags_tf[0])
 #    tfreq = max([lags_tf[i+1] - lags_tf[i] for i in range(len(lags_tf)-1)])
 
 
@@ -165,19 +165,24 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
     ax.set_xlabel('Lead time [days]', fontsize=13, labelpad=0.1)
     ax.grid(b=True, which='major')
 #    ax.set_title('{}-day mean'.format(col))
-    if min(x) == 1:
-        xmin = 0
-        xticks = np.arange(min(x), max(x)+1E-9, 10) ;
-        xticks[0] = 1
-    elif min(x) == 0:
-        xmin = int(tfreq/2)
-        xticks = np.arange(xmin, max(x)+1E-9, 10) ;
-        xticks = np.insert(xticks, 0, 0)
-    else:
-        xticks = np.arange(min(x), max(x)+1E-9, 10) ;
+    
+    xticks = x
+    # old adaptation of lags_i to tfreq, accounting for predicting at end of 
+    # aggregation period (lags - 0.5 * tfreq)
+#    if min(x) == 1:
+#        xmin = 0
+#        xticks = np.arange(min(x), max(x)+1E-9, 10) ;
+#        xticks[0] = 1
+#    elif min(x) == 0:
+#        xmin = int(tfreq/2)
+#        xticks = np.arange(xmin, max(x)+1E-9, 10) ;
+#        xticks = np.insert(xticks, 0, 0)
+#    else:
+#        xticks = np.arange(min(x), max(x)+1E-9, 10) ;
 
 
     ax.set_xticks(xticks)
+    ax.set_xticklabels(xticks)
     ax.set_ylim(y_lim)
     ax.set_ylabel(metric)
     if metric == 'BSS':
@@ -219,7 +224,7 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
             if threshold_bin < 1:
                 threshold_bin = int(100*threshold_bin)
             else:
-                threshold_bin = int(threshold_bin)
+                threshold_bin = threshold_bin
             ax.text(0.00, 0.05, r'Event pred. when fc$\geq${}'.format(threshold_bin),
                     horizontalalignment='left', fontsize=10,
                     verticalalignment='center', transform=ax.transAxes,
@@ -532,7 +537,9 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
     3 dims to plot: [metrics, experiments, stat_models]
     2 can be assigned to row or col, the third will be lines in the same axes.
     '''
-
+    
+    group_line_by=None; met='default'; wspace=0.08; col_wrap=None; threshold_bin=fc.threshold_pred
+    
     dims = ['exper', 'models', 'met']
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
     if met == 'default':
@@ -613,7 +620,7 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
 #                    exper = expers[0]
 
 
-
+    
                 df_valid, RV, y_pred_all = dict_experiments[exper][model]
                 tfreq = (y_pred_all.iloc[1].name - y_pred_all.iloc[0].name).days
                 lags_i     = list(dict_experiments[exper][model][2].columns.astype(int))

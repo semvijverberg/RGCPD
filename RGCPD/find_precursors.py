@@ -21,7 +21,7 @@ flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 #%%
 def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=None,
-                     seed=int, verbosity=1):
+                     seed=30, verbosity=1):
 
 
     # Define traintest:
@@ -30,7 +30,7 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
     df_RV_ts    = pd.DataFrame(TV_ts.values,
                                index=pd.to_datetime(TV_ts.time.values))
 
-    if method[:9] == 'ran_strat' and kwrgs_events is None:
+    if method[:9] == 'ran_strat' and kwrgs_events is None and precursor_ts is not None:
             # events need to be defined to enable stratified traintest.
             kwrgs_events = {'event_percentile': 66,
                             'min_dur' : 1,
@@ -45,14 +45,19 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
 
     
     if precursor_ts is not None:
-        # Retrieve same train test split as imported ts
+        print('Retrieve same train test split as imported ts')
         path_data = ''.join(precursor_ts[0][1])
         df_splits = func_fc.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
         test_yrs_imp  = functions_pp.get_testyrs(df_splits)
-        df_splits = functions_pp.rand_traintest_years(TV, method=method,
+        df_splits = functions_pp.rand_traintest_years(TV, test_yrs=test_yrs_imp,
+                                                          method=method,
                                                           seed=seed, 
                                                           kwrgs_events=kwrgs_events, 
                                                           verb=verbosity)
+#        df_splits = functions_pp.rand_traintest_years(TV, method=method,
+#                                                          seed=seed, 
+#                                                          kwrgs_events=kwrgs_events, 
+#                                                          verb=verbosity)
         test_yrs_set  = functions_pp.get_testyrs(df_splits)
         assert (np.equal(test_yrs_imp, test_yrs_set)).all(), "Train test split not equal"
     else:
@@ -522,14 +527,15 @@ def spatial_mean_regions(precur):
 
             # this array will be the time series for each feature
             ts_regions_lag_i = np.zeros((actbox.shape[0], len(regions_for_ts)))
-
+#            ts_regions_lag_i = []
+            
             # track sign of eacht region
             sign_ts_regions = np.zeros( len(regions_for_ts) )
 
 
             # calculate area-weighted mean over features
             for r in regions_for_ts:
-                track_names.append(f'{lag}..{int(r)}..{var}')
+                
                 idx = regions_for_ts.index(r)
                 # start with empty lonlat array
                 B = np.zeros(labels_lag.shape)
@@ -539,9 +545,28 @@ def spatial_mean_regions(precur):
         #        wgts_ano = meanbox[B==1] / meanbox[B==1].max()
         #        ts_regions_lag_i[:,idx] = np.nanmean(actbox[:,B==1] * cos_box_array[:,B==1] * wgts_ano, axis =1)
                 # Calculates how values inside region vary over time
-                ts_regions_lag_i[:,idx] = np.nanmean(actbox[:,B==1] * a_wghts[B==1], axis =1)
+                ts = np.nanmean(actbox[:,B==1] * a_wghts[B==1], axis =1)
+
+                # check for nans
+                if ts[np.isnan(ts)].size !=0:
+                    print(ts)
+                    perc_nans = ts[np.isnan(ts)].size / ts.size
+                    if perc_nans == 1:
+                        # all NaNs
+                        print(f'All timesteps were NaNs split {s}'
+                              f' for region {r} at lag {lag}')
+                        
+                    else:
+                        print(f'{perc_nans} NaNs split {s}'
+                              f' for region {r} at lag {lag}')
+                    
+    
+                track_names.append(f'{lag}..{int(r)}..{var}')
+
+                ts_regions_lag_i[:,idx] = ts
                 # get sign of region
-                sign_ts_regions[idx] = np.sign(np.mean(corr.isel(lag=l_idx).values[B==1]))
+                sign_ts_regions[idx] = np.sign(np.mean(corr.isel(lag=l_idx).values[B==1]))                
+                
             ts_list[l_idx] = ts_regions_lag_i
 
         tsCorr = np.concatenate(tuple(ts_list), axis = 1)
@@ -606,6 +631,8 @@ def import_precur_ts(import_prec_ts, df_splits, to_freq, start_end_date,
     '''
     import_prec_ts has format tuple (name, path_data)
     '''
+#    df_splits = rg.df_splits
+    
     splits = df_splits.index.levels[0]
     df_data_ext_s   = np.zeros( (splits.size) , dtype=object)
     counter = 0
@@ -618,11 +645,16 @@ def import_precur_ts(import_prec_ts, df_splits, to_freq, start_end_date,
             # cols_ext must be of format '{}_{int}_{}'
             lab_int = 100
             for i, c in enumerate(cols_ext):
-                char = c.split('_')[1]
-                if char.isdigit():
-                    pass
+                if '..' in c:
+                    char = c.split('..')[1]
+                    if char.isdigit():
+                        pass
+                    else:
+                        cols_ext[i] = c.replace(char, str(lab_int)) + char
+                        
                 else:
-                    cols_ext[i] = c.replace(char, str(lab_int)) + char
+                    # assuming lag=0, continuing numbering after 100
+                    cols_ext[i] = f'0..{lab_int}..{c}'
                     lab_int += 1
                     
             df_data_ext_s[s] = df_data_e[cols_ext]

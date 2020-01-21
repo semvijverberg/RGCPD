@@ -62,9 +62,9 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None,
     if selbox is not None:
         ds = get_selbox(ds, selbox)
 
-    # ensure latitude is in increasing order
-    if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
-        ds = ds.sortby('latitude')
+#    # ensure latitude is in increasing order
+#    if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
+#        ds = ds.sortby('latitude')
 
     # get dates
     if 'time' in ds.dims:
