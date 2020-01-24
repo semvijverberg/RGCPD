@@ -631,31 +631,58 @@ def import_precur_ts(import_prec_ts, df_splits, to_freq, start_end_date,
     '''
     import_prec_ts has format tuple (name, path_data)
     '''
+    #%%
 #    df_splits = rg.df_splits
-    
+
+
+        
     splits = df_splits.index.levels[0]
+    orig_traintest = functions_pp.get_testyrs(df_splits)
     df_data_ext_s   = np.zeros( (splits.size) , dtype=object)
     counter = 0
     for i, (name, path_data) in enumerate(import_prec_ts):
+        df_data_e_all = func_fc.load_hdf5(path_data)['df_data'].iloc[:,1:]
+        ext_traintest = functions_pp.get_testyrs(df_data_e_all[['TrainIsTrue']])
+        _check_traintest = all(np.equal(orig_traintest.flatten(), ext_traintest.flatten()))
+        assert _check_traintest, ('Train test years of df_splits are not the '
+                                  'same as imported timeseries')
+        
+        
+        cols_ext = list(df_data_e_all.columns[(df_data_e_all.dtypes != bool).values])
+        # cols_ext must be of format '{lag_days}..{label_int}..{var_name}'
+        # or '{lag_days}..{var_name}'. 
+        # If only var_name is in str (no seperation by {..}, then lag_days=0)
+        # note label_int should be unique
+        rename_cols = {}
+        col_sep = [c.split('..') for c in cols_ext]
+        label_int = 100
+        for i, c in enumerate(col_sep):
+            # if no seperation, the col is simply the var_name
+            #c[-1]  is the var_name
+            var_name = c[-1]
+            if len(c) == 1:
+                lag = 0
+                new_col = f'{lag}..{label_int}..{var_name}'
+                label_int +=1
+            if len(c) == 2:
+                #c[0] is assumed the lag in days
+                lag = c[0]
+                # label int is assigned to confirm the PCMCI format
+                new_col = f'{lag}..{label_int}..{var_name}'
+                label_int +=1
+            if len(c) == 3:
+                #c[0] is assumed the lag in days
+                lag = c[0]
+                #c[1] is assumed a unique label
+                own_label = c[1]
+                new_col = f'{lag}..{int(own_label)}..{var_name}'
+            rename_cols[cols_ext[i]] = new_col
+        df_data_e_all = df_data_e_all.rename(columns=rename_cols)
+        
         for s in range(splits.size):
             # skip first col because it is the RV ts
-            df_data_e = func_fc.load_hdf5(path_data)['df_data'].iloc[:,1:].loc[s]
-            cols_ts = np.logical_or(df_data_e.dtypes == 'float64', df_data_e.dtypes == 'float32')
-            cols_ext = list(df_data_e.columns[cols_ts])
-            # cols_ext must be of format '{}_{int}_{}'
-            lab_int = 100
-            for i, c in enumerate(cols_ext):
-                if '..' in c:
-                    char = c.split('..')[1]
-                    if char.isdigit():
-                        pass
-                    else:
-                        cols_ext[i] = c.replace(char, str(lab_int)) + char
-                        
-                else:
-                    # assuming lag=0, continuing numbering after 100
-                    cols_ext[i] = f'0..{lab_int}..{c}'
-                    lab_int += 1
+            df_data_e = df_data_e_all.loc[s]
+            cols_ext = list(df_data_e_all.columns[(df_data_e_all.dtypes != bool).values])
                     
             df_data_ext_s[s] = df_data_e[cols_ext]
             tfreq_date_e = (df_data_e.index[1] - df_data_e.index[0]).days
@@ -670,21 +697,16 @@ def import_precur_ts(import_prec_ts, df_splits, to_freq, start_end_date,
                     print('KeyError captured, likely the requested dates '
                           'given by start_end_date and start_end_year are not' 
                           'found in external pandas timeseries.\n{}'.format(str(e)))
+        print(f'loaded in exterinal timeseres: {cols_ext}')
                                                         
         if counter == 0:
             df_data_ext = pd.concat(list(df_data_ext_s), keys=range(splits.size))
         else:
             df_data_ext.merge(df_data_ext, left_index=True, right_index=True)
+        counter += 1
+    #%%
     return df_data_ext
 
-#            df_data_ext = functions_pp.time_mean_bins(df_data_ext,
-#                                                     ex, ex['tfreq'], 
-#                                                     seldays='part')[0]
-#    # Expand var_names_corr
-#    n = var_names_full[-1][0] + 1 ; add_n = n + len(cols_ext)
-#    n_var_idx = var_names_full[-1][-1] + 1
-#    for i in range(n, add_n):
-#        var_names_full.append([i, cols_ext[i-n], n_var_idx])
 
 def get_spatcovs(dict_ds, df_split, s, outdic_actors, normalize=True):
     #%%

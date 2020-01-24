@@ -30,7 +30,8 @@ GBR_logitCV = ('GBR-logitCV',
                'n_estimators' : 750,
                'max_features':'sqrt',
                'subsample' : 0.6,
-               'random_state':60} )
+               'random_state':60,
+               'min_impurity_decrease':1E-7} )
 
 
 

@@ -51,70 +51,86 @@ def plot_score_expers(d_expers=dict, model=str, metric=str, lags_t=None,
                       color='red', style='solid', col=0,
                       x_label=None, x_label2=None, ax=None):
     #%%
-#    ax = None
+    ax = None
     if ax==None:
         print('ax == None')
-        fig, ax = plt.subplots(constrained_layout=True)
-
-    x_vals = list(d_expers.keys())
-    y_vals = [] ; y_mins = [] ; y_maxs = []
-    for x in x_vals:
-        df_valid = d_expers[x][model][0]
-        df_metric = df_valid.loc[metric]
-        y_vals.append(float(df_metric.loc[metric].values))
-        y_mins.append(float(df_metric.loc['con_low'].values))
-        y_maxs.append(float(df_metric.loc['con_high'].values))
-
-    ax.scatter(x_vals, y_vals, color=color, linestyle=style,
-                    linewidth=3, alpha=1 )
-    # C.I. inteval
-    ax.scatter(x_vals, y_mins, s=70, marker="_", color='black')
-    ax.scatter(x_vals, y_maxs, s=70, marker="_", color='black')
-    ax.vlines(x_vals, y_mins, y_maxs, color='black', linewidth=1)
-
-    ax.hlines(y=0, xmin=min(x_vals), xmax=max(x_vals), linewidth=2)
-    ax.set_xticks(x_vals)
-    ax.set_xticklabels(x_vals)
-
+        fig, ax = plt.subplots(constrained_layout=True, figsize=(10,5))
     
-    if lags_t is not None:
-        if np.unique(lags_t).size > 1:
+    folds = np.array(list(d_expers.keys()))
+    spread_size = 0.3
+    steps = np.linspace(-spread_size,spread_size, folds.size)
+#    freqs = len(d_expers.items()[])
+    for i, fold_key in enumerate(folds):
+        dict_freq = d_expers[fold_key]
+        x_vals_freq = list(dict_freq.keys())
+        x_vals = np.arange(len(x_vals_freq))
+        y_vals = [] ; y_mins = [] ; y_maxs = []
+        for x in x_vals_freq:
+            df_valid = dict_freq[x][model][0]
+            df_metric = df_valid.loc[metric]
+            y_vals.append(float(df_metric.loc[metric].values))
+            y_mins.append(float(df_metric.loc['con_low'].values))
+            y_maxs.append(float(df_metric.loc['con_high'].values))
+        
+        x_vals_shift = x_vals+steps[i]
+
+        
+        ax.scatter(x_vals_shift, y_vals, color=color, linestyle=style,
+                        linewidth=3, alpha=1 )
+        # C.I. inteval
+
+        ax.scatter(x_vals_shift, y_mins, s=70, marker="_", color='black')
+        ax.scatter(x_vals_shift, y_maxs, s=70, marker="_", color='black')
+        ax.vlines(x_vals_shift, y_mins, y_maxs, color='black', linewidth=1)
+                  
+        for x_t,y_t in zip(x_vals_shift, y_mins):
+            ax.text(x_t, y_t-.005, f'{fold_key}', horizontalalignment='center',
+                    verticalalignment='top')
+        
     
-            ax2 = ax.twiny()
-            ax2.set_xbound(ax.get_xbound())
-            ax2.set_xticks(x_vals)
-            ax2.set_xticklabels(lags_t)
-            ax2.grid(False)
-            ax2.set_xlabel(x_label2)
-            text = f'Lead time varies'
-            props = dict(boxstyle='round', facecolor='wheat', edgecolor='black', alpha=0.5)
-            ax.text(0.5, 0.983, text,
-                    fontsize=15,
-                    bbox=props,
-                horizontalalignment='center',
-                verticalalignment='top',
-                transform=ax.transAxes)
-
-        if np.unique(lags_t).size == 1:
-            text = f'Lead time: {int(np.unique(lags_t))} days'
-            props = dict(boxstyle='round', facecolor='wheat', edgecolor='black', alpha=0.5)
-            ax.text(0.5, 0.983, text,
-                    fontsize=15,
-                    bbox=props,
-                horizontalalignment='center',
-                verticalalignment='top',
-                transform=ax.transAxes)
-
-
-    if metric == 'BSS':
-        y_lim = (-0.4, 0.6)
-    elif metric[:3] == 'AUC':
-        y_lim = (0,1.0)
-    elif metric == 'EDI':
-        y_lim = (-1.,1.0)
-    ax.set_ylim(y_lim)
-    ax.set_ylabel(metric)
-    ax.set_xlabel(x_label)
+        ax.hlines(y=0, xmin=min(x_vals)-spread_size, xmax=max(x_vals)+spread_size, linestyle='dotted', linewidth=0.75)
+        ax.set_xticks(x_vals)
+        ax.set_xticklabels(x_vals_freq)
+    
+        
+        if lags_t is not None:
+            if np.unique(lags_t).size > 1 and i==0:
+        
+                ax2 = ax.twiny()
+                ax2.set_xbound(ax.get_xbound())
+                ax2.set_xticks(x_vals)
+                ax2.set_xticklabels(lags_t)
+                ax2.grid(False)
+                ax2.set_xlabel(x_label2)
+                text = f'Lead time varies'
+                props = dict(boxstyle='round', facecolor='wheat', edgecolor='black', alpha=0.5)
+                ax.text(0.5, 0.983, text,
+                        fontsize=15,
+                        bbox=props,
+                    horizontalalignment='center',
+                    verticalalignment='top',
+                    transform=ax.transAxes)
+    
+            if np.unique(lags_t).size == 1 and i==0:
+                text = f'Lead time: {int(np.unique(lags_t))} days'
+                props = dict(boxstyle='round', facecolor='wheat', edgecolor='black', alpha=0.5)
+                ax.text(0.5, 0.983, text,
+                        fontsize=15,
+                        bbox=props,
+                    horizontalalignment='center',
+                    verticalalignment='top',
+                    transform=ax.transAxes)
+    
+    
+        if metric == 'BSS':
+            y_lim = (-0.4, 0.6)
+        elif metric[:3] == 'AUC':
+            y_lim = (0,1.0)
+        elif metric == 'EDI':
+            y_lim = (-1.,1.0)
+        ax.set_ylim(y_lim)
+        ax.set_ylabel(metric)
+        ax.set_xlabel(x_label)
     ax.plot()
     #%%
     return fig
@@ -538,7 +554,7 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
     2 can be assigned to row or col, the third will be lines in the same axes.
     '''
     
-    group_line_by=None; met='default'; wspace=0.08; col_wrap=None; threshold_bin=fc.threshold_pred
+#    group_line_by=None; met='default'; wspace=0.08; col_wrap=None; threshold_bin=fc.threshold_pred
     
     dims = ['exper', 'models', 'met']
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]

@@ -597,7 +597,7 @@ def timeseries_tofit_bins(xr_or_dt, to_freq, start_end_date=None, start_end_year
     if type(xr_or_dt) == type(xr.DataArray([0])):
         datetime = pd.to_datetime(xr_or_dt['time'].values)
     else:
-        datetime = xr_or_dt
+        datetime = xr_or_dt.copy()
 
     datetime = core_pp.remove_leapdays(datetime)
     input_freq = datetime.resolution
@@ -653,7 +653,12 @@ def timeseries_tofit_bins(xr_or_dt, to_freq, start_end_date=None, start_end_year
         # line below: The +1 = include day 1 in counting
         start_day = (end_day - (dt * np.round(fit_steps_yr, decimals=0))) \
                     + np.timedelta64(1, 'D')
-
+        if start_day.month==1 and start_day.day==1 and start_day.is_leap_year:
+            # if leap year, start_day is adjusted one day backward in time,
+            # however, if start_day is already first of januari, this can't be done
+            # thus removing one step_yr
+            start_day = (end_day - (dt * np.round(fit_steps_yr-1, decimals=0))) \
+                    + np.timedelta64(1, 'D')
 
         if start_day.dayofyear < sdate.dayofyear or start_day.year < sdate.year:
 #        if start_day.year < sdate.year:
@@ -661,8 +666,10 @@ def timeseries_tofit_bins(xr_or_dt, to_freq, start_end_date=None, start_end_year
             start_day = (end_day - (dt * np.round(fit_steps_yr-1, decimals=0))) \
                     + np.timedelta64(1, 'D')
         if start_day.is_leap_year:
-            # add day in front to compensate for removing a day
+            # add day in front to compensate for removing a leap day
             start_day = start_day - np.timedelta64(1, 'D')
+
+            
 
         start_yr = pd.date_range(start=start_day, end=end_day,
                                     freq=(datetime[1] - datetime[0]))

@@ -241,30 +241,40 @@ class RGCPD:
 
     def get_ts_prec(self, import_prec_ts=None):
 
+        # check if RGCPD approach retrieved precursors (stored in outdic_precur)
         if hasattr(self, 'outdic_precur'):
             if self.outdic_precur is not None: 
                 self.outdic_precur = find_precursors.get_prec_ts(self.outdic_precur)
         else:
             self.outdic_precur = None
         
+        
         if self.outdic_precur is not None:
             # if spatial precursors extracted, create df for timeseries
             self.df_data = find_precursors.df_data_prec_regs(self.TV,
                                                              self.outdic_precur,
                                                              self.df_splits)
+        
+        # Add (or only load in) external timeseries
+        self.import_prec_ts = import_prec_ts
         if import_prec_ts is not None:
             self.df_data_ext = find_precursors.import_precur_ts(import_prec_ts,
                                                              self.df_splits,
                                                              self.tfreq,
                                                              self.start_end_date,
                                                              self.start_end_year)
-            self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
+            if hasattr(self, 'df_data'):
+                self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
+            else:
+                self.df_data = self.df_data_ext.copy()
+        
+        # add Traintest and RV_mask as last columns
         self.df_data = self.df_data.merge(self.df_splits, left_index=True, right_index=True)
-
+        
 
     def PCMCI_df_data(self, path_txtoutput=None, tau_min=0, tau_max=1,
-                    pc_alpha=None, alpha_level=0.05, max_conds_dim=4,
-                    max_combinations=1, max_conds_py=None, max_conds_px=None,
+                    pc_alpha=None, alpha_level=0.05, max_conds_dim=None,
+                    max_combinations=2, max_conds_py=None, max_conds_px=None,
                     verbosity=4):
 
         import wrapper_PCMCI
@@ -299,11 +309,21 @@ class RGCPD:
         self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_sum,
                                                       self.outdic_precur)
         
-    def store_df_output(self, add_spatcov=False):
+    def store_df_PCMCI(self, add_spatcov=False):
         import wrapper_PCMCI
         wrapper_PCMCI.store_ts(self.df_data, self.df_sum, self.dict_ds, 
                                self.path_outsub2+'.h5', self.outdic_precur, 
                                add_spatcov=add_spatcov)
+    def store_df(self):
+        if self.outdic_precur is not None:
+            varstr = '_' + '_'.join([k for k in self.outdic_precur.keys()])
+        else:
+            varstr = ''
+        if hasattr(self, 'df_data_ext'):
+            varstr = '_'.join([n[0] for n in self.import_prec_ts]) + varstr
+        filename = os.path.join(self.path_outsub1, f'df_data_{varstr}_dt{self.tfreq}_{self.hash}.h5')
+        functions_pp.store_hdf_df({'df_data':self.df_data}, filename)
+        print('Data stored in \n{}'.format(filename))
         
     def plot_maps_sum(self, map_proj=None, figpath=None, paramsstr=None):
 

@@ -431,8 +431,19 @@ def plot_labels_RGCPD(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
             robustness_l.append(robustness)
             wgts_splits = robustness / splits.size
             mask = (wgts_splits > 0.5).astype('bool')
-            prec_labels = ds_l[var+'_'+c].mean(dim='split')
-            list_xr.append(prec_labels.where(mask))
+#            prec_labels = ds_l[var+'_'+c].mean(dim='split') # changed plotting labels 23-01-201=20
+            # fill all nans with label that was present in one of the splits
+            # mean labels
+            xr_labels = ds_l[var+'_'+c]
+            squeeze_labels = xr_labels.sel(split=0)
+            labels = np.zeros_like(squeeze_labels)
+            for s in xr_labels.split:
+                onesplit = xr_labels.sel(split=s)
+                nonanmask = ~np.isnan(onesplit).values
+                labels[nonanmask] = onesplit.values[nonanmask]
+            squeeze_labels.values = labels
+            squeeze_labels = squeeze_labels.where(labels!=0)
+            list_xr.append(squeeze_labels.where(mask))
     else:
         for c in columns:
             name.append(var+'_'+c)
@@ -559,10 +570,12 @@ def _get_kwrgs_labels(prec_labels):
         
     return kwrgs_labels
 
-def plot_labels(prec_labels):
+def plot_labels(prec_labels, cbar_vert=None):
     xrlabels = prec_labels.copy()
     xrlabels.values = prec_labels.values - 0.5
     kwrgs_labels = _get_kwrgs_labels(xrlabels)
+    if cbar_vert is not None:
+        kwrgs_labels['cbar_vert'] = cbar_vert
     plot_corr_maps(xrlabels, **kwrgs_labels)
 
 def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):

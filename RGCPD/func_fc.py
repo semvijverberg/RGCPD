@@ -25,6 +25,8 @@ import exp_fc
 import multiprocessing
 max_cpu = multiprocessing.cpu_count()
 print(f'{max_cpu} cpu\'s detected')
+from itertools import chain
+flatten = lambda l: list(chain.from_iterable(l))
 
 
 class fcev():
@@ -44,12 +46,13 @@ class fcev():
             self.name = 'exper1'
         else:    
             self.name = name
-            
-#        if fcev.number_of_times_called == 0:
+        
         self.df_data_orig = load_hdf5(self.path_data)['df_data']
-        if type(use_fold) is int:
-            self.fold = use_fold
+        self.fold = use_fold
+        if self.fold is not None:
+            self.fold = int(self.fold)
             # overwriting self.df_data
+            self.test_years_orig = valid.get_testyrs(self.df_data_orig)
             df_data = self.df_data_orig.loc[self.fold][self.df_data_orig.loc[self.fold]['TrainIsTrue'].values]
             self.df_data = self._create_new_traintest_split(df_data.copy())
         else:
@@ -63,8 +66,9 @@ class fcev():
         self.RV_mask = self.df_data['RV_mask']
         self.TrainIsTrue = self.df_data['TrainIsTrue']
         self.test_years = valid.get_testyrs(self.df_data)
+        # assuming hash is the last piece of string before the format
+        self.hash = self.path_data.split('.h5')[0].split('_')[-1]
 
-#        fcev.number_of_times_called += 1
         return 
 
     @classmethod
@@ -196,21 +200,39 @@ class fcev():
             df_data_s[s] = pd.merge(df_data, df_splits.loc[s], left_index=True, right_index=True)
             
         df_data  = pd.concat(list(df_data_s), keys= range(splits.size))
-    
-    
-#        tfreq = (df_data.loc[0].index[1] - df_data.loc[0].index[0]).days
-    
-        
-#        lags_i = self.lags_i
-#        lags_t = []
-#        print(f'tfreq: {tfreq}, lag: {lags_i[0]}')
-#        if tfreq == 1: 
-#            lags_t.append(lags_i[0] * tfreq)
-#        else:
-#            lags_t.append((lags_i[0]-1) * tfreq + tfreq/2)
-#        self.lags_t = lags_t
         return df_data
-
+    
+    def _get_precursor_used(self):
+        '''
+        Retrieving keys used to train the model(s)
+        If same keys are used, keys are stored as 'same_keys_used_by_models'
+        '''
+        models = [m[0] for m in self.stat_model_l]
+        each_model = {}
+        flat_arrays = []
+        for m in models:
+            flat_array = []
+            each_lag = {}
+            model_splits = self.dict_models[m]
+            for lag_key, m_splits in model_splits.items():
+                each_split = {}
+                for split_key, model in m_splits.items():
+                    m_class = model_splits[lag_key][split_key]
+                    each_split[split_key] = m_class.X.columns[(m_class.X.dtypes != bool).values]  
+                    flat_array.append( np.array(each_split[split_key]))
+                each_lag[lag_key] = each_split
+            each_model[m] = each_lag
+            flat_arrays.append(np.array(flatten(flat_array)).flatten())
+        if len(models) > 1: 
+            if all( all(flat_arrays[1]==arr) for arr in flat_arrays[1:]):
+                # each model used same variables:
+                self.keys_used = dict(same_keys_used_by_models=each_model[models[0]]) 
+            else:
+                self.keys_used = each_model
+        else:
+            self.keys_used = each_model
+        return self.keys_used
+            
     def perform_validation(self, n_boot=2000, blocksize='auto', 
                            threshold_pred='upper_clim'):
         self.n_boot = n_boot
@@ -473,7 +495,10 @@ def prepare_data(df_split, lag_i=int, normalize='datesRV', remove_RV=True,
     else:
         keys = np.array(keys, dtype='object')
         df_prec = df_split.copy()
+    # not all keys are present in each split:
+    keys = [k for k in keys if k in list(df_split.columns)]
     x_keys = np.array(keys, dtype='object')
+
     
     if type(add_autocorr) is int:
         adding_ac_mlag = lag_i <= 2
@@ -495,7 +520,7 @@ def prepare_data(df_split, lag_i=int, normalize='datesRV', remove_RV=True,
         # add key to keys
         if 'autocorr' not in keys:
             x_keys = np.array(np.insert(x_keys, 0, 'autocorr'), dtype='object')
-
+        
     df_prec = df_prec[x_keys]
 
     # =============================================================================
@@ -796,7 +821,19 @@ def func_dates_min_lag(dates, lag, indays = True):
     return dates_min_lag_str, dates_min_lag
 
 def load_hdf5(path_data):
-    hdf = h5py.File(path_data,'r+')
+    '''
+    Loading hdf5 can not be done simultaneously:
+    '''
+    import time
+    for attempt in range(5):
+        try:
+            hdf = h5py.File(path_data,'r+')
+        except:
+            time.sleep(0.5) # wait 0.5 seconds, perhaps other process is trying
+            # to load it simultaneously
+            continue
+        else:
+            break
     dict_of_dfs = {}
     for k in hdf.keys():
         dict_of_dfs[k] = pd.read_hdf(path_data, k)

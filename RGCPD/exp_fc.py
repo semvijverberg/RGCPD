@@ -99,7 +99,7 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
     '''
     keys_options=['all', 'only_db_regs', 'sp_and_regs', 'sst+sm+RWT',
                   'sst(CPPA)+sm', 'sst(PEP)+sm', 'sst(PDO,ENSO)+sm',
-                  'sst(CPPA)']
+                  'sst(CPPA)', 'sst(CPPA) expert knowledge']
     '''
     
     
@@ -146,28 +146,30 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
             elif option == 'sp_and_regs':
                 keys_ = [k for k in all_keys if k not in skip]
             elif option == 'sst(CPPA)':
-                skip_ex = ['0_900_ENSO34', '0_901_PDO', '0_101_PEPspatcov',
-                           'sm123_spatcov', 'all_spatcov']
+                skip_ex = ['0..103..PEPsv',  'sm123_spatcov', 'all_spatcov']
                 keys_ = [k for k in all_keys if 'v200hpa' not in k]
                 keys_ = [k for k in keys_ if 'sm' not in k]
+                keys_ = [k for k in keys_ if 'ENSO' not in k]# or 'PDO' not in k]
+                keys_ = [k for k in keys_ if 'PDO' not in k]
+                keys_ = [k for k in keys_ if 'PEPsv' not in k]
                 keys_ = [k for k in keys_ if k not in skip_ex]
             elif option == 'sst+sm+RWT':
                 keys_ = [k for k in all_keys if k[-7:] != 'v200hpa']
                 keys_ = [k for k in keys_ if k not in skip]
             elif option == 'sst(CPPA)+sm':
-                skip_ex = ['0_900_ENSO34', '0_901_PDO', '0_101_PEPspatcov',
-                           'sm123_spatcov', 'all_spatcov']
+                skip_ex = ['0..100..ENSO34','0..101..PDO',
+                           '0..103..PEPsv', 'sm123_spatcov', 'all_spatcov']
                 keys_ = [k for k in all_keys if 'v200hpa' not in k]
                 keys_ = [k for k in keys_ if k not in skip]
                 keys_ = [k for k in keys_ if k not in skip_ex]
             elif option == 'CPPAregs+sm':
-                skip_ex = ['0_900_ENSO34', '0_901_PDO']
+                skip_ex =['0..100..ENSO34','0..101..PDO']
                 keys_ = [k for k in all_keys if 'v200hpa' not in k]
                 keys_ = [k for k in keys_ if k not in skip]
                 keys_ = [k for k in keys_ if ('spatcov' not in k)]
                 keys_ = [k for k in keys_ if k not in skip_ex]
             elif option == 'CPPApattern+sm':
-                skip_ex = ['0_900_ENSO34', '0_901_PDO']
+                skip_ex = ['0..100..ENSO34','0..101..PDO']
                 keys_ = [k for k in all_keys if 'v200hpa' not in k]
                 keys_ = [k for k in keys_ if k not in skip]
                 keys_ = [k for k in keys_ if ('spatcov' in k or 'sm' in k)]
@@ -177,10 +179,18 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
             elif option == 'sst(PEP)+sm':
                 keys_ = [k for k in all_keys if 'sm' in k or 'PEP' in k]
                 keys_ = [k for k in keys_ if k != 'sm123_spatcov']
+            elif option == 'sst(PEP)':
+                keys_ = [k for k in all_keys if 'PEP' in k]
             elif option == 'sst(PDO,ENSO)+sm':
                 keys_ = [k for k in all_keys if 'sm' in k or 'PDO' in k or 'ENSO' in k]
                 keys_ = [k for k in keys_ if 'spatcov' not in k]
-
+            elif option == 'sst(CPPA) expert knowledge':
+                keys_ = [k for k in all_keys if 'sm' not in k]
+                keys_ = [k for k in keys_ if 'PDO' not in k]
+                keys_ = [k for k in keys_ if 'ENSO' not in k]
+                keys_ = [k for k in keys_ if 'PEP' not in k]                
+                expert = ['CPPAsv', '..9..sst', '..2..sst', '..6..sst', '..1..sst', '..7..sst']
+                keys_ = [k for k in keys_ for e in expert if e in k]
             keys_d_[s] = np.unique(keys_)
 
         keys_d[option] = keys_d_
