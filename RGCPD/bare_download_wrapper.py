@@ -34,9 +34,8 @@ except:
 # =============================================================================
 
 
-dataset   = 'era5' # choose 'era5' or 'ERAint' or era20c
-exp_folder = ''
-path_raw = os.path.join(base_path,f'Data_{dataset}/{exp_folder}')
+dataset   = 'ERA5' # choose 'era5' or 'ERAint' or era20c
+path_raw = os.path.join(base_path,f'{dataset}/input_raw/')
                         
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 
@@ -64,7 +63,7 @@ ex = dict(
 
 if ex['dataset'] == 'ERAint' or ex['dataset'] == 'era20c':
     import download_ERA_interim_API as ECMWF
-elif ex['dataset'] == 'era5':
+elif ex['dataset'] == 'ERA5':
     import download_ERA5_API as ECMWF
 
 

@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import xarray as xr
 import itertools
 import core_pp
+import datetime
 
 
 from dateutil.relativedelta import relativedelta as date_dt
@@ -33,6 +34,11 @@ def get_oneyr(pddatetime, *args):
 
 
 def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
+    ''' 
+    if argument of kwrgs_pp is list, then the first item is assumed to be the
+    default argument value, the second item should be a dict contaning the 
+    {varname : exception_argument}.
+    '''
     
     list_precur_pp = []
     for idx, (name, filename) in enumerate(list_of_name_path[1:]):
@@ -44,15 +50,17 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
                 print('Loaded post-processed data of {}\n'.format(name))
             pass
         else:
-            if verbosity == 1:
-                print('Output file of pp will be saved as: \n' + outfile)
             print('\nPerforming the post-processing {}'.format(name))
+            kwrgs = {}
+            for key, value in kwrgs_pp.items():
+                if type(value) is list and name in value[1].keys():
+                    kwrgs[key] = value[1][name]
+                elif type(value) is list and name not in value[1].keys():
+                    kwrgs[key] = value[0] # plugging in default value
+                else:
+                    kwrgs[key] = value
             
-            if kwrgs_pp is None:
-                kwrgs_pp = {'selbox':None,
-                            'loadleap':False, 'detrend':True, 'anomaly':True}
-            
-            core_pp.detrend_anom_ncdf3D(filename, outfile, **kwrgs_pp)
+            core_pp.detrend_anom_ncdf3D(filename, outfile, **kwrgs)
     return list_precur_pp
         # update the dates stored in var_class:
 #        var_class, ex = update_dates(var_class, ex)
@@ -254,6 +262,7 @@ def import_ds_timemeanbins(filepath, tfreq, start_end_date=None,
     ds = core_pp.import_ds_lazy(filepath, loadleap=loadleap, 
                                 seldates=seldates, selbox=selbox, 
                                 format_lon=format_lon)
+    
     to_freq = tfreq
     if to_freq != 1:
         ds, dates = time_mean_bins(ds, to_freq,
@@ -621,9 +630,15 @@ def timeseries_tofit_bins(xr_or_dt, to_freq, start_end_date=None, start_end_year
     if start_end_year is None:
         startyear, endyear = datetime[0].year, datetime[-1].year
         years = np.unique(datetime.year)
+        assert (np.unique(datetime.year).size == len(years)), \
+            (f'Range of years ({len(years)}) requested not in dataset,',
+            f'only {np.unique(datetime.year).size} years present.')
     else:
         startyear, endyear = start_end_year
         years = range(startyear, endyear+1)
+    
+    
+    
     # selday_pp is the period you aim to study
     if seldays == 'part':
         # add corresponding time information
@@ -1074,16 +1089,43 @@ def regrid_xarray(xarray_in, to_grid_res, periodic=True):
     #%%
     return xarray_out
 
-def store_hdf_df(dict_of_dfs, file_path):
+def store_hdf_df(dict_of_dfs, file_path=None):
     import warnings
     import tables
+    today = datetime.datetime.today().strftime("%d-%m-%y_%Hhr")
+    if file_path is None:
+        file_path = get_download_path()+ f'/pandas_dfs_{today}.h5'
 
     warnings.filterwarnings('ignore', category=tables.NaturalNameWarning)
     with pd.HDFStore(file_path, 'w') as hdf:
         for key, item in  dict_of_dfs.items():
-            hdf.put(key, item, format='table', data_columns=True)
+            try:
+                hdf.put(key, item, format='table', data_columns=True)
+            except:
+                hdf.put(key, item, data_columns=True)
         hdf.close()
-    return
+    return file_path
+
+def load_hdf5(path_data):
+    '''
+    Loading hdf5 can not be done simultaneously:
+    '''
+    import h5py
+    import time
+    for attempt in range(5):
+        try:
+            hdf = h5py.File(path_data,'r+')
+        except:
+            time.sleep(0.5) # wait 0.5 seconds, perhaps other process is trying
+            # to load it simultaneously
+            continue
+        else:
+            break
+    dict_of_dfs = {}
+    for k in hdf.keys():
+        dict_of_dfs[k] = pd.read_hdf(path_data, k)
+    hdf.close()
+    return dict_of_dfs
 
 def rand_traintest_years(RV, test_yrs=None, method=str, seed=None, 
                          kwrgs_events=None, verb=0):
@@ -1308,5 +1350,15 @@ def get_testyrs(df_splits):
     return np.array(traintest_yrs)
 
 
-
+def get_download_path():
+    """Returns the default downloads path for linux or windows"""
+    if os.name == 'nt':
+        import winreg
+        sub_key = r'SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Shell Folders'
+        downloads_guid = '{374DE290-123F-4565-9164-39C4925E467B}'
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, sub_key) as key:
+            location = winreg.QueryValueEx(key, downloads_guid)[0]
+        return location
+    else:
+        return os.path.join(os.path.expanduser('~'), 'Downloads')
 

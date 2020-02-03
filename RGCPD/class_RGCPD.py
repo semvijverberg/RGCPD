@@ -21,7 +21,7 @@ class RGCPD:
 
     def __init__(self, list_of_name_path=None, start_end_TVdate=None, tfreq=10,
                  start_end_date=None, start_end_year=None,
-                 path_outmain=None, lags_i=np.array([1]), 
+                 path_outmain=None, lags_i=np.array([1]),
                  verbosity=1):
         '''
         list_of_name_path : list of name, path tuples.
@@ -61,14 +61,24 @@ class RGCPD:
 
         return
 
-    def pp_precursors(self, kwrgs_pp=None):
-
-        if kwrgs_pp is None:
-            kwrgs_pp = dict(loadleap=False, seldates=None, selbox=None,
+    def pp_precursors(self, loadleap=False, seldates=None, selbox=None,
                             format_lon='east_west',
-                            detrend=True, anomaly=True)
+                            detrend=True, anomaly=True):
+        '''
+        selbox has format of (lon_min, lon_max, lat_min, lat_max)
+        in format east_west
+        selbox assumes [west_lon, east_lon, south_lat, north_lat]
+        '''
+        loadleap = loadleap
+        seldates = seldates
+        selbox = selbox
+        format_lon = format_lon
+        detrend = detrend
+        anomaly = anomaly
 
-        self.kwrgs_pp = kwrgs_pp
+        self.kwrgs_pp = dict(loadleap=loadleap, seldates=seldates, selbox=selbox,
+                            format_lon=format_lon, detrend=detrend, anomaly=anomaly)
+
         self.list_precur_pp = functions_pp.perform_post_processing(self.list_of_name_path,
                                              kwrgs_pp=self.kwrgs_pp,
                                              verbosity=self.verbosity)
@@ -123,7 +133,7 @@ class RGCPD:
                   'year.'.format(max(self.lags)) ) )
 
 
-    def traintest(self, method='no_train_test_split', seed=1, 
+    def traintest(self, method='no_train_test_split', seed=1,
                   kwrgs_events=None, precursor_ts=None):
         ''' Splits the training and test dates, either via cross-validation or
         via a simple single split.
@@ -149,7 +159,7 @@ class RGCPD:
         concomitant to each split.
         '''
 
-           
+
         self.kwrgs_TV = dict(method=method,
                     seed=seed,
                     kwrgs_events=kwrgs_events,
@@ -173,17 +183,17 @@ class RGCPD:
         kwrgs_load = {k: self.kwrgs_pp[k] for k in keys}
         kwrgs_load['start_end_date']= self.start_end_date
         kwrgs_load['start_end_year']= self.start_end_year
-        kwrgs_load['selbox']        = None
-        kwrgs_load['loadleap']      = False
-        kwrgs_load['format_lon']    = 'only_east'
+#         kwrgs_load['selbox']        = None
+#         kwrgs_load['loadleap']      = False
+#         kwrgs_load['format_lon']    = 'only_east'
         kwrgs_load['tfreq']         = self.tfreq
         self.kwrgs_load = kwrgs_load
-        
+
 
         self.kwrgs_corr = dict(alpha=alpha, # set significnace level for correlation maps
                                lags=self.lags,
                                FDR_control=FDR_control) # Accounting for false discovery rate
-    
+
         self.outdic_precur = find_precursors.calculate_corr_maps(self.TV, self.df_splits,
                                             self.kwrgs_load,
                                             self.list_precur_pp,
@@ -220,19 +230,19 @@ class RGCPD:
                 cmap = plt.cm.tab20
                 prec_labels.values = prec_labels.values-0.5
                 clevels = np.linspace(0, max_N_regs,steps)
-    
+
                 if prec_labels.split.size == 1:
                     cbar_vert = -0.1
                 else:
                     cbar_vert = -0.025
-    
-    
+
+
                 kwrgs = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
                               'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
                               'subtitles' : None, 'lat_labels':True,
                               'cticks_center':True,
                               'cmap':cmap}
-    
+
                 plot_maps.plot_corr_maps(prec_labels,
                                  contour_mask,
                                  map_proj, **kwrgs)
@@ -243,18 +253,18 @@ class RGCPD:
 
         # check if RGCPD approach retrieved precursors (stored in outdic_precur)
         if hasattr(self, 'outdic_precur'):
-            if self.outdic_precur is not None: 
+            if self.outdic_precur is not None:
                 self.outdic_precur = find_precursors.get_prec_ts(self.outdic_precur)
         else:
             self.outdic_precur = None
-        
-        
+
+
         if self.outdic_precur is not None:
             # if spatial precursors extracted, create df for timeseries
             self.df_data = find_precursors.df_data_prec_regs(self.TV,
                                                              self.outdic_precur,
                                                              self.df_splits)
-        
+
         # Add (or only load in) external timeseries
         self.import_prec_ts = import_prec_ts
         if import_prec_ts is not None:
@@ -267,10 +277,10 @@ class RGCPD:
                 self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
             else:
                 self.df_data = self.df_data_ext.copy()
-        
+
         # add Traintest and RV_mask as last columns
         self.df_data = self.df_data.merge(self.df_splits, left_index=True, right_index=True)
-        
+
 
     def PCMCI_df_data(self, path_txtoutput=None, tau_min=0, tau_max=1,
                     pc_alpha=None, alpha_level=0.05, max_conds_dim=None,
@@ -308,11 +318,11 @@ class RGCPD:
         # get xarray dataset for each variable
         self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_sum,
                                                       self.outdic_precur)
-        
+
     def store_df_PCMCI(self, add_spatcov=False):
         import wrapper_PCMCI
-        wrapper_PCMCI.store_ts(self.df_data, self.df_sum, self.dict_ds, 
-                               self.path_outsub2+'.h5', self.outdic_precur, 
+        wrapper_PCMCI.store_ts(self.df_data, self.df_sum, self.dict_ds,
+                               self.path_outsub2+'.h5', self.outdic_precur,
                                add_spatcov=add_spatcov)
     def store_df(self):
         if self.outdic_precur is not None:
@@ -324,7 +334,7 @@ class RGCPD:
         filename = os.path.join(self.path_outsub1, f'df_data_{varstr}_dt{self.tfreq}_{self.hash}.h5')
         functions_pp.store_hdf_df({'df_data':self.df_data}, filename)
         print('Data stored in \n{}'.format(filename))
-        
+
     def plot_maps_sum(self, map_proj=None, figpath=None, paramsstr=None):
 
 #         if map_proj is None:
@@ -342,7 +352,7 @@ class RGCPD:
 
         plot_maps.plot_corr_vars_splits(self.dict_ds, self.df_sum, map_proj,
                                           figpath, paramsstr, self.TV.name)
-    
+
     def _get_testyrs(self):
     #%%
         df_splits = self.df_splits

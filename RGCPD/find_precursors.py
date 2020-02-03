@@ -14,7 +14,6 @@ import scipy
 import pandas as pd
 from statsmodels.sandbox.stats import multicomp
 import functions_pp
-import func_fc
 from class_RV import RV_class
 #import plot_maps
 flatten = lambda l: list(itertools.chain.from_iterable(l))
@@ -47,7 +46,7 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
     if precursor_ts is not None:
         print('Retrieve same train test split as imported ts')
         path_data = ''.join(precursor_ts[0][1])
-        df_splits = func_fc.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
+        df_splits = functions_pp.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
         test_yrs_imp  = functions_pp.get_testyrs(df_splits)
         df_splits = functions_pp.rand_traintest_years(TV, test_yrs=test_yrs_imp,
                                                           method=method,
@@ -94,10 +93,21 @@ def calculate_corr_maps(TV, df_splits, kwrgs_load, list_precur_pp=list, lags=np.
 
 
     for name, filepath in list_precur_pp: # loop over all variables
+        # =============================================================================
+        # Unpack specific arguments
+        # =============================================================================
+        kwrgs = {}
+        for key, value in kwrgs_load.items():
+            if type(value) is list and name in value[1].keys():
+                kwrgs[key] = value[1][name]
+            elif type(value) is list and name not in value[1].keys():
+                kwrgs[key] = value[0] # plugging in default value
+            else:
+                kwrgs[key] = value
         #===========================================
-        # 3c) Precursor field
+        # find Precursor fields
         #===========================================
-        precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs_load)
+        precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
         # =============================================================================
         # Calculate correlation
         # =============================================================================
@@ -641,7 +651,7 @@ def import_precur_ts(import_prec_ts, df_splits, to_freq, start_end_date,
     df_data_ext_s   = np.zeros( (splits.size) , dtype=object)
     counter = 0
     for i, (name, path_data) in enumerate(import_prec_ts):
-        df_data_e_all = func_fc.load_hdf5(path_data)['df_data'].iloc[:,1:]
+        df_data_e_all = functions_pp.load_hdf5(path_data)['df_data'].iloc[:,1:]
         ext_traintest = functions_pp.get_testyrs(df_data_e_all[['TrainIsTrue']])
         _check_traintest = all(np.equal(orig_traintest.flatten(), ext_traintest.flatten()))
         assert _check_traintest, ('Train test years of df_splits are not the '

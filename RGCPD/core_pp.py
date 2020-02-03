@@ -179,6 +179,7 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
     else:
         output = detrend_xarray_ds_2D(ds, detrend=detrend, anomaly=anomaly)
 
+    print(f'\nwriting ncdf file to:\n{outfile}')
     output = xr.DataArray(output, name=ds.name, dims=ds.dims, coords=ds.coords)
     # copy original attributes to xarray
     output.attrs = ds.attrs
@@ -280,8 +281,6 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
 
         progress = int((100*(i+1)/stepsyr.size))
         print(f"\rProcessing {progress}%", end="")
-
-    print('writing ncdf file')
 
 #    output_std_new = rolling_mean_np(output_std, 50)
 

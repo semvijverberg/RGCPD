@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 #from sklearn import metrics
 import functions_pp
 from sklearn.calibration import calibration_curve
+import sklearn.metrics as metrics
 import seaborn as sns
 from itertools import chain
 flatten = lambda l: list(chain.from_iterable(l))
@@ -46,7 +47,293 @@ mpl.rcParams['legend.fontsize'] = 'medium'
 mpl.rcParams['figure.titlesize'] = 'medium'
 
 
+def get_scores_improvement(m_splits, fc, s, lag, metric=None):
+#    import stat_models
+    import warnings
+    warnings.filterwarnings("ignore")
+    m = m_splits[f'split_{s}']
+       
+#    assert hasattr(m, 'n_estimators'), print(m.cv_results_)
 
+        
+#    x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = stat_models.get_masks(m.X)
+    
+#    keys = m.X.columns[m.X.dtypes != bool]
+    X_pred = m.X_pred
+    if hasattr(m, 'n_estimators')==False:   
+        m = m.best_estimator_
+    
+    if hasattr(m, 'predict_proba'):
+        y_true = fc.TV.RV_bin
+    else:
+        y_true = fc.TV.RV_ts
+    
+    
+#    X_train = np.logical_and(fc.TV.TrainIsTrue.loc[s], x_pred_mask).loc[X_pred.index]
+    X_train = X_pred[fc.TV.TrainIsTrue.loc[s].loc[X_pred.index]]
+#    X_test = pd.to_datetime([d for d in X_pred.index if d not in X_train[X_train].index])
+    X_test = X_pred[~fc.TV.TrainIsTrue.loc[s].loc[X_pred.index]]
+    y_maskTrainIsTrue = fc.TV.TrainIsTrue.loc[s].loc[fc.TV.dates_RV]
+    y_test = y_true[~y_maskTrainIsTrue].values.squeeze()
+
+    test_scores = np.zeros(m.n_estimators) 
+    train_scores = np.zeros(m.n_estimators) 
+    for i, y_pred in enumerate(m.staged_predict(X_test)):
+        if metric is None:
+            test_scores[i] = m.loss_(y_test, y_pred)
+        else:
+            test_scores[i] = metric(y_test, y_pred)
+            
+    if metric is not None:
+        y_train = y_true[y_maskTrainIsTrue].values.squeeze()
+        for i, y_pred in enumerate(m.staged_predict(X_train)):
+            train_scores[i] = metric(y_train, y_pred)
+    return train_scores, test_scores
+
+
+def plot_deviance(fc, lag=None, split='all', metric=metrics.brier_score_loss):
+    #%%
+    model = [n[0] for n in fc.stat_model_l if n[0][:2]=='GB'][0]
+    if lag is None:
+        lag = int(list(fc.dict_models[model].keys())[0].split('_')[1])
+    
+    m_splits = fc.dict_models[model][f'lag_{lag}']
+    
+#    assert hasattr(m_splits['split_0'], 'n_estimators'), '{}'.format(
+#            m_splits['split_0'].cv_results_)
+        
+    if split == 'all':
+        splits = [int(k.split('_')[-1]) for k in m_splits.keys()]
+    else:
+        splits = [split]
+    
+    g = sns.FacetGrid(pd.DataFrame(splits), col=0, col_wrap=2, aspect=2)
+    for col, s in enumerate(splits):
+        
+        m_splits = fc.dict_models[model][f'lag_{lag}']
+        train_score_, test_scores = get_scores_improvement(m_splits, fc, s, lag,
+                                                           metric=metric)
+        
+        ax = g.axes[col]
+        ax.plot(np.arange(train_score_.size) + 1, train_score_, 'b-',
+                 label='Training Deviance')
+        ax.plot(np.arange(train_score_.size) + 1, test_scores, 'r-',
+                 label='Test Deviance')
+        ax.legend()
+        ax.set_xlabel('Boosting Iterations')
+        ax.set_ylabel('Deviance')
+    #%%
+    return g.fig
+    #%%
+def get_pred_split(m_splits, fc, s, lag):
+
+    import warnings
+    warnings.filterwarnings("ignore")
+    m = m_splits[f'split_{s}']
+        
+    if hasattr(m, 'predict_proba'):
+        X_pred = m.X_pred
+        y_true = fc.TV.RV_bin
+        prediction = pd.DataFrame(m.predict_proba(X_pred)[:,1], 
+                              index=y_true.index, columns=[lag])  
+        
+    else:
+        y_true = fc.TV.RV_ts
+        prediction = pd.DataFrame(m.predict(X_pred), 
+                              index=y_true.index, columns=[lag])  
+        
+    
+    TrainIsTrue = fc.TV.TrainIsTrue.loc[s].loc[prediction.index]
+    
+    pred_train = prediction.loc[TrainIsTrue[TrainIsTrue].index].squeeze()
+    pred_test = prediction.loc[TrainIsTrue[~TrainIsTrue].index]
+    y_train = y_true.loc[TrainIsTrue[TrainIsTrue].index]
+    y_test  = y_true.loc[TrainIsTrue[~TrainIsTrue].index]
+    train_score = metrics.mean_squared_error(y_train, pred_train)
+    test_score  = metrics.mean_squared_error(y_test, pred_test)
+    return prediction, y_true, train_score, test_score, m
+
+def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=4,
+                    wspace=0.02):
+    #%%
+    
+    if model is None:
+        model = list(fc.dict_models.keys())[0]
+    if lag is None:
+        lag = int(list(fc.dict_models[model].keys())[0].split('_')[1])
+    
+    m_splits = fc.dict_models[model][f'lag_{lag}']
+
+    if split == 'all':
+        s = 0
+    else:
+        s = split
+    
+    prediction, y_true, train_score, test_score, m = get_pred_split(m_splits, fc, s, lag)
+    
+    
+    import matplotlib.dates as mdates
+    import datetime
+    prediction['year'] = prediction.index.year
+    years = np.unique(prediction.index.year)[:]
+    g = sns.FacetGrid(prediction, col='year', sharex=False,  sharey=True, 
+                      col_wrap=col_wrap, aspect=1.5)
+    proba = float(prediction[lag].max()) <= 1 and float(prediction[lag].min()) >= 0
+        
+    clim = y_true.mean()
+    y_max = max(prediction[lag].max(), y_true.max().values) - clim.mean()
+    y_min = min(prediction[lag].min(), y_true.min().values) + clim.mean()
+    dy = max(y_max, y_min)
+    
+    for col, yr in enumerate(years):
+        ax = g.axes[col]
+        if split == 'all':
+            splits = [int(k.split('_')[-1]) for k in m_splits.keys()]
+            train_scores = [train_score]
+            test_scores = [test_score]
+            for s in splits[1:]:
+                prediction, y_true, train_score, test_score, m = get_pred_split(m_splits, fc, s, lag)
+                pred = prediction[(prediction.index.year==yr)][lag]
+                testyrs = np.unique(fc.TrainIsTrue.loc[s][~fc.TrainIsTrue.loc[s]].index.year)
+                
+                    
+#                else:
+#                    label='_nolegend_'
+                dates = pred.index
+                ax.scatter(dates, pred)
+                if yr in testyrs:
+                    testplt = ax.plot(dates, pred, linewidth=1.5, linestyle='solid')
+                else:
+                    ax.plot(dates, pred, linewidth=1, linestyle='dashed')
+                train_scores.append(train_score)
+                test_scores.append(test_score)
+            trainscorestr = 'MSE train: {:.2f} ± {:.2f}'.format(
+                    np.mean(train_scores), np.std(train_scores))
+            testscorestr = 'MSE test: {:.2f} ± {:.2f}'.format(
+                    np.mean(test_scores), np.std(test_scores))
+            text = trainscorestr+'\n'+testscorestr
+        else:
+            pred = prediction[(prediction['year']==yr).values][lag]
+            dates = pred.index
+            ax.scatter(dates, pred)
+            ax.plot(dates, pred)
+            trainscorestr = 'MSE train: {:.2f}'.format(train_score)
+            testscorestr = 'MSE test: {:.2f}'.format(test_score)
+            text = trainscorestr+'\n'+testscorestr
+        ax.legend( (testplt), (['test year']))
+        
+        if col==0 or col == len(years)-1:
+            props = dict(boxstyle='round', facecolor='wheat', edgecolor='black', alpha=0.5)
+            ax.text(0.05, 0.95, text,
+                        fontsize=12,
+                        bbox=props,
+                    horizontalalignment='left',
+                    verticalalignment='top',
+                    transform=ax.transAxes)
+        ax.plot(dates, y_true[y_true.index.year==yr], color='black')
+        ax.hlines(clim, dates.min(), dates.max(), linestyle='dashed')
+#        dt_years = mdates.YearLocator()   # every year
+        months = mdates.MonthLocator()  # every month
+        yearsFmt = mdates.DateFormatter('%Y-%m')
+        
+        # format the ticks
+        ax.xaxis.set_major_locator(months)
+        ax.xaxis.set_major_formatter(yearsFmt)
+        ax.xaxis.set_minor_locator(months)
+        datemin = datetime.date(dates.min().year, dates.min().month, 1)
+        datemax = datetime.date(dates.max().year, dates.max().month, 31)
+        ax.set_xlim(datemin, datemax)
+        ax.grid(True)
+        ax.tick_params(labelsize=10)
+        if proba:
+            ax.set_ylim(0, 1)
+        else:            
+            ax.set_ylim(float(clim-dy), float(clim+dy))
+    
+    g.fig.suptitle(model, y=1.02)
+    g.fig.subplots_adjust(wspace=wspace)
+        #%%
+    return g.fig
+
+def get_score_matrix(d_expers=dict, model=str, metric=str, lags_t=None):
+    #%%
+    folds = np.array(list(d_expers.keys()))
+    percen = np.array(list(d_expers[folds[0]].keys()))
+    tfreqs = np.array(list(d_expers[folds[0]][percen[0]].keys()))
+    npscore = np.zeros( shape=(folds.size, percen.size, tfreqs.size) )
+    np_sig = np.zeros( shape=(folds.size, percen.size, tfreqs.size) )
+    for i, fkey in enumerate(folds):
+        for j, pkey in enumerate(percen):
+            dict_freq = d_expers[fkey][pkey]
+            for k, tkey in enumerate(tfreqs):
+                df_valid = dict_freq[tkey][model][0]
+                df_metric = df_valid.loc[metric]
+                npscore[i,j,k] = float(df_metric.loc[metric].values)
+                con_low = df_metric.loc['con_low'].values
+                if type(con_low) is np.ndarray:
+                    con_low = np.quantile(con_low[0], 0.025) # alpha is 0.05
+                else:
+                    con_low = float(df_metric.loc['con_low'].values)
+                np_sig[i,j,k] = con_low
+
+    data = np.mean(npscore,0)
+    df_data = pd.DataFrame(data, index=percen, columns=tfreqs)
+    df_sign = []
+    for i, fkey in enumerate(folds):
+        df_sign.append(pd.DataFrame(np_sig[i], index=percen, columns=tfreqs))
+    df_sign = pd.concat(df_sign, keys=folds)
+    df_lags_t = pd.DataFrame(data=np.array(lags_t[:tfreqs.size], dtype=int), index=tfreqs)
+    
+    dict_of_dfs = {f'df_data_{metric}':df_data,'df_sign':df_sign, 'df_lags_t':df_lags_t}
+    path_data = functions_pp.store_hdf_df(dict_of_dfs)
+    return path_data, dict_of_dfs
+
+def plot_score_matrix(path_data=str, col=0,
+                      x_label=None, x_label2=None, ax=None):
+                      
+    dict_of_dfs = functions_pp.load_hdf5(path_data='/Users/semvijverberg/Downloads/pandas_dfs_28-01-20_11hr.h5')
+    datakey = [k for k in dict_of_dfs.keys() if k[:7] == 'df_data'][0]
+    metric = datakey.split('_')[-1]
+    df_data = dict_of_dfs[datakey]
+    df_sign = dict_of_dfs['df_sign']
+    df_lags_t = dict_of_dfs['df_lags_t']
+    np_arr = df_sign.to_xarray().to_array().values
+    np_sign = np_arr.swapaxes(0,1).swapaxes(1,2)
+    annot = np.zeros_like(df_data.values, dtype="f8").tolist()
+    for i1, r in enumerate(df_data.values):
+        for i2, c in enumerate(r):
+            round_val = np.round(df_data.values[i1,i2], 2).astype('f8')
+            # lower confidence bootstrap higer than 0.0
+            sign = np_sign[:,i1,i2] > 0.0
+            n_sign = int(sign[sign].size)
+            annot[i1][i2] = '{}'.format(n_sign )
+            annot[i1][i2] = 'BSS={:.2f} \n {}/{}'.format(round_val, n_sign, sign.size)
+    
+    ax = None
+    if ax==None:
+        print('ax == None')
+        fig, ax = plt.subplots(constrained_layout=True, figsize=(20,13))
+    
+    ax = sns.heatmap(df_data, ax=ax, vmin=0, vmax=round(max(df_data.max())+0.05, 1), cmap=sns.cm.rocket_r,
+                     annot=np.array(annot),
+                     fmt="", cbar_kws={'label': f'{metric}'})
+    ax.set_yticklabels(labels=df_data.index, rotation=0)
+    ax.set_ylabel('Percentile threshold [-]')
+    ax.set_xlabel(x_label)
+    lags_t = df_lags_t.values.ravel()
+    if lags_t is not None:
+        if np.unique(lags_t).size > 1:
+            ax2 = ax.twiny()
+            ax2.set_xbound(ax.get_xbound())
+            ax2.set_xticks(ax.get_xticks())
+            ax2.set_xticklabels(lags_t)
+            ax2.grid(False)
+            ax2.set_xlabel(x_label2)
+    #%%
+                
+    return fig
+    
+   
 def plot_score_expers(d_expers=dict, model=str, metric=str, lags_t=None,
                       color='red', style='solid', col=0,
                       x_label=None, x_label2=None, ax=None):
@@ -457,7 +744,7 @@ def plot_events(RV, color, n_yrs = 10, col=0, ax=None):
 
     if type(n_yrs) == int:
         years = []
-        sorted_ = RV.freq.sort_values().index
+        sorted_ = RV.freq_per_year.sort_values().index
         years.append(sorted_[:int(n_yrs/2)])
         years.append(sorted_[-int(n_yrs/2):])
         years = flatten(years)
@@ -679,7 +966,7 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
                     if l == 0:
                         ax, dates_ts = plot_events(RV, color=nice_colors[-1], n_yrs=6,
                                          col=col, ax=ax)
-                    plot_ts(RV, y_pred_all, dates_ts, color, line_styles[l], lag_i=1, ax=ax)
+                    plot_ts(RV, y_pred_all, dates_ts, color, line_styles[l], lag_i=lags_i[0], ax=ax)
 
                 # legend conditions
                 same_models = np.logical_and(row==0, col==0)

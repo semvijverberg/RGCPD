@@ -19,7 +19,6 @@ import seaborn as sns
 from itertools import chain
 flatten = lambda l: list(chain.from_iterable(l))
 from concurrent.futures import ProcessPoolExecutor
-from dask.distributed import Client
 import multiprocessing
 max_cpu = multiprocessing.cpu_count()
 
@@ -427,8 +426,8 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
             boots = flatten(boots)
         sorted_scores = np.array(boots)
         sorted_scores.sort()
-        ci_low = sorted_scores[int(alpha * len(sorted_scores))]
-        ci_high = sorted_scores[int((1-alpha) * len(sorted_scores))]
+        ci_low = sorted_scores[int(alpha/2 * len(sorted_scores))]
+        ci_high = sorted_scores[int((1-alpha/2) * len(sorted_scores))]
         return ci_low, ci_high, sorted_scores
 
     if np.array(boots_AUC).ravel().size != 0:
@@ -517,7 +516,9 @@ def _bootstrap(y_true, y_pred, n_boot_sub, chunks, percentile_t, rng_seed):
         boots_acc.append(score_acc)
         boots_KSS.append(score_KSS)
         boots_EDI.append(score_EDI)
-    return (boots_AUC, boots_AUCPR, boots_brier, boots_prec, boots_acc, boots_KSS, boots_EDI)
+    return (boots_AUC, boots_AUCPR, boots_brier, 
+            boots_prec, boots_acc, boots_KSS, 
+            boots_EDI)
 
 def get_KSS_clim(y_true, y_pred, threshold_clim_events):
     fpr, tpr, thresholds = metrics.roc_curve(y_true, y_pred)
@@ -529,11 +530,15 @@ def get_KSS_clim(y_true, y_pred, threshold_clim_events):
 def get_testyrs(df_splits):
     #%%
     traintest_yrs = []
-    splits = df_splits.index.levels[0]
-    for s in splits:
-        df_split = df_splits.loc[s]
-        test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
-        traintest_yrs.append(test_yrs)
+    if hasattr(df_splits.index, 'levels'):
+        splits = np.unique(df_splits.index.get_level_values(level=0))
+        for s in splits:
+            df_split = df_splits.loc[s]
+            test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
+            traintest_yrs.append(test_yrs)
+    else:
+        df_split = df_splits
+        traintest_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
     return np.array(traintest_yrs)
 
 

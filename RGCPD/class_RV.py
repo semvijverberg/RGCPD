@@ -100,6 +100,8 @@ class RV_class:
 
             filename_ts = kwrgs_events[0]
             kwrgs_events_daily = kwrgs_events[1]
+            # unpack other optional arguments for defining event timeseries 
+            kwrgs = {key:item for key, item in kwrgs_events_daily.items() if key != 'event_percentile'}
             # loading in daily timeseries
             fullts_xr = np.load(filename_ts, encoding='latin1',
                                      allow_pickle=True).item()['RVfullts95']
@@ -130,17 +132,11 @@ class RV_class:
                 # RV_bin_fit is defined such taht we can fit on RV_bin_fit
                 # but validate on RV_bin
                 self.RV_bin_fit = func_fc.Ev_timeseries(df_RV_ts_e,
-                               threshold=self.threshold_ts_fit ,
-                               min_dur=kwrgs_events_daily['min_dur'],
-                               max_break=kwrgs_events_daily['max_break'],
-                               grouped=kwrgs_events_daily['grouped'])[0]
+                               threshold=self.threshold_ts_fit, **kwrgs)[0]
                 self.RV_bin = self.RV_bin_fit.loc[dates_RVe]
             elif only_RV_events == False:
                 self.RV_b_full = func_fc.Ev_timeseries(self.fullts,
-                               threshold=self.threshold ,
-                               min_dur=kwrgs_events_daily['min_dur'],
-                               max_break=kwrgs_events_daily['max_break'],
-                               grouped=kwrgs_events_daily['grouped'])[0]
+                               threshold=self.threshold, **kwrgs)[0]
                 self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
 
             # convert daily binary to window probability binary

@@ -11,11 +11,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 from statsmodels.api import add_constant
-from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.inspection import partial_dependence
 from concurrent.futures import ProcessPoolExecutor
+from sklearn.feature_selection import RFECV
 import multiprocessing
 max_cpu = multiprocessing.cpu_count()
 from matplotlib.lines import Line2D
@@ -24,14 +25,14 @@ flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 logit = ('logit', None)
 
-GBR_logitCV = ('GBR-logitCV', 
-              {'max_depth':3,
-               'learning_rate':1E-3,
-               'n_estimators' : 750,
-               'max_features':'sqrt',
-               'subsample' : 0.6,
-               'random_state':60,
-               'min_impurity_decrease':1E-7} )
+#GBR_logitCV = ('GBR-logitCV', 
+#              {'max_depth':3,
+#               'learning_rate':1E-3,
+#               'n_estimators' : 750,
+#               'max_features':'sqrt',
+#               'subsample' : 0.6,
+#               'random_state':60,
+#               'min_impurity_decrease':1E-7} )
 
 
 
@@ -89,13 +90,126 @@ def logit(y_ts, df_norm, keys):
     except Exception as e:
         print(e)
         model = model_set.fit(method='bfgs', disp=0 )
-        prediction = model.predict(X_pred)
+        prediction = model.predict_proba(X_pred)
     
-    prediction = pd.DataFrame(prediction.values, index=y_dates, columns=[0])                          
+    prediction = pd.DataFrame(prediction.values, index=y_dates, columns=[0]) 
+    model.X_pred = X_pred                  
     #%%
     return prediction, model
 
-def GBR_logitCV(y_ts, df_norm, keys, kwrgs_GBR=None, verbosity=0):
+#def GBR_logitCV(y_ts, df_norm, keys, kwrgs_GBR=None, 
+#                feature_sel={'model':None},verbosity=0):
+#    #%%
+#    '''
+#    X contains all precursor data, incl train and test
+#    X_train, y_train are split up by TrainIsTrue
+#    Preciction is made for whole timeseries    
+#    '''
+#    import warnings
+#    warnings.filterwarnings("ignore", category=DeprecationWarning) 
+#        
+#    if kwrgs_GBR == None:
+#        # use Bram settings
+#        kwrgs_GBR = {'max_depth':3,
+#                 'learning_rate':0.001,
+#                 'n_estimators' : 1250,
+#                 'max_features':'sqrt',
+#                 'subsample' : 0.5}
+#    
+#    # find parameters for gridsearch optimization
+#    kwrgs_gridsearch = {k:i for k, i in kwrgs_GBR.items() if type(i) == list}
+#    # only the constant parameters are kept
+#    kwrgs = kwrgs_GBR.copy()
+#    [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
+#    if 'scoringCV' in kwrgs.keys():
+#        scoring = kwrgs.pop('scoringCV')
+#         # sorted(sklearn.metrics.SCORERS.keys())
+#         # scoring   = 'neg_mean_squared_error'
+#         # scoring='roc_auc'
+#
+#    # Get training years
+#    x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = get_masks(df_norm)
+#    
+#    X = df_norm[keys]
+#    X_train = X[x_fit_mask.values]
+#    X_pred  = X[x_pred_mask.values]
+#    
+#    if scoring=='roc_auc':
+#        RV_ts_fit = y_ts['bin']
+#    else:
+#        RV_ts_fit = y_ts['cont']
+#    RV_ts_fit = RV_ts_fit.loc[y_fit_mask.index]
+#    y_train = RV_ts_fit[y_fit_mask.values].squeeze() 
+#
+#    if y_pred_mask is not None:
+#        y_dates = RV_ts_fit[y_pred_mask.values].index
+#    else:
+#        y_dates = X.index
+#
+#    y_train = RV_ts_fit[y_fit_mask.values] 
+#    
+#    if y_pred_mask is not None:
+#        y_dates = RV_ts_fit[y_pred_mask.values].index
+#
+#    regressor = GradientBoostingRegressor(**kwrgs)
+#    
+#    if len(kwrgs_gridsearch) != 0:
+#
+#
+#        regressor = GridSearchCV(regressor,
+#                  param_grid=kwrgs_gridsearch,
+#                  scoring=scoring, cv=5, refit=scoring, 
+#                  return_train_score=True)
+#        regressor = regressor.fit(X_train, y_train.values.ravel())
+#        if verbosity == 1:
+#            results = regressor.cv_results_
+#            scores = results['mean_test_score'] 
+#            greaterisbetter = regressor.scorer_._sign
+#            improv = int(100* greaterisbetter*(max(scores)- min(scores)) / max(scores))
+#            print("Hyperparam tuning led to {:}% improvement, best {:.2f}, "
+#                  "best params {}".format(
+#                    improv, regressor.best_score_, regressor.best_params_))
+#    else:
+#        regressor.fit(X_train, y_train.values.ravel())
+#    
+#    if len(kwrgs_gridsearch) != 0:
+#        prediction = pd.DataFrame(regressor.best_estimator_.predict(X_pred), 
+#                              index=y_dates, columns=['GBR'])
+#    else:
+#        prediction = pd.DataFrame(regressor.predict(X_pred), 
+#                              index=y_dates, columns=['GBR'])
+#    # add masks for second fit with logitCV
+#    TrainIsTrue_ = df_norm['TrainIsTrue'].loc[y_pred_mask[y_pred_mask.values].index]
+#    prediction['TrainIsTrue'] = pd.Series(TrainIsTrue_.values, 
+#                                  index=TrainIsTrue_.index)
+#    
+#    
+##    # Exclude GBR prediciton
+##    prediction = pd.DataFrame(TrainIsTrue_.values, 
+##                                  index=TrainIsTrue_.index, columns=['TrainIsTrue'])
+#    
+#    # add important features, remove weakest 30 percent based on feature imporartance
+#    if hasattr(regressor, 'n_estimators'):
+#        feat_impor = regressor.feature_importances_        
+#    else:
+#        feat_impor = regressor.best_estimator_.feature_importances_
+#
+#    drop_weak = 0.0
+#    df = pd.DataFrame(feat_impor.T, index=X_train.columns).sort_values(by=0, ascending=False)
+#    if drop_weak == 0.:
+#        strongest = X_train.columns.size
+#    else:
+#        strongest = df.size - max([i for i in range(df.size) if df.iloc[-i:].sum().values <=drop_weak]) - 1
+#    X_strongest = X_pred[df.iloc[:strongest].index] ; X_strongest.index = prediction.index
+#    prediction = pd.merge(X_strongest, prediction, left_index=True, right_index=True)
+#    
+#    
+#    logit_pred, model_logit = logit_skl(y_ts, prediction, keys=None)
+
+#    #%%
+#    return logit_pred, regressor
+
+def GBC(y_ts, df_norm, keys, kwrgs_GBM=None, verbosity=0):
     #%%
     '''
     X contains all precursor data, incl train and test
@@ -105,19 +219,29 @@ def GBR_logitCV(y_ts, df_norm, keys, kwrgs_GBR=None, verbosity=0):
     import warnings
     warnings.filterwarnings("ignore", category=DeprecationWarning) 
         
-    if kwrgs_GBR == None:
+    if kwrgs_GBM == None:
         # use Bram settings
-        kwrgs_GBR = {'max_depth':3,
+        kwrgs_GBM = {'max_depth':3,
                  'learning_rate':0.001,
                  'n_estimators' : 1250,
                  'max_features':'sqrt',
-                 'subsample' : 0.5}
+                 'subsample' : 0.5,
+                 'min_samples_split':.15}
     
     # find parameters for gridsearch optimization
-    kwrgs_gridsearch = {k:i for k, i in kwrgs_GBR.items() if type(i) == list}
+    kwrgs_gridsearch = {k:i for k, i in kwrgs_GBM.items() if type(i) == list}
     # only the constant parameters are kept
-    kwrgs = kwrgs_GBR.copy()
+    kwrgs = kwrgs_GBM.copy()
     [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
+    if 'scoringCV' in kwrgs.keys():
+        scoring = kwrgs.pop('scoringCV')
+         # sorted(sklearn.metrics.SCORERS.keys())
+         # scoring   = 'neg_mean_squared_error'
+         # scoring='roc_auc'
+    if 'feat_sel' in kwrgs:
+        feat_sel = kwrgs.pop('feat_sel')
+    else:
+        feat_sel = None
 
     # Get training years
     x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = get_masks(df_norm)
@@ -126,54 +250,54 @@ def GBR_logitCV(y_ts, df_norm, keys, kwrgs_GBR=None, verbosity=0):
     X_train = X[x_fit_mask.values]
     X_pred  = X[x_pred_mask.values]
 
-    RV_ts_fit = y_ts['cont']
+        
+
+    RV_ts_fit = y_ts['bin']
     RV_ts_fit = RV_ts_fit.loc[y_fit_mask.index]
     y_train = RV_ts_fit[y_fit_mask.values].squeeze() 
-
     if y_pred_mask is not None:
         y_dates = RV_ts_fit[y_pred_mask.values].index
     else:
         y_dates = X.index
-
     y_train = RV_ts_fit[y_fit_mask.values] 
-    
-    if y_pred_mask is not None:
-        y_dates = RV_ts_fit[y_pred_mask.values].index
-    # add sample weight mannually
-#    y_train[y_train > y_train.mean()] = 10 * y_train[y_train > y_train.mean()]
-    
-    # sample weight not yet supported by GridSearchCV (august, 2019)
-#    y_wghts = (RV.RV_bin[TrainIsTrue.values] + 1).squeeze().values
-    regressor = GradientBoostingRegressor(**kwrgs)
 
+
+    regressor = GradientBoostingClassifier(**kwrgs)
+
+    if feat_sel is not None:
+        if feat_sel['model'] is None:
+            feat_sel['model'] = regressor
+        model, new_features, rfecv = feature_selection(X_train, y_train.values.ravel(), **feat_sel)
+        X_pred = X_pred[new_features]
+        X_train = X_train[new_features]
+    else:
+        model.fit(X_train, y_train)
+    
     if len(kwrgs_gridsearch) != 0:
-#        scoring   = 'r2'
-        scoring   = 'neg_mean_squared_error'
         regressor = GridSearchCV(regressor,
                   param_grid=kwrgs_gridsearch,
                   scoring=scoring, cv=5, refit=scoring, 
-                  return_train_score=False)
-        regressor.fit(X_train, y_train.values.ravel())
+                  return_train_score=True)
+        regressor = regressor.fit(X_train, y_train.values.ravel())
         if verbosity == 1:
             results = regressor.cv_results_
             scores = results['mean_test_score'] 
-            improv = int(100* (min(scores)-max(scores)) / max(scores))
+            greaterisbetter = regressor.scorer_._sign
+            improv = int(100* greaterisbetter*(max(scores)- min(scores)) / max(scores))
             print("Hyperparam tuning led to {:}% improvement, best {:.2f}, "
                   "best params {}".format(
                     improv, regressor.best_score_, regressor.best_params_))
     else:
         regressor.fit(X_train, y_train.values.ravel())
     
-        
-    prediction = pd.DataFrame(regressor.predict(X_pred), 
-                              index=y_dates, columns=[0])
-    # add masks for second fit with logitCV
-    TrainIsTrue_ = df_norm['TrainIsTrue'].loc[y_pred_mask[y_pred_mask.values].index]
-    prediction['TrainIsTrue'] = pd.Series(TrainIsTrue_.values, 
-                                  index=TrainIsTrue_.index)
+    if len(kwrgs_gridsearch) != 0:
+        prediction = pd.DataFrame(regressor.best_estimator_.predict_proba(X_pred)[:,1], 
+                              index=y_dates, columns=['GBR'])
+    else:
+        prediction = pd.DataFrame(regressor.predict_proba(X_pred)[:,1], 
+                              index=y_dates, columns=['GBR'])
 
-    logit_pred, model_logit = logit_skl(y_ts, prediction, keys=None)
-    
+    regressor.X_pred = X_pred
     
     
 #    logit_pred.plot() ; plt.plot(RV.RV_bin)
@@ -181,10 +305,11 @@ def GBR_logitCV(y_ts, df_norm, keys, kwrgs_GBR=None, verbosity=0):
 #    prediction.plot() ; plt.plot(RV.RV_ts)
 #    metrics_sklearn(RV.RV_bin, logit_pred.values, y_pred_c)
     #%%
-    return logit_pred, regressor
+    return prediction, regressor
 
 
 def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
+              
     #%%
     '''
     X contains all precursor data, incl train and test
@@ -213,7 +338,10 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
     # only the constant parameters are kept
     kwrgs = kwrgs_logit.copy()
     [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
-    
+    if 'feat_sel' in kwrgs:
+        feat_sel = kwrgs.pop('feat_sel')
+    else:
+        feat_sel = None
     # Get training years
     x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = get_masks(df_norm)
     
@@ -237,13 +365,20 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
     model = LogisticRegressionCV(Cs=10, fit_intercept=True, 
                                  cv=strat_cv,
                                  n_jobs=1, 
-                                 **kwrgs_logit)
-                                 
-    model.fit(X_train, y_train)
+                                 **kwrgs)
+    if feat_sel is not None:
+        if feat_sel['model'] is None:
+            feat_sel['model'] = model
+        model, new_features, rfecv = feature_selection(X_train, y_train.values, **feat_sel)
+        X_pred = X_pred[new_features]
+    else:
+        model.fit(X_train, y_train)
+        
+    
     y_pred = model.predict_proba(X_pred)[:,1]
 
     prediction = pd.DataFrame(y_pred, index=y_dates, columns=[0])
-
+    model.X_pred = X_pred
     #%%
     return prediction, model
 
@@ -355,7 +490,7 @@ def plot_importances(GBR_models_split_lags, lag=1, keys=None, cutoff=6,
     return df_all
 
 
-def _get_importances(GBR_models_split_lags, lag=1, _ax=None):
+def _get_importances(GBR_models_split_lags, lag=1):
                      
     #%%
     '''
@@ -477,7 +612,28 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
     return df_lags
             
     #%%
-
+def feature_selection(X_train, y_train, model='logitCV', scoring='brier_score_loss', folds=5,
+                      verbosity=0):
+    if model == 'logitCV':
+        kwrgs_logit = { 'class_weight':{ 0:1, 1:1},
+                        'scoring':'brier_score_loss',
+                        'penalty':'l2',
+                        'solver':'lbfgs'}
+        strat_cv = StratifiedKFold(5, shuffle=False)
+        model = LogisticRegressionCV(Cs=10, fit_intercept=True, 
+                                     cv=strat_cv,
+                                     n_jobs=1, 
+                                     **kwrgs_logit)
+        
+    rfecv = RFECV(estimator=model, step=1, cv=StratifiedKFold(folds, shuffle=False),
+              scoring='brier_score_loss')
+    rfecv.fit(X_train, y_train)
+    new_features = X_train.columns[rfecv.ranking_==1]
+    new_model = rfecv.estimator_
+#    rfecv.fit(X_train, y_train)
+    if verbosity != 0:
+        print("Optimal number of features : %d" % rfecv.n_features_)
+    return new_model, new_features, rfecv
 
 def find_nearest(array, value):
     array = np.asarray(array)
@@ -661,7 +817,7 @@ def _get_synergy(GBR_models_split_lags, lag_i=0, plot_pairs=None,
     plt.figure()
     plt.imshow(df_pair.values, cmap=plt.cm.RdBu) ; plt.colorbar()        
 #%%
-                                   
+                             
 
 #    plot_twoway_partial_dependence()
             
