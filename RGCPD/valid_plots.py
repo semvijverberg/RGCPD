@@ -153,7 +153,7 @@ def get_pred_split(m_splits, fc, s, lag):
     test_score  = metrics.mean_squared_error(y_test, pred_test)
     return prediction, y_true, train_score, test_score, m
 
-def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=4,
+def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=5,
                     wspace=0.02):
     #%%
     
@@ -177,7 +177,7 @@ def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=4,
     prediction['year'] = prediction.index.year
     years = np.unique(prediction.index.year)[:]
     g = sns.FacetGrid(prediction, col='year', sharex=False,  sharey=True, 
-                      col_wrap=col_wrap, aspect=1.5)
+                      col_wrap=col_wrap, aspect=1.5, size=1.5)
     proba = float(prediction[lag].max()) <= 1 and float(prediction[lag].min()) >= 0
         
     clim = y_true.mean()
@@ -191,20 +191,20 @@ def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=4,
             splits = [int(k.split('_')[-1]) for k in m_splits.keys()]
             train_scores = [train_score]
             test_scores = [test_score]
-            for s in splits[1:]:
+            for s in splits[:]:
                 prediction, y_true, train_score, test_score, m = get_pred_split(m_splits, fc, s, lag)
                 pred = prediction[(prediction.index.year==yr)][lag]
                 testyrs = np.unique(fc.TrainIsTrue.loc[s][~fc.TrainIsTrue.loc[s]].index.year)
-                
-                    
-#                else:
-#                    label='_nolegend_'
                 dates = pred.index
-                ax.scatter(dates, pred)
+                
                 if yr in testyrs:
-                    testplt = ax.plot(dates, pred, linewidth=1.5, linestyle='solid')
+                    testplt = ax.plot(dates, pred, linewidth=1.5, linestyle='solid',
+                                      color='red')
+                    ax.scatter(dates, pred, color='red', s=8)
                 else:
-                    ax.plot(dates, pred, linewidth=1, linestyle='dashed')
+                    ax.plot(dates, pred, linewidth=1, linestyle='dashed', 
+                            color='grey')
+                    ax.scatter(dates, pred, color='grey', s=2)
                 train_scores.append(train_score)
                 test_scores.append(test_score)
             trainscorestr = 'MSE train: {:.2f} ± {:.2f}'.format(
@@ -220,18 +220,19 @@ def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=4,
             trainscorestr = 'MSE train: {:.2f}'.format(train_score)
             testscorestr = 'MSE test: {:.2f}'.format(test_score)
             text = trainscorestr+'\n'+testscorestr
-        ax.legend( (testplt), (['test year']))
+        ax.legend( (testplt), (['test year']), fontsize='x-small')
         
         if col==0 or col == len(years)-1:
             props = dict(boxstyle='round', facecolor='wheat', edgecolor='black', alpha=0.5)
             ax.text(0.05, 0.95, text,
-                        fontsize=12,
+                        fontsize=8,
                         bbox=props,
                     horizontalalignment='left',
                     verticalalignment='top',
                     transform=ax.transAxes)
         ax.plot(dates, y_true[y_true.index.year==yr], color='black')
-        ax.hlines(clim, dates.min(), dates.max(), linestyle='dashed')
+        ax.hlines(clim, dates.min(), dates.max(), linestyle='dashed',
+                  linewidth=1.5)
 #        dt_years = mdates.YearLocator()   # every year
         months = mdates.MonthLocator()  # every month
         yearsFmt = mdates.DateFormatter('%Y-%m')
@@ -250,7 +251,7 @@ def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=4,
         else:            
             ax.set_ylim(float(clim-dy), float(clim+dy))
     
-    g.fig.suptitle(model, y=1.02)
+    g.fig.suptitle(model + f' lag {lag}', y=1.0)
     g.fig.subplots_adjust(wspace=wspace)
         #%%
     return g.fig

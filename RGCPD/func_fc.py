@@ -257,8 +257,10 @@ class fcev():
                 each_lag[lag_key] = each_split
             each_model[m] = each_lag
             flat_arrays.append(np.array(flatten(flat_array)).flatten())
-        if len(models) > 1:
-            if all( all(flat_arrays[1]==arr) for arr in flat_arrays[1:]):
+        # model without feature selection:
+        models_no_fs = [m[0] for m in self.stat_model_l if 'feat_sel' not in m[1].keys()]
+        if len(models_no_fs) > 1 and len(models_no_fs) == 0:
+            if all( all(flat_arrays[0]==arr) for arr in flat_arrays[1:]):
                 # each model used same variables:
                 self.keys_used = dict(same_keys_used_by_models=each_model[models[0]])
             else:
@@ -330,15 +332,19 @@ class fcev():
         df_plots.plot_freq_per_yr(self.TV)
 
     def plot_GBR_feature_importances(self, lag=None, keys=None, cutoff=6):
-        GBR_models_split_lags = self.dict_models['GBR-logitCV']
+        model = [n[0] for n in self.stat_model_l if n[0][:2]=='GB'][0]
+        GBR_models_split_lags = self.dict_models[model]
         if lag is None:
             lag = self.lags_i
         self.df_importance = stat_models.plot_importances(GBR_models_split_lags, lag=lag,
                                                          keys=keys, cutoff=cutoff)
 
-    def plot_oneway_partial_dependence(self, keys=None, lags=None):
-        GBR_models_split_lags = self.dict_models['GBR-logitCV']
-        stat_models.plot(GBR_models_split_lags, keys=keys, lags=lags)
+    def plot_oneway_partial_dependence(self, keys=None, lags=None, model=None):
+        if model is None:
+            model = [n[0] for n in self.stat_model_l if n[0][:2]=='GB'][0]
+        GBR_models_split_lags = self.dict_models[model]
+        stat_models.plot_oneway_partial_dependence(GBR_models_split_lags, keys=keys, 
+                                                   lags=lags)
 
 
 def df_data_to_RV(df_data=pd.DataFrame, kwrgs_events=dict, only_RV_events=True,

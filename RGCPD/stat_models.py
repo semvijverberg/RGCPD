@@ -431,6 +431,8 @@ def plot_importances(GBR_models_split_lags, lag=1, keys=None, cutoff=6,
                      plot=True):
     #%%
 #    keys = ['autocorr', '10_1_sst']
+
+        
     if type(lag) is int:
         df_all = _get_importances(GBR_models_split_lags, lag=lag)
         
@@ -500,9 +502,15 @@ def _get_importances(GBR_models_split_lags, lag=1):
     GBR_models_split = GBR_models_split_lags[f'lag_{lag}']
     feature_importances = {}
     
+
+    
     for splitkey, regressor in GBR_models_split.items():
-        all_keys = list(regressor.X.columns[(regressor.X.dtypes != bool)])
-        importances = regressor.feature_importances_
+        all_keys = list(regressor.X_pred.columns)
+        if hasattr(regressor, 'n_estimators')==False:   
+            m = regressor.best_estimator_
+        else:
+            m = regressor
+        importances = m.feature_importances_
         for name, importance in zip(all_keys, importances):
             if name not in feature_importances:
                 feature_importances[name] = [0, 0]
@@ -521,7 +529,7 @@ def _get_importances(GBR_models_split_lags, lag=1):
     importances = np.array(importances) / np.sum(importances)
     order = np.argsort(importances)
     names_order = [names[index] for index in order] ; names_order.reverse()
-    freq = (regressor.X.index[1] - regressor.X.index[0]).days
+    freq = (regressor.X_pred.index[1] - regressor.X_pred.index[0]).days
     lags_tf = [l*freq for l in [lag]]
     if freq != 1:
         # the last day of the time mean bin is tfreq/2 later then the centerered day
@@ -549,9 +557,8 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
         for l, lag in enumerate(lags):
             # get models at lag
             GBR_models_split = GBR_models_split_lags[f'lag_{lag}']
-        [keys.update(list(r.X.columns)) for k, r in GBR_models_split.items()]
-        masks = ['TrainIsTrue', 'x_fit', 'x_pred', 'y_fit', 'y_pred']
-        keys = [k for k in keys if k not in masks]
+        [keys.update(list(r.X_pred.columns)) for k, r in GBR_models_split.items()]
+        keys = list(keys)
     keys = keys
     
     df_lags = []
@@ -560,25 +567,36 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
         GBR_models_split = GBR_models_split_lags[f'lag_{lag}']
 
         df_keys = []
+        keys_in_lag = []
         for i, key in enumerate(keys):
             y = [] ; x = []
             for splitkey, regressor in GBR_models_split.items():
-                if key in list(regressor.X.columns):
-                    index = list(regressor.X.columns).index(key)
-                    all_keys = regressor.X.columns[(regressor.X.dtypes != bool)]
-                    X_test = regressor.X.loc[:,all_keys][regressor.X['x_pred']]
-                    _y, _x = partial_dependence(regressor, X=X_test, features=[index],
+                TrainIsTrue = regressor.df_norm['TrainIsTrue']
+                X_pred = regressor.X_pred
+                if hasattr(regressor, 'n_estimators')==False:   
+                    m = regressor.best_estimator_
+                else:
+                    m = regressor
+                if key in list(X_pred.columns):
+                    index = list(X_pred.columns).index(key)
+#                    X_test = regressor.X_pred[regressor.X['x_pred']]
+                    X_test = X_pred[~TrainIsTrue.loc[X_pred.index]]
+                    _y, _x = partial_dependence(m, X=X_test, features=[index],
                                                 grid_resolution=grid_resolution)
                     y.append(_y[0])
                     x.append(_x[0])
-            
-            y_mean = np.array(y).mean(0)
-            y_std = np.std(y, 0).ravel()
-            x_vals = np.mean(x, 0)
-            data = np.concatenate([y_mean[:,None], y_std[:,None], x_vals[:,None]], axis=1)
-            df_key = pd.DataFrame(data, columns=['y_mean', 'y_std', 'x_vals'])
-            df_keys.append(df_key)
-        df_keys = pd.concat(df_keys, keys=keys)
+                    keys_in_lag.append(key)
+            if len(y) != 0:
+                # y has shape (grid_res, splits_key_present)
+                y_mean = np.array(y).mean(0)
+                y_std = np.std(y, 0).ravel()
+                x_vals = np.mean(x, 0)
+                count_splits = np.repeat(np.array(y).shape[0], y_mean.shape)
+                data = [y_mean[:,None], y_std[:,None], x_vals[:,None], count_splits[:,None]]
+                data = np.concatenate(data, axis=1)
+                df_key = pd.DataFrame(data, columns=['y_mean', 'y_std', 'x_vals', 'count splits'])
+                df_keys.append(df_key)
+        df_keys = pd.concat(df_keys, keys=np.unique(keys_in_lag))
         df_lags.append(df_keys)
     df_lags = pd.concat(df_lags, keys=lags)
     # =============================================================================
@@ -587,7 +605,9 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
     #%%
     g = sns.FacetGrid(pd.DataFrame(data=keys), col=0, col_wrap=3, 
                       aspect=1.5, sharex=False)   
-    custom_lines = [] ; _legend = []
+    custom_lines = [] ; _legend = [] ; 
+    text = np.zeros( (len(lags), len(keys)), dtype=object )
+    text[:,:] = 'count splits: 0'
     for l, lag in enumerate(lags):
         
         style = line_styles[l]
@@ -595,20 +615,38 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
         custom_lines.append(Line2D([0],[0],linestyle=style, color=color, lw=4,
                                    markersize=10))
         _legend.append(f'lag {lag}')
-        
+#        text_lag = []
         for i, key in enumerate(keys):
             ax = g.axes[i]
-            df_plot = df_lags.loc[lag, key]
-            y_mean = df_plot['y_mean']
-            y_std  = 2 * df_plot['y_std']
-            x_vals = df_plot['x_vals']
-            ax.fill_between(x_vals, y_mean - y_std, y_mean + y_std, 
-                            color=color, linestyle=style, alpha=0.2)
-            ax.plot(x_vals, y_mean, color=color, linestyle=style)
-            ax.set_title(key)
-            if i == 0:
-                ax.legend(custom_lines, _legend, handlelength=3)
+            df_lag = df_lags.loc[lag]
+            
+            if key in df_lag.index:
+                df_plot = df_lag.loc[key]
+                y_mean = df_plot['y_mean']
+                y_std  = df_plot['y_std']
+                x_vals = df_plot['x_vals']
+                count = int(df_plot['count splits'].mean(0))
+                ax.fill_between(x_vals, y_mean - y_std, y_mean + y_std, 
+                                color=color, linestyle=style, alpha=0.2)
+                ax.plot(x_vals, y_mean, color=color, linestyle=style)
+                text[l,i] = f'lag {lag}: count splits: {count}'
+                if i == 0:
+                    ax.legend(custom_lines, _legend, handlelength=3)
+                if i == len(keys)-1:
+#                    text.append(np.array(text_lag))
 
+                    ax.set_title(key)
+    for l, lag in enumerate(lags):
+        ax_text = [t +'\n'+text[l][i] for i, t in enumerate(text[0])]
+    for i, ax in enumerate(g.axes):
+        ax.text(0.97, 0.05, ax_text[i],
+        fontsize=10,
+        bbox=dict(boxstyle='round', facecolor='wheat', 
+                  edgecolor='black', alpha=0.5),
+        horizontalalignment='right',
+        verticalalignment='bottom',
+        transform=ax.transAxes)
+    #%%
     return df_lags
             
     #%%
