@@ -125,12 +125,7 @@ class fcev():
         self.stat_model_l = stat_model_l
         model_names = [n[0] for n in self.stat_model_l]
         model_count = {n:model_names.count(n) for n in np.unique(model_names)}
-        new = {m+f'-{i+1}':m for i,m in enumerate(model_names) if model_count[m]>1}
-        c = 0
-        for i, n in enumerate(stat_model_l):
-            if n[0] in list(new.values()):                
-                self.stat_model_l[i] = (list(new.keys())[c], n[1]) 
-                c += 1
+        new = {m+f'--{i+1}':m for i,m in enumerate(model_names) if model_count[m]>1}
         self.causal = causal
 
 
@@ -182,12 +177,9 @@ class fcev():
 
         self.dict_preds = {}
         self.dict_models = {}
-        model_names = [n[0] for n in stat_model_l]
-        model_count = {n:model_names.count(n) for n in np.unique(model_names)}
-        new = {m+f'-{i+1}':m for i,m in enumerate(model_names) if model_count[m]>1}
         c = 0
         for i, stat_model in enumerate(stat_model_l):
-            if stat_model[0] in list(new.values()):    
+            if stat_model[0] in list(new.values()):                
                 self.stat_model_l[i] = (list(new.keys())[c], stat_model[1]) 
                 c += 1
              
@@ -198,8 +190,8 @@ class fcev():
                                                       stat_model=stat_model,
                                                       lags_i=self.lags_i,
                                                       verbosity=verbosity)
-            self.dict_preds[name] = (y_pred_all, y_pred_c)
-            self.dict_models[name] = models
+            self.dict_preds[stat_model[0]] = (y_pred_all, y_pred_c)
+            self.dict_models[stat_model[0]] = models
         return
 
     #
