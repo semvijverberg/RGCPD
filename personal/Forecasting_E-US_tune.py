@@ -54,7 +54,7 @@ ERA_16d_RGCPD = {'ERA-5':(era5_16d_RGCPD_sm, [None, 'sst(CPPA)'])}
 ERA_12d_RGCPD = {'ERA-5':(era5_12d_RGCPD_sm, ['sst(CPPA)+sm', 'sst(CPPA)'])}
 ERA_vs_PEP = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
 
-datasets_path  = era5_10d_CPPA_sm
+datasets_path  = ERA_10d_sm
 
 
 # Define statmodel:
@@ -73,16 +73,26 @@ logitCVfs = ('logitCV',
            'solver':'lbfgs',
            'feat_sel':{'model':None}})
     
-GBC_tuned = ('GBC', 
-      {'max_depth':[1, 2, 3, 4],
-       'learning_rate':[1E-2, 5E-3, 1E-3, 5E-4],
-       'n_estimators' : [200, 400, 600, 800, 1000],
-       'min_samples_split':[.15, .25],
-       'max_features':[.2,'sqrt', .5],
-       'subsample' : [.3,.45,0.6],
-       'random_state':60,
-       'scoringCV':'brier_score_loss',
-       'feat_sel':{'model':None} } )
+GBC_tfs = ('GBC', 
+          {'max_depth':[1, 2, 3, 4],
+           'learning_rate':[1E-2, 5E-3, 1E-3, 5E-4],
+           'n_estimators' : [200, 300, 400, 500, 600, 700, 800, 1000],
+           'min_samples_split':[.15, .25],
+           'max_features':[.2,'sqrt', .5],
+           'subsample' : [.3, .4, .5, 0.6],
+           'random_state':60,
+           'scoringCV':'brier_score_loss',
+           'feat_sel':{'model':None} } )
+        
+GBC_t = ('GBC', 
+{'max_depth':[1, 2, 3, 4],
+           'learning_rate':[1E-2, 5E-3, 1E-3, 5E-4],
+           'n_estimators' : [200, 300, 400, 500, 600, 700, 800, 1000],
+           'min_samples_split':[.15, .25],
+           'max_features':[.2,'sqrt', .5],
+           'subsample' : [.3, .4, .5, 0.6],
+           'random_state':60,
+           'scoringCV':'brier_score_loss' } )
     
 GBC = ('GBC', 
       {'max_depth':1,
@@ -106,9 +116,9 @@ kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
 
-stat_model_l = [logitCVfs, logitCV]
+stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
 kwrgs_pp     = {'add_autocorr' : True}
-lags_i = np.array([0, 1, 2])
+lags_i = np.array([0, 1, 2, 3, 4])
 tfreq = None
 use_fold = -9
 

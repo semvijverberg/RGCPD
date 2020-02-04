@@ -123,6 +123,14 @@ class fcev():
         '''
 
         self.stat_model_l = stat_model_l
+        model_names = [n[0] for n in self.stat_model_l]
+        model_count = {n:model_names.count(n) for n in np.unique(model_names)}
+        new = {m+f'-{i+1}':m for i,m in enumerate(model_names) if model_count[m]>1}
+        c = 0
+        for i, n in enumerate(stat_model_l):
+            if n[0] in list(new.values()):                
+                self.stat_model_l[i] = (list(new.keys())[c], n[1]) 
+                c += 1
         self.causal = causal
 
 
@@ -174,13 +182,15 @@ class fcev():
 
         self.dict_preds = {}
         self.dict_models = {}
+        model_names = [n[0] for n in stat_model_l]
+        model_count = {n:model_names.count(n) for n in np.unique(model_names)}
+        new = {m+f'-{i+1}':m for i,m in enumerate(model_names) if model_count[m]>1}
+        c = 0
         for i, stat_model in enumerate(stat_model_l):
-            if [n[0] for n in stat_model_l].count(stat_model[0]) != 1:
-                name = stat_model[0] + f'-{i+1}'
-            else:
-                name = stat_model[0]
-            self.stat_model_l[i] = (name, stat_model[1]) 
-            
+            if stat_model[0] in list(new.values()):    
+                self.stat_model_l[i] = (list(new.keys())[c], stat_model[1]) 
+                c += 1
+             
             y_pred_all, y_pred_c, models = _fit_model(self.TV,
                                                       df_data=self.df_data,
                                                       keys_d=self.keys_d,
