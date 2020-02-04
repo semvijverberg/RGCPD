@@ -22,7 +22,7 @@ if main_dir not in sys.path:
     sys.path.append(python_dir)
     sys.path.append(df_ana_dir)
 
-
+user_dir = os.path.expanduser('~')
 # In[2]:
 
 
@@ -30,16 +30,16 @@ from func_fc import fcev
 
 
 # In[3]:
-old_CPPA = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5'
-old = '/Users/semvijverberg/Downloads/output_RGCPD/20jun-19aug_lag10-10/ran_strat10_s1/None_at0.001_tau_0-1_conds_dim4_combin1.h5'
-era5_10d_CPPA_sm = '/Users/semvijverberg/Downloads/output_RGCPD/Xzkup1_18jun-17aug_lag10-10/ran_strat10_s1/df_data_sst_CPPA_sm123_Xzkup1.h5'
-era5_1d_CPPA_lag0 =  '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_0_Xzkup1.h5'
-era5_1d_CPPA_l10 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
-era5_16d_CPPA_sm = '/Users/semvijverberg/Downloads/output_RGCPD/Xzkup1_19jun-22aug_lag16-16/ran_strat10_s1/df_data_sst_CPPA_sm123_dt16_Xzkup1.h5'
-era5_16d_RGCPD_sm = '/Users/semvijverberg/Downloads/output_RGCPD/Xzkup1_19jun-22aug_lag16-16/ran_strat10_s1/df_data__sm123_sst_dt16_Xzkup1.h5'
-era5_12d_RGCPD_sm = '/Users/semvijverberg/Downloads/output_RGCPD/Xzkup1_24may-28aug_lag12-12/ran_strat20_s1/df_data__sm123_sst_dt12_Xzkup1.h5'
-era5_10d_RGCPD_sm = '/Users/semvijverberg/Downloads/output_RGCPD/Xzkup1_10jun-29aug_lag20-20/random10_s1/df_data__sm1_sm2_sm3_OLR_sst_dt10_Xzkup1.h5'
-era5_10d_RGCPD_sm_uv = '/Users/semvijverberg/Downloads/output_RGCPD/Xzkup1_10jun-29aug_lag20-20/random10_s1/df_data__sm123_u500_v200_sst_dt10_Xzkup1.h5'
+old_CPPA = os.path.join(user_dir,'/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5')
+old = os.path.join(user_dir,'/Downloads/output_RGCPD/20jun-19aug_lag10-10/ran_strat10_s1/None_at0.001_tau_0-1_conds_dim4_combin1.h5')
+era5_10d_CPPA_sm = os.path.join(user_dir,'/Downloads/output_RGCPD/Xzkup1_18jun-17aug_lag10-10/ran_strat10_s1/df_data_sst_CPPA_sm123_Xzkup1.h5')
+era5_1d_CPPA_lag0 =  os.path.join(user_dir,'/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_0_Xzkup1.h5')
+era5_1d_CPPA_l10 = os.path.join(user_dir,'/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5')
+era5_16d_CPPA_sm = os.path.join(user_dir,'/Downloads/output_RGCPD/Xzkup1_19jun-22aug_lag16-16/ran_strat10_s1/df_data_sst_CPPA_sm123_dt16_Xzkup1.h5')
+era5_16d_RGCPD_sm = os.path.join(user_dir,'/Downloads/output_RGCPD/Xzkup1_19jun-22aug_lag16-16/ran_strat10_s1/df_data__sm123_sst_dt16_Xzkup1.h5')
+era5_12d_RGCPD_sm = os.path.join(user_dir,'/Downloads/output_RGCPD/Xzkup1_24may-28aug_lag12-12/ran_strat20_s1/df_data__sm123_sst_dt12_Xzkup1.h5')
+era5_10d_RGCPD_sm = os.path.join(user_dir,'/Downloads/output_RGCPD/Xzkup1_10jun-29aug_lag20-20/random10_s1/df_data__sm1_sm2_sm3_OLR_sst_dt10_Xzkup1.h5')
+era5_10d_RGCPD_sm_uv = os.path.join(user_dir,'/Downloads/output_RGCPD/Xzkup1_10jun-29aug_lag20-20/random10_s1/df_data__sm123_u500_v200_sst_dt10_Xzkup1.h5')
 # In[4]:
 
 
