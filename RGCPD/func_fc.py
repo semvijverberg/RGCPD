@@ -122,7 +122,7 @@ class fcev():
         daily_to_aggr:  int: convert daily data to aggregated {int} day mean
         '''
 
-        self.stat_model_l = stat_model_l
+        self.stat_model_l = stat_model_l.copy()
         model_names = [n[0] for n in self.stat_model_l]
         model_count = {n:model_names.count(n) for n in np.unique(model_names)}
         new = {m+f'--{i+1}':m for i,m in enumerate(model_names) if model_count[m]>1}
@@ -190,8 +190,9 @@ class fcev():
                                                       stat_model=stat_model,
                                                       lags_i=self.lags_i,
                                                       verbosity=verbosity)
-            self.dict_preds[stat_model[0]] = (y_pred_all, y_pred_c)
-            self.dict_models[stat_model[0]] = models
+            uniqname = self.stat_model_l[i][0]
+            self.dict_preds[uniqname] = (y_pred_all, y_pred_c)
+            self.dict_models[uniqname] = models
         return
 
     #
