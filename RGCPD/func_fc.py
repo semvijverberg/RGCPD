@@ -12,6 +12,7 @@ import h5py
 import pandas as pd
 import numpy as np
 import xarray as xr
+import datetime
 import matplotlib.pyplot as plt
 from concurrent.futures import ProcessPoolExecutor
 import stat_models
@@ -102,7 +103,8 @@ class fcev():
                            fit_model_dates=fit_model_dates)
         TV.TrainIsTrue = self.df_data['TrainIsTrue']
         TV.RV_mask = self.df_data['RV_mask']
-
+        TV.name = TV.RV_ts.columns[0]
+        
         splits  = self.df_data.index.levels[0]
         fit_model_mask = pd.concat([TV.fit_model_mask] * splits.size, keys=splits)
         self.df_data = self.df_data.merge(fit_model_mask, left_index=True, right_index=True)
@@ -281,6 +283,58 @@ class fcev():
             m = self.dict_models[model][f'lag_{lag}'][f'split_{split}']
         return m
     
+
+    def _print_sett(self, list_of_fc=None, filename=None):
+        
+        if list_of_fc is None:
+            list_of_fc = [self]
+        if filename is None:
+            # define filename
+            subfolder = 'forecasts'
+            working_folder = '/'.join(self.path_data.split('/')[:-1]) 
+            working_folder = os.path.join(working_folder, subfolder)
+            self.working_folder = working_folder
+            if os.path.isdir(working_folder) != True : os.makedirs(working_folder)
+            today = datetime.datetime.today().strftime('%Hhr_%Mmin_%d-%m-%Y')
+            if type(self.kwrgs_events) is tuple:
+                percentile = self.kwrgs_events[1]['event_percentile']
+            else:
+                percentile = self.kwrgs_events['event_percentile']
+            folds_used = str([f.fold for f in list_of_fc]).replace('[',
+                            '').replace(', ','_').replace(']','')
+            f_name = f'{self.TV.name}_{self.tfreq}d_{percentile}p_fold{folds_used}_{today}'
+            filename = os.path.join(working_folder, f_name)
+
+        file= open(filename+".txt","w+")
+        lines = []
+        lines.append("\nEvent settings:")        
+        e = 1
+        for i, fc_i in enumerate(list_of_fc):
+            
+            lines.append(f'\n\n***Experiment {e}***\n\n')
+            lines.append(f'Title \t : {fc_i.name}')
+            lines.append(f'file \t : {fc_i.path_data}')
+            lines.append(f'kwrgs_events \t : {fc_i.kwrgs_events}')
+            lines.append(f'kwrgs_pp \t : {fc_i.kwrgs_pp}')
+            lines.append(f'Title \t : {fc_i.name}')
+            lines.append(f'file \t : {fc_i.path_data}')
+            lines.append(f'kwrgs_events \t : {fc_i.kwrgs_events}')
+            lines.append(f'kwrgs_pp \t : {fc_i.kwrgs_pp}')
+            lines.append(f'alpha \t : {fc_i.alpha}')
+            lines.append(f'nboot: {fc_i.n_boot}')
+            lines.append(f'stat_models:')
+            lines.append('\n'.join(str(m) for m in fc_i.stat_model_l))
+            lines.append(f'fold: {fc_i.fold}')        
+            lines.append(f'keys_d: \n{fc_i.keys_d}')
+            lines.append(f'keys_used: \n{fc_i._get_precursor_used()}')
+            
+            e+=1
+        
+        [print(n, file=file) for n in lines]
+        file.close()
+        [print(n) for n in lines[:-2]]
+        return working_folder, filename
+
     def perform_validation(self, n_boot=2000, blocksize='auto',
                            threshold_pred='upper_clim', alpha=0.05):
         self.n_boot = n_boot
@@ -342,6 +396,7 @@ class fcev():
     def plot_oneway_partial_dependence(self, keys=None, lags=None):
         GBR_models_split_lags = self.dict_models['GBR-logitCV']
         stat_models.plot(GBR_models_split_lags, keys=keys, lags=lags)
+
 
 
 def df_data_to_RV(df_data=pd.DataFrame, kwrgs_events=dict, only_RV_events=True,
@@ -896,4 +951,3 @@ def _daily_to_aggr(df_data, daily_to_aggr=int):
                                                        start_end_year=None,
                                                        verbosity=0)[0]
     return df_data_resample
-

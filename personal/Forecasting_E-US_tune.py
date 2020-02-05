@@ -120,7 +120,7 @@ kwrgs_events = {'event_percentile': 66}
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [logit, logit]
+stat_model_l = [logitCV, logitCV]
 kwrgs_pp     = {'add_autocorr' : True}
 lags_i = np.array([0])
 tfreq = None
@@ -172,54 +172,7 @@ fig = dfplots.valid_figures(dict_experiments, expers=expers, models=models,
                           met=met, **kwrgs)
 
 
-
-def print_sett(list_of_fc, filename):
-    file= open(filename+".txt","w+")
-    lines = []
-    
-    lines.append("\nEvent settings:")        
-    
-    e = 1
-    for i, fc_i in enumerate(list_of_fc):
-        
-        lines.append(f'\n\n***Experiment {e}***\n\n')
-        lines.append(f'Title \t : {fc_i.name}')
-        lines.append(f'file \t : {fc_i.path_data}')
-        lines.append(f'kwrgs_events \t : {fc_i.kwrgs_events}')
-        lines.append(f'kwrgs_pp \t : {fc_i.kwrgs_pp}')
-        lines.append(f'Title \t : {fc_i.name}')
-        lines.append(f'file \t : {fc_i.path_data}')
-        lines.append(f'kwrgs_events \t : {fc_i.kwrgs_events}')
-        lines.append(f'kwrgs_pp \t : {fc_i.kwrgs_pp}')
-        lines.append(f'alpha \t : {fc_i.alpha}')
-        lines.append(f'nboot: {fc_i.n_boot}')
-        lines.append(f'stat_models:')
-        lines.append('\n'.join(str(m) for m in fc_i.stat_model_l))
-        lines.append(f'fold: {fc_i.fold}')        
-        lines.append(f'keys_d: \n{fc_i.keys_d}')
-        lines.append(f'keys_used: \n{fc_i._get_precursor_used()}')
-        
-        e+=1
-    
-    [print(n, file=file) for n in lines]
-    file.close()
-    [print(n) for n in lines[:-2]]
-
-RV_name = 't2mmax'
-subfolder = 'forecasts'
-working_folder = '/'.join(fc.path_data.split('/')[:-1]) 
-working_folder = os.path.join(working_folder, subfolder)
-if os.path.isdir(working_folder) != True : os.makedirs(working_folder)
-today = datetime.datetime.today().strftime('%Hhr_%Mmin_%d-%m-%Y')
-if type(kwrgs_events) is tuple:
-    percentile = kwrgs_events[1]['event_percentile']
-else:
-    percentile = kwrgs_events['event_percentile']
-folds_used = [f.fold for f in list_of_fc]
-f_name = f'{RV_name}_{tfreq}d_{percentile}p_fold{folds_used}_{today}'
-filename = os.path.join(working_folder, f_name)
-
-print_sett(list_of_fc, filename)
+working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)
 
 f_format = '.pdf'
 pathfig_valid = os.path.join(filename + f_format)
@@ -239,13 +192,13 @@ if __name__ == "__main__":
             for l in fc.lags_i:
                 # visual analysis
                 fig = dfplots.visual_analysis(fc, lag=l, model=m)
-                f_name = f'{RV_name}_{tfreq}d_{percentile}p_fold{folds_used}_{today}_va_{m}'
+                f_name = filename + f'_va_{m}'
                 f_format = '.pdf'
                 pathfig_vis = os.path.join(working_folder, f_name) + f_format
                 fig.savefig(pathfig_vis, bbox_inches='tight') # dpi auto 600
                 # plot deviance
                 if m[:3] == 'GBM':
-                    f_name = f'{RV_name}_{tfreq}d_{percentile}p_fold{folds_used}_{today}_deviance'
+                    f_name = filename +f'_deviance'
                     fig = dfplots.plot_deviance(fc, lag=l, model=m)
                     f_format = '.pdf'
                     path_fig_GBC = os.path.join(working_folder, f_name) + f_format
