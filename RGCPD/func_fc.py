@@ -429,7 +429,8 @@ def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=l
         y_ts = {'cont':RV.RV_ts_fit, 'bin':RV.RV_bin_fit}
     else:
         y_ts = {'cont':RV.RV_ts_fit}
-
+        
+    print(f'{stat_model}')
     from time import time
     try:
         t0 = time()
@@ -459,7 +460,7 @@ def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=l
                                            stat_model=stat_model, keys_d=keys_d,
                                            kwrgs_pp=kwrgs_pp, verbosity=verbosity)
 #            results = {future[key] for key, future in futures.items()}
-        print(time() - t0)
+        print('in {:.0f} seconds'.format(time() - t0))
 
     # unpack results
     models = dict()
@@ -504,7 +505,7 @@ def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=l
     y_pred_all = pd.concat(y_pred_all, axis=1)
     print("\n")
 
-    print(f'{stat_model} ')
+    
     #%%
     return y_pred_all, y_pred_c, models
 

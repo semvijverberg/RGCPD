@@ -116,7 +116,8 @@ kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
 
-stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
+#stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
+stat_model_l = [logitCVfs, logitCV]
 kwrgs_pp     = {'add_autocorr' : True}
 lags_i = np.array([0, 1, 2, 3, 4])
 tfreq = None
