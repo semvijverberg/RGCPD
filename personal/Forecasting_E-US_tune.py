@@ -120,9 +120,9 @@ kwrgs_events = {'event_percentile': 66}
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [logitCV, logitCV]
+stat_model_l = [logitCV, logitCVfs, GBC_t, GBC_tfs]
 kwrgs_pp     = {'add_autocorr' : True}
-lags_i = np.array([0])
+lags_i = np.array([0, 1, 2, 3, 4])
 tfreq = None
 use_fold = -9
 
@@ -176,7 +176,7 @@ working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)
 
 f_format = '.pdf'
 pathfig_valid = os.path.join(filename + f_format)
-fig.savefig(f_format, 
+fig.savefig(pathfig_valid, 
             bbox_inches='tight') # dpi auto 600
 
 
