@@ -23,6 +23,9 @@ if main_dir not in sys.path:
     sys.path.append(df_ana_dir)
 
 user_dir = os.path.expanduser('~')
+if sys.platform == 'linux':
+    import matplotlib as mpl
+    mpl.use('Agg')
 # In[2]:
 
 
@@ -225,85 +228,48 @@ fig.savefig(f_format,
 
 
 
-
-## In[9]:
-## =============================================================================
-## Feature Importance Analysis
-## =============================================================================
-#
-##keys = list(rename_labels.values())
-#keys = None
-#fc.plot_GBR_feature_importances(lag=None, keys=keys)
-#
-#
-## In[10]:
-#
-#
-#import stat_models
-##keys = tuple(rename_labels.values())
-#keys = None
-#GBR_models_split_lags = fc.dict_models['GBR-logitCV']
-#stat_models.plot_oneway_partial_dependence(GBR_models_split_lags,
-#                                          keys=keys,
-#                                          lags=[0,1,2])
-#
-#
-## In[18]:
-#
-#
-#import stat_models
-#GBR_models_split_lags = fc.dict_models['GBR-logitCV']
-##keys = tuple(rename_labels.values())
-##plot_pairs = [(keys[2], keys[1])]
-#df_all = stat_models.plot_twoway_partial_dependence(GBR_models_split_lags, lag_i=2, keys=keys,
-#                                   plot_pairs=None, min_corrcoeff=0.1)
-#
-#
-## In[12]:
-#
-#
-#from IPython.display import Image
-#Image(filename=os.path.join(main_dir, "docs/images/pcA_none_ac0.002_at0.05_t2mmax_E-US_vs_sst_labels_mean.png"),
-#      width=1000, height=200)
-#
-#
-## In[13]:
-#
-#
-## Soil Moisture labels
-#Image(filename=os.path.join(main_dir, "docs/images/pcA_none_ac0.002_at0.05_t2mmax_E-US_vs_sm123_labels_mean.png"),
-#      width=1000, height=400)
-#
-#
-## In[14]:
-#
-#
-#Image(filename=os.path.join(main_dir, "docs/images/pcA_none_ac0.002_at0.05_t2mmax_E-US_vs_z500hpa_labels_mean.png"),
-#      width=1000, height=200)
-
 #%%
 
 
 import valid_plots as dfplots
-model = 'logitCV'
-model = None
-fig = dfplots.visual_analysis(fc, lag=2, model=model)
-if model is None:
-    model = fc.stat_model_l[0][0]
-f_name = f'{RV_name}_{tfreq}d_{percentile}p_fold{folds_used}_{today}_va_{model}'
-f_format = '.pdf'
-pathfig_vis = os.path.join(working_folder, f_name) + f_format
-
-fig.savefig(pathfig_vis, bbox_inches='tight') # dpi auto 600
+if __name__ == "__main__":
+    for fc in list_of_fc:
+        models = [n[0] for n in fc.stat_model_l]
+        for m in models:
+            for l in fc.lags_i:
+                # visual analysis
+                fig = dfplots.visual_analysis(fc, lag=l, model=m)
+                f_name = f'{RV_name}_{tfreq}d_{percentile}p_fold{folds_used}_{today}_va_{m}'
+                f_format = '.pdf'
+                pathfig_vis = os.path.join(working_folder, f_name) + f_format
+                fig.savefig(pathfig_vis, bbox_inches='tight') # dpi auto 600
+                # plot deviance
+                if m[:3] == 'GBM':
+                    f_name = f'{RV_name}_{tfreq}d_{percentile}p_fold{folds_used}_{today}_deviance'
+                    fig = dfplots.plot_deviance(fc, lag=l, model=m)
+                    f_format = '.pdf'
+                    path_fig_GBC = os.path.join(working_folder, f_name) + f_format
+                    fig.savefig(path_fig_GBC, 
+                            bbox_inches='tight') # dpi auto 600
+                
+#model = 'logitCV'
+#model = None
+#fig = dfplots.visual_analysis(fc, lag=2, model=model)
+#if model is None:
+#    model = fc.stat_model_l[0][0]
+#f_name = f'{RV_name}_{tfreq}d_{percentile}p_fold{folds_used}_{today}_va_{model}'
+#f_format = '.pdf'
+#pathfig_vis = os.path.join(working_folder, f_name) + f_format
+#fig.savefig(pathfig_vis, bbox_inches='tight') # dpi auto 600
             
-try:
-    f_name = f'{RV_name}_{tfreq}d_{percentile}p_fold{folds_used}_{today}_deviance'
-    
-    fig = dfplots.plot_deviance(fc, lag=None, model=model)
-    f_format = '.pdf'
-    path_fig_GBC = os.path.join(working_folder, f_name) + f_format
-    fig.savefig(path_fig_GBC, 
-            bbox_inches='tight') # dpi auto 600
-except:
-    pass
+#try:
+#    f_name = f'{RV_name}_{tfreq}d_{percentile}p_fold{folds_used}_{today}_deviance'
+#    
+#    fig = dfplots.plot_deviance(fc, lag=None, model=model)
+#    f_format = '.pdf'
+#    path_fig_GBC = os.path.join(working_folder, f_name) + f_format
+#    fig.savefig(path_fig_GBC, 
+#            bbox_inches='tight') # dpi auto 600
+#except:
+#    pass
 
