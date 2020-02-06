@@ -262,16 +262,11 @@ class fcev():
                 each_lag[lag_key] = each_split
             each_model[m] = each_lag
             flat_arrays.append(np.array(flatten(flat_array)).flatten())
-        if len(models) > 1:
-            try:
-                if all( all(flat_arrays[1]==arr) for arr in flat_arrays[1:]):
-                    # each model used same variables:
-                    self.keys_used = dict(same_keys_used_by_models=each_model[models[0]])
-                else:
-                    self.keys_used = each_model
-            except:
-                pass
-        else:
+        try:
+            if all( all(flat_arrays[1]==arr) for arr in flat_arrays[1:]):
+                # each model used same variables:
+                self.keys_used = dict(same_keys_used_by_models=each_model[models[0]])
+        except:
             self.keys_used = each_model
         return self.keys_used
 
