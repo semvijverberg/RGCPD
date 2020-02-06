@@ -36,6 +36,7 @@ from func_fc import fcev
 old_CPPA = user_dir + '/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5'
 old = user_dir + '/Downloads/output_RGCPD/20jun-19aug_lag10-10/ran_strat10_s1/None_at0.001_tau_0-1_conds_dim4_combin1.h5'
 era5_10d_CPPA_sm = user_dir + '/Downloads/output_RGCPD/Xzkup1_18jun-17aug_lag10-10/ran_strat10_s1/df_data_sst_CPPA_sm123_Xzkup1.h5'
+era5_10d_CPPA_sm_n = user_dir + '/Downloads/output_RGCPD/Xzkup1_20jun-19aug_lag20-20/random10_s1/df_data_sst_CPPA_sm123_dt10_Xzkup1.h5'
 era5_1d_CPPA_lag0 =  user_dir + '/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_0_Xzkup1.h5'
 era5_1d_CPPA_l10 = user_dir + '/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
 era5_16d_CPPA_sm = user_dir + '/Downloads/output_RGCPD/Xzkup1_19jun-22aug_lag16-16/ran_strat10_s1/df_data_sst_CPPA_sm123_dt16_Xzkup1.h5'
@@ -49,8 +50,9 @@ era5_10d_RGCPD_sm_uv = user_dir + '/Downloads/output_RGCPD/Xzkup1_10jun-29aug_la
 #ERA_and_EC_daily  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
 #                 'EC-earth 2.3':(strat_1d_CPPA_EC, ['PEP', 'CPPA'])}
 ERA_10d = {'ERA-5':(era5_10d_CPPA_sm, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
-ERA_10d_sm = {'ERA-5':(era5_10d_CPPA_sm, ['sst(CPPA)+sm', None])}
-ERA_1d_CPPA = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PDO,ENSO)', 'all'])}
+#ERA_10d_sm = {'ERA-5':(era5_10d_CPPA_sm_n, ['sst(PDO,ENSO)', 'sst(CPPA)', 'sst(CPPA)+sm'] )}
+ERA_10d_sm = {'ERA-5':(era5_10d_CPPA_sm_n, ['sst(CPPA)+sm'] )}
+ERA_1d_CPPA = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PDO,ENSO)', 'sst(CPPA)'])}
 ERA_10d_RGCPD = {'ERA-5':(era5_10d_RGCPD_sm, ['all'])}
 ERA_10d_RGCPD_all = {'ERA-5':(era5_10d_RGCPD_sm_uv, ['all'])}
 ERA_16d_RGCPD = {'ERA-5':(era5_16d_RGCPD_sm, [None, 'sst(CPPA)'])}
@@ -68,6 +70,7 @@ logitCV = ('logitCV',
            'scoring':'brier_score_loss',
            'penalty':'l2',
            'solver':'lbfgs'})
+
 
 logitCVfs = ('logitCV',
           {'class_weight':{ 0:1, 1:1},
@@ -89,16 +92,16 @@ GBC_tfs = ('GBC',
 
 GBC_t = ('GBC',
 {'max_depth':[1, 2, 3, 4],
-           'learning_rate':[1E-2, 5E-3, 1E-3, 5E-4],
-           'n_estimators' : [200, 300, 400, 500, 600, 700, 800, 1000],
+           'learning_rate':[.05, 1E-2, 5E-3],
+           'n_estimators' : [100, 250, 400, 550, 700, 850, 1000],
            'min_samples_split':[.15, .25],
-           'max_features':[.2,'sqrt', .5],
+           'max_features':[.15, .2, 'sqrt'],
            'subsample' : [.3, .4, .5, 0.6],
            'random_state':60,
            'scoringCV':'brier_score_loss' } )
 
 GBC = ('GBC',
-      {'max_depth':1,
+      {'max_depth':[1,2],
        'learning_rate':.01,
        'n_estimators' : [200, 400],
        'min_samples_split':.1,
@@ -120,11 +123,11 @@ kwrgs_events = {'event_percentile': 66}
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [logitCV, logitCVfs, GBC, GBC_tfs]
-kwrgs_pp     = {'add_autocorr' : True}
-lags_i = np.array([0, 1, 2, 3, 4])
+stat_model_l = [GBC]
+kwrgs_pp     = {'add_autocorr' : True, 'normalize':False}
+lags_i = np.array([0, 1, 2, 3])
 tfreq = None
-use_fold = -9
+use_fold = None
 
 
 
@@ -192,13 +195,13 @@ if __name__ == "__main__":
             for l in fc.lags_i:
                 # visual analysis
                 fig = dfplots.visual_analysis(fc, lag=l, model=m)
-                f_name = filename + f'_va_{m}'
+                f_name = filename + f'_va_l{l}_{m}'
                 f_format = '.pdf'
                 pathfig_vis = os.path.join(working_folder, f_name) + f_format
                 fig.savefig(pathfig_vis, bbox_inches='tight') # dpi auto 600
                 # plot deviance
-                if m[:3] == 'GBM':
-                    f_name = filename +f'_deviance'
+                if m[:3] == 'GBC':
+                    f_name = filename +f'_l{l}_deviance'
                     fig = dfplots.plot_deviance(fc, lag=l, model=m)
                     f_format = '.pdf'
                     path_fig_GBC = os.path.join(working_folder, f_name) + f_format
