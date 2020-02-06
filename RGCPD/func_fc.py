@@ -104,7 +104,7 @@ class fcev():
         TV.TrainIsTrue = self.df_data['TrainIsTrue']
         TV.RV_mask = self.df_data['RV_mask']
         TV.name = TV.RV_ts.columns[0]
-        
+
         splits  = self.df_data.index.levels[0]
         fit_model_mask = pd.concat([TV.fit_model_mask] * splits.size, keys=splits)
         self.df_data = self.df_data.merge(fit_model_mask, left_index=True, right_index=True)
@@ -181,10 +181,10 @@ class fcev():
         self.dict_models = {}
         c = 0
         for i, stat_model in enumerate(stat_model_l):
-            if stat_model[0] in list(new.values()):                
-                self.stat_model_l[i] = (list(new.keys())[c], stat_model[1]) 
+            if stat_model[0] in list(new.values()):
+                self.stat_model_l[i] = (list(new.keys())[c], stat_model[1])
                 c += 1
-             
+
             y_pred_all, y_pred_c, models = _fit_model(self.TV,
                                                       df_data=self.df_data,
                                                       keys_d=self.keys_d,
@@ -217,13 +217,13 @@ class fcev():
 
         df_data  = pd.concat(list(df_data_s), keys= range(splits.size))
         return df_data
-    
+
     def _remove_test_splits(self):
         if type(self.fold) is int:
             remove_folds = [abs(self.fold)]
         else:
             remove_folds = [abs(f) for f in self.fold]
-        
+
         rem_yrs = valid.get_testyrs(self.df_data_orig.loc[remove_folds])
         keep_folds = np.unique(self.df_data_orig.index.get_level_values(level=0))
         keep_folds = [k for k in keep_folds if k not in remove_folds]
@@ -237,10 +237,10 @@ class fcev():
             assert (len([y for y in yrs if y in rem_yrs.flatten()]))==0, \
                         'check rem yrs'
         df_data  = pd.concat(list(df_data_s), keys=range(len(keep_folds)))
-        
+
         self.rem_yrs = rem_yrs
         return df_data
-    
+
     def _get_precursor_used(self):
         '''
         Retrieving keys used to train the model(s)
@@ -263,11 +263,14 @@ class fcev():
             each_model[m] = each_lag
             flat_arrays.append(np.array(flatten(flat_array)).flatten())
         if len(models) > 1:
-            if all( all(flat_arrays[1]==arr) for arr in flat_arrays[1:]):
-                # each model used same variables:
-                self.keys_used = dict(same_keys_used_by_models=each_model[models[0]])
-            else:
-                self.keys_used = each_model
+            try:
+                if all( all(flat_arrays[1]==arr) for arr in flat_arrays[1:]):
+                    # each model used same variables:
+                    self.keys_used = dict(same_keys_used_by_models=each_model[models[0]])
+                else:
+                    self.keys_used = each_model
+            except:
+                pass
         else:
             self.keys_used = each_model
         return self.keys_used
@@ -282,16 +285,16 @@ class fcev():
         else:
             m = self.dict_models[model][f'lag_{lag}'][f'split_{split}']
         return m
-    
+
 
     def _print_sett(self, list_of_fc=None, filename=None):
-        
+
         if list_of_fc is None:
             list_of_fc = [self]
         if filename is None:
             # define filename
             subfolder = 'forecasts'
-            working_folder = '/'.join(self.path_data.split('/')[:-1]) 
+            working_folder = '/'.join(self.path_data.split('/')[:-1])
             working_folder = os.path.join(working_folder, subfolder)
             self.working_folder = working_folder
             if os.path.isdir(working_folder) != True : os.makedirs(working_folder)
@@ -307,10 +310,10 @@ class fcev():
 
         file= open(filename+".txt","w+")
         lines = []
-        lines.append("\nEvent settings:")        
+        lines.append("\nEvent settings:")
         e = 1
         for i, fc_i in enumerate(list_of_fc):
-            
+
             lines.append(f'\n\n***Experiment {e}***\n\n')
             lines.append(f'Title \t : {fc_i.name}')
             lines.append(f'file \t : {fc_i.path_data}')
@@ -324,12 +327,12 @@ class fcev():
             lines.append(f'nboot: {fc_i.n_boot}')
             lines.append(f'stat_models:')
             lines.append('\n'.join(str(m) for m in fc_i.stat_model_l))
-            lines.append(f'fold: {fc_i.fold}')        
+            lines.append(f'fold: {fc_i.fold}')
             lines.append(f'keys_d: \n{fc_i.keys_d}')
             lines.append(f'keys_used: \n{fc_i._get_precursor_used()}')
-            
+
             e+=1
-        
+
         [print(n, file=file) for n in lines]
         file.close()
         [print(n) for n in lines[:-2]]
@@ -485,7 +488,7 @@ def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=l
         y_ts = {'cont':RV.RV_ts_fit, 'bin':RV.RV_bin_fit}
     else:
         y_ts = {'cont':RV.RV_ts_fit}
-        
+
     print(f'{stat_model}')
     from time import time
     try:
@@ -561,7 +564,7 @@ def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=l
     y_pred_all = pd.concat(y_pred_all, axis=1)
     print("\n")
 
-    
+
     #%%
     return y_pred_all, y_pred_c, models
 
