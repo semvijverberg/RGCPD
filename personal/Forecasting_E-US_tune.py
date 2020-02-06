@@ -63,20 +63,20 @@ datasets_path  = ERA_10d_sm
 # Define statmodel:
 logit = ('logit', None)
 
-logitCV = ('logitCV', 
+logitCV = ('logitCV',
           {'class_weight':{ 0:1, 1:1},
            'scoring':'brier_score_loss',
            'penalty':'l2',
            'solver':'lbfgs'})
-    
-logitCVfs = ('logitCV', 
+
+logitCVfs = ('logitCV',
           {'class_weight':{ 0:1, 1:1},
            'scoring':'brier_score_loss',
            'penalty':'l2',
            'solver':'lbfgs',
            'feat_sel':{'model':None}})
-    
-GBC_tfs = ('GBC', 
+
+GBC_tfs = ('GBC',
           {'max_depth':[1, 2, 3, 4],
            'learning_rate':[1E-2, 5E-3, 1E-3, 5E-4],
            'n_estimators' : [200, 300, 400, 500, 600, 700, 800, 1000],
@@ -86,8 +86,8 @@ GBC_tfs = ('GBC',
            'random_state':60,
            'scoringCV':'brier_score_loss',
            'feat_sel':{'model':None} } )
-        
-GBC_t = ('GBC', 
+
+GBC_t = ('GBC',
 {'max_depth':[1, 2, 3, 4],
            'learning_rate':[1E-2, 5E-3, 1E-3, 5E-4],
            'n_estimators' : [200, 300, 400, 500, 600, 700, 800, 1000],
@@ -96,8 +96,8 @@ GBC_t = ('GBC',
            'subsample' : [.3, .4, .5, 0.6],
            'random_state':60,
            'scoringCV':'brier_score_loss' } )
-    
-GBC = ('GBC', 
+
+GBC = ('GBC',
       {'max_depth':1,
        'learning_rate':.01,
        'n_estimators' : [200, 400],
@@ -107,20 +107,20 @@ GBC = ('GBC',
        'random_state':60,
        'scoringCV':'brier_score_loss',
        'feat_sel':{'model':None} } )
-    
+
 # In[6]:
 path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
 RVts_filename = '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'
 filename_ts = os.path.join(path_ts, RVts_filename)
-kwrgs_events_daily =    (filename_ts, 
+kwrgs_events_daily =    (filename_ts,
                          {'event_percentile': 90})
-    
+
 kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [logitCV, logitCVfs, GBC_t, GBC_tfs]
+stat_model_l = [logitCV, logitCVfs, GBC, GBC_tfs]
 kwrgs_pp     = {'add_autocorr' : True}
 lags_i = np.array([0, 1, 2, 3, 4])
 tfreq = None
@@ -128,15 +128,15 @@ use_fold = -9
 
 
 
-dict_experiments = {} ; list_of_fc = []  
+dict_experiments = {} ; list_of_fc = []
 for dataset, tuple_sett in datasets_path.items():
     path_data = tuple_sett[0]
-    keys_d_list = tuple_sett[1] 
+    keys_d_list = tuple_sett[1]
     for keys_d in keys_d_list:
-        
+
         fc = fcev(path_data=path_data, daily_to_aggr=tfreq, use_fold=use_fold)
         fc.get_TV(kwrgs_events=kwrgs_events)
-        fc.fit_models(stat_model_l=stat_model_l, lead_max=lags_i, 
+        fc.fit_models(stat_model_l=stat_model_l, lead_max=lags_i,
                            keys_d=keys_d, kwrgs_pp=kwrgs_pp, verbosity=1)
 
         fc.perform_validation(n_boot=500, blocksize='auto', alpha=0.05,
@@ -147,8 +147,8 @@ for dataset, tuple_sett in datasets_path.items():
 # In[7]:
 
 #
-#dict_experiments = {}       
-#fc.perform_validation(n_boot=100, blocksize='auto', 
+#dict_experiments = {}
+#fc.perform_validation(n_boot=100, blocksize='auto',
 #                              threshold_pred=(1.5, 'times_clim'))
 #dict_experiments['test'] = fc.dict_sum
 y_pred_all, y_pred_c = fc.dict_preds[fc.stat_model_l[0][0]]
@@ -167,8 +167,8 @@ line_dim = 'model'
 
 
 fig = dfplots.valid_figures(dict_experiments, expers=expers, models=models,
-                          line_dim=line_dim, 
-                          group_line_by=None,  
+                          line_dim=line_dim,
+                          group_line_by=None,
                           met=met, **kwrgs)
 
 
@@ -176,7 +176,7 @@ working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)
 
 f_format = '.pdf'
 pathfig_valid = os.path.join(filename + f_format)
-fig.savefig(pathfig_valid, 
+fig.savefig(pathfig_valid,
             bbox_inches='tight') # dpi auto 600
 
 
@@ -202,9 +202,9 @@ if __name__ == "__main__":
                     fig = dfplots.plot_deviance(fc, lag=l, model=m)
                     f_format = '.pdf'
                     path_fig_GBC = os.path.join(working_folder, f_name) + f_format
-                    fig.savefig(path_fig_GBC, 
+                    fig.savefig(path_fig_GBC,
                             bbox_inches='tight') # dpi auto 600
-                
+
 #model = 'logitCV'
 #model = None
 #fig = dfplots.visual_analysis(fc, lag=2, model=model)
@@ -214,14 +214,14 @@ if __name__ == "__main__":
 #f_format = '.pdf'
 #pathfig_vis = os.path.join(working_folder, f_name) + f_format
 #fig.savefig(pathfig_vis, bbox_inches='tight') # dpi auto 600
-            
+
 #try:
 #    f_name = f'{RV_name}_{tfreq}d_{percentile}p_fold{folds_used}_{today}_deviance'
-#    
+#
 #    fig = dfplots.plot_deviance(fc, lag=None, model=model)
 #    f_format = '.pdf'
 #    path_fig_GBC = os.path.join(working_folder, f_name) + f_format
-#    fig.savefig(path_fig_GBC, 
+#    fig.savefig(path_fig_GBC,
 #            bbox_inches='tight') # dpi auto 600
 #except:
 #    pass
