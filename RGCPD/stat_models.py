@@ -262,42 +262,42 @@ def GBC(y_ts, df_norm, keys, kwrgs_GBM=None, verbosity=0):
     y_train = RV_ts_fit[y_fit_mask.values] 
 
 
-    regressor = GradientBoostingClassifier(**kwrgs)
+    model = GradientBoostingClassifier(**kwrgs)
 
     if feat_sel is not None:
         if feat_sel['model'] is None:
-            feat_sel['model'] = regressor
+            feat_sel['model'] = model
         model, new_features, rfecv = feature_selection(X_train, y_train.values.ravel(), **feat_sel)
-        X_pred = X_pred[new_features]
-        X_train = X_train[new_features]
+        X_pred = X_pred[new_features] # subset predictors
+        X_train = X_train[new_features] # subset predictors
     else:
-        model.fit(X_train, y_train)
+        model.fit(X_train, y_train.values.ravel())
     
     if len(kwrgs_gridsearch) != 0:
-        regressor = GridSearchCV(regressor,
+        model = GridSearchCV(model,
                   param_grid=kwrgs_gridsearch,
                   scoring=scoring, cv=5, refit=scoring, 
                   return_train_score=True)
-        regressor = regressor.fit(X_train, y_train.values.ravel())
+        model = model.fit(X_train, y_train.values.ravel())
         if verbosity == 1:
-            results = regressor.cv_results_
+            results = model.cv_results_
             scores = results['mean_test_score'] 
-            greaterisbetter = regressor.scorer_._sign
+            greaterisbetter = model.scorer_._sign
             improv = int(100* greaterisbetter*(max(scores)- min(scores)) / max(scores))
             print("Hyperparam tuning led to {:}% improvement, best {:.2f}, "
                   "best params {}".format(
-                    improv, regressor.best_score_, regressor.best_params_))
+                    improv, model.best_score_, model.best_params_))
     else:
-        regressor.fit(X_train, y_train.values.ravel())
+        model.fit(X_train, y_train.values.ravel())
     
     if len(kwrgs_gridsearch) != 0:
-        prediction = pd.DataFrame(regressor.best_estimator_.predict_proba(X_pred)[:,1], 
+        prediction = pd.DataFrame(model.best_estimator_.predict_proba(X_pred)[:,1], 
                               index=y_dates, columns=['GBR'])
     else:
-        prediction = pd.DataFrame(regressor.predict_proba(X_pred)[:,1], 
+        prediction = pd.DataFrame(model.predict_proba(X_pred)[:,1], 
                               index=y_dates, columns=['GBR'])
 
-    regressor.X_pred = X_pred
+    model.X_pred = X_pred
     
     
 #    logit_pred.plot() ; plt.plot(RV.RV_bin)
@@ -305,7 +305,7 @@ def GBC(y_ts, df_norm, keys, kwrgs_GBM=None, verbosity=0):
 #    prediction.plot() ; plt.plot(RV.RV_ts)
 #    metrics_sklearn(RV.RV_bin, logit_pred.values, y_pred_c)
     #%%
-    return prediction, regressor
+    return prediction, model
 
 
 def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):

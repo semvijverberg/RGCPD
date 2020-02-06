@@ -90,8 +90,8 @@ GBC_tfs = ('GBC',
            'scoringCV':'brier_score_loss',
            'feat_sel':{'model':None} } )
 
-GBC_t = ('GBC',
-{'max_depth':[1, 2, 3, 4],
+GBC_t = ('GBC', 
+         {'max_depth':[1, 2, 3, 4],
            'learning_rate':[.05, 1E-2, 5E-3],
            'n_estimators' : [100, 250, 400, 550, 700, 850, 1000],
            'min_samples_split':[.15, .25],
@@ -99,6 +99,7 @@ GBC_t = ('GBC',
            'subsample' : [.3, .4, .5, 0.6],
            'random_state':60,
            'scoringCV':'brier_score_loss' } )
+
 
 GBC = ('GBC',
       {'max_depth':[1,2],
@@ -123,7 +124,7 @@ kwrgs_events = {'event_percentile': 66}
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [GBC]
+stat_model_l = [GBC_t]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':False}
 lags_i = np.array([0, 1, 2, 3])
 tfreq = None

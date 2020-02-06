@@ -440,11 +440,6 @@ def fit(y_ts, df_data, lag, split=int, stat_model=str, keys_d=None,
         kwrgs_logit = kwrgs
         prediction, model = stat_models.logit_skl(y_ts, df_norm, keys,
                                                   kwrgs_logit=kwrgs_logit)
-    if model_name == 'GBR-logitCV':
-        kwrgs_GBR = kwrgs
-        prediction, model = stat_models.GBR_logitCV(y_ts, df_norm, keys,
-                                                    kwrgs_GBR=kwrgs_GBR,
-                                                    verbosity=verbosity)
     if model_name == 'GBC':
         kwrgs_GBC = kwrgs
         prediction, model = stat_models.GBC(y_ts, df_norm, keys,
@@ -470,7 +465,7 @@ def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=l
 #    keys_d=None
 #    df_data = fc.df_data
 #    verbosity=0
-
+    
     # do forecasting accros lags
     splits  = df_data.index.levels[0]
     y_pred_all = []
@@ -638,7 +633,7 @@ def prepare_data(df_split, lag_i=int, normalize='datesRV', remove_RV=True,
     # =============================================================================
     fit_masks = df_split.loc[:,['TrainIsTrue', 'RV_mask', 'fit_model_mask']].copy()
     fit_masks = apply_shift_lag(fit_masks, lag_i)
-#    if
+
     # =============================================================================
     # Normalize data using datesRV or all training data in dataframe
     # =============================================================================
