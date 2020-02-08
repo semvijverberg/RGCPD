@@ -69,6 +69,7 @@ def ENSO_34(filepath, df_splits=None):
 
     #%%
 
+
 def PDO_single_split(s, ds_monthly, ds, df_splits):
 
     splits = df_splits.index.levels[0]
@@ -156,11 +157,106 @@ def PDO(filepath, df_splits):
     #%%
     return df_PDO, PDO_patterns
 
-def filter_xarray(ds, highpass, lowpass):
-    filepath = '/Users/semvijverberg/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2018_1jan_31dec_daily_2.5deg.nc'
-    ds = core_pp.import_ds_lazy(filepath, selbox=[-180, 180, -10, 10])
+class EOF_class:
     
+    def __init__(self, tfreq_EOF='monthly', tfreq_ts=1, neofs=1, name=None):
+        self.tfreq_EOF = tfreq_EOF
+        self.tfreq_ts = tfreq_ts
+        self.neofs = neofs
+        self.name = name
+        return
+   
+    def get_pattern(self, filepath, df_splits=None, selbox=None, start_end_date=None,
+                    start_end_year=None):    
+#        filepath = '/Users/semvijverberg/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2018_1jan_31dec_daily_2.5deg.nc'
+        self.filepath = filepath
 
+        if self.tfreq_EOF == 'monthly':          
+            ds = functions_pp.import_ds_timemeanbins(self.filepath, tfreq=1,
+                                                     selbox=selbox, 
+                                         start_end_date=start_end_date,
+                                         start_end_year=start_end_year)
+            # ensure latitude is in increasing order
+            if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
+                ds = ds.sortby('latitude')
+            
+            self.ds_EOF = ds.resample(time='M',restore_coord_dims=False).mean(dim='time', skipna=True)    
+        else:
+            self.ds_EOF = functions_pp.import_ds_timemeanbins(self.filepath, 
+                                                          tfreq=self.tfreq_EOF,
+                                                          selbox=selbox, 
+                                                          start_end_date=start_end_date,
+                                                          start_end_year=start_end_year)
+        if self.name is None:
+            if hasattr(self.ds_EOF, 'name'):
+                # take name of variable
+                self.name = self.ds_EOF.name
+        
+        if df_splits is None:
+            print('no train test splits for fitting EOF')
+            data = np.zeros( (1, self.neofs, self.ds_EOF.latitude.size, self.ds_EOF.longitude.size) )
+            coords = [[0], [f'EOF{n}_'+self.name for n in range(self.neofs)],
+                      self.ds_EOF.latitude.values, self.ds_EOF.longitude.values]
+            self.eofs = xr.DataArray(data,
+                                coords=coords,
+                                dims = ['split', 'neof', 'latitude', 'longitude'])
+            solvers = []
+            self.eofs[0,:], solver = self._get_EOF_xarray(self.ds_EOF, self.neofs)
+            solvers.append(solver)
+            self.solvers = solvers
+        else:
+            splits = df_splits.index.levels[0]  
+            func = self._get_EOF_xarray
+            try:
+                with ProcessPoolExecutor(max_workers=os.cpu_count()) as pool:
+                    futures = [pool.submit(self._single_split, func, self.ds_EOF, s, df_splits, self.neofs) for s in range(splits.size)]
+                    results = [future.result() for future in futures]
+            except:
+                results = [self._single_split(func, self.ds_EOF, s, df_splits, self.neofs) for s in range(splits.size)]
+            # unpack results
+            data = np.zeros( (splits.size, self.neofs, self.ds_EOF.latitude.size, 
+                              self.ds_EOF.longitude.size) )
+            coords = [splits, [f'EOF{n}_'+self.name for n in range(self.neofs)],
+                      self.ds_EOF.latitude.values, self.ds_EOF.longitude.values]
+            self.eofs = xr.DataArray(data,
+                                    coords=coords,
+                                    dims = ['split', 'neof', 'latitude', 'longitude'])
+            solvers = []
+            for s in splits:
+                self.eofs[s,:] = results[s][0]
+                solvers.append(results[s][1])
+                # ensure same sign
+                mask_pos = (self.eofs[0] > self.eofs[0].mean())
+                sign = np.sign(self.eofs[s].where(mask_pos).mean())
+                self.eofs[s,:] = sign * self.eofs[s,:]
+            
+    @staticmethod
+    def _single_split(func, ds_EOF, s, df_splits, neofs):
+#        splits = df_splits.index.levels[0]
+#        progress = 100 * (s+1) / splits.size
+        print(s)
+        dates_train = functions_pp.dfsplits_to_dates(df_splits, s)[0]
+        # convert Train test year from original time to monthly
+        train_yrs = np.unique(dates_train.year)
+        dates_monthly = pd.to_datetime(ds_EOF.time.values)
+        dates_train_monthly = pd.to_datetime([d for d in dates_monthly if d.year in train_yrs])
+        ds_EOF_train = ds_EOF.sel(time=dates_train_monthly)
+        eofs, solver = func(ds_EOF_train, neofs)  
+        return (eofs, solver)
+    
+    @staticmethod
+    def _get_EOF_xarray(ds_EOF, neofs):
+        from eofs.xarray import Eof
+    
+        coslat = np.cos(np.deg2rad(ds_EOF.coords['latitude'].values)).clip(0., 1.)
+        area_weights = np.tile(coslat[..., np.newaxis],(1,ds_EOF.longitude.size))
+        area_weights = area_weights / area_weights.mean()
+        solver = Eof(ds_EOF, area_weights)
+        eofs = solver.eofsAsCovariance(neofs=neofs).squeeze()
+        return eofs, solver
+    
+    
+    
 
 def get_PDO(sst_Pacific):
     #%%

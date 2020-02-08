@@ -41,15 +41,16 @@ new_CPPA = [('sst_CPPA', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_s
 
 list_of_name_path = [('t2mmmax',
                       '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'),
-#                        ('sm1', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm1_1979-2018_1_12_daily_1.0deg.nc'),
-#                        ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                        
-#                        ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),                        
-                        ('OLR', '/Users/semvijverberg/surfdrive/ERA5/input_raw/OLRtrop_1979-2018_1_12_daily_2.5deg.nc'),
+                        ('sm1', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm1_1979-2018_1_12_daily_1.0deg.nc'),
+                        ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                        
+                        ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),     
+                        ('st2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/st_2_1979-2018_1_12_daily_1.0deg.nc')]
+#                        ('OLR', '/Users/semvijverberg/surfdrive/ERA5/input_raw/OLRtrop_1979-2018_1_12_daily_2.5deg.nc'),
 
 #                        ('u500', '/Users/semvijverberg/surfdrive/ERA5/input_raw/u500hpa_1979-2018_1_12_daily_2.5deg.nc'),
 #                        ('v200', '/Users/semvijverberg/surfdrive/ERA5/input_raw/v200hpa_1979-2018_1_12_daily_2.5deg.nc'),                        
 #                        ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc'),
-                        ('sm123', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm_123_1979-2018_1_12_daily_1.0deg.nc')]
+#                        ('sm123', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm_123_1979-2018_1_12_daily_1.0deg.nc')]
 
 import_prec_ts = new_CPPA
 #import_prec_ts = None
@@ -66,12 +67,12 @@ start_end_TVdate = ('06-24', '08-22')
 
 #start_end_TVdate = ('06-15', '08-31')
 start_end_date = ('1-1', '12-31')
-kwrgs_corr = {'alpha':1E-2}
+kwrgs_corr = {'alpha':1E-3}
 
 rg = RGCPD(list_of_name_path=list_of_name_path, 
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           tfreq=30, lags_i=np.array([0]))
+           tfreq=10, lags_i=np.array([1,2]))
 
 
 # In[6]:
@@ -79,7 +80,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 #selbox = [None, {'sst':[-180,360,-10,90]}]
 selbox = None
 #anomaly = [True, {'sm1':False, 'sm2':False, 'sm3':False}]
-anomaly = [True, {'sm123':False}]
+anomaly = [True, {'sm1':False, 'sm2':False, 'sm3':False, 'st2':False}]
 
 rg.pp_precursors(selbox=selbox, anomaly=anomaly)
 
@@ -103,7 +104,7 @@ rg.traintest(method='random10', kwrgs_events=kwrgs_events,
 # In[166]:
 
 
-rg.calc_corr_maps(alpha=1E-2) 
+rg.calc_corr_maps(alpha=1E-3) 
 
 
 # In[167]:

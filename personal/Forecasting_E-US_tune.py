@@ -35,8 +35,8 @@ from func_fc import fcev
 # In[3]:
 old_CPPA = user_dir + '/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5'
 old = user_dir + '/Downloads/output_RGCPD/20jun-19aug_lag10-10/ran_strat10_s1/None_at0.001_tau_0-1_conds_dim4_combin1.h5'
-era5_10d_CPPA_sm = user_dir + '/Downloads/output_RGCPD/Xzkup1_18jun-17aug_lag10-10/ran_strat10_s1/df_data_sst_CPPA_sm123_Xzkup1.h5'
-era5_10d_CPPA_sm_n = user_dir + '/Downloads/output_RGCPD/Xzkup1_20jun-19aug_lag20-20/random10_s1/df_data_sst_CPPA_sm123_dt10_Xzkup1.h5'
+era5_10d_CPPA_sm = user_dir + '/Downloads/output_RGCPD/Xzkup1_20jun-19aug_lag20-20/random10_s1/df_data_sst_CPPA_sm123_dt10_Xzkup1.h5'
+CPPA_10d_sm1_2_3_st2_l0 = user_dir + '/Downloads/output_RGCPD/Xzkup1_20jun-19aug_lag10-20/random10_s1/df_data_sst_CPPA_sm1_sm2_sm3_st2_dt10_Xzkup1.h5'
 era5_1d_CPPA_lag0 =  user_dir + '/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_0_Xzkup1.h5'
 era5_1d_CPPA_l10 = user_dir + '/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
 era5_16d_CPPA_sm = user_dir + '/Downloads/output_RGCPD/Xzkup1_19jun-22aug_lag16-16/ran_strat10_s1/df_data_sst_CPPA_sm123_dt16_Xzkup1.h5'
@@ -51,7 +51,7 @@ era5_10d_RGCPD_sm_uv = user_dir + '/Downloads/output_RGCPD/Xzkup1_10jun-29aug_la
 #                 'EC-earth 2.3':(strat_1d_CPPA_EC, ['PEP', 'CPPA'])}
 ERA_10d = {'ERA-5':(era5_10d_CPPA_sm, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
 #ERA_10d_sm = {'ERA-5':(era5_10d_CPPA_sm_n, ['sst(PDO,ENSO)', 'sst(CPPA)', 'sst(CPPA)+sm'] )}
-ERA_10d_sm = {'ERA-5':(era5_10d_CPPA_sm_n, ['sst(CPPA)+sm'] )}
+ERA_10d_sm = {'ERA-5':(CPPA_10d_sm1_2_3_st2_l0, ['sst(CPPA)+sm'] )}
 ERA_1d_CPPA = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PDO,ENSO)', 'sst(CPPA)'])}
 ERA_10d_RGCPD = {'ERA-5':(era5_10d_RGCPD_sm, ['all'])}
 ERA_10d_RGCPD_all = {'ERA-5':(era5_10d_RGCPD_sm_uv, ['all'])}
@@ -96,7 +96,7 @@ GBC_t = ('GBC',
            'n_estimators' : [100, 250, 400, 550, 700, 850, 1000],
            'min_samples_split':[.15, .25],
            'max_features':[.15, .2, 'sqrt'],
-           'subsample' : [.3, .4, .5, 0.6],
+           'subsample' : [.3, .45, 0.6],
            'random_state':60,
            'scoringCV':'brier_score_loss' } )
 
@@ -124,9 +124,9 @@ kwrgs_events = {'event_percentile': 66}
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [GBC_t]
+stat_model_l = [logitCVfs]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':False}
-lags_i = np.array([0, 1, 2, 3])
+lags_i = np.array([2, 3, 4])
 tfreq = None
 use_fold = None
 

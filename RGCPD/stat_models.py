@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import statsmodels.api as sm
 from statsmodels.api import add_constant
-from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
 from sklearn.model_selection import GridSearchCV, StratifiedKFold
 from sklearn.inspection import partial_dependence
@@ -277,7 +277,7 @@ def GBC(y_ts, df_norm, keys, kwrgs_GBM=None, verbosity=0):
         model = GridSearchCV(model,
                   param_grid=kwrgs_gridsearch,
                   scoring=scoring, cv=5, refit=scoring, 
-                  return_train_score=True)
+                  return_train_score=True, iid=False)
         model = model.fit(X_train, y_train.values.ravel())
         if verbosity == 1:
             results = model.cv_results_

@@ -334,6 +334,25 @@ class RGCPD:
         filename = os.path.join(self.path_outsub1, f'df_data_{varstr}_dt{self.tfreq}_{self.hash}.h5')
         functions_pp.store_hdf_df({'df_data':self.df_data}, filename)
         print('Data stored in \n{}'.format(filename))
+        
+    def plot_maps_corr(self, precursors=None, mask_xr=None, map_proj=None,
+                       row_dim='split', col_dim='lag', clim='relaxed', 
+                       hspace=-0.6, size=2.5, cbar_vert=-0.01, units='units',
+                       cmap=None, clevels=None, cticks_center=None, drawbox=None,
+                       subtitles=None, zoomregion=None, lat_labels=True):
+        
+        if precursors is None:
+            precursors = list(self.outdic_precur.keys())
+        for precur_name in precursors:
+            plot_maps.plot_corr_maps(self.outdic_precur[precur_name].corr_xr,
+                                     mask_xr=mask_xr, map_proj=map_proj,
+                                   row_dim=row_dim, col_dim=col_dim, clim=clim, 
+                                   hspace=hspace, size=size, cbar_vert=cbar_vert, 
+                                   units=units, cmap=cmap, clevels=clevels, 
+                                   cticks_center=cticks_center, drawbox=drawbox,
+                                   subtitles=subtitles, zoomregion=zoomregion, 
+                                   lat_labels=lat_labels)
+            
 
     def plot_maps_sum(self, map_proj=None, figpath=None, paramsstr=None):
 

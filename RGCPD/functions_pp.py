@@ -1362,3 +1362,8 @@ def get_download_path():
     else:
         return os.path.join(os.path.expanduser('~'), 'Downloads')
 
+def dfsplits_to_dates(df_splits, s):
+    dates_train = df_splits.loc[s]['TrainIsTrue'][df_splits.loc[s]['TrainIsTrue']].index
+    dates_test  = df_splits.loc[s]['TrainIsTrue'][~df_splits.loc[s]['TrainIsTrue']].index
+    return dates_train, dates_test
+    
