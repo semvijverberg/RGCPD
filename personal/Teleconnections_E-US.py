@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-get_ipython().run_line_magic('load_ext', 'autoreload')
-get_ipython().run_line_magic('autoreload', '2')
+# get_ipython().run_line_magic('load_ext', 'autoreload')
+# get_ipython().run_line_magic('autoreload', '2')
+
 import os, inspect, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
@@ -28,6 +29,8 @@ import numpy as np
 # In[5]:
 
 from RGCPD import RGCPD
+from RGCPD import EOF
+
 old_CPPA = [('sst_CPPA', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5')]
 new_CPPA = [('sst_CPPA', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_0_Xzkup1.h5' )]
 
@@ -44,8 +47,8 @@ list_of_name_path = [('t2mmmax',
                         ('sm1', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm1_1979-2018_1_12_daily_1.0deg.nc'),
                         ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                        
                         ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),     
-                        ('st2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/st_2_1979-2018_1_12_daily_1.0deg.nc')]
-#                        ('OLR', '/Users/semvijverberg/surfdrive/ERA5/input_raw/OLRtrop_1979-2018_1_12_daily_2.5deg.nc'),
+                        # ('st2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/st_2_1979-2018_1_12_daily_1.0deg.nc'),
+                        ('OLR', '/Users/semvijverberg/surfdrive/ERA5/input_raw/OLRtrop_1979-2018_1_12_daily_2.5deg.nc')]
 
 #                        ('u500', '/Users/semvijverberg/surfdrive/ERA5/input_raw/u500hpa_1979-2018_1_12_daily_2.5deg.nc'),
 #                        ('v200', '/Users/semvijverberg/surfdrive/ERA5/input_raw/v200hpa_1979-2018_1_12_daily_2.5deg.nc'),                        
@@ -53,6 +56,8 @@ list_of_name_path = [('t2mmmax',
 #                        ('sm123', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm_123_1979-2018_1_12_daily_1.0deg.nc')]
 
 import_prec_ts = new_CPPA
+
+list_for_EOFS = [EOF(name='OLR', neofs=2)]
 #import_prec_ts = None
                             
 
@@ -70,9 +75,11 @@ start_end_date = ('1-1', '12-31')
 kwrgs_corr = {'alpha':1E-3}
 
 rg = RGCPD(list_of_name_path=list_of_name_path, 
+           list_for_EOFS=list_for_EOFS,
+           import_prec_ts=import_prec_ts,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           tfreq=10, lags_i=np.array([1,2]))
+           tfreq=10, lags_i=np.array([1]))
 
 
 # In[6]:
@@ -98,13 +105,19 @@ rg.pp_TV()
 
 #kwrgs_events={'event_percentile':66}
 kwrgs_events=None
-rg.traintest(method='random10', kwrgs_events=kwrgs_events,
-             precursor_ts=import_prec_ts)
+rg.traintest(method='random10', kwrgs_events=kwrgs_events)
+
+#%%
+
+
+rg.get_EOFs()
+
+
 
 # In[166]:
 
 
-rg.calc_corr_maps(alpha=1E-3) 
+rg.calc_corr_maps(alpha=1E-2) 
 
 
 # In[167]:
@@ -122,7 +135,7 @@ rg.quick_view_labels()
 # In[169]:
 
 
-rg.get_ts_prec(import_prec_ts=import_prec_ts)
+rg.get_ts_prec()
 
 
 # In[170]:

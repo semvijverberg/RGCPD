@@ -91,9 +91,12 @@ def get_scores_improvement(m_splits, fc, s, lag, metric=None):
     return train_scores, test_scores
 
 
-def plot_deviance(fc, lag=None, split='all', metric=metrics.brier_score_loss):
+def plot_deviance(fc, lag=None, split='all', model=None, 
+                  metric=metrics.brier_score_loss):
     #%%
-    model = [n[0] for n in fc.stat_model_l if n[0][:2]=='GB'][0]
+    if model is None:
+        model = [n[0] for n in fc.stat_model_l if n[0][:2]=='GB'][0]
+        
     if lag is None:
         lag = int(list(fc.dict_models[model].keys())[0].split('_')[1])
     

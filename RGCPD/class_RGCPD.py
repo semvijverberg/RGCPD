@@ -19,12 +19,16 @@ path_test = os.path.join(curr_dir, '..', 'data')
 
 class RGCPD:
 
-    def __init__(self, list_of_name_path=None, start_end_TVdate=None, tfreq=10,
-                 start_end_date=None, start_end_year=None,
-                 path_outmain=None, lags_i=np.array([1]),
-                 verbosity=1):
+    def __init__(self, list_of_name_path=None, list_for_EOFS=None, 
+                 import_prec_ts=None, start_end_TVdate=None, tfreq=10,
+                 start_end_date=None, start_end_year=None, path_outmain=None, 
+                 lags_i=np.array([1]), verbosity=1):
+                 
         '''
         list_of_name_path : list of name, path tuples.
+        import_prec_ts    : Load in precursor 1-d timeseries in format:
+                          [(name1, path_to_h5_file1), [(name2, path_to_h5_file2)]]
+                          precursor_ts should follow the RGCPD traintest format
         Convention: first entry should be (name, path) of target variable (TV).
         list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
         TV period : tuple of start- and enddate in format ('mm-dd', 'mm-dd')
@@ -47,6 +51,9 @@ class RGCPD:
         if os.path.isdir(path_outmain) != True : os.makedirs(path_outmain)
 
         self.list_of_name_path = list_of_name_path
+        self.list_for_EOFS = list_for_EOFS
+        self.import_prec_ts = import_prec_ts
+
         self.start_end_TVdate  = start_end_TVdate
         self.start_end_date = start_end_date
         self.start_end_year = start_end_year
@@ -134,7 +141,7 @@ class RGCPD:
 
 
     def traintest(self, method='no_train_test_split', seed=1,
-                  kwrgs_events=None, precursor_ts=None):
+                  kwrgs_events=None):
         ''' Splits the training and test dates, either via cross-validation or
         via a simple single split.
         agrs:
@@ -144,9 +151,7 @@ class RGCPD:
         kwrgs_events    : dict needed to create binary event timeseries, which
                           is used to create stratified folds.
                           See func_fc.Ev_timeseries? for more info.
-        precursor_ts    : Load in precursor 1-d timeseries in format:
-                          [(name1, path_to_h5_file1), [(name2, path_to_h5_file2)]]
-                          precursor_ts should follow the RGCPD traintest format
+
         Options for method:
         (1) random{int}   :   with the int(ex['method'][6:8]) determining the amount of folds
         (2) ran_strat{int}:   random stratified folds, stratified based upon events,
@@ -163,7 +168,7 @@ class RGCPD:
         self.kwrgs_TV = dict(method=method,
                     seed=seed,
                     kwrgs_events=kwrgs_events,
-                    precursor_ts=precursor_ts)
+                    precursor_ts=self.import_prec_ts)
 
 
 
@@ -236,7 +241,6 @@ class RGCPD:
                 else:
                     cbar_vert = -0.025
 
-
                 kwrgs = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
                               'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
                               'subtitles' : None, 'lat_labels':True,
@@ -249,7 +253,15 @@ class RGCPD:
             else:
                 print(f'no {name} regions that pass distance_eps and min_area_in_degrees2 citeria')
 
-    def get_ts_prec(self, import_prec_ts=None):
+    def get_EOFs(self):
+        self.list_EOFS = []
+        for i, e_class in enumerate(self.list_for_EOFS):
+            filepath = [l for l in self.list_precur_pp if l[0]==e_class.name][0][1]
+            e_class.get_pattern(filepath=filepath, df_splits=self.df_splits)
+            e_class.get_ts(tfreq_ts=self.tfreq)
+            self.list_EOFS.append(e_class)
+            
+    def get_ts_prec(self):
 
         # check if RGCPD approach retrieved precursors (stored in outdic_precur)
         if hasattr(self, 'outdic_precur'):
@@ -265,10 +277,9 @@ class RGCPD:
                                                              self.outdic_precur,
                                                              self.df_splits)
 
-        # Add (or only load in) external timeseries
-        self.import_prec_ts = import_prec_ts
-        if import_prec_ts is not None:
-            self.df_data_ext = find_precursors.import_precur_ts(import_prec_ts,
+        # Append (or only load in) external timeseries
+        if self.import_prec_ts is not None:
+            self.df_data_ext = find_precursors.import_precur_ts(self.import_prec_ts,
                                                              self.df_splits,
                                                              self.tfreq,
                                                              self.start_end_date,
@@ -277,8 +288,19 @@ class RGCPD:
                 self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
             else:
                 self.df_data = self.df_data_ext.copy()
-
-        # add Traintest and RV_mask as last columns
+        
+        # Append (or only load) EOF timeseries
+        if hasattr(self, 'list_EOFS'):
+            for i, e_class in enumerate(self.list_for_EOFS):
+                keys = np.array(e_class.df.dtypes.index[e_class.df.dtypes != bool], dtype='object')
+                if hasattr(self, 'df_data'):
+                    self.df_data = self.df_data.merge(e_class.df[keys], 
+                                                      left_index=True, 
+                                                      right_index=True)
+                else:
+                    self.df_data = e_class.df[keys]
+            
+        # Append Traintest and RV_mask as last columns
         self.df_data = self.df_data.merge(self.df_splits, left_index=True, right_index=True)
 
 

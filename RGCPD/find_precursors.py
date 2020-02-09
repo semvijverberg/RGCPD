@@ -712,7 +712,7 @@ def import_precur_ts(import_prec_ts, df_splits, to_freq, start_end_date,
         if counter == 0:
             df_data_ext = pd.concat(list(df_data_ext_s), keys=range(splits.size))
         else:
-            df_data_ext.merge(df_data_ext, left_index=True, right_index=True)
+            df_data_ext = df_data_ext.merge(df_data_ext, left_index=True, right_index=True)
         counter += 1
     #%%
     return df_data_ext
@@ -767,25 +767,10 @@ def get_spatcovs(dict_ds, df_split, s, outdic_actors, normalize=True):
 
 def calc_spatcov(full_timeserie, pattern):
 #%%
-#    full_timeserie = var_train_reg
-#    pattern = ds_Sem['pattern_CPPA'].sel(lag=lag)
-
-
-#    # trying to matching dimensions
-#    if pattern.shape != full_timeserie[0].shape:
-#        try:
-#            full_timeserie = full_timeserie.sel(latitude=pattern.latitude)
-#        except:
-#            pattern = pattern.sel(latitude=full_timeserie.latitude)
-
-
     mask = np.ma.make_mask(np.isnan(pattern.values)==False)
-
     n_time = full_timeserie.time.size
     n_space = pattern.size
 
-
-#    mask_pattern = np.tile(mask_pattern, (n_time,1))
     # select only gridcells where there is not a nan
     full_ts = np.nan_to_num(np.reshape( full_timeserie.values, (n_time, n_space) ))
     pattern = np.nan_to_num(np.reshape( pattern.values, (n_space) ))
@@ -794,26 +779,15 @@ def calc_spatcov(full_timeserie, pattern):
     full_ts = full_ts[:,mask_pattern]
     pattern = pattern[mask_pattern]
 
-#    crosscorr = np.zeros( (n_time) )
     spatcov   = np.zeros( (n_time) )
-#    covself   = np.zeros( (n_time) )
-#    corrself  = np.zeros( (n_time) )
     for t in range(n_time):
         # Corr(X,Y) = cov(X,Y) / ( std(X)*std(Y) )
         # cov(X,Y) = E( (x_i - mu_x) * (y_i - mu_y) )
-#        crosscorr[t] = np.correlate(full_ts[t], pattern)
+        # covself[t] = np.mean( (full_ts[t] - np.mean(full_ts[t])) * (pattern - np.mean(pattern)) )
         M = np.stack( (full_ts[t], pattern) )
         spatcov[t] = np.cov(M)[0,1] #/ (np.sqrt(np.cov(M)[0,0]) * np.sqrt(np.cov(M)[1,1]))
-#        sqrt( Var(X) ) = sigma_x = std(X)
-#        spatcov[t] = np.cov(M)[0,1] / (np.std(full_ts[t]) * np.std(pattern))
-#        covself[t] = np.mean( (full_ts[t] - np.mean(full_ts[t])) * (pattern - np.mean(pattern)) )
-#        corrself[t] = covself[t] / (np.std(full_ts[t]) * np.std(pattern))
+
     dates_test = full_timeserie.time
-#    corrself = xr.DataArray(corrself, coords=[dates_test.values], dims=['time'])
-
-#    # standardize
-#    corrself -= corrself.mean(dim='time', skipna=True)
-
     # cov xarray
     spatcov = xr.DataArray(spatcov, coords=[dates_test.values], dims=['time'])
 #%%
