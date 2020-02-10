@@ -57,7 +57,7 @@ ERA_16d_RGCPD = {'ERA-5':(era5_16d_RGCPD_sm, [None, 'sst(CPPA)'])}
 ERA_12d_RGCPD = {'ERA-5':(era5_12d_RGCPD_sm, ['sst(CPPA)+sm', 'sst(CPPA)'])}
 ERA_vs_PEP = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
 
-datasets_path  = ERA_10d_sm
+datasets_path  = ERA_1d_CPPA
 
 
 # Define statmodel:
@@ -125,10 +125,10 @@ kwrgs_events = {'event_percentile': 66}
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [GBC]
-kwrgs_pp     = {'add_autocorr' : True, 'normalize':False}
+stat_model_l = [logitCV]
+kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
 
-lags_i = np.array([2, 3, 4])
+lags_i = np.array([0, 1, 2])
 tfreq = None
 use_fold = None
 

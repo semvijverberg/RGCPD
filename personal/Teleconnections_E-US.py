@@ -45,8 +45,8 @@ new_CPPA = [('sst_CPPA', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_s
 list_of_name_path = [('t2mmmax',
                       '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'),
                         ('sm1', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm1_1979-2018_1_12_daily_1.0deg.nc'),
-                        ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                        
-                        ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),     
+                        # ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                        
+                        # ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),     
                         # ('st2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/st_2_1979-2018_1_12_daily_1.0deg.nc'),
                         ('OLR', '/Users/semvijverberg/surfdrive/ERA5/input_raw/OLRtrop_1979-2018_1_12_daily_2.5deg.nc')]
 

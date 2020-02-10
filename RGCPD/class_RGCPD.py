@@ -256,6 +256,7 @@ class RGCPD:
     def get_EOFs(self):
         self.list_EOFS = []
         for i, e_class in enumerate(self.list_for_EOFS):
+            print(f'Retrieving {e_class.neofs} for {e_class.name}')
             filepath = [l for l in self.list_precur_pp if l[0]==e_class.name][0][1]
             e_class.get_pattern(filepath=filepath, df_splits=self.df_splits)
             e_class.get_ts(tfreq_ts=self.tfreq)

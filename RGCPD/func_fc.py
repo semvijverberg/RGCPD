@@ -8,32 +8,33 @@ Created on Thu Aug 22 12:54:45 2019
 import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
-import h5py
+df_ana_path = os.path.join(main_dir, 'df_analysis/df_analysis/')
+if df_ana_path not in sys.path:
+    sys.path.append(df_ana_path)
 import pandas as pd
 import numpy as np
 import xarray as xr
 import datetime
 import matplotlib.pyplot as plt
 from concurrent.futures import ProcessPoolExecutor
-import stat_models
-import class_RV
-import validation as valid
-df_ana_path = os.path.join(main_dir, 'df_analysis/df_analysis/')
-if df_ana_path not in sys.path:
-    sys.path.append(df_ana_path)
-import df_ana
-import exp_fc
 import multiprocessing
 max_cpu = multiprocessing.cpu_count()
 print(f'{max_cpu} cpu\'s detected')
 from itertools import chain
 flatten = lambda l: list(chain.from_iterable(l))
 
+import stat_models
+import class_RV
+import validation as valid
+import df_ana
+import exp_fc
+# from find_precursors import func_dates_min_lag
+
 
 class fcev():
 
     number_of_times_called = 0
-    def __init__(self, path_data, name=None, daily_to_aggr=None,
+    def __init__(self, path_data, name=None, precur_aggr=None, TV_aggr=None,
                    use_fold=None):
         '''
         Instance for certain dataset with keys and list of stat models
@@ -62,9 +63,10 @@ class fcev():
             self.df_data =self._remove_test_splits()
         else:
             self.df_data = self.df_data_orig
-        if daily_to_aggr is not None:
-            self.daily_to_aggr = daily_to_aggr
-            self.df_data = _daily_to_aggr(self.df_data, self.daily_to_aggr)
+
+        self.precur_aggr = precur_aggr
+        self.TV_aggr = TV_aggr
+           
 
         self.splits  = self.df_data.index.levels[0]
         self.tfreq = (self.df_data.loc[0].index[1] - self.df_data.loc[0].index[0]).days
@@ -98,16 +100,23 @@ class fcev():
         else:
             self.kwrgs_events = kwrgs_events
 
-
-        TV = df_data_to_RV(self.df_data, kwrgs_events=self.kwrgs_events,
+        if self.TV_aggr is None and self.precur_aggr is not None:
+            self.TV_aggr = self.precur_aggr
+        
+        self.df_TV = self.df_data.iloc[:,[0,-2,-1]].copy()
+        self.df_TV, dates_tobin = _daily_to_aggr(self.df_TV, self.TV_aggr)
+        
+        TV = df_data_to_RV(self.df_TV, kwrgs_events=self.kwrgs_events,
                            fit_model_dates=fit_model_dates)
-        TV.TrainIsTrue = self.df_data['TrainIsTrue']
-        TV.RV_mask = self.df_data['RV_mask']
+        TV.TrainIsTrue = self.df_TV['TrainIsTrue']
+        TV.RV_mask = self.df_TV['RV_mask']
+        TV.dates_tobin = dates_tobin
         TV.name = TV.RV_ts.columns[0]
+        
 
         splits  = self.df_data.index.levels[0]
-        fit_model_mask = pd.concat([TV.fit_model_mask] * splits.size, keys=splits)
-        self.df_data = self.df_data.merge(fit_model_mask, left_index=True, right_index=True)
+        # fit_model_mask = pd.concat([TV.fit_model_mask] * splits.size, keys=splits)
+        # self.df_data = self.df_data.merge(fit_model_mask, left_index=True, right_index=True)
         TV.prob_clim = get_obs_clim(TV)
         TV.freq_per_year = get_freq_years(TV.RV_bin)
         self.TV = TV
@@ -121,7 +130,7 @@ class fcev():
                         all keys in each training set will be used to fit.
                         If string is given, exp_py will follow some rules to
                         keep only keys you want to fit.
-        daily_to_aggr:  int: convert daily data to aggregated {int} day mean
+        precur_aggr:  int: convert daily data to aggregated {int} day mean
         '''
 
         self.stat_model_l = stat_model_l.copy()
@@ -410,8 +419,8 @@ def df_data_to_RV(df_data=pd.DataFrame, kwrgs_events=dict, only_RV_events=True,
     return RV
 
 
-def fit(y_ts, df_data, lag, split=int, stat_model=str, keys_d=None,
-        kwrgs_pp={}, verbosity=0):
+def fit(y_ts, df_data, lag, dates_tobin=None, split=int, stat_model=str, 
+        keys_d=None, kwrgs_pp={}, verbosity=0):
     #%%
 
     if keys_d is not None:
@@ -423,8 +432,9 @@ def fit(y_ts, df_data, lag, split=int, stat_model=str, keys_d=None,
     df_split = df_data.loc[split].copy()
     df_split = df_split.dropna(axis=1, how='all')
     df_norm, keys = prepare_data(df_split, lag_i=int(lag),
-                                   keys=keys,
-                                   **kwrgs_pp)
+                                 dates_tobin=dates_tobin,
+                                 keys=keys,
+                                 **kwrgs_pp)
 #             if s == 0 and lag ==1:
 #                 x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = stat_models.get_masks(df_norm)
 #                 print(x_fit_mask)
@@ -458,13 +468,13 @@ def fit(y_ts, df_data, lag, split=int, stat_model=str, keys_d=None,
 def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=list,
               verbosity=0):
     #%%
-#    stat_model = fc.stat_model_l[0]
-#    RV = fc.TV
-#    lags_i = [1]
-#    kwrgs_pp={}
-#    keys_d=None
-#    df_data = fc.df_data
-#    verbosity=0
+    # stat_model = fc.stat_model_l[0]
+    # RV = fc.TV
+    # lags_i = [1]
+    # kwrgs_pp={}
+    # keys_d=None
+    # df_data = fc.df_data
+    # verbosity=0
     
     # do forecasting accros lags
     splits  = df_data.index.levels[0]
@@ -557,6 +567,135 @@ def _fit_model(RV, df_data, keys_d=None, kwrgs_pp={}, stat_model=tuple, lags_i=l
 
     #%%
     return y_pred_all, y_pred_c, models
+
+def prepare_data_new(y_ts, df_split, lag_i=int, dates_tobin=None, 
+                     normalize='datesRV', remove_RV=True, keys=None, 
+                     add_autocorr=True, EOF=False, expl_var=None):
+                 
+
+    #%%
+    '''
+    TrainisTrue     : Specifies train and test dates, col of df_split.
+    RV_mask         : Specifies what data will be predicted, col of df_split.
+    fit_model_dates : Optional: It can be desirable to train on
+                      more dates than what you want to predict, col of df_split.
+    remove_RV       : First column is the RV, and is removed.
+    lag_i           : Mask for fitting and predicting will be shifted with
+                      {lag_i} periods
+
+    returns:
+        df_norm     : Dataframe
+        x_keys      : updated set of keys to fit model
+    '''
+# lag_i=1
+# normalize='datesRV'
+# remove_RV=True
+# keys=None
+# add_autocorr=True
+# EOF=False
+# expl_var=None
+
+
+    # =============================================================================
+    # Select features / variables
+    # =============================================================================
+    if keys is None:
+        keys = np.array(df_split.dtypes.index[df_split.dtypes != bool], dtype='object')
+
+    RV_name = df_split.columns[0]
+    df_RV = df_split[RV_name]
+    if remove_RV is True:
+        # completely remove RV timeseries
+        df_prec = df_split.drop([RV_name], axis=1).copy()
+        keys = np.array([k for k in keys if k != RV_name], dtype='object')
+    else:
+        keys = np.array(keys, dtype='object')
+        df_prec = df_split.copy()
+    # not all keys are present in each split:
+    keys = [k for k in keys if k in list(df_split.columns)]
+    x_keys = np.array(keys, dtype='object')
+
+
+    if type(add_autocorr) is int:
+        adding_ac_mlag = lag_i <= 2
+    else:
+        adding_ac_mlag = True
+
+    if add_autocorr and adding_ac_mlag:
+        # minimal shift of lag 1 or it will follow shift with x_fit mask
+        if lag_i == 0:
+            RV_ac = df_RV.shift(periods=-1).copy()
+        else:
+            RV_ac = df_RV.copy() # RV will shifted according fit_masks, lag will be > 1
+
+        # plugging in the mean value for the last date if no data
+        # is available to shift backward
+        RV_ac.loc[RV_ac.isna()] = RV_ac.mean()
+
+        df_prec.insert(0, 'autocorr', RV_ac)
+        # add key to keys
+        if 'autocorr' not in keys:
+            x_keys = np.array(np.insert(x_keys, 0, 'autocorr'), dtype='object')
+
+    df_prec = df_prec[x_keys]
+
+    # =============================================================================
+    # Shifting data w.r.t. index dates
+    # =============================================================================
+    if dates_tobin is None:
+        # we can only make lag steps of size tfreq, e.g. if df_data contains
+        # 10 day means, we can make a lag_step of 1, 2, etc, resulting in lag
+        # in days of 5, 15, 25. 
+        fit_masks = df_split.loc[:,['TrainIsTrue', 'RV_mask', 'fit_model_mask']].copy()
+        fit_masks = apply_shift_lag(fit_masks, lag_i)
+    else:
+        # df_data contain daily data, we can shift dates_tobin to allow any 
+        # lag in days w.r.t. target variable
+        dates_TV = y_ts['cont'].index
+        tfreq_TV = (dates_TV[1] - dates_TV[0]).days
+        last_centerdate = functions_pp.get_oneyr(dates_TV)[-1]
+        
+        dates_bin_prec = func_dates_min_lag(dates_tobin, lag_i)
+    # =============================================================================
+    # Normalize data using datesRV or all training data in dataframe
+    # =============================================================================
+    if normalize=='all':
+        # Normalize using all training dates
+        TrainIsTrue = fit_masks['TrainIsTrue']
+        df_prec[x_keys]  = (df_prec[x_keys] - df_prec[x_keys][TrainIsTrue].mean(0)) \
+                / df_prec[x_keys][TrainIsTrue].std(0)
+    elif normalize=='datesRV':
+        # Normalize only using the RV dates
+        TrainRV = np.logical_and(fit_masks['TrainIsTrue'],fit_masks['y_pred']).values
+        df_prec[x_keys]  = (df_prec[x_keys] - df_prec[x_keys][TrainRV].mean(0)) \
+                / df_prec[x_keys][TrainRV].std(0)
+    elif normalize=='x_fit':
+        # Normalize only using the RV dates
+        TrainRV = np.logical_and(fit_masks['TrainIsTrue'],fit_masks['x_fit']).values
+        df_prec[x_keys]  = (df_prec[x_keys] - df_prec[x_keys][TrainRV].mean(0)) \
+                / df_prec[x_keys][TrainRV].std(0)
+    elif normalize==False:
+        pass
+
+
+    if EOF:
+        if expl_var is None:
+            expl_var = 0.75
+        else:
+            expl_var = expl_var
+        df_prec = transform_EOF(df_prec, fit_masks['TrainIsTrue'],
+                                fit_masks['x_fit'], expl_var=0.8)
+        df_prec.columns = df_prec.columns.astype(str)
+        upd_keys = np.array(df_prec.columns.values.ravel(), dtype=str)
+    else:
+        upd_keys = x_keys
+
+    # =============================================================================
+    # Replace masks
+    # =============================================================================
+    df_prec = df_prec.merge(fit_masks, left_index=True, right_index=True)
+    #%%
+    return df_prec, upd_keys
 
 def prepare_data(df_split, lag_i=int, normalize='datesRV', remove_RV=True,
                  keys=None, add_autocorr=True, EOF=False,
@@ -931,16 +1070,39 @@ def _daily_to_aggr(df_data, daily_to_aggr=int):
         splits = df_data.index.levels[0]
         df_data_s   = np.zeros( (splits.size) , dtype=object)
         for s in splits:
-            df_data_s[s] = functions_pp.time_mean_bins(df_data.loc[s],
-                                                       to_freq=daily_to_aggr,
-                                                       start_end_date=None,
-                                                       start_end_year=None,
-                                                       verbosity=0)[0]
+            df_data_s[s], dates_tobin = functions_pp.time_mean_bins(
+                                                        df_data.loc[s],
+                                                        to_freq=daily_to_aggr,
+                                                        start_end_date=None,
+                                                        start_end_year=None,
+                                                        verbosity=0)
         df_data_resample  = pd.concat(list(df_data_s), keys= range(splits.size))
     else:
-        df_data_resample = functions_pp.time_mean_bins(df_data,
+        df_data_resample, dates_tobin = functions_pp.time_mean_bins(df_data,
                                                        to_freq=daily_to_aggr,
                                                        start_end_date=None,
                                                        start_end_year=None,
-                                                       verbosity=0)[0]
-    return df_data_resample
+                                                       verbosity=0)
+    return df_data_resample, dates_tobin
+
+def func_dates_min_lag(dates, lag):
+    dates_min_lag = pd.to_datetime(dates.values) - pd.Timedelta(int(lag), unit='d')
+    ### exlude leap days from dates_train_min_lag ###
+
+
+    # ensure that everything before the leap day is shifted one day back in time
+    # years with leapdays now have a day less, thus everything before
+    # the leapday should be extended back in time by 1 day.
+    mask_lpyrfeb = np.logical_and(dates_min_lag.month == 2,
+                                         dates_min_lag.is_leap_year
+                                         )
+    mask_lpyrjan = np.logical_and(dates_min_lag.month == 1,
+                                         dates_min_lag.is_leap_year
+                                         )
+    mask_ = np.logical_or(mask_lpyrfeb, mask_lpyrjan)
+    new_dates = np.array(dates_min_lag)
+    new_dates[mask_] = dates_min_lag[mask_] - pd.Timedelta(1, unit='d')
+    dates_min_lag = pd.to_datetime(new_dates)
+    # to be able to select date in pandas dataframe
+    dates_min_lag_str = [d.strftime('%Y-%m-%d %H:%M:%S') for d in dates_min_lag]
+    return dates_min_lag_str, dates_min_lag
