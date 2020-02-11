@@ -60,13 +60,15 @@ def logit(y_ts, df_norm, keys):
     X_pred  = X[x_pred_mask.values]
     
     RV_bin_fit = y_ts['bin']
-    RV_bin_fit = RV_bin_fit.loc[y_fit_mask.index].copy()
-    y_train = RV_bin_fit[y_fit_mask.values].squeeze()     
+    # y_ts dates no longer align with x_fit  y_fit masks
+    y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
+    y_train = RV_bin_fit[y_fit_mask].squeeze()     
+ 
 
-    if y_pred_mask is not None:
-        y_dates = RV_bin_fit[y_pred_mask.values].index
-    else:
-        y_dates = X.index
+    # if y_pred_mask is not None:
+    #     y_dates = RV_bin_fit[y_pred_mask.values].index
+    # else:
+    y_dates = RV_bin_fit.index
 
     # Statsmodel wants the dataframes and that the indices are aligned. 
     # Therefore making new dataframe for X_train
@@ -252,14 +254,15 @@ def GBC(y_ts, df_norm, keys, kwrgs_GBM=None, verbosity=0):
 
         
 
-    RV_ts_fit = y_ts['bin']
-    RV_ts_fit = RV_ts_fit.loc[y_fit_mask.index]
-    y_train = RV_ts_fit[y_fit_mask.values].squeeze() 
-    if y_pred_mask is not None:
-        y_dates = RV_ts_fit[y_pred_mask.values].index
-    else:
-        y_dates = X.index
-    y_train = RV_ts_fit[y_fit_mask.values] 
+    RV_bin_fit = y_ts['bin']
+    # y_ts dates no longer align with x_fit  y_fit masks
+    y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
+    y_train = RV_bin_fit[y_fit_mask].squeeze()     
+ 
+    # if y_pred_mask is not None:
+    #     y_dates = RV_bin_fit[y_pred_mask.values].index
+    # else:
+    y_dates = RV_bin_fit.index
 
 
     model = GradientBoostingClassifier(**kwrgs)
@@ -351,14 +354,14 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
     X_pred  = X[x_pred_mask.values]
     
     RV_bin_fit = y_ts['bin']
-    RV_bin_fit = RV_bin_fit.loc[y_fit_mask.index]
-    RV_bin_fit = RV_bin_fit.loc[y_fit_mask.index]
-    y_train = RV_bin_fit[y_fit_mask.values].squeeze()   
-
-    if y_pred_mask is not None:
-        y_dates = RV_bin_fit[y_pred_mask.values].index
-    else:
-        y_dates = X.index
+    # y_ts dates no longer align with x_fit  y_fit masks
+    y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
+    y_train = RV_bin_fit[y_fit_mask].squeeze()     
+ 
+    # if y_pred_mask is not None:
+    #     y_dates = RV_bin_fit[y_pred_mask.values].index
+    # else:
+    y_dates = RV_bin_fit.index
     
     # sample weight not yet supported by GridSearchCV (august, 2019)
     strat_cv = StratifiedKFold(5, shuffle=False)

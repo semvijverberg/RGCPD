@@ -128,8 +128,8 @@ kwrgs_events = kwrgs_events
 stat_model_l = [logitCV]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
 
-lags_i = np.array([0, 1, 2])
-tfreq = None
+lags_i = np.array([0, 1])
+precur_aggr = 10
 use_fold = None
 
 
@@ -140,7 +140,7 @@ for dataset, tuple_sett in datasets_path.items():
     keys_d_list = tuple_sett[1]
     for keys_d in keys_d_list:
 
-        fc = fcev(path_data=path_data, daily_to_aggr=tfreq, use_fold=use_fold)
+        fc = fcev(path_data=path_data, precur_aggr=precur_aggr, use_fold=use_fold)
         fc.get_TV(kwrgs_events=kwrgs_events)
         fc.fit_models(stat_model_l=stat_model_l, lead_max=lags_i,
                            keys_d=keys_d, kwrgs_pp=kwrgs_pp, verbosity=1)

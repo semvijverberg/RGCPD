@@ -140,27 +140,6 @@ def corr_new(field, ts):
         
     return corr_vals, pvals
 
-def func_dates_min_lag(dates, lag):
-    dates_min_lag = pd.to_datetime(dates.values) - pd.Timedelta(int(lag), unit='d')
-    ### exlude leap days from dates_train_min_lag ###
-
-
-    # ensure that everything before the leap day is shifted one day back in time
-    # years with leapdays now have a day less, thus everything before
-    # the leapday should be extended back in time by 1 day.
-    mask_lpyrfeb = np.logical_and(dates_min_lag.month == 2,
-                                         dates_min_lag.is_leap_year
-                                         )
-    mask_lpyrjan = np.logical_and(dates_min_lag.month == 1,
-                                         dates_min_lag.is_leap_year
-                                         )
-    mask_ = np.logical_or(mask_lpyrfeb, mask_lpyrjan)
-    new_dates = np.array(dates_min_lag)
-    new_dates[mask_] = dates_min_lag[mask_] - pd.Timedelta(1, unit='d')
-    dates_min_lag = pd.to_datetime(new_dates)
-    # to be able to select date in pandas dataframe
-    dates_min_lag_str = [d.strftime('%Y-%m-%d %H:%M:%S') for d in dates_min_lag]
-    return dates_min_lag_str, dates_min_lag
 
 def calc_corr_coeffs_new(precur_arr, RV, df_splits, lags=np.array([0]), 
                          alpha=0.05, FDR_control=True):
@@ -211,7 +190,7 @@ def calc_corr_coeffs_new(precur_arr, RV, df_splits, lags=np.array([0]),
         dates_RV = RV_ts.index
         for i, lag in enumerate(lags):
 
-            dates_lag = func_dates_min_lag(dates_RV, lag)[1]
+            dates_lag = functions_pp.func_dates_min_lag(dates_RV, lag)[1]
             prec_lag = precur_arr.sel(time=dates_lag)
             prec_lag = np.reshape(prec_lag.values, (prec_lag.shape[0],-1))
 

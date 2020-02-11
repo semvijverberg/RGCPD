@@ -353,12 +353,14 @@ def time_mean_bins(xr_or_df, to_freq=int, start_end_date=None, start_end_year=No
                                                      start_end_date=start_end_date, 
                                                      start_end_year=start_end_year, 
                                                      verbosity=verbosity)
-
+        dates_notpresent = [d for d in dates_tobin if d not in datetime]
+        assert len(dates_notpresent)==0, f'dates not present in xr_or_df\n{dates_notpresent}'
         xarray = xarray.sel(time=dates_tobin)
         one_yr = dates_tobin.where(dates_tobin.year == dates_tobin.year[0]).dropna(how='any')
 
     else:
-        pass
+        dates_tobin = datetime
+
     fit_steps_yr = (one_yr.size )  / to_freq
     bins = list(np.repeat(np.arange(0, fit_steps_yr), to_freq))
     n_years = np.unique(dates_tobin.year).size
@@ -672,33 +674,6 @@ def xarray_plot(data, path='default', name = 'default', saving=False):
         save_figure(data, path=path)
     plt.show()
 
-# def convert_longitude(data, to_format='west_east'):
-#     import numpy as np
-#     import xarray as xr
-#     if to_format == 'west_east':
-#         lon_above = data.longitude[np.where(data.longitude > 180)[0]]
-#         lon_normal = data.longitude[np.where(data.longitude <= 180)[0]]
-#         # roll all values to the right for len(lon_above amount of steps)
-#         data = data.roll(longitude=len(lon_above))
-#         # adapt longitude values above 180 to negative values
-#         substract = lambda x, y: (x - y)
-#         lon_above = xr.apply_ufunc(substract, lon_above, 360)
-#         if lon_normal.size != 0:
-#             if lon_normal[0] == 0.:
-#                 convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
-#             else:
-#                 convert_lon = xr.concat([lon_normal, lon_above], dim='longitude')
-#         else:
-#             convert_lon = lon_above
-
-#     elif to_format == 'only_east':
-#         lon_above = data.longitude[np.where(data.longitude >= 0)[0]]
-#         lon_below = data.longitude[np.where(data.longitude < 0)[0]]
-#         lon_below += 360
-#         data = data.roll(longitude=len(lon_below))
-#         convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
-#     data['longitude'] = convert_lon
-#     return data
 
 def find_region(data, region='EU'):
     import numpy as np
@@ -1178,4 +1153,35 @@ def dfsplits_to_dates(df_splits, s):
     dates_train = df_splits.loc[s]['TrainIsTrue'][df_splits.loc[s]['TrainIsTrue']].index
     dates_test  = df_splits.loc[s]['TrainIsTrue'][~df_splits.loc[s]['TrainIsTrue']].index
     return dates_train, dates_test
+
+def func_dates_min_lag(dates, lag):
+    tfreq = dates[1] - dates[0]
+    oneyr = get_oneyr(pd.to_datetime(dates.values))
+    start_d_min_lag = oneyr[0] - pd.Timedelta(int(lag), unit='d')
+    end_d_min_lag = oneyr[-1] - pd.Timedelta(int(lag), unit='d')
+    if pd.Timestamp(f'{dates[0].year}-01-01') > start_d_min_lag:
+        start_d_min_lag = pd.Timestamp(f'{dates[0].year}-01-01') 
+
+    startyr = pd.date_range(start_d_min_lag, end_d_min_lag, freq=tfreq)
+
+    if startyr.is_leap_year[0]:
+        # ensure that everything before the leap day is shifted one day back in time
+        # years with leapdays now have a day less, thus everything before
+        # the leapday should be extended back in time by 1 day.
+        mask_lpyrfeb = np.logical_and(startyr.month == 2,
+                                             startyr.is_leap_year
+                                             )
+        mask_lpyrjan = np.logical_and(startyr.month == 1,
+                                             startyr.is_leap_year
+                                             )
+        mask_ = np.logical_or(mask_lpyrfeb, mask_lpyrjan)
+        new_dates = np.array(startyr)
+        new_dates[mask_] = startyr[mask_] - pd.Timedelta(1, unit='d')
+        startyr = pd.to_datetime(new_dates)
+   
+    dates_min_lag = make_dates(startyr, np.unique(dates.year))
+
     
+    # to be able to select date in pandas dataframe
+    dates_min_lag_str = [d.strftime('%Y-%m-%d %H:%M:%S') for d in dates_min_lag]
+    return dates_min_lag_str, dates_min_lag    
