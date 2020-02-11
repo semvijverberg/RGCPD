@@ -413,7 +413,6 @@ class fcev():
         kwrgs_pp = self.kwrgs_pp
         keys_d = self.keys_d
         df_data = self.df_data
-        dates_tobin = self.TV.dates_tobin
         precur_aggr = self.precur_aggr
         if precur_aggr is not None:
             lags_i = self.lags_t
@@ -637,19 +636,21 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
         if lag_i == 0 and precur_aggr is None:
             # minimal shift of lag 1 or it will follow shift with x_fit mask
             RV_ac = df_RV.shift(periods=-1).copy()
-        elif precur_aggr is not None:
+        elif precur_aggr is not None and lag_i < int(tfreq_TV/2):
             
             # df_RV is daily and should be shifted more tfreq/2 otherwise just
             # predicting with the (part) of the observed ts.
             # I am selecting dates_min_lag, thus adding RV that is also shifted
             # min_lag days, will result in that I am selecting the actual 
-            # observed ts. Hence I should shift the other directions if 
-            # lag  < tfreq_TV/2
-            shift = int(max(tfreq_TV/2., lag_i))
-            RV_ac = df_RV.shift(periods=shift).copy()
+            # observed ts. 
+            # lag  < tfreq_TV
+            shift = tfreq_TV - lag_i
+            RV_ac = df_RV.shift(periods=-shift).copy()
+            # for lag_i = 0, tfreq_TV=10
             # 1979-06-15    7.549415 is now:
             # 1979-06-20    7.549415
-            
+            # when selecting value of 06-15, I am actually selecting val of 6-10
+            # minimal shift of 10 days backward in time is realized
         else:
             RV_ac = df_RV.copy() # RV will shifted according fit_masks, lag will be > 1
 

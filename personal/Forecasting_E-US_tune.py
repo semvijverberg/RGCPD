@@ -50,7 +50,7 @@ era5_10d_RGCPD_sm_uv = user_dir + '/Downloads/output_RGCPD/Xzkup1_10jun-29aug_la
 ERA_10d = {'ERA-5':(era5_10d_CPPA_sm, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
 #ERA_10d_sm = {'ERA-5':(era5_10d_CPPA_sm_n, ['sst(PDO,ENSO)', 'sst(CPPA)', 'sst(CPPA)+sm'] )}
 ERA_10d_sm = {'ERA-5':(CPPA_10d_sm1_2_3_OLR_l0, ['all'] )}
-ERA_1d_CPPA = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PDO,ENSO)', 'sst(CPPA)'])}
+ERA_1d_CPPA = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PDO,ENSO)', 'sst(CPPA)', 'sst(CPPA)+sm'])}
 ERA_10d_RGCPD = {'ERA-5':(era5_10d_RGCPD_sm, ['all'])}
 ERA_10d_RGCPD_all = {'ERA-5':(era5_10d_RGCPD_sm_uv, ['all'])}
 ERA_16d_RGCPD = {'ERA-5':(era5_16d_RGCPD_sm, [None, 'sst(CPPA)'])}
@@ -128,7 +128,7 @@ kwrgs_events = kwrgs_events
 stat_model_l = [logitCV]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
 
-lags_i = np.array([0, 5, 15])
+lags_i = np.array([0, 5, 15, 20, 25])
 precur_aggr = 10
 use_fold = None
 

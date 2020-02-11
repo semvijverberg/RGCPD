@@ -928,13 +928,13 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
 
     
                 df_valid, RV, y_pred_all = dict_experiments[exper][model]
-                tfreq = (y_pred_all.iloc[1].name - y_pred_all.iloc[0].name).days
+                # tfreq = (y_pred_all.iloc[1].name - y_pred_all.iloc[0].name).days
                 lags_i     = list(dict_experiments[exper][model][2].columns.astype(int))
-                lags_tf = [l*tfreq for l in lags_i]
-                if tfreq != 1:
-                    # the last day of the time mean bin is tfreq/2 later then the centerered day
-                    lags_tf = [l_tf- int(tfreq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
-
+                # lags_tf = [l*tfreq for l in lags_i]
+                # if tfreq != 1:
+                #     # the last day of the time mean bin is tfreq/2 later then the centerered day
+                #     lags_tf = [l_tf- int(tfreq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
+                lags_tf = lags_i
 
 
                 if metric in ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Accuracy']:
