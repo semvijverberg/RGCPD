@@ -13,7 +13,7 @@ Created on Thu Aug 22 10:58:26 2019
 
 @author: semvijverberg
 """
-#%%
+
 import time
 start_time = time.time()
 import inspect, os, sys
@@ -22,16 +22,11 @@ script_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD" # script direc
 # To link modules in RGCPD folder to this script
 os.chdir(script_dir)
 sys.path.append(script_dir)
-from importlib import reload as rel
 import os, datetime
-import pandas as pd
 import numpy as np
 import func_fc
-import matplotlib.pyplot as plt
-import validation as valid
-import functions_pp
 import valid_plots as dfplots
-import exp_fc
+
 
 # =============================================================================
 # load data 
@@ -45,7 +40,6 @@ strat_1d_CPPA_era5_l10 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_s
 #CPPA_v_sm_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_v200hpa_sm123_m01-09_dt10/18jun-17aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-20.h5'
 #CPPA_sm_10d   = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sm123_m01-09_dt10/18jun-17aug_lag0-0_ran_strat10_s30/pcA_none_ac0.05_at0.05_subinfo/fulldata_pcA_none_ac0.05_at0.05_2019-09-24.h5'
 #RGCPD_sst_sm_10d = '/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/t2mmax_E-US_sst_sm123_m01-09_dt10/18jun-17aug_lag0-0_ran_strat10_s30/pcA_none_ac0.01_at0.01_subinfo/fulldata_pcA_none_ac0.01_at0.01_2019-10-04.h5'
-n_boot = 1
 verbosity = 1
 
 
@@ -151,28 +145,29 @@ dict_experiments = {}
 #np.array([l * tfreq for l in [0,1,2,3,4]])       
 # dictionairy _ temporal frequency _ lag
 LAG_DAY = 10
-tfreqs = np.arange(4, 36, 2)
-tfreqs = np.arange(10, 14, 2)
+frequencies = np.arange(10, 14, 2)
+percentiles = [50, 66, 80]
+percentiles = [50,55,60,66,70,75,80,84.2]
 # d_t_l = get_val_close_lag(LAG_DAY, tfreqs)
 
 #d_t_l = {f:1 for f in range(15,27)}
 #d_t_l = {f:1 for f in range(27,35)}
 #d_t_l = {f:2 for f in range(16,21)}
 #d_t_l = {f:1 for f in [18,20,25,30]}
-frequencies = list(d_t_l.keys())
-percentiles = [50,55,60,66,70,75,80,84.2]
+# frequencies = list(d_t_l.keys())
+
 
 
 #d_t_l = {10:1, 18:1}
+# print(d_t_l)
 #frequencies = list(d_t_l.keys())
 #percentiles = [50,66]
 
 kwrgs_pp={'add_autocorr':False}
 stat_model_l = [logitCV]
-method='ran_strat9'
 folds = -9
 seed=30
-print(d_t_l)
+
 list_of_fc = [] ; lags_t = []
 dict_experiments = {}
 
@@ -203,10 +198,10 @@ for perc in percentiles:
                 lags_t.append(fc.lags_t[0])
                 list_of_fc.append(fc)
     dict_perc[perc] = dict_freqs
-#dict_experiments[fold] = dict_perc
 
 
 
+#%%
 #df_valid, RV, y_pred = fc.dict_sum[stat_model_l[-1][0]]
 
 
@@ -312,7 +307,7 @@ else:
     x_label = 'Temporal Aggregation [days]'
 x_label2 = 'Lag in days'
 
-path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_experiments, 
+path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_perc, 
                                                   model=stat_model_l[0][0], 
                                                   metric=metric, lags_t=lags_t)
 fig = dfplots.plot_score_matrix(path_data, col=0, 

@@ -260,31 +260,27 @@ def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=4,
 
 def get_score_matrix(d_expers=dict, model=str, metric=str, lags_t=None):
     #%%
-    folds = np.array(list(d_expers.keys()))
-    percen = np.array(list(d_expers[folds[0]].keys()))
-    tfreqs = np.array(list(d_expers[folds[0]][percen[0]].keys()))
-    npscore = np.zeros( shape=(folds.size, percen.size, tfreqs.size) )
-    np_sig = np.zeros( shape=(folds.size, percen.size, tfreqs.size) )
-    for i, fkey in enumerate(folds):
-        for j, pkey in enumerate(percen):
-            dict_freq = d_expers[fkey][pkey]
-            for k, tkey in enumerate(tfreqs):
-                df_valid = dict_freq[tkey][model][0]
-                df_metric = df_valid.loc[metric]
-                npscore[i,j,k] = float(df_metric.loc[metric].values)
-                con_low = df_metric.loc['con_low'].values
-                if type(con_low) is np.ndarray:
-                    con_low = np.quantile(con_low[0], 0.025) # alpha is 0.05
-                else:
-                    con_low = float(df_metric.loc['con_low'].values)
-                np_sig[i,j,k] = con_low
+    percen = np.array(list(d_expers.keys()))
+    tfreqs = np.array(list(d_expers[percen[0]].keys()))
+    npscore = np.zeros( shape=(percen.size, tfreqs.size) )
+    np_sig = np.zeros( shape=(percen.size, tfreqs.size) )
 
-    data = np.mean(npscore,0)
+    for j, pkey in enumerate(percen):
+        dict_freq = d_expers[pkey]
+        for k, tkey in enumerate(tfreqs):
+            df_valid = dict_freq[tkey][model][0]
+            df_metric = df_valid.loc[metric]
+            npscore[j,k] = float(df_metric.loc[metric].values)
+            con_low = df_metric.loc['con_low'].values
+            if type(con_low) is np.ndarray:
+                con_low = np.quantile(con_low[0], 0.025) # alpha is 0.05
+            else:
+                con_low = float(df_metric.loc['con_low'].values)
+            np_sig[j,k] = con_low
+
+    data = npscore
     df_data = pd.DataFrame(data, index=percen, columns=tfreqs)
-    df_sign = []
-    for i, fkey in enumerate(folds):
-        df_sign.append(pd.DataFrame(np_sig[i], index=percen, columns=tfreqs))
-    df_sign = pd.concat(df_sign, keys=folds)
+    df_sign = pd.DataFrame(np_sig, index=percen, columns=tfreqs)
     df_lags_t = pd.DataFrame(data=np.array(lags_t[:tfreqs.size], dtype=int), index=tfreqs)
     
     dict_of_dfs = {f'df_data_{metric}':df_data,'df_sign':df_sign, 'df_lags_t':df_lags_t}
@@ -294,23 +290,22 @@ def get_score_matrix(d_expers=dict, model=str, metric=str, lags_t=None):
 def plot_score_matrix(path_data=str, col=0,
                       x_label=None, x_label2=None, ax=None):
                       
-    dict_of_dfs = functions_pp.load_hdf5(path_data='/Users/semvijverberg/Downloads/pandas_dfs_28-01-20_11hr.h5')
+    dict_of_dfs = functions_pp.load_hdf5(path_data='/Users/semvijverberg/Downloads/pandas_dfs_11-02-20_18hr.h5')
     datakey = [k for k in dict_of_dfs.keys() if k[:7] == 'df_data'][0]
     metric = datakey.split('_')[-1]
     df_data = dict_of_dfs[datakey]
     df_sign = dict_of_dfs['df_sign']
     df_lags_t = dict_of_dfs['df_lags_t']
     np_arr = df_sign.to_xarray().to_array().values
-    np_sign = np_arr.swapaxes(0,1).swapaxes(1,2)
+    np_sign = np_arr.swapaxes(0,1)
     annot = np.zeros_like(df_data.values, dtype="f8").tolist()
     for i1, r in enumerate(df_data.values):
         for i2, c in enumerate(r):
             round_val = np.round(df_data.values[i1,i2], 2).astype('f8')
             # lower confidence bootstrap higer than 0.0
-            sign = np_sign[:,i1,i2] > 0.0
-            n_sign = int(sign[sign].size)
-            annot[i1][i2] = '{}'.format(n_sign )
-            annot[i1][i2] = 'BSS={:.2f} \n {}/{}'.format(round_val, n_sign, sign.size)
+            sign = np_sign[i1,i2] 
+
+            annot[i1][i2] = 'BSS={:.2f} \n {}'.format(round_val, sign)
     
     ax = None
     if ax==None:

@@ -101,6 +101,8 @@ class fcev():
         else:
             self.kwrgs_events = kwrgs_events
         
+        self.df_TV = self.df_data.iloc[:,[0,-2,-1]].copy()    
+        
         # aggregation from daily to n-day means
         if self.TV_aggr is None and self.precur_aggr is not None:
             self.TV_aggr = self.precur_aggr
@@ -109,7 +111,6 @@ class fcev():
         else:
             dates_tobin = None
             
-        self.df_TV = self.df_data.iloc[:,[0,-2,-1]].copy()    
         TV = df_data_to_RV(self.df_TV, kwrgs_events=self.kwrgs_events,
                            fit_model_dates=fit_model_dates)
         TV.TrainIsTrue = self.df_TV['TrainIsTrue']

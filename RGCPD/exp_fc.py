@@ -114,7 +114,7 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
 
 #    skip = ['all_spatcov', '0_2_sm123', '0_101_PEPspatcov', 'sm123_spatcov']
     skip = ['all_spatcov']
-
+    OLR_EOFs = ['EOF0_OLR', 'EOF1_OLR']
 
     keys_d = {}
     for option in keys_options:
@@ -198,6 +198,8 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
                 keys_ = [k for k in keys_ if 'PEP' not in k]                
                 expert = ['CPPAsv', '..9..sst', '..2..sst', '..6..sst', '..1..sst', '..7..sst']
                 keys_ = [k for k in keys_ for e in expert if e in k]
+            if 'OLR' not in option:
+                [k for k in keys_ if k not in OLR_EOFs]
             keys_d_[s] = np.unique(keys_)
 
         keys_d[option] = keys_d_
