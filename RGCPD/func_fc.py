@@ -112,8 +112,7 @@ class fcev():
         TV.TrainIsTrue = self.df_TV['TrainIsTrue']
         TV.RV_mask = self.df_TV['RV_mask']
         TV.dates_tobin = dates_tobin
-        RV_mask_tobin = self.df_data_orig.loc[0]['RV_mask'].loc[dates_tobin]
-        TV.dates_tobin_TV = dates_tobin[RV_mask_tobin]
+        TV.dates_tobin_TV = TV.aggr_to_daily_dates(TV.dates_RV)
         TV.name = TV.RV_ts.columns[0]
         
 
@@ -200,14 +199,9 @@ class fcev():
                 self.stat_model_l[i] = (list(new.keys())[c], stat_model[1])
                 c += 1
 
-            y_pred_all, y_pred_c, models = _fit_model(self.TV,
-                                                      df_data=self.df_data,
-                                                      precur_aggr=self.precur_aggr,
-                                                      keys_d=self.keys_d,
-                                                      kwrgs_pp=self.kwrgs_pp,
-                                                      stat_model=stat_model,
-                                                      lags_i=self.lags_i,
-                                                      verbosity=verbosity)
+            y_pred_all, y_pred_c, models = self._fit_model(stat_model=stat_model,
+                                                           verbosity=verbosity)
+                                                      
             uniqname = self.stat_model_l[i][0]
             self.dict_preds[uniqname] = (y_pred_all, y_pred_c)
             self.dict_models[uniqname] = models
@@ -411,7 +405,115 @@ class fcev():
         GBR_models_split_lags = self.dict_models['GBR-logitCV']
         stat_models.plot(GBR_models_split_lags, keys=keys, lags=lags)
 
-
+    
+    def _fit_model(self, stat_model=tuple, verbosity=0):
+    
+        #%%     
+        RV = self.TV
+        kwrgs_pp = self.kwrgs_pp
+        keys_d = self.keys_d
+        df_data = self.df_data
+        dates_tobin = self.TV.dates_tobin
+        precur_aggr = self.precur_aggr
+        if precur_aggr is not None:
+            lags_i = self.lags_t
+        else:
+            lags_i = self.lags_i
+        
+        # lags_i = [1]
+        # stat_model = self.stat_model_l[0]
+        
+        # do forecasting accros lags
+        splits  = df_data.index.levels[0]
+        y_pred_all = []
+        y_pred_c = []
+        models = []
+    
+        # store target variable (continuous and binary in y_ts dict)
+        if hasattr(RV, 'RV_bin_fit'):
+            y_ts = {'cont':RV.RV_ts_fit, 'bin':RV.RV_bin_fit}
+        else:
+            y_ts = {'cont':RV.RV_ts_fit}
+    
+        print(f'{stat_model}')
+        from time import time
+        try:
+            t0 = time()
+            futures = {}
+            with ProcessPoolExecutor(max_workers=max_cpu) as pool:
+                for lag in lags_i:
+                    for split in splits:
+                        fitkey = f'{lag}_{split}'
+                        futures[fitkey] = pool.submit(fit, 
+                                                      y_ts=y_ts, 
+                                                      df_data=df_data, 
+                                                      lag=lag, 
+                                                      split=split, 
+                                                      stat_model=stat_model, 
+                                                      keys_d=keys_d, 
+                                                      dates_tobin=RV.dates_tobin, 
+                                                      precur_aggr=precur_aggr, 
+                                                      kwrgs_pp=kwrgs_pp, 
+                                                      verbosity=verbosity)
+                results = {key:future.result() for key, future in futures.items()}
+            print(time() - t0)
+        except:
+            print('parallel failed')
+            t0 = time()
+            results = {}
+            for lag in lags_i:
+                for split in splits:
+                    fitkey = f'{lag}_{split}'
+                    results[fitkey] = fit(y_ts=y_ts, df_data=df_data, lag=lag, 
+                                          split=split, stat_model=stat_model, 
+                                          keys_d=keys_d, dates_tobin=RV.dates_tobin, 
+                                          precur_aggr=precur_aggr, kwrgs_pp=kwrgs_pp, 
+                                          verbosity=verbosity)
+            print('in {:.0f} seconds'.format(time() - t0))
+        # unpack results
+        models = dict()
+        for lag in lags_i:
+            y_pred_l = []
+            model_lag = dict()
+            for split in splits:
+                prediction, model = results[f'{lag}_{split}']
+                # store model
+                model_lag[f'split_{split}'] = model
+    
+                # retrieve original input data
+                df_norm = model.df_norm
+                TestRV  = (df_norm['TrainIsTrue']==False)[df_norm['y_pred']]
+                y_pred_l.append(prediction[TestRV.values])
+    
+                if lag == lags_i[0]:
+                    # ensure that RV timeseries matches y_pred
+                    TrainRV = (df_norm['TrainIsTrue'])[df_norm['y_pred']]
+                    RV_bin_train = RV.RV_bin[TrainRV.values] # index no longer align 20-2-10
+    
+                    # predicting RV might not be possible
+                    # determining climatological prevailance in training data
+                    y_c_mask = RV_bin_train==1
+                    y_clim_val = RV_bin_train[y_c_mask.values].size / RV_bin_train.size
+                    # filling test years with clim of training data
+                    y_clim = RV.RV_bin[TestRV.values==True].copy()
+                    y_clim[:] = y_clim_val
+                    y_pred_c.append(y_clim)
+    
+            models[f'lag_{lag}'] = model_lag
+    
+            y_pred_l = pd.concat(y_pred_l)
+            y_pred_l = y_pred_l.sort_index()
+    
+            if lag == lags_i[0]:
+                y_pred_c = pd.concat(y_pred_c)
+                y_pred_c = y_pred_c.sort_index()
+    
+    
+            y_pred_all.append(y_pred_l)
+        y_pred_all = pd.concat(y_pred_all, axis=1)
+        print("\n")
+    #%%
+        return y_pred_all, y_pred_c, models
 
 def df_data_to_RV(df_data=pd.DataFrame, kwrgs_events=dict, only_RV_events=True,
                   fit_model_dates=None):
@@ -474,126 +576,7 @@ def fit(y_ts, df_data, lag, split=int, stat_model=str,
     return (prediction, model)
 
 
-def _fit_model(RV, df_data, precur_aggr=None, keys_d=None, kwrgs_pp={}, 
-               stat_model=tuple, lags_i=list,
-               verbosity=0):
-    #%%
-    # stat_model = fc.stat_model_l[0]
-    # RV = fc.TV
-    # lags_i = [1]
-    # kwrgs_pp={}
-    # keys_d=None
-    # df_data = fc.df_data
-    # dates_tobin = fc.TV.dates_tobin
-    # precur_aggr = fc.precur_aggr
-    # verbosity=0
-    
-    # do forecasting accros lags
-    splits  = df_data.index.levels[0]
-    y_pred_all = []
-    y_pred_c = []
 
-    models = []
-
-    # store target variable (continuous and binary in y_ts dict)
-    if hasattr(RV, 'RV_bin_fit'):
-        y_ts = {'cont':RV.RV_ts_fit, 'bin':RV.RV_bin_fit}
-    else:
-        y_ts = {'cont':RV.RV_ts_fit}
-
-    print(f'{stat_model}')
-    from time import time
-    try:
-        t0 = time()
-        futures = {}
-        with ProcessPoolExecutor(max_workers=max_cpu) as pool:
-            for lag in lags_i:
-
-                for split in splits:
-                    fitkey = f'{lag}_{split}'
-
-                    futures[fitkey] = pool.submit(fit, 
-                                                  y_ts=y_ts, 
-                                                  df_data=df_data, 
-                                                  lag=lag, 
-                                                  split=split, 
-                                                  stat_model=stat_model, 
-                                                  keys_d=keys_d, 
-                                                  dates_tobin=RV.dates_tobin, 
-                                                  precur_aggr=precur_aggr, 
-                                                  kwrgs_pp=kwrgs_pp, 
-                                                  verbosity=verbosity)
-            results = {key:future.result() for key, future in futures.items()}
-        print(time() - t0)
-    except:
-        print('parallel failed')
-        t0 = time()
-        results = {}
-
-        for lag in lags_i:
-
-            for split in splits:
-                fitkey = f'{lag}_{split}'
-
-                results[fitkey] = fit(y_ts=y_ts, df_data=df_data, lag=lag, 
-                                      split=split, stat_model=stat_model, 
-                                      keys_d=keys_d, dates_tobin=RV.dates_tobin, 
-                                      precur_aggr=precur_aggr, kwrgs_pp=kwrgs_pp, 
-                                      verbosity=verbosity)
-                                        
-                                        
-                                        
-                                        
-                                        
-#            results = {future[key] for key, future in futures.items()}
-        print('in {:.0f} seconds'.format(time() - t0))
-
-    # unpack results
-    models = dict()
-    for lag in lags_i:
-        y_pred_l = []
-        model_lag = dict()
-        for split in splits:
-            prediction, model = results[f'{lag}_{split}']
-            # store model
-            model_lag[f'split_{split}'] = model
-
-            # retrieve original input data
-            df_norm = model.df_norm
-            TestRV  = (df_norm['TrainIsTrue']==False)[df_norm['y_pred']]
-            y_pred_l.append(prediction[TestRV.values])
-
-            if lag == lags_i[0]:
-                # ensure that RV timeseries matches y_pred
-                TrainRV = (df_norm['TrainIsTrue'])[df_norm['y_pred']]
-                RV_bin_train = RV.RV_bin[TrainRV.values] # index no longer align 20-2-10
-
-                # predicting RV might not be possible
-                # determining climatological prevailance in training data
-                y_c_mask = RV_bin_train==1
-                y_clim_val = RV_bin_train[y_c_mask.values].size / RV_bin_train.size
-                # filling test years with clim of training data
-                y_clim = RV.RV_bin[TestRV.values==True].copy()
-                y_clim[:] = y_clim_val
-                y_pred_c.append(y_clim)
-
-        models[f'lag_{lag}'] = model_lag
-
-        y_pred_l = pd.concat(y_pred_l)
-        y_pred_l = y_pred_l.sort_index()
-
-        if lag == lags_i[0]:
-            y_pred_c = pd.concat(y_pred_c)
-            y_pred_c = y_pred_c.sort_index()
-
-
-        y_pred_all.append(y_pred_l)
-    y_pred_all = pd.concat(y_pred_all, axis=1)
-    print("\n")
-
-
-    #%%
-    return y_pred_all, y_pred_c, models
 
 def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None, 
                      precur_aggr=None, normalize='datesRV', remove_RV=True, 
@@ -654,10 +637,19 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
         if lag_i == 0 and precur_aggr is None:
             # minimal shift of lag 1 or it will follow shift with x_fit mask
             RV_ac = df_RV.shift(periods=-1).copy()
-        elif lag_i == 0 and precur_aggr is not None:
+        elif precur_aggr is not None:
+            
             # df_RV is daily and should be shifted more tfreq/2 otherwise just
             # predicting with the (part) of the observed ts.
-            RV_ac = df_RV.shift(periods=-(1+int(tfreq_TV/2))).copy()
+            # I am selecting dates_min_lag, thus adding RV that is also shifted
+            # min_lag days, will result in that I am selecting the actual 
+            # observed ts. Hence I should shift the other directions if 
+            # lag  < tfreq_TV/2
+            shift = int(max(tfreq_TV/2., lag_i))
+            RV_ac = df_RV.shift(periods=shift).copy()
+            # 1979-06-15    7.549415 is now:
+            # 1979-06-20    7.549415
+            
         else:
             RV_ac = df_RV.copy() # RV will shifted according fit_masks, lag will be > 1
 

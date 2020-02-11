@@ -128,7 +128,7 @@ kwrgs_events = kwrgs_events
 stat_model_l = [logitCV]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
 
-lags_i = np.array([0, 1])
+lags_i = np.array([0, 5, 15])
 precur_aggr = 10
 use_fold = None
 
