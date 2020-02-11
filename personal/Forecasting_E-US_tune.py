@@ -49,7 +49,7 @@ era5_10d_RGCPD_sm_uv = user_dir + '/Downloads/output_RGCPD/Xzkup1_10jun-29aug_la
 #                 'EC-earth 2.3':(strat_1d_CPPA_EC, ['PEP', 'CPPA'])}
 ERA_10d = {'ERA-5':(era5_10d_CPPA_sm, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
 #ERA_10d_sm = {'ERA-5':(era5_10d_CPPA_sm_n, ['sst(PDO,ENSO)', 'sst(CPPA)', 'sst(CPPA)+sm'] )}
-ERA_10d_sm = {'ERA-5':(CPPA_10d_sm1_2_3_OLR_l0, ['all'] )}
+ERA_10d_sm = {'ERA-5':(CPPA_10d_sm1_2_3_OLR_l0, ['sst(CPPA)'] )}
 ERA_1d_CPPA = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PDO,ENSO)', 'sst(CPPA)', 'sst(CPPA)+sm'])}
 ERA_10d_RGCPD = {'ERA-5':(era5_10d_RGCPD_sm, ['all'])}
 ERA_10d_RGCPD_all = {'ERA-5':(era5_10d_RGCPD_sm_uv, ['all'])}
@@ -57,7 +57,7 @@ ERA_16d_RGCPD = {'ERA-5':(era5_16d_RGCPD_sm, [None, 'sst(CPPA)'])}
 ERA_12d_RGCPD = {'ERA-5':(era5_12d_RGCPD_sm, ['sst(CPPA)+sm', 'sst(CPPA)'])}
 ERA_vs_PEP = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
 
-datasets_path  = ERA_1d_CPPA
+datasets_path  = ERA_10d_sm
 
 
 # Define statmodel:
@@ -126,10 +126,10 @@ kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
 stat_model_l = [logitCV]
-kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
+kwrgs_pp     = {'add_autocorr' : True, 'normalize':False}
 
-lags_i = np.array([0, 5, 15, 20, 25])
-precur_aggr = 10
+lags_i = np.array([0, 1, 2])
+precur_aggr = None
 use_fold = None
 
 
@@ -163,7 +163,6 @@ met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision']
 expers = list(dict_experiments.keys())
 models   = list(dict_experiments[expers[0]].keys())
 line_dim = 'model'
-
 
 fig = dfplots.valid_figures(dict_experiments, expers=expers, models=models,
                           line_dim=line_dim,
