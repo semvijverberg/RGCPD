@@ -30,7 +30,10 @@ import numpy as np
 import func_fc
 import valid_plots as dfplots
 
-
+user_dir = os.path.expanduser('~')
+if sys.platform == 'linux':
+    import matplotlib as mpl
+    mpl.use('Agg')
 # =============================================================================
 # load data 
 # =============================================================================
@@ -147,7 +150,7 @@ dict_experiments = {}
 #     return d_t_l
 #np.array([l * tfreq for l in [0,1,2,3,4]])       
 # dictionairy _ temporal frequency _ lag
-LAG_DAY = 10
+LAG_DAY = 21
 frequencies = np.arange(10, 14, 2)
 percentiles = [50, 66, 80]
 percentiles = [50,55,60,66,70,75,80,84.2]
