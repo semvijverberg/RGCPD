@@ -18,10 +18,13 @@ import time
 start_time = time.time()
 import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-script_dir = "/Users/semvijverberg/surfdrive/Scripts/RGCPD/RGCPD" # script directory
-# To link modules in RGCPD folder to this script
-os.chdir(script_dir)
-sys.path.append(script_dir)
+main_dir = '/'.join(curr_dir.split('/')[:-1])
+python_dir = os.path.join(main_dir, 'RGCPD')
+df_ana_dir = os.path.join(main_dir, 'df_analysis/df_analysis/')
+if main_dir not in sys.path:
+    sys.path.append(main_dir)
+    sys.path.append(python_dir)
+    sys.path.append(df_ana_dir)
 import os, datetime
 import numpy as np
 import func_fc
@@ -148,7 +151,7 @@ LAG_DAY = 10
 frequencies = np.arange(10, 14, 2)
 percentiles = [50, 66, 80]
 percentiles = [50,55,60,66,70,75,80,84.2]
-# d_t_l = get_val_close_lag(LAG_DAY, tfreqs)
+frequencies = np.arange(4, 34, 2)
 
 #d_t_l = {f:1 for f in range(15,27)}
 #d_t_l = {f:1 for f in range(27,35)}
