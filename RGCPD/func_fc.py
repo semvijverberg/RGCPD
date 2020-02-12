@@ -296,15 +296,17 @@ class fcev():
         return m
 
 
-    def _print_sett(self, list_of_fc=None, filename=None):
+    def _print_sett(self, list_of_fc=None, subfoldername=None, filename=None):
 
         if list_of_fc is None:
             list_of_fc = [self]
+        if subfoldername is None:
+            subfoldername = 'forecasts'
         if filename is None:
             # define filename
-            subfolder = 'forecasts'
+            
             working_folder = '/'.join(self.path_data.split('/')[:-1])
-            working_folder = os.path.join(working_folder, subfolder)
+            working_folder = os.path.join(working_folder, subfoldername)
             self.working_folder = working_folder
             if os.path.isdir(working_folder) != True : os.makedirs(working_folder)
             today = datetime.datetime.today().strftime('%Hhr_%Mmin_%d-%m-%Y')

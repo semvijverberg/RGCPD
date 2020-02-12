@@ -151,10 +151,10 @@ dict_experiments = {}
 #np.array([l * tfreq for l in [0,1,2,3,4]])       
 # dictionairy _ temporal frequency _ lag
 LAG_DAY = 21
-frequencies = np.arange(10, 14, 2)
-percentiles = [50, 66, 80]
-percentiles = [50,55,60,66,70,75,80,84.2]
-frequencies = np.arange(4, 34, 2)
+frequencies = np.arange(10, 12, 2)
+percentiles = [50]
+# percentiles = [50,55,60,66,70,75,80,84.2]
+# frequencies = np.arange(4, 34, 2)
 
 #d_t_l = {f:1 for f in range(15,27)}
 #d_t_l = {f:1 for f in range(27,35)}
@@ -211,65 +211,7 @@ for perc in percentiles:
 #df_valid, RV, y_pred = fc.dict_sum[stat_model_l[-1][0]]
 
 
-
-def print_sett(list_of_fc, filename):
-    f= open(filename+".txt","w+")
-    file= open(filename+".txt","w+")
-    lines = []
-    
-    lines.append("\nEvent settings:")        
-    
-    e = 1
-    for i, fc_i in enumerate(list_of_fc):
-        
-        lines.append(f'\n\n***Experiment {e}***\n\n')
-        lines.append(f'Title \t : {fc_i.name}')
-        lines.append(f'file \t : {fc_i.path_data}')
-        lines.append(f'kwrgs_events \t : {fc_i.kwrgs_events}')
-        lines.append(f'kwrgs_pp \t : {fc_i.kwrgs_pp}')
-        lines.append(f'Title \t : {fc_i.name}')
-        lines.append(f'file \t : {fc_i.path_data}')
-        lines.append(f'kwrgs_events \t : {fc_i.kwrgs_events}')
-        lines.append(f'kwrgs_pp \t : {fc_i.kwrgs_pp}')
-        lines.append(f'keys_d: \n{fc_i.keys_d}')
-        lines.append(f'nboot: {fc_i.n_boot}')
-        lines.append(f'stat_model_l: {fc_i.stat_model_l}')
-        lines.append(f'fold: {fc_i.fold}')
-        lines.append(f'keys_used: \n{fc_i._get_precursor_used()}')
-        
-        e+=1
-    
-    [print(n, file=f) for n in lines]
-    f.close()
-    [print(n, file=file) for n in lines]
-    file.close()
-    [print(n) for n in lines]
-
-RV_name = 't2mmax'
-working_folder = f'/Users/semvijverberg/surfdrive/RGCPD_mcKinnon/{fc.hash}_forecast_expers'
-if os.path.isdir(working_folder) != True : os.makedirs(working_folder)
-today = datetime.datetime.today().strftime('%Hhr_%Mmin_%d-%m-%Y')
-if type(kwrgs_events) is tuple:
-    percentile = kwrgs_events[1]['event_percentile']
-else:
-    percentile = kwrgs_events['event_percentile']
-folds_used = [f.fold for f in list_of_fc]
-if np.unique(folds_used).size == 1:
-    folds_used = str(folds_used[0])
-else:
-    folds_used =  str(folds_used).replace(' ','')
-if np.unique(lags_t).size == 1:
-    lagstr = f'lag{int(np.mean(lags_t))}'
-else:
-    lagstr = f'lag_r{int(lags_t[0])}-{int(lags_t[-1])}'
-if np.unique(folds).size == 1:
-    foldstr = f'fold{int(np.mean(folds))}'
-else:
-    foldstr = f'fold_r{int(folds[0])}-{int(folds[-1])}'
-f_name = f'{RV_name}_{percentile}p_{foldstr}_{lagstr}_{today}'
-filename = os.path.join(working_folder, f_name)
-
-print_sett(list_of_fc, filename)
+working_folder, filename = fc._print_sett(list_of_fc=list_of_fc, subfoldername='forecast_optimal_freq', filename=None)
 
 
 
