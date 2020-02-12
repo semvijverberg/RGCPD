@@ -296,20 +296,21 @@ class fcev():
         return m
 
 
-    def _print_sett(self, list_of_fc=None, subfoldername=None, filename=None):
+    def _print_sett(self, list_of_fc=None, subfoldername=None, f_name=None,
+                    filename=None):
 
         if list_of_fc is None:
             list_of_fc = [self]
         if subfoldername is None:
             subfoldername = 'forecasts'
         if filename is None:
-            # define filename
-            
             working_folder = '/'.join(self.path_data.split('/')[:-1])
             working_folder = os.path.join(working_folder, subfoldername)
             self.working_folder = working_folder
             if os.path.isdir(working_folder) != True : os.makedirs(working_folder)
             today = datetime.datetime.today().strftime('%Hhr_%Mmin_%d-%m-%Y')
+        if f_name is None and filename is None:
+            # define filename
             if type(self.kwrgs_events) is tuple:
                 percentile = self.kwrgs_events[1]['event_percentile']
             else:
@@ -318,6 +319,9 @@ class fcev():
                             '').replace(', ','_').replace(']','')
             f_name = f'{self.TV.name}_{self.tfreq}d_{percentile}p_fold{folds_used}_{today}'
             filename = os.path.join(working_folder, f_name)
+        if f_name is not None and filename is None:
+            today_str = f'_{today}'
+            filename = os.path.join(working_folder, f_name+today_str)
 
         file= open(filename+".txt","w+")
         lines = []
@@ -597,7 +601,7 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
                      keys=None, add_autocorr=True, EOF=False, expl_var=None):
                     
 
-    #%%
+    
     '''
     TrainisTrue     : Specifies train and test dates, col of df_split.
     RV_mask         : Specifies what data will be predicted, col of df_split.
@@ -611,13 +615,14 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
         df_norm     : Dataframe
         x_keys      : updated set of keys to fit model
     '''
-# lag_i=1
-# normalize='datesRV'
-# remove_RV=True
-# keys=None
-# add_autocorr=True
-# EOF=False
-# expl_var=None
+    #%%
+    # lag_i=1
+    # normalize='datesRV'
+    # remove_RV=True
+    # keys=None
+    # add_autocorr=True
+    # EOF=False
+    # expl_var=None
     # =============================================================================
     # Select features / variables
     # =============================================================================
@@ -705,6 +710,8 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
         
         df_prec, dates_tobin_p = _daily_to_aggr(df_prec.loc[dates_bin_shift], precur_aggr)
         fit_masks = df_prec[df_prec.columns[df_prec.dtypes==bool]]
+        # check y_fit mask
+        fit_masks = _check_y_fitmask(fit_masks, lag_i, base_lag)
         lag_v = (last_centerdate - df_prec[df_prec['x_fit']].index[-1]).days
         assert lag_v == lag_i+base_lag, (
                 f'lag center precur vs center TV is {lag_v} days, with '
@@ -754,6 +761,34 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
     #%%
     return df_prec, upd_keys
 
+def _check_y_fitmask(fit_masks, lag_i, base_lag):
+    ''' If lag_i is uneven, taking the mean over the RV period may result in 
+    a shorter y_fit (RV_mask) then the original RV_mask (where the time mean
+    bins were done on its own time axis. Hence y_fit is redefined by adding
+    lag_i+base_lag to x_fit mask.
+    
+    Note: y_fit_mask and y_pred_mask the same now
+    '''
+    fit_masks_n = fit_masks.copy()
+    y_fit = fit_masks['y_fit'] ; x_fit = fit_masks['x_fit']
+    y_dates_RV = x_fit[x_fit].index + pd.Timedelta(lag_i+base_lag, 'd')
+    y_dates_pr = y_fit[y_fit].index 
+    mismatch = (y_dates_pr[2]- y_dates_RV[2] ).days
+    y_fit_corr = y_dates_RV + pd.Timedelta(mismatch, 'd')
+    y_fit_mask = [True if d in y_fit_corr else False for d in x_fit.index]
+    fit_masks_n.loc[:,'y_fit'] = np.array(y_fit_mask)
+    
+    y_pred = fit_masks['y_pred'] ; x_pred = fit_masks['x_pred']
+    y_dates_RV = x_pred[x_pred].index + pd.Timedelta(lag_i+base_lag, 'd')
+    y_dates_pr = y_pred[y_pred].index 
+    mismatch = (y_dates_pr[2]- y_dates_RV[2] ).days
+    y_pred_corr = y_dates_RV + pd.Timedelta(mismatch, 'd')
+    y_pred_mask = [True if d in y_pred_corr else False for d in x_pred.index]
+    fit_masks_n.loc[:,'y_pred'] = np.array(y_pred_mask)
+    size_y_fit = fit_masks_n['y_fit'][fit_masks_n['y_fit']].dropna().size
+    assert  size_y_fit == y_dates_RV.size, ('y_fit mask will not match RV '
+                ' dates length') 
+    return fit_masks_n
 
 def apply_shift_lag(fit_masks, lag_i):
     '''

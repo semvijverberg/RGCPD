@@ -306,7 +306,7 @@ def plot_score_matrix(path_data=str, col=0,
             # lower confidence bootstrap higer than 0.0
             sign = np_sign[i1,i2] 
 
-            annot[i1][i2] = 'BSS={:.2f} \n {:.2f}'.format(round_val, sign)
+            annot[i1][i2] = 'BSS={:.2f} \n {}'.format(round_val, sign)
     
     ax = None
     if ax==None:

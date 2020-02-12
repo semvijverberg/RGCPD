@@ -67,36 +67,11 @@ GBR_logitCV = ('GBR-logitCV',
                'subsample' : 0.6} ) 
 
 # format {'dataset' : (path_data, list(keys_options) ) }
-
-
 ERA_daily = {'ERA-5':(era5_1d_CPPA_l10, ['sst(CPPA)'])}
 
-   
 
 datasets_path = ERA_daily
 
-#causal = False
-#experiments = {} #; keys_d_sets = {}
-#for dataset, path_key in datasets_path.items():
-##    keys_d = exp_fc.compare_use_spatcov(path_data, causal=causal)
-#    
-#    path_data = path_key[0]
-#    keys_options = path_key[1]
-#    
-#    keys_d = exp_fc.CPPA_precursor_regions(path_data, 
-#                                           keys_options=keys_options)
-#    
-##    keys_d = exp_fc.normal_precursor_regions(path_data, 
-##                                             keys_options=keys_options,
-##                                             causal=causal)
-#
-#    for master_key, feature_keys in keys_d.items():
-#        kwrgs_pp = {'EOF':False, 
-#                    'expl_var':0.5,
-#                    'fit_model_dates' : None}
-#        experiments[dataset+' '+master_key] = (path_data, {'keys':feature_keys,
-#                                           'kwrgs_pp':kwrgs_pp
-#                                           })
 
 #%%
 ## import original Response Variable timeseries:
@@ -119,55 +94,13 @@ datasets_path = ERA_daily
 
 
 n_boot = 500
-dict_experiments = {}
-
-# LAG_DAY = 25
-# def get_freqs_same_lag(LAG_DAY):
-#     d_t_l = {}
-#     o_freq = np.arange(1,200)
-#     for f in o_freq:
-#         if f == 1:
-#             s = LAG_DAY/f
-#         else:
-#             s = (0.5 + LAG_DAY/f)
-#             sm1 = (0.5 + (LAG_DAY-1)/f)
-#             sp1 = (0.5 + (LAG_DAY+1)/f)
-#         if s == int(s) or sm1 == int(s) or sp1 == int(s):
-#             d_t_l[f] = int(s)
-#         if f > 1.5*LAG_DAY:
-#             break
-#     return d_t_l
-
-# LAG_DAY = 10
-# def get_val_close_lag(LAG_DAY, tfreqs):
-#     d_t_l = {}
-#     for tfreq in tfreqs:
-#         lags_t = [int((l-1) * tfreq + tfreq/2) for l in [0,1,2,3,4]]
-#         diff = abs(np.array(lags_t)-LAG_DAY)
-#         index = int(np.argwhere(diff == min(diff))[0])
-#         d_t_l[tfreq] = index
-#         print(tfreq, index, lags_t[int(index)])
-#     return d_t_l
-#np.array([l * tfreq for l in [0,1,2,3,4]])       
-# dictionairy _ temporal frequency _ lag
 LAG_DAY = 21
-frequencies = np.arange(10, 12, 2)
-percentiles = [50]
-# percentiles = [50,55,60,66,70,75,80,84.2]
-# frequencies = np.arange(4, 34, 2)
-
-#d_t_l = {f:1 for f in range(15,27)}
-#d_t_l = {f:1 for f in range(27,35)}
-#d_t_l = {f:2 for f in range(16,21)}
-#d_t_l = {f:1 for f in [18,20,25,30]}
-# frequencies = list(d_t_l.keys())
+# frequencies = np.arange(5, 6, 2)
+# percentiles = [50]
+percentiles = [50,55,60,66,70,75,80,84.2]
+frequencies = np.arange(4, 34, 2)
 
 
-
-#d_t_l = {10:1, 18:1}
-# print(d_t_l)
-#frequencies = list(d_t_l.keys())
-#percentiles = [50,66]
 
 kwrgs_pp={'add_autocorr':False}
 stat_model_l = [logitCV]
@@ -175,11 +108,8 @@ folds = -9
 seed=30
 
 list_of_fc = [] ; 
+
 dict_experiments = {}
-
-#for i, fold in enumerate(folds):
-
-dict_perc = {}
 for perc in percentiles:
     kwrgs_events = {'event_percentile': perc}
     dict_freqs = {}
@@ -203,15 +133,17 @@ for perc in percentiles:
 #                if i==0:
                 # lags_t.append(fc.lags_t[0])
                 list_of_fc.append(fc)
-    dict_perc[perc] = dict_freqs
+    dict_experiments[perc] = dict_freqs
 
 
 
 #%%
-#df_valid, RV, y_pred = fc.dict_sum[stat_model_l[-1][0]]
 
-
-working_folder, filename = fc._print_sett(list_of_fc=list_of_fc, subfoldername='forecast_optimal_freq', filename=None)
+subfoldername='forecast_optimal_freq'
+f_name = '{}_freqs{}-{}_perc{}-{}'.format(fc.hash, frequencies[0], frequencies[-1], 
+                                          percentiles[0], percentiles[-1])
+working_folder, filename = fc._print_sett(list_of_fc=list_of_fc, 
+                                          subfoldername=subfoldername, f_name=f_name)
 
 
 
@@ -242,11 +174,7 @@ working_folder, filename = fc._print_sett(list_of_fc=list_of_fc, subfoldername='
 #for old, new in rename_CPPA_comp.items():
 #    if new not in dict_experiments.keys():
 #        dict_experiments[new] = dict_experiments.pop(old)
-import valid_plots as dfplots
 f_format = '.pdf'
-
-filename = os.path.join(working_folder, f_name)
-
 
 metric = 'BSS'
 if type(kwrgs_events) is tuple:
@@ -255,7 +183,7 @@ else:
     x_label = 'Temporal Aggregation [days]'
 x_label2 = 'Lag in days'
 
-path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_perc, 
+path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_experiments, 
                                                   model=stat_model_l[0][0], 
                                                   metric=metric, lags_t=LAG_DAY)
 fig = dfplots.plot_score_matrix(path_data, col=0, 
@@ -268,129 +196,3 @@ fig.savefig(os.path.join(filename + f_format),
 
     
 
-
-
-    
-    
-#np.save(filename + '.npy', dict_experiments)
-#%%
-# =============================================================================
-# Cross-correlation matrix
-# =============================================================================
-#f_format = '.pdf' 
-#
-#path_data = strat_1d_CPPA_era5
-#win = 1
-#
-#period = ['fullyear', 'summer60days', 'pre60days'][1]
-#df_data = func_fc.load_hdf5(path_data)['df_data']
-##df_data['0_104_PDO'] = df_data['0_104_PDO'] * -1
-#f_name = f'Cross_corr_strat_1d_CPPA_era5_win{win}_{period}'
-#columns = ['t2mmax', '0_100_CPPAspatcov', '0_101_PEPspatcov', '0_901_PDO', '0_900_ENSO34']
-#rename = {'t2mmax':'T95', 
-#          '0_100_CPPAspatcov':'CPPA', 
-#          '0_101_PEPspatcov':'PEP',
-#          '0_901_PDO' : 'PDO',
-#          '0_900_ENSO34': 'ENSO'}
-#dfplots.build_ts_matric(df_data, win=win, lag=0, columns=columns, rename=rename, period=period)
-#if f_format == '.png':
-#    plt.savefig(os.path.join(working_folder, f_name + f_format), 
-#                bbox_inches='tight') # dpi auto 600
-#elif f_format == '.pdf':
-#    plt.savefig(os.path.join(pdfs_folder,f_name+ f_format), 
-#                bbox_inches='tight')
-
-
-#for freq in frequencies:
-#    
-#    import valid_plots as dfplots
-#    kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
-#    met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision', 'Accuracy']
-#    expers = list(dict_experiments.keys())
-#    models   = list(dict_experiments[expers[0]].keys())
-#    line_dim = 'model'
-#    
-#    
-#    fig = dfplots.valid_figures(dict_experiments, expers=expers, models=models,
-#                              line_dim=line_dim, 
-#                              group_line_by=None,  
-#                              met=met, **kwrgs)
-
-
-#for freq in frequencies:
-#    for dataset, tuple_sett in experiments.items():
-#        '''
-#        Format output is 
-#        dict(
-#                exper_name = dict( statmodel=tuple(df_valid, RV, y_pred) ) 
-#            )
-#        '''
-#        path_data = tuple_sett[0]
-#        kwrgs_exp = tuple_sett[1]
-#        dict_of_dfs = func_fc.load_hdf5(path_data)
-#        df_data = dict_of_dfs['df_data']
-#        splits  = df_data.index.levels[0]
-#    
-#        
-#        if 'keys' not in kwrgs_exp:
-#            # if keys not defined, getting causal keys
-#            kwrgs_exp['keys'] = exp_fc.normal_precursor_regions(path_data, causal=True)['normal_precursor_regions']
-#    
-#        print(kwrgs_events)
-#        
-#        if type(kwrgs_events) is tuple:
-#            kwrgs_events_ = kwrgs_events[1]
-#        else:
-#            kwrgs_events_ = kwrgs_events
-#            
-#        df_data  = func_fc.load_hdf5(path_data)['df_data']
-#        df_data_train = df_data.loc[fold][df_data.loc[fold]['TrainIsTrue'].values]
-#        df_data_train, dates = functions_pp.time_mean_bins(df_data_train, 
-#                                                           to_freq=freq, 
-#                                                           start_end_date=None, 
-#                                                           start_end_year=None, 
-#                                                           verbosity=0)
-#        
-#        
-#        # insert fake train test split to make RV
-#        df_data_train = pd.concat([df_data_train], axis=0, keys=[0]) 
-#        RV = func_fc.df_data_to_RV(df_data_train, kwrgs_events=kwrgs_events)
-#        df_data_train = df_data_train.loc[0][df_data_train.loc[0]['TrainIsTrue'].values]
-#        df_data_train = df_data_train.drop(['TrainIsTrue', 'RV_mask'], axis=1)
-#        # create CV inside training set
-#        df_splits = functions_pp.rand_traintest_years(RV, method=method,
-#                                                      seed=seed, 
-#                                                      kwrgs_events=kwrgs_events_, 
-#                                                      verb=0)
-#        # add Train test info
-#        splits = df_splits.index.levels[0]
-#        df_data_s   = np.zeros( (splits.size) , dtype=object)
-#        for s in splits:
-#            df_data_s[s] = pd.merge(df_data_train, df_splits.loc[s], left_index=True, right_index=True)
-#            
-#        df_data  = pd.concat(list(df_data_s), keys= range(splits.size))
-#
-#    
-#        tfreq = (df_data.loc[0].index[1] - df_data.loc[0].index[0]).days
-#
-#        
-#        lags_i = np.array([d_t_l[freq]])
-#            
-#        print(f'tfreq: {tfreq}, lag: {lags_i[0]}')
-#        if tfreq == 1: 
-#            lags_t.append(lags_i[0] * tfreq)
-#        else:
-#            lags_t.append((lags_i[0]-1) * tfreq + tfreq/2)
-#
-#        
-#        fc.fit_models(stat_model_l=stat_model_l, lead_max=45, 
-#                   keys_d=None, kwrgs_pp={})
-#        
-##        dict_sum = func_fc.forecast_wrapper(df_data, kwrgs_exp=kwrgs_exp, kwrgs_events=kwrgs_events, 
-##                                stat_model_l=stat_model_l, 
-##                                lags_i=lags_i, n_boot=n_boot)
-#     
-#        fc.perform_validation(n_boot=100, blocksize='auto', 
-#                                      threshold_pred='upper_clim')
-#
-#        dict_experiments[freq] = fc.dict_sum

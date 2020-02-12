@@ -34,28 +34,45 @@ logit = ('logit', None)
 #               'random_state':60,
 #               'min_impurity_decrease':1E-7} )
 
-
-
-def logit(y_ts, df_norm, keys):
+def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
+              
     #%%
     '''
     X contains all precursor data, incl train and test
     X_train, y_train are split up by TrainIsTrue
     Preciction is made for whole timeseries    
     '''
-    import warnings
-    warnings.simplefilter(action='ignore', category=FutureWarning)
-    
+
     if keys is None:
-        no_data_col = ['TrainIsTrue', 'RV_mask', 'fit_model_mask']
-        keys = df_norm.columns
-        keys = [k for k in keys if k not in no_data_col]
+            no_data_col = ['TrainIsTrue', 'RV_mask', 'fit_model_mask']
+            keys = df_norm.columns
+            keys = [k for k in keys if k not in no_data_col]
+    import warnings 
+    warnings.filterwarnings("ignore", category=DeprecationWarning) 
+#    warnings.filterwarnings("ignore", category=FutureWarning) 
         
+    if kwrgs_logit == None:
+        # use Bram settings
+        kwrgs_logit = { 'class_weight':{ 0:1, 1:1},
+                'scoring':'brier_score_loss',
+                'penalty':'l2',
+                'solver':'lbfgs'}
+                             
+    
+    # find parameters for gridsearch optimization
+    kwrgs_gridsearch = {k:i for k, i in kwrgs_logit.items() if type(i) == list}
+    # only the constant parameters are kept
+    kwrgs = kwrgs_logit.copy()
+    [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
+    if 'feat_sel' in kwrgs:
+        feat_sel = kwrgs.pop('feat_sel')
+    else:
+        feat_sel = None
     # Get training years
     x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = get_masks(df_norm)
     
     X = df_norm[keys]
-    X = add_constant(X)
+#    X = add_constant(X)
     X_train = X[x_fit_mask.values]
     X_pred  = X[x_pred_mask.values]
     
@@ -64,40 +81,33 @@ def logit(y_ts, df_norm, keys):
     y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
     y_train = RV_bin_fit[y_fit_mask].squeeze()     
  
-
     # if y_pred_mask is not None:
     #     y_dates = RV_bin_fit[y_pred_mask.values].index
     # else:
     y_dates = RV_bin_fit.index
-
-    # Statsmodel wants the dataframes and that the indices are aligned. 
-    # Therefore making new dataframe for X_train
-    try:
-        model_set = sm.Logit(y_train, 
-                         pd.DataFrame(X_train.values, index=y_train.index), disp=0)
-    except:
-        print(x_fit_mask)
-        print(X_train)
-        print(y_train)
-        
-    try:
-        model = model_set.fit( disp=0, maxfun=60 )
-        prediction = model.predict(X_pred)
-    except np.linalg.LinAlgError as err:
-        if 'Singular matrix' in str(err):
-            model = model_set.fit(method='bfgs', disp=0 )
-            prediction = model.predict(X_pred)
-        else:
-            raise
-    except Exception as e:
-        print(e)
-        model = model_set.fit(method='bfgs', disp=0 )
-        prediction = model.predict_proba(X_pred)
     
-    prediction = pd.DataFrame(prediction.values, index=y_dates, columns=[0]) 
-    model.X_pred = X_pred                  
+    # sample weight not yet supported by GridSearchCV (august, 2019)
+    strat_cv = StratifiedKFold(5, shuffle=False)
+    model = LogisticRegressionCV(Cs=10, fit_intercept=True, 
+                                 cv=strat_cv,
+                                 n_jobs=1, 
+                                 **kwrgs)
+    if feat_sel is not None:
+        if feat_sel['model'] is None:
+            feat_sel['model'] = model
+        model, new_features, rfecv = feature_selection(X_train, y_train.values, **feat_sel)
+        X_pred = X_pred[new_features]
+    else:
+        model.fit(X_train, y_train)
+        
+    
+    y_pred = model.predict_proba(X_pred)[:,1]
+
+    prediction = pd.DataFrame(y_pred, index=y_dates, columns=[0])
+    model.X_pred = X_pred
     #%%
     return prediction, model
+
 
 #def GBR_logitCV(y_ts, df_norm, keys, kwrgs_GBR=None, 
 #                feature_sel={'model':None},verbosity=0):
@@ -311,45 +321,26 @@ def GBC(y_ts, df_norm, keys, kwrgs_GBM=None, verbosity=0):
     return prediction, model
 
 
-def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
-              
+def logit(y_ts, df_norm, keys):
     #%%
     '''
     X contains all precursor data, incl train and test
     X_train, y_train are split up by TrainIsTrue
     Preciction is made for whole timeseries    
     '''
-
-    if keys is None:
-            no_data_col = ['TrainIsTrue', 'RV_mask', 'fit_model_mask']
-            keys = df_norm.columns
-            keys = [k for k in keys if k not in no_data_col]
-    import warnings 
-    warnings.filterwarnings("ignore", category=DeprecationWarning) 
-#    warnings.filterwarnings("ignore", category=FutureWarning) 
-        
-    if kwrgs_logit == None:
-        # use Bram settings
-        kwrgs_logit = { 'class_weight':{ 0:1, 1:1},
-                'scoring':'brier_score_loss',
-                'penalty':'l2',
-                'solver':'lbfgs'}
-                             
+    import warnings
+    warnings.simplefilter(action='ignore', category=FutureWarning)
     
-    # find parameters for gridsearch optimization
-    kwrgs_gridsearch = {k:i for k, i in kwrgs_logit.items() if type(i) == list}
-    # only the constant parameters are kept
-    kwrgs = kwrgs_logit.copy()
-    [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
-    if 'feat_sel' in kwrgs:
-        feat_sel = kwrgs.pop('feat_sel')
-    else:
-        feat_sel = None
+    if keys is None:
+        no_data_col = ['TrainIsTrue', 'RV_mask', 'fit_model_mask']
+        keys = df_norm.columns
+        keys = [k for k in keys if k not in no_data_col]
+        
     # Get training years
     x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = get_masks(df_norm)
     
     X = df_norm[keys]
-#    X = add_constant(X)
+    X = add_constant(X)
     X_train = X[x_fit_mask.values]
     X_pred  = X[x_pred_mask.values]
     
@@ -358,30 +349,38 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
     y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
     y_train = RV_bin_fit[y_fit_mask].squeeze()     
  
+
     # if y_pred_mask is not None:
     #     y_dates = RV_bin_fit[y_pred_mask.values].index
     # else:
     y_dates = RV_bin_fit.index
-    
-    # sample weight not yet supported by GridSearchCV (august, 2019)
-    strat_cv = StratifiedKFold(5, shuffle=False)
-    model = LogisticRegressionCV(Cs=10, fit_intercept=True, 
-                                 cv=strat_cv,
-                                 n_jobs=1, 
-                                 **kwrgs)
-    if feat_sel is not None:
-        if feat_sel['model'] is None:
-            feat_sel['model'] = model
-        model, new_features, rfecv = feature_selection(X_train, y_train.values, **feat_sel)
-        X_pred = X_pred[new_features]
-    else:
-        model.fit(X_train, y_train)
-        
-    
-    y_pred = model.predict_proba(X_pred)[:,1]
 
-    prediction = pd.DataFrame(y_pred, index=y_dates, columns=[0])
-    model.X_pred = X_pred
+    # Statsmodel wants the dataframes and that the indices are aligned. 
+    # Therefore making new dataframe for X_train
+    try:
+        model_set = sm.Logit(y_train, 
+                         pd.DataFrame(X_train.values, index=y_train.index), disp=0)
+    except:
+        print(x_fit_mask)
+        print(X_train)
+        print(y_train)
+        
+    try:
+        model = model_set.fit( disp=0, maxfun=60 )
+        prediction = model.predict(X_pred)
+    except np.linalg.LinAlgError as err:
+        if 'Singular matrix' in str(err):
+            model = model_set.fit(method='bfgs', disp=0 )
+            prediction = model.predict(X_pred)
+        else:
+            raise
+    except Exception as e:
+        print(e)
+        model = model_set.fit(method='bfgs', disp=0 )
+        prediction = model.predict_proba(X_pred)
+    
+    prediction = pd.DataFrame(prediction.values, index=y_dates, columns=[0]) 
+    model.X_pred = X_pred                  
     #%%
     return prediction, model
 
