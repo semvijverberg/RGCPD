@@ -168,7 +168,7 @@ stat_model_l = [logitCV]
 folds = -9
 seed=30
 
-list_of_fc = [] ; lags_t = []
+list_of_fc = [] ; 
 dict_experiments = {}
 
 #for i, fold in enumerate(folds):
@@ -185,7 +185,7 @@ for perc in percentiles:
             for keys_d in keys_d_list:
                 fc = func_fc.fcev(path_data=path_data, precur_aggr=freq, use_fold=folds)
 
-                print(f'{fc.fold} {fc.test_years[0]}')
+                print(f'{fc.fold} {fc.test_years[0]} {perc}')
                 fc.get_TV(kwrgs_events=kwrgs_events)
                 
                 fc.fit_models(stat_model_l=stat_model_l, lead_max=lags_i, 
@@ -195,7 +195,7 @@ for perc in percentiles:
                                               threshold_pred='upper_clim')
                 dict_freqs[freq] = fc.dict_sum
 #                if i==0:
-                lags_t.append(fc.lags_t[0])
+                # lags_t.append(fc.lags_t[0])
                 list_of_fc.append(fc)
     dict_perc[perc] = dict_freqs
 
@@ -309,7 +309,7 @@ x_label2 = 'Lag in days'
 
 path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_perc, 
                                                   model=stat_model_l[0][0], 
-                                                  metric=metric, lags_t=lags_t)
+                                                  metric=metric, lags_t=LAG_DAY)
 fig = dfplots.plot_score_matrix(path_data, col=0, 
                                 x_label=x_label, x_label2=x_label2, ax=None)
                       
