@@ -616,7 +616,7 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
         x_keys      : updated set of keys to fit model
     '''
     #%%
-    # lag_i=1
+    # lag_i=fc.lags_i[0]
     # normalize='datesRV'
     # remove_RV=True
     # keys=None
@@ -773,7 +773,8 @@ def _check_y_fitmask(fit_masks, lag_i, base_lag):
     y_fit = fit_masks['y_fit'] ; x_fit = fit_masks['x_fit']
     y_dates_RV = x_fit[x_fit].index + pd.Timedelta(lag_i+base_lag, 'd')
     y_dates_pr = y_fit[y_fit].index 
-    mismatch = (y_dates_pr[2]- y_dates_RV[2] ).days
+    mismatch = (functions_pp.get_oneyr(y_dates_pr)[0]- \
+                functions_pp.get_oneyr(y_dates_RV)[0] ).days
     y_fit_corr = y_dates_RV + pd.Timedelta(mismatch, 'd')
     y_fit_mask = [True if d in y_fit_corr else False for d in x_fit.index]
     fit_masks_n.loc[:,'y_fit'] = np.array(y_fit_mask)
@@ -781,7 +782,8 @@ def _check_y_fitmask(fit_masks, lag_i, base_lag):
     y_pred = fit_masks['y_pred'] ; x_pred = fit_masks['x_pred']
     y_dates_RV = x_pred[x_pred].index + pd.Timedelta(lag_i+base_lag, 'd')
     y_dates_pr = y_pred[y_pred].index 
-    mismatch = (y_dates_pr[2]- y_dates_RV[2] ).days
+    mismatch = (functions_pp.get_oneyr(y_dates_pr)[0]- \
+                functions_pp.get_oneyr(y_dates_RV)[0] ).days
     y_pred_corr = y_dates_RV + pd.Timedelta(mismatch, 'd')
     y_pred_mask = [True if d in y_pred_corr else False for d in x_pred.index]
     fit_masks_n.loc[:,'y_pred'] = np.array(y_pred_mask)
