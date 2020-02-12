@@ -13,10 +13,13 @@ Created on Thu Aug 22 10:58:26 2019
 
 @author: semvijverberg
 """
-
+import inspect, os, sys
+if sys.platform == 'linux':
+    import matplotlib as mpl
+    mpl.use('Agg')
+    
 import time
 start_time = time.time()
-import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
 python_dir = os.path.join(main_dir, 'RGCPD')
@@ -25,15 +28,15 @@ if main_dir not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(python_dir)
     sys.path.append(df_ana_dir)
-import os, datetime
+user_dir = os.path.expanduser('~')
+
+
+    
 import numpy as np
 import func_fc
 import valid_plots as dfplots
 
-user_dir = os.path.expanduser('~')
-if sys.platform == 'linux':
-    import matplotlib as mpl
-    mpl.use('Agg')
+
 # =============================================================================
 # load data 
 # =============================================================================
