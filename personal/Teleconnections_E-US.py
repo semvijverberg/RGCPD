@@ -5,6 +5,7 @@
 # get_ipython().run_line_magic('autoreload', '2')
 
 import os, inspect, sys
+user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
@@ -32,7 +33,7 @@ from RGCPD import RGCPD
 from RGCPD import EOF
 
 old_CPPA = [('sst_CPPA', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5')]
-new_CPPA = [('sst_CPPA', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_0_Xzkup1.h5' )]
+new_CPPA = [('sst_CPPA', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5' )]
 
 #list_of_name_path = [('t2mmmax',
 #                      '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'),
@@ -44,9 +45,9 @@ new_CPPA = [('sst_CPPA', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_s
 
 list_of_name_path = [('t2mmmax',
                       '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'),
-                        ('sm1', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm1_1979-2018_1_12_daily_1.0deg.nc'),
-                        # ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                        
-                        # ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),     
+                        # ('sm1', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm1_1979-2018_1_12_daily_1.0deg.nc'),
+                        ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                        
+                        ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),     
                         # ('st2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/st_2_1979-2018_1_12_daily_1.0deg.nc'),
                         ('OLR', '/Users/semvijverberg/surfdrive/ERA5/input_raw/OLRtrop_1979-2018_1_12_daily_2.5deg.nc')]
 
@@ -57,7 +58,7 @@ list_of_name_path = [('t2mmmax',
 
 import_prec_ts = new_CPPA
 
-list_for_EOFS = [EOF(name='OLR', neofs=2)]
+list_for_EOFS = [EOF(name='OLR', neofs=1, selbox=[-180, 360, -15, 30])]
 #import_prec_ts = None
                             
 
@@ -79,7 +80,8 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            import_prec_ts=import_prec_ts,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           tfreq=10, lags_i=np.array([1]))
+           tfreq=10, lags_i=np.array([1]),
+           path_outmain=user_dir+'/surfdrive/output_RGCPD')
 
 
 # In[6]:
@@ -135,7 +137,7 @@ rg.quick_view_labels()
 # In[169]:
 
 
-rg.get_ts_prec()
+rg.get_ts_prec(precur_aggr=1)
 
 
 # In[170]:
@@ -147,7 +149,7 @@ rg.store_df()
 
 # In[171]:
 
-
+rg.get_ts_prec(precur_aggr=None)
 rg.PCMCI_df_data(pc_alpha=None, alpha_level=0.1, max_combinations=1)
 rg.df_sum
 
@@ -167,7 +169,7 @@ rg.plot_maps_sum()
 
 # In[ ]:
 
-rg.store_df_output(add_spatcov=False)
+rg.store_df_PCMCI(add_spatcov=False)
 
 
 

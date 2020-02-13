@@ -151,7 +151,7 @@ def update_dates(cls, ex):
     cls.temporal_freq = '{}days'.format(temporal_freq.days)
     return cls, ex
 
-def load_TV(list_of_name_path):
+def load_TV(list_of_name_path, loadleap=False):
     '''
     function will load first item of list_of_name_path
     list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
@@ -174,11 +174,16 @@ def load_TV(list_of_name_path):
         ds = core_pp.import_ds_lazy(filename)
         fulltso = ds['ts'].sel(cluster=name)
     hashh = filename.split('_')[-1].split('.')[0]
+    fulltso.name = str(list_of_name_path[0][0])
+    if loadleap == False:
+        dates = core_pp.remove_leapdays(pd.to_datetime(fulltso.time.values))
+        fulltso = fulltso.sel(time=dates)
     return fulltso, hashh
 
 def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=True, verbosity=1):
     #%%
+    name = fullts.name
     dates = pd.to_datetime(fullts.time.values)
     startyear = dates.year[0]
     endyear = dates.year[-1]
@@ -210,11 +215,11 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                                                 start_end_year)
         
 
-    if same_freq == True:
-        fullts = timeseries_tofit_bins(fullts, to_freq, start_end_date,
+    if same_freq == True and start_end_date is not None:
+        to_freq = tfreq
+        fullts, dates = timeseries_tofit_bins(fullts, to_freq, start_end_date,
                                        start_end_year)
-        print('The amount of timesteps in the RV ts and the precursors'
-                          ' do not match, selecting desired dates. ')
+        print('Selecting subset as defined by start_end_date')
 
     if RV_detrend == True:
         print('Detrending Respone Variable.')
@@ -230,7 +235,8 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
     string_RV = list(dates_RV.strftime('%Y-%m-%d'))
     string_full = list(pd.to_datetime(fullts.time.values).strftime('%Y-%m-%d'))
     RV_period = [string_full.index(date) for date in string_full if date in string_RV]
-
+    
+    fullts.name = name
     TV_ts = fullts[RV_period] # extract specific months of MT index
     
     return fullts, TV_ts, input_freq

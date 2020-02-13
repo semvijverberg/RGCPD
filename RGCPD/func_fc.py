@@ -405,14 +405,14 @@ class fcev():
         df_plots.plot_freq_per_yr(self.TV)
 
     def plot_GBR_feature_importances(self, lag=None, keys=None, cutoff=6):
-        GBR_models_split_lags = self.dict_models['GBR-logitCV']
+        GBR_models_split_lags = self.dict_models['GBC']
         if lag is None:
             lag = self.lags_i
         self.df_importance = stat_models.plot_importances(GBR_models_split_lags, lag=lag,
                                                          keys=keys, cutoff=cutoff)
 
     def plot_oneway_partial_dependence(self, keys=None, lags=None):
-        GBR_models_split_lags = self.dict_models['GBR-logitCV']
+        GBR_models_split_lags = self.dict_models['GBC']
         stat_models.plot(GBR_models_split_lags, keys=keys, lags=lags)
 
     

@@ -503,7 +503,7 @@ def _get_importances(GBR_models_split_lags, lag=1):
     feature_importances = {}
     
     for splitkey, regressor in GBR_models_split.items():
-        all_keys = list(regressor.X.columns[(regressor.X.dtypes != bool)])
+        all_keys = list(regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)])
         importances = regressor.feature_importances_
         for name, importance in zip(all_keys, importances):
             if name not in feature_importances:
@@ -523,7 +523,7 @@ def _get_importances(GBR_models_split_lags, lag=1):
     importances = np.array(importances) / np.sum(importances)
     order = np.argsort(importances)
     names_order = [names[index] for index in order] ; names_order.reverse()
-    freq = (regressor.X.index[1] - regressor.X.index[0]).days
+    freq = (regressor.X_pred.index[1] - regressor.X_pred.index[0]).days
     lags_tf = [l*freq for l in [lag]]
     if freq != 1:
         # the last day of the time mean bin is tfreq/2 later then the centerered day
@@ -551,7 +551,7 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
         for l, lag in enumerate(lags):
             # get models at lag
             GBR_models_split = GBR_models_split_lags[f'lag_{lag}']
-        [keys.update(list(r.X.columns)) for k, r in GBR_models_split.items()]
+        [keys.update(list(r.X_pred.columns)) for k, r in GBR_models_split.items()]
         masks = ['TrainIsTrue', 'x_fit', 'x_pred', 'y_fit', 'y_pred']
         keys = [k for k in keys if k not in masks]
     keys = keys
@@ -565,10 +565,10 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
         for i, key in enumerate(keys):
             y = [] ; x = []
             for splitkey, regressor in GBR_models_split.items():
-                if key in list(regressor.X.columns):
-                    index = list(regressor.X.columns).index(key)
-                    all_keys = regressor.X.columns[(regressor.X.dtypes != bool)]
-                    X_test = regressor.X.loc[:,all_keys][regressor.X['x_pred']]
+                if key in list(regressor.X_pred.columns):
+                    index = list(regressor.X_pred.columns).index(key)
+                    all_keys = regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)]
+                    X_test = regressor.X_pred.loc[:,all_keys][regressor.X_pred['x_pred']]
                     _y, _x = partial_dependence(regressor, X=X_test, features=[index],
                                                 grid_resolution=grid_resolution)
                     y.append(_y[0])
@@ -645,12 +645,12 @@ def find_nearest(array, value):
 def _get_twoway_pairdepend(GBR_models_split, i, pair, grid_resolution): 
     y = [] ; x = []
     for split, regressor in GBR_models_split.items():
-        check_pair = [True for p in pair if p in list(regressor.X.columns)]
+        check_pair = [True for p in pair if p in list(regressor.X_pred.columns)]
         if all(check_pair):
             # retrieve index of two variables
-            index = [list(regressor.X.columns).index(p) for p in pair]
-            all_keys = regressor.X.columns[(regressor.X.dtypes != bool)]
-            X_test = regressor.X.loc[:,all_keys][regressor.X['x_pred']]
+            index = [list(regressor.X_pred.columns).index(p) for p in pair]
+            all_keys = regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)]
+            X_test = regressor.X_pred.loc[:,all_keys][regressor.X_pred['x_pred']]
             _y, _x = partial_dependence(regressor, X=X_test, features=[index],
                                         grid_resolution=grid_resolution)
             y.append(_y.squeeze())
@@ -686,8 +686,8 @@ def plot_twoway_partial_dependence(GBR_models_split_lags, lag_i=0, keys=None,
         # plot two way depend. if timeseries are correlated
         # first calculating cross corr matrix per split
         for splitkey, regressor in GBR_models_split.items():
-            all_keys = regressor.X.columns[(regressor.X.dtypes != bool)]
-            X_test = regressor.X.loc[:,all_keys][regressor.X['x_pred']]
+            all_keys = regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)]
+            X_test = regressor.X_pred.loc[:,all_keys][regressor.X_pred['x_pred']]
             cross_corr, sig_mask = df_ana.corr_matrix_pval(X_test)[:2]
             np.fill_diagonal(sig_mask, False)
             mask = np.logical_and(sig_mask, cross_corr.values > min_corrcoeff)

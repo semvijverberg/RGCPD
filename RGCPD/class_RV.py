@@ -27,6 +27,7 @@ class RV_class:
         #%%
 #        self.RV_ts = pd.DataFrame(df_data[df_data.columns[0]][0][df_data['RV_mask'][0]] )
 #        self.fullts = pd.DataFrame(df_data[df_data.columns[0]][0])
+        self.name = fullts.columns[0]
         self.RV_ts = RV_ts
         self.fullts = fullts
         self.dates_all = fullts.index
