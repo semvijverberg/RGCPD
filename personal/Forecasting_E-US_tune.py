@@ -34,14 +34,11 @@ from func_fc import fcev
 old_CPPA = user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5'
 old = user_dir + '/surfdrive/output_RGCPD/20jun-19aug_lag10-10/ran_strat10_s1/None_at0.001_tau_0-1_conds_dim4_combin1.h5'
 era5_10d_CPPA_sm = user_dir + '/surfdrive/output_RGCPD/Xzkup1_20jun-19aug_lag20-20/random10_s1/df_data_sst_CPPA_sm123_dt10_Xzkup1.h5'
-CPPA_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPA_sm2_sm3_OLR_dt1_Xzkup1.h5'
 era5_1d_CPPA_lag0 =  user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_0_Xzkup1.h5'
 era5_1d_CPPA_l10 = user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
-era5_16d_CPPA_sm = user_dir + '/surfdrive/output_RGCPD/Xzkup1_19jun-22aug_lag16-16/ran_strat10_s1/df_data_sst_CPPA_sm123_dt16_Xzkup1.h5'
-era5_16d_RGCPD_sm = user_dir + '/surfdrive/output_RGCPD/Xzkup1_19jun-22aug_lag16-16/ran_strat10_s1/df_data__sm123_sst_dt16_Xzkup1.h5'
-era5_12d_RGCPD_sm = user_dir + '/surfdrive/output_RGCPD/Xzkup1_24may-28aug_lag12-12/ran_strat20_s1/df_data__sm123_sst_dt12_Xzkup1.h5'
-era5_10d_RGCPD_sm = user_dir + '/surfdrive/output_RGCPD/Xzkup1_10jun-29aug_lag20-20/random10_s1/df_data__sm1_sm2_sm3_OLR_sst_dt10_Xzkup1.h5'
-era5_10d_RGCPD_sm_uv = user_dir + '/surfdrive/output_RGCPD/Xzkup1_10jun-29aug_lag20-20/random10_s1/df_data__sm123_u500_v200_sst_dt10_Xzkup1.h5'
+
+CPPA_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPA_sm2_sm3_OLR_dt1_Xzkup1.h5'
+CPPAs5_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPAs5_sm2_sm3_OLR_dt1_Xzkup1.h5'
 # In[4]:
 
 
@@ -51,16 +48,13 @@ ERA_10d = {'ERA-5':(era5_10d_CPPA_sm, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(C
 #ERA_10d_sm = {'ERA-5':(era5_10d_CPPA_sm_n, ['sst(PDO,ENSO)', 'sst(CPPA)', 'sst(CPPA)+sm'] )}
 
 ERA_1d_CPPA = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PDO,ENSO)', 'sst(CPPA)', 'sst(CPPA)+sm'])}
-ERA_10d_RGCPD = {'ERA-5':(era5_10d_RGCPD_sm, ['all'])}
-ERA_10d_RGCPD_all = {'ERA-5':(era5_10d_RGCPD_sm_uv, ['all'])}
-ERA_16d_RGCPD = {'ERA-5':(era5_16d_RGCPD_sm, [None, 'sst(CPPA)'])}
-ERA_12d_RGCPD = {'ERA-5':(era5_12d_RGCPD_sm, ['sst(CPPA)+sm', 'sst(CPPA)'])}
+
 ERA_vs_PEP = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
 
 exp_keys = ['sst(PEP)', 'sst(PDO,ENSO)', 'sst(CPPA)']
 exp_keys = ['all']
 
-ERA_1d_sm_2_3_OLR = {'ERA-5':(CPPA_1d_sm_2_3_OLR_l10, exp_keys)}
+ERA_1d_sm_2_3_OLR = {'ERA-5':(CPPAs5_1d_sm_2_3_OLR_l10, exp_keys)}
 
 datasets_path  = ERA_1d_sm_2_3_OLR
 

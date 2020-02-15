@@ -33,7 +33,8 @@ from RGCPD import RGCPD
 from RGCPD import EOF
 
 old_CPPA = [('sst_CPPA', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5')]
-new_CPPA = [('sst_CPPA', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5' )]
+new_CPPA = [('sst_CPPAs30', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5' )]
+CPPA_s5  = [('sst_CPPAs5', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s5/data/ERA5_15-02-20_15hr_lag_10_Xzkup1.h5')]
 
 #list_of_name_path = [('t2mmmax',
 #                      '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'),
@@ -56,10 +57,10 @@ list_of_name_path = [('t2mmmax',
 #                        ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc'),
 #                        ('sm123', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm_123_1979-2018_1_12_daily_1.0deg.nc')]
 
-import_prec_ts = new_CPPA
+import_prec_ts = CPPA_s5
 
 list_for_EOFS = [EOF(name='OLR', neofs=1, selbox=[-180, 360, -15, 30])]
-#import_prec_ts = None
+
                             
 
 #list_of_name_path = [('t2mmmax',
@@ -125,7 +126,7 @@ rg.calc_corr_maps(alpha=1E-2)
 # In[167]:
 
 
-rg.cluster_regions(distance_eps=600, min_area_in_degrees2=5)
+rg.cluster_regions(distance_eps=700, min_area_in_degrees2=5)
 
 
 # In[168]:
