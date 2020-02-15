@@ -52,7 +52,7 @@ ERA_1d_CPPA = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PDO,ENSO)', 'sst(CPPA)', 'sst(C
 ERA_vs_PEP = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
 
 exp_keys = ['sst(PEP)', 'sst(PDO,ENSO)', 'sst(CPPA)']
-exp_keys = ['all']
+exp_keys = ['sst(CPPA)+sm']#, 'persistence']
 
 ERA_1d_sm_2_3_OLR = {'ERA-5':(CPPAs5_1d_sm_2_3_OLR_l10, exp_keys)}
 
@@ -125,7 +125,7 @@ kwrgs_events = {'event_percentile': 70}
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [logitCV]
+stat_model_l = [logitCV, logitCVfs]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
 
 lags_i = np.array([0, 10, 15, 21, 28])
@@ -162,7 +162,7 @@ met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 expers = list(dict_experiments.keys())
 models   = list(dict_experiments[expers[0]].keys())
-line_dim = 'model'
+line_dim = 'exper'
 
 fig = dfplots.valid_figures(dict_experiments, expers=expers, models=models,
                           line_dim=line_dim,

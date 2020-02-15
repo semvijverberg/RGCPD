@@ -100,7 +100,7 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
     keys_options=['all', 'only_db_regs', 'sp_and_regs', 'sst+sm+RWT',
                   'sst(CPPA)+sm', 'sst(PEP)+sm', 'sst(PDO,ENSO)+sm',
                   'sst(CPPA)', 'sst(CPPA) expert knowledge', 'sst(CPPA Pattern)'
-                    'sst(PDO,ENSO)']
+                    'sst(PDO,ENSO)', 'persistence']
     '''
     
     
@@ -198,8 +198,11 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
                 keys_ = [k for k in keys_ if 'PEP' not in k]                
                 expert = ['CPPAsv', '..9..sst', '..2..sst', '..6..sst', '..1..sst', '..7..sst']
                 keys_ = [k for k in keys_ for e in expert if e in k]
+            if option == 'persistence':
+                keys_ = []
             if 'OLR' not in option:
                 [k for k in keys_ if k not in OLR_EOFs]
+            
             keys_d_[s] = np.unique(keys_)
 
         keys_d[option] = keys_d_
