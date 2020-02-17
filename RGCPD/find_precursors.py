@@ -12,6 +12,7 @@ import xarray as xr
 #import datetime
 import scipy
 import pandas as pd
+import core_pp
 from statsmodels.sandbox.stats import multicomp
 import functions_pp
 from class_RV import RV_class
@@ -25,9 +26,11 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
 
     # Define traintest:
     df_fullts = pd.DataFrame(fullts.values, 
-                               index=pd.to_datetime(fullts.time.values))
+                               index=pd.to_datetime(fullts.time.values),
+                               columns=[fullts.name])
     df_RV_ts    = pd.DataFrame(TV_ts.values,
-                               index=pd.to_datetime(TV_ts.time.values))
+                               index=pd.to_datetime(TV_ts.time.values),
+                               columns=['RV'+fullts.name])
 
     if method[:9] == 'ran_strat' and kwrgs_events is None and precursor_ts is not None:
             # events need to be defined to enable stratified traintest.
@@ -41,7 +44,7 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
                          kwrgs_events['event_percentile']))
 
     TV = RV_class(df_fullts, df_RV_ts, kwrgs_events)
-
+    
     
     if precursor_ts is not None:
         print('Retrieve same train test split as imported ts')
@@ -82,8 +85,9 @@ def calculate_corr_maps(TV, df_splits, kwrgs_load, list_precur_pp=list, lags=np.
 
     outdic_precur = dict()
     class act:
-        def __init__(self, name, corr_xr, precur_arr):
+        def __init__(self, name, filepath, corr_xr, precur_arr):
             self.name = name
+            self.filepath = filepath
             self.corr_xr = corr_xr
             self.precur_arr = precur_arr
             self.lat_grid = precur_arr.latitude.values
@@ -117,7 +121,7 @@ def calculate_corr_maps(TV, df_splits, kwrgs_load, list_precur_pp=list, lags=np.
         # =============================================================================
         # Cluster into precursor regions
         # =============================================================================
-        actor = act(name, corr_xr, precur_arr)
+        actor = act(name, filepath, corr_xr, precur_arr)
 
         outdic_precur[actor.name] = actor
 
@@ -140,27 +144,6 @@ def corr_new(field, ts):
         
     return corr_vals, pvals
 
-def func_dates_min_lag(dates, lag):
-    dates_min_lag = pd.to_datetime(dates.values) - pd.Timedelta(int(lag), unit='d')
-    ### exlude leap days from dates_train_min_lag ###
-
-
-    # ensure that everything before the leap day is shifted one day back in time
-    # years with leapdays now have a day less, thus everything before
-    # the leapday should be extended back in time by 1 day.
-    mask_lpyrfeb = np.logical_and(dates_min_lag.month == 2,
-                                         dates_min_lag.is_leap_year
-                                         )
-    mask_lpyrjan = np.logical_and(dates_min_lag.month == 1,
-                                         dates_min_lag.is_leap_year
-                                         )
-    mask_ = np.logical_or(mask_lpyrfeb, mask_lpyrjan)
-    new_dates = np.array(dates_min_lag)
-    new_dates[mask_] = dates_min_lag[mask_] - pd.Timedelta(1, unit='d')
-    dates_min_lag = pd.to_datetime(new_dates)
-    # to be able to select date in pandas dataframe
-    dates_min_lag_str = [d.strftime('%Y-%m-%d %H:%M:%S') for d in dates_min_lag]
-    return dates_min_lag_str, dates_min_lag
 
 def calc_corr_coeffs_new(precur_arr, RV, df_splits, lags=np.array([0]), 
                          alpha=0.05, FDR_control=True):
@@ -211,7 +194,7 @@ def calc_corr_coeffs_new(precur_arr, RV, df_splits, lags=np.array([0]),
         dates_RV = RV_ts.index
         for i, lag in enumerate(lags):
 
-            dates_lag = func_dates_min_lag(dates_RV, lag)[1]
+            dates_lag = functions_pp.func_dates_min_lag(dates_RV, lag)[1]
             prec_lag = precur_arr.sel(time=dates_lag)
             prec_lag = np.reshape(prec_lag.values, (prec_lag.shape[0],-1))
 
@@ -494,7 +477,7 @@ def relabel(prec_labels_s, reassign):
         prec_labels_ord[prec_labels_s == reg] = reassign[reg]
     return prec_labels_ord
 
-def get_prec_ts(outdic_precur):
+def get_prec_ts(outdic_precur, precur_aggr=None, kwrgs_load=None):
     # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
     # stacked on top of each other (from lag_min to lag_max)
 
@@ -506,21 +489,47 @@ def get_prec_ts(outdic_precur):
         if np.isnan(precur.prec_labels.values).all():
             precur.ts_corr = np.array(splits.size*[[]])
         else:
-            precur.ts_corr = spatial_mean_regions(precur)
+            precur.ts_corr = spatial_mean_regions(precur, 
+                                                  precur_aggr=precur_aggr, 
+                                                  kwrgs_load=kwrgs_load)
             outdic_precur[var] = precur
             n_tot_regs += max([precur.ts_corr[s].shape[1] for s in range(splits.size)])
     return outdic_precur
 
-def spatial_mean_regions(precur):
+def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
     #%%
 
-    var             = precur.name
+    name            = precur.name
     corr_xr         = precur.corr_xr
     prec_labels     = precur.prec_labels
     n_spl           = corr_xr.split.size
-    lags = precur.corr_xr.lag.values
-
-    actbox = precur.precur_arr.values
+    lags            = precur.corr_xr.lag.values
+    
+    
+    
+    if precur_aggr is None:
+        # use precursor array with temporal aggregation that was used to create 
+        # correlation map
+        precur_arr = precur.precur_arr
+    else:
+        # =============================================================================
+        # Unpack kwrgs for loading 
+        # =============================================================================
+        filepath = precur.filepath
+        kwrgs = {}
+        for key, value in kwrgs_load.items():
+            if type(value) is list and name in value[1].keys():
+                kwrgs[key] = value[1][name]
+            elif type(value) is list and name not in value[1].keys():
+                kwrgs[key] = value[0] # plugging in default value
+            else:
+                kwrgs[key] = value
+        kwrgs['tfreq'] = precur_aggr
+        precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
+        
+    dates = pd.to_datetime(precur_arr.time.values)
+    actbox = precur_arr.values
+    
     ts_corr = np.zeros( (n_spl), dtype=object)
 
     for s in range(n_spl):
@@ -571,7 +580,7 @@ def spatial_mean_regions(precur):
                               f' for region {r} at lag {lag}')
                     
     
-                track_names.append(f'{lag}..{int(r)}..{var}')
+                track_names.append(f'{lag}..{int(r)}..{name}')
 
                 ts_regions_lag_i[:,idx] = ts
                 # get sign of region
@@ -580,7 +589,7 @@ def spatial_mean_regions(precur):
             ts_list[l_idx] = ts_regions_lag_i
 
         tsCorr = np.concatenate(tuple(ts_list), axis = 1)
-        df_tscorr = pd.DataFrame(tsCorr, index=pd.to_datetime(precur.precur_arr.time.values),
+        df_tscorr = pd.DataFrame(tsCorr, index=dates,
                                  columns=track_names)
         df_tscorr.name = str(s)
         ts_corr[s] = df_tscorr
@@ -712,7 +721,7 @@ def import_precur_ts(import_prec_ts, df_splits, to_freq, start_end_date,
         if counter == 0:
             df_data_ext = pd.concat(list(df_data_ext_s), keys=range(splits.size))
         else:
-            df_data_ext.merge(df_data_ext, left_index=True, right_index=True)
+            df_data_ext = df_data_ext.merge(df_data_ext, left_index=True, right_index=True)
         counter += 1
     #%%
     return df_data_ext
@@ -767,25 +776,10 @@ def get_spatcovs(dict_ds, df_split, s, outdic_actors, normalize=True):
 
 def calc_spatcov(full_timeserie, pattern):
 #%%
-#    full_timeserie = var_train_reg
-#    pattern = ds_Sem['pattern_CPPA'].sel(lag=lag)
-
-
-#    # trying to matching dimensions
-#    if pattern.shape != full_timeserie[0].shape:
-#        try:
-#            full_timeserie = full_timeserie.sel(latitude=pattern.latitude)
-#        except:
-#            pattern = pattern.sel(latitude=full_timeserie.latitude)
-
-
     mask = np.ma.make_mask(np.isnan(pattern.values)==False)
-
     n_time = full_timeserie.time.size
     n_space = pattern.size
 
-
-#    mask_pattern = np.tile(mask_pattern, (n_time,1))
     # select only gridcells where there is not a nan
     full_ts = np.nan_to_num(np.reshape( full_timeserie.values, (n_time, n_space) ))
     pattern = np.nan_to_num(np.reshape( pattern.values, (n_space) ))
@@ -794,26 +788,15 @@ def calc_spatcov(full_timeserie, pattern):
     full_ts = full_ts[:,mask_pattern]
     pattern = pattern[mask_pattern]
 
-#    crosscorr = np.zeros( (n_time) )
     spatcov   = np.zeros( (n_time) )
-#    covself   = np.zeros( (n_time) )
-#    corrself  = np.zeros( (n_time) )
     for t in range(n_time):
         # Corr(X,Y) = cov(X,Y) / ( std(X)*std(Y) )
         # cov(X,Y) = E( (x_i - mu_x) * (y_i - mu_y) )
-#        crosscorr[t] = np.correlate(full_ts[t], pattern)
+        # covself[t] = np.mean( (full_ts[t] - np.mean(full_ts[t])) * (pattern - np.mean(pattern)) )
         M = np.stack( (full_ts[t], pattern) )
         spatcov[t] = np.cov(M)[0,1] #/ (np.sqrt(np.cov(M)[0,0]) * np.sqrt(np.cov(M)[1,1]))
-#        sqrt( Var(X) ) = sigma_x = std(X)
-#        spatcov[t] = np.cov(M)[0,1] / (np.std(full_ts[t]) * np.std(pattern))
-#        covself[t] = np.mean( (full_ts[t] - np.mean(full_ts[t])) * (pattern - np.mean(pattern)) )
-#        corrself[t] = covself[t] / (np.std(full_ts[t]) * np.std(pattern))
+
     dates_test = full_timeserie.time
-#    corrself = xr.DataArray(corrself, coords=[dates_test.values], dims=['time'])
-
-#    # standardize
-#    corrself -= corrself.mean(dim='time', skipna=True)
-
     # cov xarray
     spatcov = xr.DataArray(spatcov, coords=[dates_test.values], dims=['time'])
 #%%

@@ -16,6 +16,8 @@ import xarray as xr
 #import cartopy.crs as ccrs
 import pandas as pd
 import functions_pp
+import matplotlib.pyplot as plt
+import plot_maps
 from concurrent.futures import ProcessPoolExecutor
 #import func_CPPA # temp
 import core_pp
@@ -68,6 +70,7 @@ def ENSO_34(filepath, df_splits=None):
     return df_ENSO
 
     #%%
+
 
 def PDO_single_split(s, ds_monthly, ds, df_splits):
 
@@ -155,12 +158,9 @@ def PDO(filepath, df_splits):
                 'went wrong with train test splits')
     #%%
     return df_PDO, PDO_patterns
-
-def filter_xarray(ds, highpass, lowpass):
-    filepath = '/Users/semvijverberg/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2018_1jan_31dec_daily_2.5deg.nc'
-    ds = core_pp.import_ds_lazy(filepath, selbox=[-180, 180, -10, 10])
+   
     
-
+    
 
 def get_PDO(sst_Pacific):
     #%%

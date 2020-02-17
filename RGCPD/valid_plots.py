@@ -91,9 +91,12 @@ def get_scores_improvement(m_splits, fc, s, lag, metric=None):
     return train_scores, test_scores
 
 
-def plot_deviance(fc, lag=None, split='all', metric=metrics.brier_score_loss):
+def plot_deviance(fc, lag=None, split='all', model=None, 
+                  metric=metrics.brier_score_loss):
     #%%
-    model = [n[0] for n in fc.stat_model_l if n[0][:2]=='GB'][0]
+    if model is None:
+        model = [n[0] for n in fc.stat_model_l if n[0][:2]=='GB'][0]
+        
     if lag is None:
         lag = int(list(fc.dict_models[model].keys())[0].split('_')[1])
     
@@ -258,57 +261,53 @@ def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=5,
 
 def get_score_matrix(d_expers=dict, model=str, metric=str, lags_t=None):
     #%%
-    folds = np.array(list(d_expers.keys()))
-    percen = np.array(list(d_expers[folds[0]].keys()))
-    tfreqs = np.array(list(d_expers[folds[0]][percen[0]].keys()))
-    npscore = np.zeros( shape=(folds.size, percen.size, tfreqs.size) )
-    np_sig = np.zeros( shape=(folds.size, percen.size, tfreqs.size) )
-    for i, fkey in enumerate(folds):
-        for j, pkey in enumerate(percen):
-            dict_freq = d_expers[fkey][pkey]
-            for k, tkey in enumerate(tfreqs):
-                df_valid = dict_freq[tkey][model][0]
-                df_metric = df_valid.loc[metric]
-                npscore[i,j,k] = float(df_metric.loc[metric].values)
-                con_low = df_metric.loc['con_low'].values
-                if type(con_low) is np.ndarray:
-                    con_low = np.quantile(con_low[0], 0.025) # alpha is 0.05
-                else:
-                    con_low = float(df_metric.loc['con_low'].values)
-                np_sig[i,j,k] = con_low
+    percen = np.array(list(d_expers.keys()))
+    tfreqs = np.array(list(d_expers[percen[0]].keys()))
+    npscore = np.zeros( shape=(percen.size, tfreqs.size) )
+    np_sig = np.zeros( shape=(percen.size, tfreqs.size), dtype=object )
 
-    data = np.mean(npscore,0)
+    for j, pkey in enumerate(percen):
+        dict_freq = d_expers[pkey]
+        for k, tkey in enumerate(tfreqs):
+            df_valid = dict_freq[tkey][model][0]
+            df_metric = df_valid.loc[metric]
+            npscore[j,k] = float(df_metric.loc[metric].values)
+            con_low = df_metric.loc['con_low'].values
+            con_high = float(df_metric.loc['con_high'].values)
+            if type(con_low) is np.ndarray:
+                con_low = np.quantile(con_low[0], 0.025) # alpha is 0.05
+            else:
+                con_low = float(df_metric.loc['con_low'].values)
+            np_sig[j,k] = '{:.2f} - {:.2f}'.format(con_low, con_high)
+
+    data = npscore
     df_data = pd.DataFrame(data, index=percen, columns=tfreqs)
-    df_sign = []
-    for i, fkey in enumerate(folds):
-        df_sign.append(pd.DataFrame(np_sig[i], index=percen, columns=tfreqs))
-    df_sign = pd.concat(df_sign, keys=folds)
-    df_lags_t = pd.DataFrame(data=np.array(lags_t[:tfreqs.size], dtype=int), index=tfreqs)
+    df_data = df_data.rename_axis(f'lead time: {lags_t} days', axis=1)
+    df_sign = pd.DataFrame(np_sig, index=percen, columns=tfreqs)
     
-    dict_of_dfs = {f'df_data_{metric}':df_data,'df_sign':df_sign, 'df_lags_t':df_lags_t}
+    dict_of_dfs = {f'df_data_{metric}':df_data,'df_sign':df_sign}
     path_data = functions_pp.store_hdf_df(dict_of_dfs)
     return path_data, dict_of_dfs
 
 def plot_score_matrix(path_data=str, col=0,
                       x_label=None, x_label2=None, ax=None):
-                      
-    dict_of_dfs = functions_pp.load_hdf5(path_data='/Users/semvijverberg/Downloads/pandas_dfs_28-01-20_11hr.h5')
+    #%%
+    dict_of_dfs = functions_pp.load_hdf5(path_data=path_data)
     datakey = [k for k in dict_of_dfs.keys() if k[:7] == 'df_data'][0]
     metric = datakey.split('_')[-1]
     df_data = dict_of_dfs[datakey]
     df_sign = dict_of_dfs['df_sign']
-    df_lags_t = dict_of_dfs['df_lags_t']
+
     np_arr = df_sign.to_xarray().to_array().values
-    np_sign = np_arr.swapaxes(0,1).swapaxes(1,2)
+    np_sign = np_arr.swapaxes(0,1)
     annot = np.zeros_like(df_data.values, dtype="f8").tolist()
     for i1, r in enumerate(df_data.values):
         for i2, c in enumerate(r):
             round_val = np.round(df_data.values[i1,i2], 2).astype('f8')
             # lower confidence bootstrap higer than 0.0
-            sign = np_sign[:,i1,i2] > 0.0
-            n_sign = int(sign[sign].size)
-            annot[i1][i2] = '{}'.format(n_sign )
-            annot[i1][i2] = 'BSS={:.2f} \n {}/{}'.format(round_val, n_sign, sign.size)
+            sign = np_sign[i1,i2] 
+
+            annot[i1][i2] = 'BSS={:.2f} \n {}'.format(round_val, sign)
     
     ax = None
     if ax==None:
@@ -316,20 +315,12 @@ def plot_score_matrix(path_data=str, col=0,
         fig, ax = plt.subplots(constrained_layout=True, figsize=(20,13))
     
     ax = sns.heatmap(df_data, ax=ax, vmin=0, vmax=round(max(df_data.max())+0.05, 1), cmap=sns.cm.rocket_r,
-                     annot=np.array(annot),
+                     annot=np.array(annot), 
                      fmt="", cbar_kws={'label': f'{metric}'})
     ax.set_yticklabels(labels=df_data.index, rotation=0)
     ax.set_ylabel('Percentile threshold [-]')
     ax.set_xlabel(x_label)
-    lags_t = df_lags_t.values.ravel()
-    if lags_t is not None:
-        if np.unique(lags_t).size > 1:
-            ax2 = ax.twiny()
-            ax2.set_xbound(ax.get_xbound())
-            ax2.set_xticks(ax.get_xticks())
-            ax2.set_xticklabels(lags_t)
-            ax2.grid(False)
-            ax2.set_xlabel(x_label2)
+    ax.set_title(df_data.columns.name)
     #%%
                 
     return fig
@@ -926,13 +917,13 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
 
     
                 df_valid, RV, y_pred_all = dict_experiments[exper][model]
-                tfreq = (y_pred_all.iloc[1].name - y_pred_all.iloc[0].name).days
+                # tfreq = (y_pred_all.iloc[1].name - y_pred_all.iloc[0].name).days
                 lags_i     = list(dict_experiments[exper][model][2].columns.astype(int))
-                lags_tf = [l*tfreq for l in lags_i]
-                if tfreq != 1:
-                    # the last day of the time mean bin is tfreq/2 later then the centerered day
-                    lags_tf = [l_tf- int(tfreq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
-
+                # lags_tf = [l*tfreq for l in lags_i]
+                # if tfreq != 1:
+                #     # the last day of the time mean bin is tfreq/2 later then the centerered day
+                #     lags_tf = [l_tf- int(tfreq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
+                lags_tf = lags_i
 
 
                 if metric in ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Accuracy']:

@@ -27,6 +27,7 @@ class RV_class:
         #%%
 #        self.RV_ts = pd.DataFrame(df_data[df_data.columns[0]][0][df_data['RV_mask'][0]] )
 #        self.fullts = pd.DataFrame(df_data[df_data.columns[0]][0])
+        self.name = fullts.columns[0]
         self.RV_ts = RV_ts
         self.fullts = fullts
         self.dates_all = fullts.index
@@ -107,8 +108,8 @@ class RV_class:
                                      allow_pickle=True).item()['RVfullts95']
 
 
-            dates_RVe = aggr_to_daily_dates(self.dates_RV)
-            dates_alle  = aggr_to_daily_dates(self.dates_all)
+            dates_RVe = self.aggr_to_daily_dates(self.dates_RV)
+            dates_alle  = self.aggr_to_daily_dates(self.dates_all)
 
             df_RV_ts_e = pd.DataFrame(fullts_xr.sel(time=dates_RVe).values,
                                       index=dates_RVe, columns=['RV_ts'])
@@ -154,19 +155,19 @@ class RV_class:
             self.RV_bin_fit[self.RV_bin_fit>0] = 1
             self.RV_bin[self.RV_bin>0] = 1
     #%%
-
-# Retrieve information on input timeseries
-def aggr_to_daily_dates(dates_precur_data):
-    dates = functions_pp.get_oneyr(dates_precur_data)
-    tfreq = (dates[1] - dates[0]).days
-    start_date = dates[0] - pd.Timedelta(f'{int(tfreq/2)}d')
-    end_date   = dates[-1] + pd.Timedelta(f'{int(-1+tfreq/2+0.5)}d')
-    yr_daily  = pd.date_range(start=start_date, end=end_date,
-                                    freq=pd.Timedelta('1d'))
-    years = np.unique(dates_precur_data.year)
-    ext_dates = functions_pp.make_dates(yr_daily, years)
-
-    return ext_dates
+    @staticmethod
+    # Retrieve information on input timeseries
+    def aggr_to_daily_dates(dates_precur_data):
+        dates = functions_pp.get_oneyr(dates_precur_data)
+        tfreq = (dates[1] - dates[0]).days
+        start_date = dates[0] - pd.Timedelta(f'{int(tfreq/2)}d')
+        end_date   = dates[-1] + pd.Timedelta(f'{int(-1+tfreq/2+0.5)}d')
+        yr_daily  = pd.date_range(start=start_date, end=end_date,
+                                        freq=pd.Timedelta('1d'))
+        years = np.unique(dates_precur_data.year)
+        ext_dates = functions_pp.make_dates(yr_daily, years)
+    
+        return ext_dates
 
 if __name__ == "__main__":
     pass

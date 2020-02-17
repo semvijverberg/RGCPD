@@ -4,6 +4,7 @@ import sys
 sys.path.append('./RGCPD')
 from class_RGCPD import RGCPD
 from func_fc import fcev
+from class_EOF import EOF
 
 
 __version__ = '0.1'

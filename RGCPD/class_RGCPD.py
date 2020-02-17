@@ -19,12 +19,16 @@ path_test = os.path.join(curr_dir, '..', 'data')
 
 class RGCPD:
 
-    def __init__(self, list_of_name_path=None, start_end_TVdate=None, tfreq=10,
-                 start_end_date=None, start_end_year=None,
-                 path_outmain=None, lags_i=np.array([1]),
-                 verbosity=1):
+    def __init__(self, list_of_name_path=None, list_for_EOFS=None, 
+                 import_prec_ts=None, start_end_TVdate=None, tfreq=10,
+                 start_end_date=None, start_end_year=None, path_outmain=None, 
+                 lags_i=np.array([1]), verbosity=1):
+                 
         '''
         list_of_name_path : list of name, path tuples.
+        import_prec_ts    : Load in precursor 1-d timeseries in format:
+                          [(name1, path_to_h5_file1), [(name2, path_to_h5_file2)]]
+                          precursor_ts should follow the RGCPD traintest format
         Convention: first entry should be (name, path) of target variable (TV).
         list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
         TV period : tuple of start- and enddate in format ('mm-dd', 'mm-dd')
@@ -47,6 +51,9 @@ class RGCPD:
         if os.path.isdir(path_outmain) != True : os.makedirs(path_outmain)
 
         self.list_of_name_path = list_of_name_path
+        self.list_for_EOFS = list_for_EOFS
+        self.import_prec_ts = import_prec_ts
+
         self.start_end_TVdate  = start_end_TVdate
         self.start_end_date = start_end_date
         self.start_end_year = start_end_year
@@ -84,8 +91,9 @@ class RGCPD:
                                              verbosity=self.verbosity)
 
 
-    def pp_TV(self):
-        self.fulltso, self.hash = functions_pp.load_TV(self.list_of_name_path)
+    def pp_TV(self, loadleap=False):
+        self.fulltso, self.hash = functions_pp.load_TV(self.list_of_name_path,
+                                                       loadleap=loadleap)
         self.fullts, self.TV_ts, inf = functions_pp.process_TV(self.fulltso,
                                                               self.tfreq,
                                                               self.start_end_TVdate,
@@ -134,7 +142,7 @@ class RGCPD:
 
 
     def traintest(self, method='no_train_test_split', seed=1,
-                  kwrgs_events=None, precursor_ts=None):
+                  kwrgs_events=None):
         ''' Splits the training and test dates, either via cross-validation or
         via a simple single split.
         agrs:
@@ -144,9 +152,7 @@ class RGCPD:
         kwrgs_events    : dict needed to create binary event timeseries, which
                           is used to create stratified folds.
                           See func_fc.Ev_timeseries? for more info.
-        precursor_ts    : Load in precursor 1-d timeseries in format:
-                          [(name1, path_to_h5_file1), [(name2, path_to_h5_file2)]]
-                          precursor_ts should follow the RGCPD traintest format
+
         Options for method:
         (1) random{int}   :   with the int(ex['method'][6:8]) determining the amount of folds
         (2) ran_strat{int}:   random stratified folds, stratified based upon events,
@@ -163,7 +169,7 @@ class RGCPD:
         self.kwrgs_TV = dict(method=method,
                     seed=seed,
                     kwrgs_events=kwrgs_events,
-                    precursor_ts=precursor_ts)
+                    precursor_ts=self.import_prec_ts)
 
 
 
@@ -171,7 +177,6 @@ class RGCPD:
                                                          self.TV_ts,
                                                          verbosity=self.verbosity,
                                                          **self.kwrgs_TV)
-        TV.name = str(self.list_of_name_path[0][0])
         self.TV = TV
         self.path_outsub1 = os.path.join(self.path_outsub0,
                                       '_'.join([self.kwrgs_TV['method'],
@@ -236,7 +241,6 @@ class RGCPD:
                 else:
                     cbar_vert = -0.025
 
-
                 kwrgs = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
                               'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
                               'subtitles' : None, 'lat_labels':True,
@@ -249,37 +253,81 @@ class RGCPD:
             else:
                 print(f'no {name} regions that pass distance_eps and min_area_in_degrees2 citeria')
 
-    def get_ts_prec(self, import_prec_ts=None):
-
+    def get_EOFs(self):
+        self.list_EOFS = []
+        for i, e_class in enumerate(self.list_for_EOFS):
+            print(f'Retrieving {e_class.neofs} EOF(s) for {e_class.name}')
+            filepath = [l for l in self.list_precur_pp if l[0]==e_class.name][0][1]
+            e_class.get_pattern(filepath=filepath, df_splits=self.df_splits)
+            self.list_EOFS.append(e_class)
+            
+    def get_ts_prec(self, precur_aggr=None):
+        if precur_aggr is None:
+            self.precur_aggr = self.tfreq
+        else:
+            self.precur_aggr = precur_aggr
+        
+        if precur_aggr is not None:
+            # retrieving timeseries at different aggregation, TV and df_splits
+            # need to redefined on new tfreq using the same arguments
+            print(f'redefine target variable on {self.precur_aggr} day means')
+            self.fulltso, self.TV_tso, inf = functions_pp.process_TV(self.fulltso,
+                                                              self.precur_aggr,
+                                                              self.start_end_TVdate,
+                                                              self.start_end_date,
+                                                              self.start_end_year)
+            TV, df_splits = find_precursors.RV_and_traintest(self.fulltso, 
+                                             self.TV_tso, **self.kwrgs_TV)
+        else:
+            # use original TV timeseries
+            TV = self.TV ; df_splits = self.df_splits
+        
         # check if RGCPD approach retrieved precursors (stored in outdic_precur)
         if hasattr(self, 'outdic_precur'):
             if self.outdic_precur is not None:
-                self.outdic_precur = find_precursors.get_prec_ts(self.outdic_precur)
+                print('\nGetting timeseries from correlation regions')
+                get_ts = find_precursors.get_prec_ts
+                self.outdic_precur = get_ts(self.outdic_precur,
+                                            precur_aggr=self.precur_aggr,
+                                            kwrgs_load=self.kwrgs_load)
+                                                                
         else:
             self.outdic_precur = None
 
 
         if self.outdic_precur is not None:
             # if spatial precursors extracted, create df for timeseries
-            self.df_data = find_precursors.df_data_prec_regs(self.TV,
+            self.df_data = find_precursors.df_data_prec_regs(TV,
                                                              self.outdic_precur,
-                                                             self.df_splits)
+                                                             df_splits)
 
-        # Add (or only load in) external timeseries
-        self.import_prec_ts = import_prec_ts
-        if import_prec_ts is not None:
-            self.df_data_ext = find_precursors.import_precur_ts(import_prec_ts,
-                                                             self.df_splits,
-                                                             self.tfreq,
+        # Append (or only load in) external timeseries
+        if self.import_prec_ts is not None:
+            self.df_data_ext = find_precursors.import_precur_ts(self.import_prec_ts,
+                                                             df_splits,
+                                                             self.precur_aggr,
                                                              self.start_end_date,
                                                              self.start_end_year)
             if hasattr(self, 'df_data'):
                 self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
             else:
                 self.df_data = self.df_data_ext.copy()
-
-        # add Traintest and RV_mask as last columns
-        self.df_data = self.df_data.merge(self.df_splits, left_index=True, right_index=True)
+        
+        # Append (or only load) EOF timeseries
+        if hasattr(self, 'list_EOFS'):
+            print('\nGetting EOF timeseries')
+            for i, e_class in enumerate(self.list_for_EOFS):
+                e_class.get_ts(tfreq_ts=self.precur_aggr, df_splits=df_splits)
+                keys = np.array(e_class.df.dtypes.index[e_class.df.dtypes != bool], dtype='object')
+                if hasattr(self, 'df_data'):
+                    self.df_data = self.df_data.merge(e_class.df[keys], 
+                                                      left_index=True, 
+                                                      right_index=True)
+                else:
+                    self.df_data = e_class.df[keys]
+            
+        # Append Traintest and RV_mask as last columns
+        self.df_data = self.df_data.merge(df_splits, left_index=True, right_index=True)
 
 
     def PCMCI_df_data(self, path_txtoutput=None, tau_min=0, tau_max=1,
@@ -303,8 +351,9 @@ class RGCPD:
 
 
         if path_txtoutput is None:
-            self.params_str = '{}_at{}_tau_{}-{}_conds_dim{}_combin{}'.format(pc_alpha,
-                          self.kwrgs_corr['alpha'], tau_min, tau_max, max_conds_dim, max_combinations)
+            self.params_str = '{}_at{}_tau_{}-{}_conds_dim{}_combin{}_dt{}'.format(
+                          pc_alpha, self.kwrgs_corr['alpha'], tau_min, tau_max, 
+                          max_conds_dim, max_combinations, self.precur_aggr)
             self.path_outsub2 = os.path.join(self.path_outsub1, self.params_str)
         else:
             self.path_outsub2 = path_txtoutput
@@ -331,9 +380,29 @@ class RGCPD:
             varstr = ''
         if hasattr(self, 'df_data_ext'):
             varstr = '_'.join([n[0] for n in self.import_prec_ts]) + varstr
-        filename = os.path.join(self.path_outsub1, f'df_data_{varstr}_dt{self.tfreq}_{self.hash}.h5')
+        filename = os.path.join(self.path_outsub1, f'df_data_{varstr}_'
+                                f'dt{self.precur_aggr}_{self.hash}.h5')
         functions_pp.store_hdf_df({'df_data':self.df_data}, filename)
         print('Data stored in \n{}'.format(filename))
+        
+    def plot_maps_corr(self, precursors=None, mask_xr=None, map_proj=None,
+                       row_dim='split', col_dim='lag', clim='relaxed', 
+                       hspace=-0.6, size=2.5, cbar_vert=-0.01, units='units',
+                       cmap=None, clevels=None, cticks_center=None, drawbox=None,
+                       subtitles=None, zoomregion=None, lat_labels=True):
+        
+        if precursors is None:
+            precursors = list(self.outdic_precur.keys())
+        for precur_name in precursors:
+            plot_maps.plot_corr_maps(self.outdic_precur[precur_name].corr_xr,
+                                     mask_xr=mask_xr, map_proj=map_proj,
+                                   row_dim=row_dim, col_dim=col_dim, clim=clim, 
+                                   hspace=hspace, size=size, cbar_vert=cbar_vert, 
+                                   units=units, cmap=cmap, clevels=clevels, 
+                                   cticks_center=cticks_center, drawbox=drawbox,
+                                   subtitles=subtitles, zoomregion=zoomregion, 
+                                   lat_labels=lat_labels)
+            
 
     def plot_maps_sum(self, map_proj=None, figpath=None, paramsstr=None):
 
@@ -353,9 +422,10 @@ class RGCPD:
         plot_maps.plot_corr_vars_splits(self.dict_ds, self.df_sum, map_proj,
                                           figpath, paramsstr, self.TV.name)
 
-    def _get_testyrs(self):
+    def _get_testyrs(self, df_splits):
     #%%
-        df_splits = self.df_splits
+        if df_splits is None:
+            df_splits = self.df_splits
         traintest_yrs = []
         splits = df_splits.index.levels[0]
         for s in splits:
