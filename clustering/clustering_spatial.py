@@ -62,6 +62,41 @@ def create_vector(time_space_3d, mask2d):
     return space_time_vec, output_space_time, indices_mask
 
 
+def correlation_clustering(var_filename, mask=None, kwrgs_load={}, 
+                           clustermethodkey='DBSCAN', 
+                           kwrgs_clust={'eps':600}):
+    
+    xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_load)        
+    npmask = get_spatial_ma(var_filename, mask)
+    kwrgs_loop = {k:i for k, i in kwrgs_clust.items() if type(i) == list}
+    if len(kwrgs_loop) >= 1:
+        new_coords = []
+        xrclustered = xarray[0].drop('time')
+        for k, list_v in kwrgs_loop.items():
+            new_coords.append(list_v)
+            dim_coords = {str(k):list_v}
+            xrclustered = insert_dim_xarray(xrclustered, 
+                                            dim_coord=dim_coords)
+        results = [] 
+        for k, list_v in kwrgs_loop.items():
+            kwrgs = kwrgs_clust.copy()
+            for idx, v in enumerate(list_v):
+                kwrgs[k] = v # overwrite param
+                xrclustered[idx], result = skclustering(xarray, npmask, 
+                                               clustermethodkey=clustermethodkey, 
+                                               kwrgs=kwrgs)
+                results.append(result)
+    else:
+        xrclustered, results = skclustering(xarray, npmask, 
+                                            clustermethodkey=clustermethodkey, 
+                                            kwrgs=kwrgs_clust)
+    xrclustered.attrs['method'] = clustermethodkey
+    xrclustered.attrs['kwrgs'] = str(kwrgs_clust)
+    xrclustered.attrs['target'] = f'{xarray.name}'
+    if 'hash' not in xrclustered.attrs.keys():
+        xrclustered.attrs['hash']   = uuid.uuid4().hex[:5]
+    return xrclustered, results
+
 def dendogram_clustering(var_filename, mask=None, kwrgs_load={}, q=70, 
                          clustermethodkey='AgglomerativeClustering', 
                          kwrgs_clust={'n_clusters':3}):
@@ -69,15 +104,45 @@ def dendogram_clustering(var_filename, mask=None, kwrgs_load={}, q=70,
     xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_load)        
     npmask = get_spatial_ma(var_filename, mask)
     xarray = binary_occurences_quantile(xarray, q=q)
-    xrclustered, results = skclustering(xarray, npmask, 
-                                        clustermethodkey=clustermethodkey, 
-                                       kwrgs=kwrgs_clust)
+    kwrgs_loop = {k:i for k, i in kwrgs_clust.items() if type(i) == list}
+    if len(kwrgs_loop) >= 1:
+        new_coords = []
+        xrclustered = xarray[0].drop('time')
+        for k, list_v in kwrgs_loop.items():
+            new_coords.append(list_v)
+            dim_coords = {str(k):list_v}
+            xrclustered = insert_dim_xarray(xrclustered, 
+                                            dim_coord=dim_coords)
+        results = [] 
+        for k, list_v in kwrgs_loop.items():
+            kwrgs = kwrgs_clust.copy()
+            for idx, v in enumerate(list_v):
+                kwrgs[k] = v # overwrite param
+                xrclustered[idx], result = skclustering(xarray, npmask, 
+                                               clustermethodkey=clustermethodkey, 
+                                               kwrgs=kwrgs)
+                results.append(result)
+    else:
+        xrclustered, results = skclustering(xarray, npmask, 
+                                            clustermethodkey=clustermethodkey, 
+                                            kwrgs=kwrgs_clust)
     xrclustered.attrs['method'] = clustermethodkey
     xrclustered.attrs['kwrgs'] = str(kwrgs_clust)
     xrclustered.attrs['target'] = f'{xarray.name}_exceedances_of_{q}th_percentile'
     if 'hash' not in xrclustered.attrs.keys():
         xrclustered.attrs['hash']   = uuid.uuid4().hex[:5]
     return xrclustered, results
+
+def insert_dim_xarray(xarray, dim_coord=dict):
+    dim = list(dim_coord.keys())[0]
+    coords = xarray.coords.merge(dim_coord).coords
+    shape = list(xarray.shape)
+    [shape.insert(0,len(dim_coord[dim])) for k in list(dim_coord.keys())]
+    data = np.zeros( (shape) )
+    return xr.DataArray(data, coords=[coords[dim].values,
+                              coords['latitude'].values,
+                              coords['longitude'].values],
+                              dims=[dim,'latitude', 'longitude'])
 
 def binary_occurences_quantile(xarray, q=95):
     '''
@@ -127,7 +192,13 @@ def get_spatial_ma(var_filename, mask=None):
         lats_mask = list(selregion.latitude.values)
         lat_mask  = [True if l in lats_mask else False for l in xarray.latitude]
         npmask = np.meshgrid(lon_mask, lat_mask)[0]
-    
+    elif type(mask) is type(xr.DataArray([0])):
+        # lo_min = float(mask.longitude.min()); lo_max = float(mask.longitude.max())
+        # la_min = float(mask.latitude.min()); la_max = float(mask.latitude.max())
+        # selbox = (lo_min, lo_max, la_min, la_max)
+        # selregion = core_pp.import_ds_lazy(var_filename, selbox=selbox)
+        # selregion = selregion.where(mask)
+        npmask = mask.values
     return npmask
 
 def store_netcdf(xarray, filepath=None, append_hash=None):

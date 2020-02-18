@@ -45,9 +45,9 @@ If depencies are correct, then all scripts should work. Please use the .yml file
 
 
 ### Create conda environment:
-conda env create -f RGCPD37.yml \
+conda env create -f RGCPD.yml \
 conda activate RGCPD \
-Git clone https://github.com/jakobrunge/tigramite.git \
+Git clone https://github.com/jakobrunge/tigramite.git (you can clone this dir into any folder, e.g. your Download folder)\
 pip install ./tigramite 
 
 

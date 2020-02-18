@@ -560,7 +560,7 @@ def _get_kwrgs_labels(prec_labels):
     clevels = np.linspace(0, max_N_regs,steps)
 
 
-    kwrgs_labels = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
+    kwrgs_labels = {'hspace':-0.35,
                   'size':3, 'clevels':clevels,
                   'lat_labels':True, 'cticks_center':True,
                   'cmap':cmap, 
@@ -570,13 +570,13 @@ def _get_kwrgs_labels(prec_labels):
         
     return kwrgs_labels
 
-def plot_labels(prec_labels, cbar_vert=None):
+def plot_labels(prec_labels, cbar_vert=None, col_dim='lag'):
     xrlabels = prec_labels.copy()
     xrlabels.values = prec_labels.values - 0.5
     kwrgs_labels = _get_kwrgs_labels(xrlabels)
     if cbar_vert is not None:
         kwrgs_labels['cbar_vert'] = cbar_vert
-    plot_corr_maps(xrlabels, **kwrgs_labels)
+    plot_corr_maps(xrlabels, col_dim=col_dim, **kwrgs_labels)
 
 def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
     #%%
