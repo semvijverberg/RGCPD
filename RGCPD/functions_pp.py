@@ -257,7 +257,7 @@ def load_npy(filename, name=None):
             pass
     return fullts
 
-def import_ds_timemeanbins(filepath, tfreq, start_end_date=None, 
+def import_ds_timemeanbins(filepath, tfreq=1, start_end_date=None, 
                            start_end_year=None,
                            selbox=None,
                            loadleap=False, 

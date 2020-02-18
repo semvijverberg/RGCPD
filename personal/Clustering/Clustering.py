@@ -47,7 +47,7 @@ var_filename = rg.list_precur_pp[0][1]
 
 #%%
 import make_country_mask
-selbox = [225, 300, 30, 60]
+selbox = (225, 300, 30, 60)
 xarray, Country = make_country_mask.create_mask(var_filename, kwrgs_load={'selbox':selbox}, level='Countries')
 mask_US_CA = np.logical_or(xarray.values == Country.US, xarray.values==Country.CA)
 xr_mask = xarray.where(make_country_mask.binary_erosion(mask_US_CA))
@@ -58,17 +58,37 @@ plot_maps.plot_labels(xr_mask)
 # Clustering co-occurence of anomalies
 # =============================================================================
 
-# mask = [160.0, 230.0, 40.0, 45.0]
-# mask = None
-# mask = '/Users/semvijverberg/surfdrive/Data_era5/input_raw/mask_North_America_0.25deg.nc'
 from time import time
 t0 = time()
 xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask, 
-                                               kwrgs_load={'seldates':('06-01', '08-31'), 'selbox':selbox},
-                                               q=80, kwrgs_clust={'n_clusters':[2,3,4,5,6,7],
-                                                                 'affinity':'euclidean',
-                                                                 'linkage':'average'})
-plot_maps.plot_labels(xrclustered, col_dim='n_clusters')
+                                               kwrgs_load={'tfreq':[5, 10, 15, 30],
+                                                           'seldates':('06-01', '08-31'), 
+                                                           'selbox':selbox},
+                                               kwrgs_clust={'q':66,
+                                                            'n_clusters':[2,3,6,7,8],
+                                                            'affinity':'euclidean',
+                                                            'linkage':'average'})
+plot_maps.plot_labels(xrclustered, wspace=.05, hspace=-.2, cbar_vert=.08,
+                      row_dim='tfreq', col_dim='n_clusters')
+print(f'{round(time()-t0, 2)}')
+
+#%%
+# =============================================================================
+# Clustering correlation Hierarchical Agglomerative Clustering
+# =============================================================================
+from time import time
+t0 = time()
+xrclustered, results = cl.correlation_clustering(var_filename, mask=xr_mask, 
+                                               kwrgs_load={'tfreq':[5,10,15,30],
+                                                           'seldates':('06-01', '08-31'), 
+                                                           'selbox':selbox},
+                                               clustermethodkey='AgglomerativeClustering', 
+                                               kwrgs_clust={'n_clusters':[2,3,6,7,8],
+                                                            'affinity':'correlation',
+                                                            'linkage':'average'})
+                                                            
+plot_maps.plot_labels(xrclustered,  wspace=.05, hspace=-.2, cbar_vert=.08,
+                      row_dim='tfreq', col_dim='n_clusters')
 print(f'{round(time()-t0, 2)}')
 
 #%%
@@ -81,7 +101,9 @@ var_filename = rg.list_precur_pp[0][1]
 # mask = '/Users/semvijverberg/surfdrive/Data_era5/input_raw/mask_North_America_0.25deg.nc'
 from time import time ; t0 = time()
 xrclustered, results = cl.correlation_clustering(var_filename, mask=xr_mask, 
-                                               kwrgs_load={'seldates':('06-24', '08-21'), 'selbox':selbox},
+                                               kwrgs_load={'tfreq':10,
+                                                           'seldates':('06-01', '08-31'), 
+                                                           'selbox':selbox},
                                                clustermethodkey='OPTICS', 
                                                kwrgs_clust={#'eps':.05,
                                                             'min_samples':5,

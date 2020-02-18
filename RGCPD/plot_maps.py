@@ -36,7 +36,7 @@ def extend_longitude(data):
     return plottable
 
 def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
-                   col_dim='lag', clim='relaxed', hspace=-0.6,
+                   col_dim='lag', clim='relaxed', hspace=-0.6, wspace=0.2,
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
                    clevels=None, cticks_center=None,
                    drawbox=None, subtitles=None, zoomregion=None,
@@ -102,7 +102,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     g.set_xlabels(label=[str(el) for el in longitude_labels])
 
 
-    g.fig.subplots_adjust(hspace=hspace)
+    g.fig.subplots_adjust(hspace=hspace, wspace=wspace)
 
     if clevels is None:
         class MidpointNormalize(mcolors.Normalize):
@@ -560,23 +560,25 @@ def _get_kwrgs_labels(prec_labels):
     clevels = np.linspace(0, max_N_regs,steps)
 
 
-    kwrgs_labels = {'hspace':-0.35,
-                  'size':3, 'clevels':clevels,
+    kwrgs_labels = {'size':3, 'clevels':clevels,
                   'lat_labels':True, 'cticks_center':True,
                   'cmap':cmap, 
                   'units': None}
+                  
     if len(prec_labels.shape) == 2 or prec_labels.shape[0] == 1:
         kwrgs_labels['cbar_vert'] = -0.1
         
     return kwrgs_labels
 
-def plot_labels(prec_labels, cbar_vert=None, col_dim='lag'):
+def plot_labels(prec_labels, cbar_vert=None, col_dim='lag', row_dim='split',
+                wspace=0.1, hspace=-.2):
     xrlabels = prec_labels.copy()
     xrlabels.values = prec_labels.values - 0.5
     kwrgs_labels = _get_kwrgs_labels(xrlabels)
     if cbar_vert is not None:
         kwrgs_labels['cbar_vert'] = cbar_vert
-    plot_corr_maps(xrlabels, col_dim=col_dim, **kwrgs_labels)
+    plot_corr_maps(xrlabels, col_dim=col_dim, row_dim=row_dim, 
+                   hspace=hspace, wspace=wspace, **kwrgs_labels)
 
 def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, mean_splits=True):
     #%%
