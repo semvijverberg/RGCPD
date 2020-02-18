@@ -257,7 +257,7 @@ def load_npy(filename, name=None):
             pass
     return fullts
 
-def import_ds_timemeanbins(filepath, tfreq, start_end_date=None, 
+def import_ds_timemeanbins(filepath, tfreq=1, start_end_date=None, 
                            start_end_year=None,
                            selbox=None,
                            loadleap=False, 
@@ -280,7 +280,9 @@ def import_ds_timemeanbins(filepath, tfreq, start_end_date=None,
             ds = ds.squeeze()
         else:
             ds = ds.to_array().squeeze()
-
+    # check if no axis has length 0:
+    assert 0 not in ds.shape, ('loaded ds has a dimension of length 0'
+                               f', shape {ds.shape}')
     return ds
 
 
