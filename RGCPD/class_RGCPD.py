@@ -62,6 +62,7 @@ class RGCPD:
         self.lags_i     = lags_i
         self.lags       = np.array([l*self.tfreq for l in self.lags_i], dtype=int)
         self.path_outmain = path_outmain
+        self.figext     = '.pdf'
         self.orig_stdout = sys.stdout
 
 
@@ -120,8 +121,9 @@ class RGCPD:
                                          months[self.dates_TV.month[-1]] )
         info_lags = 'lag{}-{}'.format(min(self.lags), max(self.lags))
         # Creating a folder for the specific spatial mask, RV period and traintest set
-        self.path_outsub0 = os.path.join(self.path_outmain, self.hash +'_'+\
-                                         RV_name_range + info_lags )
+        self.path_outsub0 = os.path.join(self.path_outmain, self.fulltso.name +'_' +self.hash \
+                                         +'_'+RV_name_range + info_lags )
+                                         
 
         # =============================================================================
         # Test if you're not have a lag that will precede the start date of the year
@@ -389,20 +391,27 @@ class RGCPD:
                        row_dim='split', col_dim='lag', clim='relaxed', 
                        hspace=-0.6, size=2.5, cbar_vert=-0.01, units='units',
                        cmap=None, clevels=None, cticks_center=None, drawbox=None,
-                       subtitles=None, zoomregion=None, lat_labels=True):
+                       title=None, subtitles=None, zoomregion=None, lat_labels=True,
+                       save=False):
         
         if precursors is None:
             precursors = list(self.outdic_precur.keys())
         for precur_name in precursors:
-            plot_maps.plot_corr_maps(self.outdic_precur[precur_name].corr_xr,
-                                     mask_xr=mask_xr, map_proj=map_proj,
+            pclass = self.outdic_precur[precur_name]
+            plot_maps.plot_corr_maps(pclass.corr_xr,
+                                     mask_xr=pclass.corr_xr['mask'], map_proj=map_proj,
                                    row_dim=row_dim, col_dim=col_dim, clim=clim, 
                                    hspace=hspace, size=size, cbar_vert=cbar_vert, 
                                    units=units, cmap=cmap, clevels=clevels, 
                                    cticks_center=cticks_center, drawbox=drawbox,
-                                   subtitles=subtitles, zoomregion=zoomregion, 
+                                   title=None, subtitles=subtitles, 
+                                   zoomregion=zoomregion, 
                                    lat_labels=lat_labels)
-            
+            if save is True:
+                f_name = 'corr_map_{}_a{}'.format(precur_name,
+                                                  self.kwrgs_corr['alpha'])
+                fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
+                plt.savefig(fig_path, bbox_inches='tight')
 
     def plot_maps_sum(self, map_proj=None, figpath=None, paramsstr=None):
 

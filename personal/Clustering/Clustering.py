@@ -115,28 +115,28 @@ print(f'{round(time()-t0, 2)}')
 
 
 #%%
-ds = cl.spatial_mean_clusters(var_filename, xrclustered)
+ds = cl.spatial_mean_clusters(var_filename, 
+                              xrclustered.sel(tfreq=10, n_clusters=6),
+                              selbox=selbox)
 cl.store_netcdf(ds, filepath=None, append_hash=xrclustered.attrs['hash'])
 
 #%%
+# =============================================================================
 # regrid for quicker validation
+# =============================================================================
 to_grid=1
 xr_regrid = cl.regrid_array(var_filename, to_grid=to_grid)
 cl.store_netcdf(xr_regrid, filepath=None, append_hash=f'{to_grid}d')
 
-
 xr_rg_clust = cl.regrid_array(xrclustered, to_grid=to_grid, periodic=False)
-ds = cl.spatial_mean_clusters('/Users/semvijverberg/surfdrive/Data_era5/input_raw/preprocessed/t2mmax_US_1979-2018_1jan_31dec_daily_1deg.nc.nc', 
+ds = cl.spatial_mean_clusters(var_filename, 
                               xr_rg_clust)
 cl.store_netcdf(ds, filepath=None, append_hash=f'{to_grid}d_' + xrclustered.attrs['hash'])
 
 
 
 # In[ ]:
-TVpath = '/Users/semvijverberg/surfdrive/Data_era5/input_raw/preprocessed/xrclustered_1d_c0f23.nc'
-list_of_name_path = [(3, TVpath)]
-rg = RGCPD(list_of_name_path=list_of_name_path)
-rg.pp_TV()
+
 
 
 

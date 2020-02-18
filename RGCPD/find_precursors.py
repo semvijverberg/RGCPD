@@ -81,7 +81,9 @@ def calculate_corr_maps(TV, df_splits, kwrgs_load, list_precur_pp=list, lags=np.
     
     '''                  
     #%%
-
+    # TV = self.TV ; df_splits = self.df_splits ; kwrgs_load = self.kwrgs_load
+    # list_precur_pp = self.list_precur_pp; lags=self.lags; alpha=.01
+    # FDR_control = True
 
     outdic_precur = dict()
     class act:
@@ -98,7 +100,7 @@ def calculate_corr_maps(TV, df_splits, kwrgs_load, list_precur_pp=list, lags=np.
 
     for name, filepath in list_precur_pp: # loop over all variables
         # =============================================================================
-        # Unpack specific arguments
+        # Unpack non-default arguments
         # =============================================================================
         kwrgs = {}
         for key, value in kwrgs_load.items():
@@ -109,7 +111,7 @@ def calculate_corr_maps(TV, df_splits, kwrgs_load, list_precur_pp=list, lags=np.
             else:
                 kwrgs[key] = value
         #===========================================
-        # find Precursor fields
+        # Find precursor fields
         #===========================================
         precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
         # =============================================================================
@@ -117,7 +119,6 @@ def calculate_corr_maps(TV, df_splits, kwrgs_load, list_precur_pp=list, lags=np.
         # =============================================================================
         corr_xr = calc_corr_coeffs_new(precur_arr, TV, df_splits, lags=lags,
                                              alpha=alpha, FDR_control=FDR_control)
-
         # =============================================================================
         # Cluster into precursor regions
         # =============================================================================

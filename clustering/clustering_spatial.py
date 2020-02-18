@@ -297,9 +297,9 @@ def get_download_path():
     else:
         return os.path.join(os.path.expanduser('~'), 'Downloads')
     
-def spatial_mean_clusters(var_filename, xrclustered):
+def spatial_mean_clusters(var_filename, xrclustered, selbox=None):
     #%%
-    xarray = core_pp.import_ds_lazy(var_filename)
+    xarray = core_pp.import_ds_lazy(var_filename, selbox=selbox)
     labels = xrclustered.values
     nparray = xarray.values
     track_names = []

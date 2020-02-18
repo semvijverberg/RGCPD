@@ -38,7 +38,7 @@ def extend_longitude(data):
 def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    col_dim='lag', clim='relaxed', hspace=-0.6, wspace=0.2,
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
-                   clevels=None, cticks_center=None,
+                   clevels=None, cticks_center=None, title=None,
                    drawbox=None, subtitles=None, zoomregion=None,
                    lat_labels=True):
     '''
@@ -284,6 +284,8 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         ax.set_extent(zoomregion, crs=ccrs.PlateCarree())
         ax.set_xlim(zoomregion[2:])
         ax.set_ylim(zoomregion[:2])
+    if title is not None:
+        g.fig.suptitle(title)
 
     print("\n")
 
