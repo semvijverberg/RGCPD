@@ -7,6 +7,7 @@
 
 
 import os, inspect, sys
+import numpy as np
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-2])
@@ -66,7 +67,7 @@ xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
                                                            'selbox':selbox},
                                                kwrgs_clust={'q':66,
                                                             'n_clusters':[2,3,6,7,8],
-                                                            'affinity':'euclidean',
+                                                            'affinity':'jaccard',
                                                             'linkage':'average'})
 plot_maps.plot_labels(xrclustered, wspace=.05, hspace=-.2, cbar_vert=.08,
                       row_dim='tfreq', col_dim='n_clusters')

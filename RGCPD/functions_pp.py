@@ -1183,9 +1183,13 @@ def func_dates_min_lag(dates, lag):
                                              startyr.is_leap_year
                                              )
         mask_ = np.logical_or(mask_lpyrfeb, mask_lpyrjan)
+    
         new_dates = np.array(startyr)
-        new_dates[mask_] = startyr[mask_] - pd.Timedelta(1, unit='d')
-        startyr = pd.to_datetime(new_dates)
+        if np.logical_and(startyr[0].month==1, startyr[0].day==1)==False:
+            # compensate lag shift for removing leap day
+            new_dates[mask_] = startyr[mask_] - pd.Timedelta(1, unit='d')
+        else:
+            startyr =core_pp.remove_leapdays(startyr)
    
     dates_min_lag = make_dates(startyr, np.unique(dates.year))
 
@@ -1193,3 +1197,7 @@ def func_dates_min_lag(dates, lag):
     # to be able to select date in pandas dataframe
     dates_min_lag_str = [d.strftime('%Y-%m-%d %H:%M:%S') for d in dates_min_lag]
     return dates_min_lag_str, dates_min_lag    
+
+
+
+

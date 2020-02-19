@@ -7,6 +7,7 @@ dependencies:
   - cartopy=0.17.0
   - cftime=1.0.3.4
   - conda=4.7.12
+  - cdsapi=0.1.6
   - ecmwfapi=1.4.1
   - eofs=1.4.0
   - esmf=7.1.0

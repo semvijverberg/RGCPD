@@ -92,14 +92,14 @@ class Var_ECMWF_download():
         
             
 def retrieve_field(cls):
+    
+    
+    
+    
+    #    paramid = np.logical_and(any(char.isdigit() for char in cls.var_cf_code),
+    #                                '.' in cls.var_cf_code )
+    #    assert (paramid==False), ('Please insert variable name instead of paramid')
     #%%
-    
-    
-    
-#    paramid = np.logical_and(any(char.isdigit() for char in cls.var_cf_code),
-#                                '.' in cls.var_cf_code )
-#    assert (paramid==False), ('Please insert variable name instead of paramid')
-    
     file_path = os.path.join(cls.path_raw, cls.filename)
     if cls.stream == 'moda':
         file_path_raw = file_path
