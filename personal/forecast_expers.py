@@ -94,8 +94,8 @@ datasets_path = ERA_daily
 
 n_boot = 500
 LAG_DAY = 21
-frequencies = np.arange(5, 6, 2)
-percentiles = [50]
+# frequencies = np.arange(5, 6, 2)
+# percentiles = [50]
 percentiles = [50,55,60,66,70,75,80,84.2]
 frequencies = np.arange(4, 34, 2)
 
