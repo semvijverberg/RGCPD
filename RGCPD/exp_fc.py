@@ -153,6 +153,7 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
                 keys_ = [k for k in keys_ if 'ENSO' not in k]# or 'PDO' not in k]
                 keys_ = [k for k in keys_ if 'PDO' not in k]
                 keys_ = [k for k in keys_ if 'PEPsv' not in k]
+                keys_ = [k for k in keys_ if 'OLR' not in k] 
                 keys_ = [k for k in keys_ if k not in skip_ex]
             elif option == 'sst(CPPA Pattern)':
                 keys_ = [k for k in all_keys if 'CPPAsv' in k]
@@ -160,6 +161,12 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
                 keys_ = [k for k in all_keys if k[-7:] != 'v200hpa']
                 keys_ = [k for k in keys_ if k not in skip]
             elif option == 'sst(CPPA)+sm':
+                keys_ = [k for k in all_keys if 'PDO' not in k]
+                keys_ = [k for k in keys_ if 'ENSO' not in k]
+                keys_ = [k for k in keys_ if 'PEP' not in k]  
+                keys_ = [k for k in keys_ if 'OLR' not in k]  
+                keys_ = [k for k in keys_ if k not in skip]
+            elif option == 'sst(CPPA)+sm+OLR':
                 keys_ = [k for k in all_keys if 'PDO' not in k]
                 keys_ = [k for k in keys_ if 'ENSO' not in k]
                 keys_ = [k for k in keys_ if 'PEP' not in k]  
@@ -176,6 +183,7 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
                 keys_ = [k for k in keys_ if 'PDO' not in k]
                 keys_ = [k for k in keys_ if 'ENSO' not in k]
                 keys_ = [k for k in keys_ if 'PEP' not in k]  
+                keys_ = [k for k in keys_ if 'OLR' not in k] 
                 keys_ = [k for k in keys_ if ('spatcov' in k or 'sm' in k)]
             elif option == 'sm':
                 keys_ = [k for k in all_keys if 'sm' in k]
@@ -200,8 +208,7 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
                 keys_ = [k for k in keys_ for e in expert if e in k]
             if option == 'persistence':
                 keys_ = []
-            if 'OLR' not in option:
-                [k for k in keys_ if k not in OLR_EOFs]
+
             
             keys_d_[s] = np.unique(keys_)
 
