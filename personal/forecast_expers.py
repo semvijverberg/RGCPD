@@ -44,6 +44,7 @@ import valid_plots as dfplots
 era5_1d_CPPA = user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_0_Xzkup1.h5'
 era5_1d_CPPA_l10 = user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
 CPPA_s5_l10 = user_dir + '/surfdrive/output_RGCPD/easternUS/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s5/data/ERA5_15-02-20_15hr_lag_10_Xzkup1.h5'
+CPPA_s30_l10_sm_OLR = user_dir + '/Users/semvijverberg/surfdrive/output_RGCPD/easternUS/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPA_sm2_sm3_OLR_dt1_Xzkup1.h5'
 # strat_1d_CPPA_era5 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5'
 # strat_1d_CPPA_era5_l10 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_10.h5'
 #strat_1d_CPPA_EC   = '/Users/semvijverberg/surfdrive/MckinRepl/EC_tas_tos_Northern/ran_strat10_s30/data/EC_16-09-19_19hr_lag_0.h5'
@@ -65,7 +66,7 @@ logitCV = ('logitCV',
 
 
 # format {'dataset' : (path_data, list(keys_options) ) }
-ERA_daily = {'ERA-5':(era5_1d_CPPA_l10, ['sst(CPPA)'])}
+ERA_daily = {'ERA-5':(CPPA_s5_l10, ['sst(CPPA)'])}
 
 
 datasets_path = ERA_daily
