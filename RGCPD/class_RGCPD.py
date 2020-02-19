@@ -386,6 +386,7 @@ class RGCPD:
                                 f'dt{self.precur_aggr}_{self.hash}.h5')
         functions_pp.store_hdf_df({'df_data':self.df_data}, filename)
         print('Data stored in \n{}'.format(filename))
+        self.df_data_filename = filename
         
     def plot_maps_corr(self, precursors=None, mask_xr=None, map_proj=None,
                        row_dim='split', col_dim='lag', clim='relaxed', 
