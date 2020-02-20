@@ -66,7 +66,7 @@ logitCV = ('logitCV',
 
 
 # format {'dataset' : (path_data, list(keys_options) ) }
-ERA_daily = {'ERA-5':(CPPA_s30_l10, ['sst(CPPA Pattern)'])}
+ERA_daily = {'ERA-5':(CPPA_s5_l10, ['sst(CPPA Pattern)'])}
 
 
 datasets_path = ERA_daily
