@@ -6,15 +6,17 @@ Created on Mon Jan  6 08:46:05 2020
 @author: semvijverberg
 """
 
+# import inspect, os
+# curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+
 import numpy as np
 import pandas as pd
 import xarray as xr
-import func_fc
+
 import functions_pp
-import inspect, os
 import core_pp
-curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-path_test = os.path.join(curr_dir, '..', 'data')
+
+
 
 
 
@@ -74,9 +76,9 @@ class RV_class:
             if type(kwrgs_events) is tuple:
                 kwrgs_events = kwrgs_events[1]
             # RV_ts and RV_ts_fit are equal if fit_model_dates = None
-            self.threshold = func_fc.Ev_threshold(self.RV_ts,
+            self.threshold = Ev_threshold(self.RV_ts,
                                               kwrgs_events['event_percentile'])
-            self.threshold_ts_fit = func_fc.Ev_threshold(self.RV_ts_fit,
+            self.threshold_ts_fit = Ev_threshold(self.RV_ts_fit,
                                               kwrgs_events['event_percentile'])
 
             # unpack other optional arguments for defining event timeseries 
@@ -125,9 +127,9 @@ class RV_class:
 
 
             # RV_ts and RV_ts_fit are equal if fit_model_dates = None
-            self.threshold = func_fc.Ev_threshold(df_RV_ts_e,
+            self.threshold = Ev_threshold(df_RV_ts_e,
                                               kwrgs_events_daily['event_percentile'])
-            self.threshold_ts_fit = func_fc.Ev_threshold(self.RV_ts_fit_e,
+            self.threshold_ts_fit = Ev_threshold(self.RV_ts_fit_e,
                                               kwrgs_events_daily['event_percentile'])
 
             if only_RV_events == True:
