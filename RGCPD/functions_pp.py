@@ -1088,7 +1088,6 @@ def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
 
 def check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed, s, count, seed, verbosity=0):
     #%%
-#    event_thres = func_fc.Ev_threshold(RV.RV_ts, kwrgs_events['event_percentile'])
     tol_from_exp_events = 0.20
 
     if kwrgs_events is None:

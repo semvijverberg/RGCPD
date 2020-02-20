@@ -2,6 +2,7 @@
 """Documentation about RGCPD"""
 import sys
 sys.path.append('./RGCPD')
+sys.path.append('./forecasting')
 from class_RGCPD import RGCPD
 from func_fc import fcev
 from class_EOF import EOF

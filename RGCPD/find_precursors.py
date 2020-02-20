@@ -12,7 +12,7 @@ import xarray as xr
 #import datetime
 import scipy
 import pandas as pd
-import core_pp
+#import core_pp
 from statsmodels.sandbox.stats import multicomp
 import functions_pp
 from class_RV import RV_class

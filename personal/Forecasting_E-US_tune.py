@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Forecasting
-# Below done with test data, same format as df_data
+
 
 # In[1]:
 
@@ -13,12 +12,14 @@ import os, inspect, sys
 import numpy as np
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
-python_dir = os.path.join(main_dir, 'RGCPD')
+RGCPD_dir = os.path.join(main_dir, 'RGCPD')
+fc_dir = os.path.join(main_dir, 'forecasting')
 df_ana_dir = os.path.join(main_dir, 'df_analysis/df_analysis/')
 if main_dir not in sys.path:
     sys.path.append(main_dir)
-    sys.path.append(python_dir)
+    sys.path.append(RGCPD_dir)
     sys.path.append(df_ana_dir)
+    sys.path.append(fc_dir)
 
 user_dir = os.path.expanduser('~')
 if sys.platform == 'linux':
@@ -27,7 +28,7 @@ if sys.platform == 'linux':
 # In[2]:
 
 
-from func_fc import fcev
+from class_fc import fcev
 
 
 # In[3]:
