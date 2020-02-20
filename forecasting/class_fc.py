@@ -29,6 +29,7 @@ import validation as valid
 import functions_pp
 import df_ana
 import exp_fc
+import core_pp
 
 
 
@@ -36,11 +37,14 @@ class fcev():
 
     number_of_times_called = 0
     def __init__(self, path_data, name=None, precur_aggr=None, TV_aggr=None,
-                   use_fold=None):
+                   use_fold=None, start_end_TVdate=None):
         '''
         Instance for certain dataset with keys and list of stat models
 
-        n_boot      :   times to bootstrap
+        start_end_TVdate : tuple, optional
+            tuple of start- and enddate for target variable in 
+            format ('mm-dd', 'mm-dd'). default is the RV_mask present in the 
+            .h5 dataframe 'df_data'
         '''
 
         self.path_data = path_data
@@ -64,13 +68,16 @@ class fcev():
             self.df_data =self._remove_test_splits()
         else:
             self.df_data = self.df_data_orig
-
+        
+        self.dates_df  = self.df_data.loc[0].index.copy()
         self.precur_aggr = precur_aggr
         self.TV_aggr = TV_aggr
-           
-
         self.splits  = self.df_data.index.levels[0]
         self.tfreq = (self.df_data.loc[0].index[1] - self.df_data.loc[0].index[0]).days
+        
+        if start_end_TVdate is not None:
+            fcev._redefine_RV_mask(self, start_end_TVdate=start_end_TVdate)
+        
         self.RV_mask = self.df_data['RV_mask']
         self.TrainIsTrue = self.df_data['TrainIsTrue']
         self.test_years = valid.get_testyrs(self.df_data)
@@ -124,7 +131,6 @@ class fcev():
         # fit_model_mask = pd.concat([TV.fit_model_mask] * splits.size, keys=splits)
         # self.df_data = self.df_data.merge(fit_model_mask, left_index=True, right_index=True)
         TV.get_obs_clim()
-        TV.freq_per_year = TV.get_freq_years()
         self.TV = TV
         return
 
@@ -211,7 +217,6 @@ class fcev():
             self.dict_models[uniqname] = models
         return
 
-    #
     def _create_new_traintest_split(df_data, method='random9', seed=1, kwrgs_events=None):
         
         # insert fake train test split to make RV
@@ -334,10 +339,7 @@ class fcev():
             lines.append(f'file \t : {fc_i.path_data}')
             lines.append(f'kwrgs_events \t : {fc_i.kwrgs_events}')
             lines.append(f'kwrgs_pp \t : {fc_i.kwrgs_pp}')
-            lines.append(f'Title \t : {fc_i.name}')
-            lines.append(f'file \t : {fc_i.path_data}')
-            lines.append(f'kwrgs_events \t : {fc_i.kwrgs_events}')
-            lines.append(f'kwrgs_pp \t : {fc_i.kwrgs_pp}')
+            lines.append(f'TV dates: \t fc_i._get_start_end_TVdate()')
             lines.append(f'alpha \t : {fc_i.alpha}')
             lines.append(f'nboot: {fc_i.n_boot}')
             lines.append(f'stat_models:')
@@ -345,6 +347,7 @@ class fcev():
             lines.append(f'fold: {fc_i.fold}')
             lines.append(f'keys_d: \n{fc_i.keys_d}')
             lines.append(f'keys_used: \n{fc_i._get_precursor_used()}')
+
 
             e+=1
 
@@ -399,7 +402,24 @@ class fcev():
                             sharex=sharex, kwrgs=kwrgs)
         return
 
-
+    def _redefine_RV_mask(self, start_end_TVdate):
+        self.df_data = self.df_data.copy()
+        self.start_end_TVdate_orig = fcev._get_start_end_TVdate(self)
+        self.start_end_TVdate = start_end_TVdate
+        RV_mask_orig   = self.df_data['RV_mask'].copy()
+        dates_RV = core_pp.get_subdates(self.dates_df , start_end_TVdate,
+                                        start_end_year=None)
+        new_RVmask = RV_mask_orig.loc[0].copy()
+        new_RVmask.loc[:] = False
+        new_RVmask.loc[dates_RV] = True
+        self.df_data['RV_mask'] = pd.concat([new_RVmask] * self.splits.size, 
+                                            keys=self.splits)
+    def _get_start_end_TVdate(self):
+        RV_mask_orig   = self.df_data.loc[0]['RV_mask'].copy()
+        dates_RV = RV_mask_orig[RV_mask_orig].index
+        return (f'{dates_RV[0].month}-{dates_RV[0].day}', 
+                                 f'{dates_RV[-1].month}-{dates_RV[-1].day}')
+        
     def plot_freq_year(self):
         import valid_plots as df_plots
         df_plots.plot_freq_per_yr(self.TV)

@@ -18,22 +18,21 @@ if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
     
-import time
-start_time = time.time()
+
+user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
-python_dir = os.path.join(main_dir, 'RGCPD')
+RGCPD_dir = os.path.join(main_dir, 'RGCPD')
+fc_dir = os.path.join(main_dir, 'forecasting')
 df_ana_dir = os.path.join(main_dir, 'df_analysis/df_analysis/')
 if main_dir not in sys.path:
     sys.path.append(main_dir)
-    sys.path.append(python_dir)
+    sys.path.append(RGCPD_dir)
     sys.path.append(df_ana_dir)
-user_dir = os.path.expanduser('~')
+    sys.path.append(fc_dir)
 
-
-    
 import numpy as np
-import func_fc
+from class_fc import fcev
 import valid_plots as dfplots
 
 
@@ -67,7 +66,7 @@ logitCV = ('logitCV',
 
 
 # format {'dataset' : (path_data, list(keys_options) ) }
-ERA_daily = {'ERA-5':(CPPA_s5_l10_sm_OLR, [None])}
+ERA_daily = {'ERA-5':(CPPA_s30_l10, ['sst(CPPA Pattern)'])}
 
 
 datasets_path = ERA_daily
@@ -93,6 +92,8 @@ datasets_path = ERA_daily
 #                'grouped' : False}
 
 
+start_end_TVdate = ('6-30', '8-29')
+# start_end_TVdate = None
 n_boot = 500
 LAG_DAY = 21
 # frequencies = np.arange(5, 6, 2)
@@ -119,7 +120,9 @@ for perc in percentiles:
             path_data = tuple_sett[0]
             keys_d_list = tuple_sett[1]
             for keys_d in keys_d_list:
-                fc = func_fc.fcev(path_data=path_data, precur_aggr=freq, use_fold=folds)
+                fc = fcev(path_data=path_data, precur_aggr=freq, 
+                          use_fold=folds,
+                          start_end_TVdate=start_end_TVdate)
 
                 print(f'{fc.fold} {fc.test_years[0]} {perc}')
                 fc.get_TV(kwrgs_events=kwrgs_events)
@@ -130,8 +133,7 @@ for perc in percentiles:
                 fc.perform_validation(n_boot=n_boot, blocksize='auto', 
                                               threshold_pred='upper_clim')
                 dict_freqs[freq] = fc.dict_sum
-#                if i==0:
-                # lags_t.append(fc.lags_t[0])
+
                 list_of_fc.append(fc)
     dict_experiments[perc] = dict_freqs
 

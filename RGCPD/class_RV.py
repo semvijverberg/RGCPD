@@ -94,7 +94,7 @@ class RV_class:
                                **kwrgs)[0]
                 self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
 
-            self.freq      = func_fc.get_freq_years(self.RV_bin)
+            self.freq_per_year      = RV_class.get_freq_years(self)
 
 
         # make RV_bin for extreme occurring in time window
@@ -198,7 +198,7 @@ class RV_class:
             clim_arr = np.repeat(clim_prevail, y_b_test.size).values
             pdseries = pd.Series(clim_arr, index=y_b_test.index)
             y_prob_clim.loc[y_b_test.index, 'prob_clim'] = pdseries
-        self.y_prob_clim = y_prob_clim
+        self.prob_clim = y_prob_clim
         return 
 
 

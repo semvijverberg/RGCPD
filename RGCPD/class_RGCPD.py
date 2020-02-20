@@ -23,15 +23,56 @@ class RGCPD:
                  import_prec_ts=None, start_end_TVdate=None, tfreq=10,
                  start_end_date=None, start_end_year=None, path_outmain=None, 
                  lags_i=np.array([1]), verbosity=1):
-                 
         '''
-        list_of_name_path : list of name, path tuples.
-        import_prec_ts    : Load in precursor 1-d timeseries in format:
+        Class to study teleconnection of a Response Variable* of interest. 
+        
+        Methods to extract teleconnections/precursors:
+            - correlation maps
+            - EOF analysis
+        
+        Correlation maps
+        One can calculate correlation maps for the 1-dimensional timeseries of
+        interest (RV timeseries), cluster the correlation precursor regions 
+        and extract their spatial mean timeseries. 
+        
+        
+        *Sometimes Response Variable is also called Target Variable.
+
+        Parameters
+        ----------
+        list_of_name_path : list, optional
+            list of (name, path) tuples. If None, test data is loaded.
+            Convention: first entry should be (name, path) of target variable (TV).
+        e.g. list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
+        list_for_EOFS : list, optional
+            list of EOF classes, see docs EOF?
+        import_prec_ts : list, optional
+            Load in precursor 1-d timeseries in format:
                           [(name1, path_to_h5_file1), [(name2, path_to_h5_file2)]]
                           precursor_ts should follow the RGCPD traintest format
-        Convention: first entry should be (name, path) of target variable (TV).
-        list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
-        TV period : tuple of start- and enddate in format ('mm-dd', 'mm-dd')
+        start_end_TVdate : tuple, optional
+            tuple of start- and enddate for target variable in 
+            format ('mm-dd', 'mm-dd').
+        tfreq : int, optional
+            The default is 10.
+        start_end_date : tuple, optional
+            tuple of start- and enddate for data to load in 
+            format ('mm-dd', 'mm-dd'). default is ('01-01' - '12-31')
+        start_end_year : tuple, optional
+            default is to load all years
+        path_outmain : str, optional
+            Root folder for output. Default is your 
+            '/users/{username}/Download'' path
+        lags_i : nparray, optional
+            The default is np.array([1]).
+        verbosity : int, optional
+            Regulate the amount of feedback given by the code.
+            The default is 1.
+
+        Returns
+        -------
+        initialization of the RGCPD class
+
         '''
         if list_of_name_path is None:
             print('initializing with test data')

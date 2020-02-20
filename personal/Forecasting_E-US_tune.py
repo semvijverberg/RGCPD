@@ -25,23 +25,20 @@ user_dir = os.path.expanduser('~')
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-# In[2]:
+
 
 
 from class_fc import fcev
 
 
-# In[3]:
 old_CPPA = user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5'
 old = user_dir + '/surfdrive/output_RGCPD/20jun-19aug_lag10-10/ran_strat10_s1/None_at0.001_tau_0-1_conds_dim4_combin1.h5'
 era5_10d_CPPA_sm = user_dir + '/surfdrive/output_RGCPD/Xzkup1_20jun-19aug_lag20-20/random10_s1/df_data_sst_CPPA_sm123_dt10_Xzkup1.h5'
 era5_1d_CPPA_lag0 =  user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_0_Xzkup1.h5'
 era5_1d_CPPA_l10 = user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
 
-CPPA_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPA_sm2_sm3_OLR_dt1_Xzkup1.h5'
-CPPAs5_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPAs5_sm2_sm3_OLR_dt1_Xzkup1.h5'
-# In[4]:
-
+CPPA_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/easternUS/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPA_sm2_sm3_OLR_dt1_Xzkup1.h5'
+CPPAs5_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/easternUS/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPAs5_sm2_sm3_OLR_dt1_Xzkup1.h5'
 
 #ERA_and_EC_daily  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
 #                 'EC-earth 2.3':(strat_1d_CPPA_EC, ['PEP', 'CPPA'])}
@@ -126,14 +123,14 @@ kwrgs_events = {'event_percentile': 70}
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [logitCV, logitCVfs]
+stat_model_l = [logitCV]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
 
 lags_i = np.array([0, 10, 15, 21, 28])
-precur_aggr = 16
+precur_aggr = 14
 use_fold = None
-
-
+start_end_TVdate = ('6-30', '8-29')
+# start_end_TVdate = None
 
 dict_experiments = {} ; list_of_fc = []
 for dataset, tuple_sett in datasets_path.items():
@@ -141,7 +138,9 @@ for dataset, tuple_sett in datasets_path.items():
     keys_d_list = tuple_sett[1]
     for keys_d in keys_d_list:
 
-        fc = fcev(path_data=path_data, precur_aggr=precur_aggr, use_fold=use_fold)
+        fc = fcev(path_data=path_data, precur_aggr=precur_aggr, 
+                  use_fold=use_fold,
+                  start_end_TVdate=start_end_TVdate)
         fc.get_TV(kwrgs_events=kwrgs_events)
         fc.fit_models(stat_model_l=stat_model_l, lead_max=lags_i,
                            keys_d=keys_d, kwrgs_pp=kwrgs_pp, verbosity=1)
@@ -159,7 +158,7 @@ y_pred_all, y_pred_c = fc.dict_preds[fc.stat_model_l[0][0]]
 import valid_plots as dfplots
 kwrgs = {'wspace':0.25, 'col_wrap':None, 'threshold_bin':fc.threshold_pred}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
-met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision']
+met = ['AUC-ROC', 'AUC-PR', 'BSS']#, 'Rel. Curve', 'Precision']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 expers = list(dict_experiments.keys())
 models   = list(dict_experiments[expers[0]].keys())
