@@ -5,7 +5,11 @@
 # get_ipython().run_line_magic('autoreload', '2')
 
 import os, inspect, sys
+if sys.platform == 'linux':
+    import matplotlib as mpl
+    mpl.use('Agg')
 user_dir = os.path.expanduser('~')
+
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
