@@ -125,13 +125,14 @@ kwrgs_events = {'event_percentile': 70}
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [logitCV, GBC]
+stat_model_l = [logitCV]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
 
-lags_i = np.array([0, 10, 15, 21, 28])
-precur_aggr = 15
+lags_i = np.array([0, 10, 15])
+precur_aggr = 16
+TV_aggr = None
 use_fold = None
-# start_end_TVdate = ('6-30', '8-29')
+start_end_TVdate = ('7-04', '8-22')
 start_end_TVdate = None
 
 dict_experiments = {} ; list_of_fc = []
@@ -141,9 +142,10 @@ for dataset, tuple_sett in datasets_path.items():
     for keys_d in keys_d_list:
 
         fc = fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                  use_fold=use_fold,
+                  TV_aggr=TV_aggr, use_fold=use_fold,
                   start_end_TVdate=start_end_TVdate)
         fc.get_TV(kwrgs_events=kwrgs_events)
+        
         fc.fit_models(stat_model_l=stat_model_l, lead_max=lags_i,
                            keys_d=keys_d, kwrgs_pp=kwrgs_pp, verbosity=1)
 
@@ -170,6 +172,8 @@ fig = dfplots.valid_figures(dict_experiments, expers=expers, models=models,
                           line_dim=line_dim,
                           group_line_by=None,
                           met=met, **kwrgs)
+
+
 
 
 working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)

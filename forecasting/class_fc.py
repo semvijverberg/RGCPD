@@ -745,13 +745,14 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
         # check y_fit mask
         fit_masks = _check_y_fitmask(fit_masks, lag_i, base_lag)
         lag_v = (last_centerdate - df_prec[df_prec['x_fit']].index[-1]).days
-        assert lag_v == lag_i+base_lag, (
+        if tfreq_TV == precur_aggr:
+            assert lag_v == lag_i+base_lag, (
                 f'lag center precur vs center TV is {lag_v} days, with '
                 f'lag_i {lag_i} and base_lag {base_lag}')
         
         
     df_prec = df_prec[x_keys]
-    
+    #%%
     # =============================================================================
     # Normalize data using datesRV or all training data in dataframe
     # =============================================================================

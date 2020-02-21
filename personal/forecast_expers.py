@@ -100,6 +100,7 @@ LAG_DAY = 21
 # percentiles = [50]
 percentiles = [50,55,60,66,70,75,80,84.2]
 frequencies = np.arange(4, 34, 2)
+TV_aggr = 7
 
 
 
@@ -121,7 +122,7 @@ for perc in percentiles:
             keys_d_list = tuple_sett[1]
             for keys_d in keys_d_list:
                 fc = fcev(path_data=path_data, precur_aggr=freq, 
-                          use_fold=folds,
+                          TV_aggr=TV_aggr, use_fold=folds,
                           start_end_TVdate=start_end_TVdate)
 
                 print(f'{fc.fold} {fc.test_years[0]} {perc}')
