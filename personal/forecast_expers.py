@@ -156,13 +156,13 @@ if type(kwrgs_events) is tuple:
     x_label = 'Temporal window [days]'
 else:
     x_label = 'Temporal Aggregation [days]'
-x_label2 = 'Lag in days'
+
 
 path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_experiments, 
                                                   model=stat_model_l[0][0], 
                                                   metric=metric, lags_t=LAG_DAY)
 fig = dfplots.plot_score_matrix(path_data, col=0, 
-                                x_label=x_label, x_label2=x_label2, ax=None)
+                                x_label=x_label, ax=None)
                       
     
 

@@ -24,7 +24,7 @@ nice_colors = ['#EE6666', '#3388BB', '#9988DD',
                  '#EECC55', '#88BB44', '#FFBBBB']
 colors_nice = cycler('color',
                 nice_colors)
-colors_datasets = sns.color_palette('deep')
+colors_datasets = [np.array(c) for c in sns.color_palette('deep')]
 
 line_styles = ['solid', 'dashed', (0, (3, 5, 1, 5, 1, 5)), 'dotted']
 # dashdotdotted = (0, (3, 5, 1, 5, 1, 5)))
@@ -292,7 +292,7 @@ def get_score_matrix(d_expers=dict, model=str, metric=str, lags_t=None):
     return path_data, dict_of_dfs
 
 def plot_score_matrix(path_data=str, col=0,
-                      x_label=None, x_label2=None, ax=None):
+                      x_label=None, ax=None):
     #%%
     dict_of_dfs = functions_pp.load_hdf5(path_data=path_data)
     datakey = [k for k in dict_of_dfs.keys() if k[:7] == 'df_data'][0]
@@ -309,7 +309,9 @@ def plot_score_matrix(path_data=str, col=0,
             # lower confidence bootstrap higer than 0.0
             sign = np_sign[i1,i2] 
 
-            annot[i1][i2] = '{metric}={:.2f} \n {}'.format(round_val, sign)
+            annot[i1][i2] = '{}={:.2f} \n {}'.format(metric, 
+                                                     round_val, 
+                                                     sign)
     
     ax = None
     if ax==None:
@@ -421,7 +423,7 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
                     ax=None):
 
     #%%
-#    ax=None
+    # ax=None
     if ax==None:
         print('ax == None')
         ax = plt.subplot(111)
@@ -441,12 +443,6 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
 
 
     x = lags_tf
-#    if 0 in lags_tf:
-#        tfreq = 2 * (lags_tf[1] - lags_tf[0])
-#    else:
-#        tfreq = (lags_tf[1] - lags_tf[0])
-#    tfreq = max([lags_tf[i+1] - lags_tf[i] for i in range(len(lags_tf)-1)])
-
 
     ax.fill_between(x, y_min, y_max, linestyle='solid',
                             edgecolor='black', facecolor=color, alpha=0.3)
@@ -460,28 +456,13 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
             ax.plot(x, y_cv[f,:], color=color, linestyle=linestyle,
                          alpha=0.35 )
     ax.set_xlabel('Lead time [days]', fontsize=13, labelpad=0.1)
-    ax.grid(b=True, which='major')
-#    ax.set_title('{}-day mean'.format(col))
-    
+    ax.grid(b=True, which='major')    
     xticks = x
-    # old adaptation of lags_i to tfreq, accounting for predicting at end of 
-    # aggregation period (lags - 0.5 * tfreq)
-#    if min(x) == 1:
-#        xmin = 0
-#        xticks = np.arange(min(x), max(x)+1E-9, 10) ;
-#        xticks[0] = 1
-#    elif min(x) == 0:
-#        xmin = int(tfreq/2)
-#        xticks = np.arange(xmin, max(x)+1E-9, 10) ;
-#        xticks = np.insert(xticks, 0, 0)
-#    else:
-#        xticks = np.arange(min(x), max(x)+1E-9, 10) ;
-
 
     ax.set_xticks(xticks)
     ax.set_xticklabels(xticks)
-    ax.set_ylim(y_lim)
     ax.set_ylabel(metric)
+    ax.set_ylim(y_lim)
     if metric == 'BSS':
         y_major = [-0.6, -0.4, -0.2, 0, 0.2, 0.4, 0.6]
         ax.set_yticks(y_major, minor=False)
@@ -685,7 +666,7 @@ def rel_curve(RV, y_pred_all, color, lags_tf, n_bins, linestyle='solid', mean_la
     freq = np.histogram(y_pred_all[lag], bins=n_bins)[0]
     n_freq = freq / RV.RV_ts.size
     ax.scatter(mean_mpv, mean_fop, s=n_freq*2000,
-               c=color_line, alpha=0.5)
+               color=color_line, alpha=0.5)
 
 
     #%%
@@ -829,14 +810,14 @@ def plot_freq_per_yr(RV):
 
 def valid_figures(dict_experiments, expers, models, line_dim='model', group_line_by=None,
                   met='default', wspace=0.08, col_wrap=None, threshold_bin=None):
-    #%%
+   
     '''
     3 dims to plot: [metrics, experiments, stat_models]
     2 can be assigned to row or col, the third will be lines in the same axes.
     '''
     
-#    group_line_by=None; met='default'; wspace=0.08; col_wrap=None; threshold_bin=fc.threshold_pred
-    
+    # group_line_by=None; met='default'; wspace=0.08; col_wrap=None; threshold_bin=fc.threshold_pred
+    #%%
     dims = ['exper', 'models', 'met']
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
     if met == 'default':
@@ -873,7 +854,7 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
                       sharex=False,  sharey=False)
         # Only if 1 column is requisted, col_wrap is allowed
     if len(cols) == 1 and col_wrap is not None:
-#        cols = met
+
         g = sns.FacetGrid(df, col='met', height=3, aspect=1.4,
                       sharex=False,  sharey=False, col_wrap=col_wrap)
 
@@ -911,10 +892,6 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
                         model = models[0]
                     color = colors_datasets[l]
 
-#                if col_wrap is not None:
-#                    metric = c_label # metrics on rows
-                    # exper is normally column, now we only have 1 expers
-#                    exper = expers[0]
 
 
     
@@ -966,7 +943,7 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
                 same_models = np.logical_and(row==0, col==0)
                 grouped_lines = np.logical_and(row==0, group_line_by is not None)
                 if same_models or grouped_lines:
-#                    legend.append(patches.Rectangle((0,0),0.5,0.5,facecolor=color))
+
 
                     ax.legend(ax.lines, lines,
                           loc = 'lower left', fancybox=True,

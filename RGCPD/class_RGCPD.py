@@ -11,7 +11,6 @@ import matplotlib.pyplot as plt
 import functions_pp
 import plot_maps
 import find_precursors
-from pathlib import Path
 import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 path_test = os.path.join(curr_dir, '..', 'data')

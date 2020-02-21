@@ -322,7 +322,7 @@ class fcev():
                 percentile = self.kwrgs_events['event_percentile']
             folds_used = str([f.fold for f in list_of_fc]).replace('[',
                             '').replace(', ','_').replace(']','')
-            f_name = f'{self.TV.name}_{self.tfreq}d_{percentile}p_fold{folds_used}_{today}'
+            f_name = f'{self.TV.name}_{self.precur_aggr}d_{percentile}p_fold{folds_used}_{today}'
             filename = os.path.join(working_folder, f_name)
         if f_name is not None and filename is None:
             today_str = f'_{today}'
@@ -339,7 +339,10 @@ class fcev():
             lines.append(f'file \t : {fc_i.path_data}')
             lines.append(f'kwrgs_events \t : {fc_i.kwrgs_events}')
             lines.append(f'kwrgs_pp \t : {fc_i.kwrgs_pp}')
-            lines.append(f'TV dates: \t fc_i._get_start_end_TVdate()')
+            lines.append(f'TV dates: \t {fc_i._get_start_end_TVdate()}')
+            lines.append(f'tfreq: \t {fc_i.tfreq}')
+            lines.append(f'precur_aggr: \t {fc_i.precur_aggr}')
+            lines.append(f'TV_aggr: \t {fc_i.TV_aggr}')
             lines.append(f'alpha \t : {fc_i.alpha}')
             lines.append(f'nboot: {fc_i.n_boot}')
             lines.append(f'stat_models:')
@@ -381,27 +384,6 @@ class fcev():
             self.metrics_dict = metrics_dict
         return
 
-    @classmethod
-    def plot_scatter(self, keys=None, colwrap=3, sharex='none', s=0, mask='RV_mask', aggr=None,
-                     title=None):
-        import df_ana
-        df_d = self.df_data.loc[s]
-        if mask is None:
-            tv = self.df_data.loc[0].iloc[:,0]
-            df_d = df_d
-        elif mask == 'RV_mask':
-            tv = self.df_data.loc[0].iloc[:,0][self.RV_mask.loc[s]]
-            df_d = df_d[self.RV_mask.loc[s]]
-        else:
-            tv = self.df_data.loc[0].iloc[:,0][mask]
-            df_d = df_d[mask]
-        kwrgs = {'tv':tv,
-                'aggr':aggr,
-                 'title':title}
-        df_ana.loop_df(df_d, df_ana.plot_scatter, keys=keys, colwrap=colwrap,
-                            sharex=sharex, kwrgs=kwrgs)
-        return
-
     def _redefine_RV_mask(self, start_end_TVdate):
         self.df_data = self.df_data.copy()
         self.start_end_TVdate_orig = fcev._get_start_end_TVdate(self)
@@ -424,11 +406,34 @@ class fcev():
         import valid_plots as df_plots
         df_plots.plot_freq_per_yr(self.TV)
 
-    def plot_GBR_feature_importances(self, lag=None, keys=None, cutoff=6):
-        GBR_models_split_lags = self.dict_models['GBC']
+    @classmethod
+    def plot_scatter(self, keys=None, colwrap=3, sharex='none', s=0, mask='RV_mask', aggr=None,
+                     title=None):
+        import df_ana
+        df_d = self.df_data.loc[s]
+        if mask is None:
+            tv = self.df_data.loc[0].iloc[:,0]
+            df_d = df_d
+        elif mask == 'RV_mask':
+            tv = self.df_data.loc[0].iloc[:,0][self.RV_mask.loc[s]]
+            df_d = df_d[self.RV_mask.loc[s]]
+        else:
+            tv = self.df_data.loc[0].iloc[:,0][mask]
+            df_d = df_d[mask]
+        kwrgs = {'tv':tv,
+                'aggr':aggr,
+                 'title':title}
+        df_ana.loop_df(df_d, df_ana.plot_scatter, keys=keys, colwrap=colwrap,
+                            sharex=sharex, kwrgs=kwrgs)
+        return
+
+    def plot_feature_importances(self, model=None, lag=None, keys=None, cutoff=6):
+        if model is None:
+            model = [n[0] for n in self.stat_model_l][0]
+        models_splits_lags = self.dict_models[model]
         if lag is None:
             lag = self.lags_i
-        self.df_importance = stat_models.plot_importances(GBR_models_split_lags, lag=lag,
+        self.df_importance = stat_models.plot_importances(models_splits_lags, lag=lag,
                                                          keys=keys, cutoff=cutoff)
 
     def plot_oneway_partial_dependence(self, keys=None, lags=None):

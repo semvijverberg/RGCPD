@@ -75,7 +75,7 @@ list_for_EOFS = [EOF(name='OLR', neofs=1, selbox=[-180, 360, -15, 30])]
 #                    ('v200hpa', '/Users/semvijverberg/surfdrive/Data_era5/input_raw/v200hpa_1979-2018_1_12_daily_2.5deg.nc')]
 
 start_end_TVdate = ('06-24', '08-22')
-start_end_TVdate = ('06-28', '08-26')
+start_end_TVdate = ('07-06', '08-11')
 
 #start_end_TVdate = ('06-15', '08-31')
 start_end_date = ('1-1', '12-31')

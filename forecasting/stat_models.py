@@ -429,23 +429,23 @@ colors_datasets = sns.color_palette('deep')
 
 line_styles = ['solid', 'dashed', (0, (3, 5, 1, 5, 1, 5)), 'dotted']
 
-def plot_importances(GBR_models_split_lags, lag=1, keys=None, cutoff=6, 
+def plot_importances(models_splits_lags, lag=0, keys=None, cutoff=6, 
                      plot=True):
     #%%
-#    keys = ['autocorr', '10_1_sst']
+    # keys = ['autocorr', '10_1_sst']
     if type(lag) is int:
-        df_all = _get_importances(GBR_models_split_lags, lag=lag)
+        df_all = _get_importances(models_splits_lags, lag=lag)
         
         if plot:
             fig, ax = plt.subplots(constrained_layout=True)
             lag_d = df_all.index[0]
             if keys is None:
                 # take show up to cutoff most important features
-                df_r = df_all.loc[lag_d].sort_values()[-cutoff:]
+                df_r = df_all.reindex(df_all.loc[lag].abs().sort_values(ascending=False).index, axis=1)
             else:
                 df_r = df_all.loc[lag_d].loc[keys]
-            ax.set_title(f"Relative Feature Importances")
-            ax.barh(np.arange(df_r.size), df_r.squeeze().values, tick_label=df_r.index)
+            ax.set_title(f"{df_all.columns.name}")
+            ax.barh(np.arange(df_r.size), df_r.squeeze().values, tick_label=df_r.columns)
             ax.text(0.97, 0.07, f'lead time: {lag_d} days',
                     fontsize=12,
                     bbox=dict(boxstyle='round', facecolor='wheat', 
@@ -457,7 +457,8 @@ def plot_importances(GBR_models_split_lags, lag=1, keys=None, cutoff=6,
         
         dfs = []
         for i, l in enumerate(lag):
-            dfs.append(_get_importances(GBR_models_split_lags, lag=l))
+            df_ = _get_importances(models_splits_lags, lag=l)
+            dfs.append(df_)
         all_vars = []
         all_vars.append([list(df.columns.values) for df in dfs])
         all_vars = np.unique(flatten(flatten(all_vars)))
@@ -472,63 +473,79 @@ def plot_importances(GBR_models_split_lags, lag=1, keys=None, cutoff=6,
             
             if keys is None:
                 # take show up to cutoff most important features
-                df_pl = df_all.loc[:,sort_index[:cutoff]]
+                df_pl = df_all.reindex(df_all.mean(0).abs().sort_values(
+                                                                ascending=False).index, axis=1)
+                                                                
             else:
                 df_pl = df_all.loc[:,[k for k in sort_index if k in keys]]
             # plot vs lags
             fig, ax = plt.subplots(constrained_layout=True)
             styles_ = [['solid'], ['dashed']]
             styles = flatten([6*s for i, s in enumerate(styles_)])[:df_pl.size]
-            linewidths = np.linspace(cutoff/3, 1, cutoff)
+            linewidths = np.linspace(abs(cutoff)/3, 1, abs(cutoff))
             for col, style, lw in zip(df_pl.columns, styles, linewidths):
                 df_all.loc[:,col].plot(figsize=(8,5), 
                                       linestyle=style,
                                       linewidth=lw,
                                       ax=ax)
+                ax.set_xticks(df_all.index)
+            ax.hlines(y=0, xmin=df_all.index[0], xmax=df_all.index[-1])
             ax.legend()
-            ax.set_title('Relative Feature importance vs. lead time')
+            ax.set_title(f'{df_.columns.name} vs. lead time')
             ax.set_xlabel('lead time [days]')
     #%%
     return df_all
 
 
-def _get_importances(GBR_models_split_lags, lag=1):
+def _get_importances(models_splits_lags, lag=0):
                      
     #%%
     '''
     get feature importance for single lag
     '''
 
-    GBR_models_split = GBR_models_split_lags[f'lag_{lag}']
+    models_splits = models_splits_lags[f'lag_{lag}']
     feature_importances = {}
     
-    for splitkey, regressor in GBR_models_split.items():
+    for splitkey, regressor in models_splits.items():
         all_keys = list(regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)])
-        importances = regressor.feature_importances_
+        if hasattr(regressor, 'feature_importances_'): # for GBR
+            name_values = 'Relative Feature Importance'
+            importances = regressor.feature_importances_
+        elif hasattr(regressor, 'coef_'): # for logit
+            name_values = 'Logistic Regression Coefficients'
+            importances = regressor.coef_.squeeze(0)
         for name, importance in zip(all_keys, importances):
             if name not in feature_importances:
                 feature_importances[name] = [0, 0]
             feature_importances[name][0] += importance
             feature_importances[name][1] += 1
 
+    # remnant from Bram, importance by amount of time precursor was in model.
+    # robust precursors get divided by 10, while other precursors are divided
+    # by 1. == silly
+    # names, importances = [], []
+    # for name, (importance, count) in feature_importances.items():
+    #     names.append(name)
+    #     importances.append(float(importance) / float(count))
     names, importances = [], []
-
-    
     for name, (importance, count) in feature_importances.items():
-
         names.append(name)
-        importances.append(float(importance) / float(count))
-    
-
-    importances = np.array(importances) / np.sum(importances)
+        importances.append(float(importance))
+    if hasattr(regressor, 'feature_importances_'): 
+        importances = np.array(importances) / np.sum(importances)
+    elif hasattr(regressor, 'coef_'): # for logit
+        importances = np.array(importances)
     order = np.argsort(importances)
     names_order = [names[index] for index in order] ; names_order.reverse()
-    freq = (regressor.X_pred.index[1] - regressor.X_pred.index[0]).days
-    lags_tf = [l*freq for l in [lag]]
-    if freq != 1:
-        # the last day of the time mean bin is tfreq/2 later then the centerered day
-        lags_tf = [l_tf- int(freq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
-    df = pd.DataFrame([sorted(importances, reverse=True)], columns=names_order, index=lags_tf)      
+    # freq = (regressor.X_pred.index[1] - regressor.X_pred.index[0]).days
+    # lags_tf = [l*freq for l in [lag]]
+    # if freq != 1:
+    #     # the last day of the time mean bin is tfreq/2 later then the centerered day
+    #     lags_tf = [l_tf- int(freq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
+    df = pd.DataFrame([sorted(importances, reverse=True)], columns=names_order, 
+                      index=[lag])  
+    df = df.rename_axis(name_values, axis=1)
 
     #%%
     return df
@@ -864,7 +881,7 @@ def plot_regularization(models_splits_lags, lag_i=0):
                        style=list(lines), 
                        legend=False)
         if i == 0:
-            ax.legend(fontsize=10)
+            ax.legend(fontsize=7, mode='expand')
         for i, l in enumerate(ax.lines):
             plt.setp(l, linewidth=lw[i])
         
@@ -872,3 +889,46 @@ def plot_regularization(models_splits_lags, lag_i=0):
         ax.set_ylabel(df_p.columns.name)
         ax.set_xlabel('LogitRegr CV folds')       
     g.fig.suptitle('Inverse Regularization strength (low is strong)', y=1.00)
+    
+# def _get_coef_logit(models_splits_lags, lag_i=0):
+#     #%%
+#     # models_splits = models_splits_lags[f'lag_{lag_i}']
+    
+#     # # np.array( (len(models_splits), )
+#     # result_splits = []
+#     # # best = []
+#     # for splitkey, model in models_splits.items():
+#     #     pass
+#     GBR_models_split = models_splits_lags[f'lag_{lag_i}']
+#     feature_importances = {}
+    
+#     for splitkey, regressor in GBR_models_split.items():
+#         all_keys = list(regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)])
+#         if hasattr(regressor, 'feature_importances_'): # for GBR
+#             importances = regressor.feature_importances_
+#         elif hasattr(regressor, 'coef_'): # for logit
+#             importances = regressor.coef_.squeeze()
+#         for name, importance in zip(all_keys, importances):
+#             if name not in feature_importances:
+#                 feature_importances[name] = [0, 0]
+#             feature_importances[name][0] += importance
+#             feature_importances[name][1] += 1
+
+#     names, importances = [], []
+
+    
+#     for name, (importance, count) in feature_importances.items():
+
+#         names.append(name)
+#         importances.append(float(importance) / float(count))
+    
+
+#     importances = np.array(importances) / np.sum(importances)
+#     order = np.argsort(importances)
+#     names_order = [names[index] for index in order] ; names_order.reverse()
+#     # freq = (regressor.X_pred.index[1] - regressor.X_pred.index[0]).days
+#     # lags_tf = [l*freq for l in [lag]]
+#     # if freq != 1:
+#     #     # the last day of the time mean bin is tfreq/2 later then the centerered day
+#     #     lags_tf = [l_tf- int(freq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
+#     df = pd.DataFrame([sorted(importances, reverse=True)], columns=names_order, index=[lag_i])      

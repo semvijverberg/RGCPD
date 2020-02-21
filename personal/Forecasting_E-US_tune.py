@@ -51,6 +51,7 @@ ERA_vs_PEP = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 's
 
 exp_keys = ['sst(PEP)', 'sst(PDO,ENSO)', 'sst(CPPA)']
 exp_keys = ['sst(CPPA)+sm', 'persistence']
+exp_keys = [ 'CPPAregs+sm']
 
 ERA_1d_sm_2_3_OLR = {'ERA-5':(CPPAs5_1d_sm_2_3_OLR_l10, exp_keys)}
 
@@ -61,7 +62,7 @@ datasets_path  = ERA_1d_sm_2_3_OLR
 logit = ('logit', None)
 
 logitCV = ('logitCV',
-          {'Cs':20,
+          {'Cs':np.logspace(-4,1,10),
           'class_weight':{ 0:1, 1:1},
            'scoring':'brier_score_loss',
            'penalty':'l2',
@@ -124,11 +125,11 @@ kwrgs_events = {'event_percentile': 70}
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [logitCV]
+stat_model_l = [logitCV, GBC]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
 
-lags_i = np.array([0, 10, 15])
-precur_aggr = 14
+lags_i = np.array([0, 10, 15, 21, 28])
+precur_aggr = 15
 use_fold = None
 # start_end_TVdate = ('6-30', '8-29')
 start_end_TVdate = None
@@ -182,13 +183,17 @@ fig.savefig(pathfig_valid,
 
 #%%
 
-
+im = 0
+il = 0
+ifc = 0
 import valid_plots as dfplots
 if __name__ == "__main__":
     for i, fc in enumerate(list_of_fc):
-        models = [n[0] for n in fc.stat_model_l]
-        for m in models:
-            for l in fc.lags_i:
+        for im, m in enumerate([n[0] for n in fc.stat_model_l]):
+            for il, l in enumerate(fc.lags_i):
+                fc = list_of_fc[ifc]
+                m = [n[0] for n in fc.stat_model_l][im]
+                l = fc.lags_i[il]
                 # visual analysis
                 f_name = filename + f'_{i}_va_l{l}_{m}'
                 f_format = '.pdf'
@@ -203,5 +208,11 @@ if __name__ == "__main__":
                     path_fig_GBC = os.path.join(working_folder, f_name) + f_format
                     fig.savefig(path_fig_GBC,
                             bbox_inches='tight') # dpi auto 600
-
+                if m[:7] == 'logitCV':
+                    fc.plot_logit_regularization(lag_i=l)
+                    f_name = filename +f'_l{l}_regularization'
+                    f_format = '.pdf'
+                    path_fig_logit = os.path.join(working_folder, f_name) + f_format
+                    fig.savefig(path_fig_logit,
+                            bbox_inches='tight') # dpi auto 600
 

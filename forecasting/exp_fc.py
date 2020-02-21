@@ -176,7 +176,7 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
                 keys_ = [k for k in keys_ if 'PDO' not in k]
                 keys_ = [k for k in keys_ if 'ENSO' not in k]
                 keys_ = [k for k in keys_ if 'PEP' not in k]  
-                keys_ = [k for k in keys_ if ('spatcov' not in k)]
+                keys_ = [k for k in keys_ if ('CPPAsv' not in k)]
             elif option == 'CPPApattern+sm':
                 skip_ex = ['0..100..ENSO34','0..101..PDO']
                 keys_ = [k for k in all_keys if 'v200hpa' not in k]
