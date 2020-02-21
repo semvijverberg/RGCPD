@@ -244,7 +244,10 @@ def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=4,
         ax.xaxis.set_major_formatter(yearsFmt)
         ax.xaxis.set_minor_locator(months)
         datemin = datetime.date(dates.min().year, dates.min().month, 1)
-        datemax = datetime.date(dates.max().year, dates.max().month, 31)
+        try:
+            datemax = datetime.date(dates.max().year, dates.max().month, 31)
+        except:
+            datemax = datetime.date(dates.max().year, dates.max().month, 30)
         ax.set_xlim(datemin, datemax)
         ax.grid(True)
         ax.tick_params(labelsize=10)
@@ -306,7 +309,7 @@ def plot_score_matrix(path_data=str, col=0,
             # lower confidence bootstrap higer than 0.0
             sign = np_sign[i1,i2] 
 
-            annot[i1][i2] = 'BSS={:.2f} \n {}'.format(round_val, sign)
+            annot[i1][i2] = '{metric}={:.2f} \n {}'.format(round_val, sign)
     
     ax = None
     if ax==None:

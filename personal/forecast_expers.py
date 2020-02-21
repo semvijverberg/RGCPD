@@ -66,7 +66,7 @@ logitCV = ('logitCV',
 
 
 # format {'dataset' : (path_data, list(keys_options) ) }
-ERA_daily = {'ERA-5':(CPPA_s5_l10, ['sst(CPPA Pattern)'])}
+ERA_daily = {'ERA-5':(RGCPD_s1_sst_sm2_sm3, ['sst(CPPA Pattern)'])}
 
 
 datasets_path = ERA_daily
@@ -92,8 +92,8 @@ datasets_path = ERA_daily
 #                'grouped' : False}
 
 
-start_end_TVdate = ('6-30', '8-29')
-# start_end_TVdate = None
+# start_end_TVdate = ('6-30', '8-29')
+start_end_TVdate = None
 n_boot = 500
 LAG_DAY = 21
 # frequencies = np.arange(5, 6, 2)

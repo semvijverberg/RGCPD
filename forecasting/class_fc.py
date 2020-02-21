@@ -435,6 +435,13 @@ class fcev():
         GBR_models_split_lags = self.dict_models['GBC']
         stat_models.plot(GBR_models_split_lags, keys=keys, lags=lags)
 
+    def plot_logit_regularization(self, lag_i=0):
+        models = [m for m in self.dict_models.keys() if 'logitCV' in m]
+        for m in models:
+            models_splits_lags = self.dict_models[m]
+            stat_models.plot_regularization(models_splits_lags, lag_i=lag_i)
+        
+
     
     def _fit_model(self, stat_model=tuple, verbosity=0):
     

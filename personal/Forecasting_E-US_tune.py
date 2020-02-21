@@ -37,7 +37,7 @@ era5_10d_CPPA_sm = user_dir + '/surfdrive/output_RGCPD/Xzkup1_20jun-19aug_lag20-
 era5_1d_CPPA_lag0 =  user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_0_Xzkup1.h5'
 era5_1d_CPPA_l10 = user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
 
-CPPA_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/easternUS/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPA_sm2_sm3_OLR_dt1_Xzkup1.h5'
+CPPAs30_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/easternUS/t2mmmax_Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPAs30_sm2_sm3_OLR_dt1_Xzkup1.h5'
 CPPAs5_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/easternUS/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPAs5_sm2_sm3_OLR_dt1_Xzkup1.h5'
 
 #ERA_and_EC_daily  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
@@ -50,7 +50,7 @@ ERA_1d_CPPA = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PDO,ENSO)', 'sst(CPPA)', 'sst(C
 ERA_vs_PEP = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
 
 exp_keys = ['sst(PEP)', 'sst(PDO,ENSO)', 'sst(CPPA)']
-exp_keys = ['sst(CPPA)+sm']#, 'persistence']
+exp_keys = ['sst(CPPA)+sm', 'persistence']
 
 ERA_1d_sm_2_3_OLR = {'ERA-5':(CPPAs5_1d_sm_2_3_OLR_l10, exp_keys)}
 
@@ -61,7 +61,8 @@ datasets_path  = ERA_1d_sm_2_3_OLR
 logit = ('logit', None)
 
 logitCV = ('logitCV',
-          {'class_weight':{ 0:1, 1:1},
+          {'Cs':20,
+          'class_weight':{ 0:1, 1:1},
            'scoring':'brier_score_loss',
            'penalty':'l2',
            'solver':'lbfgs',
@@ -126,11 +127,11 @@ kwrgs_events = kwrgs_events
 stat_model_l = [logitCV]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
 
-lags_i = np.array([0, 10, 15, 21, 28])
+lags_i = np.array([0, 10, 15])
 precur_aggr = 14
 use_fold = None
-start_end_TVdate = ('6-30', '8-29')
-# start_end_TVdate = None
+# start_end_TVdate = ('6-30', '8-29')
+start_end_TVdate = None
 
 dict_experiments = {} ; list_of_fc = []
 for dataset, tuple_sett in datasets_path.items():
@@ -158,7 +159,7 @@ y_pred_all, y_pred_c = fc.dict_preds[fc.stat_model_l[0][0]]
 import valid_plots as dfplots
 kwrgs = {'wspace':0.25, 'col_wrap':None, 'threshold_bin':fc.threshold_pred}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
-met = ['AUC-ROC', 'AUC-PR', 'BSS']#, 'Rel. Curve', 'Precision']
+met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 expers = list(dict_experiments.keys())
 models   = list(dict_experiments[expers[0]].keys())
@@ -184,14 +185,14 @@ fig.savefig(pathfig_valid,
 
 import valid_plots as dfplots
 if __name__ == "__main__":
-    for fc in list_of_fc:
+    for i, fc in enumerate(list_of_fc):
         models = [n[0] for n in fc.stat_model_l]
         for m in models:
             for l in fc.lags_i:
                 # visual analysis
-                fig = dfplots.visual_analysis(fc, lag=l, model=m)
-                f_name = filename + f'_va_l{l}_{m}'
+                f_name = filename + f'_{i}_va_l{l}_{m}'
                 f_format = '.pdf'
+                fig = dfplots.visual_analysis(fc, lag=l, model=m)
                 pathfig_vis = os.path.join(working_folder, f_name) + f_format
                 fig.savefig(pathfig_vis, bbox_inches='tight') # dpi auto 600
                 # plot deviance

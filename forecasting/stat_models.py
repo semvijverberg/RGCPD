@@ -88,7 +88,7 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
     
     # sample weight not yet supported by GridSearchCV (august, 2019)
     strat_cv = StratifiedKFold(5, shuffle=False)
-    model = LogisticRegressionCV(Cs=10, fit_intercept=True, 
+    model = LogisticRegressionCV(fit_intercept=True, 
                                  cv=strat_cv,
                                  n_jobs=1, 
                                  **kwrgs)
@@ -820,86 +820,55 @@ def _get_synergy(GBR_models_split_lags, lag_i=0, plot_pairs=None,
     plt.imshow(df_pair.values, cmap=plt.cm.RdBu) ; plt.colorbar()        
 #%%
                              
+def _get_regularization(models_splits_lags, lag_i=0):
+    
+    models_splits = models_splits_lags[f'lag_{lag_i}']
+    
+    # np.array( (len(models_splits), )
+    result_splits = []
+    # best = []
+    for splitkey, model in models_splits.items():
+        Cs_ = models_splits[splitkey].Cs_
+        # low Cs_ is strong regulazation
+        scores = models_splits[splitkey].scores_[1]
+        Cs_format = ['{:.0E}'.format(v) for v in Cs_]
+        df_ = pd.DataFrame(scores, columns=Cs_format)
+        df_ = df_.append(pd.Series(model.Cs_ == model.C_[0], 
+                             index=Cs_format, 
+                             dtype=bool),
+                             ignore_index=True)
 
-#    plot_twoway_partial_dependence()
-            
-#        keep.append( {index : corr_vs_index} )
-#    zz = sig_cross.loc[row]
+        # df['best'] = m.Cs_ == m.C_[0]
+        result_splits.append(df_)
+    df = pd.concat(result_splits, keys=range(len(models_splits)))
+    df = df.rename_axis(models_splits[splitkey].scoring, axis=1)
+    # df.rename_axis(models_splits[splitkey].C_, axis=0)
+    
+    return df
 
+def plot_regularization(models_splits_lags, lag_i=0):
+    #%%
+    df = _get_regularization(models_splits_lags, lag_i=lag_i)
+    n_spl = np.unique(df.index.get_level_values(0)).size
+    g = sns.FacetGrid(pd.DataFrame(range(n_spl), index=range(n_spl)), 
+                      col=0, col_wrap=2, aspect=1.5, 
+                      sharex=True, sharey=True)
 
-
-#def GBR(y_ts, df_norm, keys=None, kwrgs_GBR=None, verbosity=0):
-#    #%%
-#    '''
-#    X contains all precursor data, incl train and test
-#    X_train, y_train are split up by TrainIsTrue
-#    Preciction is made for whole timeseries    
-#    '''
-#    import warnings
-#    warnings.filterwarnings("ignore", category=DeprecationWarning) 
-#    warnings.simplefilter(action='ignore', category=FutureWarning)
-#    
-#    
-#    if keys is None:
-#        no_data_col = ['TrainIsTrue', 'RV_mask', 'fit_model_mask']
-#        keys = df_norm.columns
-#        keys = [k for k in keys if k not in no_data_col]
-#        
-#    if kwrgs_GBR == None:
-#        # use Bram settings
-#        kwrgs_GBR = {'max_depth':3,
-#                 'learning_rate':0.001,
-#                 'n_estimators' : 1250,
-#                 'max_features':'sqrt',
-#                 'subsample' : 0.5}
-#    
-#    # find parameters for gridsearch optimization
-#    kwrgs_gridsearch = {k:i for k, i in kwrgs_GBR.items() if type(i) == list}
-#    # only the constant parameters are kept
-#    kwrgs = kwrgs_GBR.copy()
-#    [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
-#    
-#    X = df_norm[keys]
-#    X = add_constant(X)
-#    RV_ts = RV.RV_ts_fit
-#    # Get training years
-#    TrainIsTrue = df_norm['TrainIsTrue'] 
-#    # Get mask to make only prediction for RV_mask dates
-#    pred_mask   = df_norm['RV_mask']
-#  
-#    X_train = X[TrainIsTrue]
-#    y_train = RV_ts[TrainIsTrue.values] 
-#    
-#    # add sample weight mannually
-##    y_train[y_train > y_train.mean()] = 10 * y_train[y_train > y_train.mean()]
-#    
-#    # sample weight not yet supported by GridSearchCV (august, 2019)
-##    y_wghts = (RV.RV_bin[TrainIsTrue.values] + 1).squeeze().values
-#    regressor = GradientBoostingRegressor(**kwrgs)
-#
-#    if len(kwrgs_gridsearch) != 0:
-##        scoring   = 'r2'
-#        scoring   = 'neg_mean_squared_error'
-#        regressor = GridSearchCV(regressor,
-#                  param_grid=kwrgs_gridsearch,
-#                  scoring=scoring, cv=5, refit=scoring, 
-#                  return_train_score=False)
-#        regressor.fit(X_train, y_train.values.ravel())
-#        results = regressor.cv_results_
-#        scores = results['mean_test_score'] 
-#        improv = int(100* (min(scores)-max(scores)) / max(scores))
-#        print("Hyperparam tuning led to {:}% improvement, best {:.2f}, "
-#              "best params {}".format(
-#                improv, regressor.best_score_, regressor.best_params_))
-#    else:
-#        regressor.fit(X_train, y_train.values.ravel())
-#    
-#
-#    prediction = pd.DataFrame(regressor.predict(X[pred_mask]),
-#                              index=X[pred_mask].index, columns=[0])
-#    prediction['TrainIsTrue'] = pd.Series(TrainIsTrue.values, index=X.index)
-#    prediction['RV_mask'] = pd.Series(pred_mask.values, index=pred_mask.index)
-#    
-#    logit_pred, model_logit = logit(RV, prediction, keys=None)
-#    #%%
-#    return logit_pred, (model_logit, regressor)
+    for i, ax in enumerate(g.axes):
+        df_p = df.loc[i].iloc[:-1].copy()
+        lines = np.array(['--'] * df_p.columns.size)
+        lines[df.loc[i].iloc[-1] == 1.] = '-'
+        lw = np.array([1] * df_p.columns.size)
+        lw[df.loc[i].iloc[-1] == 1.] = 3
+        df_p.plot(cmap=plt.cm.Reds_r, kind='line',ax=ax,
+                       style=list(lines), 
+                       legend=False)
+        if i == 0:
+            ax.legend(fontsize=10)
+        for i, l in enumerate(ax.lines):
+            plt.setp(l, linewidth=lw[i])
+        
+        ax.set_ylim(-.3, 0)
+        ax.set_ylabel(df_p.columns.name)
+        ax.set_xlabel('LogitRegr CV folds')       
+    g.fig.suptitle('Inverse Regularization strength (low is strong)', y=1.00)
