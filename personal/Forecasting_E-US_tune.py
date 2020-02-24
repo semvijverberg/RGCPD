@@ -163,7 +163,7 @@ for i, fc in enumerate(list_of_fc):
                               threshold_pred=(1.5, 'times_clim'))
         dataset = fc.dataset
         dict_experiments[dataset+'_'+str(keys_d)] = fc.dict_sum
-        list_of_fc.append(fc)
+        list_of_fc[i] = fc
 
 y_pred_all, y_pred_c = fc.dict_preds[fc.stat_model_l[0][0]]
 df_valid, RV, zz = fc.dict_sum[fc.stat_model_l[0][0]]
