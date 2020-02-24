@@ -158,10 +158,11 @@ if type(kwrgs_events) is tuple:
 else:
     x_label = 'Temporal Aggregation [days]'
 
-
+file_path = filename + '.h5'
 path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_experiments, 
                                                   model=stat_model_l[0][0], 
-                                                  metric=metric, lags_t=LAG_DAY)
+                                                  metric=metric, lags_t=LAG_DAY,
+                                                  file_path=file_path)
 fig = dfplots.plot_score_matrix(path_data, col=0, 
                                 x_label=x_label, ax=None)
                       

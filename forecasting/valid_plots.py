@@ -261,7 +261,8 @@ def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=4,
         #%%
     return g.fig
 
-def get_score_matrix(d_expers=dict, model=str, metric=str, lags_t=None):
+def get_score_matrix(d_expers=dict, model=str, metric=str, lags_t=None, 
+                     file_path=None):
     #%%
     percen = np.array(list(d_expers.keys()))
     tfreqs = np.array(list(d_expers[percen[0]].keys()))
@@ -288,7 +289,8 @@ def get_score_matrix(d_expers=dict, model=str, metric=str, lags_t=None):
     df_sign = pd.DataFrame(np_sig, index=percen, columns=tfreqs)
     
     dict_of_dfs = {f'df_data_{metric}':df_data,'df_sign':df_sign}
-    path_data = functions_pp.store_hdf_df(dict_of_dfs)
+    
+    path_data = functions_pp.store_hdf_df(dict_of_dfs, file_path=file_path)
     return path_data, dict_of_dfs
 
 def plot_score_matrix(path_data=str, col=0,

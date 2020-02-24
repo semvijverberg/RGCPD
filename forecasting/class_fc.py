@@ -36,8 +36,8 @@ import core_pp
 class fcev():
 
     number_of_times_called = 0
-    def __init__(self, path_data, name=None, precur_aggr=None, TV_aggr=None,
-                   use_fold=None, start_end_TVdate=None):
+    def __init__(self, path_data, precur_aggr=None, TV_aggr=None,
+                   use_fold=None, start_end_TVdate=None, dataset=None):
         '''
         Instance for certain dataset with keys and list of stat models
 
@@ -49,10 +49,10 @@ class fcev():
 
         self.path_data = path_data
 
-        if name is None:
-            self.name = 'exper1'
+        if dataset is None:
+            self.dataset = 'exper1'
         else:
-            self.name = name
+            self.dataset = dataset
 
         self.df_data_orig = df_ana.load_hdf5(self.path_data)['df_data']
         self.fold = use_fold
@@ -335,7 +335,7 @@ class fcev():
         for i, fc_i in enumerate(list_of_fc):
 
             lines.append(f'\n\n***Experiment {e}***\n\n')
-            lines.append(f'Title \t : {fc_i.name}')
+            lines.append(f'Title \t : {fc_i.dataset}')
             lines.append(f'file \t : {fc_i.path_data}')
             lines.append(f'kwrgs_events \t : {fc_i.kwrgs_events}')
             lines.append(f'kwrgs_pp \t : {fc_i.kwrgs_pp}')

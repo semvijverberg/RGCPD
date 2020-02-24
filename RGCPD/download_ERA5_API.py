@@ -27,6 +27,7 @@ def Variable(self, ex):
     self.dataset = ex['dataset']
     self.path_raw = ex['path_raw']
     self.base_path = ex['base_path']
+    self.CDO_command = ex['CDO_command']
     return self
 
 class Var_ECMWF_download():
@@ -165,8 +166,11 @@ def retrieve_field(cls):
     
             else:
                 print("convert operational oper data to daily means")
-                ana_to_daymean = 'cdo -b 32 settime,00:00 -daymean -mergetime {}/*.nc {}'.format(cls.tmp_folder, file_path)
-                args = [ana_to_daymean]
+                ana_to_day = 'cdo -b 32 settime,00:00 -{} -mergetime {}/*.nc {}'.format(
+                                        cls.CDO_command,
+                                        cls.tmp_folder, 
+                                        file_path)
+                args = [ana_to_day]
     
             kornshell_with_input(args, cls)
 

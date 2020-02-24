@@ -50,7 +50,7 @@ ERA_1d_CPPA = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PDO,ENSO)', 'sst(CPPA)', 'sst(C
 ERA_vs_PEP = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
 
 exp_keys = ['sst(PEP)', 'sst(PDO,ENSO)', 'sst(CPPA)']
-exp_keys = ['sst(CPPA)+sm', 'persistence']
+
 exp_keys = [ 'CPPAregs+sm']
 
 ERA_1d_sm_2_3_OLR = {'ERA-5':(CPPAs5_1d_sm_2_3_OLR_l10, exp_keys)}
@@ -128,22 +128,32 @@ kwrgs_events = kwrgs_events
 stat_model_l = [logitCV]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
 
-lags_i = np.array([0, 10, 15])
-precur_aggr = 16
-TV_aggr = None
-use_fold = None
-start_end_TVdate = ('7-04', '8-22')
-start_end_TVdate = None
+lags_i = np.array([0, 10, 14, 21, 28])
 
-dict_experiments = {} ; list_of_fc = []
-for dataset, tuple_sett in datasets_path.items():
-    path_data = tuple_sett[0]
-    keys_d_list = tuple_sett[1]
-    for keys_d in keys_d_list:
 
-        fc = fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                  TV_aggr=TV_aggr, use_fold=use_fold,
-                  start_end_TVdate=start_end_TVdate)
+start_end_TVdate = None # ('7-04', '8-22')
+
+list_of_fc = [fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=14, 
+                  use_fold=None,
+                  start_end_TVdate=None,
+                  dataset='ERA-5'),
+              fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=15, 
+                  use_fold=None,
+                  start_end_TVdate=None,
+                  dataset='ERA-5'),
+              fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=16, 
+                  use_fold=None,
+                  start_end_TVdate=None,
+                  dataset='ERA-5')]
+
+exp_keys = ['sst(CPPA)+sm', 'persistence']
+dict_experiments = {} ; 
+for i, fc in enumerate(list_of_fc):
+    for keys_d in exp_keys:
+
+        # fc = fcev(path_data=path_data, precur_aggr=precur_aggr, 
+        #           use_fold=use_fold,
+        #           start_end_TVdate=start_end_TVdate)
         fc.get_TV(kwrgs_events=kwrgs_events)
         
         fc.fit_models(stat_model_l=stat_model_l, lead_max=lags_i,
@@ -151,11 +161,12 @@ for dataset, tuple_sett in datasets_path.items():
 
         fc.perform_validation(n_boot=500, blocksize='auto', alpha=0.05,
                               threshold_pred=(1.5, 'times_clim'))
+        dataset = fc.dataset
         dict_experiments[dataset+'_'+str(keys_d)] = fc.dict_sum
         list_of_fc.append(fc)
 
 y_pred_all, y_pred_c = fc.dict_preds[fc.stat_model_l[0][0]]
-
+df_valid, RV, zz = fc.dict_sum[fc.stat_model_l[0][0]]
 # In[8]:
 
 
