@@ -16,17 +16,20 @@ curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe(
 main_dir = '/'.join(curr_dir.split('/')[:-1])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/') 
+fc_dir = os.path.join(main_dir, 'forecasting')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
     sys.path.append(cluster_func)
+    sys.path.append(fc_dir)
 
 path_raw = user_dir + '/surfdrive/ERA5/input_raw'
-
+#%%
 from RGCPD import RGCPD
 
-TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/xrclustered_c66a4.nc'
-list_of_name_path = [(4, TVpath), 
+TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW_dendo_f30ff.nc'
+cluster_label = 4
+list_of_name_path = [(cluster_label, TVpath), 
                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
@@ -53,8 +56,8 @@ rg.plot_maps_corr(save=True)
 
 #%%
 from RGCPD import RGCPD
-TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/xrclustered_c66a4.nc'
-list_of_name_path = [(3, TVpath), 
+
+list_of_name_path = [(cluster_label, TVpath), 
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
                      ('sm2', os.path.join(path_raw, 'sm2_1979-2018_1_12_daily_1.0deg.nc')),
                      ('sm3', os.path.join(path_raw, 'sm3_1979-2018_1_12_daily_1.0deg.nc'))]
@@ -87,16 +90,18 @@ rg.df_data
 rg.store_df()
 
 #%%
-from func_fc import fcev
+from class_fc import fcev
 logitCV = ('logitCV',
           {'class_weight':{ 0:1, 1:1},
            'scoring':'brier_score_loss',
            'penalty':'l2',
            'solver':'lbfgs',
-           'max_iter':100})
+           'max_iter':100,
+           'refit':False})
 
-
-datasets_path = {f'cluster {rg.TV.name}':(rg.df_data_filename, [None])}
+path_data = rg.df_data_filename
+name = rg.TV.name
+datasets_path = {f'cluster {name}':(path_data, [None])}
 kwrgs_events = {'event_percentile': 66}
 stat_model_l = [logitCV]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}

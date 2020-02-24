@@ -274,6 +274,8 @@ def store_netcdf(xarray, filepath=None, append_hash=None):
             name = 'no_name'
             filename = name + '.nc'
         filepath = os.path.join(path, filename)
+    else:
+        name = xarray['xrclustered'].name
     if append_hash is not None:
         filepath = filepath.split('.')[0] +'_'+ append_hash + '.nc'
     # ensure mask

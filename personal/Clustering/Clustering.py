@@ -74,11 +74,11 @@ plot_maps.plot_labels(xr_mask)
 from time import time
 t0 = time()
 xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
-                                               kwrgs_load={'tfreq':[30],
+                                               kwrgs_load={'tfreq':[5, 10, 15, 30],
                                                            'seldates':('06-15', '08-31'),
                                                            'selbox':selbox},
                                                kwrgs_clust={'q':66,
-                                                            'n_clusters':[2],
+                                                            'n_clusters':[2,3,4,5,6,7,8],
                                                             'affinity':'jaccard',
                                                             'linkage':'average'})
 fig = plot_maps.plot_labels(xrclustered, wspace=.05, hspace=-.2, cbar_vert=.08,
@@ -137,10 +137,10 @@ print(f'{round(time()-t0, 2)}')
 
 
 #%%
-# ds = cl.spatial_mean_clusters(var_filename,
-#                               xrclustered.sel(tfreq=10, n_clusters=6),
-#                               selbox=selbox)
-# cl.store_netcdf(ds, filepath=rg.path_outmain, append_hash='dendo_'+xrclustered.attrs['hash'])
+ds = cl.spatial_mean_clusters(var_filename,
+                              xrclustered.sel(tfreq=15, n_clusters=4),
+                              selbox=selbox)
+cl.store_netcdf(ds, filepath=rg.path_outmain, append_hash='dendo_'+xrclustered.attrs['hash'])
 
 #%%
 # # =============================================================================
