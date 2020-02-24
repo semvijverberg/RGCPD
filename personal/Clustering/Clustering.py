@@ -8,6 +8,7 @@
 
 import os, inspect, sys
 import numpy as np
+import matplotlib.pyplot as plt
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-2])
@@ -80,8 +81,12 @@ xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
                                                             'n_clusters':[2],
                                                             'affinity':'jaccard',
                                                             'linkage':'average'})
-plot_maps.plot_labels(xrclustered, wspace=.05, hspace=-.2, cbar_vert=.08,
+fig = plot_maps.plot_labels(xrclustered, wspace=.05, hspace=-.2, cbar_vert=.08,
                       row_dim='tfreq', col_dim='n_clusters')
+f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
+path_fig = os.path.join(rg.path_outmain, f_name)
+plt.savefig(path_fig,
+            bbox_inches='tight') # dpi auto 600
 print(f'{round(time()-t0, 2)}')
 
 #%%
@@ -99,41 +104,43 @@ xrclustered, results = cl.correlation_clustering(var_filename, mask=xr_mask,
                                                             'affinity':'correlation',
                                                             'linkage':'average'})
 
-fig = plot_maps.plot_labels(xrclustered,  wspace=.05, hspace=-.2, cbar_vert=.08,
+plot_maps.plot_labels(xrclustered,  wspace=.05, hspace=-.2, cbar_vert=.08,
                             row_dim='tfreq', col_dim='n_clusters')
-path_fig = os.path.join(rg.path_outmain, 'clustering_{}'.format(xrclustered.attrs['hash'])) + '.pdf'
-fig.savefig(path_fig,
+
+f_name = 'clustering_correlation_{}'.format(xrclustered.attrs['hash']) + '.pdf'
+path_fig = os.path.join(rg.path_outmain, f_name)
+plt.savefig(path_fig,
             bbox_inches='tight') # dpi auto 600
 print(f'{round(time()-t0, 2)}')
 
 #%%
-# =============================================================================
-# Clustering OPTICS
-# =============================================================================
-var_filename = rg.list_precur_pp[0][1]
-# mask = [155.0, 230.0, 40.0, 45.0]
-# mask = None
-# mask = '/Users/semvijverberg/surfdrive/Data_era5/input_raw/mask_North_America_0.25deg.nc'
-from time import time ; t0 = time()
-xrclustered, results = cl.correlation_clustering(var_filename, mask=xr_mask,
-                                               kwrgs_load={'tfreq':10,
-                                                           'seldates':('06-01', '08-31'),
-                                                           'selbox':selbox},
-                                               clustermethodkey='OPTICS',
-                                               kwrgs_clust={#'eps':.05,
-                                                            'min_samples':5,
-                                                            'metric':'minkowski',
-                                                             'n_jobs':-1})
+# # =============================================================================
+# # Clustering OPTICS
+# # =============================================================================
+# var_filename = rg.list_precur_pp[0][1]
+# # mask = [155.0, 230.0, 40.0, 45.0]
+# # mask = None
+# # mask = '/Users/semvijverberg/surfdrive/Data_era5/input_raw/mask_North_America_0.25deg.nc'
+# from time import time ; t0 = time()
+# xrclustered, results = cl.correlation_clustering(var_filename, mask=xr_mask,
+#                                                kwrgs_load={'tfreq':10,
+#                                                            'seldates':('06-01', '08-31'),
+#                                                            'selbox':selbox},
+#                                                clustermethodkey='OPTICS',
+#                                                kwrgs_clust={#'eps':.05,
+#                                                             'min_samples':5,
+#                                                             'metric':'minkowski',
+#                                                              'n_jobs':-1})
 
-plot_maps.plot_labels(xrclustered)
-print(f'{round(time()-t0, 2)}')
+# plot_maps.plot_labels(xrclustered)
+# print(f'{round(time()-t0, 2)}')
 
 
 #%%
-ds = cl.spatial_mean_clusters(var_filename,
-                              xrclustered.sel(tfreq=10, n_clusters=6),
-                              selbox=selbox)
-cl.store_netcdf(ds, filepath=None, append_hash=xrclustered.attrs['hash'])
+# ds = cl.spatial_mean_clusters(var_filename,
+#                               xrclustered.sel(tfreq=10, n_clusters=6),
+#                               selbox=selbox)
+# cl.store_netcdf(ds, filepath=rg.path_outmain, append_hash='dendo_'+xrclustered.attrs['hash'])
 
 #%%
 # # =============================================================================
