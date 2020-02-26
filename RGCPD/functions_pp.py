@@ -180,6 +180,23 @@ def load_TV(list_of_name_path, loadleap=False):
         fulltso = fulltso.sel(time=dates)
     return fulltso, hashh
 
+
+def nc_xr_ts_to_df(filename):
+    if filename.split('.')[-1] == 'nc':
+        ds = core_pp.import_ds_lazy(filename)
+    else:
+        print('not a NetCDF file')
+    return xrts_to_df(ds['ts']), ds
+
+def xrts_to_df(xarray):
+    name = 'tfreq{}_ncl{}'.format(int(xarray['tfreq']), 
+                                  int(xarray['n_clusters']))
+    df = xarray.drop('tfreq').drop('n_clusters').T.to_dataframe(
+                                        name=name).unstack(level=1)
+    df = df.droplevel(0, axis=1)
+    df.index.name = name
+    return df
+
 def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=True, verbosity=1):
     #%%

@@ -104,9 +104,6 @@ class RGCPD:
         self.path_outmain = path_outmain
         self.figext     = '.pdf'
         self.orig_stdout = sys.stdout
-
-
-
         return
 
     def pp_precursors(self, loadleap=False, seldates=None, selbox=None,
@@ -131,7 +128,15 @@ class RGCPD:
                                              kwrgs_pp=self.kwrgs_pp,
                                              verbosity=self.verbosity)
 
+    def get_clust(self):
+        f = functions_pp
+        self.df_clust, self.ds = f.nc_xr_ts_to_df(self.list_of_name_path[0][1])
+                                        
 
+    def plot_df_clust(self):
+        self.get_clust()
+        plot_maps.plot_labels(self.ds['xrclustered'])
+        
     def pp_TV(self, loadleap=False):
         self.fulltso, self.hash = functions_pp.load_TV(self.list_of_name_path,
                                                        loadleap=loadleap)
@@ -224,6 +229,11 @@ class RGCPD:
                                       '_'.join([self.kwrgs_TV['method'],
                                                 's'+ str(self.kwrgs_TV['seed'])]))
         if os.path.isdir(self.path_outsub1) == False : os.makedirs(self.path_outsub1)
+
+
+    # def get_regions_MI(self, list_for_MI):
+        
+
 
     def calc_corr_maps(self, alpha=0.01, FDR_control=True):
         keys = ['selbox', 'loadleap', 'seldates', 'format_lon']

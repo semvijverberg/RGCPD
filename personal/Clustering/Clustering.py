@@ -14,10 +14,12 @@ curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe(
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
+df_ana_func =  os.path.join(main_dir, 'df_analysis/df_analysis/')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
     sys.path.append(cluster_func)
+    sys.path.append(df_ana_func)
 
 
 if sys.platform == 'linux':
@@ -27,13 +29,14 @@ if sys.platform == 'linux':
 else:
     root_data = '/Users/semvijverberg/surfdrive/ERA5'
     
-path_outmain = user_dir+'/surfdrive/output_RGCPD'
+path_outmain = user_dir+'/surfdrive/output_RGCPD/'
 # In[2]:
 
 
-
+import functions_pp
 import clustering_spatial as cl
 import plot_maps
+import df_ana
 from RGCPD import RGCPD
 list_of_name_path = [('fake', None),
                      ('t2mmmax', root_data + '/input_raw/mx2t_US_1979-2018_1_12_daily_1.0deg.nc')]
@@ -62,6 +65,7 @@ xarray, Country = make_country_mask.create_mask(var_filename, kwrgs_load={'selbo
 mask_US_CA = np.logical_or(xarray.values == Country.US, xarray.values==Country.CA)
 xr_mask = xarray.where(make_country_mask.binary_erosion(mask_US_CA))
 xr_mask.values[make_country_mask.binary_erosion(mask_US_CA)]  = 1
+xr_mask = cl.mask_latlon(xr_mask, latmax=63, lonmax=270)
 plot_maps.plot_labels(xr_mask)
 
 
@@ -70,15 +74,16 @@ plot_maps.plot_labels(xr_mask)
 # =============================================================================
 # Clustering co-occurence of anomalies
 # =============================================================================
-
+tfreq = [5, 10, 15, 30]
+n_clusters = [2,3,4,5,6,7,8]
 from time import time
 t0 = time()
 xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
-                                               kwrgs_load={'tfreq':[5, 10, 15, 30],
+                                               kwrgs_load={'tfreq':tfreq,
                                                            'seldates':('06-15', '08-31'),
                                                            'selbox':selbox},
                                                kwrgs_clust={'q':66,
-                                                            'n_clusters':[2,3,4,5,6,7,8],
+                                                            'n_clusters':n_clusters,
                                                             'affinity':'jaccard',
                                                             'linkage':'average'})
 fig = plot_maps.plot_labels(xrclustered, wspace=.05, hspace=-.2, cbar_vert=.08,
@@ -96,11 +101,11 @@ print(f'{round(time()-t0, 2)}')
 from time import time
 t0 = time()
 xrclustered, results = cl.correlation_clustering(var_filename, mask=xr_mask,
-                                               kwrgs_load={'tfreq':[5,10,15,30],
+                                               kwrgs_load={'tfreq':tfreq,
                                                            'seldates':('06-01', '08-31'),
                                                            'selbox':selbox},
                                                clustermethodkey='AgglomerativeClustering',
-                                               kwrgs_clust={'n_clusters':[2,3,6,7,8],
+                                               kwrgs_clust={'n_clusters':n_clusters,
                                                             'affinity':'correlation',
                                                             'linkage':'average'})
 
@@ -137,9 +142,23 @@ print(f'{round(time()-t0, 2)}')
 
 
 #%%
+for t in tfreq:
+    for c in n_clusters:    
+        # t = 30 ; c=8
+        ds = cl.spatial_mean_clusters(var_filename,
+                                  xrclustered.sel(tfreq=t, n_clusters=c),
+                                  selbox=selbox)
+
+
+        df_clust = functions_pp.xrts_to_df(ds['ts'])
+    
+        fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False, kwrgs={'AUC_cutoff':(14,30)})
+        fig.suptitle('tfreq: {}, n_clusters: {}'.format(t, c), x=.5, y=.97)
+#%%
+t = 15 ; c = 5        
 ds = cl.spatial_mean_clusters(var_filename,
-                              xrclustered.sel(tfreq=15, n_clusters=4),
-                              selbox=selbox)
+                         xrclustered.sel(tfreq=t, n_clusters=c),
+                         selbox=selbox)
 cl.store_netcdf(ds, filepath=rg.path_outmain, append_hash='dendo_'+xrclustered.attrs['hash'])
 
 #%%

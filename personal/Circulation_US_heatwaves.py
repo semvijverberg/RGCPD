@@ -27,8 +27,8 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 #%%
 from RGCPD import RGCPD
 
-TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW_dendo_f30ff.nc'
-cluster_label = 4
+TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW_dendo_9bd48.nc'
+cluster_label = 5
 list_of_name_path = [(cluster_label, TVpath), 
                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
@@ -101,7 +101,7 @@ logitCV = ('logitCV',
 
 path_data = rg.df_data_filename
 name = rg.TV.name
-datasets_path = {f'cluster {name}':(path_data, [None])}
+datasets_path = {f'cluster {name}':(path_data, ['persistence', None])}
 kwrgs_events = {'event_percentile': 66}
 stat_model_l = [logitCV]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
@@ -130,7 +130,7 @@ for dataset, tuple_sett in datasets_path.items():
 
 y_pred_all, y_pred_c = fc.dict_preds[fc.stat_model_l[0][0]]
 
-# In[8]:
+
 
 
 import valid_plots as dfplots

@@ -66,8 +66,8 @@ def loop_df(df, function, keys=None, colwrap=3, sharex='col',
     elif (df.columns.size) % colwrap != 0:
         rows = int(df.columns.size / colwrap) + 1
         
-    gridspec_kw = {'hspace':0.5}
-    fig, ax = plt.subplots(rows, colwrap, sharex=sharex, sharey='row',
+    gridspec_kw = {'hspace':0.4}
+    fig, ax = plt.subplots(rows, colwrap, sharex=sharex, sharey=sharey,
                            figsize = (3*colwrap,rows*2.5), gridspec_kw=gridspec_kw)
 
     for i, ax in enumerate(fig.axes):
@@ -97,7 +97,7 @@ def autocorr_sm(ts, max_lag=None, alpha=0.01):
                                  fft=True)
     return ac, con_int
 
-def plot_ac(y=pd.Series, s='auto', title=None, ax=None):
+def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=None, ax=None):
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
 
@@ -117,11 +117,22 @@ def plot_ac(y=pd.Series, s='auto', title=None, ax=None):
         # has to be below 0 for n times (not necessarily consecutive):
         n = 1
         n_of_times = np.array([idx+1 - where[0] for idx in where])
-        cutoff = where[np.where(n_of_times == n)[0][0] ]
+        cutoff = int(where[np.where(n_of_times == n)[0][0] ])
+        
         s = 2*cutoff
     else:
         s = 5
-
+    if AUC_cutoff is None:
+        AUC_cutoff = cutoff
+    if type(AUC_cutoff) is int:
+        AUC = np.trapz(ac[:AUC_cutoff], x=range(AUC_cutoff))
+        text = 'AUC {:.2f} up to lag {}'.format(AUC, AUC_cutoff)
+    elif type(AUC_cutoff) is tuple:
+        AUC = np.trapz(ac[AUC_cutoff[0]:AUC_cutoff[1]], 
+                       x=range(AUC_cutoff[0], AUC_cutoff[1]))
+        text = 'AUC {:.2f} range lag {}-{}'.format(AUC, AUC_cutoff[0],
+                                                   AUC_cutoff[1])
+        
     xlabels = [x * tfreq for x in range(s)]
     # con high
     high = [ min(1,h) for h in con_int[:,1][:s]]
@@ -132,7 +143,11 @@ def plot_ac(y=pd.Series, s='auto', title=None, ax=None):
     ax.plot(xlabels,ac[:s])
     ax.scatter(xlabels,ac[:s])
     ax.hlines(y=0, xmin=min(xlabels), xmax=max(xlabels))
-
+    
+    ax.text(0.99, 0.90, 
+            text, 
+            transform=ax.transAxes, horizontalalignment='right',
+            fontdict={'fontsize':8})
     xlabels = [x * tfreq for x in range(s)]
     n_labels = max(1, int(s / 5))
     ax.set_xticks(xlabels[::n_labels])
