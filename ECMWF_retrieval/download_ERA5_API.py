@@ -27,6 +27,7 @@ def Variable(self, ex):
     self.dataset = ex['dataset']
     self.path_raw = ex['path_raw']
     self.base_path = ex['base_path']
+    self.CDO_command = ex['CDO_command']
     return self
 
 class Var_ECMWF_download():
@@ -92,14 +93,14 @@ class Var_ECMWF_download():
         
             
 def retrieve_field(cls):
+    
+    
+    
+    
+    #    paramid = np.logical_and(any(char.isdigit() for char in cls.var_cf_code),
+    #                                '.' in cls.var_cf_code )
+    #    assert (paramid==False), ('Please insert variable name instead of paramid')
     #%%
-    
-    
-    
-#    paramid = np.logical_and(any(char.isdigit() for char in cls.var_cf_code),
-#                                '.' in cls.var_cf_code )
-#    assert (paramid==False), ('Please insert variable name instead of paramid')
-    
     file_path = os.path.join(cls.path_raw, cls.filename)
     if cls.stream == 'moda':
         file_path_raw = file_path
@@ -165,8 +166,11 @@ def retrieve_field(cls):
     
             else:
                 print("convert operational oper data to daily means")
-                ana_to_daymean = 'cdo -b 32 settime,00:00 -daymean -mergetime {}/*.nc {}'.format(cls.tmp_folder, file_path)
-                args = [ana_to_daymean]
+                ana_to_day = 'cdo -b 32 settime,00:00 -{} -mergetime {}/*.nc {}'.format(
+                                        cls.CDO_command,
+                                        cls.tmp_folder, 
+                                        file_path)
+                args = [ana_to_day]
     
             kornshell_with_input(args, cls)
 

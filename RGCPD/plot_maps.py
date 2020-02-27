@@ -45,12 +45,12 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     zoombox = tuple(east_lon, west_lon, south_lat, north_lat)
     '''
     #%%
-#    # default parameters
-#    row_dim='split'; col_dim='lag'; clim='relaxed'; hspace=-0.6;
-#    size=2.5; cbar_vert=-0.01; units='units'; cmap=None;
-#    clevels=None; cticks_center=None;
-#    drawbox=None; subtitles=None; lat_labels=True;
-#
+    # default parameters
+    # row_dim='split'; col_dim='lag'; clim='relaxed'; hspace=-0.6;
+    # size=2.5; cbar_vert=-0.01; units='units'; cmap=None;
+    # clevels=None; cticks_center=None; map_proj = None ; wspace=.0
+    # drawbox=None; subtitles=None; lat_labels=True;
+
 
 
     if map_proj is None:
@@ -175,7 +175,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 #                    print('could not draw contourf, shifting to pcolormesh')
 
             # if no signifcant regions, still plot corr values, but the causal plot must remain empty
-            if mask_xr is None or all_masked==False or (all_masked and 'tigr' not in c_label):
+            if mask_xr is None or all_masked==False or (all_masked and 'tigr' not in str(c_label)):
                 im = plotdata.plot.pcolormesh(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
                                         center=0,
                                          levels=clevels, cmap=cmap,
@@ -293,7 +293,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     #%%
     return
 
-def causal_reg_to_xarray(RV_name, df_sum, outdic_actors):
+def causal_reg_to_xarray(RV_name, df_sum, list_MI):
     #%%
     '''
     Returns Dataset of merged variables, this aligns there coordinates (easy for plots)
@@ -311,8 +311,8 @@ def causal_reg_to_xarray(RV_name, df_sum, outdic_actors):
         except:
             pass
 
-    spatial_vars = outdic_actors.keys()
-    var_rel_sizes = {var:outdic_actors[var].area_grid.sum()/7939E6 for var in spatial_vars}
+    # spatial_vars = outdic_actors.keys()
+    var_rel_sizes = {i:precur.area_grid.sum() for i,precur in enumerate(list_MI)}
     sorted_sizes = sorted(var_rel_sizes.items(), key=lambda kv: kv[1], reverse=True)
     var_large_to_small = [s[0] for s in sorted_sizes]
 
@@ -333,13 +333,15 @@ def causal_reg_to_xarray(RV_name, df_sum, outdic_actors):
         return label_tig, corr_xr, corr_tig
 
     dict_ds = {}
-    for i, var in enumerate(var_large_to_small):
+    for idx in var_large_to_small:
+        precur = list_MI[idx]
+        var = precur.name
         ds_var = xr.Dataset()
         regs_c = df_c.loc[ df_c['var'] == var ]
-        actor = outdic_actors[var]
-        label_tig = actor.prec_labels.copy()
-        corr_tig = actor.corr_xr.copy()
-        corr_xr  = actor.corr_xr.copy()
+        
+        label_tig = precur.prec_labels.copy()
+        corr_tig = precur.corr_xr.copy()
+        corr_xr  = precur.corr_xr.copy()
         if df_c.loc[ df_c['var'] == var ].size != 0:
             # if causal regions exist:
             for lag_cor in label_tig.lag.values:
@@ -365,7 +367,7 @@ def causal_reg_to_xarray(RV_name, df_sum, outdic_actors):
 
         ds_var[var+'_corr'] = corr_xr
         ds_var[var+'_corr_tigr'] = corr_tig
-        ds_var[var+'_labels'] = actor.prec_labels.copy()
+        ds_var[var+'_labels'] = precur.prec_labels.copy()
         ds_var[var+'_labels_tigr'] = label_tig.copy()
         dict_ds[var] = ds_var
 

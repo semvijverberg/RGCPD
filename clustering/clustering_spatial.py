@@ -189,18 +189,6 @@ def dendogram_clustering(var_filename, mask=None, kwrgs_load={},
         xrclustered.attrs['hash']   = uuid.uuid4().hex[:5]
     return xrclustered, results
 
-# def insert_dim_xarray(xarray, dim_coords=dict):
-#     dim = list(dim_coords.keys())[0]
-#     new_coord = 
-#     coords = xarray.coords.merge(dim_coords).coords
-#     shape = list(xarray.shape)
-#     [shape.insert(0,len(dim_coords[dim])) for k in list(dim_coords.keys())]
-#     data = np.zeros( (shape) )
-#     return xr.DataArray(data, coords=[coords[dim].values,
-#                               coords['latitude'].values,
-#                               coords['longitude'].values],
-#                               dims=[dim,'latitude', 'longitude'])
-
 def binary_occurences_quantile(xarray, q=95):
     '''
     creates binary occuences of 'extreme' events defined as exceeding the qth percentile
@@ -274,6 +262,8 @@ def store_netcdf(xarray, filepath=None, append_hash=None):
             name = 'no_name'
             filename = name + '.nc'
         filepath = os.path.join(path, filename)
+    else:
+        name = xarray['xrclustered'].name
     if append_hash is not None:
         filepath = filepath.split('.')[0] +'_'+ append_hash + '.nc'
     # ensure mask
@@ -297,10 +287,10 @@ def get_download_path():
     else:
         return os.path.join(os.path.expanduser('~'), 'Downloads')
     
-def spatial_mean_clusters(var_filename, xrclustered, selbox=None):
+def spatial_mean_clusters(var_filename, xrclust, selbox=None):
     #%%
     xarray = core_pp.import_ds_lazy(var_filename, selbox=selbox)
-    labels = xrclustered.values
+    labels = xrclust.values
     nparray = xarray.values
     track_names = []
     area_grid = find_precursors.get_area(xarray)
@@ -316,7 +306,7 @@ def spatial_mean_clusters(var_filename, xrclustered, selbox=None):
         track_names.append(int(r))
         idx = regions_for_ts.index(r)
         # start with empty lonlat array
-        B = np.zeros(xrclustered.shape)
+        B = np.zeros(xrclust.shape)
         # Mask everything except region of interest
         B[labels == r] = 1
         # Calculates how values inside region vary over time
@@ -324,9 +314,60 @@ def spatial_mean_clusters(var_filename, xrclustered, selbox=None):
     xrts = xr.DataArray(ts_clusters.T, 
                         coords={'cluster':track_names, 'time':xarray.time}, 
                         dims=['cluster', 'time'])
-    ds = xr.Dataset({'xrclustered':xrclustered, 'ts':xrts})
+    ds = xr.Dataset({'xrclustered':xrclust, 'ts':xrts})
     #%%
     return ds
+
+def percentile_cluster(var_filename, xrclust, q=75, tailmean=True, selbox=None):
+    xarray = core_pp.import_ds_lazy(var_filename, selbox=selbox)
+    labels = xrclust.values
+    nparray = xarray.values
+    n_t = xarray.time.size
+    track_names = []
+    area_grid = find_precursors.get_area(xarray)
+    regions_for_ts = list(np.unique(labels[~np.isnan(labels)]))
+    
+    if tailmean:
+        tmp_wgts = (area_grid / area_grid.mean())[:,:]
+        a_wghts = np.tile(tmp_wgts[None,:], (n_t,1,1))
+    else:
+        a_wghts = area_grid / area_grid.mean()
+    # this array will be the time series for each feature
+    ts_clusters = np.zeros((xarray.shape[0], len(regions_for_ts)))
+
+
+    # calculate area-weighted mean over labels
+    for r in regions_for_ts:
+        track_names.append(int(r))
+        idx = regions_for_ts.index(r)
+        # start with empty lonlat array
+        B = np.zeros(xrclust.shape)
+        # Mask everything except region of interest
+        B[labels == r] = 1
+        # Calculates how values inside region vary over time
+        if tailmean == False:
+            ts_clusters[:,idx] = np.nanpercentile(nparray[:,B==1] * a_wghts[B==1], q=q,
+                                              axis =1)
+        elif tailmean:
+            # non-weighted percentile
+            ts_clusters[:,idx] = np.nanpercentile(nparray[:,B==1], q=q,
+                                              axis =1)
+            # take a mean over all gridpoints that pass the percentile instead
+            # of taking the single percentile value of a spatial region
+            mask_B_perc = nparray[:,B==1] > ts_clusters[:,idx, None]
+            # mask_B_perc, for each timestep the spatial mask and the mask where
+            # gridcells pass the percentile value
+            nptimespace = nparray[:,B==1].reshape(nparray.shape[0],-1)
+            wghts = a_wghts[:,B==1]
+            # we now have a timevarying spatial mask, 
+            y = np.nanmean(nptimespace[mask_B_perc].reshape(n_t,-1) * \
+                           wghts[mask_B_perc].reshape(n_t,-1), axis =1)
+                                              
+            ts_clusters[:,idx] = y
+    xrts = xr.DataArray(ts_clusters.T, 
+                        coords={'cluster':track_names, 'time':xarray.time}, 
+                        dims=['cluster', 'time'])
+    return xrts
 
 def regrid_array(xr_or_filestr, to_grid, periodic=False):
     import functions_pp
@@ -342,3 +383,14 @@ def regrid_array(xr_or_filestr, to_grid, periodic=False):
         plot_maps.plot_labels(xr_regrid)
         plot_maps.plot_labels(xr_regrid.where(xr_regrid.values==3))
     return xr_regrid
+
+def mask_latlon(xarray, latmax=None, lonmax=None):
+    ll = np.meshgrid(xarray.longitude, xarray.latitude)
+    if latmax is not None and lonmax is None:
+        xarray = xarray.where(ll[1] < latmax)
+    if lonmax is not None and latmax is None:
+        xarray = xarray.where(ll[0]<lonmax)
+    if latmax is not None and lonmax is not None:
+        npmask = np.logical_or(ll[1] < latmax, ll[0]<lonmax)
+        xarray = xarray.where(npmask)
+    return xarray

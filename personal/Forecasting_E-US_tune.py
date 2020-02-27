@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Forecasting
-# Below done with test data, same format as df_data
+
 
 # In[1]:
 
@@ -13,34 +12,33 @@ import os, inspect, sys
 import numpy as np
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
-python_dir = os.path.join(main_dir, 'RGCPD')
+RGCPD_dir = os.path.join(main_dir, 'RGCPD')
+fc_dir = os.path.join(main_dir, 'forecasting')
 df_ana_dir = os.path.join(main_dir, 'df_analysis/df_analysis/')
 if main_dir not in sys.path:
     sys.path.append(main_dir)
-    sys.path.append(python_dir)
+    sys.path.append(RGCPD_dir)
     sys.path.append(df_ana_dir)
+    sys.path.append(fc_dir)
 
 user_dir = os.path.expanduser('~')
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-# In[2]:
 
 
-from func_fc import fcev
+
+from class_fc import fcev
 
 
-# In[3]:
 old_CPPA = user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5'
 old = user_dir + '/surfdrive/output_RGCPD/20jun-19aug_lag10-10/ran_strat10_s1/None_at0.001_tau_0-1_conds_dim4_combin1.h5'
 era5_10d_CPPA_sm = user_dir + '/surfdrive/output_RGCPD/Xzkup1_20jun-19aug_lag20-20/random10_s1/df_data_sst_CPPA_sm123_dt10_Xzkup1.h5'
 era5_1d_CPPA_lag0 =  user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_0_Xzkup1.h5'
 era5_1d_CPPA_l10 = user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
 
-CPPA_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPA_sm2_sm3_OLR_dt1_Xzkup1.h5'
-CPPAs5_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPAs5_sm2_sm3_OLR_dt1_Xzkup1.h5'
-# In[4]:
-
+CPPAs30_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/easternUS/t2mmmax_Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPAs30_sm2_sm3_OLR_dt1_Xzkup1.h5'
+CPPAs5_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/easternUS/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPAs5_sm2_sm3_OLR_dt1_Xzkup1.h5'
 
 #ERA_and_EC_daily  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
 #                 'EC-earth 2.3':(strat_1d_CPPA_EC, ['PEP', 'CPPA'])}
@@ -52,7 +50,8 @@ ERA_1d_CPPA = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PDO,ENSO)', 'sst(CPPA)', 'sst(C
 ERA_vs_PEP = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
 
 exp_keys = ['sst(PEP)', 'sst(PDO,ENSO)', 'sst(CPPA)']
-exp_keys = ['sst(CPPA)+sm']#, 'persistence']
+
+exp_keys = [ 'CPPAregs+sm']
 
 ERA_1d_sm_2_3_OLR = {'ERA-5':(CPPAs5_1d_sm_2_3_OLR_l10, exp_keys)}
 
@@ -63,7 +62,8 @@ datasets_path  = ERA_1d_sm_2_3_OLR
 logit = ('logit', None)
 
 logitCV = ('logitCV',
-          {'class_weight':{ 0:1, 1:1},
+          {'Cs':np.logspace(-4,1,10),
+          'class_weight':{ 0:1, 1:1},
            'scoring':'brier_score_loss',
            'penalty':'l2',
            'solver':'lbfgs',
@@ -125,33 +125,48 @@ kwrgs_events = {'event_percentile': 70}
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [logitCV, logitCVfs]
+stat_model_l = [logitCV]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
 
-lags_i = np.array([0, 10, 15, 21, 28])
-precur_aggr = 16
-use_fold = None
+lags_i = np.array([0, 10, 14, 21, 28])
 
 
+start_end_TVdate = None # ('7-04', '8-22')
 
-dict_experiments = {} ; list_of_fc = []
-for dataset, tuple_sett in datasets_path.items():
-    path_data = tuple_sett[0]
-    keys_d_list = tuple_sett[1]
-    for keys_d in keys_d_list:
+list_of_fc = [fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=14, 
+                  use_fold=None,
+                  start_end_TVdate=None,
+                  dataset='ERA-5'),
+              fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=15, 
+                  use_fold=None,
+                  start_end_TVdate=None,
+                  dataset='ERA-5'),
+              fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=16, 
+                  use_fold=None,
+                  start_end_TVdate=None,
+                  dataset='ERA-5')]
 
-        fc = fcev(path_data=path_data, precur_aggr=precur_aggr, use_fold=use_fold)
+exp_keys = ['sst(CPPA)+sm', 'persistence']
+dict_experiments = {} ; 
+for i, fc in enumerate(list_of_fc):
+    for keys_d in exp_keys:
+
+        # fc = fcev(path_data=path_data, precur_aggr=precur_aggr, 
+        #           use_fold=use_fold,
+        #           start_end_TVdate=start_end_TVdate)
         fc.get_TV(kwrgs_events=kwrgs_events)
+        
         fc.fit_models(stat_model_l=stat_model_l, lead_max=lags_i,
                            keys_d=keys_d, kwrgs_pp=kwrgs_pp, verbosity=1)
 
         fc.perform_validation(n_boot=500, blocksize='auto', alpha=0.05,
                               threshold_pred=(1.5, 'times_clim'))
+        dataset = fc.dataset
         dict_experiments[dataset+'_'+str(keys_d)] = fc.dict_sum
-        list_of_fc.append(fc)
+        list_of_fc[i] = fc
 
 y_pred_all, y_pred_c = fc.dict_preds[fc.stat_model_l[0][0]]
-
+df_valid, RV, zz = fc.dict_sum[fc.stat_model_l[0][0]]
 # In[8]:
 
 
@@ -170,6 +185,8 @@ fig = dfplots.valid_figures(dict_experiments, expers=expers, models=models,
                           met=met, **kwrgs)
 
 
+
+
 working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)
 
 f_format = '.pdf'
@@ -181,17 +198,21 @@ fig.savefig(pathfig_valid,
 
 #%%
 
-
+im = 0
+il = 0
+ifc = 0
 import valid_plots as dfplots
 if __name__ == "__main__":
-    for fc in list_of_fc:
-        models = [n[0] for n in fc.stat_model_l]
-        for m in models:
-            for l in fc.lags_i:
+    for i, fc in enumerate(list_of_fc):
+        for im, m in enumerate([n[0] for n in fc.stat_model_l]):
+            for il, l in enumerate(fc.lags_i):
+                fc = list_of_fc[ifc]
+                m = [n[0] for n in fc.stat_model_l][im]
+                l = fc.lags_i[il]
                 # visual analysis
-                fig = dfplots.visual_analysis(fc, lag=l, model=m)
-                f_name = filename + f'_va_l{l}_{m}'
+                f_name = filename + f'_{i}_va_l{l}_{m}'
                 f_format = '.pdf'
+                fig = dfplots.visual_analysis(fc, lag=l, model=m)
                 pathfig_vis = os.path.join(working_folder, f_name) + f_format
                 fig.savefig(pathfig_vis, bbox_inches='tight') # dpi auto 600
                 # plot deviance
@@ -202,5 +223,11 @@ if __name__ == "__main__":
                     path_fig_GBC = os.path.join(working_folder, f_name) + f_format
                     fig.savefig(path_fig_GBC,
                             bbox_inches='tight') # dpi auto 600
-
+                if m[:7] == 'logitCV':
+                    fc.plot_logit_regularization(lag_i=l)
+                    f_name = filename +f'_l{l}_regularization'
+                    f_format = '.pdf'
+                    path_fig_logit = os.path.join(working_folder, f_name) + f_format
+                    fig.savefig(path_fig_logit,
+                            bbox_inches='tight') # dpi auto 600
 

@@ -18,22 +18,21 @@ if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
     
-import time
-start_time = time.time()
+
+user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
-python_dir = os.path.join(main_dir, 'RGCPD')
+RGCPD_dir = os.path.join(main_dir, 'RGCPD')
+fc_dir = os.path.join(main_dir, 'forecasting')
 df_ana_dir = os.path.join(main_dir, 'df_analysis/df_analysis/')
 if main_dir not in sys.path:
     sys.path.append(main_dir)
-    sys.path.append(python_dir)
+    sys.path.append(RGCPD_dir)
     sys.path.append(df_ana_dir)
-user_dir = os.path.expanduser('~')
+    sys.path.append(fc_dir)
 
-
-    
 import numpy as np
-import func_fc
+from class_fc import fcev
 import valid_plots as dfplots
 
 
@@ -41,8 +40,11 @@ import valid_plots as dfplots
 # load data 
 # =============================================================================
 
-era5_1d_CPPA = user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_0_Xzkup1.h5'
-era5_1d_CPPA_l10 = user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
+era5_1d_CPPA = user_dir + '/surfdrive/output_RGCPD/easternUS/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_0_Xzkup1.h5'
+CPPA_s30_l10 = user_dir + '/surfdrive/output_RGCPD/easternUS/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
+CPPA_s5_l10 = user_dir + '/surfdrive/output_RGCPD/easternUS/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s5/data/ERA5_15-02-20_15hr_lag_10_Xzkup1.h5'
+CPPA_s5_l10_sm_OLR = user_dir + '/surfdrive/output_RGCPD/easternUS/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPAs5_sm2_sm3_OLR_dt1_Xzkup1.h5'
+RGCPD_s1_sst_sm2_sm3 = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/3_c66a4_20jun-19aug_lag10-10/random10_s1/df_data__sst_sm2_sm3_dt1_c66a4.h5'
 # strat_1d_CPPA_era5 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5'
 # strat_1d_CPPA_era5_l10 = '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_10.h5'
 #strat_1d_CPPA_EC   = '/Users/semvijverberg/surfdrive/MckinRepl/EC_tas_tos_Northern/ran_strat10_s30/data/EC_16-09-19_19hr_lag_0.h5'
@@ -53,7 +55,7 @@ verbosity = 1
 
 
 
-#%%
+
 logit = ('logit', None)
 
 logitCV = ('logitCV', 
@@ -62,15 +64,9 @@ logitCV = ('logitCV',
            'penalty':'l2',
            'solver':'lbfgs'})
 
-GBR_logitCV = ('GBR-logitCV', 
-              {'max_depth':3,
-               'learning_rate':1E-3,
-               'n_estimators' : 750,
-               'max_features':'sqrt',
-               'subsample' : 0.6} ) 
 
 # format {'dataset' : (path_data, list(keys_options) ) }
-ERA_daily = {'ERA-5':(era5_1d_CPPA_l10, ['sst(CPPA)'])}
+ERA_daily = {'ERA-5':(RGCPD_s1_sst_sm2_sm3, [None])}
 
 
 datasets_path = ERA_daily
@@ -96,12 +92,15 @@ datasets_path = ERA_daily
 #                'grouped' : False}
 
 
+# start_end_TVdate = ('6-30', '8-29')
+start_end_TVdate = None
 n_boot = 500
 LAG_DAY = 21
 # frequencies = np.arange(5, 6, 2)
-percentiles = [50]
+# percentiles = [50]
 percentiles = [50,55,60,66,70,75,80,84.2]
 frequencies = np.arange(4, 34, 2)
+TV_aggr = 7
 
 
 
@@ -122,7 +121,9 @@ for perc in percentiles:
             path_data = tuple_sett[0]
             keys_d_list = tuple_sett[1]
             for keys_d in keys_d_list:
-                fc = func_fc.fcev(path_data=path_data, precur_aggr=freq, use_fold=folds)
+                fc = fcev(path_data=path_data, precur_aggr=freq, 
+                          TV_aggr=TV_aggr, use_fold=folds,
+                          start_end_TVdate=start_end_TVdate)
 
                 print(f'{fc.fold} {fc.test_years[0]} {perc}')
                 fc.get_TV(kwrgs_events=kwrgs_events)
@@ -133,8 +134,7 @@ for perc in percentiles:
                 fc.perform_validation(n_boot=n_boot, blocksize='auto', 
                                               threshold_pred='upper_clim')
                 dict_freqs[freq] = fc.dict_sum
-#                if i==0:
-                # lags_t.append(fc.lags_t[0])
+
                 list_of_fc.append(fc)
     dict_experiments[perc] = dict_freqs
 
@@ -150,9 +150,28 @@ working_folder, filename = fc._print_sett(list_of_fc=list_of_fc,
 
 
 
+f_format = '.pdf'
 
-#%%
+metric = 'BSS'
+if type(kwrgs_events) is tuple:
+    x_label = 'Temporal window [days]'
+else:
+    x_label = 'Temporal Aggregation [days]'
 
+file_path = filename + '.h5'
+path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_experiments, 
+                                                  model=stat_model_l[0][0], 
+                                                  metric=metric, lags_t=LAG_DAY,
+                                                  file_path=file_path)
+fig = dfplots.plot_score_matrix(path_data, col=0, 
+                                x_label=x_label, ax=None)
+                      
+    
+
+fig.savefig(os.path.join(filename + f_format), 
+            bbox_inches='tight') # dpi auto 600
+
+    
 #rename_ERA =    {'ERA-5: sst(PEP)+sm':'PEP+sm', 
 #             'ERA-5: sst(PDO,ENSO)+sm':'PDO+ENSO+sm', 
 #             'ERA-5: sst(CPPA)+sm':'CPPA+sm'}
@@ -177,25 +196,3 @@ working_folder, filename = fc._print_sett(list_of_fc=list_of_fc,
 #for old, new in rename_CPPA_comp.items():
 #    if new not in dict_experiments.keys():
 #        dict_experiments[new] = dict_experiments.pop(old)
-f_format = '.pdf'
-
-metric = 'BSS'
-if type(kwrgs_events) is tuple:
-    x_label = 'Temporal window [days]'
-else:
-    x_label = 'Temporal Aggregation [days]'
-x_label2 = 'Lag in days'
-
-path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_experiments, 
-                                                  model=stat_model_l[0][0], 
-                                                  metric=metric, lags_t=LAG_DAY)
-fig = dfplots.plot_score_matrix(path_data, col=0, 
-                                x_label=x_label, x_label2=x_label2, ax=None)
-                      
-    
-
-fig.savefig(os.path.join(filename + f_format), 
-            bbox_inches='tight') # dpi auto 600
-
-    
-

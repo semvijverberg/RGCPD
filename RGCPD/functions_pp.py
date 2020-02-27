@@ -180,6 +180,23 @@ def load_TV(list_of_name_path, loadleap=False):
         fulltso = fulltso.sel(time=dates)
     return fulltso, hashh
 
+
+def nc_xr_ts_to_df(filename):
+    if filename.split('.')[-1] == 'nc':
+        ds = core_pp.import_ds_lazy(filename)
+    else:
+        print('not a NetCDF file')
+    return xrts_to_df(ds['ts']), ds
+
+def xrts_to_df(xarray):
+    name = 'tfreq{}_ncl{}'.format(int(xarray['tfreq']), 
+                                  int(xarray['n_clusters']))
+    df = xarray.drop('tfreq').drop('n_clusters').T.to_dataframe(
+                                        name=name).unstack(level=1)
+    df = df.droplevel(0, axis=1)
+    df.index.name = name
+    return df
+
 def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=True, verbosity=1):
     #%%
@@ -1088,7 +1105,6 @@ def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
 
 def check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed, s, count, seed, verbosity=0):
     #%%
-#    event_thres = func_fc.Ev_threshold(RV.RV_ts, kwrgs_events['event_percentile'])
     tol_from_exp_events = 0.20
 
     if kwrgs_events is None:
@@ -1183,9 +1199,13 @@ def func_dates_min_lag(dates, lag):
                                              startyr.is_leap_year
                                              )
         mask_ = np.logical_or(mask_lpyrfeb, mask_lpyrjan)
+    
         new_dates = np.array(startyr)
-        new_dates[mask_] = startyr[mask_] - pd.Timedelta(1, unit='d')
-        startyr = pd.to_datetime(new_dates)
+        if np.logical_and(startyr[0].month==1, startyr[0].day==1)==False:
+            # compensate lag shift for removing leap day
+            new_dates[mask_] = startyr[mask_] - pd.Timedelta(1, unit='d')
+        else:
+            startyr =core_pp.remove_leapdays(startyr)
    
     dates_min_lag = make_dates(startyr, np.unique(dates.year))
 
@@ -1193,3 +1213,7 @@ def func_dates_min_lag(dates, lag):
     # to be able to select date in pandas dataframe
     dates_min_lag_str = [d.strftime('%Y-%m-%d %H:%M:%S') for d in dates_min_lag]
     return dates_min_lag_str, dates_min_lag    
+
+
+
+

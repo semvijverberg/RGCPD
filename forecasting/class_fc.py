@@ -29,26 +29,30 @@ import validation as valid
 import functions_pp
 import df_ana
 import exp_fc
+import core_pp
 
 
 
 class fcev():
 
     number_of_times_called = 0
-    def __init__(self, path_data, name=None, precur_aggr=None, TV_aggr=None,
-                   use_fold=None):
+    def __init__(self, path_data, precur_aggr=None, TV_aggr=None,
+                   use_fold=None, start_end_TVdate=None, dataset=None):
         '''
         Instance for certain dataset with keys and list of stat models
 
-        n_boot      :   times to bootstrap
+        start_end_TVdate : tuple, optional
+            tuple of start- and enddate for target variable in 
+            format ('mm-dd', 'mm-dd'). default is the RV_mask present in the 
+            .h5 dataframe 'df_data'
         '''
 
         self.path_data = path_data
 
-        if name is None:
-            self.name = 'exper1'
+        if dataset is None:
+            self.dataset = 'exper1'
         else:
-            self.name = name
+            self.dataset = dataset
 
         self.df_data_orig = df_ana.load_hdf5(self.path_data)['df_data']
         self.fold = use_fold
@@ -64,13 +68,21 @@ class fcev():
             self.df_data =self._remove_test_splits()
         else:
             self.df_data = self.df_data_orig
-
+        
+        self.dates_df  = self.df_data.loc[0].index.copy()
         self.precur_aggr = precur_aggr
         self.TV_aggr = TV_aggr
+<<<<<<< HEAD:RGCPD/func_fc.py
 
 
+=======
+>>>>>>> develop:forecasting/class_fc.py
         self.splits  = self.df_data.index.levels[0]
         self.tfreq = (self.df_data.loc[0].index[1] - self.df_data.loc[0].index[0]).days
+        
+        if start_end_TVdate is not None:
+            fcev._redefine_RV_mask(self, start_end_TVdate=start_end_TVdate)
+        
         self.RV_mask = self.df_data['RV_mask']
         self.TrainIsTrue = self.df_data['TrainIsTrue']
         self.test_years = valid.get_testyrs(self.df_data)
@@ -123,8 +135,7 @@ class fcev():
         # splits  = self.df_data.index.levels[0]
         # fit_model_mask = pd.concat([TV.fit_model_mask] * splits.size, keys=splits)
         # self.df_data = self.df_data.merge(fit_model_mask, left_index=True, right_index=True)
-        TV.prob_clim = get_obs_clim(TV)
-        TV.freq_per_year = get_freq_years(TV.RV_bin)
+        TV.get_obs_clim()
         self.TV = TV
         return
 
@@ -211,7 +222,6 @@ class fcev():
             self.dict_models[uniqname] = models
         return
 
-    #
     def _create_new_traintest_split(df_data, method='random9', seed=1, kwrgs_events=None):
 
         # insert fake train test split to make RV
@@ -318,7 +328,7 @@ class fcev():
                 percentile = self.kwrgs_events['event_percentile']
             folds_used = str([f.fold for f in list_of_fc]).replace('[',
                             '').replace(', ','_').replace(']','')
-            f_name = f'{self.TV.name}_{self.tfreq}d_{percentile}p_fold{folds_used}_{today}'
+            f_name = f'{self.TV.name}_{self.precur_aggr}d_{percentile}p_fold{folds_used}_{today}'
             filename = os.path.join(working_folder, f_name)
         if f_name is not None and filename is None:
             today_str = f'_{today}'
@@ -331,14 +341,14 @@ class fcev():
         for i, fc_i in enumerate(list_of_fc):
 
             lines.append(f'\n\n***Experiment {e}***\n\n')
-            lines.append(f'Title \t : {fc_i.name}')
+            lines.append(f'Title \t : {fc_i.dataset}')
             lines.append(f'file \t : {fc_i.path_data}')
             lines.append(f'kwrgs_events \t : {fc_i.kwrgs_events}')
             lines.append(f'kwrgs_pp \t : {fc_i.kwrgs_pp}')
-            lines.append(f'Title \t : {fc_i.name}')
-            lines.append(f'file \t : {fc_i.path_data}')
-            lines.append(f'kwrgs_events \t : {fc_i.kwrgs_events}')
-            lines.append(f'kwrgs_pp \t : {fc_i.kwrgs_pp}')
+            lines.append(f'TV dates: \t {fc_i._get_start_end_TVdate()}')
+            lines.append(f'tfreq: \t {fc_i.tfreq}')
+            lines.append(f'precur_aggr: \t {fc_i.precur_aggr}')
+            lines.append(f'TV_aggr: \t {fc_i.TV_aggr}')
             lines.append(f'alpha \t : {fc_i.alpha}')
             lines.append(f'nboot: {fc_i.n_boot}')
             lines.append(f'stat_models:')
@@ -346,6 +356,7 @@ class fcev():
             lines.append(f'fold: {fc_i.fold}')
             lines.append(f'keys_d: \n{fc_i.keys_d}')
             lines.append(f'keys_used: \n{fc_i._get_precursor_used()}')
+
 
             e+=1
 
@@ -379,6 +390,28 @@ class fcev():
             self.metrics_dict = metrics_dict
         return
 
+    def _redefine_RV_mask(self, start_end_TVdate):
+        self.df_data = self.df_data.copy()
+        self.start_end_TVdate_orig = fcev._get_start_end_TVdate(self)
+        self.start_end_TVdate = start_end_TVdate
+        RV_mask_orig   = self.df_data['RV_mask'].copy()
+        dates_RV = core_pp.get_subdates(self.dates_df , start_end_TVdate,
+                                        start_end_year=None)
+        new_RVmask = RV_mask_orig.loc[0].copy()
+        new_RVmask.loc[:] = False
+        new_RVmask.loc[dates_RV] = True
+        self.df_data['RV_mask'] = pd.concat([new_RVmask] * self.splits.size, 
+                                            keys=self.splits)
+    def _get_start_end_TVdate(self):
+        RV_mask_orig   = self.df_data.loc[0]['RV_mask'].copy()
+        dates_RV = RV_mask_orig[RV_mask_orig].index
+        return (f'{dates_RV[0].month}-{dates_RV[0].day}', 
+                                 f'{dates_RV[-1].month}-{dates_RV[-1].day}')
+        
+    def plot_freq_year(self):
+        import valid_plots as df_plots
+        df_plots.plot_freq_per_yr(self.TV)
+
     @classmethod
     def plot_scatter(self, keys=None, colwrap=3, sharex='none', s=0, mask='RV_mask', aggr=None,
                      title=None):
@@ -400,6 +433,7 @@ class fcev():
                             sharex=sharex, kwrgs=kwrgs)
         return
 
+<<<<<<< HEAD:RGCPD/func_fc.py
 
     def plot_freq_year(self):
         import valid_plots as df_plots
@@ -408,9 +442,15 @@ class fcev():
     def plot_GBR_feature_importances(self, lag=None, keys=None, cutoff=6):
         model = [n[0] for n in self.stat_model_l if n[0][:2]=='GB'][0]
         GBR_models_split_lags = self.dict_models[model]
+=======
+    def plot_feature_importances(self, model=None, lag=None, keys=None, cutoff=6):
+        if model is None:
+            model = [n[0] for n in self.stat_model_l][0]
+        models_splits_lags = self.dict_models[model]
+>>>>>>> develop:forecasting/class_fc.py
         if lag is None:
             lag = self.lags_i
-        self.df_importance = stat_models.plot_importances(GBR_models_split_lags, lag=lag,
+        self.df_importance = stat_models.plot_importances(models_splits_lags, lag=lag,
                                                          keys=keys, cutoff=cutoff)
 
     def plot_oneway_partial_dependence(self, keys=None, lags=None, model=None):
@@ -422,6 +462,17 @@ class fcev():
 
 
 
+<<<<<<< HEAD:RGCPD/func_fc.py
+=======
+    def plot_logit_regularization(self, lag_i=0):
+        models = [m for m in self.dict_models.keys() if 'logitCV' in m]
+        for m in models:
+            models_splits_lags = self.dict_models[m]
+            stat_models.plot_regularization(models_splits_lags, lag_i=lag_i)
+        
+
+    
+>>>>>>> develop:forecasting/class_fc.py
     def _fit_model(self, stat_model=tuple, verbosity=0):
 
         #%%
@@ -719,13 +770,18 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
         # check y_fit mask
         fit_masks = _check_y_fitmask(fit_masks, lag_i, base_lag)
         lag_v = (last_centerdate - df_prec[df_prec['x_fit']].index[-1]).days
-        assert lag_v == lag_i+base_lag, (
+        if tfreq_TV == precur_aggr:
+            assert lag_v == lag_i+base_lag, (
                 f'lag center precur vs center TV is {lag_v} days, with '
                 f'lag_i {lag_i} and base_lag {base_lag}')
 
 
     df_prec = df_prec[x_keys]
+<<<<<<< HEAD:RGCPD/func_fc.py
 
+=======
+    #%%
+>>>>>>> develop:forecasting/class_fc.py
     # =============================================================================
     # Normalize data using datesRV or all training data in dataframe
     # =============================================================================
@@ -860,169 +916,6 @@ def transform_EOF(df_prec, TrainIsTrue, RV_mask, expl_var=0.8):
     df_eof  = df_eof.pivot(columns='mode', values='pcs' )
     #%%
     return df_eof
-
-
-def get_freq_years(RV_bin):
-    all_years = np.unique(RV_bin.index.year)
-    binary = RV_bin.values
-    freq = []
-    for y in all_years:
-        n_ev = int(binary[RV_bin.index.year==y].sum())
-        freq.append(n_ev)
-    return pd.Series(freq, index=all_years)
-
-def get_obs_clim(RV):
-    splits = RV.TrainIsTrue.index.levels[0]
-    RV_mask_s = RV.RV_mask
-    TrainIsTrue = RV.TrainIsTrue
-    y_prob_clim = RV.RV_bin.copy()
-    y_prob_clim = y_prob_clim.rename(columns={'RV_binary':'prob_clim'})
-    for s in splits:
-        RV_train_mask = TrainIsTrue[s][RV_mask_s[s]]
-        y_b_train = RV.RV_bin[RV_train_mask]
-        y_b_test  = RV.RV_bin[RV_train_mask==False]
-
-        clim_prevail = y_b_train.sum() / y_b_train.size
-        clim_arr = np.repeat(clim_prevail, y_b_test.size).values
-        pdseries = pd.Series(clim_arr, index=y_b_test.index)
-        y_prob_clim.loc[y_b_test.index, 'prob_clim'] = pdseries
-    return y_prob_clim
-
-def Ev_threshold(xarray, event_percentile):
-    if event_percentile == 'std':
-        # binary time serie when T95 exceeds 1 std
-        threshold = xarray.mean() + xarray.std()
-    else:
-        percentile = event_percentile
-
-        threshold = np.percentile(xarray.values, percentile)
-    return float(threshold)
-
-def Ev_timeseries(xr_or_df, threshold, min_dur=1, max_break=0, grouped=False,
-                  high_ano_events=True):
-    #%%
-    '''
-    Binary events timeseries is created according to parameters:
-    threshold   : if ts exceeds threshold hold, timestep is 1, else 0
-    min_dur     : minimal duration of exceeding a threshold, else 0
-    max_break   : break in minimal duration e.g. ts=[1,0,1], is still kept
-                  with min_dur = 2 and max_break = 1.
-    grouped     : boolean.
-                  If consecutive events (with possible max_break) are grouped
-                  the centered date is set is to 1.
-    high_ano_events : boolean.
-                      if True: all timesteps above threshold is 1,
-                      if False, all timesteps below threshold is 1.
-    '''
-    types = [type(xr.Dataset()), type(xr.DataArray([0])), type(pd.DataFrame([0]))]
-
-    assert (type(xr_or_df) in types), ('{} given, should be in {}'.format(type(xr_or_df), types) )
-
-
-    if type(xr_or_df) == types[-1]:
-        xarray = xr_or_df.to_xarray().to_array()
-        give_df_back = True
-        try:
-            old_name = xarray.index.name
-            xarray = xarray.rename({old_name:'time'})
-        except:
-            pass
-        xarray = xarray.squeeze()
-    if type(xr_or_df) in types[:-1]:
-        xarray = xr_or_df
-        give_df_back = False
-
-
-#    tfreq_RVts = pd.Timedelta((xarray.time[1]-xarray.time[0]).values)
-    min_dur = min_dur ;
-#    min_dur = pd.Timedelta(min_dur, 'd') / tfreq_RVts
-#    max_break = pd.Timedelta(max_break, 'd') / tfreq_RVts
-
-    if high_ano_events:
-        Ev_ts = xarray.where( xarray.values > threshold)
-    else:
-        Ev_ts = xarray.where( xarray.values < threshold)
-
-    Ev_dates = Ev_ts.dropna(how='all', dim='time').time
-    events_idx = [list(xarray.time.values).index(E) for E in Ev_dates.values]
-    n_timesteps = Ev_ts.size
-
-    peak_o_thresh = Ev_binary(events_idx, n_timesteps, min_dur, max_break, grouped)
-    event_binary_np  = np.array(peak_o_thresh != 0, dtype=int)
-
-    # get duration of events
-    if np.unique(peak_o_thresh).size == 2:
-        dur = np.zeros( (peak_o_thresh.size) )
-        for i in np.arange(1, max(peak_o_thresh)+1):
-            size = peak_o_thresh[peak_o_thresh==i].size
-            dur[peak_o_thresh==i] = size
-    else:
-        dur = 'dur_events_1'
-
-    if np.sum(peak_o_thresh) < 1:
-        Events = Ev_ts.where(peak_o_thresh > 0 ).dropna(how='all', dim='time').time
-    else:
-        peak_o_thresh[peak_o_thresh == 0] = np.nan
-        Ev_labels = xr.DataArray(peak_o_thresh, coords=[Ev_ts.coords['time']])
-        Ev_dates = Ev_labels.dropna(how='all', dim='time').time
-        Events = xarray.sel(time=Ev_dates)
-
-    if give_df_back:
-        event_binary = pd.DataFrame(event_binary_np, index=pd.to_datetime(xarray.time.values),
-                                   columns=['RV_binary'])
-        Events = Events.to_dataframe(name='events')
-    else:
-        event_binary = xarray.copy()
-        event_binary.values = event_binary_np
-    #%%
-    return event_binary, Events, dur
-
-def Ev_binary(events_idx, n_timesteps, min_dur, max_break, grouped=False):
-
-    max_break = max_break + 1
-    peak_o_thresh = np.zeros((n_timesteps))
-
-    if min_dur != 1 or max_break > 1:
-        ev_num = 1
-        # group events inter event time less than max_break
-        for i in range(len(events_idx)):
-            if i < len(events_idx)-1:
-                curr_ev = events_idx[i]
-                next_ev = events_idx[i+1]
-            elif i == len(events_idx)-1:
-                curr_ev = events_idx[i]
-                next_ev = events_idx[i-1]
-
-            if abs(next_ev - curr_ev) <= max_break:
-                # if i_steps >= max_break, same event
-                peak_o_thresh[curr_ev] = ev_num
-            elif abs(next_ev - curr_ev) > max_break:
-                # elif i_steps > max_break, assign new event number
-                peak_o_thresh[curr_ev] = ev_num
-                ev_num += 1
-
-        # remove events which are too short
-        for i in np.arange(1, max(peak_o_thresh)+1):
-            No_ev_ind = np.where(peak_o_thresh==i)[0]
-            # if shorter then min_dur, then not counted as event
-            if No_ev_ind.size < min_dur:
-                peak_o_thresh[No_ev_ind] = 0
-
-        if grouped == True:
-            data = np.concatenate([peak_o_thresh[:,None],
-                                   np.arange(len(peak_o_thresh))[:,None]],
-                                    axis=1)
-            df = pd.DataFrame(data, index = range(len(peak_o_thresh)),
-                                      columns=['values', 'idx'], dtype=int)
-            grouped = df.groupby(df['values']).mean().values.squeeze()[1:]
-            peak_o_thresh[:] = 0
-            peak_o_thresh[np.array(grouped, dtype=int)] = 1
-        else:
-            pass
-    else:
-        peak_o_thresh[events_idx] = 1
-
-    return peak_o_thresh
 
 
 def _daily_to_aggr(df_data, daily_to_aggr=int):
