@@ -53,20 +53,30 @@ CPPA_s5  = [('sst_CPPAs5', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax
 list_of_name_path = [('t2mmmax',
                       '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'),
                         # ('sm1', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm1_1979-2018_1_12_daily_1.0deg.nc'),
-                        ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                        
-                        ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),     
-                        # ('st2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/st_2_1979-2018_1_12_daily_1.0deg.nc'),
+                        # ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                    
+                        # ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),  
+                        ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc'),                        
+                        ('snow', '/Users/semvijverberg/surfdrive/ERA5/input_raw/snow_1979-2018_1_12_daily_1.0deg.nc'),
                         ('OLR', '/Users/semvijverberg/surfdrive/ERA5/input_raw/OLRtrop_1979-2018_1_12_daily_2.5deg.nc')]
 
 #                        ('u500', '/Users/semvijverberg/surfdrive/ERA5/input_raw/u500hpa_1979-2018_1_12_daily_2.5deg.nc'),
 #                        ('v200', '/Users/semvijverberg/surfdrive/ERA5/input_raw/v200hpa_1979-2018_1_12_daily_2.5deg.nc'),                        
-#                        ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc'),
+
 #                        ('sm123', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm_123_1979-2018_1_12_daily_1.0deg.nc')]
 
 import_prec_ts = CPPA_s30
 
 list_for_EOFS = [EOF(name='OLR', neofs=1, selbox=[-180, 360, -15, 30])]
-list_for_MI   = [BivariateMI(name='sm2', func=BivariateMI.corr_map, kwrgs_func={'alpha':.05, 'FDF_control':True})]
+
+list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map, 
+                             kwrgs_func={'alpha':.001, 'FDR_control':True}, 
+                             distance_eps=600, min_area_in_degrees2=5),
+                 # BivariateMI(name='sm3', func=BivariateMI.corr_map, 
+                 #             kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                 #             distance_eps=600, min_area_in_degrees2=5),
+                 BivariateMI(name='snow', func=BivariateMI.corr_map, 
+                             kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                             distance_eps=600, min_area_in_degrees2=5)]
                             
 
 #list_of_name_path = [('t2mmmax',
@@ -80,7 +90,7 @@ start_end_TVdate = ('07-06', '08-11')
 
 #start_end_TVdate = ('06-15', '08-31')
 start_end_date = ('1-1', '12-31')
-kwrgs_corr = {'alpha':1E-3}
+
 
 rg = RGCPD(list_of_name_path=list_of_name_path, 
            list_for_EOFS=list_for_EOFS,
@@ -88,7 +98,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            import_prec_ts=import_prec_ts,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           tfreq=10,
+           tfreq=10, lags_i=np.array([1]),
            path_outmain=user_dir+'/surfdrive/output_RGCPD')
 
 
@@ -117,23 +127,20 @@ rg.pp_TV()
 kwrgs_events=None
 rg.traintest(method='random10', kwrgs_events=kwrgs_events)
 
-#%%
 
-
-rg.get_EOFs()
 
 
 
 # In[166]:
 
 
-rg.calc_corr_maps(alpha=1E-2) 
+rg.calc_corr_maps() 
 
 
 # In[167]:
 
 
-rg.cluster_regions(distance_eps=700, min_area_in_degrees2=5)
+rg.cluster_list_MI()
 
 
 # In[168]:
@@ -145,7 +152,7 @@ rg.quick_view_labels()
 # In[169]:
 
 
-rg.get_ts_prec(precur_aggr=1)
+rg.get_ts_prec(precur_aggr=None)
 
 
 # In[170]:
@@ -153,12 +160,15 @@ rg.get_ts_prec(precur_aggr=1)
 
 rg.df_data
 
-rg.store_df()
+# rg.store_df()
 
 # In[171]:
 
-rg.get_ts_prec(precur_aggr=None)
-rg.PCMCI_df_data(pc_alpha=None, alpha_level=0.1, max_combinations=1)
+# rg.get_ts_prec(precur_aggr=None)
+rg.PCMCI_df_data(pc_alpha=None, 
+                 tau_max=2,
+                 alpha_level=0.1, 
+                 max_combinations=2)
 rg.df_sum
 
 # In[172]:
@@ -177,7 +187,7 @@ rg.plot_maps_sum()
 
 # In[ ]:
 
-rg.store_df_PCMCI(add_spatcov=False)
+# rg.store_df_PCMCI(add_spatcov=False)
 
 
 
