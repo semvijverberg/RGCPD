@@ -92,10 +92,10 @@ class BivariateMI:
         print('\n{} - calculating correlation maps'.format(precur_arr.name))
         np_data = np.zeros_like(xrcorr.values)
         np_mask = np.zeros_like(xrcorr.values)
-        def corr_single_split(RV_ts, precur, alpha, FDR_control): #, lags, alpha, FDR_control
+        def corr_single_split(RV_ts, precur_train, alpha, FDR_control): #, lags, alpha, FDR_control
 
-            lat = precur_arr.latitude.values
-            lon = precur_arr.longitude.values
+            lat = precur_train.latitude.values
+            lon = precur_train.longitude.values
 
             z = np.zeros((lat.size*lon.size,len(lags) ) )
             Corr_Coeff = np.ma.array(z, mask=z)
@@ -105,27 +105,28 @@ class BivariateMI:
             for i, lag in enumerate(lags):
 
                 dates_lag = functions_pp.func_dates_min_lag(dates_RV, lag)[1]
-                prec_lag = precur_arr.sel(time=dates_lag)
+                prec_lag = precur_train.sel(time=dates_lag)
                 prec_lag = np.reshape(prec_lag.values, (prec_lag.shape[0],-1))
 
 
                 # correlation map and pvalue at each grid-point:
                 corr_val, pval = corr_new(prec_lag, RV_ts.values.squeeze())
-
+                mask = np.ones(corr_val.size, dtype=bool)
                 if FDR_control == True:
                     # test for Field significance and mask unsignificant values
                     # FDR control:
                     adjusted_pvalues = multicomp.multipletests(pval, method='fdr_bh')
                     ad_p = adjusted_pvalues[1]
 
-                    corr_val.mask[ad_p > alpha] = True
+                    mask[ad_p <= alpha] = False
 
                 else:
-                    corr_val.mask[pval > alpha] = True
+                    mask[pval <= alpha] = False
 
 
                 Corr_Coeff[:,i] = corr_val[:]
-
+                Corr_Coeff[:,i].mask = mask
+                
             Corr_Coeff = np.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
             Corr_Coeff = Corr_Coeff.reshape(lat.size,lon.size,len(lags)).swapaxes(2,1).swapaxes(1,0)
             return Corr_Coeff
@@ -138,14 +139,14 @@ class BivariateMI:
             # =============================================================================
             RV_train_mask = np.logical_and(RV_mask, df_splits.loc[s]['TrainIsTrue'])
             RV_ts = RV.fullts[RV_train_mask.values]
-            precur = precur_arr[df_splits.loc[s]['TrainIsTrue'].values]
+            precur_train = precur_arr[df_splits.loc[s]['TrainIsTrue'].values]
 
         #        dates_RV  = pd.to_datetime(RV_ts.time.values)
             dates_RV = RV_ts.index
             n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
             print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
 
-            ma_data = corr_single_split(RV_ts, precur, **self.kwrgs_func)
+            ma_data = corr_single_split(RV_ts, precur_train, **self.kwrgs_func)
             np_data[s] = ma_data.data
             np_mask[s] = ma_data.mask
         print("\n")
@@ -281,31 +282,13 @@ class BivariateMI:
             n_tot_regs += max([self.ts_corr[s].shape[1] for s in range(splits.size)])
         return 
 
-def corr_new(field, ts):
-    """
-    This function calculates the correlation coefficent r and 
-    the pvalue p for each grid-point of field vs response-variable ts
-    """
-    x = np.ma.zeros(field.shape[1])
-    corr_vals = np.ma.array(data = x, mask =False)
-    pvals = np.array(x)
-    fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
-    
-    nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
-    
-    for i in nonans_gc:
-        corr_vals[i], pvals[i] = scipy.stats.pearsonr(ts,field[:,i])
-        
-    return corr_vals, pvals
-
 # def corr_new(field, ts):
 #     """
 #     This function calculates the correlation coefficent r and 
 #     the pvalue p for each grid-point of field vs response-variable ts
-#     Note, mask is True, == insignificant
 #     """
-#     x = np.ma.ones(field.shape[1])
-#     corr_vals = np.ma.array(data = x, mask=True)
+#     x = np.ma.zeros(field.shape[1])
+#     corr_vals = np.ma.array(data = x, mask =False)
 #     pvals = np.array(x)
 #     fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
     
@@ -315,6 +298,23 @@ def corr_new(field, ts):
 #         corr_vals[i], pvals[i] = scipy.stats.pearsonr(ts,field[:,i])
         
 #     return corr_vals, pvals
+
+def corr_new(field, ts):
+    """
+    This function calculates the correlation coefficent r and 
+    the pvalue p for each grid-point of field vs response-variable ts
+
+    """
+    x = np.ma.ones(field.shape[1])
+    corr_vals = np.array(x)
+    pvals = np.array(x)
+    fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
+    
+    nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
+    
+    for i in nonans_gc:
+        corr_vals[i], pvals[i] = scipy.stats.pearsonr(ts,field[:,i])
+    return corr_vals, pvals
 
 # def loop_get_spatcov(precur):
     
