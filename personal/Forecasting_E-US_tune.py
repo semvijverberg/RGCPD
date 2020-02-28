@@ -39,6 +39,8 @@ era5_1d_CPPA_l10 = user_dir + '/surfdrive/output_RGCPD/era5_T2mmax_sst_Northern/
 
 CPPAs30_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/easternUS/t2mmmax_Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPAs30_sm2_sm3_OLR_dt1_Xzkup1.h5'
 CPPAs5_1d_sm_2_3_OLR_l10 = user_dir + '/surfdrive/output_RGCPD/easternUS/Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPAs5_sm2_sm3_OLR_dt1_Xzkup1.h5'
+era5_1d_CPPA_l10_sm = user_dir + '/surfdrive/output_RGCPD/t2mmmax_Xzkup1_20jun-19aug_lag10-10/random10_s1/None_at0.1_tau_0-2_conds_dimNone_combin2_dt10_dtd1.h5'
+CPPAs30_1d_l10_sm = user_dir + '/surfdrive/output_RGCPD/t2mmmax_Xzkup1_20jun-19aug_lag10-10/random10_s1/None_at0.1_tau_0-2_conds_dimNone_combin2_dt10_dtd1.h5'
 
 #ERA_and_EC_daily  = {'ERA-5':(strat_1d_CPPA_era5, ['PEP', 'CPPA']),
 #                 'EC-earth 2.3':(strat_1d_CPPA_EC, ['PEP', 'CPPA'])}
@@ -51,9 +53,9 @@ ERA_vs_PEP = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 's
 
 exp_keys = ['sst(PEP)', 'sst(PDO,ENSO)', 'sst(CPPA)']
 
-exp_keys = [ 'CPPAregs+sm']
+# exp_keys = [ 'CPPAregs+sm']
 
-ERA_1d_sm_2_3_OLR = {'ERA-5':(CPPAs5_1d_sm_2_3_OLR_l10, exp_keys)}
+ERA_1d_sm_2_3_OLR = {'ERA-5':(CPPAs30_1d_l10_sm, exp_keys)}
 
 datasets_path  = ERA_1d_sm_2_3_OLR
 
@@ -126,29 +128,30 @@ kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
 stat_model_l = [logitCV]
-kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
+kwrgs_pp     = {'add_autocorr' : True, 'normalize':False}
 
-lags_i = np.array([0, 10, 14, 21, 28])
+lags_i = np.array([0, 7])
 
 
 start_end_TVdate = None # ('7-04', '8-22')
 
-list_of_fc = [fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=14, 
-                  use_fold=None,
-                  start_end_TVdate=None,
-                  dataset='ERA-5'),
-              fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=15, 
-                  use_fold=None,
-                  start_end_TVdate=None,
-                  dataset='ERA-5'),
+list_of_fc = [#fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=14, 
+              #     use_fold=None,
+              #     start_end_TVdate=None,
+              #     dataset='14'),
+              # fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=15, 
+              #     use_fold=None,
+              #     start_end_TVdate=None,
+              #     dataset='15'),
               fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=16, 
                   use_fold=None,
                   start_end_TVdate=None,
-                  dataset='ERA-5')]
+                  dataset='16')]
 
-exp_keys = ['sst(CPPA)+sm', 'persistence']
+exp_keys = ['persistence']
 dict_experiments = {} ; 
 for i, fc in enumerate(list_of_fc):
+    dict_expers = {}
     for keys_d in exp_keys:
 
         # fc = fcev(path_data=path_data, precur_aggr=precur_aggr, 
@@ -161,9 +164,13 @@ for i, fc in enumerate(list_of_fc):
 
         fc.perform_validation(n_boot=500, blocksize='auto', alpha=0.05,
                               threshold_pred=(1.5, 'times_clim'))
+        
         dataset = fc.dataset
         dict_experiments[dataset+'_'+str(keys_d)] = fc.dict_sum
+        
         list_of_fc[i] = fc
+        
+        # dict_experiments[dataset] = fc.dict_sum
 
 y_pred_all, y_pred_c = fc.dict_preds[fc.stat_model_l[0][0]]
 df_valid, RV, zz = fc.dict_sum[fc.stat_model_l[0][0]]
@@ -177,7 +184,7 @@ met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 expers = list(dict_experiments.keys())
 models   = list(dict_experiments[expers[0]].keys())
-line_dim = 'exper'
+line_dim = 'model'
 
 fig = dfplots.valid_figures(dict_experiments, expers=expers, models=models,
                           line_dim=line_dim,
@@ -199,7 +206,7 @@ fig.savefig(pathfig_valid,
 #%%
 
 im = 0
-il = 0
+il = 1
 ifc = 0
 import valid_plots as dfplots
 if __name__ == "__main__":

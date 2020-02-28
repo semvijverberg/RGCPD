@@ -12,8 +12,12 @@ import functions_pp
 import plot_maps
 import find_precursors
 from class_RV import RV_class
+
 import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+df_ana_func = os.path.join(curr_dir, '..', 'df_analysis/df_analysis/') # add df_ana path
+sys.path.append(df_ana_func)
+import df_ana
 path_test = os.path.join(curr_dir, '..', 'data')
 
 
@@ -131,18 +135,31 @@ class RGCPD:
                                              kwrgs_pp=self.kwrgs_pp,
                                              verbosity=self.verbosity)
 
-    def get_clust(self):
+    def get_clust(self, name_ds='ts'):
         f = functions_pp
-        self.df_clust, self.ds = f.nc_xr_ts_to_df(self.list_of_name_path[0][1])
-                                        
+        self.df_clust, self.ds = f.nc_xr_ts_to_df(self.list_of_name_path[0][1],
+                                                  name_ds=name_ds)
+
+    def apply_df_ana_plot(self, df=None, name_ds='ts', func=None, kwrgs_func={}):
+        if df is None:
+            self.get_clust(name_ds=name_ds)
+            df = self.df_clust
+        if func is None:
+            func = df_ana.plot_ac ; kwrgs_func = {'AUC_cutoff':(14,30),'s':60}
+        return df_ana.loop_df(df, function=func, sharex=False, 
+                             colwrap=2, hspace=.5, kwrgs=kwrgs_func)
+        
 
     def plot_df_clust(self):
         self.get_clust()
         plot_maps.plot_labels(self.ds['xrclustered'])
         
-    def pp_TV(self, loadleap=False):
-        self.fulltso, self.hash = functions_pp.load_TV(self.list_of_name_path,
-                                                       loadleap=loadleap)
+    def pp_TV(self, name_ds='ts', loadleap=False):
+        self.name_TVds = name_ds
+        f = functions_pp
+        self.fulltso, self.hash = f.load_TV(self.list_of_name_path,
+                                            loadleap=loadleap,
+                                            name_ds=self.name_TVds)
         self.fullts, self.TV_ts, inf = functions_pp.process_TV(self.fulltso,
                                                               self.tfreq,
                                                               self.start_end_TVdate,
@@ -324,7 +341,8 @@ class RGCPD:
         if hasattr(self, 'list_MI'):
             print('\nGetting MI timeseries')
             for i, precur in enumerate(self.list_MI):
-                precur.get_prec_ts()
+                precur.get_prec_ts(precur_aggr=self.precur_aggr,
+                                   kwrgs_load=self.kwrgs_load)
             self.df_data = find_precursors.df_data_prec_regs(self.list_MI, 
                                                              TV, 
                                                              df_splits)
@@ -401,15 +419,15 @@ class RGCPD:
         self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_sum,
                                                       self.list_MI)
 
-    def store_df_PCMCI(self, add_spatcov=False):
+    def store_df_PCMCI(self):
         import wrapper_PCMCI
         if self.tfreq != self.precur_aggr:
             path = self.path_outsub2 + f'_dtd{self.precur_aggr}'
         else:
             path = self.path_outsub2
         wrapper_PCMCI.store_ts(self.df_data, self.df_sum, self.dict_ds,
-                               path+'.h5', self.outdic_precur,
-                               add_spatcov=add_spatcov)
+                               path+'.h5')
+                               
     def store_df(self):
         if len(self.list_MI) != 0:
             varstr = '_' + '_'.join([p.name for p in self.list_MI])
@@ -444,8 +462,8 @@ class RGCPD:
                                    zoomregion=zoomregion, 
                                    lat_labels=lat_labels)
             if save is True:
-                f_name = 'corr_map_{}_a{}'.format(precur_name,
-                                                  self.kwrgs_corr['alpha'])
+                f_name = 'corr_map_{}'.format(precur_name)
+                                                 
                 fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
                 plt.savefig(fig_path, bbox_inches='tight')
 

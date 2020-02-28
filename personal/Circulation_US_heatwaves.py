@@ -24,33 +24,46 @@ if cluster_func not in sys.path:
     sys.path.append(fc_dir)
 
 path_raw = user_dir + '/surfdrive/ERA5/input_raw'
-#%%
-from RGCPD import RGCPD
 
-TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW_dendo_9bd48.nc'
-cluster_label = 5
+
+from RGCPD import RGCPD
+from RGCPD import BivariateMI
+#%%
+
+TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf5_nc5_dendo_80d77.nc'
+cluster_label = 3
 list_of_name_path = [(cluster_label, TVpath), 
                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
+
+list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map, 
+                             kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                             distance_eps=600, min_area_in_degrees2=5),
+                  BivariateMI(name='z500', func=BivariateMI.corr_map, 
+                              kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                              distance_eps=600, min_area_in_degrees2=7)]
 
 start_end_TVdate = ('06-24', '08-22')
 start_end_date = ('1-1', '12-31')
 kwrgs_corr = {'alpha':1E-2}
 
 rg = RGCPD(list_of_name_path=list_of_name_path, 
+           list_for_MI=list_for_MI,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
            tfreq=10, lags_i=np.array([0,1]),
            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW')
 
-rg.pp_TV()
+name_ds='q75tail'
+rg.pp_TV(name_ds=name_ds)
+
 rg.pp_precursors(selbox=(-180, 360, -10, 90))
 
 rg.traintest('no_train_test_split')
 
-rg.calc_corr_maps(**kwrgs_corr) 
 
+rg.calc_corr_maps()
 rg.plot_maps_corr(save=True)
 
 
@@ -60,28 +73,44 @@ from RGCPD import RGCPD
 list_of_name_path = [(cluster_label, TVpath), 
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
                      ('sm2', os.path.join(path_raw, 'sm2_1979-2018_1_12_daily_1.0deg.nc')),
-                     ('sm3', os.path.join(path_raw, 'sm3_1979-2018_1_12_daily_1.0deg.nc'))]
+                     ('sm3', os.path.join(path_raw, 'sm3_1979-2018_1_12_daily_1.0deg.nc')),
+                     ('snow',os.path.join(path_raw, 'snow_1979-2018_1_12_daily_1.0deg.nc'))]
 
+list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map, 
+                             kwrgs_func={'alpha':.0001, 'FDR_control':True}, 
+                             distance_eps=600, min_area_in_degrees2=5),
+                 BivariateMI(name='sm2', func=BivariateMI.corr_map, 
+                              kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                              distance_eps=600, min_area_in_degrees2=5),
+                  BivariateMI(name='sm3', func=BivariateMI.corr_map, 
+                              kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                              distance_eps=700, min_area_in_degrees2=7),
+                  BivariateMI(name='snow', func=BivariateMI.corr_map, 
+                              kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                              distance_eps=700, min_area_in_degrees2=7)]
 
 start_end_TVdate = ('06-24', '08-22')
 start_end_date = ('1-1', '12-31')
-kwrgs_corr = {'alpha':1E-3}
+
 
 rg = RGCPD(list_of_name_path=list_of_name_path, 
+           list_for_MI=list_for_MI,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
            tfreq=10, lags_i=np.array([1]),
            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW')
 
-rg.pp_TV()
+rg.pp_TV(name_ds=name_ds)
 selbox = [None, {'sst':[-180,360,-10,90]}]
 rg.pp_precursors(selbox=selbox)
 
 rg.traintest(method='random10')
+rg.path_outsub1 += '_'+ name_ds
 
-rg.calc_corr_maps(alpha=1E-3)
+rg.calc_corr_maps()
+
  #%%
-rg.cluster_regions(distance_eps=700, min_area_in_degrees2=5)
+rg.cluster_list_MI()
 rg.quick_view_labels() 
 rg.get_ts_prec(precur_aggr=1)
 rg.plot_maps_corr(save=True)
@@ -107,7 +136,7 @@ stat_model_l = [logitCV]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
 
 lags_i = np.array([0, 10, 15, 21])
-precur_aggr = 16
+precur_aggr = 15
 use_fold = None
 
 

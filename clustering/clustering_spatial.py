@@ -335,7 +335,6 @@ def percentile_cluster(var_filename, xrclust, q=75, tailmean=True, selbox=None):
     # this array will be the time series for each feature
     ts_clusters = np.zeros((xarray.shape[0], len(regions_for_ts)))
 
-
     # calculate area-weighted mean over labels
     for r in regions_for_ts:
         track_names.append(int(r))
@@ -347,21 +346,40 @@ def percentile_cluster(var_filename, xrclust, q=75, tailmean=True, selbox=None):
         # Calculates how values inside region vary over time
         if tailmean == False:
             ts_clusters[:,idx] = np.nanpercentile(nparray[:,B==1] * a_wghts[B==1], q=q,
-                                              axis =1)
+                                                  axis =1)
         elif tailmean:
-            # non-weighted percentile
+            # calc percentile of space for each timestep, not we will 
+            # have a timevarying spatial mask. 
             ts_clusters[:,idx] = np.nanpercentile(nparray[:,B==1], q=q,
-                                              axis =1)
+                                                  axis =1)
             # take a mean over all gridpoints that pass the percentile instead
             # of taking the single percentile value of a spatial region
             mask_B_perc = nparray[:,B==1] > ts_clusters[:,idx, None]
-            # mask_B_perc, for each timestep the spatial mask and the mask where
-            # gridcells pass the percentile value
-            nptimespace = nparray[:,B==1].reshape(nparray.shape[0],-1)
-            wghts = a_wghts[:,B==1]
-            # we now have a timevarying spatial mask, 
-            y = np.nanmean(nptimespace[mask_B_perc].reshape(n_t,-1) * \
-                           wghts[mask_B_perc].reshape(n_t,-1), axis =1)
+            # if unlucky, the amount of gridcells that pass the percentile
+            # value, were not always equal in each timestep. When this happens,
+            # we can no longer reshape the array to (time, space) axis, and thus
+            # we cannot take the mean over time. 
+            # check if have same size over time
+            cs_ = [int(mask_B_perc[t][mask_B_perc[t]].shape[0]) for t in range(n_t)]
+            if np.unique(cs_).size != 1:
+                # what is the most common size:
+                common_shape = cs_[np.argmax([cs_.count(v) for v in np.unique(cs_)])]
+                
+    
+                # convert all masks to most common size by randomly 
+                # adding/removing a True
+                for t in range(n_t):
+                    while mask_B_perc[t][mask_B_perc[t]].shape[0] < common_shape:
+                        mask_B_perc[t][np.argwhere(mask_B_perc[t]==False)[0][0]] = True
+                    while mask_B_perc[t][mask_B_perc[t]].shape[0] > common_shape:
+                        mask_B_perc[t][np.argwhere(mask_B_perc[t]==True)[0][0]] = False
+
+            nptimespacefull = nparray[:,B==1].reshape(nparray.shape[0],-1)
+            npuppertail = nptimespacefull[mask_B_perc]
+            wghtsuppertail = a_wghts[:,B==1][mask_B_perc]
+
+            y = np.nanmean(npuppertail.reshape(n_t,-1) * \
+                            wghtsuppertail.reshape(n_t,-1), axis =1)
                                               
             ts_clusters[:,idx] = y
     xrts = xr.DataArray(ts_clusters.T, 

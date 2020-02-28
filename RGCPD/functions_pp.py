@@ -151,7 +151,7 @@ def update_dates(cls, ex):
     cls.temporal_freq = '{}days'.format(temporal_freq.days)
     return cls, ex
 
-def load_TV(list_of_name_path, loadleap=False):
+def load_TV(list_of_name_path, loadleap=False, name_ds='ts'):
     '''
     function will load first item of list_of_name_path
     list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
@@ -172,7 +172,7 @@ def load_TV(list_of_name_path, loadleap=False):
         fulltso = load_npy(filename, name=name)
     elif filename.split('.')[-1] == 'nc':
         ds = core_pp.import_ds_lazy(filename)
-        fulltso = ds['ts'].sel(cluster=name)
+        fulltso = ds[name_ds].sel(cluster=name)
     hashh = filename.split('_')[-1].split('.')[0]
     fulltso.name = str(list_of_name_path[0][0])
     if loadleap == False:
@@ -181,12 +181,12 @@ def load_TV(list_of_name_path, loadleap=False):
     return fulltso, hashh
 
 
-def nc_xr_ts_to_df(filename):
+def nc_xr_ts_to_df(filename, name_ds='ts'):
     if filename.split('.')[-1] == 'nc':
         ds = core_pp.import_ds_lazy(filename)
     else:
         print('not a NetCDF file')
-    return xrts_to_df(ds['ts']), ds
+    return xrts_to_df(ds[name_ds]), ds
 
 def xrts_to_df(xarray):
     name = 'tfreq{}_ncl{}'.format(int(xarray['tfreq']), 

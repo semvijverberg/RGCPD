@@ -282,30 +282,13 @@ class BivariateMI:
             n_tot_regs += max([self.ts_corr[s].shape[1] for s in range(splits.size)])
         return 
 
-# def corr_new(field, ts):
-#     """
-#     This function calculates the correlation coefficent r and 
-#     the pvalue p for each grid-point of field vs response-variable ts
-#     """
-#     x = np.ma.zeros(field.shape[1])
-#     corr_vals = np.ma.array(data = x, mask =False)
-#     pvals = np.array(x)
-#     fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
-    
-#     nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
-    
-#     for i in nonans_gc:
-#         corr_vals[i], pvals[i] = scipy.stats.pearsonr(ts,field[:,i])
-        
-#     return corr_vals, pvals
-
 def corr_new(field, ts):
     """
     This function calculates the correlation coefficent r and 
     the pvalue p for each grid-point of field vs response-variable ts
 
     """
-    x = np.ma.ones(field.shape[1])
+    x = np.ma.zeros(field.shape[1])
     corr_vals = np.array(x)
     pvals = np.array(x)
     fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])

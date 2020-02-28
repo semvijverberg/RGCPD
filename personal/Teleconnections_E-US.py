@@ -53,10 +53,10 @@ CPPA_s5  = [('sst_CPPAs5', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax
 list_of_name_path = [('t2mmmax',
                       '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'),
                         # ('sm1', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm1_1979-2018_1_12_daily_1.0deg.nc'),
-                        # ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                    
-                        # ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),  
+                        ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                    
+                        ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),  
                         ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc'),                        
-                        ('snow', '/Users/semvijverberg/surfdrive/ERA5/input_raw/snow_1979-2018_1_12_daily_1.0deg.nc'),
+                        # ('snow', '/Users/semvijverberg/surfdrive/ERA5/input_raw/snow_1979-2018_1_12_daily_1.0deg.nc'),
                         ('OLR', '/Users/semvijverberg/surfdrive/ERA5/input_raw/OLRtrop_1979-2018_1_12_daily_2.5deg.nc')]
 
 #                        ('u500', '/Users/semvijverberg/surfdrive/ERA5/input_raw/u500hpa_1979-2018_1_12_daily_2.5deg.nc'),
@@ -64,19 +64,19 @@ list_of_name_path = [('t2mmmax',
 
 #                        ('sm123', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm_123_1979-2018_1_12_daily_1.0deg.nc')]
 
-import_prec_ts = CPPA_s30
+import_prec_ts = None #CPPA_s30
 
 list_for_EOFS = [EOF(name='OLR', neofs=1, selbox=[-180, 360, -15, 30])]
 
 list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map, 
-                             kwrgs_func={'alpha':.001, 'FDR_control':True}, 
-                             distance_eps=600, min_area_in_degrees2=5),
-                 # BivariateMI(name='sm3', func=BivariateMI.corr_map, 
-                 #             kwrgs_func={'alpha':.05, 'FDR_control':True}, 
-                 #             distance_eps=600, min_area_in_degrees2=5),
-                 BivariateMI(name='snow', func=BivariateMI.corr_map, 
                              kwrgs_func={'alpha':.05, 'FDR_control':True}, 
-                             distance_eps=600, min_area_in_degrees2=5)]
+                             distance_eps=600, min_area_in_degrees2=5),
+                  BivariateMI(name='sm3', func=BivariateMI.corr_map, 
+                              kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                              distance_eps=600, min_area_in_degrees2=7)]
+                 # BivariateMI(name='snow', func=BivariateMI.corr_map, 
+                 #             kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                 #             distance_eps=600, min_area_in_degrees2=5)]
                             
 
 #list_of_name_path = [('t2mmmax',
@@ -86,7 +86,7 @@ list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map,
 #                    ('v200hpa', '/Users/semvijverberg/surfdrive/Data_era5/input_raw/v200hpa_1979-2018_1_12_daily_2.5deg.nc')]
 
 start_end_TVdate = ('06-24', '08-22')
-start_end_TVdate = ('07-06', '08-11')
+# start_end_TVdate = ('07-06', '08-11')
 
 #start_end_TVdate = ('06-15', '08-31')
 start_end_date = ('1-1', '12-31')
@@ -126,8 +126,6 @@ rg.pp_TV()
 #kwrgs_events={'event_percentile':66}
 kwrgs_events=None
 rg.traintest(method='random10', kwrgs_events=kwrgs_events)
-
-
 
 
 
@@ -186,8 +184,8 @@ rg.plot_maps_sum()
 
 
 # In[ ]:
-
-# rg.store_df_PCMCI(add_spatcov=False)
+rg.get_ts_prec(precur_aggr=1)
+rg.store_df_PCMCI()
 
 
 

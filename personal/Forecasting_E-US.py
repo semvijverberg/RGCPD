@@ -40,6 +40,7 @@ era5_16d_RGCPD_sm = user_dir + '/Downloads/output_RGCPD/Xzkup1_19jun-22aug_lag16
 era5_12d_RGCPD_sm = user_dir + '/Downloads/output_RGCPD/Xzkup1_24may-28aug_lag12-12/ran_strat20_s1/df_data__sm123_sst_dt12_Xzkup1.h5'
 era5_10d_RGCPD_sm = user_dir + '/Downloads/output_RGCPD/Xzkup1_10jun-29aug_lag20-20/random10_s1/df_data__sm1_sm2_sm3_OLR_sst_dt10_Xzkup1.h5'
 era5_10d_RGCPD_sm_uv = user_dir + '/Downloads/output_RGCPD/Xzkup1_10jun-29aug_lag20-20/random10_s1/df_data__sm123_u500_v200_sst_dt10_Xzkup1.h5'
+era5_1d_CPPAs30_l10_sm = user_dir + '/surfdrive/output_RGCPD/t2mmmax_Xzkup1_20jun-19aug_lag10-10/random10_s1/None_at0.1_tau_0-2_conds_dimNone_combin2_dt10_dtd1.h5'
 # In[4]:
 
 
@@ -47,14 +48,14 @@ era5_10d_RGCPD_sm_uv = user_dir + '/Downloads/output_RGCPD/Xzkup1_10jun-29aug_la
 #                 'EC-earth 2.3':(strat_1d_CPPA_EC, ['PEP', 'CPPA'])}
 ERA_10d = {'ERA-5':(era5_10d_CPPA_sm, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
 ERA_10d_sm = {'ERA-5':(era5_10d_CPPA_sm, ['sst(CPPA)+sm', None])}
-ERA_1d_CPPA = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PDO,ENSO)', 'all'])}
+ERA_1d_CPPA = {'ERA-5':(era5_1d_CPPA_l10_sm, ['sst(PDO,ENSO)', 'all'])}
 ERA_10d_RGCPD = {'ERA-5':(era5_10d_RGCPD_sm, ['all'])}
 ERA_10d_RGCPD_all = {'ERA-5':(era5_10d_RGCPD_sm_uv, ['all'])}
 ERA_16d_RGCPD = {'ERA-5':(era5_16d_RGCPD_sm, [None, 'sst(CPPA)'])}
 ERA_12d_RGCPD = {'ERA-5':(era5_12d_RGCPD_sm, ['sst(CPPA)+sm', 'sst(CPPA)'])}
 ERA_vs_PEP = {'ERA-5':(era5_1d_CPPA_lag0, ['sst(PEP)+sm', 'sst(PDO,ENSO)+sm', 'sst(CPPA)+sm'])}
 
-datasets_path  = era5_10d_CPPA_sm
+datasets_path  = ERA_1d_CPPA
 
 
 # Define statmodel:
@@ -106,7 +107,7 @@ kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
 
-stat_model_l = [logitCVfs, logitCV]
+stat_model_l = [logitCV]
 kwrgs_pp     = {'add_autocorr' : True}
 lags_i = np.array([0, 1, 2])
 tfreq = None
