@@ -127,7 +127,7 @@ kwrgs_events = {'event_percentile': 70}
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [logitCV]
+stat_model_l = [logitCV, GBC]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':False}
 
 lags_i = np.array([0, 7])
@@ -208,6 +208,7 @@ fig.savefig(pathfig_valid,
 im = 0
 il = 1
 ifc = 0
+
 import valid_plots as dfplots
 if __name__ == "__main__":
     for i, fc in enumerate(list_of_fc):
@@ -217,7 +218,7 @@ if __name__ == "__main__":
                 m = [n[0] for n in fc.stat_model_l][im]
                 l = fc.lags_i[il]
                 # visual analysis
-                f_name = filename + f'_{i}_va_l{l}_{m}'
+                f_name = filename + f'_{ifc}_va_l{l}_{m}'
                 f_format = '.pdf'
                 fig = dfplots.visual_analysis(fc, lag=l, model=m)
                 pathfig_vis = os.path.join(working_folder, f_name) + f_format

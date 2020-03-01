@@ -36,20 +36,20 @@ def extend_longitude(data):
     return plottable
 
 def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
-                   col_dim='lag', clim='relaxed', hspace=-0.6, wspace=0.2,
+                   col_dim='lag', clim='relaxed', hspace=-0.4, wspace=0.01,
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
                    clevels=None, cticks_center=None, title=None,
                    drawbox=None, subtitles=None, zoomregion=None,
-                   lat_labels=True):
+                   lat_labels=True, aspect=None):
     '''
     zoombox = tuple(east_lon, west_lon, south_lat, north_lat)
     '''
     #%%
     # default parameters
-    # row_dim='split'; col_dim='lag'; clim='relaxed'; hspace=-0.6;
-    # size=2.5; cbar_vert=-0.01; units='units'; cmap=None;
-    # clevels=None; cticks_center=None; map_proj = None ; wspace=.0
-    # drawbox=None; subtitles=None; lat_labels=True;
+    # mask_xr=None ; row_dim='split'; col_dim='lag'; clim='relaxed'; 
+    # size=2.5; cbar_vert=-0.01; units='units'; cmap=None; hspace=-0.6; 
+    # clevels=None; cticks_center=None; map_proj=None ; wspace=.0
+    # drawbox=None; subtitles=None; title=None; lat_labels=True; zoomregion=None
 
 
 
@@ -83,11 +83,13 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     lat = plot_xr.latitude
     lon = plot_xr.longitude
     zonal_width = abs(lon[-1] - lon[0]).values
-
+    if aspect is None:
+        aspect = (lon.size) / lat.size 
+    
 
     g = xr.plot.FacetGrid(plot_xr, col='col', row='row', subplot_kws={'projection': map_proj},
                       sharex=True, sharey=True,
-                      aspect= (lon.size) / lat.size, size=size)
+                      aspect=aspect, size=size)
     figheight = g.fig.get_figheight()
 
     # =============================================================================
@@ -166,13 +168,13 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                                           subplot_kws={'projection': map_proj}, colors=['black'],
                                           linewidths=np.round(zonal_width/150, 1)+0.3, levels=[float(vmin),float(vmax)],
                                           add_colorbar=False)
-#                try:
-#                    im = plotdata.plot.contourf(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
-#                                        center=0,
-#                                         levels=clevels, cmap=cmap,
-#                                         subplot_kws={'projection':map_proj},add_colorbar=False)
-#                except ValueError:
-#                    print('could not draw contourf, shifting to pcolormesh')
+        #                try:
+        #                    im = plotdata.plot.contourf(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
+        #                                        center=0,
+        #                                         levels=clevels, cmap=cmap,
+        #                                         subplot_kws={'projection':map_proj},add_colorbar=False)
+        #                except ValueError:
+        #                    print('could not draw contourf, shifting to pcolormesh')
 
             # if no signifcant regions, still plot corr values, but the causal plot must remain empty
             if mask_xr is None or all_masked==False or (all_masked and 'tigr' not in str(c_label)):
@@ -245,8 +247,8 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             if corr_xr.name is not None:
                 if corr_xr.name[:3] == 'sst':
                     g.axes[row,col].add_feature(cfeature.LAND, facecolor='grey', alpha=0.3)
-#            if row == rows.size-1:
-#                last_ax = g.axes[row,col]
+    #            if row == rows.size-1:
+    #                last_ax = g.axes[row,col]
     # lay out settings
 
     plt.tight_layout(pad=1.1-0.02*rows.size, h_pad=None, w_pad=None, rect=None)
@@ -255,7 +257,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     height = g.axes[-1,0].get_position().height / 10
     bottom_ysub = (figheight/40)/(rows.size*2) + cbar_vert
 
-#    bottom_ysub = last_ax.get_position(original=False).bounds[1] # bottom
+    #    bottom_ysub = last_ax.get_position(original=False).bounds[1] # bottom
 
     cbar_ax = g.fig.add_axes([0.25, bottom_ysub,
                               0.5, height]) #[left, bottom, width, height]
@@ -287,7 +289,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     if title is not None:
         g.fig.suptitle(title)
 
-    print("\n")
+    # print("\n")
 
 
     #%%

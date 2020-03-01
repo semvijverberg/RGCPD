@@ -37,46 +37,54 @@ list_of_name_path = [(cluster_label, TVpath),
                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
 
-list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map, 
-                             kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                             distance_eps=600, min_area_in_degrees2=5),
-                  BivariateMI(name='z500', func=BivariateMI.corr_map, 
+list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                              distance_eps=600, min_area_in_degrees2=7)]
+                              distance_eps=600, min_area_in_degrees2=7),
+                 BivariateMI(name='v200', func=BivariateMI.corr_map, 
+                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                               distance_eps=600, min_area_in_degrees2=5)]
 
 start_end_TVdate = ('06-24', '08-22')
 start_end_date = ('1-1', '12-31')
-kwrgs_corr = {'alpha':1E-2}
+name_ds='q75tail'
+
 
 rg = RGCPD(list_of_name_path=list_of_name_path, 
            list_for_MI=list_for_MI,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           tfreq=10, lags_i=np.array([0,1]),
-           path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW')
+           start_end_year=1,
+           tfreq=14, lags_i=np.array([0,1]),
+           path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
+           append_pathsub='_' + name_ds)
 
-name_ds='q75tail'
+
 rg.pp_TV(name_ds=name_ds)
 
-rg.pp_precursors(selbox=(-180, 360, -10, 90))
+rg.pp_precursors(selbox=(130,350,10,90))
 
 rg.traintest('no_train_test_split')
 
 
 rg.calc_corr_maps()
-rg.plot_maps_corr(save=True)
+rg.plot_maps_corr(aspect=4.5, cbar_vert=-.1)
 
 
 #%%
 from RGCPD import RGCPD
 
 list_of_name_path = [(cluster_label, TVpath), 
+                     ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
                      ('sm2', os.path.join(path_raw, 'sm2_1979-2018_1_12_daily_1.0deg.nc')),
                      ('sm3', os.path.join(path_raw, 'sm3_1979-2018_1_12_daily_1.0deg.nc')),
                      ('snow',os.path.join(path_raw, 'snow_1979-2018_1_12_daily_1.0deg.nc'))]
 
-list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map, 
+list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
+                             kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                             distance_eps=600, min_area_in_degrees2=7, 
+                             calc_ts='pattern cov'),
+                 BivariateMI(name='sst', func=BivariateMI.corr_map, 
                              kwrgs_func={'alpha':.0001, 'FDR_control':True}, 
                              distance_eps=600, min_area_in_degrees2=5),
                  BivariateMI(name='sm2', func=BivariateMI.corr_map, 
@@ -97,15 +105,15 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           tfreq=10, lags_i=np.array([1]),
-           path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW')
+           tfreq=14, lags_i=np.array([1]),
+           path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
+           append_pathsub='_' + name_ds)
 
 rg.pp_TV(name_ds=name_ds)
-selbox = [None, {'sst':[-180,360,-10,90]}]
+selbox = [None, {'sst':[-180,360,-10,90], 'z500':[130,350,10,90], 'v200':[130,350,10,90]}]
 rg.pp_precursors(selbox=selbox)
 
 rg.traintest(method='random10')
-rg.path_outsub1 += '_'+ name_ds
 
 rg.calc_corr_maps()
 
@@ -128,12 +136,26 @@ logitCV = ('logitCV',
            'max_iter':100,
            'refit':False})
 
+GBC = ('GBC',
+      {'max_depth':1,
+       'learning_rate':.05,
+       'n_estimators' : 500,
+       'min_samples_split':.25,
+       'max_features':.4,
+       'subsample' : .6,
+       'random_state':60,
+       'n_iter_no_change':20,
+       'tol':1E-4,
+       'validation_fraction':.3,
+       'scoringCV':'brier_score_loss'
+       } )
+
 path_data = rg.df_data_filename
 name = rg.TV.name
 datasets_path = {f'cluster {name}':(path_data, ['persistence', None])}
 kwrgs_events = {'event_percentile': 66}
-stat_model_l = [logitCV]
-kwrgs_pp     = {'add_autocorr' : True, 'normalize':'datesRV'}
+stat_model_l = [logitCV, GBC]
+kwrgs_pp     = {'add_autocorr' : True, 'normalize':False}
 
 lags_i = np.array([0, 10, 15, 21])
 precur_aggr = 15

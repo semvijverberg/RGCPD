@@ -26,9 +26,7 @@ def loop_train_test(df_data, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None
 #    max_conds_py=None; max_conds_px=None; verbosity=4
                     
     splits = df_data.index.levels[0]
-    
-    
-    
+
     pcmci_dict = {}
     pcmci_results_dict = {}
     RV_mask = df_data['RV_mask']

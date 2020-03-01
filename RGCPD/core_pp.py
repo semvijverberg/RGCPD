@@ -21,11 +21,11 @@ def get_oneyr(datetime):
 
 
 def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, 
-                   format_lon='east_west', var=None):
+                   format_lon='only_east', var=None):
     '''
     selbox has format of (lon_min, lon_max, lat_min, lat_max)
-    # in format east_west
-    # test selbox assumes [west_lon, east_lon, south_lat, north_lat]
+    # in format only_east 
+    # selbox assumes [lowest_east_lon, highest_east_lon, south_lat, north_lat]
     '''
     
     ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)

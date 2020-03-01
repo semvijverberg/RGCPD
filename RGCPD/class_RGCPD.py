@@ -12,9 +12,12 @@ import functions_pp
 import plot_maps
 import find_precursors
 from class_RV import RV_class
-
+from class_EOF import EOF
+from class_BivariateMI import BivariateMI
+from typing import List, Tuple, Union
 import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+
 df_ana_func = os.path.join(curr_dir, '..', 'df_analysis/df_analysis/') # add df_ana path
 sys.path.append(df_ana_func)
 import df_ana
@@ -23,11 +26,18 @@ path_test = os.path.join(curr_dir, '..', 'data')
 
 class RGCPD:
 
-    def __init__(self, list_of_name_path=None, list_for_EOFS=None, 
-                 list_for_MI=None, import_prec_ts=None, 
-                 start_end_TVdate=None, tfreq=10, start_end_date=None, 
-                 start_end_year=None, path_outmain=None, 
-                 lags_i=np.array([1]), verbosity=1):
+    def __init__(self, list_of_name_path=List[Tuple[str, str]], 
+                 list_for_EOFS=List[Union[EOF]], 
+                 list_for_MI=List[Union[BivariateMI]], 
+                 import_prec_ts=List[Tuple[str, str]], 
+                 start_end_TVdate=None, 
+                 tfreq: int=10, 
+                 start_end_date: tuple=None, 
+                 start_end_year: tuple=None, 
+                 lags_i: np.ndarray=np.array([1]),
+                 path_outmain: str=None, 
+                 append_pathsub='',
+                 verbosity: int=1):
         '''
         Class to study teleconnection of a Response Variable* of interest. 
         
@@ -65,11 +75,15 @@ class RGCPD:
             format ('mm-dd', 'mm-dd'). default is ('01-01' - '12-31')
         start_end_year : tuple, optional
             default is to load all years
+        lags_i : nparray, optional
+            The default is np.array([1]).            
         path_outmain : str, optional
             Root folder for output. Default is your 
             '/users/{username}/Download'' path
-        lags_i : nparray, optional
-            The default is np.array([1]).
+        append_pathsub: str, optional
+            The first subfolder will be created below path_outmain, to store
+            output data & figures. The append_pathsub1 argument allows you to 
+            manually add some hash or string refering to some experiment.
         verbosity : int, optional
             Regulate the amount of feedback given by the code.
             The default is 1.
@@ -101,25 +115,25 @@ class RGCPD:
         self.list_for_MI = list_for_MI
         self.import_prec_ts = import_prec_ts
 
-        self.start_end_TVdate  = start_end_TVdate
-        self.start_end_date = start_end_date
-        self.start_end_year = start_end_year
-        self.verbosity  = verbosity
-        self.tfreq      = tfreq
-        self.lags_i     = lags_i
-        self.lags       = np.array([l*self.tfreq for l in self.lags_i], dtype=int)
-        self.path_outmain = path_outmain
-        self.figext     = '.pdf'
-        self.orig_stdout = sys.stdout
+        self.start_end_TVdate   = start_end_TVdate
+        self.start_end_date     = start_end_date
+        self.start_end_year     = start_end_year
+        self.verbosity          = verbosity
+        self.tfreq              = tfreq
+        self.lags_i             = lags_i
+        self.lags               = np.array([l*self.tfreq for l in self.lags_i], dtype=int)
+        self.path_outmain       = path_outmain
+        self.append_pathsub    = append_pathsub
+        self.figext             = '.pdf'
+        self.orig_stdout        = sys.stdout
         return
 
     def pp_precursors(self, loadleap=False, seldates=None, selbox=None,
-                            format_lon='east_west',
+                            format_lon='only_east',
                             detrend=True, anomaly=True):
         '''
-        selbox has format of (lon_min, lon_max, lat_min, lat_max)
-        in format east_west
-        selbox assumes [west_lon, east_lon, south_lat, north_lat]
+        in format 'only_east':
+        selbox assumes [lowest_east_lon, highest_east_lon, south_lat, north_lat]
         '''
         loadleap = loadleap
         seldates = seldates
@@ -186,8 +200,9 @@ class RGCPD:
                                          months[self.dates_TV.month[-1]] )
         info_lags = 'lag{}-{}'.format(min(self.lags), max(self.lags))
         # Creating a folder for the specific spatial mask, RV period and traintest set
-        self.path_outsub0 = os.path.join(self.path_outmain, self.fulltso.name +'_' +self.hash \
-                                         +'_'+RV_name_range + info_lags )
+        self.path_outsub0 = os.path.join(self.path_outmain, self.fulltso.name \
+                                         +'_' +self.hash +'_'+RV_name_range \
+                                         + info_lags + self.append_pathsub)
                                          
 
         # =============================================================================
@@ -238,16 +253,13 @@ class RGCPD:
                     kwrgs_events=kwrgs_events,
                     precursor_ts=self.import_prec_ts)
 
-
-
         TV, self.df_splits = RV_and_traintest(self.fullts,
                                               self.TV_ts,
                                               verbosity=self.verbosity,
                                               **self.kwrgs_TV)
         self.TV = TV
-        self.path_outsub1 = os.path.join(self.path_outsub0,
-                                      '_'.join([self.kwrgs_TV['method'],
-                                                's'+ str(self.kwrgs_TV['seed'])]))
+        self.path_outsub1 = self.path_outsub0 + '_'.join(['', self.TV.method \
+                            + 's'+ str(self.TV.seed)])
         if os.path.isdir(self.path_outsub1) == False : os.makedirs(self.path_outsub1)
 
 
@@ -443,10 +455,11 @@ class RGCPD:
         
     def plot_maps_corr(self, precursors=None, mask_xr=None, map_proj=None,
                        row_dim='split', col_dim='lag', clim='relaxed', 
-                       hspace=-0.6, size=2.5, cbar_vert=-0.01, units='units',
+                       hspace=-0.6, wspace=.02, size=2.5, cbar_vert=-0.01, units='units',
                        cmap=None, clevels=None, cticks_center=None, drawbox=None,
                        title=None, subtitles=None, zoomregion=None, lat_labels=True,
-                       save=False):
+                       aspect=None, save=False):
+
         
         if precursors is None:
             precursors = [p.name for p in self.list_MI]
@@ -455,12 +468,12 @@ class RGCPD:
             plot_maps.plot_corr_maps(pclass.corr_xr,
                                      mask_xr=pclass.corr_xr['mask'], map_proj=map_proj,
                                    row_dim=row_dim, col_dim=col_dim, clim=clim, 
-                                   hspace=hspace, size=size, cbar_vert=cbar_vert, 
+                                   hspace=hspace, wspace=wspace, size=size, cbar_vert=cbar_vert, 
                                    units=units, cmap=cmap, clevels=clevels, 
                                    cticks_center=cticks_center, drawbox=drawbox,
                                    title=None, subtitles=subtitles, 
                                    zoomregion=zoomregion, 
-                                   lat_labels=lat_labels)
+                                   lat_labels=lat_labels, aspect=aspect)
             if save is True:
                 f_name = 'corr_map_{}'.format(precur_name)
                                                  
@@ -524,6 +537,7 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
     
     if precursor_ts is not None:
         print('Retrieve same train test split as imported ts')
+        method = 'from_import' ; seed = ''
         path_data = ''.join(precursor_ts[0][1])
         df_splits = functions_pp.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
         test_yrs_imp  = functions_pp.get_testyrs(df_splits)
@@ -532,10 +546,7 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
                                                         seed=seed, 
                                                         kwrgs_events=kwrgs_events, 
                                                         verb=verbosity)
-    #        df_splits = functions_pp.rand_traintest_years(TV, method=self.method,
-    #                                                          seed=self.seed, 
-    #                                                          kwrgs_events=self.kwrgs_events, 
-    #                                                          verb=self.verbosity)
+
         test_yrs_set  = functions_pp.get_testyrs(df_splits)
         assert (np.equal(test_yrs_imp, test_yrs_set)).all(), "Train test split not equal"
     else:
@@ -543,6 +554,8 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
                                                         seed=seed, 
                                                         kwrgs_events=kwrgs_events, 
                                                         verb=verbosity)
+    TV.method = method
+    TV.seed   = seed
     return TV, df_splits
 
 
