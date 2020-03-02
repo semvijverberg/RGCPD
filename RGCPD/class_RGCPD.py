@@ -27,9 +27,9 @@ path_test = os.path.join(curr_dir, '..', 'data')
 class RGCPD:
 
     def __init__(self, list_of_name_path=List[Tuple[str, str]], 
-                 list_for_EOFS=List[Union[EOF]], 
-                 list_for_MI=List[Union[BivariateMI]], 
-                 import_prec_ts=List[Tuple[str, str]], 
+                 list_for_EOFS: List[Union[EOF]]=None, 
+                 list_for_MI: List[Union[BivariateMI]]=None, 
+                 import_prec_ts: List[Tuple[str, str]]=None, 
                  start_end_TVdate=None, 
                  tfreq: int=10, 
                  start_end_date: Tuple[str, str]=None, 
@@ -480,7 +480,8 @@ class RGCPD:
                 fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
                 plt.savefig(fig_path, bbox_inches='tight')
 
-    def plot_maps_sum(self, map_proj=None, figpath=None, paramsstr=None):
+    def plot_maps_sum(self, var='all', map_proj=None, figpath=None, 
+                      paramsstr=None, kwrgs_plot={}):
 
 #         if map_proj is None:
 #             central_lon_plots = 200
@@ -490,13 +491,18 @@ class RGCPD:
             figpath = self.path_outsub1
         if paramsstr is None:
             paramsstr = self.params_str
+        if var == 'all':
+            dict_ds = self.dict_ds
+        else:
+            dict_ds = {f'{var}':self.dict_ds[var]} # plot single var            
+        plot_maps.plot_labels_vars_splits(dict_ds, self.df_sum, map_proj,
+                                          figpath, paramsstr, self.TV.name,
+                                           kwrgs_plot=kwrgs_plot)
 
-        plot_maps.plot_labels_vars_splits(self.dict_ds, self.df_sum, map_proj,
-                                          figpath, paramsstr, self.TV.name)
 
-
-        plot_maps.plot_corr_vars_splits(self.dict_ds, self.df_sum, map_proj,
-                                          figpath, paramsstr, self.TV.name)
+        plot_maps.plot_corr_vars_splits(dict_ds, self.df_sum, map_proj,
+                                          figpath, paramsstr, self.TV.name, 
+                                          kwrgs_plot=kwrgs_plot)
 
     def _get_testyrs(self, df_splits):
     #%%

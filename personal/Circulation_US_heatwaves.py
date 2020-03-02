@@ -28,6 +28,7 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
+from RGCPD import EOF
 #%%
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf5_nc5_dendo_80d77.nc'
@@ -35,6 +36,8 @@ cluster_label = 3
 list_of_name_path = [(cluster_label, TVpath), 
                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
+
+
 
 
 list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
@@ -81,7 +84,7 @@ list_of_name_path = [(cluster_label, TVpath),
                      ('snow',os.path.join(path_raw, 'snow_1979-2018_1_12_daily_1.0deg.nc'))]
 
 list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
-                             kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                             kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                              distance_eps=600, min_area_in_degrees2=7, 
                              calc_ts='pattern cov'),
                  BivariateMI(name='sst', func=BivariateMI.corr_map, 
@@ -97,12 +100,15 @@ list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
                               kwrgs_func={'alpha':.05, 'FDR_control':True}, 
                               distance_eps=700, min_area_in_degrees2=7)]
 
+list_for_EOFS = [EOF(name='OLR', neofs=1, selbox=[-180, 360, -15, 30])]
+
 start_end_TVdate = ('06-24', '08-22')
 start_end_date = ('1-1', '12-31')
 
 
 rg = RGCPD(list_of_name_path=list_of_name_path, 
            list_for_MI=list_for_MI,
+           list_for_EOFS=list_for_EOFS,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
            tfreq=14, lags_i=np.array([1]),
@@ -120,12 +126,22 @@ rg.calc_corr_maps()
  #%%
 rg.cluster_list_MI()
 rg.quick_view_labels() 
-rg.get_ts_prec(precur_aggr=1)
 rg.plot_maps_corr(save=True)
-rg.df_data
 
-rg.store_df()
 
+rg.get_ts_prec(precur_aggr=None)
+rg.PCMCI_df_data(pc_alpha=None, 
+                 tau_max=2,
+                 alpha_level=.05, 
+                 max_combinations=3)
+rg.df_sum.loc[0]
+
+
+
+rg.plot_maps_sum()
+
+rg.get_ts_prec(precur_aggr=1)
+rg.store_df_PCMCI()
 #%%
 from class_fc import fcev
 logitCV = ('logitCV',
