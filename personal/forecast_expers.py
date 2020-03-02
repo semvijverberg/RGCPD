@@ -92,7 +92,7 @@ datasets_path = ERA_daily
 #                'grouped' : False}
 
 
-path_data = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/3_80d77_26jun-21aug_lag14-14_q75tail_random10s1/df_data__z500_sst_sm2_sm3_snow_dt1_80d77.h5'
+path_data = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/3_80d77_26jun-21aug_lag14-14_q75tail_random10s1/df_data__z500_sst_sm2_sm3_snow_dt1_80d77.h5'
 # start_end_TVdate = ('6-30', '8-29')
 start_end_TVdate = None
 n_boot = 500
