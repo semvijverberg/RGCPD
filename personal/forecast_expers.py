@@ -104,7 +104,7 @@ frequencies = np.arange(4, 34, 2)
 
 
 
-kwrgs_pp={'add_autocorr':False}
+kwrgs_pp={'add_autocorr':True}
 stat_model_l = [logitCV]
 folds = -9
 seed=30
@@ -123,7 +123,7 @@ for perc in percentiles:
                            stat_model=logitCV, 
                            kwrgs_pp={}, 
                            dataset=f'{freq}',
-                           keys_d='all')
+                           keys_d='persistence')
 
         print(f'{fc.fold} {fc.test_years[0]} {perc}')
         fc.get_TV(kwrgs_events=kwrgs_events)
@@ -172,27 +172,3 @@ fig.savefig(os.path.join(filename + f_format),
             bbox_inches='tight') # dpi auto 600
 
     
-#rename_ERA =    {'ERA-5: sst(PEP)+sm':'PEP+sm', 
-#             'ERA-5: sst(PDO,ENSO)+sm':'PDO+ENSO+sm', 
-#             'ERA-5: sst(CPPA)+sm':'CPPA+sm'}
-#
-#for old, new in rename_ERA.items():
-#    if new not in dict_experiments.keys():
-#        dict_experiments[new] = dict_experiments.pop(old)
-
-#rename_EC = {'ERA-5 PEP':'PEP', 
-#             'ERA-5 CPPA':'CPPA', 
-#             'EC-earth 2.3 PEP':'PEP ', 
-#             'EC-earth 2.3 CPPA':'CPPA '}
-#
-#for old, new in rename_EC.items():
-#    if new not in dict_experiments.keys():
-#        dict_experiments[new] = dict_experiments.pop(old)
-
-#rename_CPPA_comp =    {'ERA-5: CPPAregs+sm' : 'precursor regions + sm', 
-#                       'ERA-5: CPPApattern+sm': 'precursor pattern + sm', 
-#                       'ERA-5: sst(CPPA)+sm' : 'CPPA (all) + sm'}
-#
-#for old, new in rename_CPPA_comp.items():
-#    if new not in dict_experiments.keys():
-#        dict_experiments[new] = dict_experiments.pop(old)

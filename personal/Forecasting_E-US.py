@@ -297,3 +297,28 @@ try:
 except:
     pass
 
+
+#rename_ERA =    {'ERA-5: sst(PEP)+sm':'PEP+sm', 
+#             'ERA-5: sst(PDO,ENSO)+sm':'PDO+ENSO+sm', 
+#             'ERA-5: sst(CPPA)+sm':'CPPA+sm'}
+#
+#for old, new in rename_ERA.items():
+#    if new not in dict_experiments.keys():
+#        dict_experiments[new] = dict_experiments.pop(old)
+
+#rename_EC = {'ERA-5 PEP':'PEP', 
+#             'ERA-5 CPPA':'CPPA', 
+#             'EC-earth 2.3 PEP':'PEP ', 
+#             'EC-earth 2.3 CPPA':'CPPA '}
+#
+#for old, new in rename_EC.items():
+#    if new not in dict_experiments.keys():
+#        dict_experiments[new] = dict_experiments.pop(old)
+
+#rename_CPPA_comp =    {'ERA-5: CPPAregs+sm' : 'precursor regions + sm', 
+#                       'ERA-5: CPPApattern+sm': 'precursor pattern + sm', 
+#                       'ERA-5: sst(CPPA)+sm' : 'CPPA (all) + sm'}
+#
+#for old, new in rename_CPPA_comp.items():
+#    if new not in dict_experiments.keys():
+#        dict_experiments[new] = dict_experiments.pop(old)
