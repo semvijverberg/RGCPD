@@ -104,7 +104,7 @@ frequencies = np.arange(4, 34, 2)
 
 
 
-kwrgs_pp={'add_autocorr':True}
+kwrgs_pp={'add_autocorr':False}
 stat_model_l = [logitCV]
 folds = -9
 seed=30
@@ -123,7 +123,7 @@ for perc in percentiles:
                            stat_model=logitCV, 
                            kwrgs_pp={}, 
                            dataset=f'{freq}',
-                           keys_d='persistence')
+                           keys_d='all')
 
         print(f'{fc.fold} {fc.test_years[0]} {perc}')
         fc.get_TV(kwrgs_events=kwrgs_events)
