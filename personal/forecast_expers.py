@@ -92,19 +92,19 @@ datasets_path = ERA_daily
 #                'grouped' : False}
 
 
+path_data = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/3_80d77_26jun-21aug_lag14-14_q75tail_random10s1/df_data__z500_sst_sm2_sm3_snow_dt1_80d77.h5'
 # start_end_TVdate = ('6-30', '8-29')
 start_end_TVdate = None
 n_boot = 500
 LAG_DAY = 21
-# frequencies = np.arange(5, 6, 2)
-# percentiles = [50]
+frequencies = np.arange(5, 6, 2)
+percentiles = [50]
 percentiles = [50,55,60,66,70,75,80,84.2]
 frequencies = np.arange(4, 34, 2)
-TV_aggr = 7
 
 
 
-kwrgs_pp={'add_autocorr':False}
+kwrgs_pp={'add_autocorr':True}
 stat_model_l = [logitCV]
 folds = -9
 seed=30
@@ -116,26 +116,26 @@ for perc in percentiles:
     kwrgs_events = {'event_percentile': perc}
     dict_freqs = {}
     for freq in frequencies:
-        for dataset, tuple_sett in datasets_path.items():
-            lags_i = np.array([LAG_DAY])
-            path_data = tuple_sett[0]
-            keys_d_list = tuple_sett[1]
-            for keys_d in keys_d_list:
-                fc = fcev(path_data=path_data, precur_aggr=freq, 
-                          TV_aggr=TV_aggr, use_fold=folds,
-                          start_end_TVdate=start_end_TVdate)
 
-                print(f'{fc.fold} {fc.test_years[0]} {perc}')
-                fc.get_TV(kwrgs_events=kwrgs_events)
-                
-                fc.fit_models(stat_model_l=stat_model_l, lead_max=lags_i, 
-                               keys_d=keys_d, causal=False, kwrgs_pp=kwrgs_pp)
-             
-                fc.perform_validation(n_boot=n_boot, blocksize='auto', 
-                                              threshold_pred='upper_clim')
-                dict_freqs[freq] = fc.dict_sum
+        # for keys_d in keys_d_list:
+        fc = fcev(path_data=path_data, precur_aggr=freq, 
+                           use_fold=None, start_end_TVdate=None,
+                           stat_model=logitCV, 
+                           kwrgs_pp={}, 
+                           dataset=f'{freq}',
+                           keys_d='persistence')
 
-                list_of_fc.append(fc)
+        print(f'{fc.fold} {fc.test_years[0]} {perc}')
+        fc.get_TV(kwrgs_events=kwrgs_events)
+        
+        fc.fit_models(lead_max=np.array([LAG_DAY]))
+                      
+     
+        fc.perform_validation(n_boot=n_boot, blocksize='auto', 
+                                      threshold_pred='upper_clim')
+        dict_freqs[freq] = fc.dict_sum
+
+        list_of_fc.append(fc)
     dict_experiments[perc] = dict_freqs
 
 

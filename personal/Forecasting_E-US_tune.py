@@ -116,6 +116,8 @@ GBC = ('GBC',
        } )
 
 # In[6]:
+path_data = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/3_80d77_26jun-21aug_lag14-14_q75tail_random10s1/df_data__z500_sst_sm2_sm3_snow_dt1_80d77.h5'
+
 path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
 RVts_filename = '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'
 filename_ts = os.path.join(path_ts, RVts_filename)
@@ -130,50 +132,46 @@ kwrgs_events = kwrgs_events
 stat_model_l = [logitCV, GBC]
 kwrgs_pp     = {'add_autocorr' : True, 'normalize':False}
 
-lags_i = np.array([0, 7])
+lags_i = np.array([0, 14])
 
 
 start_end_TVdate = None # ('7-04', '8-22')
 
-list_of_fc = [#fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=14, 
-              #     use_fold=None,
-              #     start_end_TVdate=None,
-              #     dataset='14'),
-              # fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=15, 
-              #     use_fold=None,
-              #     start_end_TVdate=None,
-              #     dataset='15'),
-              fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=16, 
-                  use_fold=None,
-                  start_end_TVdate=None,
-                  dataset='16')]
+list_of_fc = [fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=15, 
+                   use_fold=None, start_end_TVdate=None,
+                   stat_model=logitCV, 
+                   kwrgs_pp={}, 
+                   dataset='15',
+                   keys_d='persistence'),
+              fcev(path_data=path_data, precur_aggr=15, 
+                   use_fold=None, start_end_TVdate=None,
+                   stat_model=logitCV, 
+                   kwrgs_pp={}, 
+                   dataset='15',
+                   keys_d='all'),
+              fcev(path_data=path_data, precur_aggr=15, 
+                   use_fold=None, start_end_TVdate=None,
+                   stat_model=GBC, 
+                   kwrgs_pp={'normalize':False}, 
+                   dataset='15',
+                   keys_d='all')]
+                   
+                   
 
-exp_keys = ['persistence']
-dict_experiments = {} ; 
 for i, fc in enumerate(list_of_fc):
-    dict_expers = {}
-    for keys_d in exp_keys:
 
-        # fc = fcev(path_data=path_data, precur_aggr=precur_aggr, 
-        #           use_fold=use_fold,
-        #           start_end_TVdate=start_end_TVdate)
-        fc.get_TV(kwrgs_events=kwrgs_events)
-        
-        fc.fit_models(stat_model_l=stat_model_l, lead_max=lags_i,
-                           keys_d=keys_d, kwrgs_pp=kwrgs_pp, verbosity=1)
 
-        fc.perform_validation(n_boot=500, blocksize='auto', alpha=0.05,
-                              threshold_pred=(1.5, 'times_clim'))
-        
-        dataset = fc.dataset
-        dict_experiments[dataset+'_'+str(keys_d)] = fc.dict_sum
-        
-        list_of_fc[i] = fc
-        
-        # dict_experiments[dataset] = fc.dict_sum
+    fc.get_TV(kwrgs_events=kwrgs_events)
+    
+    fc.fit_models(lead_max=lags_i, verbosity=1)
 
-y_pred_all, y_pred_c = fc.dict_preds[fc.stat_model_l[0][0]]
-df_valid, RV, zz = fc.dict_sum[fc.stat_model_l[0][0]]
+    fc.perform_validation(n_boot=500, blocksize='auto', alpha=0.05,
+                          threshold_pred=(1.5, 'times_clim'))
+    
+    list_of_fc[i] = fc
+
+# y_pred_all, y_pred_c = fc.dict_preds[fc.stat_model_l[0][0]]
+# df_valid, RV, zz = fc.dict_sum[fc.stat_model_l[0][0]]
 # In[8]:
 
 
@@ -182,11 +180,11 @@ kwrgs = {'wspace':0.25, 'col_wrap':None, 'threshold_bin':fc.threshold_pred}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
-expers = list(dict_experiments.keys())
-models   = list(dict_experiments[expers[0]].keys())
+
+
 line_dim = 'model'
 
-fig = dfplots.valid_figures(dict_experiments, expers=expers, models=models,
+fig = dfplots.valid_figures(list_of_fc, 
                           line_dim=line_dim,
                           group_line_by=None,
                           met=met, **kwrgs)

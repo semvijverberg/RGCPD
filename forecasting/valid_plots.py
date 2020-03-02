@@ -15,8 +15,8 @@ import functions_pp
 from sklearn.calibration import calibration_curve
 import sklearn.metrics as metrics
 import seaborn as sns
-from itertools import chain
-flatten = lambda l: list(chain.from_iterable(l))
+import itertools 
+flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 import matplotlib as mpl
 from matplotlib import cycler
@@ -272,7 +272,7 @@ def get_score_matrix(d_expers=dict, model=str, metric=str, lags_t=None,
     for j, pkey in enumerate(percen):
         dict_freq = d_expers[pkey]
         for k, tkey in enumerate(tfreqs):
-            df_valid = dict_freq[tkey][model][0]
+            df_valid = dict_freq[tkey][0]
             df_metric = df_valid.loc[metric]
             npscore[j,k] = float(df_metric.loc[metric].values)
             con_low = df_metric.loc['con_low'].values
@@ -810,7 +810,7 @@ def plot_freq_per_yr(RV):
     #%%
 
 
-def valid_figures(dict_experiments, expers, models, line_dim='model', group_line_by=None,
+def valid_figures(list_of_fc, line_dim='model', group_line_by=None,
                   met='default', wspace=0.08, col_wrap=None, threshold_bin=None):
    
     '''
@@ -825,15 +825,71 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
     if met == 'default':
         met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Rel. Curve', 'ts']
 
+    
+    dict_all = {fc.dataset+' '+fc.stat_model[0]+' '+fc.experiment:fc.dict_sum \
+                for fc in list_of_fc}
+    comb   = list(dict_all.keys())
+    expers = list(fc.experiment for fc in list_of_fc)
+    models   = list(fc.stat_model[0] for fc in list_of_fc)
+    datasets = list(fc.dataset for fc in list_of_fc)
 
-
+    def line_col_arrangement(lines, option1, option2, comb):
+        duplicates = [lines.count(l) != 1 for l in lines]
+        if any(duplicates) == False:
+            if np.unique(option1).size ==1:
+                lines = [option2[i]+' '+l for i, l in enumerate(lines)]
+                cols = np.unique(option1)
+            elif np.unique(option2).size ==1:
+                lines = [option1[i]+' '+l for i, l in enumerate(lines)]
+                cols = np.unique(option2)
+            else:
+                cols= list(itertools.product(np.unique(option1), 
+                                         np.unique(option2)))
+                cols = [c[0] + ' ' + c[1] for c in cols]
+        elif all(duplicates):
+           cols = []
+           for c in comb:
+               cols.append(' '.join([p for p in c.split(' ') if p not in lines]))
+           cols = np.unique(cols)   
+           lines = np.unique(lines)
+        else:
+            cols = []
+            for c in comb:
+                cols.append(' '.join([p for p in c.split(' ') if p not in lines]))
+            cols = np.unique(cols)
+            if np.unique(option2).size > 1:
+                sor = np.unique([option2.count(v) for v in option2], return_index=True)[1]
+                cols = [x for _,x in sorted(zip(sor,cols), reverse=True)]
+            elif np.unique(option1).size > 1:
+                sor = np.unique([option1.count(v) for v in option1], return_index=True)[1]
+                cols = [x for _,x in sorted(zip(sor,cols), reverse=True)]
+            # cols = ' '.join([c.split(' ') for c in comb if c.split(' ') not in lines])
+            lines = np.unique(lines)
+        return lines, cols 
+        
     if line_dim == 'model':
         lines = models
-        cols  = expers
+        left = [datasets, expers]
     elif line_dim == 'exper':
         lines = expers
-        cols  = models
-    assert line_dim in ['model', 'exper'], ('illegal key for line_dim, '
+        left = [datasets, models]
+        # if np.unique(datasets).size ==1:
+        #     lines = [models[0]+' '+l for l in lines]
+        #     cols = np.unique(datasets)
+        # elif np.unique(models).size ==1:
+        #     lines = [datasets[0]+' '+l for l in lines]
+        #     cols = np.unique(models)
+        # else:
+        #     cols= list(itertools.product(np.unique(datasets), 
+        #                               np.unique(models)))
+        #     cols = [c[0] + ' ' + c[1] for c in cols]
+    elif line_dim == 'dataset':
+        lines = datasets
+        left = [models, expers]
+    
+    lines, cols = line_col_arrangement(lines, *left, comb)
+    
+    assert line_dim in ['model', 'exper', 'dataset'], ('illegal key for line_dim, '
                            'choose \'exper\' or \'model\'')
 
     if len(cols) == 1 and group_line_by is not None:
@@ -881,30 +937,37 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
 
             for l, line in enumerate(lines):
 
-                if line_dim == 'model':
-                    model = line
-                    exper = c_label
+                if line_dim == 'model' or line_dim=='dataset':
                     color = nice_colors[l]
-
+                    # model = line
+                    # exper = c_label
+                    
                 elif line_dim == 'exper':
-                    model = c_label
-                    exper = line
-                    if len(models) == 1 and group_line_by is not None:
-                        exper = line
-                        model = models[0]
                     color = colors_datasets[l]
+                    # model = c_label
+                    # exper = line
+                    # if len(models) == 1 and group_line_by is not None:
+                    #     exper = line
+                    #     model = models[0]
+                    
+                # match_list = []
+                string_exp = line +' '+ c_label ; got_it = False ; 
+                for k in comb:
+                    match = np.array([i in string_exp for i in k])
+                    match = match[match].size / match.size
+                    # match_list.append(match)
+                    # first try full match (experiments differ only in 1 dim)
+                    if match==1:
+                        df_valid, RV, y_pred_all = dict_all[k]
+                        got_it = True ; 
+                        break
+                if got_it == False:
+                    # if experiment not present, continue loop, but skip this
+                    # string_exp
+                    continue
 
+                lags_tf     = y_pred_all.columns.astype(int)
 
-
-    
-                df_valid, RV, y_pred_all = dict_experiments[exper][model]
-                # tfreq = (y_pred_all.iloc[1].name - y_pred_all.iloc[0].name).days
-                lags_i     = list(dict_experiments[exper][model][2].columns.astype(int))
-                # lags_tf = [l*tfreq for l in lags_i]
-                # if tfreq != 1:
-                #     # the last day of the time mean bin is tfreq/2 later then the centerered day
-                #     lags_tf = [l_tf- int(tfreq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
-                lags_tf = lags_i
 
 
                 if metric in ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Accuracy']:
@@ -929,9 +992,9 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
                 if metric == 'Rel. Curve':
                     if l == 0:
                         ax, n_bins = rel_curve_base(RV, lags_tf, col=col, ax=ax)
-                    print(l,line)
+                    # print(l,line)
 
-                    rel_curve(RV, y_pred_all, color, lags_i, n_bins,
+                    rel_curve(RV, y_pred_all, color, lags_tf, n_bins,
                               linestyle=line_styles[l], mean_lags=True,
                               ax=ax)
 
@@ -939,14 +1002,12 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
                     if l == 0:
                         ax, dates_ts = plot_events(RV, color=nice_colors[-1], n_yrs=6,
                                          col=col, ax=ax)
-                    plot_ts(RV, y_pred_all, dates_ts, color, line_styles[l], lag_i=lags_i[0], ax=ax)
+                    plot_ts(RV, y_pred_all, dates_ts, color, line_styles[l], lag_i=lags_tf[0], ax=ax)
 
                 # legend conditions
-                same_models = np.logical_and(row==0, col==0)
+                same_models = all([row==0, col==0, line==lines[-1]])
                 grouped_lines = np.logical_and(row==0, group_line_by is not None)
                 if same_models or grouped_lines:
-
-
                     ax.legend(ax.lines, lines,
                           loc = 'lower left', fancybox=True,
                           handletextpad = 0.2, markerscale=0.1,
