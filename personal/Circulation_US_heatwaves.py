@@ -181,7 +181,7 @@ kwrgs_events = {'event_percentile': 66}
 
 lags_i = np.array([0, 10, 14, 21, 28, 35])
 precur_aggr = 16
-use_fold = None
+use_fold = -9
 
 
 list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr, 

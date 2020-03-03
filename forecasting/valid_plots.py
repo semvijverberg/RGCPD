@@ -824,14 +824,18 @@ def valid_figures(list_of_fc, line_dim='model', group_line_by=None,
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
     if met == 'default':
         met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Rel. Curve', 'ts']
-
     
-    dict_all = {fc.dataset+'..'+fc.stat_model[0]+'..'+fc.experiment:fc.dict_sum \
-                for fc in list_of_fc}
+    dict_all = {}
+    for fc in list_of_fc:
+        datasetname = fc.dataset.replace(' ', '__')
+        expername   = fc.experiment.replace(' ', '__')
+        uniq_label = datasetname+'..'+fc.stat_model[0]+'..'+expername
+        dict_all[uniq_label] = fc.dict_sum
+                
     comb   = list(dict_all.keys())
-    expers = list(fc.experiment for fc in list_of_fc)
+    expers = list(fc.experiment.replace(' ','__') for fc in list_of_fc)
     models   = list(fc.stat_model[0] for fc in list_of_fc)
-    datasets = list(fc.dataset for fc in list_of_fc)
+    datasets = list(fc.dataset.replace(' ','__') for fc in list_of_fc)
 
     def line_col_arrangement(lines, option1, option2, comb):
         
@@ -924,7 +928,7 @@ def valid_figures(list_of_fc, line_dim='model', group_line_by=None,
     for col, c_label in enumerate(cols):
 
         if col_wrap is None:
-            g.axes[0,col].set_title(c_label)
+            g.axes[0,col].set_title(c_label.replace('__',' '))
         if len(models) == 1 and group_line_by is not None:
             lines = lines_grouped[col]
 
@@ -953,6 +957,7 @@ def valid_figures(list_of_fc, line_dim='model', group_line_by=None,
                     #     model = models[0]
                     
                 # match_list = []
+                
                 string_exp = line +'..'+ c_label.replace(' ','..') 
                 got_it = False ; 
                 for k in comb:
@@ -970,7 +975,7 @@ def valid_figures(list_of_fc, line_dim='model', group_line_by=None,
                 if got_it == True:
                     # if experiment not present, continue loop, but skip this
                     # string_exp
-                    
+
                 
 
                     lags_tf     = y_pred_all.columns.astype(int)
