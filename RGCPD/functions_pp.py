@@ -1214,6 +1214,26 @@ def func_dates_min_lag(dates, lag):
     dates_min_lag_str = [d.strftime('%Y-%m-%d %H:%M:%S') for d in dates_min_lag]
     return dates_min_lag_str, dates_min_lag    
 
-
-
-
+def apply_lsm(var_filepath, lsm_filepath, threshold_lsm=.8):
+    from pathlib import Path
+    path = Path(var_filepath)
+    xarray = core_pp.import_ds_lazy(path.as_posix())
+    lons = xarray.longitude.values
+    lats = xarray.latitude.values
+    selbox = (min(lons), max(lons)+1, min(lats), max(lats)+1)
+    lsm = core_pp.import_ds_lazy(lsm_filepath, selbox=selbox)
+    lsm = lsm.to_array().squeeze() > threshold_lsm
+    xarray['mask'] = (('latitude', 'longitude'), lsm[::-1].values)
+    xarray = xarray.where( xarray['mask'] )
+    xarray[0].plot()
+    xarray = xarray.where(xarray.values != 0.).fillna(-9999)
+    xarray.attrs.pop('is_DataArray')
+    encoding = ( {xarray.name : {'_FillValue': -9999}} )
+    mask =  (('latitude', 'longitude'), (xarray.values[0] != -9999) )
+    xarray.coords['mask'] = mask
+    parts = list(path.parts)
+    parts[5] = 'lsm_' +parts[5]
+    outfile = Path(*parts)
+    # save netcdf
+    xarray.to_netcdf(outfile, mode='w', encoding=encoding)
+    

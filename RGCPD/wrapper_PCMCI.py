@@ -1,38 +1,45 @@
 # -*- coding: utf-8 -*-
 import os, io, sys
 from tigramite import data_processing as pp
+from tigramite import plotting as tp
 from tigramite.pcmci import PCMCI
 from tigramite.independence_tests import ParCorr #, GPDC, CMIknn, CMIsymb
 import numpy as np
 import pandas as pd
+import itertools
 
 
 
 
-def loop_train_test(df_data, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None, 
-                    alpha_level=0.05, max_conds_dim=4, max_combinations=1, 
-                    max_conds_py=None, max_conds_px=None, verbosity=4):
+def init_pcmci(df_data, significance='analytic', mask_type='y', 
+               selected_variables=None, verbosity=4):
     '''
-    pc_alpha - If a list of values is given or pc_alpha=None, alpha is optimized using model selection criteria.
-    tau_min (int, default: 0) – Minimum time lag.
-    tau_max (int, default: 1) – Maximum time lag. Must be larger or equal to tau_min.
-    max_conds_py (int or None) – Maximum number of conditions from parents of Y to use. If None is passed, this number is unrestricted.
-    max_conds_px (int or None) – Maximum number of conditions from parents of X to use. If None is passed, this number is unrestricted.
+    First initializing pcmci object for each training set. This allows to plot
+    lagged cross-correlations which help to identity a reasonably tau_max.
+
+    Parameters
+    ----------
+    df_data : pandas DataFrame
+        df_data is retrieved by running rg.get_ts_prec().
+    significance : str, optional
+        DESCRIPTION. The default is 'analytic'.
+    mask_type : str, optional
+        DESCRIPTION. The default is 'y'.
+    verbosity : int, optional
+        DESCRIPTION. The default is 4.
+    selected_variables : list of integers, optional (default: None)
+        Specify to estimate parents only for selected variables. If None is
+        passed, parents are estimated for all variables.
+
+    Returns
+    -------
+    dictionary of format {split:pcmci}.
+
     '''
-    #%%
-#    df_data = rg.df_data
-#    path_txtoutput=rg.path_outsub2; tau_min=0; tau_max=1; pc_alpha=0.05; 
-#    alpha_level=0.05; max_conds_dim=2; max_combinations=1; 
-#    max_conds_py=None; max_conds_px=None; verbosity=4
-                    
     splits = df_data.index.levels[0]
-
     pcmci_dict = {}
-    pcmci_results_dict = {}
     RV_mask = df_data['RV_mask']
     for s in range(splits.size):
-        progress = 100 * (s+1) / splits.size
-        print(f"\rProgress causal inference - traintest set {progress}%", end="")
         
         TrainIsTrue = df_data['TrainIsTrue'].loc[s]
         df_data_s = df_data.loc[s][TrainIsTrue.values]
@@ -45,18 +52,90 @@ def loop_train_test(df_data, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None
         data = df_data_s.values
         data_mask = RV_mask.loc[s][TrainIsTrue.values].values
         data_mask = np.repeat(data_mask, data.shape[1]).reshape(data.shape)
-        out = run_pcmci(data, data_mask, var_names, path_txtoutput, s,
+        
+        # create dataframe in Tigramite format
+        dataframe = pp.DataFrame(data=data, mask=data_mask, var_names=var_names)
+
+        parcorr = ParCorr(significance=significance,
+                          mask_type=mask_type,
+                          verbosity=0)
+        
+        # ======================================================================================================================
+        # pc algorithm: only parents for selected_variables are calculated
+        # ======================================================================================================================
+        pcmci   = PCMCI(dataframe=dataframe,
+                        cond_ind_test=parcorr,
+                        selected_variables=None,
+                        verbosity=verbosity)
+        pcmci_dict[s] = pcmci
+    return pcmci_dict
+
+def plot_lagged_dependences(pcmci, selected_links: dict=None, tau_max=5):
+    if selected_links is None:
+        # only focus on target variable links:
+        TV_links = list(itertools.product(range(pcmci.N), -1* np.arange(tau_max)))
+        selected_links = {0:TV_links}
+        selected_links.update({k:[] for k in range(1,pcmci.N)})
+    origverbosity= pcmci.verbosity ; pcmci.verbosity = 0
+    correlations = pcmci.get_lagged_dependencies(selected_links=selected_links,
+                                                 tau_max=tau_max)
+    df_lagged = pd.DataFrame(correlations[:,0,:-1], index=pcmci.var_names, 
+                             columns=range(tau_max))
+    
+    df_lagged.T.plot(figsize=(10,10))
+    # pcmci.lag_func_matrix = tp.plot_lagfuncs(val_matrix=correlations[:,0], 
+    #                                    setup_args={'var_names':pcmci.var_names, 
+    #                                                'x_base':5, 'y_base':.5,
+    #                                                'figsize':(10,10)})
+    pcmci.verbosity = origverbosity
+    return
+
+def loop_train_test(pcmci_dict, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None, 
+                    alpha_level=0.05, max_conds_dim=4, max_combinations=1, 
+                    max_conds_py=None, max_conds_px=None, verbosity=4):
+    '''
+    pc_alpha (float, optional (default: 0.05)) 
+        Significance level in algorithm.
+    tau_min (int, default: 0) 
+        Minimum time lag.
+    tau_max (int, default: 1) 
+        Maximum time lag. Must be larger or equal to tau_min.
+    max_conds_dim (int, optional (default: None)) 
+        Maximum number of conditions to test. If None is passed, this number is unrestricted.
+    max_combinations (int, optional (default: 1)) 
+        Maximum number of combinations of conditions of current cardinality 
+        to test. Defaults to 1 for PC_1 algorithm. For original PC algorithm a 
+        larger number, such as 10, can be used.
+    max_conds_py (int or None) 
+        Maximum number of conditions from parents of Y to use. If None is passed, 
+        this number is unrestricted.
+    max_conds_px (int or None) 
+        Maximum number of conditions from parents of X to use. If None is passed, 
+        this number is unrestricted.
+
+    '''
+    #%%
+#    df_data = rg.df_data
+#    path_txtoutput=rg.path_outsub2; tau_min=0; tau_max=1; pc_alpha=0.05; 
+#    alpha_level=0.05; max_conds_dim=2; max_combinations=1; 
+#    max_conds_py=None; max_conds_px=None; verbosity=4
+                    
+    splits = np.array(list(pcmci_dict.keys()))
+
+    pcmci_results_dict = {}
+    for s in range(splits.size):
+        progress = 100 * (s+1) / splits.size
+        print(f"\rProgress causal inference - traintest set {progress}%", end="")
+        results = run_pcmci(pcmci_dict[s], path_txtoutput, s,
                         tau_min, tau_max, pc_alpha, alpha_level, max_conds_dim, 
                         max_combinations, max_conds_py, max_conds_px,  
                         verbosity)
-        
-        pcmci_dict[s] = out[0] # tuple containing pcmci, results dict
-        pcmci_results_dict[s] = out[1]
+        pcmci_results_dict[s] = results
     #%%
-    return pcmci_dict, pcmci_results_dict
+    return pcmci_results_dict
 
     #%%
-def run_pcmci(data, data_mask, var_names, path_outsub2, s, tau_min=0, tau_max=1, 
+def run_pcmci(pcmci, path_outsub2, s, tau_min=0, tau_max=1, 
               pc_alpha=None, alpha_level=0.05, max_conds_dim=4, max_combinations=1, 
               max_conds_py=None, max_conds_px=None, verbosity=4):
     
@@ -73,33 +152,9 @@ def run_pcmci(data, data_mask, var_names, path_outsub2, s, tau_min=0, tau_max=1,
     # ======================================================================================================================
     # tigramite 4
     # ======================================================================================================================
-
-    T, N = data.shape # Time, Regions
-    # ======================================================================================================================
-    # Initialize dataframe object (needed for tigramite functions)
-    # ======================================================================================================================
-    dataframe = pp.DataFrame(data=data, mask=data_mask, var_names=var_names)
-    # ======================================================================================================================
-    # pc algorithm: only parents for selected_variables are calculated
-    # ======================================================================================================================
-
-    parcorr = ParCorr(significance='analytic',
-                      mask_type='y',
-                      verbosity=verbosity)
-    #==========================================================================
-    # multiple testing problem:
-    #==========================================================================
-    pcmci   = PCMCI(dataframe=dataframe,
-                    cond_ind_test=parcorr,
-                    selected_variables=None,
-                    verbosity=verbosity)
-
-    # selected_variables : list of integers, optional (default: range(N))
-    #    Specify to estimate parents only for selected variables. If None is
-    #    passed, parents are estimated for all variables.
-
-    # ======================================================================================================================
-    #selected_links = dictionary/None
+    pcmci.cond_ind_test.print_info()
+    print(f'time {pcmci.T}, samples {pcmci.N}')
+    
     results = pcmci.run_pcmci(tau_max=tau_max, pc_alpha=pc_alpha, tau_min=tau_min,
                               max_conds_dim=max_conds_dim, 
                               max_combinations=max_combinations,
@@ -108,10 +163,14 @@ def run_pcmci(data, data_mask, var_names, path_outsub2, s, tau_min=0, tau_max=1,
 
     results['q_matrix'] = pcmci.get_corrected_pvalues(p_matrix=results['p_matrix'], fdr_method='fdr_bh')
 
-    pcmci.print_significant_links(p_matrix=results['p_matrix'],
-                                   q_matrix=results['q_matrix'],
-                                   val_matrix=results['val_matrix'],
-                                   alpha_level=alpha_level)
+    # print @ 3 alpha level values:
+    alphas = [.1, .05, .01]
+    for a in alphas:
+        pcmci.print_significant_links(p_matrix=results['p_matrix'],
+                                       q_matrix=results['q_matrix'],
+                                       val_matrix=results['val_matrix'],
+                                       alpha_level=a)
+
     #%%
     if path_outsub2 is not False:
         file = io.open(txt_fname, mode='w+')
@@ -122,7 +181,7 @@ def run_pcmci(data, data_mask, var_names, path_outsub2, s, tau_min=0, tau_max=1,
         sys.stdout = orig_stdout
 
 
-    return pcmci, results
+    return results
 
 def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level):
     #%%

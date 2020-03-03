@@ -67,7 +67,7 @@ def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None,
 #        ds = ds.sortby('latitude')
 
     # get dates
-    if 'time' in ds.dims:
+    if 'time' in ds.squeeze().dims:
         from netCDF4 import num2date
         numtime = ds['time']
         dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])

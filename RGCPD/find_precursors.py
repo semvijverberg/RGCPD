@@ -235,6 +235,7 @@ def cluster_DBSCAN_regions(pos_prec):
 
     #    var = 'sst'
     #    pos_prec = outdic_actors[var]
+    var = pos_prec.name
     corr_xr  = pos_prec.corr_xr
     n_spl  = corr_xr.coords['split'].size
     lags = pos_prec.corr_xr.lag.values
@@ -296,7 +297,7 @@ def cluster_DBSCAN_regions(pos_prec):
             'to relax contrain.\n')
         prec_labels_ord = prec_labels_np
     if mask_and_data.mask.all()==True:
-        print('\nNo significantly correlating gridcells found.\n')
+        print(f'\nNo significantly correlating gridcells found for {var}.\n')
         prec_labels_ord = prec_labels_np
     else:
         prec_labels_ord = np.zeros_like(prec_labels_np)

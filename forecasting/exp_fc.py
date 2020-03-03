@@ -114,7 +114,7 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
 
 #    skip = ['all_spatcov', '0_2_sm123', '0_101_PEPspatcov', 'sm123_spatcov']
     skip = ['all_spatcov']
-    OLR_EOFs = ['EOF0_OLR', 'EOF1_OLR']
+    
 
     keys_d = {}
     for option in keys_options:
@@ -157,9 +157,12 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
                 keys_ = [k for k in keys_ if k not in skip_ex]
             elif option == 'sst(CPPA Pattern)':
                 keys_ = [k for k in all_keys if 'CPPAsv' in k]
-            elif option == 'sst+sm+RWT':
-                keys_ = [k for k in all_keys if k[-7:] != 'v200hpa']
-                keys_ = [k for k in keys_ if k not in skip]
+            elif option == 'sst+sm+z500':
+                keys_ = []
+                keys_.append([k for k in all_keys if '..sst' in k])
+                keys_.append([k for k in all_keys if '..sm' in k])
+                keys_.append([k for k in all_keys if '..z500' in k])
+
             elif option == 'sst(CPPA)+sm':
                 keys_ = [k for k in all_keys if 'PDO' not in k]
                 keys_ = [k for k in keys_ if 'ENSO' not in k]

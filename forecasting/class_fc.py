@@ -772,7 +772,7 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
         TrainIsTrue = fit_masks['TrainIsTrue']
         df_prec[x_keys]  = (df_prec[x_keys] - df_prec[x_keys][TrainIsTrue].mean(0)) \
                 / df_prec[x_keys][TrainIsTrue].std(0)
-    elif normalize=='datesRV':
+    elif normalize=='datesRV' or normalize==True:
         # Normalize only using the RV dates
         TrainRV = np.logical_and(fit_masks['TrainIsTrue'],fit_masks['y_pred']).values
         df_prec[x_keys]  = (df_prec[x_keys] - df_prec[x_keys][TrainRV].mean(0)) \

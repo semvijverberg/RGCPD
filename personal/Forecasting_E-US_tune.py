@@ -116,7 +116,7 @@ GBC = ('GBC',
        } )
 
 # In[6]:
-path_data = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/3_80d77_26jun-21aug_lag14-14_q75tail_random10s1/df_data__z500_sst_sm2_sm3_snow_dt1_80d77.h5'
+path_data = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/3_80d77_26jun-21aug_lag14-14_q75tail_random10s1/None_at0.05_tau_0-1_conds_dimNone_combin2_dt14_dtd1.h5'
 
 path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
 RVts_filename = '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'
@@ -129,15 +129,14 @@ kwrgs_events = {'event_percentile': 70}
 kwrgs_events = kwrgs_events
 
 #stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-stat_model_l = [logitCV, GBC]
-kwrgs_pp     = {'add_autocorr' : True, 'normalize':False}
 
-lags_i = np.array([0, 14])
+
+lags_i = np.array([0, 14, 21, 28])
 
 
 start_end_TVdate = None # ('7-04', '8-22')
 
-list_of_fc = [fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=15, 
+list_of_fc = [fcev(path_data=path_data, precur_aggr=15, 
                    use_fold=None, start_end_TVdate=None,
                    stat_model=logitCV, 
                    kwrgs_pp={}, 
@@ -148,13 +147,15 @@ list_of_fc = [fcev(path_data=CPPAs30_1d_sm_2_3_OLR_l10, precur_aggr=15,
                    stat_model=logitCV, 
                    kwrgs_pp={}, 
                    dataset='15',
-                   keys_d='all'),
+                   keys_d='all',
+                   causal=False),              
               fcev(path_data=path_data, precur_aggr=15, 
                    use_fold=None, start_end_TVdate=None,
-                   stat_model=GBC, 
-                   kwrgs_pp={'normalize':False}, 
+                   stat_model=logitCV, 
+                   kwrgs_pp={}, 
                    dataset='15',
-                   keys_d='all')]
+                   keys_d='all',
+                   causal=True)]
                    
                    
 
@@ -182,7 +183,7 @@ met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 
 
-line_dim = 'model'
+line_dim = 'exper'
 
 fig = dfplots.valid_figures(list_of_fc, 
                           line_dim=line_dim,

@@ -265,15 +265,18 @@ class RGCPD:
 
 
         
-    def calc_corr_maps(self):
+    def calc_corr_maps(self, list_for_MI: List[Union[BivariateMI]]=None):
         keys = ['selbox', 'loadleap', 'seldates', 'format_lon']
         kwrgs_load = {k: self.kwrgs_pp[k] for k in keys}
         kwrgs_load['start_end_date']= self.start_end_date
         kwrgs_load['start_end_year']= self.start_end_year
         kwrgs_load['tfreq']         = self.tfreq
         self.kwrgs_load = kwrgs_load
-        self.list_MI = []
-        for precur in self.list_for_MI:
+        if list_for_MI is None:
+            list_for_MI = self.list_for_MI
+        
+        # self.list_for_MI = []
+        for precur in list_for_MI:
             precur.filepath = [l for l in self.list_precur_pp if l[0]==precur.name][0][1]
             precur.lags = self.lags
             find_precursors.calculate_region_maps(precur, 
@@ -281,15 +284,15 @@ class RGCPD:
                                                   self.df_splits,
                                                   self.kwrgs_load)
                                                   
-            self.list_MI.append(precur)
+            # self.list_for_MI.append(precur)
     
     def cluster_list_MI(self):
-        for precur in self.list_MI:                
+        for precur in self.list_for_MI:                
             precur = find_precursors.cluster_DBSCAN_regions(precur)
                                                           
 
     def quick_view_labels(self, map_proj=None):
-        for precur in self.list_MI:  
+        for precur in self.list_for_MI:  
             prec_labels = precur.prec_labels.copy()
             if all(np.isnan(prec_labels.values.flatten()))==False:
                 # colors of cmap are dived over min to max in n_steps.
@@ -322,12 +325,10 @@ class RGCPD:
                 print(f'no {precur.name} regions that pass distance_eps and min_area_in_degrees2 citeria')
 
     def get_EOFs(self):
-        self.list_EOFS = []
         for i, e_class in enumerate(self.list_for_EOFS):
             print(f'Retrieving {e_class.neofs} EOF(s) for {e_class.name}')
             filepath = [l for l in self.list_precur_pp if l[0]==e_class.name][0][1]
             e_class.get_pattern(filepath=filepath, df_splits=self.df_splits)
-            self.list_EOFS.append(e_class)
             
     def get_ts_prec(self, precur_aggr=None):
         if precur_aggr is None:
@@ -350,12 +351,12 @@ class RGCPD:
             # use original TV timeseries
             TV = self.TV ; df_splits = self.df_splits
         
-        if hasattr(self, 'list_MI'):
+        if hasattr(self, 'list_for_MI'):
             print('\nGetting MI timeseries')
-            for i, precur in enumerate(self.list_MI):
+            for i, precur in enumerate(self.list_for_MI):
                 precur.get_prec_ts(precur_aggr=self.precur_aggr,
                                    kwrgs_load=self.kwrgs_load)
-            self.df_data = find_precursors.df_data_prec_regs(self.list_MI, 
+            self.df_data = find_precursors.df_data_prec_regs(self.list_for_MI, 
                                                              TV, 
                                                              df_splits)
                                                 
@@ -373,7 +374,7 @@ class RGCPD:
                 self.df_data = self.df_data_ext.copy()
         
         # Append (or only load) EOF timeseries
-        if hasattr(self, 'list_EOFS'):
+        if hasattr(self, 'list_for_EOFS'):
             print('\nGetting EOF timeseries')
             for i, e_class in enumerate(self.list_for_EOFS):
                 e_class.get_ts(tfreq_ts=self.precur_aggr, df_splits=df_splits)
@@ -389,12 +390,16 @@ class RGCPD:
         self.df_data = self.df_data.merge(df_splits, left_index=True, right_index=True)
 
 
+    def PCMCI_init(self):
+        import wrapper_PCMCI
+        self.pcmci_dict = wrapper_PCMCI.init_pcmci(self.df_data)
+
     def PCMCI_df_data(self, path_txtoutput=None, tau_min=0, tau_max=1,
                     pc_alpha=None, alpha_level=0.05, max_conds_dim=None,
                     max_combinations=2, max_conds_py=None, max_conds_px=None,
                     verbosity=4):
-
         import wrapper_PCMCI
+        
 
         self.kwrgs_pcmci = dict(tau_min=tau_min,
                            tau_max=tau_max,
@@ -418,18 +423,30 @@ class RGCPD:
             self.path_outsub2 = path_txtoutput
 
         if os.path.isdir(self.path_outsub2) == False : os.makedirs(self.path_outsub2)
-
-        out = wrapper_PCMCI.loop_train_test(self.df_data, self.path_outsub2,
+        
+        if hasattr(self, 'pcmci_dict')==False:
+            self.pcmci_dict = wrapper_PCMCI.init_pcmci(self.df_data)
+        
+        out = wrapper_PCMCI.loop_train_test(self.pcmci_dict, self.path_outsub2,
                                                           **self.kwrgs_pcmci)
-        self.pcmci_dict, self.pcmci_results_dict = out
+        self.pcmci_results_dict = out
+    
+    def PCMCI_get_links(self, alpha_level: float=None):
+        import wrapper_PCMCI
+        
+        if hasattr(self, 'pcmci_results_dict')==False:
+            print('first perform PCMCI_df_data to get pcmci_results_dict')
+        
+        if alpha_level is None:
+            alpha_level = self.kwrgs_TV['alpha_level']
         self.parents_dict = wrapper_PCMCI.get_links_pcmci(self.pcmci_dict, 
                                                           self.pcmci_results_dict,
-                                                          self.kwrgs_pcmci['alpha_level'])
+                                                          alpha_level)
         self.df_sum, self.mapping_links = wrapper_PCMCI.get_df_sum(self.parents_dict)
 
         # get xarray dataset for each variable
         self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_sum,
-                                                      self.list_MI)
+                                                      self.list_for_MI)
 
     def store_df_PCMCI(self):
         import wrapper_PCMCI
@@ -439,10 +456,11 @@ class RGCPD:
             path = self.path_outsub2
         wrapper_PCMCI.store_ts(self.df_data, self.df_sum, self.dict_ds,
                                path+'.h5')
+        self.df_data_filename = path+'.h5'
                                
     def store_df(self):
-        if len(self.list_MI) != 0:
-            varstr = '_' + '_'.join([p.name for p in self.list_MI])
+        if len(self.list_for_MI) != 0:
+            varstr = '_' + '_'.join([p.name for p in self.list_for_MI])
         else:
             varstr = ''
         if hasattr(self, 'df_data_ext'):
@@ -462,9 +480,9 @@ class RGCPD:
 
         
         if precursors is None:
-            precursors = [p.name for p in self.list_MI]
+            precursors = [p.name for p in self.list_for_MI]
         for precur_name in precursors:
-            pclass = [p for p in self.list_MI if p.name == precur_name][0]
+            pclass = [p for p in self.list_for_MI if p.name == precur_name][0]
             plot_maps.plot_corr_maps(pclass.corr_xr,
                                      mask_xr=pclass.corr_xr['mask'], map_proj=map_proj,
                                    row_dim=row_dim, col_dim=col_dim, clim=clim, 
