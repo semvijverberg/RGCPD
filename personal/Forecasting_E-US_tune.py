@@ -69,7 +69,7 @@ logitCV = ('logitCV',
            'scoring':'brier_score_loss',
            'penalty':'l2',
            'solver':'lbfgs',
-           'max_iter':100})
+           'max_iter':150})
 
 
 logitCVfs = ('logitCV',
@@ -124,43 +124,69 @@ filename_ts = os.path.join(path_ts, RVts_filename)
 kwrgs_events_daily =    (filename_ts,
                          {'event_percentile': 90})
 
-kwrgs_events = {'event_percentile': 70}
+kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
-
-#stat_model_l = [logitCVfs, logitCV, GBC_tfs, GBC_t, GBC]
-
+precur_aggr = 16
 
 lags_i = np.array([0, 14, 21, 28])
-
-
 start_end_TVdate = None # ('7-04', '8-22')
 
-list_of_fc = [fcev(path_data=path_data, precur_aggr=15, 
-                   use_fold=None, start_end_TVdate=None,
+
+list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr, 
+                    use_fold=-9, start_end_TVdate=None,
+                    stat_model=logitCV, 
+                    kwrgs_pp={}, 
+                    dataset=f'{precur_aggr} day means',
+                    keys_d='persistence'),
+              fcev(path_data=path_data, precur_aggr=precur_aggr, 
+                   use_fold=-9, start_end_TVdate=None,
                    stat_model=logitCV, 
                    kwrgs_pp={}, 
-                   dataset='15',
-                   keys_d='persistence'),
-              fcev(path_data=path_data, precur_aggr=15, 
-                   use_fold=None, start_end_TVdate=None,
+                   dataset=f'{precur_aggr} day means',
+                   keys_d='all'),
+              fcev(path_data=path_data, precur_aggr=precur_aggr, 
+                   use_fold=-9, start_end_TVdate=None,
                    stat_model=logitCV, 
                    kwrgs_pp={}, 
-                   dataset='15',
+                   dataset=f'{precur_aggr} day means',
                    keys_d='all',
-                   causal=False),              
-              fcev(path_data=path_data, precur_aggr=15, 
-                   use_fold=None, start_end_TVdate=None,
+                   causal=True),
+              fcev(path_data=path_data, precur_aggr=precur_aggr, 
+                   use_fold=-9, start_end_TVdate=None,
                    stat_model=logitCV, 
                    kwrgs_pp={}, 
-                   dataset='15',
+                   dataset=f'{precur_aggr} day means',
+                   keys_d='sst+sm+z500'),
+              fcev(path_data=path_data, precur_aggr=precur_aggr, 
+                    use_fold=-9, start_end_TVdate=None,
+                    stat_model=GBC_t, 
+                    kwrgs_pp={'normalize':False}, 
+                    dataset=f'{precur_aggr} day means',
+                    keys_d='persistence'),
+              fcev(path_data=path_data, precur_aggr=precur_aggr, 
+                   use_fold=-9, start_end_TVdate=None,
+                   stat_model=GBC_t, 
+                   kwrgs_pp={'normalize':False}, 
+                   dataset=f'{precur_aggr} day means',
+                   keys_d='all'),
+              fcev(path_data=path_data, precur_aggr=precur_aggr, 
+                   use_fold=-9, start_end_TVdate=None,
+                   stat_model=GBC_t, 
+                   kwrgs_pp={'normalize':False}, 
+                   dataset=f'{precur_aggr} day means',
                    keys_d='all',
-                   causal=True)]
+                   causal=True),
+              fcev(path_data=path_data, precur_aggr=precur_aggr, 
+                   use_fold=-9, start_end_TVdate=None,
+                   stat_model=GBC_t, 
+                   kwrgs_pp={'normalize':False}, 
+                   dataset=f'{precur_aggr} day means',
+                   keys_d='sst+sm+z500')]
                    
                    
 
 for i, fc in enumerate(list_of_fc):
-
 
     fc.get_TV(kwrgs_events=kwrgs_events)
     
@@ -169,10 +195,7 @@ for i, fc in enumerate(list_of_fc):
     fc.perform_validation(n_boot=500, blocksize='auto', alpha=0.05,
                           threshold_pred=(1.5, 'times_clim'))
     
-    list_of_fc[i] = fc
 
-# y_pred_all, y_pred_c = fc.dict_preds[fc.stat_model_l[0][0]]
-# df_valid, RV, zz = fc.dict_sum[fc.stat_model_l[0][0]]
 # In[8]:
 
 
@@ -183,7 +206,7 @@ met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 
 
-line_dim = 'exper'
+line_dim = 'model'
 
 fig = dfplots.valid_figures(list_of_fc, 
                           line_dim=line_dim,

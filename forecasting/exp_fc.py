@@ -7,7 +7,8 @@ Created on Fri Aug 30 17:04:46 2019
 """
 import functions_pp
 import numpy as np
-
+import itertools 
+flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 
 #experiments = { 'ERA-5 30d Only_all_spatcov':(path_data_3d_sp,
@@ -162,6 +163,7 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
                 keys_.append([k for k in all_keys if '..sst' in k])
                 keys_.append([k for k in all_keys if '..sm' in k])
                 keys_.append([k for k in all_keys if '..z500' in k])
+                keys_ = flatten(keys_)
 
             elif option == 'sst(CPPA)+sm':
                 keys_ = [k for k in all_keys if 'PDO' not in k]

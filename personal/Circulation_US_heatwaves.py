@@ -172,14 +172,12 @@ logitCV = ('logitCV',
            'max_iter':125,
            'refit':False})
 
-# path_data = rg.df_data_filename
-# name = rg.TV.name
-path_data = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/3_80d77_26jun-21aug_lag14-14_q75tail_random10s1/None_at0.05_tau_0-1_conds_dimNone_combin2_dt14_dtd1.h5'
-name = '3'
-# datasets_path = {f'cluster {name}':(path_data, )}
+path_data = rg.df_data_filename
+name = rg.TV.name
+# path_data = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/3_80d77_26jun-21aug_lag14-14_q75tail_random10s1/None_at0.05_tau_0-1_conds_dimNone_combin2_dt14_dtd1.h5'
+# name = '3'
 kwrgs_events = {'event_percentile': 66}
-stat_model_l = [logitCV]
-# kwrgs_pp     = {'add_autocorr' : True, 'normalize':True}
+
 
 lags_i = np.array([0, 10, 14, 21, 28, 35])
 precur_aggr = 16
@@ -196,21 +194,9 @@ list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr,
                    use_fold=None, start_end_TVdate=None,
                    stat_model=logitCV, 
                    kwrgs_pp={}, 
-                   dataset=f'{precur_aggr} day means exper 1',
-                   keys_d='all'),
-              fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                   use_fold=None, start_end_TVdate=None,
-                   stat_model=logitCV, 
-                   kwrgs_pp={}, 
                    dataset=f'{precur_aggr} day means exper 2',
-                   keys_d='all',
-                   causal=True),
-              fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                   use_fold=None, start_end_TVdate=None,
-                   stat_model=logitCV, 
-                   kwrgs_pp={}, 
-                   dataset=f'{precur_aggr} day means exper 2',
-                   keys_d='sst+sm+z500')]
+                   keys_d='all')]
+           
 
                   
 for i, fc in enumerate(list_of_fc):
@@ -226,7 +212,7 @@ for i, fc in enumerate(list_of_fc):
     
 
 
-# y_pred_all, y_pred_c = fc.dict_preds[fc.stat_model_l[0][0]]
+df_valid, RV, y_pred_all = fc.dict_sum
 
 
 
@@ -235,7 +221,7 @@ kwrgs = {'wspace':0.25, 'col_wrap':None, 'threshold_bin':fc.threshold_pred}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
-line_dim = 'exper'
+line_dim = 'dataset'
 
 fig = dfplots.valid_figures(list_of_fc, 
                           line_dim=line_dim,
