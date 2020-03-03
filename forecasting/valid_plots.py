@@ -964,8 +964,7 @@ def valid_figures(list_of_fc, line_dim='model', group_line_by=None,
                     # first try full match (experiments differ only in 1 dim)
                     if match==1:
                         df_valid, RV, y_pred_all = dict_all[k]
-                        # if string_exp == '16 day means exper 1..logitCV..all':
-                        print(string_exp, k, '\n', df_valid.loc['BSS'].loc['BSS'])
+                        # print(string_exp, k, '\n', df_valid.loc['BSS'].loc['BSS'])
                         got_it = True 
                         break
                 if got_it == True:
