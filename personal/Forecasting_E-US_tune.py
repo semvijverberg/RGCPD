@@ -141,7 +141,7 @@ list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr,
                     keys_d='persistence'),
                fcev(path_data=path_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
+                    stat_model=GBC, 
                     kwrgs_pp={}, 
                     dataset=f'{precur_aggr} day means',
                     keys_d='all')]
