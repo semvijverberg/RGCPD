@@ -235,6 +235,7 @@ def cluster_DBSCAN_regions(pos_prec):
 
     #    var = 'sst'
     #    pos_prec = outdic_actors[var]
+    var = pos_prec.name
     corr_xr  = pos_prec.corr_xr
     n_spl  = corr_xr.coords['split'].size
     lags = pos_prec.corr_xr.lag.values
@@ -296,7 +297,7 @@ def cluster_DBSCAN_regions(pos_prec):
             'to relax contrain.\n')
         prec_labels_ord = prec_labels_np
     if mask_and_data.mask.all()==True:
-        print('\nNo significantly correlating gridcells found.\n')
+        print(f'\nNo significantly correlating gridcells found for {var}.\n')
         prec_labels_ord = prec_labels_np
     else:
         prec_labels_ord = np.zeros_like(prec_labels_np)
@@ -504,7 +505,7 @@ def df_data_prec_regs(list_MI, TV, df_splits): #, outdic_precur, df_splits, TV #
         var_names_corr = [] ; pos_prec_list = [] ; cols = [[TV.name]]
     
         for var_idx, pos_prec in enumerate(list_MI):
-            var = pos_prec.name
+            # var = pos_prec.name
             if pos_prec.ts_corr[s].size != 0:
                 ts_train = pos_prec.ts_corr[s].values
                 pos_prec_list.append(ts_train)
@@ -522,7 +523,8 @@ def df_data_prec_regs(list_MI, TV, df_splits): #, outdic_precur, df_splits, TV #
         # add the full 1D time series of interest as first entry:
         fulldata = np.column_stack((TV.fullts, fulldata))
         df_data_s[s] = pd.DataFrame(fulldata, columns=flatten(cols), index=index_dates)
-    print(f'There are {n_regions_list} regions for {var} (list of different splits)')
+    
+    print(f'There are {n_regions_list} regions in total (list of different splits)')
     df_data  = pd.concat(list(df_data_s), keys= range(splits.size), sort=False)
     #%%
     return df_data

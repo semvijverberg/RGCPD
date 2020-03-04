@@ -8,9 +8,11 @@ Created on Thu Aug 22 12:54:45 2019
 import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
+RGCPD_dir = os.path.join(main_dir, 'RGCPD')
 df_ana_path = os.path.join(main_dir, 'df_analysis/df_analysis/')
 if df_ana_path not in sys.path:
     sys.path.append(df_ana_path)
+    sys.path.append(RGCPD_dir)
 import pandas as pd
 import numpy as np
 import xarray as xr
@@ -22,6 +24,7 @@ max_cpu = multiprocessing.cpu_count()
 print(f'{max_cpu} cpu\'s detected')
 from itertools import chain
 flatten = lambda l: list(chain.from_iterable(l))
+from typing import List, Tuple, Union
 
 import stat_models
 import class_RV
@@ -36,8 +39,13 @@ import core_pp
 class fcev():
 
     number_of_times_called = 0
-    def __init__(self, path_data, precur_aggr=None, TV_aggr=None,
-                   use_fold=None, start_end_TVdate=None, dataset=None):
+    def __init__(self, path_data, precur_aggr: int=None, TV_aggr: int=None,
+                   use_fold: List[Union[int]]=None, 
+                   start_end_TVdate: Tuple[str, str]=None, 
+                   stat_model: Tuple[str, dict]=('logit', None), 
+                   kwrgs_pp: dict={}, causal: bool=False,
+                   dataset: str=None,
+                   keys_d: Union[dict,str]=None):
         '''
         Instance for certain dataset with keys and list of stat models
 
@@ -46,11 +54,12 @@ class fcev():
             format ('mm-dd', 'mm-dd'). default is the RV_mask present in the 
             .h5 dataframe 'df_data'
         '''
-
+        
+        fcev.number_of_times_called += 1
         self.path_data = path_data
 
         if dataset is None:
-            self.dataset = 'exper1'
+            self.dataset = f'exper_{fcev.number_of_times_called}'
         else:
             self.dataset = dataset
 
@@ -88,16 +97,38 @@ class fcev():
         self.test_years = valid.get_testyrs(self.df_data)
         # assuming hash is the last piece of string before the format
         self.hash = self.path_data.split('.h5')[0].split('_')[-1]
+        
+        # Model related:
+        self.stat_model = stat_model
+        self.kwrgs_pp = kwrgs_pp
+        self.causal = causal
+        if keys_d is None:
+            print('keys is None: Using all keys in training sets')
+            self.experiment = 'all'
+            self.keys_d = None
+        if isinstance(keys_d, dict):
+            self.experiment = 'manual'
+            # expecting dict with traintest number as key and associated list of keys
+            self.keys_d = keys_d
+        if isinstance(keys_d, str):
+            print(f'getting keys associated with name {keys_d}')
+            self.experiment = keys_d
+            if self.causal:
+                self.experiment += '_causal'
+            self.keys_d = exp_fc.normal_precursor_regions(self.path_data,
+                                                          keys_options=[keys_d],
+                                                          causal=self.causal)[keys_d]
 
+        self.kwrgs_pp = kwrgs_pp
         return
 
-    @classmethod
-    def get_test_data(cls, stat_model_l=None, keys_d=None, causal=False, n_boot=100):
-        path_py   = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-        name = 'E-US_temp_test'
-        test_fname = 'test_TV-US-temp_X_sst-z500-sm.h5'
-        path_data = os.path.join('/'.join(path_py.split('/')[:-1]), 'data', test_fname)
-        return cls(path_data, name=name)
+    # @classmethod
+    # def get_test_data(cls, stat_model_l=None, keys_d=None, causal=False, n_boot=100):
+    #     path_py   = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
+    #     name = 'E-US_temp_test'
+    #     test_fname = 'test_TV-US-temp_X_sst-z500-sm.h5'
+    #     path_data = os.path.join('/'.join(path_py.split('/')[:-1]), 'data', test_fname)
+    #     return cls(path_data, name=name)
 
     def get_TV(self, kwrgs_events=None, fit_model_dates=None):
 
@@ -139,8 +170,8 @@ class fcev():
         self.TV = TV
         return
 
-    def fit_models(self, stat_model_l=[('logit', None)], lead_max=np.array([1]),
-                   keys_d=None, causal=False, kwrgs_pp=None, verbosity=0):
+    def fit_models(self, lead_max=np.array([1]),
+                   verbosity=0):
         '''
         stat_model_l:   list of with model string and kwrgs
         keys_d      :   dict, with keys : list of variables to fit, if None
@@ -149,29 +180,17 @@ class fcev():
                         keep only keys you want to fit.
         precur_aggr:  int: convert daily data to aggregated {int} day mean
         '''
-
-        self.stat_model_l = stat_model_l.copy()
+        
+        # still need to get rid of list statmodels
+        self.stat_model_l = [self.stat_model] 
         model_names = [n[0] for n in self.stat_model_l]
         model_count = {n:model_names.count(n) for n in np.unique(model_names)}
         new = {m+f'--{i+1}':m for i,m in enumerate(model_names) if model_count[m]>1}
-        self.causal = causal
 
 
 
-        if keys_d is None:
-            print('keys is None: Using all keys in training sets')
-            self.experiment = 'all'
-            self.keys_d = None
-        if isinstance(keys_d, dict):
-            self.experiment = 'manual'
-            # expecting dict with traintest number as key and associated list of keys
-            self.keys_d = keys_d
-        if isinstance(keys_d, str):
-            print(f'getting keys associated with name {keys_d}')
-            self.experiment = keys_d
-            self.keys_d = exp_fc.normal_precursor_regions(self.path_data,
-                                                          keys_options=[keys_d],
-                                                          causal=self.causal)[keys_d]
+
+
         if isinstance(lead_max, int):
             if self.tfreq == 1:
                 self.lags_i = np.arange(0, lead_max+1E-9, max(10,self.tfreq), dtype=int)
@@ -200,16 +219,10 @@ class fcev():
             self.lags_t = np.array(self.lags_i)
             print(f'precur_aggr: {self.precur_aggr}, max lag: {self.lags_t[-1]} days')
 
-        if kwrgs_pp is None:
-            self.kwrgs_pp = {'EOF':False,
-                    'expl_var':0.5}
-        else:
-            self.kwrgs_pp = kwrgs_pp
-
         self.dict_preds = {}
         self.dict_models = {}
         c = 0
-        for i, stat_model in enumerate(stat_model_l):
+        for i, stat_model in enumerate(self.stat_model_l):
             if stat_model[0] in list(new.values()):
                 self.stat_model_l[i] = (list(new.keys())[c], stat_model[1])
                 c += 1
@@ -306,10 +319,8 @@ class fcev():
             m = self.dict_models[model][f'lag_{lag}'][f'split_{split}']
         return m
 
-
-    def _print_sett(self, list_of_fc=None, subfoldername=None, f_name=None,
-                    filename=None):
-
+    def _get_outpaths(self,  list_of_fc=None, subfoldername: str=None, f_name: str=None,
+                      filename: str=None):
         if list_of_fc is None:
             list_of_fc = [self]
         if subfoldername is None:
@@ -326,15 +337,26 @@ class fcev():
                 percentile = self.kwrgs_events[1]['event_percentile']
             else:
                 percentile = self.kwrgs_events['event_percentile']
-            folds_used = str([f.fold for f in list_of_fc]).replace('[',
-                            '').replace(', ','_').replace(']','')
+            folds = list(np.unique([str(f.fold) for f in list_of_fc]))
+            folds_used = str(folds).replace('[\'',
+                            '').replace(', ','_').replace('\']','')
             f_name = f'{self.TV.name}_{self.precur_aggr}d_{percentile}p_fold{folds_used}_{today}'
             filename = os.path.join(working_folder, f_name)
         if f_name is not None and filename is None:
             today_str = f'_{today}'
             filename = os.path.join(working_folder, f_name+today_str)
+        self.filename = filename
+        self.working_folder = working_folder
+        
+    def _print_sett(self, list_of_fc=None, subfoldername=None, f_name=None,
+                    filename=None):
+        
+        self._get_outpaths(list_of_fc=None, subfoldername=None, f_name=None,
+                    filename=None)
 
-        file= open(filename+".txt","w+")
+        
+
+        file= open(self.filename+".txt","w+")
         lines = []
         lines.append("\nEvent settings:")
         e = 1
@@ -363,13 +385,13 @@ class fcev():
         [print(n, file=file) for n in lines]
         file.close()
         [print(n) for n in lines[:-2]]
-        return working_folder, filename
+        return self.working_folder, self.filename
 
     def perform_validation(self, n_boot=2000, blocksize='auto',
                            threshold_pred='upper_clim', alpha=0.05):
         self.n_boot = n_boot
         self.threshold_pred = threshold_pred
-        self.dict_sum = {}
+        # self.dict_sum = {}
         self.alpha = alpha
         for stat_model in self.stat_model_l:
             name = stat_model[0]
@@ -386,7 +408,9 @@ class fcev():
                                             blocksize=self.blocksize,
                                             threshold_pred=threshold_pred)
             df_valid, metrics_dict = out
-            self.dict_sum[name] = (df_valid, self.TV, y_pred_all)
+            df_TV = self.TV.prob_clim.merge(self.TV.RV_bin, 
+                                       left_index=True, right_index=True)
+            self.dict_sum = (df_valid, df_TV, y_pred_all)
             self.metrics_dict = metrics_dict
         return
 
@@ -452,6 +476,7 @@ class fcev():
             lag = self.lags_i
         self.df_importance = stat_models.plot_importances(models_splits_lags, lag=lag,
                                                          keys=keys, cutoff=cutoff)
+        return self.df_importance
 
     def plot_oneway_partial_dependence(self, keys=None, lags=None, model=None):
         if model is None:
@@ -790,7 +815,7 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
         TrainIsTrue = fit_masks['TrainIsTrue']
         df_prec[x_keys]  = (df_prec[x_keys] - df_prec[x_keys][TrainIsTrue].mean(0)) \
                 / df_prec[x_keys][TrainIsTrue].std(0)
-    elif normalize=='datesRV':
+    elif normalize=='datesRV' or normalize==True:
         # Normalize only using the RV dates
         TrainRV = np.logical_and(fit_masks['TrainIsTrue'],fit_masks['y_pred']).values
         df_prec[x_keys]  = (df_prec[x_keys] - df_prec[x_keys][TrainRV].mean(0)) \

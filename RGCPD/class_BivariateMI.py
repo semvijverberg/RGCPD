@@ -14,7 +14,6 @@ import scipy
 import pandas as pd
 from statsmodels.sandbox.stats import multicomp
 import functions_pp
-from class_RV import RV_class
 import find_precursors
 #import plot_maps
 flatten = lambda l: list(itertools.chain.from_iterable(l))
@@ -26,8 +25,48 @@ class BivariateMI:
 
     def __init__(self, name, func=None, kwrgs_func={}, lags=np.array([1]), 
                  distance_eps=400, min_area_in_degrees2=3, group_split='together', 
-                 calc_ts='region_mean', verbosity=1):
+                 calc_ts='region mean', verbosity=1):
+        '''
 
+        Parameters
+        ----------
+        name : str
+            Name that links to a filepath pointing to a Netcdf4 file.
+        func : function to apply to calculate the bivariate 
+            Mutual Informaiton (MI), optional
+            The default is applying a correlation map.
+        kwrgs_func : TYPE, optional
+            DESCRIPTION. The default is {}.
+        lags : int, optional
+            lag w.r.t. the the target variable at which to calculate the MI. 
+            The default is np.array([1]).
+        distance_eps : int, optional
+            The maximum distance between two gridcells for one to be considered 
+            as in the neighborhood of the other, only gridcells with the same 
+            sign are grouped together.
+            The default is 400.
+        min_area_in_degrees2 : TYPE, optional
+            The number of samples gridcells in a neighborhood for a 
+            region to be considered as a core point. The parameter is 
+            propotional to the average size of 1 by 1 degree gridcell.
+            The default is 3.
+        group_split : str, optional
+            Choose 'together' or 'seperate'. If 'together', then region labels
+            will be equal between different train test splits.
+            The default is 'together'.
+        calc_ts : str, optional
+            Choose 'region mean' or 'pattern cov'. If 'region mean', a 
+            timeseries is calculated for each label. If 'pattern cov', the 
+            spatial covariance of the whole pattern is calculated. 
+            The default is 'region_mean'.
+        verbosity : int, optional
+            Not used atm. The default is 1.
+
+        Returns
+        -------
+        Initialization of the BivariateMI class
+
+        '''
         self.name = name
         if func is None:
             self.func = self.corr_map
@@ -263,41 +302,23 @@ class BivariateMI:
     def get_prec_ts(self, precur_aggr=None, kwrgs_load=None): #, outdic_precur #TODO
         # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
         # stacked on top of each other (from lag_min to lag_max)
-
+        
         n_tot_regs = 0
-        # allvar = list(self.outdic_precur.keys()) # list of all variable names
-        # for var in allvar[:]: # loop over all variables
-        # precur = self.outdic_precur[var]
         splits = self.corr_xr.split
         if np.isnan(self.prec_labels.values).all():
             self.ts_corr = np.array(splits.size*[[]])
         else:
-            if self.calc_ts == 'region_mean':
+            if self.calc_ts == 'region mean':
                 self.ts_corr = find_precursors.spatial_mean_regions(self, 
                                               precur_aggr=precur_aggr, 
                                               kwrgs_load=kwrgs_load)
-            elif self.calc_ts == 'spatcov':
-                pass
+            elif self.calc_ts == 'pattern cov':
+                self.ts_corr = loop_get_spatcov(self, 
+                                                precur_aggr=precur_aggr, 
+                                                kwrgs_load=kwrgs_load)
             # self.outdic_precur[var] = precur
             n_tot_regs += max([self.ts_corr[s].shape[1] for s in range(splits.size)])
         return 
-
-# def corr_new(field, ts):
-#     """
-#     This function calculates the correlation coefficent r and 
-#     the pvalue p for each grid-point of field vs response-variable ts
-#     """
-#     x = np.ma.zeros(field.shape[1])
-#     corr_vals = np.ma.array(data = x, mask =False)
-#     pvals = np.array(x)
-#     fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
-    
-#     nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
-    
-#     for i in nonans_gc:
-#         corr_vals[i], pvals[i] = scipy.stats.pearsonr(ts,field[:,i])
-        
-#     return corr_vals, pvals
 
 def corr_new(field, ts):
     """
@@ -305,7 +326,7 @@ def corr_new(field, ts):
     the pvalue p for each grid-point of field vs response-variable ts
 
     """
-    x = np.ma.ones(field.shape[1])
+    x = np.ma.zeros(field.shape[1])
     corr_vals = np.array(x)
     pvals = np.array(x)
     fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
@@ -316,33 +337,65 @@ def corr_new(field, ts):
         corr_vals[i], pvals[i] = scipy.stats.pearsonr(ts,field[:,i])
     return corr_vals, pvals
 
-# def loop_get_spatcov(precur):
+def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
     
-#     df_splits = precur.df_splits
-#     splits = df_splits.index.levels[0]
-#     for s in splits:
-#         lag = 0
-#         TrainIsTrue = df_splits.loc[s]['TrainIsTrue']
-#         times = df_splits.index
-#         data = np.zeros( (len(columns), times.size) )
-#         df_sp_s = pd.DataFrame(data.T, index=times, columns=columns)
-#         dates_train = TrainIsTrue[TrainIsTrue.values].index
+    name            = precur.name
+    corr_xr         = precur.corr_xr
+    prec_labels     = precur.prec_labels
+    df_splits = precur.df_splits
+    splits = df_splits.index.levels[0]
+    lags            = precur.corr_xr.lag.values
     
-#         full_timeserie = precur.precur_arr
-#         corr_vals = precur.corr_xr.sel(split=s).isel(lag=lag)
-#         mask = precur.prec_labels.sel(split=s).isel(lag=lag)
-#         pattern = corr_vals.where(~np.isnan(mask))
-#         if np.isnan(pattern.values).all():
-#             # no regions of this variable and split
-#             pass
-#         else:
-#             if normalize == True:
-#                 spatcov_full = calc_spatcov(full_timeserie, pattern)
-#                 mean = spatcov_full.sel(time=dates_train).mean(dim='time')
-#                 std = spatcov_full.sel(time=dates_train).std(dim='time')
-#                 spatcov_test = ((spatcov_full - mean) / std)
-#             elif normalize == False:
-#                 spatcov_test = calc_spatcov(full_timeserie, pattern)
-#             pd_sp = pd.Series(spatcov_test.values, index=times)
-#             col = options[i]
-#             df_sp_s[var + col] = pd_sp
+    
+    if precur_aggr is None:
+        # use precursor array with temporal aggregation that was used to create 
+        # correlation map
+        precur_arr = precur.precur_arr
+    else:
+        # =============================================================================
+        # Unpack kwrgs for loading 
+        # =============================================================================
+        filepath = precur.filepath
+        kwrgs = {}
+        for key, value in kwrgs_load.items():
+            if type(value) is list and name in value[1].keys():
+                kwrgs[key] = value[1][name]
+            elif type(value) is list and name not in value[1].keys():
+                kwrgs[key] = value[0] # plugging in default value
+            else:
+                kwrgs[key] = value
+        kwrgs['tfreq'] = precur_aggr
+        precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
+
+    full_timeserie = precur_arr        
+    dates = pd.to_datetime(precur_arr.time.values)
+    
+
+    ts_sp = np.zeros( (splits.size), dtype=object)
+    for s in splits:
+        ts_list = np.zeros( (lags.size), dtype=list )
+        track_names = []
+        for il,lag in enumerate(lags):
+        
+            corr_vals = corr_xr.sel(split=s).isel(lag=il)
+            mask = prec_labels.sel(split=s).isel(lag=il)
+            pattern = corr_vals.where(~np.isnan(mask))
+            if np.isnan(pattern.values).all():
+                # no regions of this variable and split
+                pass
+            else:
+                # if normalize == True:
+                #     spatcov_full = calc_spatcov(full_timeserie, pattern)
+                #     mean = spatcov_full.sel(time=dates_train).mean(dim='time')
+                #     std = spatcov_full.sel(time=dates_train).std(dim='time')
+                #     spatcov_test = ((spatcov_full - mean) / std)
+                # elif normalize == False:
+                xrts = find_precursors.calc_spatcov(full_timeserie, pattern)
+                ts_list[il] = xrts.values[:,None]
+                track_names.append(f'{lag}..0..{precur.name}' + '_sp')
+        tsCorr = np.concatenate(tuple(ts_list), axis = 1)                
+        ts_sp[s] = pd.DataFrame(tsCorr, 
+                                index=dates,
+                                columns=track_names)
+    # df_sp = pd.concat(list(ts_sp), keys=range(splits.size))
+    return ts_sp

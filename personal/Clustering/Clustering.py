@@ -29,7 +29,7 @@ if sys.platform == 'linux':
 else:
     root_data = '/Users/semvijverberg/surfdrive/ERA5'
     
-path_outmain = user_dir+'/surfdrive/output_RGCPD/'
+path_outmain = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW'
 # In[2]:
 
 
@@ -142,24 +142,42 @@ print(f'{round(time()-t0, 2)}')
 
 
 #%%
+
 for t in tfreq:
     for c in n_clusters:    
-        # t = 30 ; c=8
+        t = 5 ; c=6
+        xrclust = xrclustered.sel(tfreq=t, n_clusters=c)
         ds = cl.spatial_mean_clusters(var_filename,
-                                  xrclustered.sel(tfreq=t, n_clusters=c),
+                                  xrclust,
                                   selbox=selbox)
+        q = 75
+        ds[f'q{q}tail'] = cl.percentile_cluster(var_filename, 
+                                              xrclust, 
+                                              q=q, 
+                                              tailmean=True, 
+                                              selbox=selbox)
 
 
         df_clust = functions_pp.xrts_to_df(ds['ts'])
     
-        fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False, kwrgs={'AUC_cutoff':(14,30)})
+        fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False, 
+                             colwrap=2, kwrgs={'AUC_cutoff':(14,30), 's':60})
         fig.suptitle('tfreq: {}, n_clusters: {}'.format(t, c), x=.5, y=.97)
+        
+        df_clust = functions_pp.xrts_to_df(ds[f'q{q}tail'])
+    
+        fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False, 
+                             colwrap=2, kwrgs={'AUC_cutoff':(14,30),'s':60})
+        fig.suptitle('tfreq: {}, n_clusters: {}, q{}tail'.format(t, c, q), 
+                     x=.5, y=.97)
 #%%
 t = 15 ; c = 5        
 ds = cl.spatial_mean_clusters(var_filename,
                          xrclustered.sel(tfreq=t, n_clusters=c),
                          selbox=selbox)
-cl.store_netcdf(ds, filepath=rg.path_outmain, append_hash='dendo_'+xrclustered.attrs['hash'])
+f_name = 'tf{}_nc{}'.format(int(ds['ts'].tfreq), int(ds['n_clusters'].tfreq))
+filepath = os.path.join(rg.path_outmain, f_name)
+cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
 #%%
 # # =============================================================================

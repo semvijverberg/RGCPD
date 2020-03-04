@@ -15,8 +15,8 @@ import functions_pp
 from sklearn.calibration import calibration_curve
 import sklearn.metrics as metrics
 import seaborn as sns
-from itertools import chain
-flatten = lambda l: list(chain.from_iterable(l))
+import itertools 
+flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 import matplotlib as mpl
 from matplotlib import cycler
@@ -273,7 +273,7 @@ def get_score_matrix(d_expers=dict, model=str, metric=str, lags_t=None,
     for j, pkey in enumerate(percen):
         dict_freq = d_expers[pkey]
         for k, tkey in enumerate(tfreqs):
-            df_valid = dict_freq[tkey][model][0]
+            df_valid = dict_freq[tkey][0]
             df_metric = df_valid.loc[metric]
             npscore[j,k] = float(df_metric.loc[metric].values)
             con_low = df_metric.loc['con_low'].values
@@ -533,7 +533,7 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
     return ax
 
 
-def rel_curve_base(RV, lags_tf, n_bins=5, col=0, ax=None):
+def rel_curve_base(df_RV, lags_tf, n_bins=5, col=0, ax=None):
     #%%
 
 
@@ -558,7 +558,7 @@ def rel_curve_base(RV, lags_tf, n_bins=5, col=0, ax=None):
                                                        pos_text.reshape((1, 2)))[0]
     ax.text(pos_text[0], pos_text[1], 'perfectly reliable', fontsize=14,
                    rotation=trans_angle, rotation_mode='anchor')
-    obs_clim = RV.prob_clim.mean()[0]
+    obs_clim = df_RV['prob_clim'].mean()
     ax.text(obs_clim+0.2, obs_clim-0.05, 'Obs. clim',
                 horizontalalignment='center', fontsize=14,
          verticalalignment='center', rotation=0, rotation_mode='anchor')
@@ -609,18 +609,19 @@ def rel_curve_base(RV, lags_tf, n_bins=5, col=0, ax=None):
     #%%
     return ax, n_bins
     #%%
-def rel_curve(RV, y_pred_all, color, lags_tf, n_bins, linestyle='solid', mean_lags=True, ax=None):
+def rel_curve(df_RV, y_pred_all, color, lags_tf, n_bins, linestyle='solid', mean_lags=True, ax=None):
     #%%
 
     if ax==None:
-        ax, n_bins = rel_curve_base(RV, lags_tf)
+        ax, n_bins = rel_curve_base(df_RV, lags_tf)
 
     strategy = 'uniform' # 'quantile' or 'uniform'
     fop = [] ; mpv = []
     for l, lag in enumerate(lags_tf):
 
-        fraction_of_positives, mean_predicted_value = calibration_curve(RV.RV_bin, y_pred_all[lag],
-                                                                       n_bins=n_bins, strategy=strategy)
+        out = calibration_curve(df_RV['RV_binary'],   y_pred_all[lag],
+                                n_bins=n_bins, strategy=strategy)
+        fraction_of_positives, mean_predicted_value = out
         fop.append(fraction_of_positives)
         mpv.append(mean_predicted_value)
     fop = np.array(fop)
@@ -667,7 +668,7 @@ def rel_curve(RV, y_pred_all, color, lags_tf, n_bins, linestyle='solid', mean_la
     color_line = ax.lines[-1].get_c() # get color
     # determine size freq
     freq = np.histogram(y_pred_all[lag], bins=n_bins)[0]
-    n_freq = freq / RV.RV_ts.size
+    n_freq = freq / df_RV.index.size
     ax.scatter(mean_mpv, mean_fop, s=n_freq*2000,
                color=color_line, alpha=0.5)
 
@@ -811,8 +812,24 @@ def plot_freq_per_yr(RV):
     #%%
 
 
-def valid_figures(dict_experiments, expers, models, line_dim='model', group_line_by=None,
-                  met='default', wspace=0.08, col_wrap=None, threshold_bin=None):
+def merge_valid_info(list_of_fc, store=True):
+    dict_merge_all = {}
+    for fc in list_of_fc:
+        datasetname = fc.dataset.replace(' ', '__')
+        expername   = fc.experiment.replace(' ', '__')
+        uniq_label = datasetname+'..'+fc.stat_model[0]+'..'+expername
+        dict_merge_all[uniq_label+'...df_valid'] = fc.dict_sum[0]
+        dict_merge_all[uniq_label+'...df_RV'] = fc.dict_sum[1]
+        dict_merge_all[uniq_label+'...y_pred_all'] = fc.dict_sum[2]
+    
+    if store:
+        if hasattr(fc, 'filename')==False:
+            fc._get_outpaths()
+        functions_pp.store_hdf_df(dict_merge_all, file_path=fc.filename+'.h5')
+    return dict_merge_all
+
+def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
+                  met='default', wspace=0.08, col_wrap=None):
    
     '''
     3 dims to plot: [metrics, experiments, stat_models]
@@ -824,17 +841,84 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
     dims = ['exper', 'models', 'met']
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
     if met == 'default':
-        met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Rel. Curve', 'ts']
+        met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Rel. Curve']
+    
+   
+    all_expers = list(dict_merge_all.keys())
+    uniq_labels = [k.split('...')[0] for k in all_expers][::3]
+    dict_all = {}
+    for k in uniq_labels:
+        # retrieve sub dataframe of forecast
+        df_valid = dict_merge_all[k+'...df_valid']
+        df_RV = dict_merge_all[k+'...df_RV']
+        y_pred_all = dict_merge_all[k+'...y_pred_all']
+        dict_all[k] = (df_valid, df_RV, y_pred_all)
+        
+    comb   = list(dict_all.keys())
+    
+    datasets = [c.split('..')[0] for c in comb]
+    models   = [c.split('..')[1] for c in comb]
+    expers   = [c.split('..')[2] for c in comb]
 
+   
 
+    def line_col_arrangement(lines_req, option1, option2, comb):
+        
+        duplicates = [lines_req.count(l) != 1 for l in lines_req]
+        if any(duplicates) == False:
+            # not all duplicates in lines_req
+            if np.unique(option1).size==1 and np.unique(option2).size!=1:
+                # option1 has only 1 repeated value
+                # append option2 to line, and create col for option1
+                lines = [option2[i]+'..'+l for i, l in enumerate(lines_req)]
+                cols = np.unique(option1)
+            if np.unique(option1).size==1 and np.unique(option2).size==1:
+                # option1 and option2 have both only 1 repeated value
+                # create single col for this combination:
+                cols = [option1[i]+'..'+option2[i] for i in range(len(comb))]
+                cols = np.unique(cols)
+            elif np.unique(option2).size!=1 and np.unique(option2).size==1:
+                lines = [option1[i]+'..'+l for i, l in enumerate(lines_req)]
+                cols = np.unique(option2)
+            # else:
+            #     cols= list(itertools.product(np.unique(option1), 
+            #                              np.unique(option2)))
+            #     cols = [c[0] + '..' + c[1] for c in cols]
+        elif all([lines_req.count(l) == len(lines_req) for l in lines_req]):
+            # all duplicates
+           cols = []
+           for c in comb:
+               cols.append('..'.join([p for p in c.split('..') if p not in lines_req]))
+           cols = np.unique(cols)   
+           lines = np.unique(lines_req)
+        else:
+            cols = []
+            for c in comb:
+                cols.append('..'.join([p for p in c.split('..') if p not in lines_req]))
+            cols = np.unique(cols)
+            if np.unique(option2).size > 1:
+                sor = [option2.count(v) for v in option2]
+                cols = [x for _,x in sorted(zip(sor,cols), reverse=False)]
+            elif np.unique(option1).size > 1:
+                sor = [option1.count(v) for v in option1]
+                cols = [x for _,x in sorted(zip(sor,cols), reverse=False)]
 
+            lines = np.unique(lines_req)
+        return lines, cols 
+        
     if line_dim == 'model':
-        lines = models
-        cols  = expers
+        lines_req = models
+        left = [datasets, expers]
     elif line_dim == 'exper':
-        lines = expers
-        cols  = models
-    assert line_dim in ['model', 'exper'], ('illegal key for line_dim, '
+        lines_req = expers
+        left = [datasets, models]
+    elif line_dim == 'dataset':
+        lines_req = datasets
+        left = [models, expers]
+    
+    lines, cols = line_col_arrangement(lines_req, *left, comb)
+    
+    assert line_dim in ['model', 'exper', 'dataset'], ('illegal key for line_dim, '
                            'choose \'exper\' or \'model\'')
 
     if len(cols) == 1 and group_line_by is not None:
@@ -867,7 +951,7 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
     for col, c_label in enumerate(cols):
 
         if col_wrap is None:
-            g.axes[0,col].set_title(c_label)
+            g.axes[0,col].set_title(c_label.replace('__',' ').replace('..', ' '))
         if len(models) == 1 and group_line_by is not None:
             lines = lines_grouped[col]
 
@@ -882,77 +966,96 @@ def valid_figures(dict_experiments, expers, models, line_dim='model', group_line
 
             for l, line in enumerate(lines):
 
-                if line_dim == 'model':
-                    model = line
-                    exper = c_label
+                if line_dim == 'model' or line_dim=='dataset':
                     color = nice_colors[l]
-
+                    # model = line
+                    # exper = c_label
+                    
                 elif line_dim == 'exper':
-                    model = c_label
-                    exper = line
-                    if len(models) == 1 and group_line_by is not None:
-                        exper = line
-                        model = models[0]
                     color = colors_datasets[l]
+                    # model = c_label
+                    # exper = line
+                    # if len(models) == 1 and group_line_by is not None:
+                    #     exper = line
+                    #     model = models[0]
+                    
+                # match_list = []
+                
+                string_exp = line +'..'+ c_label.replace(' ','..') 
+                got_it = False ; 
+                for k in comb:
+                    match = np.array([i in k for i in string_exp])
+                    match = np.insert(match, obj=0, 
+                                      values=np.array([i in string_exp for i in k]))
+                    match = match[match].size / match.size
+                    # match_list.append(match)
+                    # first try full match (experiments differ only in 1 dim)
+                    if match==1:
+                        df_valid, df_RV, y_pred_all = dict_all[k]
+                        # df_RV = RV.prob_clim.merge(RV.RV_bin, left_index=True, right_index=True)
+                        # print(string_exp, k, '\n', df_valid.loc['BSS'].loc['BSS'])
+                        got_it = True 
+                        break
+                if got_it == True:
+                    # if experiment not present, continue loop, but skip this
+                    # string_exp
 
+                
 
-
+                    lags_tf     = y_pred_all.columns.astype(int)
     
-                df_valid, RV, y_pred_all = dict_experiments[exper][model]
-                # tfreq = (y_pred_all.iloc[1].name - y_pred_all.iloc[0].name).days
-                lags_i     = list(dict_experiments[exper][model][2].columns.astype(int))
-                # lags_tf = [l*tfreq for l in lags_i]
-                # if tfreq != 1:
-                #     # the last day of the time mean bin is tfreq/2 later then the centerered day
-                #     lags_tf = [l_tf- int(tfreq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
-                lags_tf = lags_i
-
-
-                if metric in ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Accuracy']:
-                    df_metric = df_valid.loc[metric]
-                    if metric in ['AUC-PR', 'Precision', 'Accuracy']:
-                        clim = RV.RV_bin.values[RV.RV_bin==1].size / RV.RV_bin.size
-                        if metric == 'Accuracy':
-                            import validation as valid
-                            # threshold upper 3/4 of above clim
-                            threshold = int(100 * (1 - 0.75*clim))
-                            df_ran = valid.get_metrics_confusion_matrix(RV, y_pred_all.loc[:,:0],
-                                                    thr=[threshold], n_shuffle=400)
-                            clim = df_ran[threshold/100]['fc shuf'].loc[:,'Accuracy'].mean()
-
-                    else:
-                        clim = None
-                    plot_score_lags(df_metric, metric, color, lags_tf,
-                                    linestyle=line_styles[l], clim=clim,
-                                    cv_lines=False, col=col, 
-                                    threshold_bin=threshold_bin, ax=ax)
-                                    
-                if metric == 'Rel. Curve':
-                    if l == 0:
-                        ax, n_bins = rel_curve_base(RV, lags_tf, col=col, ax=ax)
-                    print(l,line)
-
-                    rel_curve(RV, y_pred_all, color, lags_i, n_bins,
-                              linestyle=line_styles[l], mean_lags=True,
-                              ax=ax)
-
-                if metric == 'ts':
-                    if l == 0:
-                        ax, dates_ts = plot_events(RV, color=nice_colors[-1], n_yrs=6,
-                                         col=col, ax=ax)
-                    plot_ts(RV, y_pred_all, dates_ts, color, line_styles[l], lag_i=lags_i[0], ax=ax)
-
-                # legend conditions
-                same_models = np.logical_and(row==0, col==0)
-                grouped_lines = np.logical_and(row==0, group_line_by is not None)
-                if same_models or grouped_lines:
-
-
-                    ax.legend(ax.lines, lines,
-                          loc = 'lower left', fancybox=True,
-                          handletextpad = 0.2, markerscale=0.1,
-                          borderaxespad = 0.1,
-                          handlelength=2.5, handleheight=1, prop={'size': 12})
+    
+                    # =========================================================
+                    # # plot metrics in df_valid
+                    # =========================================================
+                    if metric in ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Accuracy']:
+                        df_metric = df_valid.loc[metric]
+                        if metric in ['AUC-PR', 'Precision', 'Accuracy']:
+                            RV_bin = df_RV['RV_binary']
+                            clim = RV_bin.values[RV_bin==1].size / RV_bin.size
+                            if metric == 'Accuracy':
+                                import validation as valid
+                                # threshold upper 3/4 of above clim
+                                threshold = int(100 * (1 - 0.75*clim))
+                                f_ = valid.get_metrics_confusion_matrix
+                                df_ran = f_(RV_bin.squeeze().values, 
+                                            y_pred_all.loc[:,:0],
+                                            thr=[threshold], n_shuffle=400)
+                                clim = df_ran[threshold/100]['fc shuf'].loc[:,'Accuracy'].mean()
+    
+                        else:
+                            clim = None
+                        plot_score_lags(df_metric, metric, color, lags_tf,
+                                        linestyle=line_styles[l], clim=clim,
+                                        cv_lines=False, col=col, 
+                                        threshold_bin=df_valid.index.name, ax=ax)
+                    # =========================================================
+                    # # plot reliability curve
+                    # =========================================================
+                    if metric == 'Rel. Curve':
+                        if l == 0:
+                            ax, n_bins = rel_curve_base(df_RV, lags_tf, col=col, ax=ax)
+                        # print(l,line)
+    
+                        rel_curve(df_RV, y_pred_all, color, lags_tf, n_bins,
+                                  linestyle=line_styles[l], mean_lags=True,
+                                  ax=ax)
+    
+                    # if metric == 'ts':
+                    #     if l == 0:
+                    #         ax, dates_ts = plot_events(RV, color=nice_colors[-1], n_yrs=6,
+                    #                          col=col, ax=ax)
+                    #     plot_ts(RV, y_pred_all, dates_ts, color, line_styles[l], lag_i=lags_tf[0], ax=ax)
+    
+                    # legend conditions
+                    same_models = all([row==0, col==0, line==lines[-1]])
+                    grouped_lines = np.logical_and(row==0, group_line_by is not None)
+                    if same_models or grouped_lines:
+                        ax.legend(ax.lines, lines,
+                              loc = 'lower left', fancybox=True,
+                              handletextpad = 0.2, markerscale=0.1,
+                              borderaxespad = 0.1,
+                              handlelength=2.5, handleheight=1, prop={'size': 12})
 
     #%%
     g.fig.subplots_adjust(wspace=wspace)

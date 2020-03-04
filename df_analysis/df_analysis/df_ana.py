@@ -52,7 +52,7 @@ def loop_df_ana(df, function, keys=None, to_np=False, kwrgs=None):
     
 
 def loop_df(df, function, keys=None, colwrap=3, sharex='col', 
-            sharey='row', kwrgs=None):
+            sharey='row', hspace=.4, kwrgs=None):
     #%%
     if keys is None:
         # retrieve only float series
@@ -66,7 +66,7 @@ def loop_df(df, function, keys=None, colwrap=3, sharex='col',
     elif (df.columns.size) % colwrap != 0:
         rows = int(df.columns.size / colwrap) + 1
         
-    gridspec_kw = {'hspace':0.4}
+    gridspec_kw = {'hspace':hspace}
     fig, ax = plt.subplots(rows, colwrap, sharex=sharex, sharey=sharey,
                            figsize = (3*colwrap,rows*2.5), gridspec_kw=gridspec_kw)
 
@@ -121,7 +121,8 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=None, ax=None):
         
         s = 2*cutoff
     else:
-        s = 5
+        cutoff = int(s/2)
+        s = s
     if AUC_cutoff is None:
         AUC_cutoff = cutoff
     if type(AUC_cutoff) is int:
