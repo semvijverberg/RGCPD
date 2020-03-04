@@ -161,7 +161,8 @@ def run_pcmci(pcmci, path_outsub2, s, tau_min=0, tau_max=1,
                               max_conds_px=max_conds_px,
                               max_conds_py=max_conds_py)
 
-    results['q_matrix'] = pcmci.get_corrected_pvalues(p_matrix=results['p_matrix'], fdr_method='fdr_bh')
+    results['q_matrix'] = pcmci.get_corrected_pvalues(p_matrix=results['p_matrix'], 
+                                                      fdr_method='fdr_bh')
 
     # print @ 3 alpha level values:
     alphas = [.1, .05, .01]

@@ -57,6 +57,7 @@ ex = dict(
      'time'         :       pd.date_range(start='00:00', end='23:00',
                                 freq=(pd.Timedelta(6, unit='h'))),
      'area'         :       'global', # [North, West, South, East]. Default: global
+     'CDO_command'  :       'daymean',
      'base_path'    :       base_path,
      'path_raw'     :       path_raw}
      )
