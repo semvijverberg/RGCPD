@@ -108,6 +108,8 @@ class fcev():
         if isinstance(keys_d, str):
             print(f'getting keys associated with name {keys_d}')
             self.experiment = keys_d
+            if self.causal:
+                self.experiment += '_causal'
             self.keys_d = exp_fc.normal_precursor_regions(self.path_data,
                                                           keys_options=[keys_d],
                                                           causal=self.causal)[keys_d]
