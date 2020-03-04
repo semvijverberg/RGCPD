@@ -311,10 +311,8 @@ class fcev():
             m = self.dict_models[model][f'lag_{lag}'][f'split_{split}']
         return m
 
-
-    def _print_sett(self, list_of_fc=None, subfoldername=None, f_name=None,
-                    filename=None):
-
+    def _get_outpaths(self,  list_of_fc=None, subfoldername: str=None, f_name: str=None,
+                      filename: str=None):
         if list_of_fc is None:
             list_of_fc = [self]
         if subfoldername is None:
@@ -331,15 +329,26 @@ class fcev():
                 percentile = self.kwrgs_events[1]['event_percentile']
             else:
                 percentile = self.kwrgs_events['event_percentile']
-            folds_used = str([f.fold for f in list_of_fc]).replace('[',
-                            '').replace(', ','_').replace(']','')
+            folds = list(np.unique([str(f.fold) for f in list_of_fc]))
+            folds_used = str(folds).replace('[\'',
+                            '').replace(', ','_').replace('\']','')
             f_name = f'{self.TV.name}_{self.precur_aggr}d_{percentile}p_fold{folds_used}_{today}'
             filename = os.path.join(working_folder, f_name)
         if f_name is not None and filename is None:
             today_str = f'_{today}'
             filename = os.path.join(working_folder, f_name+today_str)
+        self.filename = filename
+        self.working_folder = working_folder
+        
+    def _print_sett(self, list_of_fc=None, subfoldername=None, f_name=None,
+                    filename=None):
+        
+        self._get_outpaths(list_of_fc=None, subfoldername=None, f_name=None,
+                    filename=None)
 
-        file= open(filename+".txt","w+")
+        
+
+        file= open(self.filename+".txt","w+")
         lines = []
         lines.append("\nEvent settings:")
         e = 1
@@ -368,7 +377,7 @@ class fcev():
         [print(n, file=file) for n in lines]
         file.close()
         [print(n) for n in lines[:-2]]
-        return working_folder, filename
+        return self.working_folder, self.filename
 
     def perform_validation(self, n_boot=2000, blocksize='auto',
                            threshold_pred='upper_clim', alpha=0.05):
@@ -391,7 +400,9 @@ class fcev():
                                             blocksize=self.blocksize,
                                             threshold_pred=threshold_pred)
             df_valid, metrics_dict = out
-            self.dict_sum = (df_valid, self.TV, y_pred_all)
+            df_TV = self.TV.prob_clim.merge(self.TV.RV_bin, 
+                                       left_index=True, right_index=True)
+            self.dict_sum = (df_valid, df_TV, y_pred_all)
             self.metrics_dict = metrics_dict
         return
 
@@ -446,6 +457,7 @@ class fcev():
             lag = self.lags_i
         self.df_importance = stat_models.plot_importances(models_splits_lags, lag=lag,
                                                          keys=keys, cutoff=cutoff)
+        return self.df_importance
 
     def plot_oneway_partial_dependence(self, keys=None, lags=None):
         GBR_models_split_lags = self.dict_models['GBC']

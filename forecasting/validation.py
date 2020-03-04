@@ -126,6 +126,7 @@ def get_metrics_sklearn(y_true, y_pred_all, y_pred_c, alpha=0.05, n_boot=5,
     else:
         df_valid = pd.concat([df_KSS, df_prec, df_acc],
                          keys=['KSS', 'Precision', 'Accuracy'])
+    df_valid.index.name = threshold_pred
 #    print("Precision       : {:0.3f}".format( float(df_prec.iloc[0][0]) ))
 #    print("Accuracy        : {:0.3f}".format( float(df_acc.iloc[0][0]) ))
 
@@ -188,10 +189,10 @@ def get_metrics_bin(y_true, y_pred, t=None):
         EDI = 1.
     return prec, recall, fpr, SP, Acc, f1, KSS_score, EDI
 
-def get_metrics_confusion_matrix(RV, y_pred_all, thr=['clim', 33, 66], n_shuffle=0):
+def get_metrics_confusion_matrix(y_true, y_pred_all, thr=['clim', 33, 66], n_shuffle=0):
     #%%
     lags = y_pred_all.columns
-    y_true = RV.RV_bin.squeeze().values
+    # y_true = 
     if thr[0] == 'clim':
         clim_prob = np.round((1-y_true[y_true.values==1.].size / y_true.size),2)
         thresholds = [[clim_prob]]
