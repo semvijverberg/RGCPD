@@ -291,39 +291,6 @@ class RGCPD:
             precur = find_precursors.cluster_DBSCAN_regions(precur)
                                                           
 
-    def quick_view_labels(self, map_proj=None):
-        for precur in self.list_for_MI:  
-            prec_labels = precur.prec_labels.copy()
-            if all(np.isnan(prec_labels.values.flatten()))==False:
-                # colors of cmap are dived over min to max in n_steps.
-                # We need to make sure that the maximum value in all dimensions will be
-                # used for each plot (otherwise it assign inconsistent colors)
-                max_N_regs = min(20, int(prec_labels.max() + 0.5))
-                label_weak = np.nan_to_num(prec_labels.values) >=  max_N_regs
-                contour_mask = None
-                prec_labels.values[label_weak] = max_N_regs
-                steps = max_N_regs+1
-                cmap = plt.cm.tab20
-                prec_labels.values = prec_labels.values-0.5
-                clevels = np.linspace(0, max_N_regs,steps)
-
-                if prec_labels.split.size == 1:
-                    cbar_vert = -0.1
-                else:
-                    cbar_vert = -0.025
-
-                kwrgs = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
-                              'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
-                              'subtitles' : None, 'lat_labels':True,
-                              'cticks_center':True,
-                              'cmap':cmap}
-
-                plot_maps.plot_corr_maps(prec_labels,
-                                 contour_mask,
-                                 map_proj, **kwrgs)
-            else:
-                print(f'no {precur.name} regions that pass distance_eps and min_area_in_degrees2 citeria')
-
     def get_EOFs(self):
         for i, e_class in enumerate(self.list_for_EOFS):
             print(f'Retrieving {e_class.neofs} EOF(s) for {e_class.name}')
@@ -395,7 +362,7 @@ class RGCPD:
         self.pcmci_dict = wrapper_PCMCI.init_pcmci(self.df_data)
 
     def PCMCI_df_data(self, path_txtoutput=None, tau_min=0, tau_max=1,
-                    pc_alpha=None, alpha_level=0.05, max_conds_dim=None,
+                    pc_alpha=None, max_conds_dim=None,
                     max_combinations=2, max_conds_py=None, max_conds_px=None,
                     verbosity=4):
         import wrapper_PCMCI
@@ -404,7 +371,6 @@ class RGCPD:
         self.kwrgs_pcmci = dict(tau_min=tau_min,
                            tau_max=tau_max,
                            pc_alpha=pc_alpha,
-                           alpha_level=alpha_level,
                            max_conds_dim=max_conds_dim,
                            max_combinations=max_combinations,
                            max_conds_py=max_conds_py,
@@ -415,8 +381,8 @@ class RGCPD:
 
 
         if path_txtoutput is None:
-            self.params_str = '{}_at{}_tau_{}-{}_conds_dim{}_combin{}_dt{}'.format(
-                          pc_alpha, self.kwrgs_pcmci['alpha_level'], tau_min, tau_max, 
+            self.params_str = '{}_tau_{}-{}_conds_dim{}_combin{}_dt{}'.format(
+                          pc_alpha, tau_min, tau_max, 
                           max_conds_dim, max_combinations, self.precur_aggr)
             self.path_outsub2 = os.path.join(self.path_outsub1, self.params_str)
         else:
@@ -470,6 +436,39 @@ class RGCPD:
         functions_pp.store_hdf_df({'df_data':self.df_data}, filename)
         print('Data stored in \n{}'.format(filename))
         self.df_data_filename = filename
+
+    def quick_view_labels(self, map_proj=None):
+        for precur in self.list_for_MI:  
+            prec_labels = precur.prec_labels.copy()
+            if all(np.isnan(prec_labels.values.flatten()))==False:
+                # colors of cmap are dived over min to max in n_steps.
+                # We need to make sure that the maximum value in all dimensions will be
+                # used for each plot (otherwise it assign inconsistent colors)
+                max_N_regs = min(20, int(prec_labels.max() + 0.5))
+                label_weak = np.nan_to_num(prec_labels.values) >=  max_N_regs
+                contour_mask = None
+                prec_labels.values[label_weak] = max_N_regs
+                steps = max_N_regs+1
+                cmap = plt.cm.tab20
+                prec_labels.values = prec_labels.values-0.5
+                clevels = np.linspace(0, max_N_regs,steps)
+
+                if prec_labels.split.size == 1:
+                    cbar_vert = -0.1
+                else:
+                    cbar_vert = -0.025
+
+                kwrgs = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
+                              'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
+                              'subtitles' : None, 'lat_labels':True,
+                              'cticks_center':True,
+                              'cmap':cmap}
+
+                plot_maps.plot_corr_maps(prec_labels,
+                                 contour_mask,
+                                 map_proj, **kwrgs)
+            else:
+                print(f'no {precur.name} regions that pass distance_eps and min_area_in_degrees2 citeria')
         
     def plot_maps_corr(self, precursors=None, mask_xr=None, map_proj=None,
                        row_dim='split', col_dim='lag', clim='relaxed', 

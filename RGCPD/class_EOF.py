@@ -97,8 +97,13 @@ class EOF:
                 self.eofs[s,:] = sign * self.eofs[s,:]
 
 
-    def plot_eofs(self):
-        plot_maps.plot_corr_maps(self.eofs)
+    def plot_eofs(self, mean=True):
+        if mean:
+            eof_patterns = self.eofs.mean(dim='split')
+            kwrgs = {'aspect':3}
+        else:
+            self.eofs
+        plot_maps.plot_corr_maps(eof_patterns, **kwrgs)
 
     def get_ts(self, tfreq_ts=1, df_splits=None):
         if df_splits is None:

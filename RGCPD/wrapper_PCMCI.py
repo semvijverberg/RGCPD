@@ -91,7 +91,7 @@ def plot_lagged_dependences(pcmci, selected_links: dict=None, tau_max=5):
     return
 
 def loop_train_test(pcmci_dict, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None, 
-                    alpha_level=0.05, max_conds_dim=4, max_combinations=1, 
+                    max_conds_dim=4, max_combinations=1, 
                     max_conds_py=None, max_conds_px=None, verbosity=4):
     '''
     pc_alpha (float, optional (default: 0.05)) 
@@ -127,7 +127,7 @@ def loop_train_test(pcmci_dict, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=N
         progress = 100 * (s+1) / splits.size
         print(f"\rProgress causal inference - traintest set {progress}%", end="")
         results = run_pcmci(pcmci_dict[s], path_txtoutput, s,
-                        tau_min, tau_max, pc_alpha, alpha_level, max_conds_dim, 
+                        tau_min, tau_max, pc_alpha, max_conds_dim, 
                         max_combinations, max_conds_py, max_conds_px,  
                         verbosity)
         pcmci_results_dict[s] = results
@@ -136,7 +136,7 @@ def loop_train_test(pcmci_dict, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=N
 
     #%%
 def run_pcmci(pcmci, path_outsub2, s, tau_min=0, tau_max=1, 
-              pc_alpha=None, alpha_level=0.05, max_conds_dim=4, max_combinations=1, 
+              pc_alpha=None, max_conds_dim=4, max_combinations=1, 
               max_conds_py=None, max_conds_px=None, verbosity=4):
     
 
@@ -215,8 +215,12 @@ def get_df_sum(parents_dict):
         links_RV, var_names = parents_dict[s] 
         df, mapping_links = bookkeeping_precursors(links_RV, var_names)
         df_sum_s[s] = df
+        
         mapping_links_dict[s] = mapping_links
     df_sum = pd.concat(list(df_sum_s), keys= range(splits.size))
+    count_causal = df_sum.loc[:,'causal'].sum(level=[1]).astype(int)
+    df_sum['count'] = pd.concat([count_causal] * splits.size, 
+                                   keys=range(splits.size))
     return df_sum, mapping_links_dict
 
 def return_sign_links(pc_class, pq_matrix, val_matrix,

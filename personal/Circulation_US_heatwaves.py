@@ -138,11 +138,10 @@ rg.get_EOFs()
 
 rg.get_ts_prec(precur_aggr=None)
 rg.PCMCI_df_data(pc_alpha=None, 
-                 tau_max=2,
-                 alpha_level=.05, 
-                 max_conds_dim=6,
-                 max_combinations=1)
-rg.PCMCI_get_links(alpha_level=.05)
+                 tau_max=1,
+                 max_conds_dim=2,
+                 max_combinations=3)
+rg.PCMCI_get_links(alpha_level=.01)
 rg.df_sum.loc[0]
 
 

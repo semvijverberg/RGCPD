@@ -457,7 +457,7 @@ class fcev():
         models_splits_lags = self.dict_models[model]
         if lag is None:
             lag = self.lags_i
-        self.df_importance = stat_models.plot_importances(models_splits_lags, lag=lag,
+        self.df_importance, fig = stat_models.plot_importances(models_splits_lags, lag=lag,
                                                          keys=keys, cutoff=cutoff)
         return self.df_importance
 
@@ -467,10 +467,9 @@ class fcev():
 
     def plot_logit_regularization(self, lag_i=0):
         models = [m for m in self.dict_models.keys() if 'logitCV' in m]
-        for m in models:
-            models_splits_lags = self.dict_models[m]
-            stat_models.plot_regularization(models_splits_lags, lag_i=lag_i)
-        
+        models_splits_lags = self.dict_models[models[0]]
+        fig = stat_models.plot_regularization(models_splits_lags, lag_i=lag_i)
+        return fig
 
     
     def _fit_model(self, stat_model=tuple, verbosity=0):

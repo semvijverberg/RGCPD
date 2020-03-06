@@ -384,6 +384,36 @@ def logit(y_ts, df_norm, keys):
     #%%
     return prediction, model
 
+
+def feature_selection(X_train, y_train, model='logitCV', scoring='brier_score_loss', folds=5,
+                      verbosity=0):
+    if model == 'logitCV':
+        kwrgs_logit = { 'class_weight':{ 0:1, 1:1},
+                        'scoring':'brier_score_loss',
+                        'penalty':'l2',
+                        'solver':'lbfgs'}
+        strat_cv = StratifiedKFold(5, shuffle=False)
+        model = LogisticRegressionCV(Cs=10, fit_intercept=True, 
+                                     cv=strat_cv,
+                                     n_jobs=1, 
+                                     **kwrgs_logit)
+        
+    rfecv = RFECV(estimator=model, step=1, cv=StratifiedKFold(folds, shuffle=False),
+              scoring='brier_score_loss')
+    rfecv.fit(X_train, y_train)
+    new_features = X_train.columns[rfecv.ranking_==1]
+    new_model = rfecv.estimator_
+#    rfecv.fit(X_train, y_train)
+    if verbosity != 0:
+        print("Optimal number of features : %d" % rfecv.n_features_)
+    return new_model, new_features, rfecv
+
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx, array[idx]
+
+
 def get_masks(df_norm):
     '''
     x_fit and y_fit can be encompass more data then x_pred, therefore they
@@ -494,7 +524,7 @@ def plot_importances(models_splits_lags, lag=0, keys=None, cutoff=6,
             ax.set_title(f'{df_.columns.name} vs. lead time')
             ax.set_xlabel('lead time [days]')
     #%%
-    return df_all
+    return df_all, g.fig
 
 
 def _get_importances(models_splits_lags, lag=0):
@@ -631,33 +661,6 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
     return df_lags
             
     #%%
-def feature_selection(X_train, y_train, model='logitCV', scoring='brier_score_loss', folds=5,
-                      verbosity=0):
-    if model == 'logitCV':
-        kwrgs_logit = { 'class_weight':{ 0:1, 1:1},
-                        'scoring':'brier_score_loss',
-                        'penalty':'l2',
-                        'solver':'lbfgs'}
-        strat_cv = StratifiedKFold(5, shuffle=False)
-        model = LogisticRegressionCV(Cs=10, fit_intercept=True, 
-                                     cv=strat_cv,
-                                     n_jobs=1, 
-                                     **kwrgs_logit)
-        
-    rfecv = RFECV(estimator=model, step=1, cv=StratifiedKFold(folds, shuffle=False),
-              scoring='brier_score_loss')
-    rfecv.fit(X_train, y_train)
-    new_features = X_train.columns[rfecv.ranking_==1]
-    new_model = rfecv.estimator_
-#    rfecv.fit(X_train, y_train)
-    if verbosity != 0:
-        print("Optimal number of features : %d" % rfecv.n_features_)
-    return new_model, new_features, rfecv
-
-def find_nearest(array, value):
-    array = np.asarray(array)
-    idx = (np.abs(array - value)).argmin()
-    return idx, array[idx]
 
 def _get_twoway_pairdepend(GBR_models_split, i, pair, grid_resolution): 
     y = [] ; x = []
@@ -889,46 +892,4 @@ def plot_regularization(models_splits_lags, lag_i=0):
         ax.set_ylabel(df_p.columns.name)
         ax.set_xlabel('LogitRegr CV folds')       
     g.fig.suptitle('Inverse Regularization strength (low is strong)', y=1.00)
-    
-# def _get_coef_logit(models_splits_lags, lag_i=0):
-#     #%%
-#     # models_splits = models_splits_lags[f'lag_{lag_i}']
-    
-#     # # np.array( (len(models_splits), )
-#     # result_splits = []
-#     # # best = []
-#     # for splitkey, model in models_splits.items():
-#     #     pass
-#     GBR_models_split = models_splits_lags[f'lag_{lag_i}']
-#     feature_importances = {}
-    
-#     for splitkey, regressor in GBR_models_split.items():
-#         all_keys = list(regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)])
-#         if hasattr(regressor, 'feature_importances_'): # for GBR
-#             importances = regressor.feature_importances_
-#         elif hasattr(regressor, 'coef_'): # for logit
-#             importances = regressor.coef_.squeeze()
-#         for name, importance in zip(all_keys, importances):
-#             if name not in feature_importances:
-#                 feature_importances[name] = [0, 0]
-#             feature_importances[name][0] += importance
-#             feature_importances[name][1] += 1
-
-#     names, importances = [], []
-
-    
-#     for name, (importance, count) in feature_importances.items():
-
-#         names.append(name)
-#         importances.append(float(importance) / float(count))
-    
-
-#     importances = np.array(importances) / np.sum(importances)
-#     order = np.argsort(importances)
-#     names_order = [names[index] for index in order] ; names_order.reverse()
-#     # freq = (regressor.X_pred.index[1] - regressor.X_pred.index[0]).days
-#     # lags_tf = [l*freq for l in [lag]]
-#     # if freq != 1:
-#     #     # the last day of the time mean bin is tfreq/2 later then the centerered day
-#     #     lags_tf = [l_tf- int(freq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
-#     df = pd.DataFrame([sorted(importances, reverse=True)], columns=names_order, index=[lag_i])      
+    return g.fig

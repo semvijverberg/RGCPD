@@ -914,11 +914,13 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
     elif line_dim == 'dataset':
         lines_req = datasets
         left = [models, expers]
-    
-    lines, cols = line_col_arrangement(lines_req, *left, comb)
+
     
     assert line_dim in ['model', 'exper', 'dataset'], ('illegal key for line_dim, '
                            'choose \'exper\' or \'model\'')
+    
+    lines, cols = line_col_arrangement(lines_req, *left, comb)
+
 
     if len(cols) == 1 and group_line_by is not None:
         group_s = len(group_line_by)
