@@ -658,7 +658,7 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
             if i == 0:
                 ax.legend(custom_lines, _legend, handlelength=3)
 
-    return df_lags
+    return df_lags, g.fig
             
     #%%
 
@@ -805,7 +805,7 @@ def plot_twoway_partial_dependence(GBR_models_split_lags, lag_i=0, keys=None,
     g.fig.subplots_adjust(hspace=0.3)
     
     #%%
-    return df_all 
+    return df_all, g.fig 
 
 def _get_synergy(GBR_models_split_lags, lag_i=0, plot_pairs=None, 
                  grid_resolution=20):

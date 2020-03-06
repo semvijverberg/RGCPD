@@ -457,13 +457,17 @@ class fcev():
         models_splits_lags = self.dict_models[model]
         if lag is None:
             lag = self.lags_i
-        self.df_importance, fig = stat_models.plot_importances(models_splits_lags, lag=lag,
+        self.df_importance, fig = stat_models.plot_importances(models_splits_lags, 
+                                                               lag=lag,
                                                          keys=keys, cutoff=cutoff)
-        return self.df_importance
+        return self.df_importance, fig
 
     def plot_oneway_partial_dependence(self, keys=None, lags=None):
         GBR_models_split_lags = self.dict_models['GBC']
-        stat_models.plot(GBR_models_split_lags, keys=keys, lags=lags)
+        df_all, fig = stat_models.plot_oneway_partial_dependence(
+                                        GBR_models_split_lags, 
+                                        keys=keys, lags=lags)
+        return fig
 
     def plot_logit_regularization(self, lag_i=0):
         models = [m for m in self.dict_models.keys() if 'logitCV' in m]
