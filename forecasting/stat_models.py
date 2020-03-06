@@ -524,7 +524,7 @@ def plot_importances(models_splits_lags, lag=0, keys=None, cutoff=6,
             ax.set_title(f'{df_.columns.name} vs. lead time')
             ax.set_xlabel('lead time [days]')
     #%%
-    return df_all, g.fig
+    return df_all, fig
 
 
 def _get_importances(models_splits_lags, lag=0):

@@ -451,7 +451,8 @@ class fcev():
                             sharex=sharex, kwrgs=kwrgs)
         return
 
-    def plot_feature_importances(self, model=None, lag=None, keys=None, cutoff=6):
+    def plot_feature_importances(self, model=None, lag=None, keys=None, 
+                                 cutoff=10):
         if model is None:
             model = [n[0] for n in self.stat_model_l][0]
         models_splits_lags = self.dict_models[model]

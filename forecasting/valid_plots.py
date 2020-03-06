@@ -158,6 +158,29 @@ def get_pred_split(m_splits, fc, s, lag):
 
 def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=4,
                     wspace=0.02):
+    '''
+    
+
+    Parameters
+    ----------
+    fc : class_fc
+        DESCRIPTION.
+    model : str, optional
+        DESCRIPTION. The default is None.
+    lag : int, optional
+        lag in days. The default is None.
+    split : int or 'all', optional
+        DESCRIPTION. The default is 'all'.
+    col_wrap : int, optional
+        DESCRIPTION. The default is 4.
+    wspace : TYPE, optional
+        DESCRIPTION. The default is 0.02.
+
+    Returns
+    -------
+    None.
+
+    '''
     #%%
     
     if model is None:
@@ -874,6 +897,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
             if np.unique(option1).size==1 and np.unique(option2).size==1:
                 # option1 and option2 have both only 1 repeated value
                 # create single col for this combination:
+                lines = np.unique(lines_req)
                 cols = [option1[i]+'..'+option2[i] for i in range(len(comb))]
                 cols = np.unique(cols)
             elif np.unique(option2).size!=1 and np.unique(option2).size==1:
