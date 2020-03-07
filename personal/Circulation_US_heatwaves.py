@@ -37,43 +37,43 @@ name_ds='q75tail'
 start_end_TVdate = ('06-24', '08-22')
 start_end_date = ('1-1', '12-31')
 #%%
-# list_of_name_path = [(cluster_label, TVpath), 
-#                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
-#                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
+list_of_name_path = [(cluster_label, TVpath), 
+                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
+                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
 
 
 
-# list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
-#                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-#                               distance_eps=600, min_area_in_degrees2=7),
-#                  BivariateMI(name='v200', func=BivariateMI.corr_map, 
-#                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-#                                distance_eps=600, min_area_in_degrees2=5)]
+list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
+                              kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                              distance_eps=600, min_area_in_degrees2=7),
+                  BivariateMI(name='v200', func=BivariateMI.corr_map, 
+                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                                distance_eps=600, min_area_in_degrees2=5)]
 
 
 
 
 
-# rg = RGCPD(list_of_name_path=list_of_name_path, 
-#            list_for_MI=list_for_MI,
-#            start_end_TVdate=start_end_TVdate,
-#            start_end_date=start_end_date,
-#            start_end_year=1,
-#            tfreq=14, lags_i=np.array([0,1]),
-#            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
-#            append_pathsub='_' + name_ds)
+rg = RGCPD(list_of_name_path=list_of_name_path, 
+            list_for_MI=list_for_MI,
+            start_end_TVdate=start_end_TVdate,
+            start_end_date=start_end_date,
+            start_end_year=None,
+            tfreq=14, lags_i=np.array([0,1]),
+            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
+            append_pathsub='_' + name_ds)
 
 
-# rg.pp_TV(name_ds=name_ds)
+rg.pp_TV(name_ds=name_ds)
 
-# rg.pp_precursors(selbox=(130,350,10,90))
+rg.pp_precursors(selbox=(130,350,10,90))
 
-# rg.traintest('no_train_test_split')
+rg.traintest('no_train_test_split')
 
 
-# rg.calc_corr_maps()
-# rg.plot_maps_corr(aspect=4.5, cbar_vert=-.1)
+rg.calc_corr_maps()
+rg.plot_maps_corr(aspect=4.5, cbar_vert=-.1)
 
 
 #%%

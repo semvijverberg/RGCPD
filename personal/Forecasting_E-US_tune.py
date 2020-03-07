@@ -194,7 +194,13 @@ list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr,
                     stat_model=GBC_t, 
                     kwrgs_pp={'normalize':False}, 
                     dataset=f'{precur_aggr} day means',
-                    keys_d='all')]
+                    keys_d='all'),
+              fcev(path_data=path_data, precur_aggr=precur_aggr, 
+                    use_fold=use_fold, start_end_TVdate=None,
+                    stat_model=GBC_t, 
+                    kwrgs_pp={'normalize':False}, 
+                    dataset=f'{precur_aggr} day means',
+                    keys_d='sst+sm+z500')]
 
 for i, fc in enumerate(list_of_fc):
 
@@ -249,6 +255,7 @@ im = 0
 il = 1
 ifc = 0
 f_format = '.pdf'
+if os.path.isdir(fc.filename) == False : os.makedirs(fc.filename)
 import valid_plots as dfplots
 if __name__ == "__main__":
     for ifc, fc in enumerate(list_of_fc):
@@ -258,33 +265,31 @@ if __name__ == "__main__":
                 m = [n[0] for n in fc.stat_model_l][im]
                 l = fc.lags_i[il]
                 # visual analysis
-                f_name = filename + f'_{ifc}_va_l{l}_{m}'
+                f_name = os.path.join(filename, f'ifc{ifc}_va_l{l}_{m}')
                 fig = dfplots.visual_analysis(fc, lag=l, model=m)
                 fig.savefig(os.path.join(working_folder, f_name) + f_format, 
                             bbox_inches='tight') # dpi auto 600
                 # plot deviance
                 if m[:3] == 'GBC':
                     fig = dfplots.plot_deviance(fc, lag=l, model=m)
-                    f_name = filename +f'_l{l}_deviance'
+                    f_name = os.path.join(filename, f'ifc{ifc}_deviance_l{l}')
                     
 
                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
                                 bbox_inches='tight') # dpi auto 600
                     
                     fig = fc.plot_oneway_partial_dependence()
-                    f_name = filename +f'_l{l}_partial_depen'
+                    f_name = os.path.join(filename, f'ifc{ifc}_partial_depen_l{l}')
                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
                                 bbox_inches='tight') # dpi auto 600
                     
                 if m[:7] == 'logitCV':
                     fig = fc.plot_logit_regularization(lag_i=l)
-                    f_name = filename +f'_l{l}_logitregul'
-                    f_format = '.pdf'
-                    path_fig_logit = os.path.join(working_folder, f_name) + f_format
-                    fig.savefig(path_fig_logit,
+                    f_name = os.path.join(filename, f'ifc{ifc}_logitregul_l{l}')
+                    fig.savefig(os.path.join(working_folder, f_name) + f_format,
                             bbox_inches='tight') # dpi auto 600
-                df_importance, fig = fc.plot_feature_importances()
-                f_name = filename + f'_{ifc}_feat_l{l}_{m}'
-                f_format = '.pdf'
-                pathfig_feat = os.path.join(working_folder, f_name) + f_format
-                fig.savefig(pathfig_feat, bbox_inches='tight') # dpi auto 600
+                
+            df_importance, fig = fc.plot_feature_importances()
+            f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
+            fig.savefig(os.path.join(working_folder, f_name) + f_format, 
+                        bbox_inches='tight') # dpi auto 600

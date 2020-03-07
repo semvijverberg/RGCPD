@@ -73,7 +73,7 @@ def get_scores_improvement(m_splits, fc, s, lag, metric=None):
     X_train = X_pred[TrainIsTrue.loc[X_pred.index]]
 #    X_test = pd.to_datetime([d for d in X_pred.index if d not in X_train[X_train].index])
     X_test = X_pred[~TrainIsTrue.loc[X_pred.index]]
-    y_maskTrainIsTrue = TrainIsTrue.loc[fc.TV.dates_RV]
+    y_maskTrainIsTrue = fc.TV.TrainIsTrue.loc[s].loc[fc.TV.dates_RV]
     y_test = y_true[~y_maskTrainIsTrue].values.squeeze()
 
     test_scores = np.zeros(m.n_estimators) 
