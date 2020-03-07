@@ -92,11 +92,11 @@ GBC_tfs = ('GBC',
 
 GBC_t = ('GBC', 
          {'max_depth':[1, 2, 3, 4],
-           'learning_rate':[.05, 1E-2, 5E-3],
-           'n_estimators' : [100, 250, 400, 550, 700, 850, 1000],
-           'min_samples_split':[.15, .25],
+           'learning_rate':[1E-2, 5E-3],
+           'n_estimators' : [100, 250, 400, 550],
+           'min_samples_split':.2,
            'max_features':[.15, .2, 'sqrt'],
-           'subsample' : [.3, .45, 0.6],
+           'subsample' : [.3, .45],
            'random_state':60,
            'scoringCV':'brier_score_loss' } )
 
@@ -188,12 +188,6 @@ start_end_TVdate = None # ('7-04', '8-22')
 
 list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={}, 
-                    dataset=f'{precur_aggr} day means',
-                    keys_d='all'),
-              fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
                     stat_model=GBC_t, 
                     kwrgs_pp={}, 
                     dataset=f'{precur_aggr} day means',
@@ -273,6 +267,7 @@ if __name__ == "__main__":
 
                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
                                 bbox_inches='tight') # dpi auto 600
+                    
                     fig = fc.plot_oneway_partial_dependence()
                     f_name = filename +f'_l{l}_partial_depen'
                     fig.savefig(os.path.join(working_folder, f_name) + f_format,

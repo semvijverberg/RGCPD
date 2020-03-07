@@ -613,10 +613,14 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
             y = [] ; x = []
             for splitkey, regressor in GBR_models_split.items():
                 if key in list(regressor.X_pred.columns):
-                    index = list(regressor.X_pred.columns).index(key)
-                    all_keys = regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)]
-                    X_test = regressor.X_pred.loc[:,all_keys][regressor.X_pred['x_pred']]
-                    _y, _x = partial_dependence(regressor, X=X_test, features=[index],
+                    X_pred = regressor.X_pred
+                    index = list(X_pred.columns).index(key)
+                    TrainIsTrue = regressor.df_norm['TrainIsTrue']
+                    TestIsTrue = TrainIsTrue.loc[X_pred.index] == False
+                    X_test = X_pred[TestIsTrue]
+                    # X_test = regressor.X_pred.loc[:,all_keys][regressor.X_pred['x_pred']]
+                    _y, _x = partial_dependence(regressor, X=X_test, 
+                                                features=[index],
                                                 grid_resolution=grid_resolution)
                     y.append(_y[0])
                     x.append(_x[0])
@@ -634,7 +638,8 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
     # Plotting    
     # =============================================================================
     #%%
-    g = sns.FacetGrid(pd.DataFrame(data=keys), col=0, col_wrap=3, 
+    col_wrap = 4
+    g = sns.FacetGrid(pd.DataFrame(data=keys), col=0, col_wrap=col_wrap, 
                       aspect=1.5, sharex=False)   
     custom_lines = [] ; _legend = []
     for l, lag in enumerate(lags):
