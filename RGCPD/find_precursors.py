@@ -10,12 +10,12 @@ import itertools
 import numpy as np
 import xarray as xr
 #import datetime
-import scipy
+# import scipy
 import pandas as pd
 #import core_pp
 from statsmodels.sandbox.stats import multicomp
 import functions_pp
-from class_RV import RV_class
+# from class_RV import RV_class
 #import plot_maps
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 

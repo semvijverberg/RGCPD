@@ -321,7 +321,7 @@ class RGCPD:
         if hasattr(self, 'list_for_MI'):
             print('\nGetting MI timeseries')
             for i, precur in enumerate(self.list_for_MI):
-                precur.get_prec_ts(precur_aggr=self.precur_aggr,
+                precur.get_prec_ts(precur_aggr=precur_aggr,
                                    kwrgs_load=self.kwrgs_load)
             self.df_data = find_precursors.df_data_prec_regs(self.list_for_MI, 
                                                              TV, 
@@ -408,10 +408,10 @@ class RGCPD:
         self.parents_dict = wrapper_PCMCI.get_links_pcmci(self.pcmci_dict, 
                                                           self.pcmci_results_dict,
                                                           alpha_level)
-        self.df_sum, self.mapping_links = wrapper_PCMCI.get_df_sum(self.parents_dict)
+        self.df_links, self.mapping_links = wrapper_PCMCI.get_df_sum(self.parents_dict)
 
         # get xarray dataset for each variable
-        self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_sum,
+        self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_links,
                                                       self.list_for_MI)
 
     def store_df_PCMCI(self):
@@ -512,12 +512,12 @@ class RGCPD:
             dict_ds = self.dict_ds
         else:
             dict_ds = {f'{var}':self.dict_ds[var]} # plot single var            
-        plot_maps.plot_labels_vars_splits(dict_ds, self.df_sum, map_proj,
+        plot_maps.plot_labels_vars_splits(dict_ds, self.df_links, map_proj,
                                           figpath, paramsstr, self.TV.name,
                                            kwrgs_plot=kwrgs_plot)
 
 
-        plot_maps.plot_corr_vars_splits(dict_ds, self.df_sum, map_proj,
+        plot_maps.plot_corr_vars_splits(dict_ds, self.df_links, map_proj,
                                           figpath, paramsstr, self.TV.name, 
                                           kwrgs_plot=kwrgs_plot)
 

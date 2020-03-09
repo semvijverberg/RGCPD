@@ -103,6 +103,7 @@ class EOF:
             kwrgs = {'aspect':3}
         else:
             self.eofs
+        kwrgs.update({'col_dim':'eof'})
         plot_maps.plot_corr_maps(eof_patterns, **kwrgs)
 
     def get_ts(self, tfreq_ts=1, df_splits=None):
