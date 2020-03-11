@@ -32,48 +32,49 @@ from RGCPD import EOF
 
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf5_nc5_dendo_80d77.nc'
-cluster_label = 3
+cluster_label = 5
 name_ds='q75tail'
 start_end_TVdate = ('06-24', '08-22')
 start_end_date = ('1-1', '12-31')
+tfreq = 21
 #%%
-# list_of_name_path = [(cluster_label, TVpath), 
-#                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
-#                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
+list_of_name_path = [(cluster_label, TVpath), 
+                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
+                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
 
 
 
-# list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
-#                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-#                               distance_eps=600, min_area_in_degrees2=7),
-#                  BivariateMI(name='v200', func=BivariateMI.corr_map, 
-#                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-#                                distance_eps=600, min_area_in_degrees2=5)]
+list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
+                              kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                              distance_eps=600, min_area_in_degrees2=7),
+                  BivariateMI(name='v200', func=BivariateMI.corr_map, 
+                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                                distance_eps=600, min_area_in_degrees2=5)]
 
 
 
 
 
-# rg = RGCPD(list_of_name_path=list_of_name_path, 
-#            list_for_MI=list_for_MI,
-#            start_end_TVdate=start_end_TVdate,
-#            start_end_date=start_end_date,
-#            start_end_year=1,
-#            tfreq=14, lags_i=np.array([0,1]),
-#            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
-#            append_pathsub='_' + name_ds)
+rg = RGCPD(list_of_name_path=list_of_name_path, 
+            list_for_MI=list_for_MI,
+            start_end_TVdate=start_end_TVdate,
+            start_end_date=start_end_date,
+            start_end_year=None,
+            tfreq=tfreq, lags_i=np.array([0,1]),
+            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
+            append_pathsub='_' + name_ds)
 
 
-# rg.pp_TV(name_ds=name_ds)
+rg.pp_TV(name_ds=name_ds)
 
-# rg.pp_precursors(selbox=(130,350,10,90))
+rg.pp_precursors(selbox=(130,350,10,90))
 
-# rg.traintest('no_train_test_split')
+rg.traintest('no_train_test_split')
 
 
-# rg.calc_corr_maps()
-# rg.plot_maps_corr(aspect=4.5, cbar_vert=-.1)
+rg.calc_corr_maps()
+rg.plot_maps_corr(aspect=4.5, cbar_vert=-.1, save=True)
 
 
 #%%
@@ -91,23 +92,23 @@ list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
                              kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                              distance_eps=600, min_area_in_degrees2=7, 
                              calc_ts='pattern cov'),
-                 BivariateMI(name='sst', func=BivariateMI.corr_map, 
-                             kwrgs_func={'alpha':.0001, 'FDR_control':True}, 
-                             distance_eps=600, min_area_in_degrees2=5),
-                 BivariateMI(name='sm2', func=BivariateMI.corr_map, 
-                              kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                  BivariateMI(name='sst', func=BivariateMI.corr_map, 
+                              kwrgs_func={'alpha':.0001, 'FDR_control':True}, 
                               distance_eps=600, min_area_in_degrees2=5),
-                 BivariateMI(name='sm3', func=BivariateMI.corr_map, 
-                              kwrgs_func={'alpha':.05, 'FDR_control':True}, 
-                              distance_eps=700, min_area_in_degrees2=7),
-                 BivariateMI(name='snow', func=BivariateMI.corr_map, 
-                              kwrgs_func={'alpha':.05, 'FDR_control':True}, 
-                              distance_eps=700, min_area_in_degrees2=7),
+                  BivariateMI(name='sm2', func=BivariateMI.corr_map, 
+                               kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                               distance_eps=600, min_area_in_degrees2=5),
+                  BivariateMI(name='sm3', func=BivariateMI.corr_map, 
+                               kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                               distance_eps=700, min_area_in_degrees2=7),
+                  BivariateMI(name='snow', func=BivariateMI.corr_map, 
+                               kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                               distance_eps=700, min_area_in_degrees2=7),
                  BivariateMI(name='st2', func=BivariateMI.corr_map, 
                                kwrgs_func={'alpha':.05, 'FDR_control':True}, 
                                distance_eps=700, min_area_in_degrees2=5)]
 
-list_for_EOFS = [EOF(name='OLRtrop', neofs=1, selbox=[-180, 360, -15, 30])]
+list_for_EOFS = [EOF(name='OLRtrop', neofs=2, selbox=[-180, 360, -15, 30])]
 
 
 
@@ -116,7 +117,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_EOFS=list_for_EOFS,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           tfreq=14, lags_i=np.array([1]),
+           tfreq=tfreq, lags_i=np.array([1]),
            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
            append_pathsub='_' + name_ds)
 
@@ -131,19 +132,19 @@ rg.calc_corr_maps()
  #%%
 rg.cluster_list_MI()
 rg.quick_view_labels() 
-rg.plot_maps_corr(precursors=['st2'], save=True)
+rg.plot_maps_corr(precursors=None, save=True)
 
 rg.get_EOFs()
 
 
 rg.get_ts_prec(precur_aggr=None)
 rg.PCMCI_df_data(pc_alpha=None, 
-                 tau_max=2,
-                 alpha_level=.05, 
-                 max_conds_dim=6,
-                 max_combinations=1)
-rg.PCMCI_get_links(alpha_level=.05)
-rg.df_sum.loc[0]
+                 tau_max=1,
+                 max_conds_dim=2,
+                 max_combinations=3)
+rg.PCMCI_get_links(alpha_level=.01)
+rg.df_links.loc[4]
+
 
 
 

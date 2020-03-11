@@ -40,9 +40,9 @@ class fcev():
 
     number_of_times_called = 0
     def __init__(self, path_data, precur_aggr: int=None, TV_aggr: int=None,
-                   use_fold: List[Union[int]]=None, 
-                   start_end_TVdate: Tuple[str, str]=None, 
-                   stat_model: Tuple[str, dict]=('logit', None), 
+                   use_fold: List[Union[int]]=None,
+                   start_end_TVdate: Tuple[str, str]=None,
+                   stat_model: Tuple[str, dict]=('logit', None),
                    kwrgs_pp: dict={}, causal: bool=False,
                    dataset: str=None,
                    keys_d: Union[dict,str]=None):
@@ -50,11 +50,11 @@ class fcev():
         Instance for certain dataset with keys and list of stat models
 
         start_end_TVdate : tuple, optional
-            tuple of start- and enddate for target variable in 
-            format ('mm-dd', 'mm-dd'). default is the RV_mask present in the 
+            tuple of start- and enddate for target variable in
+            format ('mm-dd', 'mm-dd'). default is the RV_mask present in the
             .h5 dataframe 'df_data'
         '''
-        
+
         fcev.number_of_times_called += 1
         self.path_data = path_data
 
@@ -77,27 +77,22 @@ class fcev():
             self.df_data =self._remove_test_splits()
         else:
             self.df_data = self.df_data_orig
-        
+
         self.dates_df  = self.df_data.loc[0].index.copy()
         self.precur_aggr = precur_aggr
         self.TV_aggr = TV_aggr
-<<<<<<< HEAD:RGCPD/func_fc.py
-
-
-=======
->>>>>>> develop:forecasting/class_fc.py
         self.splits  = self.df_data.index.levels[0]
         self.tfreq = (self.df_data.loc[0].index[1] - self.df_data.loc[0].index[0]).days
-        
+
         if start_end_TVdate is not None:
             fcev._redefine_RV_mask(self, start_end_TVdate=start_end_TVdate)
-        
+
         self.RV_mask = self.df_data['RV_mask']
         self.TrainIsTrue = self.df_data['TrainIsTrue']
         self.test_years = valid.get_testyrs(self.df_data)
         # assuming hash is the last piece of string before the format
         self.hash = self.path_data.split('.h5')[0].split('_')[-1]
-        
+
         # Model related:
         self.stat_model = stat_model
         self.kwrgs_pp = kwrgs_pp
@@ -180,9 +175,9 @@ class fcev():
                         keep only keys you want to fit.
         precur_aggr:  int: convert daily data to aggregated {int} day mean
         '''
-        
+
         # still need to get rid of list statmodels
-        self.stat_model_l = [self.stat_model] 
+        self.stat_model_l = [self.stat_model]
         model_names = [n[0] for n in self.stat_model_l]
         model_count = {n:model_names.count(n) for n in np.unique(model_names)}
         new = {m+f'--{i+1}':m for i,m in enumerate(model_names) if model_count[m]>1}
@@ -347,14 +342,14 @@ class fcev():
             filename = os.path.join(working_folder, f_name+today_str)
         self.filename = filename
         self.working_folder = working_folder
-        
+
     def _print_sett(self, list_of_fc=None, subfoldername=None, f_name=None,
                     filename=None):
-        
+
         self._get_outpaths(list_of_fc=None, subfoldername=None, f_name=None,
                     filename=None)
 
-        
+
 
         file= open(self.filename+".txt","w+")
         lines = []
@@ -408,7 +403,7 @@ class fcev():
                                             blocksize=self.blocksize,
                                             threshold_pred=threshold_pred)
             df_valid, metrics_dict = out
-            df_TV = self.TV.prob_clim.merge(self.TV.RV_bin, 
+            df_TV = self.TV.prob_clim.merge(self.TV.RV_bin,
                                        left_index=True, right_index=True)
             self.dict_sum = (df_valid, df_TV, y_pred_all)
             self.metrics_dict = metrics_dict
@@ -424,14 +419,14 @@ class fcev():
         new_RVmask = RV_mask_orig.loc[0].copy()
         new_RVmask.loc[:] = False
         new_RVmask.loc[dates_RV] = True
-        self.df_data['RV_mask'] = pd.concat([new_RVmask] * self.splits.size, 
+        self.df_data['RV_mask'] = pd.concat([new_RVmask] * self.splits.size,
                                             keys=self.splits)
     def _get_start_end_TVdate(self):
         RV_mask_orig   = self.df_data.loc[0]['RV_mask'].copy()
         dates_RV = RV_mask_orig[RV_mask_orig].index
-        return (f'{dates_RV[0].month}-{dates_RV[0].day}', 
+        return (f'{dates_RV[0].month}-{dates_RV[0].day}',
                                  f'{dates_RV[-1].month}-{dates_RV[-1].day}')
-        
+
     def plot_freq_year(self):
         import valid_plots as df_plots
         df_plots.plot_freq_per_yr(self.TV)
@@ -457,47 +452,43 @@ class fcev():
                             sharex=sharex, kwrgs=kwrgs)
         return
 
-<<<<<<< HEAD:RGCPD/func_fc.py
 
-    def plot_freq_year(self):
-        import valid_plots as df_plots
-        df_plots.plot_freq_per_yr(self.TV)
+    def plot_feature_importances(self, model=None, lag=None, keys=None,
+                                 cutoff=10):
 
-    def plot_GBR_feature_importances(self, lag=None, keys=None, cutoff=6):
-        model = [n[0] for n in self.stat_model_l if n[0][:2]=='GB'][0]
-        GBR_models_split_lags = self.dict_models[model]
-=======
-    def plot_feature_importances(self, model=None, lag=None, keys=None, cutoff=6):
         if model is None:
             model = [n[0] for n in self.stat_model_l][0]
         models_splits_lags = self.dict_models[model]
->>>>>>> develop:forecasting/class_fc.py
         if lag is None:
             lag = self.lags_i
-        self.df_importance = stat_models.plot_importances(models_splits_lags, lag=lag,
+        self.df_importance, fig = stat_models.plot_importances(models_splits_lags,
+                                                               lag=lag,
                                                          keys=keys, cutoff=cutoff)
-        return self.df_importance
-
-    def plot_oneway_partial_dependence(self, keys=None, lags=None, model=None):
-        if model is None:
-            model = [n[0] for n in self.stat_model_l if n[0][:2]=='GB'][0]
-        GBR_models_split_lags = self.dict_models[model]
-        stat_models.plot_oneway_partial_dependence(GBR_models_split_lags, keys=keys,
-                                                   lags=lags)
+        return self.df_importance, fig
 
 
+    def plot_oneway_partial_dependence(self, keys=None, lags=None):
+        GBR_models_split_lags = self.dict_models['GBC']
+        df_all, fig = stat_models.plot_oneway_partial_dependence(
+                                        GBR_models_split_lags,
+                                        keys=keys, lags=lags)
+        return fig
 
-<<<<<<< HEAD:RGCPD/func_fc.py
-=======
+
     def plot_logit_regularization(self, lag_i=0):
         models = [m for m in self.dict_models.keys() if 'logitCV' in m]
-        for m in models:
-            models_splits_lags = self.dict_models[m]
-            stat_models.plot_regularization(models_splits_lags, lag_i=lag_i)
-        
+        models_splits_lags = self.dict_models[models[0]]
+        fig = stat_models.plot_regularization(models_splits_lags, lag_i=lag_i)
+        return fig
 
-    
->>>>>>> develop:forecasting/class_fc.py
+    def apply_df_ana_plot(self, df=None, name_ds='ts', func=None, kwrgs_func={}):
+        if df is None:
+            df = self.df_data
+        if func is None:
+            func = df_ana.plot_ac ; kwrgs_func = {'AUC_cutoff':(14,30),'s':60}
+        return df_ana.loop_df(df, function=func, sharex=False,
+                             colwrap=2, hspace=.5, kwrgs=kwrgs_func)
+
     def _fit_model(self, stat_model=tuple, verbosity=0):
 
         #%%
@@ -802,11 +793,6 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
 
 
     df_prec = df_prec[x_keys]
-<<<<<<< HEAD:RGCPD/func_fc.py
-
-=======
-    #%%
->>>>>>> develop:forecasting/class_fc.py
     # =============================================================================
     # Normalize data using datesRV or all training data in dataframe
     # =============================================================================

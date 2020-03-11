@@ -302,7 +302,11 @@ def causal_reg_to_xarray(RV_name, df_sum, list_MI):
     Returns list_ds to keep the original dimensions
     '''
 #    outdic_actors_c = outdic_actors.copy()
-    df_c = df_sum.loc[ df_sum['causal']==True ]
+    splits = df_sum.index.levels[0]
+    # only plot regions which were causal in more then 50% of splits
+    df_c = df_sum.loc[ df_sum['causal'] ]
+    # # only plot regions which were causal in more then 50% of splits
+    # df_c = df_sum.loc[ df_sum['count'] > splits.size/2]
     # remove response variable if the ac is a causal link
     splits = df_sum.index.levels[0]
     for s in splits:
@@ -357,13 +361,18 @@ def causal_reg_to_xarray(RV_name, df_sum, list_MI):
 
                 var_tig = label_tig.sel(lag=lag_cor)
                 for lag_t in np.unique(regs_c['lag_tig']):
-                    reg_c_l = regs_c.loc[ regs_c['lag_tig'] == lag_t]
-                    labels = list(reg_c_l.region_number.values)
+                    reg_c_l = regs_c.loc[ regs_c['lag_tig'] == lag_t].copy()
+                    
+                    
 
                     new_mask = np.zeros( shape=var_tig.shape, dtype=bool)
-
-                    for l in labels:
-                        new_mask[var_tig.values == l] = True
+                    for s in splits.values:
+                        try:
+                            labels = list(reg_c_l.loc[s].region_number.values)
+                        except:
+                            labels = []
+                        for l in labels:
+                            new_mask[s][var_tig[s].values == l] = True
 
                 out = apply_new_mask(new_mask, label_tig, corr_xr, corr_tig)
                 label_tig, corr_xr, corr_tig = out
@@ -613,8 +622,13 @@ def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath,
             mask = (wgts_splits > 0.5).astype('bool')
             corr_splits = ds_l[var+'_'+c[0]]
             corr_mean = corr_splits.mean(dim='split')
-#            list_xr.append(corr_mean)
-            list_xr.append(corr_mean.where(mask))
+            if all(mask.values.flatten()==False) and c[0] == 'corr':
+                # if no regions significant in corr map step:
+                # do not mask 
+                corr_mean = corr_mean
+            else:
+                corr_mean = corr_mean.where(mask)
+            list_xr.append(corr_mean)
             list_xr_m.append(mask)
     else:
         for c in columns:

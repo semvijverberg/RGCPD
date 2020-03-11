@@ -384,6 +384,36 @@ def logit(y_ts, df_norm, keys):
     #%%
     return prediction, model
 
+
+def feature_selection(X_train, y_train, model='logitCV', scoring='brier_score_loss', folds=5,
+                      verbosity=0):
+    if model == 'logitCV':
+        kwrgs_logit = { 'class_weight':{ 0:1, 1:1},
+                        'scoring':'brier_score_loss',
+                        'penalty':'l2',
+                        'solver':'lbfgs'}
+        strat_cv = StratifiedKFold(5, shuffle=False)
+        model = LogisticRegressionCV(Cs=10, fit_intercept=True,
+                                     cv=strat_cv,
+                                     n_jobs=1,
+                                     **kwrgs_logit)
+
+    rfecv = RFECV(estimator=model, step=1, cv=StratifiedKFold(folds, shuffle=False),
+              scoring='brier_score_loss')
+    rfecv.fit(X_train, y_train)
+    new_features = X_train.columns[rfecv.ranking_==1]
+    new_model = rfecv.estimator_
+#    rfecv.fit(X_train, y_train)
+    if verbosity != 0:
+        print("Optimal number of features : %d" % rfecv.n_features_)
+    return new_model, new_features, rfecv
+
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx, array[idx]
+
+
 def get_masks(df_norm):
     '''
     x_fit and y_fit can be encompass more data then x_pred, therefore they
@@ -494,7 +524,7 @@ def plot_importances(models_splits_lags, lag=0, keys=None, cutoff=6,
             ax.set_title(f'{df_.columns.name} vs. lead time')
             ax.set_xlabel('lead time [days]')
     #%%
-    return df_all
+    return df_all, fig
 
 
 
@@ -587,14 +617,14 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
             y = [] ; x = []
             for splitkey, regressor in GBR_models_split.items():
                 if key in list(regressor.X_pred.columns):
-                    index = list(regressor.X_pred.columns).index(key)
-                    all_keys = regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)]
-                    X_test = regressor.X_pred.loc[:,all_keys][regressor.X_pred['x_pred']]
-                    if hasattr(regressor, 'n_estimators')==False:
-                        m = regressor.best_estimator_
-                    else:
-                        m = regressor
-                    _y, _x = partial_dependence(m, X=X_test, features=[index],
+                    X_pred = regressor.X_pred
+                    index = list(X_pred.columns).index(key)
+                    TrainIsTrue = regressor.df_norm['TrainIsTrue']
+                    TestIsTrue = TrainIsTrue.loc[X_pred.index] == False
+                    X_test = X_pred[TestIsTrue]
+                    # X_test = regressor.X_pred.loc[:,all_keys][regressor.X_pred['x_pred']]
+                    _y, _x = partial_dependence(regressor, X=X_test,
+                                                features=[index],
                                                 grid_resolution=grid_resolution)
                     y.append(_y[0])
                     x.append(_x[0])
@@ -616,11 +646,10 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
     # Plotting
     # =============================================================================
     #%%
-    g = sns.FacetGrid(pd.DataFrame(data=keys), col=0, col_wrap=3,
+    col_wrap = 4
+    g = sns.FacetGrid(pd.DataFrame(data=keys), col=0, col_wrap=col_wrap,
                       aspect=1.5, sharex=False)
-    custom_lines = [] ; _legend = [] ;
-    text = np.zeros( (len(lags), len(keys)), dtype=object )
-    text[:,:] = 'count splits: 0'
+    custom_lines = [] ; _legend = []
     for l, lag in enumerate(lags):
 
         style = line_styles[l]
@@ -631,65 +660,20 @@ def plot_oneway_partial_dependence(GBR_models_split_lags, keys=None, lags=None,
 #        text_lag = []
         for i, key in enumerate(keys):
             ax = g.axes[i]
-            df_lag = df_lags.loc[lag]
+            df_plot = df_lags.loc[lag, key]
+            y_mean = df_plot['y_mean']
+            y_std  = 2 * df_plot['y_std']
+            x_vals = df_plot['x_vals']
+            ax.fill_between(x_vals, y_mean - y_std, y_mean + y_std,
+                            color=color, linestyle=style, alpha=0.2)
+            ax.plot(x_vals, y_mean, color=color, linestyle=style)
+            ax.set_title(key)
+            if i == 0:
+                ax.legend(custom_lines, _legend, handlelength=3)
 
-            if key in df_lag.index:
-                df_plot = df_lag.loc[key]
-                y_mean = df_plot['y_mean']
-                y_std  = df_plot['y_std']
-                x_vals = df_plot['x_vals']
-                count = int(df_plot['count splits'].mean(0))
-                ax.fill_between(x_vals, y_mean - y_std, y_mean + y_std,
-                                color=color, linestyle=style, alpha=0.2)
-                ax.plot(x_vals, y_mean, color=color, linestyle=style)
-                text[l,i] = f'lag {lag}: count splits: {count}'
-                if i == 0:
-                    ax.legend(custom_lines, _legend, handlelength=3)
-                if i == len(keys)-1:
-#                    text.append(np.array(text_lag))
-
-                    ax.set_title(key)
-    for l, lag in enumerate(lags):
-        ax_text = [t +'\n'+text[l][i] for i, t in enumerate(text[0])]
-    for i, ax in enumerate(g.axes):
-        ax.text(0.97, 0.05, ax_text[i],
-        fontsize=10,
-        bbox=dict(boxstyle='round', facecolor='wheat',
-                  edgecolor='black', alpha=0.5),
-        horizontalalignment='right',
-        verticalalignment='bottom',
-        transform=ax.transAxes)
-    #%%
-    return df_lags
+    return df_lags, g.fig
 
     #%%
-def feature_selection(X_train, y_train, model='logitCV', scoring='brier_score_loss', folds=5,
-                      verbosity=0):
-    if model == 'logitCV':
-        kwrgs_logit = { 'class_weight':{ 0:1, 1:1},
-                        'scoring':'brier_score_loss',
-                        'penalty':'l2',
-                        'solver':'lbfgs'}
-        strat_cv = StratifiedKFold(5, shuffle=False)
-        model = LogisticRegressionCV(Cs=10, fit_intercept=True,
-                                     cv=strat_cv,
-                                     n_jobs=1,
-                                     **kwrgs_logit)
-
-    rfecv = RFECV(estimator=model, step=1, cv=StratifiedKFold(folds, shuffle=False),
-              scoring='brier_score_loss')
-    rfecv.fit(X_train, y_train)
-    new_features = X_train.columns[rfecv.ranking_==1]
-    new_model = rfecv.estimator_
-#    rfecv.fit(X_train, y_train)
-    if verbosity != 0:
-        print("Optimal number of features : %d" % rfecv.n_features_)
-    return new_model, new_features, rfecv
-
-def find_nearest(array, value):
-    array = np.asarray(array)
-    idx = (np.abs(array - value)).argmin()
-    return idx, array[idx]
 
 def _get_twoway_pairdepend(GBR_models_split, i, pair, grid_resolution):
     y = [] ; x = []
@@ -832,9 +816,8 @@ def plot_twoway_partial_dependence(GBR_models_split_lags, lag_i=0, keys=None,
 #    g.fig.colorbar(im, cax=cax, orientation='horizontal')
     g.fig.subplots_adjust(wspace=0.3)
     g.fig.subplots_adjust(hspace=0.3)
-
     #%%
-    return df_all
+    return df_all, g.fig
 
 def _get_synergy(GBR_models_split_lags, lag_i=0, plot_pairs=None,
                  grid_resolution=20):
@@ -921,45 +904,5 @@ def plot_regularization(models_splits_lags, lag_i=0):
         ax.set_ylabel(df_p.columns.name)
         ax.set_xlabel('LogitRegr CV folds')
     g.fig.suptitle('Inverse Regularization strength (low is strong)', y=1.00)
-
-# def _get_coef_logit(models_splits_lags, lag_i=0):
-#     #%%
-#     # models_splits = models_splits_lags[f'lag_{lag_i}']
-
-#     # # np.array( (len(models_splits), )
-#     # result_splits = []
-#     # # best = []
-#     # for splitkey, model in models_splits.items():
-#     #     pass
-#     GBR_models_split = models_splits_lags[f'lag_{lag_i}']
-#     feature_importances = {}
-
-#     for splitkey, regressor in GBR_models_split.items():
-#         all_keys = list(regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)])
-#         if hasattr(regressor, 'feature_importances_'): # for GBR
-#             importances = regressor.feature_importances_
-#         elif hasattr(regressor, 'coef_'): # for logit
-#             importances = regressor.coef_.squeeze()
-#         for name, importance in zip(all_keys, importances):
-#             if name not in feature_importances:
-#                 feature_importances[name] = [0, 0]
-#             feature_importances[name][0] += importance
-#             feature_importances[name][1] += 1
-
-#     names, importances = [], []
-
-
-#     for name, (importance, count) in feature_importances.items():
-
-#         names.append(name)
-#         importances.append(float(importance) / float(count))
-#     importances = np.array(importances) / np.sum(importances)
-#     order = np.argsort(importances)
-#     names_order = [names[index] for index in order] ; names_order.reverse()
-#     # freq = (regressor.X_pred.index[1] - regressor.X_pred.index[0]).days
-#     # lags_tf = [l*freq for l in [lag]]
-#     # if freq != 1:
-#     #     # the last day of the time mean bin is tfreq/2 later then the centerered day
-#     #     lags_tf = [l_tf- int(freq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
-#     df = pd.DataFrame([sorted(importances, reverse=True)], columns=names_order, index=[lag_i])
+    return g.fig
 

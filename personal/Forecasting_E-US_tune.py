@@ -92,12 +92,15 @@ GBC_tfs = ('GBC',
 
 GBC_t = ('GBC', 
          {'max_depth':[1, 2, 3, 4],
-           'learning_rate':[.05, 1E-2, 5E-3],
-           'n_estimators' : [100, 250, 400, 550, 700, 850, 1000],
-           'min_samples_split':[.15, .25],
+           'learning_rate':[1E-2, 5E-3],
+           'n_estimators' : [100, 250, 400, 550],
+           'min_samples_split':.2,
            'max_features':[.15, .2, 'sqrt'],
-           'subsample' : [.3, .45, 0.6],
+           'subsample' : [.3, .45],
            'random_state':60,
+           'n_iter_no_change':20,
+          'tol':1E-4,
+           'validation_fraction':.3,
            'scoringCV':'brier_score_loss' } )
 
 
@@ -107,7 +110,7 @@ GBC = ('GBC',
        'n_estimators' : 500,
        'min_samples_split':.25,
        'max_features':.4,
-       'subsample' : .6,
+       'subsample' : .45,
        'random_state':60,
        'n_iter_no_change':20,
        'tol':1E-4,
@@ -116,7 +119,7 @@ GBC = ('GBC',
        } )
 
 # In[6]:
-path_data = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/3_80d77_26jun-21aug_lag14-14_q75tail_random10s1/None_at0.05_tau_0-1_conds_dimNone_combin2_dt14_dtd1.h5'
+path_data = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/5_80d77_26jun-21aug_lag14-14_q75tail_random10s1/None_tau_0-1_conds_dim2_combin3_dt14_dtd1.h5'
 
 path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
 RVts_filename = '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'
@@ -134,71 +137,67 @@ start_end_TVdate = None # ('7-04', '8-22')
 
 
 
-list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={}, 
-                    dataset=f'{precur_aggr} day means',
-                    keys_d='persistence'),
-                fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={}, 
-                    dataset=f'{precur_aggr} day means',
-                    keys_d='all'),
-                fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                      use_fold=use_fold, start_end_TVdate=None,
-                      stat_model=logitCV, 
-                      kwrgs_pp={}, 
-                      dataset=f'{precur_aggr} day means',
-                      keys_d='all',
-                      causal=True),
-                fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                      use_fold=use_fold, start_end_TVdate=None,
-                      stat_model=logitCV, 
-                      kwrgs_pp={}, 
-                      dataset=f'{precur_aggr} day means',
-                      keys_d='sst+sm+z500'),
-                fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                      use_fold=use_fold, start_end_TVdate=None,
-                      stat_model=GBC_t, 
-                      kwrgs_pp={'normalize':False}, 
-                      dataset=f'{precur_aggr} day means',
-                      keys_d='persistence'),
-                fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                      use_fold=use_fold, start_end_TVdate=None,
-                      stat_model=GBC_t, 
-                      kwrgs_pp={'normalize':False}, 
-                      dataset=f'{precur_aggr} day means',
-                      keys_d='all'),
-                fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                      use_fold=use_fold, start_end_TVdate=None,
-                      stat_model=GBC_t, 
-                      kwrgs_pp={'normalize':False}, 
-                      dataset=f'{precur_aggr} day means',
-                      keys_d='all',
-                      causal=True),
-                fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                      use_fold=use_fold, start_end_TVdate=None,
-                      stat_model=GBC_t, 
-                      kwrgs_pp={'normalize':False}, 
-                      dataset=f'{precur_aggr} day means',
-                      keys_d='sst+sm+z500')]
-                   
-
 # list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr, 
 #                     use_fold=use_fold, start_end_TVdate=None,
 #                     stat_model=logitCV, 
 #                     kwrgs_pp={}, 
 #                     dataset=f'{precur_aggr} day means',
-#                     keys_d='all'),
-#                fcev(path_data=path_data, precur_aggr=precur_aggr, 
+#                     keys_d='persistence'),
+#                 fcev(path_data=path_data, precur_aggr=precur_aggr, 
 #                     use_fold=use_fold, start_end_TVdate=None,
-#                     stat_model=GBC_t, 
+#                     stat_model=logitCV, 
 #                     kwrgs_pp={}, 
 #                     dataset=f'{precur_aggr} day means',
-#                     keys_d='all')]
+#                     keys_d='all'),
+#                 fcev(path_data=path_data, precur_aggr=precur_aggr, 
+#                       use_fold=use_fold, start_end_TVdate=None,
+#                       stat_model=logitCV, 
+#                       kwrgs_pp={}, 
+#                       dataset=f'{precur_aggr} day means',
+#                       keys_d='all',
+#                       causal=True),
+#                 fcev(path_data=path_data, precur_aggr=precur_aggr, 
+#                       use_fold=use_fold, start_end_TVdate=None,
+#                       stat_model=logitCV, 
+#                       kwrgs_pp={}, 
+#                       dataset=f'{precur_aggr} day means',
+#                       keys_d='sst+sm+z500'),
+#                 fcev(path_data=path_data, precur_aggr=precur_aggr, 
+#                       use_fold=use_fold, start_end_TVdate=None,
+#                       stat_model=GBC_t, 
+#                       kwrgs_pp={'normalize':False}, 
+#                       dataset=f'{precur_aggr} day means',
+#                       keys_d='persistence'),
+#                 fcev(path_data=path_data, precur_aggr=precur_aggr, 
+#                       use_fold=use_fold, start_end_TVdate=None,
+#                       stat_model=GBC_t, 
+#                       kwrgs_pp={'normalize':False}, 
+#                       dataset=f'{precur_aggr} day means',
+#                       keys_d='all'),
+#                 fcev(path_data=path_data, precur_aggr=precur_aggr, 
+#                       use_fold=use_fold, start_end_TVdate=None,
+#                       stat_model=GBC_t, 
+#                       kwrgs_pp={'normalize':False}, 
+#                       dataset=f'{precur_aggr} day means',
+#                       keys_d='all',
+#                       causal=True),
+#                 fcev(path_data=path_data, precur_aggr=precur_aggr, 
+#                       use_fold=use_fold, start_end_TVdate=None,
+#                       stat_model=GBC_t, 
+#                       kwrgs_pp={'normalize':False}, 
+#                       dataset=f'{precur_aggr} day means',
+#                       keys_d='sst+sm+z500')]
+                   
 
+list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr, 
+                    use_fold=use_fold, start_end_TVdate=None,
+                    stat_model=logitCV, 
+                    kwrgs_pp={'normalize':False}, 
+                    dataset=f'{precur_aggr} day means',
+                    keys_d='all',
+                    causal=True)]
+fc = list_of_fc[0]
+#%%
 for i, fc in enumerate(list_of_fc):
 
     fc.get_TV(kwrgs_events=kwrgs_events)
@@ -222,7 +221,7 @@ met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 
 
-line_dim = 'model'
+line_dim = 'exper'
 
 
 dict_all = dfplots.merge_valid_info(list_of_fc, store=store)
@@ -251,38 +250,42 @@ fig.savefig(pathfig_valid,
 im = 0
 il = 1
 ifc = 0
-
+f_format = '.pdf'
+if os.path.isdir(fc.filename) == False : os.makedirs(fc.filename)
 import valid_plots as dfplots
 if __name__ == "__main__":
-    for i, fc in enumerate(list_of_fc):
+    for ifc, fc in enumerate(list_of_fc):
         for im, m in enumerate([n[0] for n in fc.stat_model_l]):
             for il, l in enumerate(fc.lags_i):
                 fc = list_of_fc[ifc]
                 m = [n[0] for n in fc.stat_model_l][im]
                 l = fc.lags_i[il]
                 # visual analysis
-                f_name = filename + f'_{ifc}_va_l{l}_{m}'
-                f_format = '.pdf'
+                f_name = os.path.join(filename, f'ifc{ifc}_va_l{l}_{m}')
                 fig = dfplots.visual_analysis(fc, lag=l, model=m)
-                pathfig_vis = os.path.join(working_folder, f_name) + f_format
-                fig.savefig(pathfig_vis, bbox_inches='tight') # dpi auto 600
+                fig.savefig(os.path.join(working_folder, f_name) + f_format, 
+                            bbox_inches='tight') # dpi auto 600
                 # plot deviance
                 if m[:3] == 'GBC':
-                    f_name = filename +f'_l{l}_deviance'
                     fig = dfplots.plot_deviance(fc, lag=l, model=m)
-                    f_format = '.pdf'
-                    path_fig_GBC = os.path.join(working_folder, f_name) + f_format
-                    fig.savefig(path_fig_GBC,
-                            bbox_inches='tight') # dpi auto 600
+                    f_name = os.path.join(filename, f'ifc{ifc}_deviance_l{l}')
+                    
+
+                    fig.savefig(os.path.join(working_folder, f_name) + f_format,
+                                bbox_inches='tight') # dpi auto 600
+                    
+                    fig = fc.plot_oneway_partial_dependence()
+                    f_name = os.path.join(filename, f'ifc{ifc}_partial_depen_l{l}')
+                    fig.savefig(os.path.join(working_folder, f_name) + f_format,
+                                bbox_inches='tight') # dpi auto 600
+                    
                 if m[:7] == 'logitCV':
-                    fc.plot_logit_regularization(lag_i=l)
-                    f_name = filename +f'_l{l}_logitregularization'
-                    f_format = '.pdf'
-                    path_fig_logit = os.path.join(working_folder, f_name) + f_format
-                    fig.savefig(path_fig_logit,
+                    fig = fc.plot_logit_regularization(lag_i=l)
+                    f_name = os.path.join(filename, f'ifc{ifc}_logitregul_l{l}')
+                    fig.savefig(os.path.join(working_folder, f_name) + f_format,
                             bbox_inches='tight') # dpi auto 600
-                df_importance = fc.plot_feature_importances()
-                f_name = filename + f'_{ifc}_feat_l{l}_{m}'
-                f_format = '.pdf'
-                pathfig_feat = os.path.join(working_folder, f_name) + f_format
-                fig.savefig(pathfig_feat, bbox_inches='tight') # dpi auto 600
+                
+            df_importance, fig = fc.plot_feature_importances()
+            f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
+            fig.savefig(os.path.join(working_folder, f_name) + f_format, 
+                        bbox_inches='tight') # dpi auto 600

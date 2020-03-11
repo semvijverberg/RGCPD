@@ -197,107 +197,6 @@ class BivariateMI:
         #%%
         return xrcorr
   
-    # def corr_map(self, precur_arr, df_splits, RV): #, lags=np.array([0]), alpha=0.05, FDR_control=True #TODO
-    #     #%%
-    #     #    v = ncdf ; V = array ; RV.RV_ts = ts of RV, time_range_all = index range of whole ts
-    #     """
-    #     This function calculates the correlation maps for precur_arr for different lags.
-    #     Field significance is applied to test for correltion.
-    #     This function uses the following variables (in the ex dictionary)
-    #     prec_arr: array
-    #     time_range_all: a list containing the start and the end index, e.g. [0, time_cycle*n_years]
-    #     lag_steps: number of lags
-    #     time_cycle: time cycyle of dataset, =12 for monthly data...
-    #     RV_period: indices that matches the response variable time series
-    #     alpha: significance level
-
-    #     """
-        
-    #     self.df_splits = df_splits # add df_splits to self
-    #     n_lags = len(self.lags)
-    #     lags = self.lags
-    #     assert n_lags >= 0, ('Maximum lag is larger then minimum lag, not allowed')
-
-
-
-    #     n_spl = df_splits.index.levels[0].size
-    #     # make new xarray to store results
-    #     xrcorr = precur_arr.isel(time=0).drop('time').copy()
-    #     # add lags
-    #     list_xr = [xrcorr.expand_dims('lag', axis=0) for i in range(n_lags)]
-    #     xrcorr = xr.concat(list_xr, dim = 'lag')
-    #     xrcorr['lag'] = ('lag', lags)
-    #     # add train test split
-    #     list_xr = [xrcorr.expand_dims('split', axis=0) for i in range(n_spl)]
-    #     xrcorr = xr.concat(list_xr, dim = 'split')
-    #     xrcorr['split'] = ('split', range(n_spl))
-
-    #     print('\n{} - calculating correlation maps'.format(precur_arr.name))
-    #     np_data = np.zeros_like(xrcorr.values)
-    #     np_mask = np.zeros_like(xrcorr.values)
-        
-    #     def corr_single_split(RV_ts, precur_RV, alpha, FDR_control): #, lags, alpha, FDR_control
-
-    #         lat = precur_RV.latitude.values
-    #         lon = precur_RV.longitude.values
-
-    #         z = np.ones((lat.size*lon.size,len(lags) ) )
-    #         Corr_Coeff = np.ma.array(z, mask=z)
-
-
-    #         dates_RV = RV_ts.index
-    #         for i, lag in enumerate(lags):
-
-    #             dates_lag = functions_pp.func_dates_min_lag(dates_RV, lag)[1]
-    #             prec_lag = precur_RV.sel(time=dates_lag)
-    #             prec_lag = np.reshape(prec_lag.values, (prec_lag.shape[0],-1))
-
-
-    #             # correlation map and pvalue at each grid-point:
-    #             corr_val, pval = corr_new(prec_lag, RV_ts.values.squeeze())
-
-    #             if FDR_control == True:
-    #                 # test for Field significance and mask unsignificant values
-    #                 # FDR control:
-    #                 adjusted_pvalues = multicomp.multipletests(pval, method='fdr_bh')
-    #                 ad_p = adjusted_pvalues[1]
-
-    #                 corr_val.mask[ad_p <= alpha] = False
-
-    #             else:
-    #                 corr_val.mask[pval <= alpha] = False
-
-
-    #             Corr_Coeff[:,i] = corr_val[:]
-
-    #         Corr_Coeff = np.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
-    #         Corr_Coeff = Corr_Coeff.reshape(lat.size,lon.size,len(lags)).swapaxes(2,1).swapaxes(1,0)
-    #         return Corr_Coeff
-
-    #     RV_mask = df_splits.loc[0]['RV_mask']
-    #     for s in xrcorr.split.values:
-    #         progress = 100 * (s+1) / n_spl
-    #         # =============================================================================
-    #         # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']
-    #         # =============================================================================
-    #         RV_train_mask = np.logical_and(RV_mask, df_splits.loc[s]['TrainIsTrue'])
-    #         RV_ts = RV.fullts[RV_train_mask.values]
-    #         precur_RV = precur_arr[df_splits.loc[s]['TrainIsTrue'].values]
-
-    #     #        dates_RV  = pd.to_datetime(RV_ts.time.values)
-    #         dates_RV = RV_ts.index
-    #         n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
-    #         print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
-
-    #         ma_data = corr_single_split(RV_ts, precur_RV, **self.kwrgs_func)
-    #         np_data[s] = ma_data.data
-    #         np_mask[s] = ma_data.mask
-    #     print("\n")
-    #     xrcorr.values = np_data
-    #     mask = (('split', 'lag', 'latitude', 'longitude'), np_mask )
-    #     xrcorr.coords['mask'] = mask
-    #     #%%
-    #     return xrcorr
     
     def get_prec_ts(self, precur_aggr=None, kwrgs_load=None): #, outdic_precur #TODO
         # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
@@ -382,6 +281,9 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
             pattern = corr_vals.where(~np.isnan(mask))
             if np.isnan(pattern.values).all():
                 # no regions of this variable and split
+                nants = np.zeros( (dates.size, 1) )
+                nants[:] = np.nan
+                ts_list[il] = nants
                 pass
             else:
                 # if normalize == True:
@@ -392,8 +294,12 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
                 # elif normalize == False:
                 xrts = find_precursors.calc_spatcov(full_timeserie, pattern)
                 ts_list[il] = xrts.values[:,None]
-                track_names.append(f'{lag}..0..{precur.name}' + '_sp')
-        tsCorr = np.concatenate(tuple(ts_list), axis = 1)                
+            track_names.append(f'{lag}..0..{precur.name}' + '_sp')
+        
+        # concatenate timeseries all of lags
+        tsCorr = np.concatenate(tuple(ts_list), axis = 1)
+
+            
         ts_sp[s] = pd.DataFrame(tsCorr, 
                                 index=dates,
                                 columns=track_names)
