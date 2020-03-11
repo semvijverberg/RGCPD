@@ -7,6 +7,7 @@ import scipy as sp
 import seaborn as sns
 # import mtspec
 flatten = lambda l: [item for sublist in l for item in sublist]
+from typing import List, Tuple, Union
 
 
 import matplotlib as mpl
@@ -51,9 +52,11 @@ def loop_df_ana(df, function, keys=None, to_np=False, kwrgs=None):
     return pd.DataFrame(np.array(out_list).T, index=df.index, columns=keys)
     
 
-def loop_df(df, function, keys=None, colwrap=3, sharex='col', 
+def loop_df(df: pd.DataFrame(), function, keys=None, colwrap=3, sharex='col', 
             sharey='row', hspace=.4, kwrgs=None):
     #%%
+    assert type(df) == type(pd.DataFrame()), ('df should be DataFrame, '
+                'not pd.Series or ndarray')
     if keys is None:
         # retrieve only float series
         type_check = np.logical_or(df.dtypes == 'float',df.dtypes == 'float32')
@@ -101,8 +104,10 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=None, ax=None):
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
 
+    if hasattr(y.index,'levels'):
+        y = y.loc[0]
     ac, con_int = autocorr_sm(y)
-
+    
     time = y.index
     if type(time) is pd.core.indexes.datetimes.DatetimeIndex:
         tfreq = (time[1] - time[0]).days
@@ -158,34 +163,41 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=None, ax=None):
         ax.set_title(title, fontsize=10)
     return ax
 
-def plot_timeseries(y, timesteps=None, selyears=None, title=None, ax=None):
+def plot_timeseries(y, timesteps=None, selyears: Union[list, int]=None, title=None, ax=None):
+    # ax=None
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
 
     if type(y.index) == pd.core.indexes.datetimes.DatetimeIndex:
         datetimes = y.index
         
-    if timesteps is None:
-        ac, con_int = autocorr_sm(y)
+    if timesteps is None and selyears is None:
+        if hasattr(y.index,'levels'):
+            y_ac = y.loc[0]
+        else:
+            y_ac = y
+        ac, con_int = autocorr_sm(y_ac)
         where = np.where(con_int[:,0] < 0 )[0]
         # has to be below 0 for n times (not necessarily consecutive):
         n = 1
         n_of_times = np.array([idx+1 - where[0] for idx in where])
         cutoff = where[np.where(n_of_times == n)[0][0] ]
         timesteps = 20*cutoff
-        y_ = y.iloc[:timesteps]
-    else:
-        y_ = y.iloc[:timesteps]
+        datetimes = y_ac.iloc[:timesteps].index
     
-    if selyears is not None:
+    if selyears is not None and timesteps is None:
         if type(selyears) is not list:
             selyears = [selyears]
         datetimes = get_oneyr(y.index, *selyears)
-        y_ = y.loc[datetimes]
         
     
-    indices = y_.index
-    ax.plot(indices, y_)
+    if hasattr(y.index,'levels'):
+        for fold in y.index.levels[0]:
+            ax.plot(datetimes, y.loc[fold, datetimes], alpha=.5,
+                    label=f'f {fold}')
+        ax.legend(prop={'size':6})
+    else:
+        ax.plot(datetimes, y.loc[datetimes])
     
     every_nth = round(len(ax.xaxis.get_ticklabels())/3)
     for n, label in enumerate(ax.xaxis.get_ticklabels()):
@@ -399,6 +411,8 @@ def sig_bold_annot(corr, pvals):
 
 
 def get_oneyr(pddatetime, *args):
+    if hasattr(pddatetime,'levels'):
+        pddatetime = pddatetime.levels[1]
     dates = []
     pddatetime = pd.to_datetime(pddatetime)
     year = pddatetime.year[0]

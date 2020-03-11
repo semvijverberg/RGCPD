@@ -476,7 +476,14 @@ class fcev():
         fig = stat_models.plot_regularization(models_splits_lags, lag_i=lag_i)
         return fig
 
-    
+    def apply_df_ana_plot(self, df=None, name_ds='ts', func=None, kwrgs_func={}):
+        if df is None:
+            df = self.df_data
+        if func is None:
+            func = df_ana.plot_ac ; kwrgs_func = {'AUC_cutoff':(14,30),'s':60}
+        return df_ana.loop_df(df, function=func, sharex=False, 
+                             colwrap=2, hspace=.5, kwrgs=kwrgs_func)
+
     def _fit_model(self, stat_model=tuple, verbosity=0):
     
         #%%     

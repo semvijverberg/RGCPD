@@ -14,14 +14,17 @@ import itertools
 from dateutil.relativedelta import relativedelta as date_dt
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 flatten = lambda l: list(itertools.chain.from_iterable(l))
+from typing import Union
 
 def get_oneyr(datetime):
         return datetime.where(datetime.year==datetime.year[0]).dropna()
 
 
 
-def import_ds_lazy(filename, loadleap=False, seldates=None, selbox=None, 
-                   format_lon='only_east', var=None):
+def import_ds_lazy(filename, loadleap=False, 
+                   seldates: Union[tuple, pd.core.indexes.datetimes.DatetimeIndex]=None, 
+                   selbox: Union[list, tuple]=None, format_lon='only_east', var=None):
+                   
     '''
     selbox has format of (lon_min, lon_max, lat_min, lat_max)
     # in format only_east 
@@ -455,7 +458,6 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
     return datessubset
 
 #%%
-
 
 
 if __name__ == '__main__':

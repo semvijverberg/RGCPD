@@ -119,7 +119,7 @@ GBC = ('GBC',
        } )
 
 # In[6]:
-path_data = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/3_80d77_26jun-21aug_lag14-14_q75tail_random10s1/None_at0.05_tau_0-1_conds_dimNone_combin2_dt14_dtd1.h5'
+path_data = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/5_80d77_26jun-21aug_lag14-14_q75tail_random10s1/None_tau_0-1_conds_dim2_combin3_dt14_dtd1.h5'
 
 path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
 RVts_filename = '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'
@@ -191,17 +191,13 @@ start_end_TVdate = None # ('7-04', '8-22')
 
 list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=GBC_t, 
+                    stat_model=logitCV, 
                     kwrgs_pp={'normalize':False}, 
                     dataset=f'{precur_aggr} day means',
-                    keys_d='all'),
-              fcev(path_data=path_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=GBC_t, 
-                    kwrgs_pp={'normalize':False}, 
-                    dataset=f'{precur_aggr} day means',
-                    keys_d='sst+sm+z500')]
-
+                    keys_d='all',
+                    causal=True)]
+fc = list_of_fc[0]
+#%%
 for i, fc in enumerate(list_of_fc):
 
     fc.get_TV(kwrgs_events=kwrgs_events)
