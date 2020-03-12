@@ -92,15 +92,15 @@ GBC_tfs = ('GBC',
 
 GBC_t = ('GBC', 
          {'max_depth':[1, 2, 3, 4],
-           'learning_rate':1E-5,
-           'n_estimators' : [100, 250, 400, 550],
+           'learning_rate':1E-4,
+           'n_estimators' : [100, 250, 400, 550, 750],
            'min_samples_split':.2,
            'max_features':[.15, .2, 'sqrt'],
            'subsample' : [.3, .45],
            'random_state':60,
-           'n_iter_no_change':20,
-           'tol':1E-4,
-           'validation_fraction':.3,
+           # 'n_iter_no_change':20,
+           # 'tol':1E-4,
+           # 'validation_fraction':.3,
            'scoringCV':'brier_score_loss' } )
 
 

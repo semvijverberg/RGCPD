@@ -282,12 +282,14 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
     if x_lim is None:
         try:
             xmax = 6 * get_oneyr(y.index).size
-            x_lim = (0, xmax)
+            x_lim = (0, 6/xmax)
         except:
-            x_lim = (1,365)
+            x_lim = (1,6/365)
     
-    def forward(x):
-        return 1 / x
+    def freq_to_period(xfreq, freq_df):
+        if freq_df == 'month':
+            periods = 1/(xfreq[1:] * 12)
+        return periods
     
     # def days
         
@@ -297,7 +299,7 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
         freq, spec = func_(y)
         # periods = 1*dt/(freq[1:])
         ax.plot(freq[1:], spec[1:], ls='-', c=nice_colors[i], label=label)  
-        # ax.loglog()
+        ax.set_xlim(x_lim)
         if y_lim is not None:
             ax.set_ylim(y_lim)   
         # secax = ax.secondary_xaxis('top', functions=(deg2rad, rad2deg))
@@ -306,7 +308,7 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
         # locmin = mpl.ticker.LogLocator(base=10.0,subs=tuple(np.arange(0,1,0.1)[1:]),numticks=int(-1E-99+x_lim[-1]/100) + 1)
         # ax.xaxis.set_minor_locator(locmin)
         # ax.xaxis.set_minor_formatter(mpl.ticker.NullFormatter())
-        ax.set_xlim(x_lim)
+        
     ax.legend(fontsize='small')
     if title is not None:
         ax.set_title(title, fontsize=10)
