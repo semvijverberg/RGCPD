@@ -256,14 +256,15 @@ def fft_np(y, sampling_period=1.):
     fftfreq = sp.fftpack.fftfreq(len(ypsd), sampling_period)
     return fftfreq, ypsd
 
-def plot_spectrum(y, methods=None, vlines=None, y_lim=(1e-4,1e3), 
+def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
+                  vlines=None, y_lim=(1e-4,1e3), 
                   x_lim=None, title=None, ax=None):
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
         
     if methods is None:
-        methods = [('periodogram', periodogram),
-                   ('MT-spec', mtspectrum)]
+        methods = [('periodogram', periodogram)]
+                       
 
     try:
         freq_df = (y.index[1] - y.index[0]).days

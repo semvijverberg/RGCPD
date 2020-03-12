@@ -36,7 +36,7 @@ cluster_label = 5
 name_ds='q75tail'
 start_end_TVdate = ('06-24', '08-22')
 start_end_date = ('1-1', '12-31')
-tfreq = 21
+tfreq = 14
 #%%
 list_of_name_path = [(cluster_label, TVpath), 
                       ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),

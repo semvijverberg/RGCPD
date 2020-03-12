@@ -92,14 +92,14 @@ GBC_tfs = ('GBC',
 
 GBC_t = ('GBC', 
          {'max_depth':[1, 2, 3, 4],
-           'learning_rate':[1E-2, 5E-3],
+           'learning_rate':1E-5,
            'n_estimators' : [100, 250, 400, 550],
            'min_samples_split':.2,
            'max_features':[.15, .2, 'sqrt'],
            'subsample' : [.3, .45],
            'random_state':60,
            'n_iter_no_change':20,
-          'tol':1E-4,
+           'tol':1E-4,
            'validation_fraction':.3,
            'scoringCV':'brier_score_loss' } )
 
@@ -191,12 +191,19 @@ start_end_TVdate = None # ('7-04', '8-22')
 
 list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
+                    stat_model=GBC_t, 
                     kwrgs_pp={'normalize':False}, 
                     dataset=f'{precur_aggr} day means',
                     keys_d='all',
-                    causal=True)]
-fc = list_of_fc[0]
+                    causal=True),
+              fcev(path_data=path_data, precur_aggr=precur_aggr, 
+                    use_fold=use_fold, start_end_TVdate=None,
+                    stat_model=GBC_t, 
+                    kwrgs_pp={'normalize':False}, 
+                    dataset=f'{precur_aggr} day means',
+                    keys_d='all',
+                    causal=False)]
+# fc = list_of_fc[0]
 #%%
 for i, fc in enumerate(list_of_fc):
 
