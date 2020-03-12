@@ -259,7 +259,7 @@ def fft_np(y, sampling_period=1.):
 def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
                   vlines=None, y_lim=None, 
                   x_lim=None, title=None, ax=None):
-    ax=None
+    ax=None ; x_lim=(0, .056)
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
         
@@ -271,10 +271,9 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
         freq_df = (y.index[1] - y.index[0]).days
         if freq_df in [28, 29, 30, 31]:
             freq_df = 'month'
-            dt = 1
-        else:
-            freq_df = 'days'
-            dt = freq_df # in case dt days is > 1
+        elif type(freq_df) == int:
+            freq_df = int(365 / freq_df)
+
     except:
         freq_df = 1
         
@@ -288,21 +287,46 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
     
     def freq_to_period(xfreq, freq_df):
         if freq_df == 'month':
-            periods = 1/(xfreq[1:] * 12)
-        return periods
+            periods = 1/(xfreq * 12)
+        elif type(freq_df) is int:
+            periods = 1/(xfreq*freq_df)
+        return np.round(periods, 3)
     
-    # def days
+    def period_to_fred(periods, freq_df):
+        if freq_df == 'month':
+            freq = 1 / (periods * 12)
+        else:
+            freq = 1 / (periods * freq_df)
+        return np.round(freq, 1)
         
     
     for i, method in enumerate(methods):
         label, func_ = method
         freq, spec = func_(y)
         # periods = 1*dt/(freq[1:])
-        ax.plot(freq[1:], spec[1:], ls='-', c=nice_colors[i], label=label)  
-        ax.set_xlim(x_lim)
+        # sp = pd.Series(spec[1:], index=freq_to_period(freq[1:], freq_df))
+        # ax = sp.plot()
+        # sf = pd.Series(spec[1:], index=range(freq[1:].size))
+        # sf.plot(ax=ax)
+        ax.plot(freq_to_period(freq[1:], freq_df), spec[1:], ls='-', c=nice_colors[i], label=label)  
+        # ax.set_xticks(freq[1:])
+        # ax.set_xticklabels(freq[1:])
+        # ax.set_xlim(x_lim)
         if y_lim is not None:
             ax.set_ylim(y_lim)   
-        # secax = ax.secondary_xaxis('top', functions=(deg2rad, rad2deg))
+        ax.set_xticks([.01, .02, .03, .042, .056])
+        ax2 = ax.twiny()
+        ax2.plot(freq[1:], spec[1:], ls='-', c=nice_colors[i], label=label)  
+        ax2.set_xlim(x_lim)
+        
+        ax2.set_xticklabels(freq_to_period(ax.get_xticks(), freq_df=freq_df))
+        
+        ax2.set_xlabel('Periods [years]')
+        if freq_df == 'month':
+            ax.set_xlabel('Frequency [1/months]')
+        else:
+            ax.set_xlabel(f'Frequency [1/ {freq_df} days]')
+        ax.set_ylabel('Power Spectrum Density')
         # locmaj = mpl.ticker.LogLocator(base=10,numticks=int(-1E-99+x_lim[-1]/100) + 1) 
         # ax.xaxis.set_major_locator(locmaj)
         # locmin = mpl.ticker.LogLocator(base=10.0,subs=tuple(np.arange(0,1,0.1)[1:]),numticks=int(-1E-99+x_lim[-1]/100) + 1)
@@ -314,7 +338,8 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
         ax.set_title(title, fontsize=10)
     return ax
         
-
+def resample(df, to_freq='M'):
+    return df.resample(to_freq).mean()
 
 def corr_matrix_pval(df, alpha=0.05):
     from scipy import stats
