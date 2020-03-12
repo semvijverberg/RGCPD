@@ -257,8 +257,9 @@ def fft_np(y, sampling_period=1.):
     return fftfreq, ypsd
 
 def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
-                  vlines=None, y_lim=(1e-4,1e3), 
+                  vlines=None, y_lim=None, 
                   x_lim=None, title=None, ax=None):
+    ax=None
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
         
@@ -268,30 +269,43 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
 
     try:
         freq_df = (y.index[1] - y.index[0]).days
+        if freq_df in [28, 29, 30, 31]:
+            freq_df = 'month'
+            dt = 1
+        else:
+            freq_df = 'days'
+            dt = freq_df # in case dt days is > 1
     except:
         freq_df = 1
         
-        
+    
     if x_lim is None:
         try:
-            oneyrsize = get_oneyr(y.index).size
-            x_lim = (freq_df, oneyrsize*freq_df)
+            xmax = 6 * get_oneyr(y.index).size
+            x_lim = (0, xmax)
         except:
             x_lim = (1,365)
+    
+    def forward(x):
+        return 1 / x
+    
+    # def days
         
     
     for i, method in enumerate(methods):
         label, func_ = method
         freq, spec = func_(y)
-        periods = 1*freq_df/(freq[1:])
-        ax.plot(periods, spec[1:], ls='-', c=nice_colors[i], label=label)  
-        ax.loglog()
-        ax.set_ylim(y_lim)   
-        locmaj = mpl.ticker.LogLocator(base=10,numticks=int(-1E-99+x_lim[-1]/100) + 1) 
-        ax.xaxis.set_major_locator(locmaj)
-        locmin = mpl.ticker.LogLocator(base=10.0,subs=tuple(np.arange(0,1,0.1)[1:]),numticks=int(-1E-99+x_lim[-1]/100) + 1)
-        ax.xaxis.set_minor_locator(locmin)
-        ax.xaxis.set_minor_formatter(mpl.ticker.NullFormatter())
+        # periods = 1*dt/(freq[1:])
+        ax.plot(freq[1:], spec[1:], ls='-', c=nice_colors[i], label=label)  
+        # ax.loglog()
+        if y_lim is not None:
+            ax.set_ylim(y_lim)   
+        # secax = ax.secondary_xaxis('top', functions=(deg2rad, rad2deg))
+        # locmaj = mpl.ticker.LogLocator(base=10,numticks=int(-1E-99+x_lim[-1]/100) + 1) 
+        # ax.xaxis.set_major_locator(locmaj)
+        # locmin = mpl.ticker.LogLocator(base=10.0,subs=tuple(np.arange(0,1,0.1)[1:]),numticks=int(-1E-99+x_lim[-1]/100) + 1)
+        # ax.xaxis.set_minor_locator(locmin)
+        # ax.xaxis.set_minor_formatter(mpl.ticker.NullFormatter())
         ax.set_xlim(x_lim)
     ax.legend(fontsize='small')
     if title is not None:
@@ -457,6 +471,8 @@ def load_hdf5(path_data):
         dict_of_dfs[k] = pd.read_hdf(path_data, k)
     hdf.close()
     return dict_of_dfs
+
+
 
 def df_figures(df_data, keys, analysis, line_dim='model', group_line_by=None,
                   met='default', wspace=0.08, col_wrap=None, threshold_bin=None):
