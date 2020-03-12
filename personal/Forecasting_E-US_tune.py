@@ -119,7 +119,7 @@ GBC = ('GBC',
        } )
 
 # In[6]:
-path_data = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/5_80d77_26jun-21aug_lag14-14_q75tail_random10s1/None_tau_0-1_conds_dim2_combin3_dt14_dtd1.h5'
+path_data = user_dir + '/surfdrive/cluster/surfdrive/output_RGCPD/circulation_US_HW/3_80d77_26jun-21aug_lag14-14_q75tail_random10s1/None_at0.05_tau_0-1_conds_dimNone_combin2_dt14_dtd1.h5'
 
 path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
 RVts_filename = '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'
