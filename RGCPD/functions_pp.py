@@ -189,9 +189,17 @@ def nc_xr_ts_to_df(filename, name_ds='ts'):
     return xrts_to_df(ds[name_ds]), ds
 
 def xrts_to_df(xarray):
-    name = 'tfreq{}_ncl{}'.format(int(xarray['tfreq']), 
-                                  int(xarray['n_clusters']))
-    df = xarray.drop('tfreq').drop('n_clusters').T.to_dataframe(
+    dims = list(xarray.coords.keys())
+    standard_dim = ['latitude', 'longitude', 'time', 'mask', 'cluster']
+    dims = [d for d in dims if d not in standard_dim]
+    if 'n_clusters' in dims:
+        xarray = xarray.rename({'n_clusters':'ncl'}).copy()
+    var1 = int(xarray[dims[0]])
+    var2 = int(xarray[dims[1]])
+    dim1 = dims[0]
+    dim2 = dims[1]       
+    name = '{}{}_{}{}'.format(dim1, var1, dim2, var2)
+    df = xarray.drop(dim1).drop(dim2).T.to_dataframe(
                                         name=name).unstack(level=1)
     df = df.droplevel(0, axis=1)
     df.index.name = name
@@ -513,15 +521,18 @@ def timeseries_tofit_bins(xr_or_dt, to_freq, start_end_date=None, start_end_year
             # thus removing one step_yr
             start_day = (end_day - (dt * np.round(fit_steps_yr-1, decimals=0))) \
                     + np.timedelta64(1, 'D')
-
-        if start_day.dayofyear < sdate.dayofyear or start_day.year < sdate.year:
-#        if start_day.year < sdate.year:
-            # if startday is before the desired starting period, skip one bin forward in time
-            start_day = (end_day - (dt * np.round(fit_steps_yr-1, decimals=0))) \
-                    + np.timedelta64(1, 'D')
-        if start_day.is_leap_year:
+                    
+        if start_day.is_leap_year and start_day.month <= 2 :
             # add day in front to compensate for removing a leap day
             start_day = start_day - np.timedelta64(1, 'D')
+            
+        if start_day.dayofyear < sdate.dayofyear or start_day.year < sdate.year:
+            # if startday is before the desired starting period then 
+            # startday dayofyear < dayofyear of first data available )
+            # skip one bin forward in time
+            start_day = (end_day - (dt * np.round(fit_steps_yr-1, decimals=0))) \
+                    + np.timedelta64(1, 'D')
+
 
             
 

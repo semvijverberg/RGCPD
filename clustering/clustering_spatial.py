@@ -402,13 +402,22 @@ def regrid_array(xr_or_filestr, to_grid, periodic=False):
         plot_maps.plot_labels(xr_regrid.where(xr_regrid.values==3))
     return xr_regrid
 
-def mask_latlon(xarray, latmax=None, lonmax=None):
+def mask_latlon(xarray, latmax=None, lonmax=None, latmin=None, lonmin=None):
     ll = np.meshgrid(xarray.longitude, xarray.latitude)
+    # upper right masking
     if latmax is not None and lonmax is None:
         xarray = xarray.where(ll[1] < latmax)
     if lonmax is not None and latmax is None:
         xarray = xarray.where(ll[0]<lonmax)
     if latmax is not None and lonmax is not None:
         npmask = np.logical_or(ll[1] < latmax, ll[0]<lonmax)
+        xarray = xarray.where(npmask)
+    # bottom left masking
+    if latmin is not None and lonmin is None:
+        xarray = xarray.where(ll[1] > latmin)
+    if lonmin is not None and latmin is None:
+        xarray = xarray.where(ll[0] > lonmin)
+    if latmin is not None and lonmin is not None:
+        npmask = np.logical_or(ll[1] > latmin, ll[0] > lonmin)
         xarray = xarray.where(npmask)
     return xarray
