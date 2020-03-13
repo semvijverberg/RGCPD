@@ -62,8 +62,8 @@ GBC_tfs = ('GBC',
            'feat_sel':{'model':None} } )
 
 GBC_t = ('GBC', 
-         {'max_depth':[1, 2, 3, 4],
-           'learning_rate':1E-3,
+         {'max_depth':[1, 2, 3, 4, 5, 6],
+           'learning_rate':5E-4,
            'n_estimators' : [500, 750, 1000, 1250, 1500],
            'min_samples_split':.2,
            'max_features':[.15, .2, 'sqrt'],
