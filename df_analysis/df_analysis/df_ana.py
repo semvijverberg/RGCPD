@@ -305,8 +305,8 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
         periods = _periods[:idx+1] 
         ax.plot(periods, spec[1:idx+2], ls='-', c=nice_colors[i], label=label)     
         ax.set_xscale('log')
-        ax.set_xticks(periods[periods % 2 == 0])
-        ax.set_xticklabels(periods[periods % 2 == 0])
+        ax.set_xticks(periods[np.logical_or(periods%2 == 0, periods==1)])
+        ax.set_xticklabels(np.array(periods[np.logical_or(periods%2 == 0, periods==1)], dtype=int))
         ax.set_xlim((periods[0], periods[-1]))
         ax.set_xlabel('Periods [years]', fontsize=9)
         ax.tick_params(axis='both', labelsize=8)
@@ -314,8 +314,8 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
         ax2 = ax.twiny()
         ax2.plot(periods, spec[1:idx+2], ls='-', c=nice_colors[i], label=label)     
         ax2.set_xscale('log')
-        ax2.set_xticks(periods[:][periods % 2 == 0])
-        ax2.set_xticklabels(np.round(freq[1:idx+2][periods % 2 == 0], 3))
+        ax2.set_xticks(periods[:][np.logical_or(periods%2 == 0, periods==1)])
+        ax2.set_xticklabels(np.round(freq[1:idx+2][np.logical_or(periods%2 == 0, periods==1)], 3))
         ax2.set_xlim((periods[0], periods[-1]))
         
         ax2.tick_params(axis='both', labelsize=8)
@@ -323,8 +323,8 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
         if freq_df == 'month':
             ax2.set_xlabel('Frequency [1/months]', fontsize=8)
         else:
-            ax2.set_xlabel(f'Frequency [1/ {freq_df} days]', fontsize=8)
-        ax.set_ylabel('Power Spectrum Density', fontsize=8)
+            ax2.set_xlabel(f'Frequency [1/ {freq_df} days]', fontsize=6)
+        # ax.set_ylabel('Power Spectrum Density', fontsize=8)
         
     ax.legend(fontsize='xx-small')
     if title is not None:

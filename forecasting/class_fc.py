@@ -482,12 +482,13 @@ class fcev():
         return fig
 
     def apply_df_ana_plot(self, df=None, name_ds='ts', func=None, 
-                          hspace=.4, kwrgs_func={}):
+                          hspace=.4, sharex=False, sharey=False,
+                          kwrgs_func={}):
         if df is None:
             df = self.df_data
         if func is None:
             func = df_ana.plot_ac ; kwrgs_func = {'AUC_cutoff':(14,30),'s':60}
-        return df_ana.loop_df(df, function=func, sharex=False,
+        return df_ana.loop_df(df, function=func, sharex=sharex, sharey=sharey,
                              colwrap=2, hspace=hspace, kwrgs=kwrgs_func)
 
     def _fit_model(self, stat_model=tuple, verbosity=0):
