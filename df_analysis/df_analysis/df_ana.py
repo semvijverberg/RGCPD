@@ -258,8 +258,13 @@ def fft_np(y, sampling_period=1.):
 
 def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
                   vlines=None, y_lim=None, 
-                  x_lim=None, title=None, ax=None):
-    ax=None ; x_lim=(0, .056)
+                  year_max=.5, title=None, ax=None):
+    
+    
+    # ax=None ; 
+    if hasattr(y.index,'levels'):
+        y = y.loc[0]
+    
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
         
@@ -277,14 +282,6 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
     except:
         freq_df = 1
         
-    
-    if x_lim is None:
-        try:
-            xmax = 6 * get_oneyr(y.index).size
-            x_lim = (0, 6/xmax)
-        except:
-            x_lim = (1,6/365)
-    
     def freq_to_period(xfreq, freq_df):
         if freq_df == 'month':
             periods = 1/(xfreq * 12)
@@ -303,39 +300,35 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
     for i, method in enumerate(methods):
         label, func_ = method
         freq, spec = func_(y)
-        # periods = 1*dt/(freq[1:])
-        # sp = pd.Series(spec[1:], index=freq_to_period(freq[1:], freq_df))
-        # ax = sp.plot()
-        # sf = pd.Series(spec[1:], index=range(freq[1:].size))
-        # sf.plot(ax=ax)
-        ax.plot(freq_to_period(freq[1:], freq_df), spec[1:], ls='-', c=nice_colors[i], label=label)  
-        # ax.set_xticks(freq[1:])
-        # ax.set_xticklabels(freq[1:])
-        # ax.set_xlim(x_lim)
-        if y_lim is not None:
-            ax.set_ylim(y_lim)   
-        ax.set_xticks([.01, .02, .03, .042, .056])
+        _periods = freq_to_period(freq[1:], freq_df)
+        idx = int(np.argwhere(_periods-year_max ==min(abs(_periods - year_max)))[0])
+        periods = _periods[:idx+1] 
+        ax.plot(periods, spec[1:idx+2], ls='-', c=nice_colors[i], label=label)     
+        ax.set_xscale('log')
+        ax.set_xticks(periods[periods % 2 == 0])
+        ax.set_xticklabels(periods[periods % 2 == 0])
+        ax.set_xlim((periods[0], periods[-1]))
+        ax.set_xlabel('Periods [years]', fontsize=9)
+        ax.tick_params(axis='both', labelsize=8)
+        
         ax2 = ax.twiny()
-        ax2.plot(freq[1:], spec[1:], ls='-', c=nice_colors[i], label=label)  
-        ax2.set_xlim(x_lim)
+        ax2.plot(periods, spec[1:idx+2], ls='-', c=nice_colors[i], label=label)     
+        ax2.set_xscale('log')
+        ax2.set_xticks(periods[:][periods % 2 == 0])
+        ax2.set_xticklabels(np.round(freq[1:idx+2][periods % 2 == 0], 3))
+        ax2.set_xlim((periods[0], periods[-1]))
         
-        ax2.set_xticklabels(freq_to_period(ax.get_xticks(), freq_df=freq_df))
-        
-        ax2.set_xlabel('Periods [years]')
+        ax2.tick_params(axis='both', labelsize=8)
+        ax.set_xlabel('Periods [years]', fontsize=8)
         if freq_df == 'month':
-            ax.set_xlabel('Frequency [1/months]')
+            ax2.set_xlabel('Frequency [1/months]', fontsize=8)
         else:
-            ax.set_xlabel(f'Frequency [1/ {freq_df} days]')
-        ax.set_ylabel('Power Spectrum Density')
-        # locmaj = mpl.ticker.LogLocator(base=10,numticks=int(-1E-99+x_lim[-1]/100) + 1) 
-        # ax.xaxis.set_major_locator(locmaj)
-        # locmin = mpl.ticker.LogLocator(base=10.0,subs=tuple(np.arange(0,1,0.1)[1:]),numticks=int(-1E-99+x_lim[-1]/100) + 1)
-        # ax.xaxis.set_minor_locator(locmin)
-        # ax.xaxis.set_minor_formatter(mpl.ticker.NullFormatter())
+            ax2.set_xlabel(f'Frequency [1/ {freq_df} days]', fontsize=8)
+        ax.set_ylabel('Power Spectrum Density', fontsize=8)
         
-    ax.legend(fontsize='small')
+    ax.legend(fontsize='xx-small')
     if title is not None:
-        ax.set_title(title, fontsize=10)
+        ax.set_title(title, fontsize=9)
     return ax
         
 def resample(df, to_freq='M'):

@@ -60,6 +60,7 @@ def get_scores_improvement(m_splits, fc, s, lag, metric=None):
     
 #    keys = m.X.columns[m.X.dtypes != bool]
     X_pred = m.X_pred
+    TrainIsTrue = m.df_norm['TrainIsTrue']
     if hasattr(m, 'n_estimators')==False:   
         m = m.best_estimator_
     
@@ -69,7 +70,7 @@ def get_scores_improvement(m_splits, fc, s, lag, metric=None):
         y_true = fc.TV.RV_ts
     
     
-    TrainIsTrue = m.df_norm['TrainIsTrue']
+    
     X_train = X_pred[TrainIsTrue.loc[X_pred.index]]
 #    X_test = pd.to_datetime([d for d in X_pred.index if d not in X_train[X_train].index])
     X_test = X_pred[~TrainIsTrue.loc[X_pred.index]]
@@ -102,8 +103,6 @@ def plot_deviance(fc, lag=None, split='all', model=None,
     
     m_splits = fc.dict_models[model][f'lag_{lag}']
     
-#    assert hasattr(m_splits['split_0'], 'n_estimators'), '{}'.format(
-#            m_splits['split_0'].cv_results_)
         
     if split == 'all':
         splits = [int(k.split('_')[-1]) for k in m_splits.keys()]
