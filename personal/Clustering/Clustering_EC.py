@@ -213,24 +213,37 @@ merged_ts = pd.concat(all_ts, keys=keys, axis=1)
 #merged_ts = merged_ts[['q95','q90tail']]
 merged_ts_std = (merged_ts - merged_ts.mean())/merged_ts.std()
 merged_ts.iloc[0:5*365].plot()
+window = 10
 plt.figure()
 merged_ts_std.iloc[0:365].plot()
+
 fig = df_ana.loop_df(merged_ts, function=df_ana.plot_ac, sharex=False, 
                              colwrap=2, kwrgs={'AUC_cutoff':(14,30), 's':60})
+
 q_90tail = merged_ts[['q90tail']].resample('W').mean()
 q_95 = merged_ts[['q95']].resample('W').mean()
-ssa_q90tail = SSA(q_90tail['q90tail'], L=2)
-ssa_q95 = SSA(q_95['q95'], L=2)
-ssa_q95.plot_wcorr(max=2)
-ssa_q90tail.plot_wcorr(max=2)
+ssa_q90tail = SSA(q_90tail['q90tail'], L=window)
+ssa_q95 = SSA(q_95['q95'], L=window)
+plt.figure()
+ssa_q95.plot_wcorr(max=window)
+ssa_q90tail.plot_wcorr(max=window)
 
 q_90tail['F0'] = ssa_q90tail.reconstruct(0).to_frame(name='F0')
 q_95['F0'] = ssa_q95.reconstruct(0).to_frame(name='F0')
 q_90tail['q90tail']
+plt.figure()
 q_90tail.plot()
 q_95.plot()
+plt.figure()
 (q_90tail['q90tail'] - q_90tail['F0']).plot()
+plt.figure()
 (q_95['q95'] - q_95['F0']).plot()
+plt.figure()
+((q_95['q95'] - q_95['F0']) - (q_90tail['q90tail'] - q_90tail['F0'])).plot()
+#%%
+fig = df_ana.loop_df(merged_ts, function=df_ana.plot_spectrum, sharey=False, sharex=False, 
+                             colwrap=2, kwrgs={})
+
 # In[ ]:
 
 
