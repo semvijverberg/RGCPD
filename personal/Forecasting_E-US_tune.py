@@ -162,7 +162,7 @@ start_end_TVdate = None # ('7-04', '8-22')
 
 list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=GBC_t, 
+                    stat_model=logitCV, 
                     kwrgs_pp={'normalize':False}, 
                     dataset=f'{precur_aggr} day means',
                     keys_d='all',
