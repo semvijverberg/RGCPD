@@ -25,7 +25,7 @@ main_dir = '/'.join(curr_dir.split('/')[:-1])
 RGCPD_dir = os.path.join(main_dir, 'RGCPD')
 fc_dir = os.path.join(main_dir, 'forecasting')
 df_ana_dir = os.path.join(main_dir, 'df_analysis/df_analysis/')
-if main_dir not in sys.path:
+if main_dir not in sys.path or fc_dir not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_dir)
     sys.path.append(df_ana_dir)
@@ -92,13 +92,13 @@ datasets_path = ERA_daily
 #                'grouped' : False}
 
 
-path_data = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/3_80d77_26jun-21aug_lag14-14_q75tail_random10s1/df_data__z500_sst_sm2_sm3_snow_dt1_80d77.h5'
+path_data = user_dir + '/surfdrive/output_RGCPD/easternUS/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
 # start_end_TVdate = ('6-30', '8-29')
 start_end_TVdate = None
 n_boot = 500
 LAG_DAY = 21
-frequencies = np.arange(5, 6, 2)
-percentiles = [50]
+# frequencies = np.arange(5, 6, 2)
+# percentiles = [50]
 percentiles = [50,55,60,66,70,75,80,84.2]
 frequencies = np.arange(4, 34, 2)
 
@@ -106,8 +106,8 @@ frequencies = np.arange(4, 34, 2)
 
 kwrgs_pp={'add_autocorr':True}
 stat_model_l = [logitCV]
-folds = -9
-seed=30
+folds = None
+# seed=30
 
 list_of_fc = [] ; 
 
@@ -119,7 +119,7 @@ for perc in percentiles:
 
         # for keys_d in keys_d_list:
         fc = fcev(path_data=path_data, precur_aggr=freq, 
-                           use_fold=None, start_end_TVdate=None,
+                           use_fold=folds, start_end_TVdate=None,
                            stat_model=logitCV, 
                            kwrgs_pp={}, 
                            dataset=f'{freq}',

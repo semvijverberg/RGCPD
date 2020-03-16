@@ -193,7 +193,8 @@ def xrts_to_df(xarray):
     standard_dim = ['latitude', 'longitude', 'time', 'mask', 'cluster']
     dims = [d for d in dims if d not in standard_dim]
     if 'n_clusters' in dims:
-        xarray = xarray.rename({'n_clusters':'ncl'}).copy()
+        dims[0] = 'ncl'
+        xarray = xarray.rename({'n_clusters':dims[0]}).copy()
     var1 = int(xarray[dims[0]])
     var2 = int(xarray[dims[1]])
     dim1 = dims[0]

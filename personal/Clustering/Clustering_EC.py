@@ -34,6 +34,7 @@ path_outmain = user_dir+'/surfdrive/output_RGCPD/easternUS_EC/'
 
 
 import functions_pp
+import core_pp
 import clustering_spatial as cl
 import plot_maps
 import df_ana
@@ -83,11 +84,12 @@ plot_maps.plot_labels(xr_mask)
 # =============================================================================
 q = [80, 85, 90, 95]
 n_clusters = [2,3,4,5,6,7,8]
+tfreq = 1
 from time import time
 t0 = time()
 xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
-                                               kwrgs_load={'tfreq':1,
-                                                           'seldates':('06-15', '08-31'),
+                                               kwrgs_load={'tfreq':tfreq,
+                                                           'seldates':('06-24', '08-22'),
                                                            'selbox':selbox},
                                                kwrgs_clust={'q':q,
                                                             'n_clusters':n_clusters,
@@ -152,7 +154,7 @@ print(f'{round(time()-t0, 2)}')
 q_list = [75, 82.5, 90, 95]
 for q in q_list:
     for c in n_clusters:    
-        q = 5 ; c=6
+        q = 95 ; c=5
         xrclust = xrclustered.sel(q=q, n_clusters=c)
         ds = cl.spatial_mean_clusters(var_filename,
                                   xrclust,
@@ -164,7 +166,21 @@ for q in q_list:
                                               tailmean=False, 
                                               selbox=selbox)
 
-        q_sp = 70
+        q_sp = 50
+        ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename, 
+                                              xrclust, 
+                                              q=q_sp, 
+                                              tailmean=True, 
+                                              selbox=selbox)        
+
+        q_sp = 65
+        ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename, 
+                                              xrclust, 
+                                              q=q_sp, 
+                                              tailmean=True, 
+                                              selbox=selbox)
+
+        q_sp = 75
         ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename, 
                                               xrclust, 
                                               q=q_sp, 
@@ -196,7 +212,11 @@ t = 15 ; c = 5
 ds = cl.spatial_mean_clusters(var_filename,
                          xrclustered.sel(tfreq=t, n_clusters=c),
                          selbox=selbox)
-f_name = 'tf{}_nc{}'.format(int(ds['ts'].tfreq), int(ds['n_clusters'].tfreq))
+dims = list(ds.coords.keys())
+standard_dim = ['latitude', 'longitude', 'time', 'mask', 'cluster']
+dims = [d for d in dims if d not in standard_dim]
+params = [dims[0], int(ds.coords[dims[0]]), dims[1], int(ds.coords[dims[1]])]
+f_name = 'tf{}_{}{}_{}{}'.format(int(tfreq), *params)
 filepath = os.path.join(path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
@@ -204,7 +224,7 @@ cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['h
 import pandas as pd
 import df_ana
 from class_SSA import SSA
-keys = ['ts', 'q95', 'q70tail', 'q90tail']
+keys = ['ts', 'q50tail', 'q65tail', 'q75tail', 'q90tail', 'q95']
 all_ts = []
 for key in keys:
     ts = functions_pp.xrts_to_df(ds[key])[1]
@@ -213,24 +233,36 @@ merged_ts = pd.concat(all_ts, keys=keys, axis=1)
 #merged_ts = merged_ts[['q95','q90tail']]
 merged_ts_std = (merged_ts - merged_ts.mean())/merged_ts.std()
 merged_ts.iloc[0:5*365].plot()
-window = 10
+
 plt.figure()
 merged_ts_std.iloc[0:365].plot()
+plt.figure()
+merged_ts.groupby(merged_ts_std.index.month).mean().plot()
 
 fig = df_ana.loop_df(merged_ts, function=df_ana.plot_ac, sharex=False, 
                              colwrap=2, kwrgs={'AUC_cutoff':(14,30), 's':60})
 
+
+ts = merged_ts[['ts']].resample('W').mean()
 q_90tail = merged_ts[['q90tail']].resample('W').mean()
 q_95 = merged_ts[['q95']].resample('W').mean()
+
+window = 30
+ssa_ts =  SSA(ts['ts'], L=window)
 ssa_q90tail = SSA(q_90tail['q90tail'], L=window)
 ssa_q95 = SSA(q_95['q95'], L=window)
 plt.figure()
 ssa_q95.plot_wcorr(max=window)
+plt.figure()
 ssa_q90tail.plot_wcorr(max=window)
+plt.figure()
+ssa_ts.plot_wcorr(max=window)
 
+
+ts['F0'] = ssa_ts.reconstruct(0).to_frame(name='F0')
 q_90tail['F0'] = ssa_q90tail.reconstruct(0).to_frame(name='F0')
 q_95['F0'] = ssa_q95.reconstruct(0).to_frame(name='F0')
-q_90tail['q90tail']
+
 plt.figure()
 q_90tail.plot()
 q_95.plot()
