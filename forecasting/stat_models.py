@@ -13,7 +13,8 @@ import statsmodels.api as sm
 from statsmodels.api import add_constant
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
-from sklearn.model_selection import GridSearchCV, StratifiedKFold
+from sklearn.model_selection import GridSearchCV, KFold, PredefinedSplit
+from numpy.random import default_rng
 from sklearn.inspection import partial_dependence
 from concurrent.futures import ProcessPoolExecutor
 from sklearn.feature_selection import RFECV
@@ -33,6 +34,36 @@ logit = ('logit', None)
 #               'subsample' : 0.6,
 #               'random_state':60,
 #               'min_impurity_decrease':1E-7} )
+
+def get_cv_accounting_for_years(total_size=int, kfold=int, seed=1):
+    '''
+    Train-test split that gives priority to keep data of same year as blocks, 
+    datapoints of same year are very much not i.i.d. and should be seperated. 
+       
+
+    Parameters
+    ----------
+    total_size : int
+        total length of dataset.
+    kfold : int
+        prefered number of folds, however, if folds do not fit the number of 
+        years, kfold is incremented untill it does. 
+    seed : int, optional
+        random seed. The default is 1.
+
+    Returns
+    -------
+    cv : sk-learn cross-validation generator
+
+    '''
+    while total_size % kfold != 0:
+        kfold += 1
+    n_bl = int(total_size / kfold)
+    rng = default_rng(seed=seed)
+    shuffled = rng.choice(range(0,kfold), size=kfold, replace=False)
+    ordered = np.repeat(shuffled, n_bl)
+    cv = PredefinedSplit(ordered)
+    return cv
 
 def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
 
@@ -68,11 +99,12 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
         feat_sel = kwrgs.pop('feat_sel')
     else:
         feat_sel = None
+        
     # Get training years
     x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = get_masks(df_norm)
 
     X = df_norm[keys]
-#    X = add_constant(X)
+    # X = add_constant(X)
     X_train = X[x_fit_mask.values]
     X_pred  = X[x_pred_mask.values]
 
@@ -85,12 +117,18 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
     #     y_dates = RV_bin_fit[y_pred_mask.values].index
     # else:
     y_dates = RV_bin_fit.index
+    
+    X = X_train
 
-    # sample weight not yet supported by GridSearchCV (august, 2019)
-    strat_cv = StratifiedKFold(5, shuffle=False)
+    # Create random shuffle which keeps together years as blocks.
+    if 'kfold' in kwrgs.keys():
+        kfold = kwrgs.pop('kfold')
+    else:
+        kfold = 5 
+    cv = get_cv_accounting_for_years(len(y_train), kfold, seed=1)
     model = LogisticRegressionCV(fit_intercept=True,
-                                 cv=strat_cv,
-                                 n_jobs=1,
+                                 cv=cv,
+                                 n_jobs=1, 
                                  **kwrgs)
     if feat_sel is not None:
         if feat_sel['model'] is None:
@@ -286,10 +324,19 @@ def GBC(y_ts, df_norm, keys, kwrgs_GBM=None, verbosity=0):
     else:
         model.fit(X_train, y_train.values.ravel())
 
+
+
     if len(kwrgs_gridsearch) != 0:
+        # get cross-validation splitter
+        if 'kfold' in kwrgs.keys():
+            kfold = kwrgs.pop('kfold')
+        else:
+            kfold = 5 
+        cv = get_cv_accounting_for_years(len(y_train), kfold, seed=1)
+        
         model = GridSearchCV(model,
                   param_grid=kwrgs_gridsearch,
-                  scoring=scoring, cv=5, refit=scoring,
+                  scoring=scoring, cv=cv, refit=scoring,
                   return_train_score=True, iid=False)
         model = model.fit(X_train, y_train.values.ravel())
         if verbosity == 1:
@@ -387,18 +434,22 @@ def logit(y_ts, df_norm, keys):
 
 def feature_selection(X_train, y_train, model='logitCV', scoring='brier_score_loss', folds=5,
                       verbosity=0):
+    
+    cv = get_cv_accounting_for_years(len(y_train), folds, seed=1)
+    
     if model == 'logitCV':
         kwrgs_logit = { 'class_weight':{ 0:1, 1:1},
                         'scoring':'brier_score_loss',
                         'penalty':'l2',
                         'solver':'lbfgs'}
-        strat_cv = StratifiedKFold(5, shuffle=False)
+
+        
         model = LogisticRegressionCV(Cs=10, fit_intercept=True,
-                                     cv=strat_cv,
+                                     cv=cv,
                                      n_jobs=1,
                                      **kwrgs_logit)
 
-    rfecv = RFECV(estimator=model, step=1, cv=StratifiedKFold(folds, shuffle=False),
+    rfecv = RFECV(estimator=model, step=1, cv=cv,
               scoring='brier_score_loss')
     rfecv.fit(X_train, y_train)
     new_features = X_train.columns[rfecv.ranking_==1]

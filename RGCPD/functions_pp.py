@@ -516,31 +516,41 @@ def timeseries_tofit_bins(xr_or_dt, to_freq, start_end_date=None, start_end_year
         # line below: The +1 = include day 1 in counting
         start_day = (end_day - (dt * np.round(fit_steps_yr, decimals=0))) \
                     + np.timedelta64(1, 'D')
+                    
         if start_day.month==1 and start_day.day==1 and start_day.is_leap_year:
             # if leap year, start_day is adjusted one day backward in time,
             # however, if start_day is already first of januari, this can't be done
             # thus removing one step_yr
             start_day = (end_day - (dt * np.round(fit_steps_yr-1, decimals=0))) \
                     + np.timedelta64(1, 'D')
-                    
+        
+        # account for leap_year #1
         if start_day.is_leap_year and start_day.month <= 2 :
             # add day in front to compensate for removing a leap day
-            start_day = start_day - np.timedelta64(1, 'D')
-            
+            start_day = start_day - np.timedelta64(1, 'D')                    
+
         if start_day.dayofyear < sdate.dayofyear or start_day.year < sdate.year:
             # if startday is before the desired starting period then 
             # startday dayofyear < dayofyear of first data available )
             # skip one bin forward in time
             start_day = (end_day - (dt * np.round(fit_steps_yr-1, decimals=0))) \
                     + np.timedelta64(1, 'D')
-
-
+            # after this if statement, the 'account for leap_year' may again 
+            # be an issue.
+        
+        # account for leap_year #2
+        if start_day.is_leap_year and start_day.month <= 2 :
+            # add day in front to compensate for removing a leap day
+            start_day = start_day - np.timedelta64(1, 'D')
             
+
 
         start_yr = pd.date_range(start=start_day, end=end_day,
                                     freq=(datetime[1] - datetime[0]))
 
         start_yr = core_pp.remove_leapdays(start_yr)
+        
+        
     if input_freq == 'day' and to_freq == 1:
         end_day = seldays_pp.max()
         start_day = seldays_pp.min()

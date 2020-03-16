@@ -33,7 +33,7 @@ from RGCPD import EOF
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf5_nc5_dendo_80d77.nc'
 cluster_label = 3
-name_ds='q75tail'
+name_ds='ts'
 start_end_TVdate = ('06-24', '08-22')
 start_end_date = ('1-1', '12-31')
 tfreq = 14
