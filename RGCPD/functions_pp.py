@@ -538,10 +538,10 @@ def timeseries_tofit_bins(xr_or_dt, to_freq, start_end_date=None, start_end_year
             # after this if statement, the 'account for leap_year' may again 
             # be an issue.
         
-        # account for leap_year #2
-        if start_day.is_leap_year and start_day.month <= 2 :
-            # add day in front to compensate for removing a leap day
-            start_day = start_day - np.timedelta64(1, 'D')
+            # account for leap_year #2
+            if start_day.is_leap_year and start_day.month <= 2 :
+                # add day in front to compensate for removing a leap day
+                start_day = start_day - np.timedelta64(1, 'D')
             
 
 
@@ -1201,33 +1201,36 @@ def dfsplits_to_dates(df_splits, s):
     return dates_train, dates_test
 
 def func_dates_min_lag(dates, lag):
-    tfreq = dates[1] - dates[0]
-    oneyr = get_oneyr(pd.to_datetime(dates.values))
-    start_d_min_lag = oneyr[0] - pd.Timedelta(int(lag), unit='d')
-    end_d_min_lag = oneyr[-1] - pd.Timedelta(int(lag), unit='d')
-    if pd.Timestamp(f'{dates[0].year}-01-01') > start_d_min_lag:
-        start_d_min_lag = pd.Timestamp(f'{dates[0].year}-01-01') 
-
-    startyr = pd.date_range(start_d_min_lag, end_d_min_lag, freq=tfreq)
-
-    if startyr.is_leap_year[0]:
-        # ensure that everything before the leap day is shifted one day back in time
-        # years with leapdays now have a day less, thus everything before
-        # the leapday should be extended back in time by 1 day.
-        mask_lpyrfeb = np.logical_and(startyr.month == 2,
-                                             startyr.is_leap_year
-                                             )
-        mask_lpyrjan = np.logical_and(startyr.month == 1,
-                                             startyr.is_leap_year
-                                             )
-        mask_ = np.logical_or(mask_lpyrfeb, mask_lpyrjan)
-    
-        new_dates = np.array(startyr)
-        if np.logical_and(startyr[0].month==1, startyr[0].day==1)==False:
-            # compensate lag shift for removing leap day
-            new_dates[mask_] = startyr[mask_] - pd.Timedelta(1, unit='d')
-        else:
-            startyr =core_pp.remove_leapdays(startyr)
+    if lag != 0:
+        tfreq = dates[1] - dates[0]
+        oneyr = get_oneyr(pd.to_datetime(dates.values))
+        start_d_min_lag = oneyr[0] - pd.Timedelta(int(lag), unit='d')
+        end_d_min_lag = oneyr[-1] - pd.Timedelta(int(lag), unit='d')
+        if pd.Timestamp(f'{dates[0].year}-01-01') > start_d_min_lag:
+            start_d_min_lag = pd.Timestamp(f'{dates[0].year}-01-01') 
+        
+        startyr = pd.date_range(start_d_min_lag, end_d_min_lag, freq=tfreq)
+        
+        if startyr.is_leap_year[0]:
+            # ensure that everything before the leap day is shifted one day back in time
+            # years with leapdays now have a day less, thus everything before
+            # the leapday should be extended back in time by 1 day.
+            mask_lpyrfeb = np.logical_and(startyr.month == 2,
+                                                 startyr.is_leap_year
+                                                 )
+            mask_lpyrjan = np.logical_and(startyr.month == 1,
+                                                 startyr.is_leap_year
+                                                 )
+            mask_ = np.logical_or(mask_lpyrfeb, mask_lpyrjan)
+        
+            new_dates = np.array(startyr)
+            if np.logical_and(startyr[0].month==1, startyr[0].day==1)==False:
+                # compensate lag shift for removing leap day
+                new_dates[mask_] = startyr[mask_] - tfreq
+            else:
+                startyr =core_pp.remove_leapdays(startyr)
+    else:
+        startyr = get_oneyr(pd.to_datetime(dates.values))
    
     dates_min_lag = make_dates(startyr, np.unique(dates.year))
 
@@ -1258,4 +1261,6 @@ def apply_lsm(var_filepath, lsm_filepath, threshold_lsm=.8):
     outfile = Path(*parts)
     # save netcdf
     xarray.to_netcdf(outfile, mode='w', encoding=encoding)
-    
+
+def sort_d_by_vals(d):
+    return {k: v for k, v in sorted(d.items(), key=lambda item: item[1])}

@@ -90,7 +90,7 @@ GBC = ('GBC',
        } )
 
 # In[6]:
-path_data = user_dir + '/surfdrive/output_RGCPD/easternUS/t2mmmax_Xzkup1_20jun-19aug_lag10-10/random10_s1/df_data_sst_CPPAs30_sm2_sm3_OLR_dt1_Xzkup1.h5'
+path_data = user_dir + '/surfdrive/McKinRepl/EC_tas_tos_Northern/958dd_ran_strat10_s30/data/EC_16-03-20_15hr_lag_0_958dd.h5'
 
 path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
 RVts_filename = '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'
@@ -101,9 +101,9 @@ kwrgs_events_daily =    (filename_ts,
 kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
-precur_aggr = 16
-use_fold = -9
-lags_i = np.array([0, 14, 21, 28])
+precur_aggr = 30
+use_fold = None
+lags_i = np.array([0])
 start_end_TVdate = None # ('7-04', '8-22')
 
 
@@ -162,7 +162,7 @@ start_end_TVdate = None # ('7-04', '8-22')
 
 list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
+                    stat_model=logit, 
                     kwrgs_pp={'normalize':False}, 
                     dataset=f'{precur_aggr} day means',
                     keys_d='all',

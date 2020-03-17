@@ -15,9 +15,10 @@ import pandas as pd
 #import core_pp
 from statsmodels.sandbox.stats import multicomp
 import functions_pp
-# from class_RV import RV_class
-#import plot_maps
+
+import plot_maps
 flatten = lambda l: list(itertools.chain.from_iterable(l))
+from typing import List, Tuple, Union
 
 #%%
 
@@ -383,6 +384,153 @@ def relabel(prec_labels_s, reassign):
         prec_labels_ord[prec_labels_s == reg] = reassign[reg]
     return prec_labels_ord
 
+
+def xrmask_by_latlon(xarray, 
+                     upper_right: Tuple[float, float]=None, 
+                     bottom_right: Tuple[float, float]=None,
+                     upper_left: Tuple[float, float]=None,
+                     bottom_left: Tuple[float, float]=None, 
+                     latmax: float=None, lonmax: float=None, 
+                     latmin: float=None, lonmin: float=None):
+                     
+    '''
+    Applies mask to lat-lon xarray defined by lat lon coordinates. 
+    xarray.where returns values where mask==True.
+    
+    Consensus: everything above latmax/lonmax is masked, or everything below 
+    latmin/lonmin is masked.
+    
+    
+    Parameters
+    ----------
+    xarray : xr.DataArray
+        DESCRIPTION.
+    upper_right : Tuple[float, float], optional
+        upper right masking, defined by tuple of (lonmax, latmax). 
+        The default is None.
+    bottom_right : Tuple[float, float], optional
+        upper left masking, defined by tuple of (lonmax, latmin). 
+        The default is None.
+    upper_left : Tuple[float, float], optional
+        bottom left masking, defined by tuple of (lonmin, latmin). 
+        The default is None.
+    bottom_left : Tuple[float, float], optional
+        bottom left masking, defined by tuple of (lonmin, latmin). 
+        The default is None.
+    
+    latmax : float, optional
+        north of latmax is masked. The default is None.
+    lonmax : float, optional
+        east of lonmax is masked. The default is None.
+    latmin : float, optional
+        DESCRIPTION. The default is None.
+    lonmin : float, optional
+        DESCRIPTION. The default is None.
+
+    Returns
+    -------
+    xarray : xr.DataArray
+        DESCRIPTION.
+
+    '''
+    ll = np.meshgrid(xarray.longitude, xarray.latitude)
+    # north of latmax is masked
+    if latmax is not None and lonmax is None:
+        xarray = xarray.where(ll[1] < latmax)
+    # east of lonmax is masked
+    if lonmax is not None and latmax is None:
+        xarray = xarray.where(ll[0]<lonmax)
+    if latmin is not None and lonmin is None:
+        xarray = xarray.where(ll[1] > latmin)
+    if lonmin is not None and latmin is None:
+        xarray = xarray.where(ll[0] > lonmin)
+    # upper right masking
+    if upper_right is not None:
+        lonmax, latmax = upper_right
+        npmask = np.logical_or(ll[1] < latmax, ll[0]<lonmax)
+        xarray = xarray.where(npmask)
+    # bottom right masking
+    if bottom_right is not None:
+        lonmax, latmin = bottom_right
+        npmask = np.logical_or(ll[1] > latmin, ll[0]<lonmax)
+        xarray = xarray.where(npmask)
+    # bottom left masking
+    if bottom_left is not None:
+        latmin, lonmin = bottom_left
+        npmask = np.logical_or(ll[1] > latmin, ll[0] > lonmin)
+        xarray = xarray.where(npmask)
+    # upper left masking
+    if upper_left is not None:
+        latmax, lonmin = upper_left
+        npmask = np.logical_or(ll[1] < latmax, ll[0] > lonmin)
+        xarray = xarray.where(npmask)
+    return xarray
+
+def split_region_by_lonlat(prec_labels, label=int, trialplot=False, plot_s=0, 
+                           plot_l=0, kwrgs_mask_latlon={} ):
+    
+    # before:
+    plot_maps.plot_labels(prec_labels.isel(split=plot_s, lag=plot_l))                              
+    splits = list(prec_labels.split.values)
+    lags   = list(prec_labels.lag.values)
+    copy_labels = prec_labels.copy()
+    np_labels = copy_labels.values
+    orig_labels = np.unique(prec_labels.values[~np.isnan(prec_labels.values)])
+    print(f'\nNew label will become {max(orig_labels) + 1}')
+    if max(orig_labels) >= 20:
+        print('\nwarning, more then (or equal to) 20 regions')
+    from itertools import product
+    for s, l in product(splits, lags):
+        i_s = splits.index(s)
+        i_l = lags.index(l)
+        single = copy_labels.sel(split=s, lag=l)
+        mask_label = ~np.isnan(single.where(single.values==label))
+        for key, mask_latlon in kwrgs_mask_latlon.items():
+#            print(key, mask_latlon)
+            mask_label = xrmask_by_latlon(mask_label, 
+                                          **{str(key):mask_latlon})
+        mask_label = np.logical_and(~np.isnan(mask_label), mask_label!=0)
+        # assign new label
+        single.values[mask_label.values] = max(orig_labels) + 1
+        if trialplot:
+            plot_maps.plot_labels(single)
+            break
+        np_labels[i_s, i_l] = single.values
+    copy_labels.values = np_labels
+    # after
+    plot_maps.plot_labels(copy_labels.isel(split=plot_s, lag=plot_l))
+    return copy_labels, max(orig_labels) + 1
+
+def manual_relabel(prec_labels, replace_label: int=None, with_label: int=None):
+    '''
+    Can Automatically relabel based on prevailence. 
+    
+    If replace_label and with_label are not given:
+        
+    Smallest prevailence of first 10 labels is replaced with maximum prevailence
+    label of last 15 labels
+    
+    '''
+    
+    copy_labels = prec_labels.copy()
+    all_labels = prec_labels.values[~np.isnan(prec_labels.values)]
+    uniq_labels = np.unique(all_labels)
+    prevail = {l:list(all_labels).count(l) for l in uniq_labels}
+    prevail = functions_pp.sort_d_by_vals(prevail)
+    # smallest 10 
+    if with_label is None:
+        with_label = min(list(prevail.keys())[:10])
+    if replace_label is None:
+        replace_label = max(list(prevail.keys())[15:])
+        
+    reassign = {replace_label:with_label}
+    np_labels = copy_labels.values
+    for i, reg in enumerate(reassign.keys()):
+        np_labels[np_labels == reg] = reassign[reg]
+    copy_labels.values = np_labels
+    
+    return copy_labels
+    
 def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
     #%%
 

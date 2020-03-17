@@ -736,7 +736,7 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
             # df_RV is daily and should be shifted more tfreq/2 otherwise just
             # predicting with the (part) of the observed ts.
             # I am selecting dates_min_lag, thus adding RV that is also shifted
-            # min_lag days, will result in that I am selecting the actual
+            # min_lag days will result in that I am selecting the actual
             # observed ts.
             # lag  < tfreq_TV
             shift = tfreq_TV - lag_i

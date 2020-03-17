@@ -163,19 +163,23 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=None, ax=None):
         ax.set_title(title, fontsize=10)
     return ax
 
-def plot_timeseries(y, timesteps=None, selyears: Union[list, int]=None, title=None, ax=None):
+def plot_timeseries(y, timesteps: list=None, 
+                    selyears: Union[list, int]=None, title=None, ax=None):
     # ax=None
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
 
-    if type(y.index) == pd.core.indexes.datetimes.DatetimeIndex:
-        datetimes = y.index
+   
+    
+    if hasattr(y.index,'levels'):
+        y_ac = y.loc[0]
+    else:
+        y_ac = y
         
+    if type(y_ac.index) == pd.core.indexes.datetimes.DatetimeIndex:
+        datetimes = y_ac.index
+    
     if timesteps is None and selyears is None:
-        if hasattr(y.index,'levels'):
-            y_ac = y.loc[0]
-        else:
-            y_ac = y
         ac, con_int = autocorr_sm(y_ac)
         where = np.where(con_int[:,0] < 0 )[0]
         # has to be below 0 for n times (not necessarily consecutive):
@@ -189,7 +193,8 @@ def plot_timeseries(y, timesteps=None, selyears: Union[list, int]=None, title=No
         if type(selyears) is not list:
             selyears = [selyears]
         datetimes = get_oneyr(y.index, *selyears)
-        
+    if timesteps is not None and selyears is None:
+        datetimes = datetimes[timesteps]
     
     if hasattr(y.index,'levels'):
         for fold in y.index.levels[0]:
