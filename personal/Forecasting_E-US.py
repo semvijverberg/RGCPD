@@ -118,9 +118,9 @@ kwrgs_events_daily =    (filename_ts,
 kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
-precur_aggr = 30
+precur_aggr = 1
 use_fold = None
-lags_i = np.array([0])
+lags_i = np.array([0, 14, 21, 28])
 start_end_TVdate = None # ('7-04', '8-22')
 
 
