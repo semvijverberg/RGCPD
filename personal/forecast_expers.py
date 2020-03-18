@@ -31,6 +31,7 @@ if main_dir not in sys.path or fc_dir not in sys.path:
     sys.path.append(df_ana_dir)
     sys.path.append(fc_dir)
 
+from itertools import product
 import numpy as np
 from class_fc import fcev
 import valid_plots as dfplots
@@ -65,11 +66,6 @@ logitCV = ('logitCV',
            'solver':'lbfgs'})
 
 
-# format {'dataset' : (path_data, list(keys_options) ) }
-ERA_daily = {'ERA-5':(RGCPD_s1_sst_sm2_sm3, [None])}
-
-
-datasets_path = ERA_daily
 
 
 #%%
@@ -99,44 +95,51 @@ n_boot = 500
 LAG_DAY = 21
 # frequencies = np.arange(5, 6, 2)
 # percentiles = [50]
-percentiles = [50,55,60,66,70,75,80,84.2]
-frequencies = np.arange(4, 34, 2)
+percentiles = [50, 66] #[50,55,60,66,70,75,80,84.2]
+frequencies = np.arange(4, 8, 2)
 
 
 
 kwrgs_pp={'add_autocorr':True}
 stat_model_l = [logitCV]
-folds = None
+folds = [0]
 # seed=30
 
 list_of_fc = [] ; 
 
-dict_experiments = {}
-for perc in percentiles:
+# dict_experiments = {}
+dict_perc = {}; dict_folds = {}; dict_freqs = {} 
+f_prev, p_prev = folds[0], percentiles[0]
+for perc, freq, fold in product(percentiles, frequencies, folds):   
+    print(perc, freq, fold)         
     kwrgs_events = {'event_percentile': perc}
-    dict_freqs = {}
-    for freq in frequencies:
+    fc = fcev(path_data=path_data, precur_aggr=freq, 
+                        use_fold=fold, start_end_TVdate=None,
+                        stat_model=logitCV, 
+                        kwrgs_pp={}, 
+                        dataset=f'{freq}',
+                        keys_d='persistence')
 
-        # for keys_d in keys_d_list:
-        fc = fcev(path_data=path_data, precur_aggr=freq, 
-                           use_fold=folds, start_end_TVdate=None,
-                           stat_model=logitCV, 
-                           kwrgs_pp={}, 
-                           dataset=f'{freq}',
-                           keys_d='persistence')
+    print(f'{fc.fold} {fc.test_years[0]} {perc}')
+    fc.get_TV(kwrgs_events=kwrgs_events)
 
-        print(f'{fc.fold} {fc.test_years[0]} {perc}')
-        fc.get_TV(kwrgs_events=kwrgs_events)
-        
-        fc.fit_models(lead_max=np.array([LAG_DAY]))
-                      
-     
-        fc.perform_validation(n_boot=n_boot, blocksize='auto', 
-                                      threshold_pred='upper_clim')
-        dict_freqs[freq] = fc.dict_sum
+    fc.fit_models(lead_max=np.array([LAG_DAY]))
+ 
+    fc.perform_validation(n_boot=n_boot, blocksize='auto', 
+                                  threshold_pred='upper_clim')
+    
+    dict_sum = fc.dict_sum
+    
+    # store data in 3 double dict
+    dict_folds[str(fold)] = dict_sum
+    if fold == folds[-1]:
+        dict_freqs[str(freq)] = dict_folds
+        # empty, all folds stored in dict_freq
+        dict_folds = {} 
+    # storing tfreq which is being filled during loop
+    dict_perc[str(perc)] = dict_freqs
+    f_prev, p_prev = fold, perc
 
-        list_of_fc.append(fc)
-    dict_experiments[perc] = dict_freqs
 
 
 
@@ -159,8 +162,7 @@ else:
     x_label = 'Temporal Aggregation [days]'
 
 file_path = filename + '.h5'
-path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_experiments, 
-                                                  model=stat_model_l[0][0], 
+path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_perc, 
                                                   metric=metric, lags_t=LAG_DAY,
                                                   file_path=file_path)
 fig = dfplots.plot_score_matrix(path_data, col=0, 

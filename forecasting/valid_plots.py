@@ -284,32 +284,42 @@ def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=5,
         #%%
     return g.fig
 
-def get_score_matrix(d_expers=dict, model=str, metric=str, lags_t=None, 
+def get_score_matrix(d_expers=dict, metric=str, lags_t=None, 
                      file_path=None):
     #%%
     percen = np.array(list(d_expers.keys()))
     tfreqs = np.array(list(d_expers[percen[0]].keys()))
-    npscore = np.zeros( shape=(percen.size, tfreqs.size) )
-    np_sig = np.zeros( shape=(percen.size, tfreqs.size), dtype=object )
+    folds  = np.array(list(d_expers[percen[0]][tfreqs[0]].keys()))
+    npscore = np.zeros( shape=(folds.size, percen.size, tfreqs.size) )
+    np_sig = np.zeros( shape=(folds.size, percen.size, tfreqs.size), 
+                      dtype=object )
 
     for j, pkey in enumerate(percen):
         dict_freq = d_expers[pkey]
         for k, tkey in enumerate(tfreqs):
-            df_valid = dict_freq[tkey][0]
-            df_metric = df_valid.loc[metric]
-            npscore[j,k] = float(df_metric.loc[metric].values)
-            con_low = df_metric.loc['con_low'].values
-            con_high = float(df_metric.loc['con_high'].values)
-            if type(con_low) is np.ndarray:
-                con_low = np.quantile(con_low[0], 0.025) # alpha is 0.05
-            else:
-                con_low = float(df_metric.loc['con_low'].values)
-            np_sig[j,k] = '{:.2f} - {:.2f}'.format(con_low, con_high)
+            for i, fold in enumerate(folds):
+                df_valid = dict_freq[tkey][fold][0]
+                df_metric = df_valid.loc[metric]
+                mean = float(df_metric.loc[metric].values)
+                CI   = (df_metric.loc['con_low'].values,
+                        float(df_metric.loc['con_high'].values))
+                npscore[i,j,k] = mean
+                con_low = CI[0]
+                con_high = CI[1]
+                if type(con_low) is np.ndarray:
+                    con_low = np.quantile(con_low[0], 0.025) # alpha is 0.05
+                else:
+                    con_low = float(con_low)
+                np_sig[i,j,k] = '{:.2f} - {:.2f}'.format(con_low, con_high)          
 
     data = npscore
-    df_data = pd.DataFrame(data, index=percen, columns=tfreqs)
+    index = pd.MultiIndex.from_product([folds, percen],names=['fold', 'percen'])
+                          
+    df_data = pd.DataFrame(data.reshape(-1, len(tfreqs)), index=index, 
+                           columns=tfreqs)
     df_data = df_data.rename_axis(f'lead time: {lags_t} days', axis=1)
-    df_sign = pd.DataFrame(np_sig, index=percen, columns=tfreqs)
+    df_sign = pd.DataFrame(np_sig.reshape(-1, len(tfreqs)), 
+                           index=index, columns=tfreqs)
     
     dict_of_dfs = {f'df_data_{metric}':df_data,'df_sign':df_sign}
     
@@ -324,7 +334,10 @@ def plot_score_matrix(path_data=str, col=0,
     metric = datakey.split('_')[-1]
     df_data = dict_of_dfs[datakey]
     df_sign = dict_of_dfs['df_sign']
-
+    
+    df_data = df_data.iloc[0]
+    df_sign = df_sign.iloc[0]
+    
     np_arr = df_sign.to_xarray().to_array().values
     np_sign = np_arr.swapaxes(0,1)
     annot = np.zeros_like(df_data.values, dtype="f8").tolist()

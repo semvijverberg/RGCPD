@@ -75,7 +75,7 @@ class fcev():
             # remove all data from test years
             print(f'removing fold {self.fold}')
             self.df_data =self._remove_test_splits()
-        else:
+        if self.fold is None:
             self.df_data = self.df_data_orig
 
         self.dates_df  = self.df_data.loc[0].index.copy()
@@ -229,7 +229,8 @@ class fcev():
             self.dict_preds[uniqname] = (y_pred_all, y_pred_c)
             self.dict_models[uniqname] = models
         return
-
+    
+    @staticmethod
     def _create_new_traintest_split(df_data, method='random9', seed=1, kwrgs_events=None):
 
         # insert fake train test split to make RV
@@ -245,7 +246,8 @@ class fcev():
         splits = df_splits.index.levels[0]
         df_data_s   = np.zeros( (splits.size) , dtype=object)
         for s in splits:
-            df_data_s[s] = pd.merge(df_data, df_splits.loc[s], left_index=True, right_index=True)
+            df_data_s[s] = pd.merge(df_data, df_splits.loc[s], 
+                                    left_index=True, right_index=True)
 
         df_data  = pd.concat(list(df_data_s), keys= range(splits.size))
         return df_data
