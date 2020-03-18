@@ -124,34 +124,31 @@ lags_i = np.array([0, 14, 21, 28])
 start_end_TVdate = None # ('7-04', '8-22')
 
 
-list_of_fc = [fcev(path_data=EC_data, precur_aggr=precur_aggr, 
+list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
                     stat_model=logitCV, 
-                    kwrgs_pp={'normalize':'datesRV'}, 
-                    dataset=f'EC-earth',
-                    keys_d='PEP',
-                    causal=False),
+                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
+                    dataset=f'ERA-5',
+                    keys_d='PEP'),
+              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                    use_fold=use_fold, start_end_TVdate=None,
+                    stat_model=logitCV, 
+                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
+                    dataset=f'ERA-5',
+                    keys_d='CPPA'),
               fcev(path_data=EC_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
                     stat_model=logitCV, 
-                    kwrgs_pp={'normalize':'datesRV'}, 
+                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
                     dataset=f'EC-earth',
-                    keys_d='CPPA',
-                    causal=False),
-              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                    keys_d='PEP'),
+              fcev(path_data=EC_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
                     stat_model=logitCV, 
-                    kwrgs_pp={'normalize':'datesRV'}, 
-                    dataset=f'ERA-5',
-                    keys_d='PEP',
-                    causal=False),
-              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={'normalize':'datesRV'}, 
-                    dataset=f'ERA-5',
-                    keys_d='CPPA',
-                    causal=False)]
+                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
+                    dataset=f'EC-earth',
+                    keys_d='CPPA')]
+
               
 fc = list_of_fc[0]
 #%%
