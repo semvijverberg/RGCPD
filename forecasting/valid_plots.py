@@ -1005,22 +1005,28 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                     #     model = models[0]
                     
                 # match_list = []
-                
+                from itertools import permutations, product
                 string_exp = line +'..'+ c_label.replace(' ','..') 
+                diff_order = list(permutations(string_exp.split('..'), 3))
+                diff_order = ['..'.join(sublist) for sublist in diff_order]
                 got_it = False ; 
-                for k in comb:
-                    match = np.array([i in k for i in string_exp])
-                    match = np.insert(match, obj=0, 
-                                      values=np.array([i in string_exp for i in k]))
-                    match = match[match].size / match.size
-                    # match_list.append(match)
-                    # first try full match (experiments differ only in 1 dim)
-                    if match==1:
-                        df_valid, df_RV, y_pred_all = dict_all[k]
-                        # df_RV = RV.prob_clim.merge(RV.RV_bin, left_index=True, right_index=True)
-                        # print(string_exp, k, '\n', df_valid.loc['BSS'].loc['BSS'])
+                # for k in comb:
+                for av, req in product(comb,diff_order):
+                    if av == req:
+                        # print(av,string_exp)
+                        df_valid, df_RV, y_pred_all = dict_all[av]
+                    # df_RV = RV.prob_clim.merge(RV.RV_bin, left_index=True, right_index=True)
+                    # print(string_exp, k, '\n', df_valid.loc['BSS'].loc['BSS'])
                         got_it = True 
                         break
+                    # match = np.array([i in k for i in string_exp])
+                    # match = np.insert(match, obj=0, 
+                    #                   values=np.array([i in string_exp for i in k]))
+                    # match = match[match].size / match.size
+                    # # match_list.append(match)
+                    # # first try full match (experiments differ only in 1 dim)
+                    # if match==1:
+                        
                 if got_it == True:
                     # if experiment not present, continue loop, but skip this
                     # string_exp
