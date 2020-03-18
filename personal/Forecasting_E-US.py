@@ -120,7 +120,7 @@ kwrgs_events = {'event_percentile': 66}
 kwrgs_events = kwrgs_events
 precur_aggr = 1
 use_fold = None
-lags_i = np.array([0, 14, 21, 28])
+lags_i = np.array([0, 14, 21, 28, 35])
 start_end_TVdate = None # ('7-04', '8-22')
 
 
@@ -165,13 +165,14 @@ for i, fc in enumerate(list_of_fc):
 # In[8]:
 store = False
 if __name__ == "__main__":
+    filename = fc.filename +'.h5'
     store = True
 
 import valid_plots as dfplots
 import functions_pp
 kwrgs = {'wspace':0.25, 'col_wrap':None}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
-met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision']
+met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 
 
@@ -180,14 +181,12 @@ line_dim = 'exper'
 
 dict_all = dfplots.merge_valid_info(list_of_fc, store=store)
 if store:
-    dict_all = functions_pp.load_hdf5(fc.filename +'.h5')
+    dict_all = functions_pp.load_hdf5(filename)
 
 fig = dfplots.valid_figures(dict_all, 
                           line_dim=line_dim,
                           group_line_by=None,
                           met=met, **kwrgs)
-
-
 
 
 working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)

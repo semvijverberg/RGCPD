@@ -15,8 +15,8 @@ import functions_pp
 from sklearn.calibration import calibration_curve
 import sklearn.metrics as metrics
 import seaborn as sns
-import itertools 
-flatten = lambda l: list(itertools.chain.from_iterable(l))
+from itertools import permutations, product, chain
+flatten = lambda l: list(chain.from_iterable(l))
 
 import matplotlib as mpl
 from matplotlib import cycler
@@ -1004,13 +1004,11 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                     #     exper = line
                     #     model = models[0]
                     
-                # match_list = []
-                from itertools import permutations, product
+                
                 string_exp = line +'..'+ c_label.replace(' ','..') 
                 diff_order = list(permutations(string_exp.split('..'), 3))
                 diff_order = ['..'.join(sublist) for sublist in diff_order]
                 got_it = False ; 
-                # for k in comb:
                 for av, req in product(comb,diff_order):
                     if av == req:
                         # print(av,string_exp)
