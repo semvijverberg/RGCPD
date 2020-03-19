@@ -324,6 +324,7 @@ def get_score_matrix(d_expers=dict, metric=str, lags_t=None,
     dict_of_dfs = {f'df_data_{metric}_{lags_t}':df_data,'df_sign':df_sign}
     
     path_data = functions_pp.store_hdf_df(dict_of_dfs, file_path=file_path)
+    #%%
     return path_data, dict_of_dfs
 
 def plot_score_matrix(path_data=str, x_label=None, ax=None):
@@ -372,10 +373,6 @@ def plot_score_expers(path_data=str, x_label=None, ax=None):
                       
                      
     #%%
-    ax = None
-    if ax==None:
-        print('ax == None')
-        fig, ax = plt.subplots(constrained_layout=True, figsize=(10,5))
     
     dict_of_dfs = functions_pp.load_hdf5(path_data=path_data)
     datakey = [k for k in dict_of_dfs.keys() if k[:7] == 'df_data'][0]
@@ -392,7 +389,7 @@ def plot_score_expers(path_data=str, x_label=None, ax=None):
                            np.repeat(1, mean.index.size)])
     df = pd.DataFrame(grid_data.T, columns=['index', 'None'])
     g = sns.FacetGrid(df, row='index', height=3, aspect=1.4,
-                      sharex=False,  sharey=False)    
+                      sharex=True,  sharey=False)    
     color='red'
     style='solid'
     for r, row_label in enumerate(mean.index):
@@ -436,7 +433,7 @@ def plot_score_expers(path_data=str, x_label=None, ax=None):
         ax.set_ylabel(metric)
         ax.set_xlabel(x_label)
     #%%
-    return fig
+    return g.fig
 
 def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
                     clim=None, cv_lines=False, col=0, threshold_bin=None,

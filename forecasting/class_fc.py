@@ -348,8 +348,9 @@ class fcev():
     def _print_sett(self, list_of_fc=None, subfoldername=None, f_name=None,
                     filename=None):
 
-        self._get_outpaths(list_of_fc=None, subfoldername=None, f_name=None,
-                    filename=None)
+        self._get_outpaths(list_of_fc=None, subfoldername=subfoldername, 
+                           f_name=f_name,
+                           filename=filename)
 
 
 

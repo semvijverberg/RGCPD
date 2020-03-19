@@ -91,7 +91,7 @@ logitCV = ('logitCV',
 path_data = user_dir + '/surfdrive/output_RGCPD/easternUS/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
 start_end_TVdate = None
 n_boot = 500
-LAG_DAY = 14
+LAG_DAY = 21
 
 percentiles = [50,55,60,66,70,75,80,84.2]
 frequencies = np.arange(4, 34, 2)
@@ -168,13 +168,15 @@ path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_perc,
                                                   file_path=file_path)
 fig = dfplots.plot_score_matrix(path_data, 
                                 x_label=x_label, ax=None)
-
-fig = dfplots.plot_score_expers(path_data, 
-                                x_label=x_label, ax=None)
-                      
-    
-
 fig.savefig(os.path.join(filename + f_format), 
             bbox_inches='tight') # dpi auto 600
+
+fig = dfplots.plot_score_expers(path_data, 
+                                x_label=x_label)
+                      
+fig.savefig(os.path.join(filename + f_format), 
+            bbox_inches='tight') # dpi auto 600
+
+
 
     
