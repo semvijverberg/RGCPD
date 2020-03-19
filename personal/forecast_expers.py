@@ -89,26 +89,24 @@ logitCV = ('logitCV',
 
 
 path_data = user_dir + '/surfdrive/output_RGCPD/easternUS/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
-# start_end_TVdate = ('6-30', '8-29')
 start_end_TVdate = None
 n_boot = 500
 LAG_DAY = 21
 # frequencies = np.arange(5, 6, 2)
 # percentiles = [50]
-percentiles = [50, 66] #[50,55,60,66,70,75,80,84.2]
-frequencies = np.arange(4, 8, 2)
-
+percentiles = [50,55,60,66,70,75,80,84.2]
+frequencies = np.arange(4, 34, 2)
+folds = np.arange(10)
 
 
 kwrgs_pp={'add_autocorr':True}
 stat_model_l = [logitCV]
-folds = [0]
+
 # seed=30
 
 list_of_fc = [] ; 
 
-# dict_experiments = {}
-dict_perc = {}; dict_folds = {}; dict_freqs = {} 
+dict_perc = {}; dict_folds = {}; dict_freqs = {}
 f_prev, p_prev = folds[0], percentiles[0]
 for perc, freq, fold in product(percentiles, frequencies, folds):   
     print(perc, freq, fold)         
@@ -127,6 +125,7 @@ for perc, freq, fold in product(percentiles, frequencies, folds):
  
     fc.perform_validation(n_boot=n_boot, blocksize='auto', 
                                   threshold_pred='upper_clim')
+    list_of_fc.append(fc)
     
     dict_sum = fc.dict_sum
     
@@ -134,11 +133,13 @@ for perc, freq, fold in product(percentiles, frequencies, folds):
     dict_folds[str(fold)] = dict_sum
     if fold == folds[-1]:
         dict_freqs[str(freq)] = dict_folds
-        # empty, all folds stored in dict_freq
+        # empty folds dict, those are now stored in dict_freq
         dict_folds = {} 
-    # storing tfreq which is being filled during loop
-    dict_perc[str(perc)] = dict_freqs
-    f_prev, p_prev = fold, perc
+    if freq == frequencies[-1] and fold == folds[-1]:       
+        dict_perc[str(perc)] = dict_freqs
+        list_of_fc.append((perc, dict_freqs))
+        dict_freqs =  {}
+
 
 
 
@@ -165,7 +166,10 @@ file_path = filename + '.h5'
 path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_perc, 
                                                   metric=metric, lags_t=LAG_DAY,
                                                   file_path=file_path)
-fig = dfplots.plot_score_matrix(path_data, col=0, 
+fig = dfplots.plot_score_matrix(path_data, 
+                                x_label=x_label, ax=None)
+
+fig = dfplots.plot_score_expers(path_data, col=0, 
                                 x_label=x_label, ax=None)
                       
     

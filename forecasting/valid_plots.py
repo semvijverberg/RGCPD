@@ -321,22 +321,22 @@ def get_score_matrix(d_expers=dict, metric=str, lags_t=None,
     df_sign = pd.DataFrame(np_sig.reshape(-1, len(tfreqs)), 
                            index=index, columns=tfreqs)
     
-    dict_of_dfs = {f'df_data_{metric}':df_data,'df_sign':df_sign}
+    dict_of_dfs = {f'df_data_{metric}_{lags_t}':df_data,'df_sign':df_sign}
     
     path_data = functions_pp.store_hdf_df(dict_of_dfs, file_path=file_path)
     return path_data, dict_of_dfs
 
-def plot_score_matrix(path_data=str, col=0,
-                      x_label=None, ax=None):
+def plot_score_matrix(path_data=str, x_label=None, ax=None):
+                     
     #%%
     dict_of_dfs = functions_pp.load_hdf5(path_data=path_data)
     datakey = [k for k in dict_of_dfs.keys() if k[:7] == 'df_data'][0]
-    metric = datakey.split('_')[-1]
+    metric = datakey.split('_')[-2]
     df_data = dict_of_dfs[datakey]
     df_sign = dict_of_dfs['df_sign']
     
-    df_data = df_data.iloc[0]
-    df_sign = df_sign.iloc[0]
+    df_data = df_data.xs('0', level='fold')
+    df_sign = df_sign.xs('0', level='fold')
     
     np_arr = df_sign.to_xarray().to_array().values
     np_sign = np_arr.swapaxes(0,1)
@@ -368,81 +368,64 @@ def plot_score_matrix(path_data=str, col=0,
     return fig
     
    
-def plot_score_expers(d_expers=dict, model=str, metric=str, lags_t=None,
-                      color='red', style='solid', col=0,
-                      x_label=None, x_label2=None, ax=None):
+def plot_score_expers(path_data=str, x_label=None, ax=None):
+                      
+                     
     #%%
     ax = None
     if ax==None:
         print('ax == None')
         fig, ax = plt.subplots(constrained_layout=True, figsize=(10,5))
     
-    folds = np.array(list(d_expers.keys()))
-    spread_size = 0.3
-    steps = np.linspace(-spread_size,spread_size, folds.size)
-#    freqs = len(d_expers.items()[])
-    for i, fold_key in enumerate(folds):
-        dict_freq = d_expers[fold_key]
-        x_vals_freq = list(dict_freq.keys())
-        x_vals = np.arange(len(x_vals_freq))
-        y_vals = [] ; y_mins = [] ; y_maxs = []
-        for x in x_vals_freq:
-            df_valid = dict_freq[x][model][0]
-            df_metric = df_valid.loc[metric]
-            y_vals.append(float(df_metric.loc[metric].values))
-            y_mins.append(float(df_metric.loc['con_low'].values))
-            y_maxs.append(float(df_metric.loc['con_high'].values))
+    dict_of_dfs = functions_pp.load_hdf5(path_data=path_data)
+    datakey = [k for k in dict_of_dfs.keys() if k[:7] == 'df_data'][0]
+    metric  = datakey.split('_')[-2]
+    lag     = datakey.split('_')[-1]
+    df_data = dict_of_dfs[datakey]
+    
+    mean = df_data.mean(axis=0, level=1)
+    y_min = df_data.min(axis=0, level=1)
+    y_max = df_data.max(axis=0, level=1)
         
-        x_vals_shift = x_vals+steps[i]
-
-        
-        ax.scatter(x_vals_shift, y_vals, color=color, linestyle=style,
+    # index to rows in FacetGrid
+    grid_data = np.stack( [np.repeat(mean.index[:,None], 1),
+                           np.repeat(1, mean.index.size)])
+    df = pd.DataFrame(grid_data.T, columns=['index', 'None'])
+    g = sns.FacetGrid(df, row='index', height=3, aspect=1.4,
+                      sharex=False,  sharey=False)    
+    color='red'
+    style='solid'
+    for r, row_label in enumerate(mean.index):
+        ax = g.axes[r,0]
+        df_freq = mean.loc[row_label]
+        df_min  = y_min.loc[row_label]
+        df_max  = y_max.loc[row_label]
+        ax.scatter(df_freq.index, df_freq.values, color=color, linestyle=style,
                         linewidth=3, alpha=1 )
-        # C.I. inteval
+        ax.scatter(df_freq.index, df_min.values, s=70, 
+                   marker="_", color='black')
+        ax.scatter(df_freq.index, df_max.values, s=70, 
+                   marker="_", color='black')
+        ax.vlines(df_freq.index, df_min.values, df_max.values, color='black', linewidth=1)
+        
+        if r == 0:
+            text = f'Lead time: {int(np.unique(lag))} days'
+            props = dict(boxstyle='round', facecolor='wheat', edgecolor='black', alpha=0.5)
+            ax.text(0.5, 1.05, text,
+                    fontsize=14,
+                    bbox=props,
+                horizontalalignment='center',
+                verticalalignment='bottom',
+                transform=ax.transAxes)
 
-        ax.scatter(x_vals_shift, y_mins, s=70, marker="_", color='black')
-        ax.scatter(x_vals_shift, y_maxs, s=70, marker="_", color='black')
-        ax.vlines(x_vals_shift, y_mins, y_maxs, color='black', linewidth=1)
-                  
-        for x_t,y_t in zip(x_vals_shift, y_mins):
-            ax.text(x_t, y_t-.005, f'{fold_key}', horizontalalignment='center',
-                    verticalalignment='top')
-        
-    
-        ax.hlines(y=0, xmin=min(x_vals)-spread_size, xmax=max(x_vals)+spread_size, linestyle='dotted', linewidth=0.75)
-        ax.set_xticks(x_vals)
-        ax.set_xticklabels(x_vals_freq)
-    
-        
-        if lags_t is not None:
-            if np.unique(lags_t).size > 1 and i==0:
-        
-                ax2 = ax.twiny()
-                ax2.set_xbound(ax.get_xbound())
-                ax2.set_xticks(x_vals)
-                ax2.set_xticklabels(lags_t)
-                ax2.grid(False)
-                ax2.set_xlabel(x_label2)
-                text = f'Lead time varies'
-                props = dict(boxstyle='round', facecolor='wheat', edgecolor='black', alpha=0.5)
-                ax.text(0.5, 0.983, text,
-                        fontsize=15,
-                        bbox=props,
-                    horizontalalignment='center',
-                    verticalalignment='top',
-                    transform=ax.transAxes)
-    
-            if np.unique(lags_t).size == 1 and i==0:
-                text = f'Lead time: {int(np.unique(lags_t))} days'
-                props = dict(boxstyle='round', facecolor='wheat', edgecolor='black', alpha=0.5)
-                ax.text(0.5, 0.983, text,
-                        fontsize=15,
-                        bbox=props,
-                    horizontalalignment='center',
-                    verticalalignment='top',
-                    transform=ax.transAxes)
-    
-    
+        text = f'{row_label}th percentile'
+        props = dict(boxstyle='round', facecolor=None, edgecolor='black', alpha=0.5)
+        ax.text(0.015, .98, text,
+                fontsize=10,
+                bbox=props,
+            horizontalalignment='left',
+            verticalalignment='top',
+            transform=ax.transAxes)
         if metric == 'BSS':
             y_lim = (-0.4, 0.6)
         elif metric[:3] == 'AUC':
@@ -452,7 +435,6 @@ def plot_score_expers(d_expers=dict, model=str, metric=str, lags_t=None,
         ax.set_ylim(y_lim)
         ax.set_ylabel(metric)
         ax.set_xlabel(x_label)
-    ax.plot()
     #%%
     return fig
 
