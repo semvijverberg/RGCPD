@@ -92,12 +92,13 @@ path_data = user_dir + '/surfdrive/output_RGCPD/easternUS/era5_T2mmax_sst_Northe
 start_end_TVdate = None
 n_boot = 500
 LAG_DAY = 14
-# frequencies = np.arange(5, 6, 2)
-# percentiles = [50]
+
 percentiles = [50,55,60,66,70,75,80,84.2]
 frequencies = np.arange(4, 34, 2)
 folds = np.arange(10)
-
+# percentiles = [50, 60]
+# frequencies = np.arange(5, 6, 2)
+# folds = [0, 1]
 
 kwrgs_pp={'add_autocorr':True}
 stat_model_l = [logitCV]
@@ -137,7 +138,6 @@ for perc, freq, fold in product(percentiles, frequencies, folds):
         dict_folds = {} 
     if freq == frequencies[-1] and fold == folds[-1]:       
         dict_perc[str(perc)] = dict_freqs
-        list_of_fc.append((perc, dict_freqs))
         dict_freqs =  {}
 
 
