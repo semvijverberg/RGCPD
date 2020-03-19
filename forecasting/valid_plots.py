@@ -369,7 +369,7 @@ def plot_score_matrix(path_data=str, x_label=None, ax=None):
     return fig
     
    
-def plot_score_expers(path_data=str, x_label=None, ax=None):
+def plot_score_expers(path_data=str, x_label=None):
                       
                      
     #%%
@@ -388,22 +388,29 @@ def plot_score_expers(path_data=str, x_label=None, ax=None):
     grid_data = np.stack( [np.repeat(mean.index[:,None], 1),
                            np.repeat(1, mean.index.size)])
     df = pd.DataFrame(grid_data.T, columns=['index', 'None'])
-    g = sns.FacetGrid(df, row='index', height=3, aspect=1.4,
-                      sharex=True,  sharey=False)    
+    g = sns.FacetGrid(df, row='index', height=3, aspect=3,
+                      sharex=False,  sharey=False)    
     color='red'
-    style='solid'
     for r, row_label in enumerate(mean.index):
         ax = g.axes[r,0]
         df_freq = mean.loc[row_label]
         df_min  = y_min.loc[row_label]
         df_max  = y_max.loc[row_label]
-        ax.scatter(df_freq.index, df_freq.values, color=color, linestyle=style,
-                        linewidth=3, alpha=1 )
-        ax.scatter(df_freq.index, df_min.values, s=70, 
+                   
+        for f in np.unique(df_data.index.get_level_values(0)):
+            ax.scatter(df_freq.index, df_data.loc[f].loc[row_label].values, 
+                       color='black', marker="_", s=70,
+                       alpha=.3 )
+            
+        ax.scatter(df_freq.index, df_freq.values, s=90, marker="_",
+                   color=color, alpha=1 )
+            
+        ax.scatter(df_freq.index, df_min.values, s=90, 
                    marker="_", color='black')
-        ax.scatter(df_freq.index, df_max.values, s=70, 
+        ax.scatter(df_freq.index, df_max.values, s=90, 
                    marker="_", color='black')
-        ax.vlines(df_freq.index, df_min.values, df_max.values, color='black', linewidth=1)
+        # ax.vlines(df_freq.index, df_min.values, df_max.values, color='black', linewidth=1)
+        
         
         if r == 0:
             text = f'Lead time: {int(np.unique(lag))} days'
@@ -424,14 +431,15 @@ def plot_score_expers(path_data=str, x_label=None, ax=None):
             verticalalignment='top',
             transform=ax.transAxes)
         if metric == 'BSS':
-            y_lim = (-0.4, 0.6)
+            y_lim = (-0.4, 0.4)
         elif metric[:3] == 'AUC':
             y_lim = (0,1.0)
         elif metric == 'EDI':
             y_lim = (-1.,1.0)
         ax.set_ylim(y_lim)
-        ax.set_ylabel(metric)
-        ax.set_xlabel(x_label)
+        ax.set_ylabel(metric, labelpad=-2)
+        if r == mean.index.size-1:
+            ax.set_xlabel(x_label, labelpad=4)
     #%%
     return g.fig
 

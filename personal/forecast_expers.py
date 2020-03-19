@@ -90,11 +90,12 @@ logitCV = ('logitCV',
 
 path_data = user_dir + '/surfdrive/output_RGCPD/easternUS/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
 start_end_TVdate = None
-n_boot = 500
+n_boot = 1
 LAG_DAY = 21
 
-percentiles = [50,66]
-frequencies = np.arange(4, 34, 2)
+percentiles = [50,66, 84.2]
+frequencies = np.arange(4, 40, 2)
+np.insert(frequencies, 0, 1)
 folds = np.arange(10)
 # percentiles = [50, 60]
 # frequencies = np.arange(5, 6, 2)
