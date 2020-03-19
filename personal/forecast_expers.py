@@ -117,7 +117,7 @@ for perc, freq, fold in product(percentiles, frequencies, folds):
                         stat_model=logitCV, 
                         kwrgs_pp={}, 
                         dataset=f'{freq}',
-                        keys_d='persistence')
+                        keys_d='CPPA Pattern')
 
     print(f'{fc.fold} {fc.test_years[0]} {perc}')
     fc.get_TV(kwrgs_events=kwrgs_events)
