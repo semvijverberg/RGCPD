@@ -489,12 +489,22 @@ def store_hdf_df(dict_of_dfs, file_path):
     return
 
 def load_hdf5(path_data):
-    import h5py
-    hdf = h5py.File(path_data,'r+')
-    dict_of_dfs = {}
-    for k in hdf.keys():
-        dict_of_dfs[k] = pd.read_hdf(path_data, k)
-    hdf.close()
+    import h5py, time
+    attempt = 'Fail'
+    c = 0
+    while attempt =='Fail':
+        c += 1
+        try:
+            hdf = h5py.File(path_data,'r+')
+            dict_of_dfs = {}
+            for k in hdf.keys():
+                dict_of_dfs[k] = pd.read_hdf(path_data, k)
+            hdf.close()
+            attempt = 1
+        except:
+            time.sleep(1)
+        if c == 5:
+            print('loading in hdf5 failed')
     return dict_of_dfs
 
 
