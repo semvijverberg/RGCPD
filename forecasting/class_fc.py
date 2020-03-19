@@ -117,13 +117,22 @@ class fcev():
         self.kwrgs_pp = kwrgs_pp
         return
 
-    # @classmethod
-    # def get_test_data(cls, stat_model_l=None, keys_d=None, causal=False, n_boot=100):
-    #     path_py   = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-    #     name = 'E-US_temp_test'
-    #     test_fname = 'test_TV-US-temp_X_sst-z500-sm.h5'
-    #     path_data = os.path.join('/'.join(path_py.split('/')[:-1]), 'data', test_fname)
-    #     return cls(path_data, name=name)
+    def load_TV_from_cluster(self, path_cluster=str, label: int=1, name_ds='ts'):
+        list_of_name_path = [(label, path_cluster)]
+        f = functions_pp
+        self.fulltso, self.hash = f.load_TV(list_of_name_path, name_ds=name_ds)
+        # overwriting first column of df_data
+        
+        df_TV_split = self.df_data.iloc[:,0].loc[0]
+        self.fullts = f.detrend1D(self.fulltso.sel(time=df_TV_split.index))
+        new_vals = self.fullts.sel(time=df_TV_split.index)
+        new_df = pd.DataFrame(new_vals.values, index=df_TV_split.index, 
+                              columns=[f'{label}_{name_ds}'])
+        new_df = pd.concat([new_df]*self.splits.size, keys=self.splits)
+        self.df_data = pd.merge(new_df, 
+                                self.df_data.drop(columns=self.df_data.columns[0]), 
+                                left_index=True, right_index=True)                                    
+        
 
     def get_TV(self, kwrgs_events=None, fit_model_dates=None):
 

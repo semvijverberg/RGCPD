@@ -87,15 +87,23 @@ logitCV = ('logitCV',
 #                'max_break' : 0,
 #                'grouped' : False}
 
+# ERA 5
+# path_cluster = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf5_nc6_dendo_80d77.nc'
+# path_data = user_dir + '/surfdrive/output_RGCPD/easternUS/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
+# EC-earth
+path_cluster = user_dir + '/surfdrive/output_RGCPD/easternUS_EC/958dd_ran_strat10_s30/tf1_n_clusters5_q95_dendo_958dd.nc'
+label = 1
+path_data = user_dir + '/surfdrive/output_RGCPD/easternUS_EC/958dd_ran_strat10_s30/data/EC_16-03-20_15hr_lag_0_958dd.h5'
 
-path_data = user_dir + '/surfdrive/output_RGCPD/easternUS/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
+
+
 start_end_TVdate = None
 n_boot = 1
 LAG_DAY = 21
 
 percentiles = [50,66, 84.2]
-frequencies = np.arange(4, 40, 2)
-np.insert(frequencies, 0, 1)
+frequencies = np.arange(4, 42, 2)
+frequencies = np.insert(frequencies, 0, 1)
 folds = np.arange(10)
 # percentiles = [50, 60]
 # frequencies = np.arange(5, 6, 2)
@@ -121,6 +129,9 @@ for perc, freq, fold in product(percentiles, frequencies, folds):
                         keys_d='CPPA Pattern')
 
     print(f'{fc.fold} {fc.test_years[0]} {perc}')
+    fc.load_TV_from_cluster(path_cluster=path_cluster, label=label, 
+                            name_ds='q75tail')
+    
     fc.get_TV(kwrgs_events=kwrgs_events)
 
     fc.fit_models(lead_max=np.array([LAG_DAY]))
