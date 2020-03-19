@@ -99,7 +99,7 @@ path_data = user_dir + '/surfdrive/output_RGCPD/easternUS_EC/958dd_ran_strat10_s
 
 start_end_TVdate = None
 n_boot = 1
-LAG_DAY = 21
+LAG_DAY = 14
 
 percentiles = [50,66, 84.2]
 frequencies = np.arange(4, 42, 2)
