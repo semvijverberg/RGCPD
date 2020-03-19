@@ -169,7 +169,7 @@ path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_perc,
 fig = dfplots.plot_score_matrix(path_data, 
                                 x_label=x_label, ax=None)
 
-fig = dfplots.plot_score_expers(path_data, col=0, 
+fig = dfplots.plot_score_expers(path_data, 
                                 x_label=x_label, ax=None)
                       
     
