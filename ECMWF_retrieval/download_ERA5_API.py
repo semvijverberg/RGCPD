@@ -9,6 +9,9 @@ import os
 import numpy as np
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+import multiprocessing
+max_cpu = multiprocessing.cpu_count()
+n_threads = 2*max_cpu
 
 accumulated_vars = ['total_precipitation', 'potential_evaporation', 'Runoff']
 
@@ -139,7 +142,7 @@ def retrieve_field(cls):
                     download_targets.append((year, target))
 
 #            pool = ThreadPoolExecutor(8)
-            with ThreadPoolExecutor(max_workers=8) as pool:
+            with ThreadPoolExecutor(max_workers=n_threads) as pool:
                 futures = [pool.submit(retrieval_yr, cls.var_cf_code, cls.time,  
                            cls.months, cls.days, 
                            cls.grid, cls.area, cls.lvllist, 
@@ -203,7 +206,7 @@ def retrieve_field(cls):
                     print('Output file: ', target)
                     download_targets.append((requestDates, d, target))
                     
-            with ThreadPoolExecutor(max_workers=8) as pool:
+            with ThreadPoolExecutor(max_workers=n_threads) as pool:
                 futures = [pool.submit(retrieval_moda, cls.var_cf_code, cls.stream,
                                        cls.grid, cls.area, cls.lvllist, cls.levtype, 
                                        requestDates, d, target) for requestDates, d, target in download_targets]

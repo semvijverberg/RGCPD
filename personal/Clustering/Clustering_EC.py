@@ -208,9 +208,10 @@ for q in q_list:
         fig.suptitle('tfreq: {}, n_clusters: {}, q{}tail'.format(1, c, q), 
                      x=.5, y=.97)
 #%%
-t = 15 ; c = 5        
+q = 95 ; c=5
+xrclust = xrclustered.sel(q=q, n_clusters=c)    
 ds = cl.spatial_mean_clusters(var_filename,
-                         xrclustered.sel(tfreq=t, n_clusters=c),
+                         xrclust,
                          selbox=selbox)
 dims = list(ds.coords.keys())
 standard_dim = ['latitude', 'longitude', 'time', 'mask', 'cluster']

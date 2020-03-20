@@ -39,7 +39,7 @@ import plot_maps
 import df_ana
 from RGCPD import RGCPD
 list_of_name_path = [('fake', None),
-                     ('t2mmmax', root_data + '/input_raw/mx2t_US_1979-2018_1_12_daily_0.25deg.nc')]
+                     ('mxt2', root_data + '/input_raw/mx2t_US_1979-2018_1_12_daily_0.25deg.nc')]
 rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=path_outmain)
 
@@ -60,20 +60,20 @@ var_filename = rg.list_precur_pp[0][1]
 
 #%%
 import make_country_mask
-selbox = (225, 300, 0, 60)
-xarray, Country = make_country_mask.create_mask(var_filename, kwrgs_load={'selbox':selbox}, level='Countries')
-mask_US = (xarray.values == Country.US)
-mask_US = make_country_mask.binary_erosion(mask_US)
-mask_US = make_country_mask.binary_erosion(mask_US)
-mask_US = make_country_mask.binary_opening(mask_US)
-xr_mask = xarray.where(mask_US)
-xr_mask.values[mask_US]  = 1
 
+# xarray, Country = make_country_mask.create_mask(var_filename, kwrgs_load={'selbox':selbox}, level='Countries')
+# mask_US = (xarray.values == Country.US)
+# mask_US = make_country_mask.binary_erosion(mask_US)
+# mask_US = make_country_mask.binary_erosion(mask_US)
+# mask_US = make_country_mask.binary_opening(mask_US)
+# xr_mask = xarray.where(mask_US)
+# xr_mask.values[mask_US]  = 1
 # xr_mask = cl.mask_latlon(xr_mask, latmax=63, lonmax=270)
-# xr_mask = core_pp.import_ds_lazy('/Users/semvijverberg/surfdrive/Scripts/rasterio/mask_North_America_0.25deg_orig.nc', 
-#                                  var='lsm')
-# selbox = (float(xr_mask.longitude.min()), float(xr_mask.longitude.max()), 
-#           float(xr_mask.latitude.min()), float(xr_mask.latitude.max()))
+
+selbox = (232, 295, 25, 50)
+xr_mask = core_pp.import_ds_lazy('/Users/semvijverberg/surfdrive/Scripts/rasterio/mask_North_America_0.25deg_orig.nc', 
+                                  var='lsm', selbox=selbox)
+xr_mask.values = make_country_mask.binary_erosion(xr_mask.values)
 plot_maps.plot_labels(xr_mask)
 
 
@@ -95,6 +95,9 @@ xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
                                                             'n_clusters':n_clusters,
                                                             'affinity':'jaccard',
                                                             'linkage':'average'})
+
+# xr_temp = xrclustered.sel(longitude=
+#                           np.arange(232., 295., .25)).sel(latitude=np.arange(25, 50, .25)).copy()
 fig = plot_maps.plot_labels(xrclustered, wspace=.05, hspace=-.2, cbar_vert=.08,
                             row_dim='q', col_dim='n_clusters')
 f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
@@ -152,40 +155,60 @@ print(f'{round(time()-t0, 2)}')
 
 #%%
 
-for t in tfreq:
-    for c in n_clusters:    
-        t = 5 ; c=6
-        xrclust = xrclustered.sel(tfreq=t, n_clusters=c)
-        ds = cl.spatial_mean_clusters(var_filename,
-                                  xrclust,
-                                  selbox=selbox)
-        q = 75
-        ds[f'q{q}tail'] = cl.percentile_cluster(var_filename, 
-                                              xrclust, 
-                                              q=q, 
-                                              tailmean=True, 
-                                              selbox=selbox)
 
 
-        df_clust = functions_pp.xrts_to_df(ds['ts'])
-    
-        fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False, 
-                             colwrap=2, kwrgs={'AUC_cutoff':(14,30), 's':60})
-        fig.suptitle('tfreq: {}, n_clusters: {}'.format(t, c), x=.5, y=.97)
-        
-        df_clust = functions_pp.xrts_to_df(ds[f'q{q}tail'])
-    
-        fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False, 
-                             colwrap=2, kwrgs={'AUC_cutoff':(14,30),'s':60})
-        fig.suptitle('tfreq: {}, n_clusters: {}, q{}tail'.format(t, c, q), 
-                     x=.5, y=.97)
-#%%
-t = 15 ; c = 5        
+# for c in n_clusters:  
+q = 85 ; c=5  
+xrclust = xrclustered.sel(q=q, n_clusters=c)
 ds = cl.spatial_mean_clusters(var_filename,
-                         xrclustered.sel(tfreq=t, n_clusters=c),
-                         selbox=selbox)
-f_name = 'tf{}_nc{}'.format(int(ds['ts'].tfreq), int(ds['n_clusters'].tfreq))
-filepath = os.path.join(rg.path_outmain, f_name)
+                          xrclust,
+                          selbox=selbox)
+
+ds[f'q{95}'] = cl.percentile_cluster(var_filename, 
+                                      xrclust, 
+                                      q=95, 
+                                      tailmean=False, 
+                                      selbox=selbox)
+
+q_sp = 50
+ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename, 
+                                      xrclust, 
+                                      q=q_sp, 
+                                      tailmean=True, 
+                                      selbox=selbox)        
+
+q_sp = 65
+ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename, 
+                                      xrclust, 
+                                      q=q_sp, 
+                                      tailmean=True, 
+                                      selbox=selbox)
+
+q_sp = 75
+ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename, 
+                                      xrclust, 
+                                      q=q_sp, 
+                                      tailmean=True, 
+                                      selbox=selbox)
+q_sp = 90
+ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename, 
+                                      xrclust, 
+                                      q=q_sp, 
+                                      tailmean=True, 
+                                      selbox=selbox)
+
+
+
+df_clust = functions_pp.xrts_to_df(ds['ts'])
+#%%
+
+
+dims = list(ds.coords.keys())
+standard_dim = ['latitude', 'longitude', 'time', 'mask', 'cluster']
+dims = [d for d in dims if d not in standard_dim]
+params = [dims[0], int(ds.coords[dims[0]]), dims[1], int(ds.coords[dims[1]])]
+f_name = 'tf{}_{}{}_{}{}'.format(int(tfreq), *params)
+filepath = os.path.join(path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
 #%%

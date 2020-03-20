@@ -16,7 +16,6 @@ import xarray as xr
 import matplotlib.colors as mcolors
 
 import cartopy.crs as ccrs
-import pandas as pd
 
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
@@ -50,9 +49,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     # size=2.5; cbar_vert=-0.01; units='units'; cmap=None; hspace=-0.6; 
     # clevels=None; cticks_center=None; map_proj=None ; wspace=.0
     # drawbox=None; subtitles=None; title=None; lat_labels=True; zoomregion=None
-
-
-
+    
     if map_proj is None:
         cen_lon = int(corr_xr.longitude.mean().values)
         map_proj = ccrs.LambertCylindrical(central_longitude=cen_lon)
@@ -284,8 +281,8 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
     if zoomregion is not None:
         ax.set_extent(zoomregion, crs=ccrs.PlateCarree())
-        ax.set_xlim(zoomregion[2:])
-        ax.set_ylim(zoomregion[:2])
+        # ax.set_xlim(zoomregion[:2])
+        # ax.set_ylim(zoomregion[:2])
     if title is not None:
         g.fig.suptitle(title)
 
@@ -596,14 +593,15 @@ def _get_kwrgs_labels(prec_labels):
     return kwrgs_labels
 
 def plot_labels(prec_labels, cbar_vert=None, col_dim='lag', row_dim='split',
-                wspace=0.1, hspace=-.2):
+                wspace=0.1, hspace=-.2, zoomregion=None):
     xrlabels = prec_labels.copy()
     xrlabels.values = prec_labels.values - 0.5
     kwrgs_labels = _get_kwrgs_labels(xrlabels)
     if cbar_vert is not None:
         kwrgs_labels['cbar_vert'] = cbar_vert
     plot_corr_maps(xrlabels, col_dim=col_dim, row_dim=row_dim, 
-                   hspace=hspace, wspace=wspace, **kwrgs_labels)
+                   hspace=hspace, wspace=wspace, zoomregion=zoomregion, 
+                   **kwrgs_labels)
 
 def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, 
                       mean_splits=True, kwrgs_plot={}):
