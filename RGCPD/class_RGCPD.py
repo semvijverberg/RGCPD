@@ -163,7 +163,6 @@ class RGCPD:
         return df_ana.loop_df(df, function=func, sharex=False, 
                              colwrap=2, hspace=.5, kwrgs=kwrgs_func)
         
-
     def plot_df_clust(self):
         self.get_clust()
         plot_maps.plot_labels(self.ds['xrclustered'])

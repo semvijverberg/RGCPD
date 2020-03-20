@@ -50,7 +50,8 @@ mpl.rcParams['figure.titlesize'] = 'medium'
 
 
 def get_metrics_sklearn(y_true, y_pred_all, y_pred_c, alpha=0.05, n_boot=5,
-                        blocksize=10, threshold_pred='upper_clim'):
+                        blocksize=10, threshold_pred='upper_clim', 
+                        n_cpu: int=None):
 
     #%%
 
@@ -88,7 +89,8 @@ def get_metrics_sklearn(y_true, y_pred_all, y_pred_c, alpha=0.05, n_boot=5,
         metrics_dict = metrics_sklearn(y_true, y_pred, y_pred_c.values,
                                        alpha=alpha, n_boot=n_boot, blocksize=blocksize,
                                        clim_prob=clim_prob,
-                                       threshold_pred=threshold_pred)
+                                       threshold_pred=threshold_pred,
+                                       n_cpu=n_cpu)
         if cont_pred:
             # AUC
             AUC_score, conf_lower, conf_upper, sorted_AUC = metrics_dict['AUC']
@@ -288,12 +290,10 @@ def autocorr_sm(ts, max_lag=None, alpha=0.01):
                                  fft=True)
     return ac, con_int
 
-def get_bstrap_size(ts, max_lag=200, n=1, plot=True):
+def get_bstrap_size(ts, max_lag=200, n=1):
     max_lag = min(max_lag, ts.size)
     ac, con_int = autocorr_sm(ts, max_lag=max_lag, alpha=0.01)
 
-    if plot == True:
-        plot_ac(ac, con_int, s='auto', ax=None)
 
     where = np.where(con_int[:,0] < 0 )[0]
     # has to be below 0 for n times (not necessarily consecutive):
@@ -303,7 +303,8 @@ def get_bstrap_size(ts, max_lag=200, n=1, plot=True):
 
 
 def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
-                    alpha=0.05, n_boot=5, blocksize=1, clim_prob=None, threshold_pred='upper_clim'):
+                    alpha=0.05, n_boot=5, blocksize=1, clim_prob=None, 
+                    threshold_pred='upper_clim', n_cpu: int=None):
     '''
     threshold_pred  options: 'clim', 'upper_clim', 'int or float'
                     if 'clim' is passed then all positive prediction is forecasted
@@ -378,14 +379,15 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
         n_bl = blocksize
         chunks = [old_index[n_bl*i:n_bl*(i+1)] for i in range(int(len(old_index)/n_bl))]
 
-
+        if n_cpu is None:
+            n_cpu = max_cpu-1
         # divide subchunks to boostrap to all cpus
-        n_boot_sub = int(round((n_boot / max_cpu) + 0.4, 0))
+        n_boot_sub = int(round((n_boot / n_cpu) + 0.4, 0))
         try:
-            with ProcessPoolExecutor(max_workers=max_cpu) as pool:
+            with ProcessPoolExecutor(max_workers=n_cpu) as pool:
                 futures = []
                 unique_seed = 42
-                for i_cpu in range(max_cpu):
+                for i_cpu in range(n_cpu):
                     unique_seed += 1 # ensure that no same shuffleling is done
                     futures.append(pool.submit(_bootstrap, y_true, y_pred, n_boot_sub,
                                                chunks, percentile_t, unique_seed))
@@ -394,7 +396,7 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
             print('parallel bootstrapping failed')
             unique_seed = 42
             out = []
-            for i_cpu in range(max_cpu):
+            for i_cpu in range(n_cpu):
                 unique_seed += 1 # ensure that no same shuffleling is done
                 out.append(_bootstrap(y_true, y_pred, n_boot_sub,
                                            chunks, percentile_t, unique_seed))
@@ -409,7 +411,7 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
     boots_KSS = []
     boots_EDI = []
     if n_boot > 0:
-        for i_cpu in range(max_cpu):
+        for i_cpu in range(n_cpu):
             _AUC, _AUCPR, _brier, _prec, _acc, _KSS, _EDI = out[i_cpu]
             boots_AUC.append(_AUC)
             boots_AUCPR.append(_AUCPR)

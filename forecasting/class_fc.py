@@ -45,7 +45,9 @@ class fcev():
                    stat_model: Tuple[str, dict]=('logit', None),
                    kwrgs_pp: dict={}, causal: bool=False,
                    dataset: str=None,
-                   keys_d: Union[dict,str]=None):
+                   keys_d: Union[dict,str]=None,
+                   n_cpu: int=None,
+                   verbosity: int=0):
         '''
         Instance for certain dataset with keys and list of stat models
 
@@ -57,7 +59,6 @@ class fcev():
 
         fcev.number_of_times_called += 1
         self.path_data = path_data
-
         if dataset is None:
             self.dataset = f'exper_{fcev.number_of_times_called}'
         else:
@@ -115,6 +116,9 @@ class fcev():
                                                           causal=self.causal)[keys_d]
 
         self.kwrgs_pp = kwrgs_pp
+        if n_cpu is None:
+            self.n_cpu = max_cpu - 1
+        self.verbosity = verbosity
         return
 
     def load_TV_from_cluster(self, path_cluster=str, label: int=1, name_ds='ts'):
@@ -165,17 +169,12 @@ class fcev():
         TV.dates_tobin = dates_tobin
         TV.dates_tobin_TV = TV.aggr_to_daily_dates(TV.dates_RV)
         TV.name = TV.RV_ts.columns[0]
-
-
-        # splits  = self.df_data.index.levels[0]
-        # fit_model_mask = pd.concat([TV.fit_model_mask] * splits.size, keys=splits)
-        # self.df_data = self.df_data.merge(fit_model_mask, left_index=True, right_index=True)
         TV.get_obs_clim()
         self.TV = TV
         return
 
     def fit_models(self, lead_max=np.array([1]),
-                   verbosity=0):
+                   verbosity=None):
         '''
         stat_model_l:   list of with model string and kwrgs
         keys_d      :   dict, with keys : list of variables to fit, if None
@@ -191,7 +190,8 @@ class fcev():
         model_count = {n:model_names.count(n) for n in np.unique(model_names)}
         new = {m+f'--{i+1}':m for i,m in enumerate(model_names) if model_count[m]>1}
 
-
+        if verbosity is None:
+            verbosity = self.verbosity
 
 
 
@@ -405,7 +405,7 @@ class fcev():
             y_pred_all, y_pred_c = self.dict_preds[name]
 
             if blocksize == 'auto':
-                self.blocksize = valid.get_bstrap_size(self.TV.fullts, plot=False)
+                self.blocksize = valid.get_bstrap_size(self.TV.fullts)
             else:
                 self.blocksize = blocksize
             y = self.TV.RV_bin.squeeze().values
@@ -537,7 +537,7 @@ class fcev():
         try:
             t0 = time()
             futures = {}
-            with ProcessPoolExecutor(max_workers=max_cpu) as pool:
+            with ProcessPoolExecutor(max_workers=self.n_cpu) as pool:
                 for lag in lags_i:
                     for split in splits:
                         fitkey = f'{lag}_{split}'

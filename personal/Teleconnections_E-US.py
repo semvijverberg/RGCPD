@@ -38,7 +38,7 @@ from RGCPD import RGCPD
 from RGCPD import EOF
 from RGCPD import BivariateMI
 
-old_CPPA = [('sst_CPPA', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/ran_strat10_s30/data/era5_24-09-19_07hr_lag_0.h5')]
+
 CPPA_s30 = [('sst_CPPAs30', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5' )]
 CPPA_s5  = [('sst_CPPAs5', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s5/data/ERA5_15-02-20_15hr_lag_10_Xzkup1.h5')]
 
