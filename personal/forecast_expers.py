@@ -71,13 +71,13 @@ start_end_TVdate = None
 n_boot = 1
 LAG_DAY = 14
 
-# percentiles = [50,66, 84.2]
-# frequencies = np.arange(4, 42, 2)
-# frequencies = np.insert(frequencies, 0, 1)
-# folds = np.arange(10)
-percentiles = [50, 60]
-frequencies = np.arange(5, 6, 2)
-folds = [0, 1]
+percentiles = [50,66, 84.2]
+frequencies = np.arange(4, 42, 2)
+frequencies = np.insert(frequencies, 0, 1)
+folds = np.arange(10)
+# percentiles = [50, 60]
+# frequencies = np.arange(5, 6, 2)
+# folds = [0, 1]
 
 
 list_of_fc = [] ; 
