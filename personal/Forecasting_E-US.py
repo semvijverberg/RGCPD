@@ -155,7 +155,7 @@ working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)
 
 store = False
 if __name__ == "__main__":
-    filename = fc.filename +'.h5'
+    filename = fc.filename 
     store = True
 
 import valid_plots as dfplots
@@ -171,7 +171,7 @@ line_dim = 'exper'
 
 dict_all = dfplots.merge_valid_info(list_of_fc, store=store)
 if store:
-    dict_all = functions_pp.load_hdf5(filename)
+    dict_all = functions_pp.load_hdf5(filename+'.h5')
 
 fig = dfplots.valid_figures(dict_all, 
                           line_dim=line_dim,
