@@ -151,6 +151,8 @@ for i, fc in enumerate(list_of_fc):
     
 
 # In[8]:
+working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)
+
 store = False
 if __name__ == "__main__":
     filename = fc.filename +'.h5'
@@ -175,9 +177,6 @@ fig = dfplots.valid_figures(dict_all,
                           line_dim=line_dim,
                           group_line_by=None,
                           met=met, **kwrgs)
-
-
-working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)
 
 f_format = '.pdf'
 pathfig_valid = os.path.join(filename + f_format)
