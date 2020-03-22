@@ -517,11 +517,14 @@ def manual_relabel(prec_labels, replace_label: int=None, with_label: int=None):
     uniq_labels = np.unique(all_labels)
     prevail = {l:list(all_labels).count(l) for l in uniq_labels}
     prevail = functions_pp.sort_d_by_vals(prevail)
+    l_keys = list(prevail.keys())
     # smallest 10 
     if with_label is None:
-        with_label = min(list(prevail.keys())[:10])
+        half_len = int(.5*len(l_keys))
+        with_label = min(l_keys[:min(10,half_len)])
     if replace_label is None:
-        replace_label = max(list(prevail.keys())[15:])
+        half_len = int(.5*len(l_keys))
+        replace_label = max(list(prevail.keys())[half_len:])
         
     reassign = {replace_label:with_label}
     np_labels = copy_labels.values
