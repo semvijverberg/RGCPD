@@ -57,9 +57,7 @@ logitCV = ('logitCV',
 import time
 start_time = time.time()
 # ERA 5
-path_cluster = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf5_nc5_dendo_80d77.nc'
-label = 3
-path_data = user_dir + '/surfdrive/output_RGCPD/easternUS/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5'
+path_data = user_dir + '/surfdrive/MckinRepl/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_0_ff393.h5'
 # EC-earth
 # path_cluster = user_dir + '/surfdrive/output_RGCPD/easternUS_EC/958dd_ran_strat10_s30/tf1_n_clusters5_q95_dendo_958dd.nc'
 # label = 1
@@ -96,8 +94,8 @@ for perc, freq, fold in product(percentiles, frequencies, folds):
                         verbosity=verbosity)
 
     print(f'{fc.fold} {fc.test_years[0]} {perc}')
-    fc.load_TV_from_cluster(path_cluster=path_cluster, label=label, 
-                            name_ds='q75tail')
+    # fc.load_TV_from_cluster(path_cluster=path_cluster, label=label, 
+    #                         name_ds='q75tail')
     
     fc.get_TV(kwrgs_events=kwrgs_events)
 

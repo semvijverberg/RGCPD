@@ -127,6 +127,8 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         norm = MidpointNormalize(midpoint=0, vmin=clevels[0],vmax=clevels[-1])
         ticksteps = 4
     else:
+        vmin_ = np.nanpercentile(plot_xr, 1) ; vmax_ = np.nanpercentile(plot_xr, 99)
+        vmin = np.round(float(vmin_),decimals=2) ; vmax = np.round(float(vmax_),decimals=2)
         clevels=clevels
         norm=None
         ticksteps = 1
