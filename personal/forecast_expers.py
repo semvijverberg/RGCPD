@@ -69,7 +69,7 @@ start_end_TVdate = None
 n_boot = 1
 LAG_DAY = 21
 
-percentiles = [50,66, 84.2]
+percentiles = [50, 66, 'std']
 frequencies = np.arange(4, 42, 2)
 frequencies = np.insert(frequencies, 0, 1)
 folds = np.arange(10)
