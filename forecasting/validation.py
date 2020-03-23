@@ -188,7 +188,7 @@ def get_metrics_bin(y_true, y_pred, t=None):
     if fpr != 1. and fpr != 0. and tpr != 1. and tpr != 0.:
         EDI = ( np.log(fpr) - np.log(tpr) ) / (np.log(fpr) + np.log(tpr) )
     else:
-        EDI = 1.
+        EDI = 0.
     return prec, recall, fpr, SP, Acc, f1, KSS_score, EDI
 
 def get_metrics_confusion_matrix(y_true, y_pred_all, thr=['clim', 33, 66], n_shuffle=0):
