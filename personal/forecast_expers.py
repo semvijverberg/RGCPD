@@ -10,7 +10,7 @@ import inspect, os, sys
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-    n_cpu = 31
+    n_cpu = None
 else:
     n_cpu = None
     
@@ -69,7 +69,7 @@ start_end_TVdate = None
 n_boot = 1
 LAG_DAY = 21
 
-percentiles = [50, 66, 'std']
+percentiles = [66]
 frequencies = np.arange(4, 42, 2)
 frequencies = np.insert(frequencies, 0, 1)
 folds = np.arange(10)
