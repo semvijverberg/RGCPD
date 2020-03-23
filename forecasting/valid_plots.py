@@ -851,19 +851,20 @@ def merge_valid_info(list_of_fc, store=True):
     return dict_merge_all
 
 def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
-                  met='default', wspace=0.08, col_wrap=None):
+                  met='default', wspace=0.08, col_wrap=None, 
+                  skip_redundant_title=False):
    
     '''
     3 dims to plot: [metrics, experiments, stat_models]
     2 can be assigned to row or col, the third will be lines in the same axes.
     '''
     
-    # group_line_by=None; met='default'; wspace=0.08; col_wrap=None; threshold_bin=fc.threshold_pred
+    # group_line_by=None; met='default'; wspace=0.08; col_wrap=None; threshold_bin=fc.threshold_pred ; skip_redundant_title=True
     #%%
     dims = ['exper', 'models', 'met']
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
     if met == 'default':
-        met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Rel. Curve']
+        met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
     
    
     all_expers = list(dict_merge_all.keys())
@@ -881,6 +882,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
     datasets = [c.split('..')[0] for c in comb]
     models   = [c.split('..')[1] for c in comb]
     expers   = [c.split('..')[2] for c in comb]
+    dims     = [datasets, models, expers]
 
    
 
@@ -944,7 +946,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                            'choose \'exper\' or \'model\'')
     
     lines, cols = line_col_arrangement(lines_req, *left, comb)
-
+    
 
     if len(cols) == 1 and group_line_by is not None:
         group_s = len(group_line_by)
@@ -952,7 +954,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
         lines_grouped = []
         for i in range(0,len(lines),group_s):
             lines_grouped.append(lines[i:i+group_s])
-
+            
 
 
     grid_data = np.zeros( (2, len(met)), dtype=str)
@@ -971,12 +973,22 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                       sharex=False,  sharey=False, col_wrap=col_wrap)
 
 
-
+    def style_label(dims, label, skip_redundant_title):
+        if skip_redundant_title:
+            # remove string if it is always the same, i.e. redundant
+            for dim in dims:
+                if np.unique(dim).size == 1:
+                    d = dim[0]
+                    if d in label:
+                        label = label.replace(d, '')
+        return label.replace('__',' ').replace('..', ' ')
 
     for col, c_label in enumerate(cols):
 
         if col_wrap is None:
-            g.axes[0,col].set_title(c_label.replace('__',' ').replace('..', ' '))
+            styled_col_label = style_label(dims, c_label, skip_redundant_title)
+            g.axes[0,col].set_title(styled_col_label)
+        
         if len(models) == 1 and group_line_by is not None:
             lines = lines_grouped[col]
 
@@ -1017,19 +1029,13 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                     # print(string_exp, k, '\n', df_valid.loc['BSS'].loc['BSS'])
                         got_it = True 
                         break
-                    # match = np.array([i in k for i in string_exp])
-                    # match = np.insert(match, obj=0, 
-                    #                   values=np.array([i in string_exp for i in k]))
-                    # match = match[match].size / match.size
-                    # # match_list.append(match)
-                    # # first try full match (experiments differ only in 1 dim)
-                    # if match==1:
+
                         
                 if got_it == True:
                     # if experiment not present, continue loop, but skip this
                     # string_exp
 
-                
+                    
 
                     lags_tf     = y_pred_all.columns.astype(int)
     
@@ -1070,11 +1076,6 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                                   linestyle=line_styles[l], mean_lags=True,
                                   ax=ax)
     
-                    # if metric == 'ts':
-                    #     if l == 0:
-                    #         ax, dates_ts = plot_events(RV, color=nice_colors[-1], n_yrs=6,
-                    #                          col=col, ax=ax)
-                    #     plot_ts(RV, y_pred_all, dates_ts, color, line_styles[l], lag_i=lags_tf[0], ax=ax)
     
                     # legend conditions
                     same_models = all([row==0, col==0, line==lines[-1]])

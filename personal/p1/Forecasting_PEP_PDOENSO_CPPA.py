@@ -117,12 +117,12 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                     dataset=f'CPPA vs PEP',
                     keys_d='PEP'),
-              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-                    dataset=f'CPPA vs PEP',
-                    keys_d='CPPA'),
+              # fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+              #       use_fold=use_fold, start_end_TVdate=None,
+              #       stat_model=logitCV, 
+              #       kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+              #       dataset=f'CPPA vs PEP',
+              #       keys_d='CPPA'),
               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
                     stat_model=logitCV, 
@@ -159,7 +159,7 @@ if __name__ == "__main__":
 
 import valid_plots as dfplots
 import functions_pp
-kwrgs = {'wspace':0.25, 'col_wrap':None}
+kwrgs = {'wspace':0.25, 'col_wrap':None, 'skip_redundant_title':True}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
@@ -170,7 +170,7 @@ if store:
     dict_all = functions_pp.load_hdf5(filename+'.h5')
 
 
-line_dim = 'dataset'
+line_dim = 'exper'
 
 fig = dfplots.valid_figures(dict_all, 
                           line_dim=line_dim,
