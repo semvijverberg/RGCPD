@@ -10,7 +10,7 @@ import inspect, os, sys
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-    n_cpu = 16
+    n_cpu = 31
 else:
     n_cpu = None
     
@@ -67,7 +67,7 @@ path_data = user_dir + '/surfdrive/MckinRepl/ERA5_mx2t_sst_Northern/ff393_ran_st
 
 start_end_TVdate = None
 n_boot = 1
-LAG_DAY = 14
+LAG_DAY = 21
 
 percentiles = [50,66, 84.2]
 frequencies = np.arange(4, 42, 2)
