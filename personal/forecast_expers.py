@@ -57,7 +57,7 @@ logitCV = ('logitCV',
 import time
 start_time = time.time()
 # ERA 5
-path_data = user_dir + '/surfdrive/MckinRepl/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_0_ff393.h5'
+path_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_0_ff393.h5'
 # EC-earth
 # path_cluster = user_dir + '/surfdrive/output_RGCPD/easternUS_EC/958dd_ran_strat10_s30/tf1_n_clusters5_q95_dendo_958dd.nc'
 # label = 1
@@ -75,14 +75,13 @@ LAG_DAY = 21
 # folds = np.arange(10)
 percentiles = [66]
 frequencies = np.arange(30, 32, 2)
-folds = np.arange(10)
+folds = np.arange(2)
 
 
 list_of_fc = [] ; times = []
 dict_perc = {}; dict_folds = {}; dict_freqs = {}
 f_prev, p_prev = folds[0], percentiles[0]
-for perc, freq, fold in product(percentiles, frequencies, folds):   
-    print(perc, freq, fold)        
+for perc, freq, fold in product(percentiles, frequencies, folds):        
     t0 = time.time()
     kwrgs_events = {'event_percentile': perc}
     fc = fcev(path_data=path_data, precur_aggr=freq, 
@@ -120,8 +119,9 @@ for perc, freq, fold in product(percentiles, frequencies, folds):
         dict_freqs =  {}
     single_run_time = int(time.time()-t0)
     times.append(single_run_time)
-    print(f'Time elapsed single run {single_run_time} sec\t'
-          f'ETC {(int(np.mean(times) * len(percentiles) * len(frequencies) * len(folds))/60)} min ')
+    ETC = (int(np.mean(times) * len(percentiles) * len(frequencies) * len(folds))/60)
+    print(f'Time elapsed single run in {single_run_time} sec\t'
+          f'ETC {ETC} min \ t Progress {int((time.time()-t0)/ETC)} ')
 
 
 print('Total run time {:.1f} minutes'.format((time.time() - start_time)/60))
