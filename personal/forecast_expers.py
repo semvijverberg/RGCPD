@@ -139,7 +139,7 @@ working_folder, filename = fc._print_sett(list_of_fc=list_of_fc,
 
 
 
-f_format = '.pdf'
+
 
 metric = 'BSS'
 if type(kwrgs_events) is tuple:
@@ -155,13 +155,13 @@ path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_perc,
 
 fig = dfplots.plot_score_expers(path_data, 
                                 x_label=x_label)
-                      
-fig.savefig(os.path.join(filename + f_format), 
+f_format = '.pdf'                      
+fig.savefig(os.path.join(path_data.replace('.h5','') + f_format), 
             bbox_inches='tight') # dpi auto 600
 
 fig = dfplots.plot_score_matrix(path_data, 
                                 x_label=x_label, ax=None)
-fig.savefig(os.path.join(filename + f_format), 
+fig.savefig(os.path.join(path_data.replace('.h5','') +'_matrix' + f_format), 
             bbox_inches='tight') # dpi auto 600
 
 

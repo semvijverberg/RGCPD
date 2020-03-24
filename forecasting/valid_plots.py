@@ -423,7 +423,7 @@ def plot_score_expers(path_data=str, x_label=None):
                 verticalalignment='bottom',
                 transform=ax.transAxes)
         if row_label == 'std':
-            text = '+1 std'
+            text = '+1 std (~84th percentile)'
         else:
             text = f'{row_label}th percentile'
         props = dict(boxstyle='round', facecolor=None, edgecolor='black', alpha=0.5)
