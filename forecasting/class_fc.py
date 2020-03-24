@@ -55,7 +55,8 @@ class fcev():
             format ('mm-dd', 'mm-dd'). default is the RV_mask present in the
             .h5 dataframe 'df_data'
         '''
-
+                   
+        
         fcev.number_of_times_called += 1
         self.path_data = path_data
         if dataset is None:
@@ -65,16 +66,26 @@ class fcev():
 
         self.df_data_orig = df_ana.load_hdf5(self.path_data)['df_data']
         self.fold = use_fold
-        if self.fold is not None and np.sign(self.fold) != -1:
-            self.fold = int(self.fold)
-            # overwriting self.df_data
-            self.test_years_orig = valid.get_testyrs(self.df_data_orig)
-            df_data = self.df_data_orig.loc[self.fold][self.df_data_orig.loc[self.fold]['TrainIsTrue'].values]
-            self.df_data = self._create_new_traintest_split(df_data.copy())
-        if self.fold is not None and np.sign(self.fold) == -1:
-            # remove all data from test years
-            print(f'removing fold {self.fold}')
-            self.df_data =self._remove_test_splits()
+        if self.fold is not None:
+            if type(self.fold) is int:
+                if np.sign(self.fold) == 1:
+                    self._select_fold()
+                if np.sign(self.fold) == -1:
+                    print(f'removing fold {self.fold}')
+                    self.df_data =self._remove_folds()
+            if type(self.fold) is not int:   
+                if np.sign(self.fold[0]) == 1:                 
+                    self.df_data = self.df_data_orig.loc[[0,1]]
+                
+                if np.sign(self.fold[0]) == -1:
+                    print(f'removing folds {self.fold}')
+                    self.df_data =self._remove_folds()
+                    
+                    
+        # if self.fold is not None and np.sign(self.fold) == -1:
+        #     # remove all data from test years
+        #     print(f'removing fold {self.fold}')
+        #     self.df_data =self._remove_folds()
         if self.fold is None:
             self.df_data = self.df_data_orig
 
@@ -121,6 +132,8 @@ class fcev():
             self.n_cpu = n_cpu
         self.verbosity = verbosity
         return
+
+
 
     def load_TV_from_cluster(self, path_cluster=str, label: int=1, name_ds='ts'):
         list_of_name_path = [(label, path_cluster)]
@@ -262,15 +275,22 @@ class fcev():
         df_data  = pd.concat(list(df_data_s), keys= range(splits.size))
         return df_data
 
-    def _remove_test_splits(self):
+    def _select_fold(self):
+        # overwriting self.df_data, selecting single fold
+        self.test_years_orig = valid.get_testyrs(self.df_data_orig)
+        df_data = self.df_data_orig.loc[self.fold][self.df_data_orig.loc[self.fold]['TrainIsTrue'].values]
+        df_data = self._create_new_traintest_split(df_data.copy())
+        return df_data 
+    
+    def _remove_folds(self):
         if type(self.fold) is int:
             remove_folds = [abs(self.fold)]
         else:
             remove_folds = [abs(f) for f in self.fold]
 
+        orig_fold = np.unique(self.df_data_orig.index.get_level_values(0))
         rem_yrs = valid.get_testyrs(self.df_data_orig.loc[remove_folds])
-        keep_folds = np.unique(self.df_data_orig.index.get_level_values(level=0))
-        keep_folds = [k for k in keep_folds if k not in remove_folds]
+        keep_folds = range(len(orig_fold) - len(remove_folds))
         df_data_s   = np.zeros( (len(keep_folds)) , dtype=object)
         for s in keep_folds:
             df_keep = self.df_data_orig.loc[s]
@@ -281,7 +301,6 @@ class fcev():
             assert (len([y for y in yrs if y in rem_yrs.flatten()]))==0, \
                         'check rem yrs'
         df_data  = pd.concat(list(df_data_s), keys=range(len(keep_folds)))
-
         self.rem_yrs = rem_yrs
         return df_data
 

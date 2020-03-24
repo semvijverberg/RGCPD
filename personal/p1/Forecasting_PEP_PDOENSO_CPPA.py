@@ -187,6 +187,7 @@ fig = dfplots.valid_figures(dict_merge_all,
                           group_line_by=group_line_by,
                           met=met, **kwrgs)
 
+
 f_format = '.pdf'
 pathfig_valid = os.path.join(filename + f_format)
 fig.savefig(pathfig_valid,

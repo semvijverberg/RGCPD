@@ -72,10 +72,11 @@ LAG_DAY = 14
 percentiles = [50, 66, 'std']
 frequencies = np.arange(4, 42, 2)
 frequencies = np.insert(frequencies, 0, 1)
-folds = np.arange(10)
-# percentiles = [66]
-# frequencies = np.arange(30, 32, 2)
-# folds = np.arange(2)
+# folds = np.arange(10)
+folds = [[-8, -9]]
+# percentiles = [66, 'std']
+# frequencies = np.arange(10, 12, 2)
+# folds = [[-8, -9]]
 
 
 list_of_fc = [] ; times = []
@@ -120,9 +121,9 @@ for perc, freq, fold in product(percentiles, frequencies, folds):
     single_run_time = int(time.time()-t0)
     times.append(single_run_time)
     total_n_runs = len(percentiles) * len(frequencies) * len(folds)
-    ETC = (int(np.mean(times) * total_n_runs)/60)
+    ETC = (int(np.mean(times) * total_n_runs))
     print(f'Time elapsed single run in {single_run_time} sec\t'
-          f'ETC {ETC} min \t Progress {int((time.time()-t0)/ETC)}% ')
+          f'ETC {int(ETC/60)} min \t Progress {int(100*(time.time()-t0)/ETC)}% ')
     
 
 print('Total run time {:.1f} minutes'.format((time.time() - start_time)/60))
