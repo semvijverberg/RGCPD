@@ -101,7 +101,7 @@ ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/
 # kwrgs_events_daily =    (filename_ts,
 #                          {'event_percentile': 90})
 
-kwrgs_events = {'event_percentile': 50}
+kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
 precur_aggr = 20
