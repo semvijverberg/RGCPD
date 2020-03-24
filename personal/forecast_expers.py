@@ -10,7 +10,7 @@ import inspect, os, sys
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-    n_cpu = 16
+    n_cpu = 31
 else:
     n_cpu = None
     
