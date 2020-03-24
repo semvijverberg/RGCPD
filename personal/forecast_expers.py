@@ -67,13 +67,13 @@ path_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern
 
 start_end_TVdate = None
 n_boot = 1
-LAG_DAY = 14
+LAG_DAY = 21
 
 percentiles = [50, 66, 'std']
-frequencies = np.arange(4, 42, 2)
+frequencies = np.arange(4, 32, 2)
 frequencies = np.insert(frequencies, 0, 1)
 # folds = np.arange(10)
-folds = [[-8, -9]]
+folds = [[-6, -7, -8, -9]]
 # percentiles = [66, 'std']
 # frequencies = np.arange(10, 12, 2)
 # folds = [[-8, -9]]

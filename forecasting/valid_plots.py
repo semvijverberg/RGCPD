@@ -356,8 +356,9 @@ def plot_score_matrix(path_data=str, x_label=None, ax=None):
     ax = None
     if ax==None:
         print('ax == None')
-        fig, ax = plt.subplots(constrained_layout=True, figsize=(20,13))
-    
+        h = 4 * df_data.index.get_level_values(1).size
+        fig, ax = plt.subplots(constrained_layout=True, figsize=(20,h))
+    df_data = df_data.sort_index(axis=0, level=1, ascending=False)
     ax = sns.heatmap(df_data, ax=ax, vmin=0, vmax=round(max(df_data.max())+0.05, 1), cmap=sns.cm.rocket_r,
                      annot=np.array(annot), 
                      fmt="", cbar_kws={'label': f'{metric}'})
