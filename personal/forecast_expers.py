@@ -151,14 +151,16 @@ file_path = filename + '.h5'
 path_data, dict_of_dfs = dfplots.get_score_matrix(d_expers=dict_perc, 
                                                   metric=metric, lags_t=LAG_DAY,
                                                   file_path=file_path)
-fig = dfplots.plot_score_matrix(path_data, 
-                                x_label=x_label, ax=None)
-fig.savefig(os.path.join(filename + f_format), 
-            bbox_inches='tight') # dpi auto 600
+
 
 fig = dfplots.plot_score_expers(path_data, 
                                 x_label=x_label)
                       
+fig.savefig(os.path.join(filename + f_format), 
+            bbox_inches='tight') # dpi auto 600
+
+fig = dfplots.plot_score_matrix(path_data, 
+                                x_label=x_label, ax=None)
 fig.savefig(os.path.join(filename + f_format), 
             bbox_inches='tight') # dpi auto 600
 

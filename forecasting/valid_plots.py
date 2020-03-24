@@ -335,9 +335,10 @@ def plot_score_matrix(path_data=str, x_label=None, ax=None):
     metric = datakey.split('_')[-2]
     df_data = dict_of_dfs[datakey]
     df_sign = dict_of_dfs['df_sign']
+    first_fold = df_data.index.get_level_values(0)[0]
     
-    df_data = df_data.xs('0', level='fold')
-    df_sign = df_sign.xs('0', level='fold')
+    df_data = df_data.xs(first_fold, level='fold')
+    df_sign = df_sign.xs(first_fold, level='fold')
     
     np_arr = df_sign.to_xarray().to_array().values
     np_sign = np_arr.swapaxes(0,1)
@@ -388,7 +389,7 @@ def plot_score_expers(path_data=str, x_label=None):
     grid_data = np.stack( [np.repeat(mean.index[:,None], 1),
                            np.repeat(1, mean.index.size)])
     df = pd.DataFrame(grid_data.T, columns=['index', 'None'])
-    g = sns.FacetGrid(df, row='index', height=3, aspect=3,
+    g = sns.FacetGrid(df, row='index', height=3, aspect=3.5,
                       sharex=False,  sharey=False)    
     color='red'
     for r, row_label in enumerate(mean.index):
@@ -421,8 +422,10 @@ def plot_score_expers(path_data=str, x_label=None):
                 horizontalalignment='center',
                 verticalalignment='bottom',
                 transform=ax.transAxes)
-
-        text = f'{row_label}th percentile'
+        if row_label == 'std':
+            text = '+1 std'
+        else:
+            text = f'{row_label}th percentile'
         props = dict(boxstyle='round', facecolor=None, edgecolor='black', alpha=0.5)
         ax.text(0.015, .98, text,
                 fontsize=10,
@@ -440,6 +443,7 @@ def plot_score_expers(path_data=str, x_label=None):
         ax.set_ylabel(metric, labelpad=-2)
         if r == mean.index.size-1:
             ax.set_xlabel(x_label, labelpad=4)
+    
     #%%
     return g.fig
 
