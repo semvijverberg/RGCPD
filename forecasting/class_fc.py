@@ -506,6 +506,7 @@ class fcev():
     def _fit_model(self, stat_model=tuple, verbosity=0):
 
         #%%
+        print(self)
         RV = self.TV
         kwrgs_pp = self.kwrgs_pp
         keys_d = self.keys_d

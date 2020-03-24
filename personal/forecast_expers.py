@@ -121,8 +121,8 @@ for perc, freq, fold in product(percentiles, frequencies, folds):
     times.append(single_run_time)
     ETC = (int(np.mean(times) * len(percentiles) * len(frequencies) * len(folds))/60)
     print(f'Time elapsed single run in {single_run_time} sec\t'
-          f'ETC {ETC} min \ t Progress {int((time.time()-t0)/ETC)} ')
-
+          f'ETC {ETC} min \t Progress {int((time.time()-t0)/ETC)}% ')
+    
 
 print('Total run time {:.1f} minutes'.format((time.time() - start_time)/60))
 
