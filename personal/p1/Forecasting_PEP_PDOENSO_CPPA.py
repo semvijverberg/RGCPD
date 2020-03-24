@@ -159,10 +159,6 @@ if __name__ == "__main__":
 
 import valid_plots as dfplots
 import functions_pp
-kwrgs = {'wspace':0.25, 'col_wrap':None, 'skip_redundant_title':True}
-#kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
-met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
-#met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 
 
 dict_all = dfplots.merge_valid_info(list_of_fc, store=store)
@@ -170,6 +166,10 @@ if store:
     dict_all = functions_pp.load_hdf5(filename+'.h5')
 
 
+kwrgs = {'wspace':0.25, 'col_wrap':None, 'skip_redundant_title':True}
+#kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
+met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
+#met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 line_dim = 'exper'
 
 fig = dfplots.valid_figures(dict_all, 

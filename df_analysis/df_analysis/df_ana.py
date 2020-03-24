@@ -59,7 +59,9 @@ def loop_df(df: pd.DataFrame(), function, keys=None, colwrap=3, sharex='col',
                 'not pd.Series or ndarray')
     if keys is None:
         # retrieve only float series
-        type_check = np.logical_or(df.dtypes == 'float',df.dtypes == 'float32')
+        type_check = np.logical_or(df.dtypes == 'float',
+                                   df.dtypes == 'float32')
+                                   
         keys = type_check[type_check].index
 
     df = df.loc[:,keys]
@@ -166,9 +168,7 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=None, ax=None):
 def plot_timeseries(y, timesteps: list=None, 
                     selyears: Union[list, int]=None, title=None, ax=None):
     # ax=None
-    if ax is None:
-        fig, ax = plt.subplots(constrained_layout=True)
-
+    #%%
    
     
     if hasattr(y.index,'levels'):
@@ -185,17 +185,25 @@ def plot_timeseries(y, timesteps: list=None,
         # has to be below 0 for n times (not necessarily consecutive):
         n = 1
         n_of_times = np.array([idx+1 - where[0] for idx in where])
-        cutoff = where[np.where(n_of_times == n)[0][0] ]
-        timesteps = 20*cutoff
+        if n_of_times.size != 0:
+            cutoff = where[np.where(n_of_times == n)[0][0] ]
+        else:
+            cutoff = 100
+        
+        timesteps = min(y_ac.index.size, 10*cutoff)
         datetimes = y_ac.iloc[:timesteps].index
     
     if selyears is not None and timesteps is None:
         if type(selyears) is not list:
             selyears = [selyears]
         datetimes = get_oneyr(y.index, *selyears)
+        
     if timesteps is not None and selyears is None:
-        datetimes = datetimes[timesteps]
+        datetimes = datetimes[:timesteps]
     
+    if ax is None:
+        fig, ax = plt.subplots(constrained_layout=True)
+        
     if hasattr(y.index,'levels'):
         for fold in y.index.levels[0]:
             ax.plot(datetimes, y.loc[fold, datetimes], alpha=.5,
@@ -211,6 +219,7 @@ def plot_timeseries(y, timesteps: list=None,
     ax.tick_params(axis='both', which='major', labelsize=8)
     if title is not None:
         ax.set_title(title, fontsize=10)
+    #%%
     return ax
 
 def plot_scatter(y, tv=pd.Series, aggr=None, title=None, ax=None):

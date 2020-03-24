@@ -74,15 +74,16 @@ LAG_DAY = 21
 # frequencies = np.insert(frequencies, 0, 1)
 # folds = np.arange(10)
 percentiles = [66]
-frequencies = np.arange(30, 36, 2)
+frequencies = np.arange(30, 32, 2)
 folds = np.arange(10)
 
 
-list_of_fc = [] ; 
+list_of_fc = [] ; times = []
 dict_perc = {}; dict_folds = {}; dict_freqs = {}
 f_prev, p_prev = folds[0], percentiles[0]
 for perc, freq, fold in product(percentiles, frequencies, folds):   
-    print(perc, freq, fold)         
+    print(perc, freq, fold)        
+    t0 = time.time()
     kwrgs_events = {'event_percentile': perc}
     fc = fcev(path_data=path_data, precur_aggr=freq, 
                         use_fold=fold, start_end_TVdate=None,
@@ -117,6 +118,10 @@ for perc, freq, fold in product(percentiles, frequencies, folds):
     if freq == frequencies[-1] and fold == folds[-1]:       
         dict_perc[str(perc)] = dict_freqs
         dict_freqs =  {}
+    single_run_time = int(time.time()-t0)
+    times.append(single_run_time)
+    print(f'Time elapsed single run {single_run_time} sec\t'
+          f'ETC {(int(np.mean(times) * len(percentiles) * len(frequencies) * len(folds))/60)} min ')
 
 
 print('Total run time {:.1f} minutes'.format((time.time() - start_time)/60))

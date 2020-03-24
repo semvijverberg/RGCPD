@@ -493,7 +493,7 @@ class fcev():
         fig = stat_models.plot_regularization(models_splits_lags, lag_i=lag_i)
         return fig
 
-    def apply_df_ana_plot(self, df=None, name_ds='ts', func=None, 
+    def apply_df_ana_plot(self, df=None, func=None, 
                           hspace=.4, sharex=False, sharey=False,
                           kwrgs_func={}):
         if df is None:
