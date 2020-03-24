@@ -859,7 +859,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
     2 can be assigned to row or col, the third will be lines in the same axes.
     '''
     
-    # group_line_by=None; met='default'; wspace=0.08; col_wrap=None; threshold_bin=fc.threshold_pred ; skip_redundant_title=True
+    # group_line_by=None; met='default'; wspace=0.08; col_wrap=None; skip_redundant_title=True
     #%%
     dims = ['exper', 'models', 'met']
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
@@ -930,30 +930,53 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
 
             lines = np.unique(lines_req)
         return lines, cols 
+    
+    
+    
+    
+    if line_dim is not None:
+        assert line_dim in ['model', 'exper', 'dataset'], ('illegal key for line_dim, '
+                               'choose \'exper\' or \'model\'')
         
-    if line_dim == 'model':
-        lines_req = models
-        left = [datasets, expers]
-    elif line_dim == 'exper':
-        lines_req = expers
-        left = [datasets, models]
-    elif line_dim == 'dataset':
-        lines_req = datasets
-        left = [models, expers]
+        if line_dim == 'model':
+            lines_req = models
+            left = [datasets, expers]
+        elif line_dim == 'exper':
+            lines_req = expers
+            left = [datasets, models]
+        elif line_dim == 'dataset':
+            lines_req = datasets
+            left = [models, expers]
 
     
-    assert line_dim in ['model', 'exper', 'dataset'], ('illegal key for line_dim, '
-                           'choose \'exper\' or \'model\'')
+        
+        
+        lines, cols = line_col_arrangement(lines_req, *left, comb)
     
-    lines, cols = line_col_arrangement(lines_req, *left, comb)
-    
-
-    if len(cols) == 1 and group_line_by is not None:
-        group_s = len(group_line_by)
-        cols = group_line_by
+    elif group_line_by is not None:
+        assert group_line_by in ['model', 'exper', 'dataset'], ('illegal key for line_dim, '
+                               'choose \'exper\' or \'model\'')
+        
+        if group_line_by == 'model':
+            cols_req = models
+            left = [datasets, expers]
+        elif group_line_by == 'exper':
+            cols_req = expers
+            left = [datasets, models]
+        elif group_line_by == 'dataset':
+            cols_req = datasets
+            left = [models, expers]
+            
+        
+        group_s = np.unique(cols_req).size
+        cols = np.unique(cols_req)
         lines_grouped = []
-        for i in range(0,len(lines),group_s):
-            lines_grouped.append(lines[i:i+group_s])
+        for i, gs in enumerate(range(0,len(comb),group_s)):
+            lines_full = comb[gs:gs+group_s]
+            lines_col = [l.replace(cols[i], '') for l in lines_full]
+            lines_grouped.append(lines_col)
+        # lines = flatten(lines_grouped)
+        
             
 
 
@@ -981,6 +1004,11 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                     d = dim[0]
                     if d in label:
                         label = label.replace(d, '')
+        if label[:2] == '..':
+            label = label.replace(label[:2], '')
+        if label[-2:] == '..':
+            label = label.replace(label[-2:], '')
+        label = label.replace('__',' ').replace('..', ' ')
         return label.replace('__',' ').replace('..', ' ')
 
     for col, c_label in enumerate(cols):
@@ -989,7 +1017,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
             styled_col_label = style_label(dims, c_label, skip_redundant_title)
             g.axes[0,col].set_title(styled_col_label)
         
-        if len(models) == 1 and group_line_by is not None:
+        if group_line_by is not None:
             lines = lines_grouped[col]
 
 
@@ -1005,16 +1033,11 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
 
                 if line_dim == 'model' or line_dim=='dataset':
                     color = nice_colors[l]
-                    # model = line
-                    # exper = c_label
-                    
                 elif line_dim == 'exper':
                     color = colors_datasets[l]
-                    # model = c_label
-                    # exper = line
-                    # if len(models) == 1 and group_line_by is not None:
-                    #     exper = line
-                    #     model = models[0]
+                elif group_line_by is not None:
+                    color = nice_colors[l]
+
                     
                 
                 string_exp = line +'..'+ c_label.replace(' ','..') 
@@ -1034,7 +1057,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                 if got_it == True:
                     # if experiment not present, continue loop, but skip this
                     # string_exp
-
+                    
                     
 
                     lags_tf     = y_pred_all.columns.astype(int)
@@ -1078,10 +1101,11 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
     
     
                     # legend conditions
+                    lines_leg = [style_label(dims, l, skip_redundant_title) for l in lines]
                     same_models = all([row==0, col==0, line==lines[-1]])
                     grouped_lines = np.logical_and(row==0, group_line_by is not None)
                     if same_models or grouped_lines:
-                        ax.legend(ax.lines, lines,
+                        ax.legend(ax.lines, lines_leg,
                               loc = 'lower left', fancybox=True,
                               handletextpad = 0.2, markerscale=0.1,
                               borderaxespad = 0.1,

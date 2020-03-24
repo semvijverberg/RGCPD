@@ -101,7 +101,7 @@ ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/
 # kwrgs_events_daily =    (filename_ts,
 #                          {'event_percentile': 90})
 
-kwrgs_events = {'event_percentile': 66}
+kwrgs_events = {'event_percentile': 'std'}
 
 kwrgs_events = kwrgs_events
 precur_aggr = 16
@@ -117,12 +117,12 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                     dataset=f'CPPA vs PEP',
                     keys_d='PEP'),
-              # fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-              #       use_fold=use_fold, start_end_TVdate=None,
-              #       stat_model=logitCV, 
-              #       kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-              #       dataset=f'CPPA vs PEP',
-              #       keys_d='CPPA'),
+               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                     use_fold=use_fold, start_end_TVdate=None,
+                     stat_model=logitCV, 
+                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                     dataset=f'CPPA vs PEP',
+                     keys_d='CPPA'),
               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
                     stat_model=logitCV, 
@@ -135,6 +135,15 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                     dataset=f'CPPA vs PDO+ENSO',
                     keys_d='CPPA')]
+
+# list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+#                     use_fold=use_fold, start_end_TVdate=None,
+#                     stat_model=logitCV, 
+#                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+#                     dataset=f'CPPA vs PDO+ENSO',
+#                     keys_d='PDO+ENSO')]
+
+              
 
               
 fc = list_of_fc[0]
@@ -163,18 +172,19 @@ import functions_pp
 
 dict_all = dfplots.merge_valid_info(list_of_fc, store=store)
 if store:
-    dict_all = functions_pp.load_hdf5(filename+'.h5')
+    dict_merge_all = functions_pp.load_hdf5(filename+'.h5')
 
 
 kwrgs = {'wspace':0.25, 'col_wrap':None, 'skip_redundant_title':True}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
-line_dim = 'exper'
+line_dim = None
+group_line_by = 'dataset'
 
-fig = dfplots.valid_figures(dict_all, 
+fig = dfplots.valid_figures(dict_merge_all, 
                           line_dim=line_dim,
-                          group_line_by=None,
+                          group_line_by=group_line_by,
                           met=met, **kwrgs)
 
 f_format = '.pdf'

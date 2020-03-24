@@ -194,7 +194,7 @@ def plot_timeseries(y, timesteps: list=None,
         datetimes = y_ac.iloc[:timesteps].index
     
     if selyears is not None and timesteps is None:
-        if type(selyears) is not list:
+        if type(selyears) is int:
             selyears = [selyears]
         datetimes = get_oneyr(y.index, *selyears)
         
