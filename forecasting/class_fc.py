@@ -118,6 +118,8 @@ class fcev():
         self.kwrgs_pp = kwrgs_pp
         if n_cpu is None:
             self.n_cpu = max_cpu - 1
+        else:
+            self.n_cpu = n_cpu
         self.verbosity = verbosity
         return
 
