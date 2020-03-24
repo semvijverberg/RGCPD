@@ -17,7 +17,6 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 import datetime
-import matplotlib.pyplot as plt
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
 max_cpu = multiprocessing.cpu_count()
