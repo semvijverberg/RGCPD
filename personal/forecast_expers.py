@@ -119,7 +119,8 @@ for perc, freq, fold in product(percentiles, frequencies, folds):
         dict_freqs =  {}
     single_run_time = int(time.time()-t0)
     times.append(single_run_time)
-    ETC = (int(np.mean(times) * len(percentiles) * len(frequencies) * len(folds))/60)
+    total_n_runs = len(percentiles) * len(frequencies) * len(folds)
+    ETC = (int(np.mean(times) * total_n_runs)/60)
     print(f'Time elapsed single run in {single_run_time} sec\t'
           f'ETC {ETC} min \t Progress {int((time.time()-t0)/ETC)}% ')
     
