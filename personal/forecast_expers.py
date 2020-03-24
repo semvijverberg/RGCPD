@@ -68,6 +68,7 @@ path_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern
 start_end_TVdate = None
 n_boot = 1
 LAG_DAY = 21
+add_autocorr = False
 
 percentiles = [50, 66, 'std']
 frequencies = np.arange(4, 32, 2)
@@ -88,9 +89,9 @@ for perc, freq, fold in product(percentiles, frequencies, folds):
     fc = fcev(path_data=path_data, precur_aggr=freq, 
                         use_fold=fold, start_end_TVdate=None,
                         stat_model=logitCV, 
-                        kwrgs_pp={}, 
+                        kwrgs_pp={'add_autocorr':False}, 
                         dataset=f'{freq}',
-                        keys_d='CPPA Pattern',
+                        keys_d='CPPA',
                         n_cpu=n_cpu,
                         verbosity=verbosity)
 
