@@ -6,10 +6,7 @@ Created on Thu Aug 22 13:53:03 2019
 @author: semvijverberg
 """
 
-
-
-
-
+import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -393,6 +390,8 @@ def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
                                                chunks, percentile_t, unique_seed))
                 out = [future.result() for future in futures]
         except:
+            # if on cluster, stop
+            assert sys.platform != 'linux', ('Parallel Failed on cluster')
             print('parallel bootstrapping failed')
             unique_seed = 42
             out = []

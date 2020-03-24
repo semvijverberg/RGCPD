@@ -556,6 +556,9 @@ class fcev():
             print(time() - t0)
         except:
             print('parallel failed')
+            # if on cluster, stop
+            assert sys.platform != 'linux', ('Parallel Failed on cluster')
+                
             t0 = time()
             results = {}
             for lag in lags_i:
