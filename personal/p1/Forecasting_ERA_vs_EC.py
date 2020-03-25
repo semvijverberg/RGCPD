@@ -108,7 +108,8 @@ kwrgs_events = {'event_percentile': 'std'}
 kwrgs_events = kwrgs_events
 precur_aggr = 1
 use_fold = None
-lags_i = np.array([0, 14, 21, 28, 35])
+n_boot = 1000
+lags_i = np.array([0, 10, 15, 20 , 25, 30])
 start_end_TVdate = None # ('7-04', '8-22')
 
 
@@ -146,7 +147,7 @@ for i, fc in enumerate(list_of_fc):
     
     fc.fit_models(lead_max=lags_i, verbosity=1)
 
-    fc.perform_validation(n_boot=500, blocksize='auto', alpha=0.05,
+    fc.perform_validation(n_boot=n_boot, blocksize='auto', alpha=0.05,
                           threshold_pred=(1.5, 'times_clim'))
     
 
