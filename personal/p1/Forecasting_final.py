@@ -106,7 +106,7 @@ kwrgs_events = kwrgs_events
 precur_aggr = 15
 add_autocorr = True
 use_fold = None
-lags_i = np.array([0, 14, 18, 21, 25, 28, 35])
+lags_i = np.array([0, 10, 14, 18, 21, 25, 28, 35])
 start_end_TVdate = None # ('7-04', '8-22')
 
 
