@@ -154,7 +154,7 @@ class fcev():
                                 left_index=True, right_index=True)                                    
         
 
-    def get_TV(self, kwrgs_events=None, fit_model_dates=None):
+    def get_TV(self, kwrgs_events=None):
 
         if hasattr(self, 'df_data') == False:
             print("df_data not loaded, initialize fcev class with path to df_data")
@@ -189,8 +189,8 @@ class fcev():
         if _kwrgs_events['window'] == 'single_event' and self.tfreq==1:
             _kwrgs_events['window'] = self.df_data.iloc[:,[0]].loc[0].copy()
         
-        TV = df_data_to_RV(self.df_TV, kwrgs_events=kwrgs_events,
-                           fit_model_dates=fit_model_dates)
+        TV = df_data_to_RV(self.df_TV, kwrgs_events=_kwrgs_events,
+                           fit_model_dates=None)
         TV.TrainIsTrue = self.df_TV['TrainIsTrue']
         TV.RV_mask = self.df_TV['RV_mask']
         TV.dates_tobin = dates_tobin
