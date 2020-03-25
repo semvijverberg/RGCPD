@@ -100,13 +100,13 @@ ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/1_ff393_12jun-11aug_lag
 # kwrgs_events_daily =    (filename_ts,
 #                          {'event_percentile': 90})
 
-kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break':2}
+kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3}
 
 kwrgs_events = kwrgs_events
 precur_aggr = 15
 add_autocorr = True
 use_fold = None
-lags_i = np.array([0, 14, 21, 28, 35])
+lags_i = np.array([0, 14, 18, 21, 25, 28, 35])
 start_end_TVdate = None # ('7-04', '8-22')
 
 
@@ -118,9 +118,7 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                     keys_d=None)]
 fc = list_of_fc[0]
 fc.get_TV(kwrgs_events=kwrgs_events)
-fc.TV.prob_clim          
-
-              
+             
 
 #%%
 

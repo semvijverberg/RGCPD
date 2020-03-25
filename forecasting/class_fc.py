@@ -183,7 +183,7 @@ class fcev():
             self.kwrgs_events = kwrgs_events
             if 'window' not in kwrgs_events.keys():
                 self.kwrgs_events['window'] = 'mean'
-            _kwrgs_events = self.kwrgs_events
+            _kwrgs_events = self.kwrgs_events.copy()
             
 
         if _kwrgs_events['window'] == 'single_event' and self.tfreq==1:
@@ -416,6 +416,7 @@ class fcev():
             lines.append(f'stat_models:')
             lines.append('\n'.join(str(m) for m in fc_i.stat_model_l))
             lines.append(f'fold: {fc_i.fold}')
+            lines.append(f'fc threshold: {fc_i.threshold_pred}')
             lines.append(f'keys_d: \n{fc_i.keys_d}')
             lines.append(f'keys_used: \n{fc_i._get_precursor_used()}')
 
