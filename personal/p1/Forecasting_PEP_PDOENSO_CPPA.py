@@ -104,7 +104,7 @@ ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/
 kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
-precur_aggr = 20
+precur_aggr = 15
 add_autocorr = False
 use_fold = None
 lags_i = np.array([0, 14, 21, 28, 35])
