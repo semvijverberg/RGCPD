@@ -8,8 +8,8 @@ import os, inspect, sys
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-user_dir = os.path.expanduser('~')
 
+user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
@@ -35,40 +35,22 @@ import numpy as np
 
 
 from RGCPD import RGCPD
-from RGCPD import EOF
 from RGCPD import BivariateMI
 
 
-CPPA_s30 = [('sst_CPPAs30', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s30/data/era5_21-01-20_10hr_lag_10_Xzkup1.h5' )]
-CPPA_s5  = [('sst_CPPAs5', '/Users/semvijverberg/surfdrive/MckinRepl/era5_T2mmax_sst_Northern/Xzkup1_ran_strat10_s5/data/ERA5_15-02-20_15hr_lag_10_Xzkup1.h5')]
+CPPA_s1  = [('sst_CPPAs1', user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_0_ff393.h5')]
 
-#list_of_name_path = [('t2mmmax',
-#                      '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'),
-#                        ('sm1', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm_1_1979-2018_1_12_daily_1.0deg.nc'),
-#                        ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm_2_1979-2018_1_12_daily_1.0deg.nc'),
-#                        ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm_3_1979-2018_1_12_daily_1.0deg.nc'),
-#                        ('u500', '/Users/semvijverberg/surfdrive/ERA5/input_raw/u500hpa_1979-2018_1_12_daily_2.5deg.nc'),
-#                        ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc')]
 
-list_of_name_path = [('t2mmmax',
+list_of_name_path = [('mx2t',
                       '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'),
-                        # ('sm1', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm1_1979-2018_1_12_daily_1.0deg.nc'),
                         ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                    
-                        ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),  
-                        ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc'),                        
-                        # ('snow', '/Users/semvijverberg/surfdrive/ERA5/input_raw/snow_1979-2018_1_12_daily_1.0deg.nc'),
-                        ('OLR', '/Users/semvijverberg/surfdrive/ERA5/input_raw/OLRtrop_1979-2018_1_12_daily_2.5deg.nc')]
+                        ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc')]
+                        # ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc')]
 
-#                        ('u500', '/Users/semvijverberg/surfdrive/ERA5/input_raw/u500hpa_1979-2018_1_12_daily_2.5deg.nc'),
-#                        ('v200', '/Users/semvijverberg/surfdrive/ERA5/input_raw/v200hpa_1979-2018_1_12_daily_2.5deg.nc'),                        
+import_prec_ts = CPPA_s1
 
-#                        ('sm123', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm_123_1979-2018_1_12_daily_1.0deg.nc')]
 
-import_prec_ts = None #CPPA_s30
-
-list_for_EOFS = [EOF(name='OLR', neofs=1, selbox=[-180, 360, -15, 30])]
-
-list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map, 
+list_for_MI   = [BivariateMI(name='sm2', func=BivariateMI.corr_map, 
                              kwrgs_func={'alpha':.05, 'FDR_control':True}, 
                              distance_eps=600, min_area_in_degrees2=5),
                   BivariateMI(name='sm3', func=BivariateMI.corr_map, 
@@ -79,26 +61,17 @@ list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map,
                  #             distance_eps=600, min_area_in_degrees2=5)]
                             
 
-#list_of_name_path = [('t2mmmax',
-#                      '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19.npy'),
-#                    ('sst', '/Users/semvijverberg/surfdrive/Data_era5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc'),
-#                    ('sm123', '/Users/semvijverberg/surfdrive/Data_era5/input_raw/sm_123_1979-2018_1_12_daily_0.25deg.nc'),
-#                    ('v200hpa', '/Users/semvijverberg/surfdrive/Data_era5/input_raw/v200hpa_1979-2018_1_12_daily_2.5deg.nc')]
 
 start_end_TVdate = ('06-24', '08-22')
-# start_end_TVdate = ('07-06', '08-11')
-
-#start_end_TVdate = ('06-15', '08-31')
 start_end_date = ('1-1', '12-31')
 
 
 rg = RGCPD(list_of_name_path=list_of_name_path, 
-           list_for_EOFS=list_for_EOFS,
            list_for_MI=list_for_MI,
            import_prec_ts=import_prec_ts,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           tfreq=10, lags_i=np.array([1]),
+           tfreq=15, lags_i=np.array([1]),
            path_outmain=user_dir+'/surfdrive/output_RGCPD')
 
 
