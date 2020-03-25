@@ -1001,8 +1001,8 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                       sharex=False,  sharey=False, col_wrap=col_wrap)
 
 
-    def style_label(dims, label, skip_redundant_title):
-        if skip_redundant_title:
+    def style_label(dims, label, all_labels, skip_redundant_title):
+        if skip_redundant_title and len(all_labels) > 1:
             # remove string if it is always the same, i.e. redundant
             for dim in dims:
                 if np.unique(dim).size == 1:
@@ -1019,7 +1019,9 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
     for col, c_label in enumerate(cols):
 
         if col_wrap is None:
-            styled_col_label = style_label(dims, c_label, skip_redundant_title)
+
+            styled_col_label = style_label(dims, c_label, cols, skip_redundant_title)
+
             g.axes[0,col].set_title(styled_col_label)
         
         if group_line_by is not None:
@@ -1106,7 +1108,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
     
     
                     # legend conditions
-                    lines_leg = [style_label(dims, l, skip_redundant_title) for l in lines]
+                    lines_leg = [style_label(dims, l, lines, skip_redundant_title) for l in lines]
                     same_models = all([row==0, col==0, line==lines[-1]])
                     grouped_lines = np.logical_and(row==0, group_line_by is not None)
                     if same_models or grouped_lines:

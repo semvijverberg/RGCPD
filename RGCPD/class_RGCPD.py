@@ -340,7 +340,7 @@ class RGCPD:
                 self.df_data = self.df_data_ext.copy()
         
         # Append (or only load) EOF timeseries
-        if hasattr(self, 'list_for_EOFS'):
+        if self.list_for_EOFS is not None:
             print('\nGetting EOF timeseries')
             for i, e_class in enumerate(self.list_for_EOFS):
                 e_class.get_ts(tfreq_ts=self.precur_aggr, df_splits=df_splits)

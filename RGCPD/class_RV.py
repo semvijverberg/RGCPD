@@ -12,6 +12,7 @@ Created on Mon Jan  6 08:46:05 2020
 import numpy as np
 import pandas as pd
 import xarray as xr
+from typing import Tuple, Union
 
 import functions_pp
 import core_pp
@@ -21,8 +22,9 @@ import core_pp
 
 
 class RV_class:
-    def __init__(self, fullts, RV_ts, kwrgs_events=None, only_RV_events=True,
-                 fit_model_dates=None):
+    def __init__(self, fullts: pd.DataFrame, RV_ts: pd.DataFrame, 
+                 kwrgs_events: Union[dict, tuple], only_RV_events: bool=True,
+                 fit_model_dates: Tuple[str,str]=None):
         '''
         only_RV_events : bool. Decides whether to calculate the RV_bin on the
         whole fullts timeseries, or only on RV_ts
@@ -71,10 +73,7 @@ class RV_class:
 
 
         # make RV_bin for events based on aggregated daymeans
-        if kwrgs_events is not None and (type(kwrgs_events) is not tuple or self.tfreq==1):
-
-            if type(kwrgs_events) is tuple:
-                kwrgs_events = kwrgs_events[1]
+        if kwrgs_events['window'] is 'mean':
             # RV_ts and RV_ts_fit are equal if fit_model_dates = None
             self.threshold = Ev_threshold(self.RV_ts,
                                               kwrgs_events['event_percentile'])
@@ -82,7 +81,9 @@ class RV_class:
                                               kwrgs_events['event_percentile'])
 
             # unpack other optional arguments for defining event timeseries 
-            kwrgs = {key:item for key, item in kwrgs_events.items() if key != 'event_percentile'}
+            redun_keys = ['event_percentile', 'window']
+            kwrgs = {key:item for key, item in kwrgs_events.items() if key not in redun_keys}
+
             if only_RV_events == True:
                 self.RV_bin_fit = Ev_timeseries(self.RV_ts_fit,
                                threshold=self.threshold_ts_fit ,
@@ -98,28 +99,14 @@ class RV_class:
 
 
         # make RV_bin for extreme occurring in time window
-        if kwrgs_events is not None and type(kwrgs_events) is tuple and self.tfreq !=1:
+        if type(kwrgs_events['window']) is pd.DataFrame:
 
-
-
-            filename_ts = kwrgs_events[0]
-            kwrgs_events_daily = kwrgs_events[1]
-            # unpack other optional arguments for defining event timeseries 
-            kwrgs = {key:item for key, item in kwrgs_events_daily.items() if key != 'event_percentile'}
-            # loading in daily timeseries
-            fullts_xr = np.load(filename_ts, encoding='latin1',
-                                     allow_pickle=True).item()['RVfullts95']
-
-
+            fullts = kwrgs_events['window']
             dates_RVe = self.aggr_to_daily_dates(self.dates_RV)
             dates_alle  = self.aggr_to_daily_dates(self.dates_all)
 
-            df_RV_ts_e = pd.DataFrame(fullts_xr.sel(time=dates_RVe).values,
-                                      index=dates_RVe, columns=['RV_ts'])
-
-            df_fullts_e = pd.DataFrame(fullts_xr.sel(time=dates_alle).values,
-                                      index=dates_alle,
-                                      columns=['fullts'])
+            df_RV_ts_e = fullts.loc[dates_RVe]
+            df_fullts_e = fullts.loc[dates_alle]
 
 
             out = handle_fit_model_dates(dates_RVe, dates_alle, df_RV_ts_e, fit_model_dates)
@@ -128,9 +115,13 @@ class RV_class:
 
             # RV_ts and RV_ts_fit are equal if fit_model_dates = None
             self.threshold = Ev_threshold(df_RV_ts_e,
-                                              kwrgs_events_daily['event_percentile'])
+                                              kwrgs_events['event_percentile'])
             self.threshold_ts_fit = Ev_threshold(self.RV_ts_fit_e,
-                                              kwrgs_events_daily['event_percentile'])
+                                              kwrgs_events['event_percentile'])
+            
+            # unpack other optional arguments for defining event timeseries 
+            redun_keys = ['event_percentile', 'window']
+            kwrgs = {key:item for key, item in kwrgs_events.items() if key not in redun_keys}
 
             if only_RV_events == True:
                 # RV_bin_fit is defined such taht we can fit on RV_bin_fit
@@ -139,7 +130,7 @@ class RV_class:
                                threshold=self.threshold_ts_fit, **kwrgs)[0]
                 self.RV_bin = self.RV_bin_fit.loc[dates_RVe]
             elif only_RV_events == False:
-                self.RV_b_full = Ev_timeseries(self.fullts,
+                self.RV_b_full = Ev_timeseries(df_fullts_e,
                                threshold=self.threshold, **kwrgs)[0]
                 self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
 

@@ -124,8 +124,10 @@ class fcev():
             self.keys_d = exp_fc.normal_precursor_regions(self.path_data,
                                                           keys_options=[keys_d],
                                                           causal=self.causal)[keys_d]
+            if self.kwrgs_pp['add_autocorr']:
+                self.experiment += '+AR1'
 
-        self.kwrgs_pp = kwrgs_pp
+        
         if n_cpu is None:
             self.n_cpu = max_cpu - 1
         else:
@@ -157,14 +159,7 @@ class fcev():
         if hasattr(self, 'df_data') == False:
             print("df_data not loaded, initialize fcev class with path to df_data")
 
-        # target events
-        if kwrgs_events is None:
-            self.kwrgs_events = {'event_percentile': 66,
-                        'min_dur' : 1,
-                        'max_break' : 0,
-                        'grouped' : False}
-        else:
-            self.kwrgs_events = kwrgs_events
+
 
         self.df_TV = self.df_data.iloc[:,[0,-2,-1]].copy()
 
@@ -175,8 +170,26 @@ class fcev():
             self.df_TV, dates_tobin = _daily_to_aggr(self.df_TV, self.TV_aggr)
         else:
             dates_tobin = None
+        
+        # target events
+        if kwrgs_events is None:
+            self.kwrgs_events = {'event_percentile': 66,
+                        'min_dur' : 1,
+                        'max_break' : 0,
+                        'grouped' : False,
+                        'window' : 'mean'}
+        else:
+            
+            self.kwrgs_events = kwrgs_events
+            if 'window' not in kwrgs_events.keys():
+                self.kwrgs_events['window'] = 'mean'
+            _kwrgs_events = self.kwrgs_events
+            
 
-        TV = df_data_to_RV(self.df_TV, kwrgs_events=self.kwrgs_events,
+        if _kwrgs_events['window'] == 'single_event' and self.tfreq==1:
+            _kwrgs_events['window'] = self.df_data.iloc[:,[0]].loc[0].copy()
+        
+        TV = df_data_to_RV(self.df_TV, kwrgs_events=kwrgs_events,
                            fit_model_dates=fit_model_dates)
         TV.TrainIsTrue = self.df_TV['TrainIsTrue']
         TV.RV_mask = self.df_TV['RV_mask']
