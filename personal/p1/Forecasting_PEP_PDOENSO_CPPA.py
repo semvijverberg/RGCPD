@@ -24,14 +24,7 @@ if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
 
-
-
 from class_fc import fcev
-
-
-
-
-
 
 # Define statmodel:
 logit = ('logit', None)
@@ -42,54 +35,10 @@ logitCV = ('logitCV',
            'scoring':'brier_score_loss',
            'penalty':'l2',
            'solver':'lbfgs',
-           'max_iter':100})
+           'max_iter':100,
+           'kfold':5})
 
 
-logitCVfs = ('logitCV',
-          {'class_weight':{ 0:1, 1:1},
-           'scoring':'brier_score_loss',
-           'penalty':'l2',
-           'solver':'lbfgs',
-           'feat_sel':{'model':None}})
-
-GBC_tfs = ('GBC',
-          {'max_depth':[1, 2, 3, 4],
-           'learning_rate':[1E-2, 5E-3, 1E-3, 5E-4],
-           'n_estimators' : [200, 300, 400, 500, 600, 700, 800, 1000],
-           'min_samples_split':[.15, .25],
-           'max_features':[.2,'sqrt', .5],
-           'subsample' : [.3, .4, .5, 0.6],
-           'random_state':60,
-           'scoringCV':'brier_score_loss',
-           'feat_sel':{'model':None} } )
-
-GBC_t = ('GBC', 
-         {'max_depth':[1, 2, 3, 4, 5, 6],
-           'learning_rate':5E-4,
-           'n_estimators' : [500, 750, 1000, 1250, 1500],
-           'min_samples_split':.2,
-           'max_features':[.15, .2, 'sqrt'],
-           'subsample' : [.3, .45],
-           'random_state':60,
-           # 'n_iter_no_change':20,
-           # 'tol':1E-4,
-           # 'validation_fraction':.3,
-           'scoringCV':'brier_score_loss' } )
-
-
-GBC = ('GBC',
-      {'max_depth':1,
-       'learning_rate':.05,
-       'n_estimators' : 500,
-       'min_samples_split':.25,
-       'max_features':.4,
-       'subsample' : .45,
-       'random_state':60,
-       'n_iter_no_change':20,
-       'tol':1E-4,
-       'validation_fraction':.3,
-       'scoringCV':'brier_score_loss'
-       } )
 
 # In[6]:
 EC_data  = user_dir + '/surfdrive/output_RGCPD/easternUS_EC/EC_tas_tos_Northern/958dd_ran_strat10_s30/data/EC_21-03-20_16hr_lag_0_958dd.h5'
@@ -107,42 +56,42 @@ kwrgs_events = kwrgs_events
 precur_aggr = 15
 add_autocorr = False
 use_fold = None
-n_boot = 1000
-lags_i = np.array([0, 10, 15, 20 , 25, 30])
+n_boot = 0
+lags_i = np.array([0, 10, 15])
 start_end_TVdate = None # ('7-04', '8-22')
 
-
-list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-                    dataset=f'CPPA vs PEP',
-                    keys_d='PEP'),
-               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-                     use_fold=use_fold, start_end_TVdate=None,
-                     stat_model=logitCV, 
-                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-                     dataset=f'CPPA vs PEP',
-                     keys_d='CPPA'),
-              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-                    dataset=f'CPPA vs PDO+ENSO',
-                    keys_d='PDO+ENSO'),              
-              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-                    dataset=f'CPPA vs PDO+ENSO',
-                    keys_d='CPPA')]
 
 # list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
 #                     use_fold=use_fold, start_end_TVdate=None,
 #                     stat_model=logitCV, 
 #                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+#                     dataset=f'CPPA vs PEP',
+#                     keys_d='PEP'),
+#                fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+#                      use_fold=use_fold, start_end_TVdate=None,
+#                      stat_model=logitCV, 
+#                      kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+#                      dataset=f'CPPA vs PEP',
+#                      keys_d='CPPA'),
+#               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+#                     use_fold=use_fold, start_end_TVdate=None,
+#                     stat_model=logitCV, 
+#                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
 #                     dataset=f'CPPA vs PDO+ENSO',
-#                     keys_d='PDO+ENSO')]
+#                     keys_d='PDO+ENSO'),              
+#               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+#                     use_fold=use_fold, start_end_TVdate=None,
+#                     stat_model=logitCV, 
+#                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+#                     dataset=f'CPPA vs PDO+ENSO',
+#                     keys_d='CPPA')]
+
+list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                    use_fold=use_fold, start_end_TVdate=None,
+                    stat_model=logit, 
+                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                    dataset=f'CPPA vs PDO+ENSO',
+                    keys_d='PDO+ENSO')]
 
               
 

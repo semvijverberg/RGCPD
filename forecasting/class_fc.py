@@ -477,11 +477,11 @@ class fcev():
         import valid_plots as df_plots
         df_plots.plot_freq_per_yr(self.TV)
 
-    @classmethod
+    # @classmethod
     def plot_scatter(self, keys=None, colwrap=3, sharex='none', s=0, mask='RV_mask', aggr=None,
                      title=None):
         import df_ana
-        df_d = self.df_data.loc[s]
+        df_d = fc.df_data.mean(axis=0, level=1)
         if mask is None:
             tv = self.df_data.loc[0].iloc[:,0]
             df_d = df_d
