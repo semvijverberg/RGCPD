@@ -23,6 +23,9 @@ user_dir = os.path.expanduser('~')
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
+    n_cpu = 16
+else:
+    n_cpu = None
 
 from class_fc import fcev
 
@@ -66,25 +69,29 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                     stat_model=logitCV, 
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                     dataset=f'CPPA vs PEP',
-                    keys_d='PEP'),
+                    keys_d='PEP',
+                    n_cpu=n_cpu),              
                 fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
                       use_fold=use_fold, start_end_TVdate=None,
                       stat_model=logitCV, 
                       kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                       dataset=f'CPPA vs PEP',
-                      keys_d='CPPA'),
+                      keys_d='CPPA',
+                      n_cpu=n_cpu),              
               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
                     stat_model=logitCV, 
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                     dataset=f'CPPA vs PDO+ENSO',
-                    keys_d='PDO+ENSO'),              
+                    keys_d='PDO+ENSO',
+                    n_cpu=n_cpu),              
               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
                     stat_model=logitCV, 
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                     dataset=f'CPPA vs PDO+ENSO',
-                    keys_d='CPPA')]
+                    keys_d='CPPA',
+                    n_cpu=n_cpu)]
 
 # list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
 #                     use_fold=use_fold, start_end_TVdate=None,
@@ -135,9 +142,9 @@ kwrgs = {'wspace':0.25, 'col_wrap':None, 'skip_redundant_title':True}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
-# line_dim = None
-# group_line_by = 'dataset'
-line_dim = 'exper' ; group_line_by = None
+line_dim = None
+group_line_by = 'dataset'
+# line_dim = 'exper' ; group_line_by = None
 
 fig = dfplots.valid_figures(dict_merge_all, 
                           line_dim=line_dim,
