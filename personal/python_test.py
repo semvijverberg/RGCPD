@@ -12,7 +12,7 @@ def poolworker(job_executed):
     sleep(10)
     return job_executed
 
-n_jobs = 13
+n_jobs = 16
 
 
 t0 = time()
