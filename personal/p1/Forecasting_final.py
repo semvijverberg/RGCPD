@@ -42,54 +42,8 @@ logitCV = ('logitCV',
            'scoring':'brier_score_loss',
            'penalty':'l2',
            'solver':'lbfgs',
-           'max_iter':100})
-
-
-logitCVfs = ('logitCV',
-          {'class_weight':{ 0:1, 1:1},
-           'scoring':'brier_score_loss',
-           'penalty':'l2',
-           'solver':'lbfgs',
-           'feat_sel':{'model':None}})
-
-GBC_tfs = ('GBC',
-          {'max_depth':[1, 2, 3, 4],
-           'learning_rate':[1E-2, 5E-3, 1E-3, 5E-4],
-           'n_estimators' : [200, 300, 400, 500, 600, 700, 800, 1000],
-           'min_samples_split':[.15, .25],
-           'max_features':[.2,'sqrt', .5],
-           'subsample' : [.3, .4, .5, 0.6],
-           'random_state':60,
-           'scoringCV':'brier_score_loss',
-           'feat_sel':{'model':None} } )
-
-GBC_t = ('GBC', 
-         {'max_depth':[1, 2, 3, 4, 5, 6],
-           'learning_rate':5E-4,
-           'n_estimators' : [500, 750, 1000, 1250, 1500],
-           'min_samples_split':.2,
-           'max_features':[.15, .2, 'sqrt'],
-           'subsample' : [.3, .45],
-           'random_state':60,
-           # 'n_iter_no_change':20,
-           # 'tol':1E-4,
-           # 'validation_fraction':.3,
-           'scoringCV':'brier_score_loss' } )
-
-
-GBC = ('GBC',
-      {'max_depth':1,
-       'learning_rate':.05,
-       'n_estimators' : 500,
-       'min_samples_split':.25,
-       'max_features':.4,
-       'subsample' : .45,
-       'random_state':60,
-       'n_iter_no_change':20,
-       'tol':1E-4,
-       'validation_fraction':.3,
-       'scoringCV':'brier_score_loss'
-       } )
+           'max_iter':100,
+           'kfold':5})
 
 
 ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/1_ff393_12jun-11aug_lag15-15_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
