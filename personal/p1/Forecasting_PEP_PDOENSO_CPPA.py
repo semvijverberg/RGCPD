@@ -54,7 +54,7 @@ kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
 precur_aggr = 15
-add_autocorr = True
+add_autocorr = False
 use_fold = None
 n_boot = 0
 lags_i = np.array([0, 10, 15, 20, 25, 30])
