@@ -139,10 +139,10 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
     if 'kfold' in kwrgs.keys():
         kfold = kwrgs.pop('kfold')
     else:
-        kfold = np.unique(y_train.index.year).size
+        kfold = 5
     
-    # cv = get_cv_accounting_for_years(y_train, kfold, seed=1)
-    cv = StratifiedKFold(n_splits=5)
+    cv = get_cv_accounting_for_years(y_train, kfold, seed=1)
+    # cv = StratifiedKFold(n_splits=5)
     model = LogisticRegressionCV(fit_intercept=True,
                                  cv=cv,
                                  n_jobs=1, 
