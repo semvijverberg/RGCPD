@@ -3,7 +3,7 @@ from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
 from time import sleep, time
 max_cpu = multiprocessing.cpu_count()
-use_cpu = min(16, max_cpu)
+use_cpu = min(63, max_cpu)
 print(f'{max_cpu} cpu\'s available, using {use_cpu}')
 
 
