@@ -512,8 +512,8 @@ def load_hdf5(path_data):
             attempt = 1
         except:
             time.sleep(1)
-        if c == 5:
-            print('loading in hdf5 failed')
+        assert c!= 5, print('loading in hdf5 failed')
+            
     return dict_of_dfs
 
 
