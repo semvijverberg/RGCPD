@@ -9,7 +9,7 @@
 import os, inspect, sys
 import numpy as np
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-1])
+main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_dir = os.path.join(main_dir, 'RGCPD')
 fc_dir = os.path.join(main_dir, 'forecasting')
 df_ana_dir = os.path.join(main_dir, 'df_analysis/df_analysis/')
