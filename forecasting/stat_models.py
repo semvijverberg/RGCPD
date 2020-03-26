@@ -57,22 +57,27 @@ def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold=int,
     cv : sk-learn cross-validation generator
 
     '''
-    total_size = y_train.size
+    
     freq = y_train.groupby(y_train.index.year).sum()
     freq = (freq > freq.mean()).astype(int)
     
-    while total_size % kfold != 0:
+    all_years = np.unique(freq.index)
+    while all_years.size % kfold != 0:
         kfold += 1
-    n_bl = int(total_size / kfold)
     
+    
+    cv_strat = StratifiedKFold(n_splits=kfold)
     test_yrs = []
-    for i, j in cv_.split(X=freq.index, y=freq.values):
+    for i, j in cv_strat.split(X=freq.index, y=freq.values):
         test_yrs.append(freq.index[j].values)
     
-    rng = default_rng(seed=seed)
-    shuffled = rng.choice(range(0,kfold), size=kfold, replace=False)
-    ordered = np.repeat(shuffled, n_bl)
-    cv = PredefinedSplit(ordered)
+    label_test = np.zeros( y_train.size , dtype=int)
+    for i, test_fold in enumerate(test_yrs):
+        for j, yr in enumerate(y_train.index.year):
+            if yr in list(test_fold):
+                label_test[j] = i
+
+    cv = PredefinedSplit(label_test)
     return cv
 
 def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
@@ -136,7 +141,7 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
     else:
         kfold = np.unique(y_train.index.year).size
     
-    cv = get_cv_accounting_for_years(y_train, kfold, seed=1)
+    # cv = get_cv_accounting_for_years(y_train, kfold, seed=1)
     cv = StratifiedKFold(n_splits=5)
     model = LogisticRegressionCV(fit_intercept=True,
                                  cv=cv,

@@ -50,48 +50,54 @@ ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/
 # kwrgs_events_daily =    (filename_ts,
 #                          {'event_percentile': 90})
 
-kwrgs_events = {'event_percentile': 'std'}
+kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
 precur_aggr = 15
-add_autocorr = False
+add_autocorr = True
 use_fold = None
 n_boot = 0
-lags_i = np.array([0, 10, 15])
+lags_i = np.array([0, 10, 15, 20, 25, 30])
 start_end_TVdate = None # ('7-04', '8-22')
 
+
+list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                    use_fold=use_fold, start_end_TVdate=None,
+                    stat_model=logitCV, 
+                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                    dataset=f'CPPA vs PEP',
+                    keys_d='PEP'),
+                fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                      use_fold=use_fold, start_end_TVdate=None,
+                      stat_model=logitCV, 
+                      kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                      dataset=f'CPPA vs PEP',
+                      keys_d='CPPA'),
+              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                    use_fold=use_fold, start_end_TVdate=None,
+                    stat_model=logitCV, 
+                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                    dataset=f'CPPA vs PDO+ENSO',
+                    keys_d='PDO+ENSO'),              
+              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                    use_fold=use_fold, start_end_TVdate=None,
+                    stat_model=logitCV, 
+                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                    dataset=f'CPPA vs PDO+ENSO',
+                    keys_d='CPPA')]
 
 # list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
 #                     use_fold=use_fold, start_end_TVdate=None,
 #                     stat_model=logitCV, 
 #                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-#                     dataset=f'CPPA vs PEP',
-#                     keys_d='PEP'),
-#                fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-#                      use_fold=use_fold, start_end_TVdate=None,
-#                      stat_model=logitCV, 
-#                      kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-#                      dataset=f'CPPA vs PEP',
-#                      keys_d='CPPA'),
+#                     dataset=f'CPPA vs PDO+ENSO',
+#                     keys_d='PDO+ENSO'),
 #               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
 #                     use_fold=use_fold, start_end_TVdate=None,
 #                     stat_model=logitCV, 
 #                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
 #                     dataset=f'CPPA vs PDO+ENSO',
-#                     keys_d='PDO+ENSO'),              
-#               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-#                     use_fold=use_fold, start_end_TVdate=None,
-#                     stat_model=logitCV, 
-#                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-#                     dataset=f'CPPA vs PDO+ENSO',
-#                     keys_d='CPPA')]
-
-list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logit, 
-                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-                    dataset=f'CPPA vs PDO+ENSO',
-                    keys_d='PDO+ENSO')]
+#                     keys_d='persistence')]
 
               
 
@@ -129,8 +135,9 @@ kwrgs = {'wspace':0.25, 'col_wrap':None, 'skip_redundant_title':True}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
-line_dim = None
-group_line_by = 'dataset'
+# line_dim = None
+# group_line_by = 'dataset'
+line_dim = 'exper' ; group_line_by = None
 
 fig = dfplots.valid_figures(dict_merge_all, 
                           line_dim=line_dim,
