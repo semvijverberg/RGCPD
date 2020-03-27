@@ -683,7 +683,7 @@ def rel_curve(df_RV, y_pred_all, color, lags_relcurve, n_bins, legend='single', 
         print(l)
         print(line_styles[l])
         axhist.hist(y_pred_all[lag], range=(0,1), bins=2*n_bins, color=color,
-                    histtype="step", linestyle=line_styles[l])
+                    histtype="step", linestyle=line_styles[l], label=None)
         
         axhist.set_xlim(-0.02,1.02)
     if legend == 'single':
