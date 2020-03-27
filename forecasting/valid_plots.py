@@ -678,7 +678,10 @@ def rel_curve(df_RV, y_pred_all, color, lags_relcurve, n_bins, legend='single', 
     
     for l, lag in enumerate(lags_relcurve):
         ax.plot(mpv[l], fop[l], color=color, linestyle=line_styles[l], 
-                label=f'lag {lag}', marker='s', markersize=3) ;
+                label=f'lag {lag}', marker='s', markersize=3)
+        print(line_styles)
+        print(l)
+        print(line_styles[l])
         axhist.hist(y_pred_all[lag], range=(0,1), bins=2*n_bins, color=color,
                     histtype="step", linestyle=line_styles[l])
         
