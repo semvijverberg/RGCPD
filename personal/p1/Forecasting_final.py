@@ -82,21 +82,21 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                                  'seed':2}), 
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                     dataset=f'CV shuffle 2',
-                    keys_d=None)]
-              # fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-              #       use_fold=use_fold, start_end_TVdate=None,
-              #       stat_model= ('logitCV',
-              #                   {'Cs':10, #np.logspace(-4,1,10)
-              #                   'class_weight':{ 0:1, 1:1},
-              #                    'scoring':'brier_score_loss',
-              #                    'penalty':'l2',
-              #                    'solver':'lbfgs',
-              #                    'max_iter':100,
-              #                    'kfold':5,
-              #                    'seed':3}), 
-              #       kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-              #       dataset=f'CV shuffle 3',
-              #       keys_d=None)]
+                    keys_d=None),
+               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                     use_fold=use_fold, start_end_TVdate=None,
+                     stat_model= ('logitCV',
+                                 {'Cs':10, #np.logspace(-4,1,10)
+                                 'class_weight':{ 0:1, 1:1},
+                                  'scoring':'brier_score_loss',
+                                  'penalty':'l2',
+                                  'solver':'lbfgs',
+                                  'max_iter':100,
+                                  'kfold':5,
+                                  'seed':3}), 
+                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                     dataset=f'CV shuffle 3',
+                     keys_d=None)]
 fc = list_of_fc[0]
 
 
@@ -139,7 +139,7 @@ if store:
 
 
 kwrgs = {'wspace':0.25, 'col_wrap':3, 'skip_redundant_title':True,
-         'lags_relcurve':[0, 10]}
+         'lags_relcurve':[20]}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision', 'Accuracy']
 line_dim = 'dataset'
