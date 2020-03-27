@@ -35,8 +35,8 @@ logit = ('logit', None)
 #               'random_state':60,
 #               'min_impurity_decrease':1E-7} )
 
-def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold=int, 
-                                seed=1):
+def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=1, 
+                                seed: int=1):
     '''
     Train-test split that gives priority to keep data of same year as blocks, 
     datapoints of same year are very much not i.i.d. and should be seperated. 
@@ -66,7 +66,8 @@ def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold=int,
         kfold += 1
     
     
-    cv_strat = StratifiedKFold(n_splits=kfold)
+    cv_strat = StratifiedKFold(n_splits=kfold, shuffle=True,
+                               random_state=seed)
     test_yrs = []
     for i, j in cv_strat.split(X=freq.index, y=freq.values):
         test_yrs.append(freq.index[j].values)
@@ -135,14 +136,12 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
     
     X = X_train
 
-    # Create random shuffle which keeps together years as blocks.
-    if 'kfold' in kwrgs.keys():
-        kfold = kwrgs.pop('kfold')
-    else:
-        kfold = 5
-    
-    cv = get_cv_accounting_for_years(y_train, kfold, seed=1)
-    # cv = StratifiedKFold(n_splits=5)
+    # Create stratified random shuffle which keeps together years as blocks.
+    kwrgs_cv = ['kfold', 'seed']
+    kwrgs_cv = {k:i for k, i in kwrgs.items() if k in kwrgs_cv}
+    [kwrgs.pop(k) for k in kwrgs_cv.keys()]
+   
+    cv = get_cv_accounting_for_years(y_train, **kwrgs_cv)
     model = LogisticRegressionCV(fit_intercept=True,
                                  cv=cv,
                                  n_jobs=1, 

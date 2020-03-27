@@ -18,8 +18,11 @@ import seaborn as sns
 from itertools import permutations, product, chain
 flatten = lambda l: list(chain.from_iterable(l))
 
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib as mpl
 from matplotlib import cycler
+import matplotlib.ticker as ticker
+from matplotlib.lines import Line2D
 nice_colors = ['#EE6666', '#3388BB', '#9988DD',
                  '#EECC55', '#88BB44', '#FFBBBB']
 colors_nice = cycler('color',
@@ -513,32 +516,35 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
         ax.hlines(y=y_b, xmin=min(x), xmax=max(x), linewidth=1)
 
     if metric in ['Precision', 'Accuracy'] and threshold_bin is not None:
-        if threshold_bin == 'clim':
-        # binary metrics calculated for clim prevailance
-            ax.text(0.00, 0.05, r'Event pred. when fc $\geq$ clim. prob.',
-                    horizontalalignment='left', fontsize=10,
-                    verticalalignment='center', transform=ax.transAxes,
-                    rotation=0, rotation_mode='anchor', alpha=0.5)
-            # old : percentile_t = 100 * clim_prev
-        elif threshold_bin == 'upper_clim':
-            # binary metrics calculated for top 75% of 'above clim prob'
-            ax.text(0.00, 0.05, r'Event pred. when fc$\geq$1.25 * clim. prob.',
-                    horizontalalignment='left', fontsize=10,
-                    verticalalignment='center', transform=ax.transAxes,
-                    rotation=0, rotation_mode='anchor', alpha=0.5)
+        with_numbers = any(char.isdigit() for char in threshold_bin)
+        if with_numbers == False:
+            # it is a string
+            if 'clim' in threshold_bin:
+            # binary metrics calculated for clim prevailance
+                ax.text(0.00, 0.05, r'Event pred. when fc $\geq$ clim. prob.',
+                        horizontalalignment='left', fontsize=10,
+                        verticalalignment='center', transform=ax.transAxes,
+                        rotation=0, rotation_mode='anchor', alpha=0.5)
+            elif 'upper_clim' in threshold_bin:
+                # binary metrics calculated for top 75% of 'above clim prob'
+                ax.text(0.00, 0.05, r'Event pred. when fc$\geq$1.25 * clim. prob.',
+                        horizontalalignment='left', fontsize=10,
+                        verticalalignment='center', transform=ax.transAxes,
+                        rotation=0, rotation_mode='anchor', alpha=0.5)
             # old: bin_threshold = 100 * (1 - 0.75*clim_prev)
             # old:  percentile_t = bin_threshold
-        elif isinstance(threshold_bin, int) or isinstance(threshold_bin, float):
-            if threshold_bin < 1:
-                threshold_bin = int(100*threshold_bin)
-            else:
-                threshold_bin = threshold_bin
-            ax.text(0.00, 0.05, r'Event pred. when fc$\geq${}'.format(threshold_bin),
-                    horizontalalignment='left', fontsize=10,
-                    verticalalignment='center', transform=ax.transAxes,
-                    rotation=0, rotation_mode='anchor', alpha=0.5)
-        elif isinstance(threshold_bin, tuple):
-            times = threshold_bin[0]
+        # elif isinstance(threshold_bin, int) or isinstance(threshold_bin, float):
+        #     if threshold_bin < 1:
+        #         threshold_bin = int(100*threshold_bin)
+        #     else:
+        #         threshold_bin = threshold_bin
+        #     ax.text(0.00, 0.05, r'Event pred. when fc$\geq${}'.format(threshold_bin),
+        #             horizontalalignment='left', fontsize=10,
+        #             verticalalignment='center', transform=ax.transAxes,
+        #             rotation=0, rotation_mode='anchor', alpha=0.5)
+        elif '(' in threshold_bin and with_numbers:
+            # dealing with tuple, deciphering.. 
+            times = float(threshold_bin.split('(')[1].split(',')[0])
             ax.text(0.00, 0.05, r'Event pred. when fc$\geq${} * clim. prob.'.format(times),
                     horizontalalignment='left', fontsize=10,
                     verticalalignment='center', transform=ax.transAxes,
@@ -560,19 +566,26 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
     return ax
 
 
-def rel_curve_base(df_RV, lags_tf, n_bins=5, col=0, ax=None):
+def rel_curve_base(df_RV, n_bins=5, col=0, ax=None):
     #%%
 
-
+    # ax=None
 
     if ax==None:
         print('ax == None')
         fig, ax = plt.subplots(1, facecolor='white')
-
+        ax.set_xticklabels(['']*n_bins)
+        ax.set_fc('white')
+        
+    divider = make_axes_locatable(ax)
+    axhist = divider.append_axes("bottom", size="50%", pad=0.25)
+    axhist.set_fc('white')
     ax.set_fc('white')
 
     ax.patch.set_edgecolor('black')
+    axhist.patch.set_edgecolor('black')
     ax.patch.set_linewidth('0.5')
+    axhist.patch.set_linewidth('0.5')
     ax.grid(b=True, which = 'major', axis='both', color='black',
             linestyle='--', alpha=0.2)
 
@@ -581,13 +594,14 @@ def rel_curve_base(df_RV, lags_tf, n_bins=5, col=0, ax=None):
     perfect = np.arange(0,1+1E-9,(1/n_bins))
     pos_text = np.array((0.50, 0.50+0.025))
     ax.plot(perfect,perfect, color='black', alpha=0.5)
-    trans_angle = plt.gca().transData.transform_angles(np.array((44.3,)),
+    trans_angle = plt.gca().transData.transform_angles(np.array((32,)),
                                                        pos_text.reshape((1, 2)))[0]
-    ax.text(pos_text[0], pos_text[1], 'perfectly reliable', fontsize=14,
+    ax.text(pos_text[0], pos_text[1], 'perfectly reliable', fontsize=12,
                    rotation=trans_angle, rotation_mode='anchor')
+    
     obs_clim = df_RV['prob_clim'].mean()
-    ax.text(obs_clim+0.2, obs_clim-0.05, 'Obs. clim',
-                horizontalalignment='center', fontsize=14,
+    ax.text(obs_clim+0.2, obs_clim-0.07, 'Obs. clim',
+                horizontalalignment='center', fontsize=10,
          verticalalignment='center', rotation=0, rotation_mode='anchor')
     ax.hlines(y=obs_clim, xmin=0, xmax=1, label=None, color='grey',
               linestyle='dashed')
@@ -595,12 +609,12 @@ def rel_curve_base(df_RV, lags_tf, n_bins=5, col=0, ax=None):
               linestyle='dashed')
 
     # forecast clim
-#    pred_clim = y_pred_all.mean().values
-#    ax.vlines(x=np.mean(pred_clim), ymin=0, ymax=1, label=None)
-#    ax.vlines(x=np.min(pred_clim), ymin=0, ymax=1, label=None, alpha=0.2)
-#    ax.vlines(x=np.max(pred_clim), ymin=0, ymax=1, label=None, alpha=0.2)
+    #    pred_clim = y_pred_all.mean().values
+    #    ax.vlines(x=np.mean(pred_clim), ymin=0, ymax=1, label=None)
+    #    ax.vlines(x=np.min(pred_clim), ymin=0, ymax=1, label=None, alpha=0.2)
+    #    ax.vlines(x=np.max(pred_clim), ymin=0, ymax=1, label=None, alpha=0.2)
     ax.text(np.min(obs_clim)-0.025, obs_clim.mean()+0.3, 'Obs. clim',
-            horizontalalignment='center', fontsize=14,
+            horizontalalignment='center', fontsize=10,
      verticalalignment='center', rotation=90, rotation_mode='anchor')
     # resolution = reliability line
     BSS_clim_ref = perfect - obs_clim
@@ -612,14 +626,15 @@ def rel_curve_base(df_RV, lags_tf, n_bins=5, col=0, ax=None):
         dy = np.mean(dist_perf[1:] - dist_perf[:-1])
         dx = np.mean(x[1:] - x[:-1])
         angle = np.rad2deg(math.atan(dy/dx))
+        # hardcode adapting code due to splitting axes, pythagoras fails
         return angle
     angle = get_angle_xy(x, dist_perf)
     pos_text = (x[int(4/n_bins)], dist_perf[int(2/n_bins)]+0.04)
     trans_angle = plt.gca().transData.transform_angles(np.array((angle,)),
                                       np.array(pos_text).reshape((1, 2)))[0]
-#    ax.text(pos_text[0], pos_text[1], 'resolution=reliability',
-#            horizontalalignment='center', fontsize=14,
-#     verticalalignment='center', rotation=trans_angle, rotation_mode='anchor')
+    #    ax.text(pos_text[0], pos_text[1], 'resolution=reliability',
+    #            horizontalalignment='center', fontsize=14,
+    #     verticalalignment='center', rotation=trans_angle, rotation_mode='anchor')
     # BSS > 0 ares
     ax.fill_between(x, dist_perf, perfect, color='grey', alpha=0.5)
     ax.fill_betweenx(perfect, x, np.repeat(obs_clim, x.size),
@@ -628,23 +643,29 @@ def rel_curve_base(df_RV, lags_tf, n_bins=5, col=0, ax=None):
     ax.fill_between(x, dist_perf, np.repeat(obs_clim, x.size), color='grey', alpha=0.2)
     if col == 0:
         ax.set_ylabel('Observed frequency')
+        axhist.set_ylabel('Count', labelpad=17)
     else:
         ax.tick_params(labelleft=False)
-    ax.set_xlabel('Forecast probability')
     ax.set_ylim(-0.02,1.02)
     ax.set_xlim(-0.02,1.02)
+    
     #%%
-    return ax, n_bins
+    return [ax, axhist], n_bins
     #%%
-def rel_curve(df_RV, y_pred_all, color, lags_tf, n_bins, linestyle='solid', mean_lags=True, ax=None):
+def rel_curve(df_RV, y_pred_all, color, lags_relcurve, n_bins, legend='single', ax=None):
     #%%
-
+    # ax=None
     if ax==None:
-        ax, n_bins = rel_curve_base(df_RV, lags_tf)
+        axes, n_bins = rel_curve_base(df_RV)
+        ax, axhist = axes
+    else:
+        ax, axhist = ax
+        ax.set_xticklabels(['']*n_bins)
+
 
     strategy = 'uniform' # 'quantile' or 'uniform'
     fop = [] ; mpv = []
-    for l, lag in enumerate(lags_tf):
+    for l, lag in enumerate(lags_relcurve):
 
         out = calibration_curve(df_RV['RV_binary'],   y_pred_all[lag],
                                 n_bins=n_bins, strategy=strategy)
@@ -653,51 +674,34 @@ def rel_curve(df_RV, y_pred_all, color, lags_tf, n_bins, linestyle='solid', mean
         mpv.append(mean_predicted_value)
     fop = np.array(fop)
     mpv = np.array(mpv)
-    if len(fop.shape) == 2:
-        # al bins are present, we can take a mean over lags
-        # plot forecast
-        mean_mpv = np.mean(mpv, 0) ; mean_fop = np.mean(fop, 0)
-        fop_std = np.std(fop, 0)
+        
+    for l, lag in enumerate(lags_relcurve):
+        ax.plot(mpv[l], fop[l], color=color, linestyle=line_styles[l], 
+                label=f'lag {lag}', marker='s', markersize=3) ;
+        axhist.hist(y_pred_all[lag], range=(0,1), bins=2*n_bins, color=color,
+                    histtype="step", linestyle=line_styles[l])
+        
+        axhist.set_xlim(-0.02,1.02)
+    if legend == 'single':
+        color_leg = color
     else:
-        bins = np.arange(0,1+1E-9,1/n_bins)
-        b_prev = 0
-        dic_mpv = {}
-        dic_fop = {}
-        for i, b in enumerate(bins[1:]):
+        color_leg = 'grey'
+        
+    lines = [line_styles[l] for l in range(len(lags_relcurve))]
+    lines = [Line2D([0], [0], color=color_leg, linewidth=2, linestyle=l) for l in lines]
+    ax.legend(lines, [f'lag {lag}' for lag in lags_relcurve], fontsize=9)
 
-            list_mpv = []
-            list_fop = []
-            for i_lags, m_ in enumerate(mpv):
-                m_ = list(m_)
-                # if mpv falls in bin, it is added to the list, which will added to
-                # the dict_mpv
-
-                list_mpv.append([val for val in m_ if (val < b and val > b_prev)])
-                list_fop.append([fop[i_lags][m_.index(val)] for idx,val in enumerate(m_) if (val < b and val > b_prev)])
-            dic_mpv[i] = flatten(list_mpv)
-            dic_fop[i] = flatten(list_fop)
-            b_prev = b
-        mean_mpv = np.zeros( (n_bins) )
-        mean_fop = np.zeros( (n_bins) )
-        fop_std  = np.zeros( (n_bins) )
-        for k, item in dic_mpv.items():
-            mean_mpv[k] = np.mean(item)
-            mean_fop[k] = np.mean(dic_fop[k])
-            fop_std[k]  = np.std(dic_fop[k])
-
-    ax.plot(mean_mpv, mean_fop, color=color, linestyle=linestyle, label=None) ;
-
-    ax.fill_between(mean_mpv, mean_fop+fop_std,
-                    mean_fop-fop_std, label=None,
-                    alpha=0.2, color=color) ;
+    # axhist.yaxis.set_major_formatter(ticker.FormatStrFormatter('%0.0e'))
+    # axhist.tick_params(axis='y', labelsize=8)
+    axhist.ticklabel_format(style='sci', scilimits=(0, 1), useMathText=True)
+    axhist.yaxis.offsetText.set_fontsize(8)
+    
+    
     ax.set_ylim(-0.02,1.02)
     ax.set_xlim(-0.02,1.02)
-    color_line = ax.lines[-1].get_c() # get color
-    # determine size freq
-    freq = np.histogram(y_pred_all[lag], bins=n_bins)[0]
-    n_freq = freq / df_RV.index.size
-    ax.scatter(mean_mpv, mean_fop, s=n_freq*2000,
-               color=color_line, alpha=0.5)
+    axhist.set_xlabel('Mean predicted value')
+
+
 
 
     #%%
@@ -857,14 +861,15 @@ def merge_valid_info(list_of_fc, store=True):
 
 def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                   met='default', wspace=0.08, col_wrap=None, 
-                  skip_redundant_title=False):
+                  skip_redundant_title=False, 
+                  lags_relcurve: list=None):
    
     '''
     3 dims to plot: [metrics, experiments, stat_models]
     2 can be assigned to row or col, the third will be lines in the same axes.
     '''
     
-    # group_line_by=None; met='default'; wspace=0.08; col_wrap=None; skip_redundant_title=True
+    # group_line_by=None; met='default'; wspace=0.08; col_wrap=None; skip_redundant_title=True; lags_relcurve=None
     #%%
     dims = ['exper', 'models', 'met']
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
@@ -1099,12 +1104,15 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                     # =========================================================
                     if metric == 'Rel. Curve':
                         if l == 0:
-                            ax, n_bins = rel_curve_base(df_RV, lags_tf, col=col, ax=ax)
-                        # print(l,line)
-    
-                        rel_curve(df_RV, y_pred_all, color, lags_tf, n_bins,
-                                  linestyle=line_styles[l], mean_lags=True,
-                                  ax=ax)
+                            ax, n_bins = rel_curve_base(df_RV, col=col, ax=ax)
+                        if len(lines) > 1:
+                            legend = 'multiple'
+                        else:
+                            legend = 'single'
+                        if lags_relcurve is None:
+                            lags_relcurve = [lags_tf[int(lags_tf.size/2)]]
+                        rel_curve(df_RV, y_pred_all, color, lags_relcurve, n_bins,
+                                  legend=legend, ax=ax)
     
     
                     # legend conditions

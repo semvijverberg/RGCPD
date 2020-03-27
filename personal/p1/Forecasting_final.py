@@ -29,21 +29,10 @@ if sys.platform == 'linux':
 from class_fc import fcev
 
 
-
-
-
-
 # Define statmodel:
 logit = ('logit', None)
 
-logitCV = ('logitCV',
-          {'Cs':10, #np.logspace(-4,1,10)
-          'class_weight':{ 0:1, 1:1},
-           'scoring':'brier_score_loss',
-           'penalty':'l2',
-           'solver':'lbfgs',
-           'max_iter':100,
-           'kfold':5})
+
 
 
 ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/1_ff393_12jun-11aug_lag15-15_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
@@ -67,21 +56,58 @@ start_end_TVdate = None # ('7-04', '8-22')
 
 list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
+                    stat_model= ('logitCV',
+                                {'Cs':10, #np.logspace(-4,1,10)
+                                'class_weight':{ 0:1, 1:1},
+                                 'scoring':'brier_score_loss',
+                                 'penalty':'l2',
+                                 'solver':'lbfgs',
+                                 'max_iter':100,
+                                 'kfold':5,
+                                 'seed':1}), 
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-                    dataset=f'ERA-5',
+                    dataset=f'CV shuffle 1',
+                    keys_d=None),
+              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                    use_fold=use_fold, start_end_TVdate=None,
+                    stat_model= ('logitCV',
+                                {'Cs':10, #np.logspace(-4,1,10)
+                                'class_weight':{ 0:1, 1:1},
+                                 'scoring':'brier_score_loss',
+                                 'penalty':'l2',
+                                 'solver':'lbfgs',
+                                 'max_iter':100,
+                                 'kfold':5,
+                                 'seed':2}), 
+                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                    dataset=f'CV shuffle 2',
+                    keys_d=None),
+              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                    use_fold=use_fold, start_end_TVdate=None,
+                    stat_model= ('logitCV',
+                                {'Cs':10, #np.logspace(-4,1,10)
+                                'class_weight':{ 0:1, 1:1},
+                                 'scoring':'brier_score_loss',
+                                 'penalty':'l2',
+                                 'solver':'lbfgs',
+                                 'max_iter':100,
+                                 'kfold':5,
+                                 'seed':3}), 
+                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                    dataset=f'CV shuffle 3',
                     keys_d=None)]
 fc = list_of_fc[0]
+
 fc.get_TV(kwrgs_events=kwrgs_events)
-             
+
 
 #%%
+for fc in list_of_fc:
 
-
-fc.fit_models(lead_max=lags_i, verbosity=1)
-
-fc.perform_validation(n_boot=n_boot, blocksize='auto', alpha=0.05,
-                      threshold_pred=(1.5, 'times_clim'))
+    fc.fit_models(lead_max=lags_i, verbosity=1)
+    
+    fc.perform_validation(n_boot=n_boot, blocksize='auto', alpha=0.05,
+                          threshold_pred=(1.5, 'times_clim'))
     
 
 # In[8]:
@@ -101,10 +127,11 @@ if store:
     dict_merge_all = functions_pp.load_hdf5(filename+'.h5')
 
 
-kwrgs = {'wspace':0.25, 'col_wrap':3, 'skip_redundant_title':True}
+kwrgs = {'wspace':0.25, 'col_wrap':3, 'skip_redundant_title':True,
+         'lags_relcurve':[10,20]}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision', 'Accuracy']
-line_dim = 'exper'
+line_dim = 'dataset'
 group_line_by = None
 
 fig = dfplots.valid_figures(dict_merge_all, 

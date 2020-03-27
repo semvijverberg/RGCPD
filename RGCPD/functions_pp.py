@@ -937,6 +937,8 @@ def store_hdf_df(dict_of_dfs, file_path=None):
                 hdf.put(key, item, format='table', data_columns=True)
             except:
                 hdf.put(key, item, data_columns=True)
+            if item.index.name is not None:
+                hdf.root._v_attrs[key] = str(item.index.name)
         hdf.close()
     return file_path
 
@@ -957,7 +959,11 @@ def load_hdf5(path_data):
             break
     dict_of_dfs = {}
     for k in hdf.keys():
-        dict_of_dfs[k] = pd.read_hdf(path_data, k)
+        df = pd.read_hdf(path_data, k)
+        if k in hdf.attrs.keys():
+            str_attr_index = str(hdf.attrs[k])
+            df.index.name = str_attr_index
+        dict_of_dfs[k] = df
     hdf.close()
     return dict_of_dfs
 
