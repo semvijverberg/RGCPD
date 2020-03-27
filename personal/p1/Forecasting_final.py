@@ -33,7 +33,7 @@ from class_fc import fcev
 # Define statmodel:
 logit = ('logit', None)
 
-
+#%%
 start_time = time()
 
 ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/1_ff393_12jun-11aug_lag15-15_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
