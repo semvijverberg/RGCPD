@@ -8,6 +8,7 @@
 #get_ipython().run_line_magic('autoreload', '2')
 import os, inspect, sys
 import numpy as np
+from time import time
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_dir = os.path.join(main_dir, 'RGCPD')
@@ -33,7 +34,7 @@ from class_fc import fcev
 logit = ('logit', None)
 
 
-
+start_time = time()
 
 ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/1_ff393_12jun-11aug_lag15-15_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
 
@@ -98,16 +99,26 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                     keys_d=None)]
 fc = list_of_fc[0]
 
-fc.get_TV(kwrgs_events=kwrgs_events)
 
 
 #%%
+times = []
+t00 = time()
 for fc in list_of_fc:
+    t0 = time()
+    fc.get_TV(kwrgs_events=kwrgs_events)
 
     fc.fit_models(lead_max=lags_i, verbosity=1)
     
     fc.perform_validation(n_boot=n_boot, blocksize='auto', alpha=0.05,
                           threshold_pred=(1.5, 'times_clim'))
+    
+    single_run_time = int(time()-t0)
+    times.append(single_run_time)
+    total_n_runs = len(list_of_fc)
+    ETC = (int(np.mean(times) * total_n_runs))
+    print(f'Time elapsed single run in {single_run_time} sec\t'
+          f'ETC {int(ETC/60)} min \t Progress {int(100*(time()-t00)/ETC)}% ')
     
 
 # In[8]:
