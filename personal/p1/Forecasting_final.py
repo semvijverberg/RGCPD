@@ -50,8 +50,8 @@ kwrgs_events = kwrgs_events
 precur_aggr = 15
 add_autocorr = True
 use_fold = None
-n_boot = 1
-lags_i = np.array([0, 10])#  np.array([0, 10, 15, 20 , 25, 30])
+n_boot = 1000
+lags_i = np.array([0, 10, 15, 20 , 25, 30])
 start_end_TVdate = None # ('7-04', '8-22')
 
 
@@ -139,7 +139,7 @@ if store:
 
 
 kwrgs = {'wspace':0.25, 'col_wrap':3, 'skip_redundant_title':True,
-         'lags_relcurve':[10]}
+         'lags_relcurve':[20]}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision', 'Accuracy']
 line_dim = 'dataset'
