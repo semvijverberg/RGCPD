@@ -29,7 +29,8 @@ colors_nice = cycler('color',
                 nice_colors)
 colors_datasets = [np.array(c) for c in sns.color_palette('deep')]
 
-line_styles = ['solid', 'dashed', (0, (3, 5, 1, 5, 1, 5)), 'dotted']
+# line_styles = ['solid', 'dashed', (0, (3, 5, 1, 5, 1, 5)), 'dotted']
+line_styles = ['-', '--', '-.', ':', '']
 # dashdotdotted = (0, (3, 5, 1, 5, 1, 5)))
 
 
@@ -674,7 +675,7 @@ def rel_curve(df_RV, y_pred_all, color, lags_relcurve, n_bins, legend='single', 
         mpv.append(mean_predicted_value)
     fop = np.array(fop)
     mpv = np.array(mpv)
-        
+    
     for l, lag in enumerate(lags_relcurve):
         ax.plot(mpv[l], fop[l], color=color, linestyle=line_styles[l], 
                 label=f'lag {lag}', marker='s', markersize=3) ;
