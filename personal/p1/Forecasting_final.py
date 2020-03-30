@@ -44,7 +44,7 @@ ERA_data = user_dir + '/surfdrive/output_RGCPD/1_ff393_12jun-11aug_lag0-0_from_i
 # kwrgs_events_daily =    (filename_ts,
 #                          {'event_percentile': 90})
 
-kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3}
+kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break': 1}
 
 kwrgs_events = kwrgs_events
 precur_aggr = 15
