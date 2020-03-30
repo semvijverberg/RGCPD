@@ -207,7 +207,8 @@ def xrts_to_df(xarray):
     return df
 
 def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
-               start_end_year=None, RV_detrend=True, verbosity=1):
+               start_end_year=None, RV_detrend=True, RV_anomaly=False,
+               verbosity=1):
     #%%
     name = fullts.name
     dates = pd.to_datetime(fullts.time.values)
@@ -249,7 +250,7 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
 
     if RV_detrend == True:
         print('Detrending Respone Variable.')
-        fullts = detrend1D(fullts)
+        fullts = detrend1D(fullts, anomaly=RV_anomaly)
     
     if input_freq == 'daily':
         dates_RV = core_pp.get_subdates(pd.to_datetime(fullts.time.values), start_end_TVdate,
@@ -806,7 +807,7 @@ def selbox_to_1dts(cls, latlonbox):
 
 
 
-def detrend1D(da):
+def detrend1D(da, anomaly=False):
     import scipy.signal as sps
     import xarray as xr
     dates = pd.to_datetime(da.time.values)
@@ -834,7 +835,10 @@ def detrend1D(da):
                             dims=arr_oneday.dims,
                             coords=arr_oneday.coords)
         # subtract trend smoothened signal of arr_oneday values
-        trend = (arr_oneday_smooth - detrended_sm)- np.mean(arr_oneday_smooth, 0)
+        if anomaly == False:
+            trend = (arr_oneday_smooth - detrended_sm)            
+        else:
+            trend = (arr_oneday_smooth - detrended_sm)- np.mean(arr_oneday_smooth, 0)
         detrended = arr_oneday - trend
         output[i::stepsyr.size] = detrended
     dao = xr.DataArray(output,

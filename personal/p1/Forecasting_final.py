@@ -36,7 +36,7 @@ logit = ('logit', None)
 #%%
 start_time = time()
 
-ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/1_ff393_12jun-11aug_lag15-15_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
+ERA_data = user_dir + '/surfdrive/output_RGCPD/1_ff393_12jun-11aug_lag0-0_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
 
 # path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
 # RVts_filename = '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'

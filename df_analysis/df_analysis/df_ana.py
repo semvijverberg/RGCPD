@@ -444,6 +444,10 @@ def plot_ts_matric(df_init, win=1, lag=0, columns=list, rename: dict=None,
                                                'fontsize':25})
     ax.set_yticklabels(corr.index, fontdict={'fontweight':'bold',
                                                'fontsize':25}, rotation=0)
+    b, t = ax.get_ylim()
+    b += 0.5 # Add 0.5 to the bottom
+    t -= 0.5 # Subtract 0.5 from the top
+    ax.set_ylim(b, t)
     #%%
     return
 

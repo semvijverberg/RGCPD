@@ -14,8 +14,8 @@ import numpy as np
 import xarray as xr
 # from matplotlib.colors import LinearSegmentedColormap, colors
 import matplotlib.colors as mcolors
-
 import cartopy.crs as ccrs
+from typing import List, Tuple, Union
 
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
@@ -39,7 +39,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
                    clevels=None, cticks_center=None, title=None,
                    drawbox=None, subtitles=None, zoomregion=None,
-                   lat_labels=True, aspect=None):
+                   lat_labels=True, aspect=None, n_xticks=5, n_yticks=3):
     '''
     zoombox = tuple(east_lon, west_lon, south_lat, north_lat)
     '''
@@ -93,9 +93,9 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     # Coordinate labels
     # =============================================================================
     import cartopy.mpl.ticker as cticker
-    longitude_labels = np.linspace(np.min(lon), np.max(lon), 6, dtype=int)
+    longitude_labels = np.linspace(np.min(lon), np.max(lon), n_xticks, dtype=int)
     longitude_labels = np.array(sorted(list(set(np.round(longitude_labels, -1)))))
-    latitude_labels = np.linspace(lat.min(), lat.max(), 4, dtype=int)
+    latitude_labels = np.linspace(lat.min(), lat.max(), n_yticks, dtype=int)
     latitude_labels = sorted(list(set(np.round(latitude_labels, -1))))
     g.set_ticks(max_xticks=5, max_yticks=5, fontsize='large')
     g.set_xlabels(label=[str(el) for el in longitude_labels])
@@ -396,7 +396,9 @@ def causal_reg_to_xarray(RV_name, df_sum, list_MI):
     return dict_ds
 
 def plot_labels_vars_splits(dict_ds, df_sum, map_proj, figpath, paramsstr, RV_name,
-                            filetype='.pdf', mean_splits=True, kwrgs_plot={}):
+                            filetype='.pdf', mean_splits=True, 
+                            cols: List=['corr', 'causal'], kwrgs_plot={}):
+                            
     #%%
     # =============================================================================
     print('\nPlotting all fields significant at alpha_level_tig, while conditioning on parents'
@@ -434,17 +436,31 @@ def plot_labels_vars_splits(dict_ds, df_sum, map_proj, figpath, paramsstr, RV_na
 
             filepath = os.path.join(figpath, f_name)
             plot_labels_RGCPD(ds, df_c, var, lag, map_proj, filepath, 
-                              mean_splits, kwrgs_plot)
+                              mean_splits, cols, kwrgs_plot)
     #%%
     return
 
 def plot_labels_RGCPD(ds, df_c, var, lag, map_proj, filepath, 
-                      mean_splits=True, kwrgs_plot={}):
+                      mean_splits=True, cols: List=['corr', 'causal'], 
+                      kwrgs_plot={}):
     #%%
     ds_l = ds.sel(lag=lag)
     splits = ds.split
     list_xr = [] ; name = []
-    columns = ['labels', 'labels_tigr']
+    if cols == ['corr','causal']:
+        columns = ['labels', 'labels_tigr']
+        subtitles_l = [[f'{var} region labels', f'{var} regions C.D.']]
+        subtitles_r = [[f'robustness {var} corr.', f'robustness {var} C.D.']]
+    elif cols == ['corr']:
+        columns = ['labels']
+        subtitles_l = [[f'{var} region labels']]
+        subtitles_r = [[f'robustness {var} corr.']]
+    elif cols == ['causal']:
+        columns = columns = ['labels_tigr']
+        subtitles_l = [[f'{var} regions C.D.']]
+        subtitles_r = [[f'robustness {var} C.D.']]
+        
+    
 #    columns = ['labels']
     robustness_l = []
     if mean_splits == True:
@@ -482,7 +498,7 @@ def plot_labels_RGCPD(ds, df_c, var, lag, map_proj, filepath,
     # used for each plot (otherwise it assign inconsistent colors)
     
     kwrgs_labels = _get_kwrgs_labels(prec_labels)
-    kwrgs_labels['subtitles'] = np.array([[n.replace('_', ' ') for n in name]])
+    kwrgs_labels['subtitles'] = np.array(subtitles_l)
 
     if mean_splits == True:
         kwrgs_labels['cbar_vert'] = -0.1
@@ -499,7 +515,7 @@ def plot_labels_RGCPD(ds, df_c, var, lag, map_proj, filepath,
 
         if mean_splits == True:
             # plot robustness
-            subtitles = ['robustness '+var+' corr.', 'robustness '+var+' causal']
+            
 
             colors = plt.cm.magma_r(np.linspace(0,0.7, 20))
             colors[-1] = plt.cm.magma_r(np.linspace(0.99,1, 1))
@@ -509,14 +525,14 @@ def plot_labels_RGCPD(ds, df_c, var, lag, map_proj, filepath,
             units = 'No. of times significant [0 ... {}]'.format(splits.size)
             kwrgs_rob = {'clevels':clevels,
                          'cmap':cm,
-                         'subtitles':np.array([subtitles]),
+                         'subtitles':np.array(subtitles_r),
                          'cticks_center':None,
                          'units' : units}
             for key, item in kwrgs_rob.items():
                 kwrgs_labels[key] = item
-
+            # kwrgs_labels['cbar_vert'] += .05
             robust = xr.concat(robustness_l, dim='lag')
-            robust.lag.values = subtitles
+            robust.lag.values = subtitles_r[0]
             robust = robust.where(robust.values != 0.)
             plot_corr_maps(robust-1E-9,
                  map_proj, **kwrgs_labels)
@@ -533,7 +549,8 @@ def plot_labels_RGCPD(ds, df_c, var, lag, map_proj, filepath,
     return
 
 def plot_corr_vars_splits(dict_ds, df_sum, map_proj, figpath, paramsstr, RV_name,
-                          filetype='.pdf', mean_splits=True, kwrgs_plot={}):
+                          filetype='.pdf', mean_splits=True, 
+                          cols: List=['corr', 'causal'], kwrgs_plot={}):
     #%%
     # =============================================================================
     print('\nPlotting all fields significant at alpha_level_tig, while conditioning on parents'
@@ -566,7 +583,7 @@ def plot_corr_vars_splits(dict_ds, df_sum, map_proj, figpath, paramsstr, RV_name
                 f_name = '{}_{}_vs_{}_tigr_corr'.format(paramsstr, RV_name, var) + filetype
             filepath = os.path.join(figpath, f_name)
             plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, 
-                              mean_splits, kwrgs_plot)
+                              mean_splits, cols, kwrgs_plot)
     #%%
     return
 
@@ -595,25 +612,36 @@ def _get_kwrgs_labels(prec_labels):
     return kwrgs_labels
 
 def plot_labels(prec_labels, cbar_vert=None, col_dim='lag', row_dim='split',
-                wspace=0.1, hspace=-.2, zoomregion=None):
+                wspace=0.1, hspace=-.2, zoomregion=None, kwrgs_plot={}):
     xrlabels = prec_labels.copy()
     xrlabels.values = prec_labels.values - 0.5
     kwrgs_labels = _get_kwrgs_labels(xrlabels)
     if cbar_vert is not None:
         kwrgs_labels['cbar_vert'] = cbar_vert
+    for k, item in kwrgs_plot.items():
+        kwrgs_labels[k] = item
     plot_corr_maps(xrlabels, col_dim=col_dim, row_dim=row_dim, 
                    hspace=hspace, wspace=wspace, zoomregion=zoomregion, 
                    **kwrgs_labels)
 
 def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath, 
-                      mean_splits=True, kwrgs_plot={}):
+                      mean_splits=True, cols: List=['corr','causal'],
+                      kwrgs_plot={}):
     #%%
     ds_l = ds.sel(lag=lag)
     splits = ds.split
     list_xr = [] ; name = []
     list_xr_m = []
-    columns = [['corr', 'labels'],['corr_tigr', 'labels_tigr']]
-#    columns = [['corr', 'labels']]
+    if cols == ['corr','causal']:
+        columns = [['corr', 'labels'],['corr_tigr', 'labels_tigr']]
+        subtitles = np.array([[f'{var} correlated', f'{var} causal']])
+    elif cols == ['corr']:
+        columns = [['corr', 'labels']]
+        subtitles = np.array([[f'{var} correlated']])
+    elif cols == ['causal']:
+        columns = [['corr_tigr', 'labels_tigr']]
+        subtitles = np.array([[f'{var} causal']])
+
     if mean_splits == True:
         for c in columns:
             name.append(var+'_'+c[0])
@@ -648,7 +676,7 @@ def plot_corr_regions(ds, df_c, var, lag, map_proj, filepath,
 
     if mean_splits:
         cbar_vert = -0.1
-        subtitles = np.array([[f'{var} correlated', f'{var} causal']])
+        subtitles = subtitles
     else:
         cbar_vert = -0.01
         subtitles = None

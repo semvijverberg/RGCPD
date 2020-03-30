@@ -45,8 +45,8 @@ logitCV = ('logitCV',
 
 
 # In[6]:
-EC_data  = user_dir + '/surfdrive/output_RGCPD/easternUS_EC/EC_tas_tos_Northern/958dd_ran_strat10_s30/data/EC_21-03-20_16hr_lag_10_958dd.h5'
-ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_10_ff393.h5'
+EC_data  = user_dir + '/surfdrive/output_RGCPD/easternUS_EC/EC_tas_tos_Northern/958dd_ran_strat10_s30/data/EC_21-03-20_16hr_lag_0_958dd.h5'
+ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_0_ff393.h5'
 
 # path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
 # RVts_filename = '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'
@@ -78,20 +78,20 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                       kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                       dataset=f'CPPA vs PEP',
                       keys_d='CPPA',
-                      n_cpu=n_cpu),              
-              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-                    dataset=f'CPPA vs PDO+ENSO',
-                    keys_d='PDO+ENSO',
-                    n_cpu=n_cpu),              
-              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-                    dataset=f'CPPA vs PDO+ENSO',
-                    keys_d='CPPA',
+                      n_cpu=n_cpu),   
+               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                     use_fold=use_fold, start_end_TVdate=None,
+                     stat_model=logitCV, 
+                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                     dataset=f'CPPA vs PDO+ENSO',
+                     keys_d='PDO+ENSO',
+                     n_cpu=n_cpu),              
+               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                     use_fold=use_fold, start_end_TVdate=None,
+                     stat_model=logitCV, 
+                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                     dataset=f'CPPA vs PDO+ENSO',
+                     keys_d='CPPA',
                     n_cpu=n_cpu)]
 
 # list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
@@ -207,15 +207,50 @@ if __name__ == "__main__":
                         bbox_inches='tight') # dpi auto 600
 
 
+
 #%%
-# import df_ana
-# columns = ['1', '0..100..ENSO34','0..101..PDO', '0..102..CPPAsv', '0..103..PEPsv']
-# rename = {'1':'mx2t', '0..100..ENSO34':'N34','0..101..PDO':'PDO', '0..102..CPPAsv':'CPPAsp', '0..103..PEPsv':'PEP'}
-# df_corr = fc.df_data.loc[:,['1', '0..100..ENSO34','0..101..PDO', '0..102..CPPAsv', '0..103..PEPsv', 'RV_mask', 'TrainIsTrue']].copy()
+import df_ana ; import matplotlib.pyplot as plt
+flatten = lambda l: [item for sublist in l for item in sublist]
+ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_0_ff393.h5'
+working_folder = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/'
 
-# df_ana.plot_ts_matric(df_corr, columns=columns, rename=rename, period='summer60days')
 
-# df_ana.plot_ts_matric(df_corr, win=365, columns=columns, rename=rename, period='fullyear')
+fc = fcev(path_data=ERA_data, precur_aggr=1, 
+                    use_fold=None, start_end_TVdate=None,
+                    stat_model=logitCV, 
+                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
+                    dataset=f'CPPA vs PEP',
+                    keys_d=None,
+                    n_cpu=n_cpu)
+
+columns = ['mx2t', 'ENSO34','PDO', '0..CPPAsv', '0..PEPsv']
+
+rename = {'mx2t':'T90tail', '0..CPPAsv':'CPPAsp', '0..PEPsv':'PEP'}
+df_corr = fc.df_data.loc[:,['mx2t', 'ENSO34','PDO', '0..CPPAsv', '0..PEPsv', 'RV_mask', 'TrainIsTrue']].copy()
+
+df_ana.plot_ts_matric(df_corr, columns=columns, rename=rename, period='summer60days')
+fig_filename = os.path.join(working_folder, 'figures', 'cross_corr_summer60days')
+plt.savefig(fig_filename + '.pdf', bbox_inches='tight')
+df_ana.plot_ts_matric(df_corr, win=365, columns=columns, rename=rename, period='fullyear')
+fig_filename = os.path.join(working_folder, 'figures', 'cross_corr_fullyear')
+plt.savefig(fig_filename + '.pdf', bbox_inches='tight')
+
+#%%
+ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/1_ff393_12jun-11aug_lag15-15_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
+fc_ = fcev(path_data=ERA_data, precur_aggr=1, 
+                    use_fold=None, start_end_TVdate=None,
+                    stat_model=logitCV, 
+                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
+                    dataset=f'CPPA vs PEP',
+                    keys_d=None,
+                    n_cpu=n_cpu)
+
+rename = {'1':'mx2t', '0..100..ENSO34':'ENSO34','0..101..PDO':'PDO', '0..102..CPPAsv':'CPPAsp', '0..103..PEPsv':'PEP'}
+columns = list(rename.keys()) ; columns.append('TrainIsTrue') ; columns.append('RV_mask')
+df_corr_ = fc_.df_data.loc[:,columns].copy()
+df_ana.plot_ts_matric(df_corr_, columns=list(rename.keys()), rename=rename, period='summer60days')
+
+df_ana.plot_ts_matric(df_corr_, win=365, columns=list(rename.keys()), rename=rename, period='fullyear')
 
 #rename_ERA =    {'ERA-5: sst(PEP)+sm':'PEP+sm', 
 #             'ERA-5: sst(PDO,ENSO)+sm':'PDO+ENSO+sm', 

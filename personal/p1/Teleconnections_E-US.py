@@ -30,8 +30,8 @@ CPPA_s30  = [('sst_CPPAs30', user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_
 
 list_of_name_path = [(1 ,user_dir + '/surfdrive/output_RGCPD/easternUS/tf1_n_clusters4_q90_dendo_ff393.nc'),
                      ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                    
-                     ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc')]
-                     # ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc')]
+                     ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),
+                      ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc')]
 
 import_prec_ts = CPPA_s30
 
@@ -39,9 +39,12 @@ import_prec_ts = CPPA_s30
 list_for_MI   = [BivariateMI(name='sm2', func=BivariateMI.corr_map, 
                              kwrgs_func={'alpha':.05, 'FDR_control':True}, 
                              distance_eps=600, min_area_in_degrees2=5),
-                  BivariateMI(name='sm3', func=BivariateMI.corr_map, 
+                 BivariateMI(name='sm3', func=BivariateMI.corr_map, 
                               kwrgs_func={'alpha':.05, 'FDR_control':True}, 
                               distance_eps=600, min_area_in_degrees2=7)]
+                 # BivariateMI(name='sst', func=BivariateMI.corr_map, 
+                 #              kwrgs_func={'alpha':.001, 'FDR_control':True}, 
+                 #              distance_eps=800, min_area_in_degrees2=5)]
                             
 
 
@@ -54,7 +57,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            import_prec_ts=import_prec_ts,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           tfreq=15, lags_i=np.array([1]),
+           tfreq=15, lags_i=np.array([0]),
            path_outmain=user_dir+'/surfdrive/output_RGCPD')
 
 
@@ -114,22 +117,26 @@ rg.quick_view_labels()
 
 # rg.df_data
 
-# # rg.store_df()
+# rg.store_df()
 
 # # In[171]:
 
 # # rg.get_ts_prec(precur_aggr=None)
 # rg.PCMCI_df_data(pc_alpha=None, 
-#                  tau_max=2,
-#                  alpha_level=0.1, 
-#                  max_combinations=2)
-# rg.df_sum
+#                   tau_max=2,
+#                   max_combinations=2)
+# rg.PCMCI_get_links(alpha_level=.05)
+# rg.df_links
 
-# # In[172]:
+# # # In[172]:
 
 
-# rg.plot_maps_sum()
-
+# rg.plot_maps_sum(var='sm2', cols=['corr'],
+#                  kwrgs_plot={'aspect': 2, 'wspace': -0.2})
+# rg.plot_maps_sum(var='sm3', 
+#                  kwrgs_plot={'aspect': 2, 'wspace': -0.2})
+# rg.plot_maps_sum(var='sst', 
+#                  kwrgs_plot={'cbar_vert':.02})
 
 # In[173]:
 

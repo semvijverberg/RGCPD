@@ -178,6 +178,7 @@ class fcev():
                         'max_break' : 0,
                         'grouped' : False,
                         'window' : 'mean'}
+            _kwrgs_events = self.kwrgs_events
         else:
             
             self.kwrgs_events = kwrgs_events
@@ -540,7 +541,7 @@ class fcev():
     def _fit_model(self, stat_model=tuple, verbosity=0):
 
         #%%
-        print(self.n_cpu)
+        
         RV = self.TV
         kwrgs_pp = self.kwrgs_pp
         keys_d = self.keys_d

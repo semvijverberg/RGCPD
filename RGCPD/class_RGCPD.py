@@ -167,8 +167,9 @@ class RGCPD:
         self.get_clust()
         plot_maps.plot_labels(self.ds['xrclustered'])
         
-    def pp_TV(self, name_ds='ts', loadleap=False):
+    def pp_TV(self, name_ds='ts', loadleap=False, anomaly=False):
         self.name_TVds = name_ds
+        self.RV_anomaly = anomaly
         f = functions_pp
         self.fulltso, self.hash = f.load_TV(self.list_of_name_path,
                                             loadleap=loadleap,
@@ -177,7 +178,8 @@ class RGCPD:
                                                               self.tfreq,
                                                               self.start_end_TVdate,
                                                               self.start_end_date,
-                                                              self.start_end_year)
+                                                              self.start_end_year,
+                                                              self.RV_anomaly)
         self.input_freq = inf
         self.dates_or  = pd.to_datetime(self.fulltso.time.values)
         self.dates_all = pd.to_datetime(self.fullts.time.values)
@@ -497,7 +499,7 @@ class RGCPD:
                 plt.savefig(fig_path, bbox_inches='tight')
 
     def plot_maps_sum(self, var='all', map_proj=None, figpath=None, 
-                      paramsstr=None, kwrgs_plot={}):
+                      paramsstr=None, cols: List=['corr', 'causal'], kwrgs_plot={}):
 
 #         if map_proj is None:
 #             central_lon_plots = 200
@@ -513,12 +515,13 @@ class RGCPD:
             dict_ds = {f'{var}':self.dict_ds[var]} # plot single var            
         plot_maps.plot_labels_vars_splits(dict_ds, self.df_links, map_proj,
                                           figpath, paramsstr, self.TV.name,
-                                           kwrgs_plot=kwrgs_plot)
+                                          cols=cols, kwrgs_plot=kwrgs_plot)
 
 
         plot_maps.plot_corr_vars_splits(dict_ds, self.df_links, map_proj,
                                           figpath, paramsstr, self.TV.name, 
-                                          kwrgs_plot=kwrgs_plot)
+                                          cols=cols, kwrgs_plot=kwrgs_plot)
+                                          
 
     def _get_testyrs(self, df_splits):
     #%%
@@ -548,7 +551,8 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
             kwrgs_events = {'event_percentile': 66,
                             'min_dur' : 1,
                             'max_break' : 0,
-                            'grouped' : False}
+                            'grouped' : False,
+                            'window':'mean'}
             if verbosity == 1:
                 print("kwrgs_events not given, creating stratified traintest split "
                     "based on events defined as exceeding the {}th percentile".format(

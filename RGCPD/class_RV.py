@@ -71,83 +71,83 @@ class RV_class:
         self.fit_model_mask, self.fit_dates, self.RV_ts_fit = out
 
 
-
-        # make RV_bin for events based on aggregated daymeans
-        if kwrgs_events['window'] is 'mean':
-            # RV_ts and RV_ts_fit are equal if fit_model_dates = None
-            self.threshold = Ev_threshold(self.RV_ts,
-                                              kwrgs_events['event_percentile'])
-            self.threshold_ts_fit = Ev_threshold(self.RV_ts_fit,
-                                              kwrgs_events['event_percentile'])
-
-            # unpack other optional arguments for defining event timeseries 
-            redun_keys = ['event_percentile', 'window']
-            kwrgs = {key:item for key, item in kwrgs_events.items() if key not in redun_keys}
-
-            if only_RV_events == True:
-                self.RV_bin_fit = Ev_timeseries(self.RV_ts_fit,
-                               threshold=self.threshold_ts_fit ,
-                               **kwrgs)[0]
-                self.RV_bin = self.RV_bin_fit.loc[self.dates_RV]
-            elif only_RV_events == False:
-                self.RV_b_full = Ev_timeseries(self.fullts,
-                               threshold=self.threshold ,
-                               **kwrgs)[0]
-                self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
-
-            self.freq_per_year      = RV_class.get_freq_years(self)
-
-
-        # make RV_bin for extreme occurring in time window
-        if type(kwrgs_events['window']) is pd.DataFrame:
-
-            fullts = kwrgs_events['window']
-            dates_RVe = self.aggr_to_daily_dates(self.dates_RV)
-            dates_alle  = self.aggr_to_daily_dates(self.dates_all)
-
-            df_RV_ts_e = fullts.loc[dates_RVe]
-            df_fullts_e = fullts.loc[dates_alle]
-
-
-            out = handle_fit_model_dates(dates_RVe, dates_alle, df_RV_ts_e, fit_model_dates)
-            self.fit_model_mask, self.fit_dates, self.RV_ts_fit_e = out
-
-
-            # RV_ts and RV_ts_fit are equal if fit_model_dates = None
-            self.threshold = Ev_threshold(df_RV_ts_e,
-                                              kwrgs_events['event_percentile'])
-            self.threshold_ts_fit = Ev_threshold(self.RV_ts_fit_e,
-                                              kwrgs_events['event_percentile'])
-            
-            # unpack other optional arguments for defining event timeseries 
-            redun_keys = ['event_percentile', 'window']
-            kwrgs = {key:item for key, item in kwrgs_events.items() if key not in redun_keys}
-
-            if only_RV_events == True:
-                # RV_bin_fit is defined such taht we can fit on RV_bin_fit
-                # but validate on RV_bin
-                self.RV_bin_fit = Ev_timeseries(df_RV_ts_e,
-                               threshold=self.threshold_ts_fit, **kwrgs)[0]
-                self.RV_bin = self.RV_bin_fit.loc[dates_RVe]
-            elif only_RV_events == False:
-                self.RV_b_full = Ev_timeseries(df_fullts_e,
-                               threshold=self.threshold, **kwrgs)[0]
-                self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
-
-            # convert daily binary to window probability binary
-            if self.tfreq != 1:
-                self.RV_bin, dates_gr = functions_pp.time_mean_bins(self.RV_bin.astype('float'),
-                                                                self.tfreq,
-                                                                None,
-                                                                None)
-                self.RV_bin_fit, dates_gr = functions_pp.time_mean_bins(self.RV_bin_fit.astype('float'),
-                                                                        self.tfreq,
-                                                                        None,
-                                                                        None)
-
-            # all bins, with mean > 0 contained an 'extreme' event
-            self.RV_bin_fit[self.RV_bin_fit>0] = 1
-            self.RV_bin[self.RV_bin>0] = 1
+        if kwrgs_events is not None:
+            # make RV_bin for events based on aggregated daymeans
+            if kwrgs_events['window'] is 'mean':
+                # RV_ts and RV_ts_fit are equal if fit_model_dates = None
+                self.threshold = Ev_threshold(self.RV_ts,
+                                                  kwrgs_events['event_percentile'])
+                self.threshold_ts_fit = Ev_threshold(self.RV_ts_fit,
+                                                  kwrgs_events['event_percentile'])
+    
+                # unpack other optional arguments for defining event timeseries 
+                redun_keys = ['event_percentile', 'window']
+                kwrgs = {key:item for key, item in kwrgs_events.items() if key not in redun_keys}
+    
+                if only_RV_events == True:
+                    self.RV_bin_fit = Ev_timeseries(self.RV_ts_fit,
+                                   threshold=self.threshold_ts_fit ,
+                                   **kwrgs)[0]
+                    self.RV_bin = self.RV_bin_fit.loc[self.dates_RV]
+                elif only_RV_events == False:
+                    self.RV_b_full = Ev_timeseries(self.fullts,
+                                   threshold=self.threshold ,
+                                   **kwrgs)[0]
+                    self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
+    
+                self.freq_per_year      = RV_class.get_freq_years(self)
+    
+    
+            # make RV_bin for extreme occurring in time window
+            if type(kwrgs_events['window']) is pd.DataFrame:
+    
+                fullts = kwrgs_events['window']
+                dates_RVe = self.aggr_to_daily_dates(self.dates_RV)
+                dates_alle  = self.aggr_to_daily_dates(self.dates_all)
+    
+                df_RV_ts_e = fullts.loc[dates_RVe]
+                df_fullts_e = fullts.loc[dates_alle]
+    
+    
+                out = handle_fit_model_dates(dates_RVe, dates_alle, df_RV_ts_e, fit_model_dates)
+                self.fit_model_mask, self.fit_dates, self.RV_ts_fit_e = out
+    
+    
+                # RV_ts and RV_ts_fit are equal if fit_model_dates = None
+                self.threshold = Ev_threshold(df_RV_ts_e,
+                                                  kwrgs_events['event_percentile'])
+                self.threshold_ts_fit = Ev_threshold(self.RV_ts_fit_e,
+                                                  kwrgs_events['event_percentile'])
+                
+                # unpack other optional arguments for defining event timeseries 
+                redun_keys = ['event_percentile', 'window']
+                kwrgs = {key:item for key, item in kwrgs_events.items() if key not in redun_keys}
+    
+                if only_RV_events == True:
+                    # RV_bin_fit is defined such taht we can fit on RV_bin_fit
+                    # but validate on RV_bin
+                    self.RV_bin_fit = Ev_timeseries(df_RV_ts_e,
+                                   threshold=self.threshold_ts_fit, **kwrgs)[0]
+                    self.RV_bin = self.RV_bin_fit.loc[dates_RVe]
+                elif only_RV_events == False:
+                    self.RV_b_full = Ev_timeseries(df_fullts_e,
+                                   threshold=self.threshold, **kwrgs)[0]
+                    self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
+    
+                # convert daily binary to window probability binary
+                if self.tfreq != 1:
+                    self.RV_bin, dates_gr = functions_pp.time_mean_bins(self.RV_bin.astype('float'),
+                                                                    self.tfreq,
+                                                                    None,
+                                                                    None)
+                    self.RV_bin_fit, dates_gr = functions_pp.time_mean_bins(self.RV_bin_fit.astype('float'),
+                                                                            self.tfreq,
+                                                                            None,
+                                                                            None)
+    
+                # all bins, with mean > 0 contained an 'extreme' event
+                self.RV_bin_fit[self.RV_bin_fit>0] = 1
+                self.RV_bin[self.RV_bin>0] = 1
     #%%
     @staticmethod
     # Retrieve information on input timeseries
