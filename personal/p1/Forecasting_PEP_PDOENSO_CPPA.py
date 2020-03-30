@@ -39,7 +39,8 @@ logitCV = ('logitCV',
            'penalty':'l2',
            'solver':'lbfgs',
            'max_iter':100,
-           'kfold':5})
+           'kfold':5,
+           'seed':2})
 
 
 
