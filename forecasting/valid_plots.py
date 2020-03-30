@@ -551,7 +551,7 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
                     verticalalignment='center', transform=ax.transAxes,
                     rotation=0, rotation_mode='anchor', alpha=0.5)
             
-    if metric in ['AUC-ROC', 'AUC-PR', 'Precision']:
+    if metric in ['AUC-ROC', 'AUC-PR', 'Precision', 'Accuracy']:
         ax.text(max(x), y_b-0.05, 'Benchmark rand. pred.',
                 horizontalalignment='right', fontsize=12,
                 verticalalignment='center',
@@ -653,7 +653,9 @@ def rel_curve_base(df_RV, n_bins=5, col=0, ax=None):
     #%%
     return [ax, axhist], n_bins
     #%%
-def rel_curve(df_RV, y_pred_all, color, lags_relcurve, n_bins, legend='single', ax=None):
+def rel_curve(df_RV, y_pred_all, lags_relcurve, n_bins, color, line_style=None,
+              legend='single', ax=None):
+              
     #%%
     # ax=None
     if ax==None:
@@ -676,14 +678,17 @@ def rel_curve(df_RV, y_pred_all, color, lags_relcurve, n_bins, legend='single', 
     fop = np.array(fop)
     mpv = np.array(mpv)
     
+   
     for l, lag in enumerate(lags_relcurve):
-        ax.plot(mpv[l], fop[l], color=color, linestyle=line_styles[l], 
+        if len(lags_relcurve) > 1:
+            line_style = line_styles[l]
+        ax.plot(mpv[l], fop[l], color=color, linestyle=line_style, 
                 label=f'lag {lag}', marker='s', markersize=3)
         # print(line_styles)
         # print(l)
         # print(line_styles[l])
         axhist.hist(y_pred_all[lag], range=(0,1), bins=2*n_bins, color=color,
-                    histtype="step", linestyle=line_styles[l], label=None)
+                    histtype="step", linestyle=line_style, label=None)
         
         axhist.set_xlim(-0.02,1.02)
     if legend == 'single':
@@ -1110,12 +1115,13 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                         if l == 0:
                             ax, n_bins = rel_curve_base(df_RV, col=col, ax=ax)
                         if len(lines) > 1:
-                            legend = 'multiple'
+                            legend = 'multiple' 
                         else:
-                            legend = 'single'
+                            legend = 'single' 
                         if lags_relcurve is None:
                             lags_relcurve = [lags_tf[int(lags_tf.size/2)]]
-                        rel_curve(df_RV, y_pred_all, color, lags_relcurve, n_bins,
+                        rel_curve(df_RV, y_pred_all, lags_relcurve, n_bins,
+                                  color=color, line_style=line_styles[l],
                                   legend=legend, ax=ax)
     
     

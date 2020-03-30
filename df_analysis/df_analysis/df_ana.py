@@ -364,7 +364,8 @@ def corr_matrix_pval(df, alpha=0.05):
     sig_mask = pval_matrix < alpha
     return cross_corr, sig_mask, pval_matrix
 
-def plot_ts_matric(df_init, win=1, lag=0, columns=list, rename=dict, period='fullyear'):
+def plot_ts_matric(df_init, win=1, lag=0, columns=list, rename: dict=None, 
+                   period='fullyear'):
     #%%
     '''
     period = ['fullyear', 'summer60days', 'pre60days']

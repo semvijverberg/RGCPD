@@ -44,8 +44,8 @@ logitCV = ('logitCV',
 
 
 # In[6]:
-EC_data  = user_dir + '/surfdrive/output_RGCPD/easternUS_EC/EC_tas_tos_Northern/958dd_ran_strat10_s30/data/EC_21-03-20_16hr_lag_0_958dd.h5'
-ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_0_ff393.h5'
+EC_data  = user_dir + '/surfdrive/output_RGCPD/easternUS_EC/EC_tas_tos_Northern/958dd_ran_strat10_s30/data/EC_21-03-20_16hr_lag_10_958dd.h5'
+ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_10_ff393.h5'
 
 # path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
 # RVts_filename = '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'
@@ -206,6 +206,15 @@ if __name__ == "__main__":
                         bbox_inches='tight') # dpi auto 600
 
 
+#%%
+# import df_ana
+# columns = ['1', '0..100..ENSO34','0..101..PDO', '0..102..CPPAsv', '0..103..PEPsv']
+# rename = {'1':'mx2t', '0..100..ENSO34':'N34','0..101..PDO':'PDO', '0..102..CPPAsv':'CPPAsp', '0..103..PEPsv':'PEP'}
+# df_corr = fc.df_data.loc[:,['1', '0..100..ENSO34','0..101..PDO', '0..102..CPPAsv', '0..103..PEPsv', 'RV_mask', 'TrainIsTrue']].copy()
+
+# df_ana.plot_ts_matric(df_corr, columns=columns, rename=rename, period='summer60days')
+
+# df_ana.plot_ts_matric(df_corr, win=365, columns=columns, rename=rename, period='fullyear')
 
 #rename_ERA =    {'ERA-5: sst(PEP)+sm':'PEP+sm', 
 #             'ERA-5: sst(PDO,ENSO)+sm':'PDO+ENSO+sm', 
