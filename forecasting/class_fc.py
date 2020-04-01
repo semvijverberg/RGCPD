@@ -125,7 +125,7 @@ class fcev():
                                                           keys_options=[keys_d],
                                                           causal=self.causal)[keys_d]
             if self.kwrgs_pp['add_autocorr']:
-                self.experiment += '+AR1'
+                self.experiment += '+AR'
 
         
         if n_cpu is None:

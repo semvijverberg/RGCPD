@@ -30,15 +30,17 @@ else:
     root_data = '/Users/semvijverberg/surfdrive/ERA5'
     
 path_outmain = user_dir+'/surfdrive/output_RGCPD/easternUS_EC/'
-# In[2]:
 
-
-import functions_pp
-import core_pp
+import functions_pp, core_pp
+from find_precursors import xrmask_by_latlon
 import clustering_spatial as cl
 import plot_maps
 import df_ana
 from RGCPD import RGCPD
+# In[2]:
+
+
+
 list_of_name_path = [('fake', None),
                      ('t2mmmax', root_data + '/input_raw/mx2t_US_1979-2018_1_12_daily_1.0deg.nc')]
 rg = RGCPD(list_of_name_path=list_of_name_path,
@@ -70,10 +72,10 @@ lsm = core_pp.import_ds_lazy(LSM, selbox=selbox)
 mask_US = np.logical_and(mask_US, (lsm > .3).values)
 xr_mask = xarray.where(mask_US)
 xr_mask.values[mask_US]  = 1
-xr_mask = cl.mask_latlon(xr_mask, lonmin=237)
-xr_mask = cl.mask_latlon(xr_mask, lonmin=238, latmin=39)
-xr_mask = cl.mask_latlon(xr_mask, lonmin=239, latmin=38)
-xr_mask = cl.mask_latlon(xr_mask, lonmin=240, latmin=36)
+xr_mask = xrmask_by_latlon(xr_mask, lonmin=237)
+xr_mask = xrmask_by_latlon(xr_mask, lonmin=238, latmin=39)
+xr_mask = xrmask_by_latlon(xr_mask, lonmin=239, latmin=38)
+xr_mask = xrmask_by_latlon(xr_mask, lonmin=240, latmin=36)
 plot_maps.plot_labels(xr_mask)
 
 
@@ -278,7 +280,8 @@ fig = df_ana.loop_df(merged_ts, function=df_ana.plot_spectrum, sharey=False, sha
                              colwrap=2, kwrgs={})
 
 # In[ ]:
-
+xrclustered_fn = '/Users/semvijverberg/surfdrive/output_RGCPD/easternUS_EC/EC_tas_tos_Northern/tf1_n_clusters5_q95_dendo_958dd.nc'
+xrclustered = core_pp.import_ds_lazy(xrclustered_fn)['xrclustered']
 
 
 

@@ -748,7 +748,7 @@ def plot_oneyr_events(df, event_percentile, test_year):
             label = None
         ax.fill_between(plotpaper.index, threshold, plotpaper[col].values.squeeze(),
                          where=(plotpaper[col].values.squeeze() > threshold),
-                     interpolate=True, color="crimson", label=label)
+                     interpolate=True, color=color, label=label, alpha=.5)
         ax.legend(fontsize='x-large', fancybox=True, facecolor='grey',
                   frameon=True, framealpha=0.3)
         ax.set_title('Timeseries and Events', fontsize=18)
@@ -971,6 +971,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
         
         
         lines, cols = line_col_arrangement(lines_req, *left, comb)
+        cols = cols[::-1]
     
     elif group_line_by is not None:
         assert group_line_by in ['model', 'exper', 'dataset'], ('illegal key for line_dim, '

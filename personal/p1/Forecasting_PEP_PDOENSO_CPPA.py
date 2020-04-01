@@ -223,7 +223,7 @@ fc = fcev(path_data=ERA_data, precur_aggr=1,
                     keys_d=None,
                     n_cpu=n_cpu)
 
-columns = ['mx2t', 'ENSO34','PDO', '0..CPPAsv', '0..PEPsv']
+columns = ['mx2t', '0..CPPAsv', '0..PEPsv', 'PDO', 'ENSO34']
 
 rename = {'mx2t':'T90tail', '0..CPPAsv':'CPPAsp', '0..PEPsv':'PEP'}
 df_corr = fc.df_data.loc[:,['mx2t', 'ENSO34','PDO', '0..CPPAsv', '0..PEPsv', 'RV_mask', 'TrainIsTrue']].copy()
@@ -231,6 +231,7 @@ df_corr = fc.df_data.loc[:,['mx2t', 'ENSO34','PDO', '0..CPPAsv', '0..PEPsv', 'RV
 df_ana.plot_ts_matric(df_corr, columns=columns, rename=rename, period='summer60days')
 fig_filename = os.path.join(working_folder, 'figures', 'cross_corr_summer60days')
 plt.savefig(fig_filename + '.pdf', bbox_inches='tight')
+
 df_ana.plot_ts_matric(df_corr, win=365, columns=columns, rename=rename, period='fullyear')
 fig_filename = os.path.join(working_folder, 'figures', 'cross_corr_fullyear')
 plt.savefig(fig_filename + '.pdf', bbox_inches='tight')
@@ -245,7 +246,7 @@ fc_ = fcev(path_data=ERA_data, precur_aggr=1,
                     keys_d=None,
                     n_cpu=n_cpu)
 
-rename = {'1':'mx2t', '0..100..ENSO34':'ENSO34','0..101..PDO':'PDO', '0..102..CPPAsv':'CPPAsp', '0..103..PEPsv':'PEP'}
+rename = {'1':'mx2t', '0..102..CPPAsv':'CPPAsp', '0..103..PEPsv':'PEP', '0..101..PDO':'PDO', '0..100..ENSO34':'ENSO34' }
 columns = list(rename.keys()) ; columns.append('TrainIsTrue') ; columns.append('RV_mask')
 df_corr_ = fc_.df_data.loc[:,columns].copy()
 df_ana.plot_ts_matric(df_corr_, columns=list(rename.keys()), rename=rename, period='summer60days')

@@ -100,7 +100,8 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
     '''
     keys_options=['all', 'only_db_regs', 'sp_and_regs', 'sst+sm+RWT',
                   'sst(CPPA)+sm', 'sst(PEP)+sm', 'sst(PDO,ENSO)+sm',
-                  'CPPA', 'PEP', 'sst(CPPA) expert knowledge', 'sst(CPPA Pattern)'
+                  'CPPA', 'PEP', 'sst combined', 'sst combined + sm', 
+                  'sst(CPPA) expert knowledge', 'sst(CPPA Pattern)'
                   'CPPA Pattern', 'PDO+ENSO', 'persistence']
                   
     '''
@@ -157,6 +158,10 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
                 keys_ = [k for k in keys_ if 'PEPsv' not in k]
                 keys_ = [k for k in keys_ if 'OLR' not in k] 
                 keys_ = [k for k in keys_ if k not in skip_ex]
+            elif option == 'sst combined':
+                keys_ = [k for k in all_keys if 'sm' not in k]
+            elif option == 'sst combined+sm':
+                keys_ = all_keys
             elif option == 'sst(CPPA Pattern)' or option == 'CPPA Pattern':
                 keys_ = [k for k in all_keys if 'CPPAsv' in k]
             elif option == 'sst+sm+z500':
