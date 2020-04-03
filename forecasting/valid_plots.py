@@ -871,7 +871,7 @@ def merge_valid_info(list_of_fc, store=True):
     return dict_merge_all
 
 def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
-                  met='default', wspace=0.08, col_wrap=None, 
+                  met='default', wspace=0.08, col_wrap=None, figaspect=1.4,
                   skip_redundant_title=False, 
                   lags_relcurve: list=None):
    
@@ -880,7 +880,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
     2 can be assigned to row or col, the third will be lines in the same axes.
     '''
     
-    # group_line_by=None; met='default'; wspace=0.08; col_wrap=None; skip_redundant_title=True; lags_relcurve=None
+    # group_line_by=None; met='default'; wspace=0.08; col_wrap=None; skip_redundant_title=True; lags_relcurve=None; figaspect=2
     #%%
     dims = ['exper', 'models', 'met']
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
@@ -1009,12 +1009,12 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
 
     df = pd.DataFrame(grid_data.T, columns=['met', col_dim])
     if len(cols) != 1 or col_wrap is None:
-        g = sns.FacetGrid(df, row='met', col=col_dim, height=3, aspect=1.4,
+        g = sns.FacetGrid(df, row='met', col=col_dim, height=3, aspect=figaspect,
                       sharex=False,  sharey=False)
         # Only if 1 column is requisted, col_wrap is allowed
     if len(cols) == 1 and col_wrap is not None:
 
-        g = sns.FacetGrid(df, col='met', height=3, aspect=1.4,
+        g = sns.FacetGrid(df, col='met', height=3, aspect=figaspect,
                       sharex=False,  sharey=False, col_wrap=col_wrap)
 
 
