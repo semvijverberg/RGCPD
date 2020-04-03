@@ -112,12 +112,12 @@ class RV_class:
                 out = handle_fit_model_dates(dates_RVe, dates_alle, df_RV_ts_e, fit_model_dates)
                 self.fit_model_mask, self.fit_dates, self.RV_ts_fit_e = out
     
-    
                 # RV_ts and RV_ts_fit are equal if fit_model_dates = None
                 self.threshold = Ev_threshold(df_RV_ts_e,
                                                   kwrgs_events['event_percentile'])
                 self.threshold_ts_fit = Ev_threshold(self.RV_ts_fit_e,
                                                   kwrgs_events['event_percentile'])
+                
                 
                 # unpack other optional arguments for defining event timeseries 
                 redun_keys = ['event_percentile', 'window']

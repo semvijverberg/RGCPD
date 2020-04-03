@@ -225,7 +225,7 @@ fc = fcev(path_data=ERA_data, precur_aggr=1,
 
 columns = ['mx2t', '0..CPPAsv', '0..PEPsv', 'PDO', 'ENSO34']
 
-rename = {'mx2t':'T90tail', '0..CPPAsv':'CPPAsp', '0..PEPsv':'PEP'}
+rename = {'mx2t':'T90m', '0..CPPAsv':'CPPAsp', '0..PEPsv':'PEP'}
 df_corr = fc.df_data.loc[:,['mx2t', 'ENSO34','PDO', '0..CPPAsv', '0..PEPsv', 'RV_mask', 'TrainIsTrue']].copy()
 
 df_ana.plot_ts_matric(df_corr, columns=columns, rename=rename, period='summer60days')
@@ -237,43 +237,19 @@ fig_filename = os.path.join(working_folder, 'figures', 'cross_corr_fullyear')
 plt.savefig(fig_filename + '.pdf', bbox_inches='tight')
 
 #%%
-ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/1_ff393_12jun-11aug_lag15-15_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
-fc_ = fcev(path_data=ERA_data, precur_aggr=1, 
-                    use_fold=None, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
-                    dataset=f'CPPA vs PEP',
-                    keys_d=None,
-                    n_cpu=n_cpu)
+# ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/1_ff393_12jun-11aug_lag15-15_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
+# fc_ = fcev(path_data=ERA_data, precur_aggr=1, 
+#                     use_fold=None, start_end_TVdate=None,
+#                     stat_model=logitCV, 
+#                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
+#                     dataset=f'CPPA vs PEP',
+#                     keys_d=None,
+#                     n_cpu=n_cpu)
 
-rename = {'1':'mx2t', '0..102..CPPAsv':'CPPAsp', '0..103..PEPsv':'PEP', '0..101..PDO':'PDO', '0..100..ENSO34':'ENSO34' }
-columns = list(rename.keys()) ; columns.append('TrainIsTrue') ; columns.append('RV_mask')
-df_corr_ = fc_.df_data.loc[:,columns].copy()
-df_ana.plot_ts_matric(df_corr_, columns=list(rename.keys()), rename=rename, period='summer60days')
+# rename = {'1':'mx2t', '0..102..CPPAsv':'CPPAsp', '0..103..PEPsv':'PEP', '0..101..PDO':'PDO', '0..100..ENSO34':'ENSO34' }
+# columns = list(rename.keys()) ; columns.append('TrainIsTrue') ; columns.append('RV_mask')
+# df_corr_ = fc_.df_data.loc[:,columns].copy()
+# df_ana.plot_ts_matric(df_corr_, columns=list(rename.keys()), rename=rename, period='summer60days')
 
-df_ana.plot_ts_matric(df_corr_, win=365, columns=list(rename.keys()), rename=rename, period='fullyear')
+# df_ana.plot_ts_matric(df_corr_, win=365, columns=list(rename.keys()), rename=rename, period='fullyear')
 
-#rename_ERA =    {'ERA-5: sst(PEP)+sm':'PEP+sm', 
-#             'ERA-5: sst(PDO,ENSO)+sm':'PDO+ENSO+sm', 
-#             'ERA-5: sst(CPPA)+sm':'CPPA+sm'}
-#
-#for old, new in rename_ERA.items():
-#    if new not in dict_experiments.keys():
-#        dict_experiments[new] = dict_experiments.pop(old)
-
-#rename_EC = {'ERA-5 PEP':'PEP', 
-#             'ERA-5 CPPA':'CPPA', 
-#             'EC-earth 2.3 PEP':'PEP ', 
-#             'EC-earth 2.3 CPPA':'CPPA '}
-#
-#for old, new in rename_EC.items():
-#    if new not in dict_experiments.keys():
-#        dict_experiments[new] = dict_experiments.pop(old)
-
-#rename_CPPA_comp =    {'ERA-5: CPPAregs+sm' : 'precursor regions + sm', 
-#                       'ERA-5: CPPApattern+sm': 'precursor pattern + sm', 
-#                       'ERA-5: sst(CPPA)+sm' : 'CPPA (all) + sm'}
-#
-#for old, new in rename_CPPA_comp.items():
-#    if new not in dict_experiments.keys():
-#        dict_experiments[new] = dict_experiments.pop(old)

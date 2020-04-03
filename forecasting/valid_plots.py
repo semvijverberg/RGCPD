@@ -534,19 +534,21 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
                         rotation=0, rotation_mode='anchor', alpha=0.5)
             # old: bin_threshold = 100 * (1 - 0.75*clim_prev)
             # old:  percentile_t = bin_threshold
-        # elif isinstance(threshold_bin, int) or isinstance(threshold_bin, float):
-        #     if threshold_bin < 1:
-        #         threshold_bin = int(100*threshold_bin)
-        #     else:
-        #         threshold_bin = threshold_bin
-        #     ax.text(0.00, 0.05, r'Event pred. when fc$\geq${}'.format(threshold_bin),
-        #             horizontalalignment='left', fontsize=10,
-        #             verticalalignment='center', transform=ax.transAxes,
-        #             rotation=0, rotation_mode='anchor', alpha=0.5)
+
         elif '(' in threshold_bin and with_numbers:
             # dealing with tuple, deciphering.. 
             times = float(threshold_bin.split('(')[1].split(',')[0])
             ax.text(0.00, 0.05, r'Event pred. when fc$\geq${} * clim. prob.'.format(times),
+                    horizontalalignment='left', fontsize=10,
+                    verticalalignment='center', transform=ax.transAxes,
+                    rotation=0, rotation_mode='anchor', alpha=0.5)
+        elif with_numbers:
+            threshold_bin = threshold_bin.replace('b', '').replace('\'', '')
+            if float(threshold_bin) < 1:
+                threshold_bin = int(100*threshold_bin)
+            else:
+                threshold_bin = int(threshold_bin)
+            ax.text(0.00, 0.05, r'Event pred. when fc$\geq${}%'.format(threshold_bin),
                     horizontalalignment='left', fontsize=10,
                     verticalalignment='center', transform=ax.transAxes,
                     rotation=0, rotation_mode='anchor', alpha=0.5)
@@ -883,7 +885,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
     dims = ['exper', 'models', 'met']
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
     if met == 'default':
-        met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
+        met = ['AUC-ROC', 'BSS', 'Rel. Curve', 'Precision']
     
    
     all_expers = list(dict_merge_all.keys())
