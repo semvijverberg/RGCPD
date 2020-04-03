@@ -130,7 +130,7 @@ kwrgs = {'wspace':0.2, 'col_wrap':3, 'skip_redundant_title':True,
          'lags_relcurve':[50], 'figaspect':2}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision', 'Accuracy']
-line_dim = 'exper'
+line_dim = 'dataset'
 group_line_by = None
 
 fig = dfplots.valid_figures(dict_merge_all, 
