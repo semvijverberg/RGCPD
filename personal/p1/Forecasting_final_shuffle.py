@@ -68,38 +68,41 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                                  'seed':1}), 
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                     dataset=f'CV shuffle 1',
-                    keys_d=None),
-              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model= ('logitCV',
-                                {'Cs':10, #np.logspace(-4,1,10)
-                                'class_weight':{ 0:1, 1:1},
-                                 'scoring':'brier_score_loss',
-                                 'penalty':'l2',
-                                 'solver':'lbfgs',
-                                 'max_iter':100,
-                                 'kfold':5,
-                                 'seed':2}), 
-                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-                    dataset=f'CV shuffle 2',
-                    keys_d=None),
-               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-                     use_fold=use_fold, start_end_TVdate=None,
-                     stat_model= ('logitCV',
-                                 {'Cs':10, #np.logspace(-4,1,10)
-                                 'class_weight':{ 0:1, 1:1},
-                                  'scoring':'brier_score_loss',
-                                  'penalty':'l2',
-                                  'solver':'lbfgs',
-                                  'max_iter':100,
-                                  'kfold':5,
-                                  'seed':3}), 
-                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-                     dataset=f'CV shuffle 3',
-                     keys_d=None)]
-
-
+                    keys_d=None)]
 fc = list_of_fc[0]
+fc.get_TV(kwrgs_events=kwrgs_events)
+
+              # fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+              #       use_fold=use_fold, start_end_TVdate=None,
+              #       stat_model= ('logitCV',
+              #                   {'Cs':10, #np.logspace(-4,1,10)
+              #                   'class_weight':{ 0:1, 1:1},
+              #                    'scoring':'brier_score_loss',
+              #                    'penalty':'l2',
+              #                    'solver':'lbfgs',
+              #                    'max_iter':100,
+              #                    'kfold':5,
+              #                    'seed':2}), 
+              #       kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+              #       dataset=f'CV shuffle 2',
+              #       keys_d=None),
+              #  fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+              #        use_fold=use_fold, start_end_TVdate=None,
+              #        stat_model= ('logitCV',
+              #                    {'Cs':10, #np.logspace(-4,1,10)
+              #                    'class_weight':{ 0:1, 1:1},
+              #                     'scoring':'brier_score_loss',
+              #                     'penalty':'l2',
+              #                     'solver':'lbfgs',
+              #                     'max_iter':100,
+              #                     'kfold':5,
+              #                     'seed':3}), 
+              #        kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+              #        dataset=f'CV shuffle 3',
+              #        keys_d=None)]
+
+
+
 
 
 
@@ -205,6 +208,36 @@ if __name__ == "__main__":
                         bbox_inches='tight') # dpi auto 600
 
 
+#%%
+import df_ana, functions_pp
+import pandas as pd
+f_format = '.pdf'
+if os.path.isdir(fc.filename) == False : os.makedirs(fc.filename)
+filepath = '/'.join(fc.filename.split('/')[:-2])
+
+df_daily = fc.df_data_orig.loc[0][['1']].rename(columns={'1':'mx2t'})
+df_15 = fc.TV.fullts.rename(columns={'1':'mx2t 15-day mean'})
+
+fig = df_ana.loop_df(df_daily, function=df_ana.plot_ac, colwrap=1, kwrgs={'AUC_cutoff':False})
+fig.savefig(filepath+'/ac_detrend_daily'+f_format, bbox_inches='tight')
+fig = df_ana.loop_df(df_15, function=df_ana.plot_ac, colwrap=1, kwrgs={'AUC_cutoff':False})                   
+fig.savefig(filepath+'/ac_detrend_15-daymean'+f_format, bbox_inches='tight')
+
+EC_data  = user_dir + '/surfdrive/output_RGCPD/easternUS_EC/EC_tas_tos_Northern/958dd_ran_strat10_s30/data/EC_21-03-20_16hr_lag_10_958dd.h5'
+
+fc = fcev(path_data=EC_data, precur_aggr=precur_aggr, 
+          use_fold=use_fold, start_end_TVdate=None,
+            stat_model=None, 
+            kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
+            dataset=f'EC-earth',
+            keys_d='CPPA')
+
+df_EC = fc.df_data_orig.loc[0][['tas']]
+df_EC.index.name = 'time'
+xr1d = functions_pp.detrend1D(df_EC.to_xarray().to_array().squeeze())
+df_EC = pd.DataFrame(xr1d.values, index=xr1d.to_pandas().index, columns=['t2m'])
+fig = df_ana.loop_df(df_EC, function=df_ana.plot_ac, colwrap=1, kwrgs={'AUC_cutoff':False})                   
+fig.savefig(filepath+'/ac_EC_daily_detrend'+f_format, bbox_inches='tight')
 
 #rename_ERA =    {'ERA-5: sst(PEP)+sm':'PEP+sm', 
 #             'ERA-5: sst(PDO,ENSO)+sm':'PDO+ENSO+sm', 

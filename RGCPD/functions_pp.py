@@ -810,6 +810,9 @@ def selbox_to_1dts(cls, latlonbox):
 def detrend1D(da, anomaly=False):
     import scipy.signal as sps
     import xarray as xr
+    if da.dims[0] == 'index':
+        # rename axes to 'time'
+        da = da.rename({'index':'time'})
     dates = pd.to_datetime(da.time.values)
     stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
 

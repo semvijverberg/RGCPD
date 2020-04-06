@@ -124,22 +124,30 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=None, ax=None):
         # has to be below 0 for n times (not necessarily consecutive):
         n = 1
         n_of_times = np.array([idx+1 - where[0] for idx in where])
-        cutoff = int(where[np.where(n_of_times == n)[0][0] ])
+        try:
+            cutoff = int(where[np.where(n_of_times == n)[0][0] ])
+        except:
+            cutoff = tfreq * 20
         
         s = 2*cutoff
     else:
         cutoff = int(s/2)
         s = s
-    if AUC_cutoff is None:
-        AUC_cutoff = cutoff
-    if type(AUC_cutoff) is int:
-        AUC = np.trapz(ac[:AUC_cutoff], x=range(AUC_cutoff))
-        text = 'AUC {:.2f} up to lag {}'.format(AUC, AUC_cutoff)
-    elif type(AUC_cutoff) is tuple:
-        AUC = np.trapz(ac[AUC_cutoff[0]:AUC_cutoff[1]], 
-                       x=range(AUC_cutoff[0], AUC_cutoff[1]))
-        text = 'AUC {:.2f} range lag {}-{}'.format(AUC, AUC_cutoff[0],
-                                                   AUC_cutoff[1])
+    if AUC_cutoff != False:
+        if AUC_cutoff is None:
+            AUC_cutoff = cutoff
+        if type(AUC_cutoff) is int:
+            AUC = np.trapz(ac[:AUC_cutoff], x=range(AUC_cutoff))
+            text = 'AUC {:.2f} up to lag {}'.format(AUC, AUC_cutoff)
+        elif type(AUC_cutoff) is tuple:
+            AUC = np.trapz(ac[AUC_cutoff[0]:AUC_cutoff[1]], 
+                           x=range(AUC_cutoff[0], AUC_cutoff[1]))
+            text = 'AUC {:.2f} range lag {}-{}'.format(AUC, AUC_cutoff[0],
+                                                       AUC_cutoff[1])
+        ax.text(0.99, 0.90, 
+        text, 
+        transform=ax.transAxes, horizontalalignment='right',
+        fontdict={'fontsize':8})
         
     xlabels = [x * tfreq for x in range(s)]
     # con high
@@ -152,10 +160,7 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=None, ax=None):
     ax.scatter(xlabels,ac[:s])
     ax.hlines(y=0, xmin=min(xlabels), xmax=max(xlabels))
     
-    ax.text(0.99, 0.90, 
-            text, 
-            transform=ax.transAxes, horizontalalignment='right',
-            fontdict={'fontsize':8})
+
     xlabels = [x * tfreq for x in range(s)]
     n_labels = max(1, int(s / 5))
     ax.set_xticks(xlabels[::n_labels])
