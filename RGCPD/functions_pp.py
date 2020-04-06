@@ -833,16 +833,23 @@ def detrend1D(da, anomaly=False):
         sliceyr = np.arange(i, da.time.size, stepsyr.size)
         arr_oneday = da.isel(time=sliceyr)
         arr_oneday_smooth = data_smooth[sliceyr]
-
+        
+        # sps.detrend fits least squares and an intercept, mean is always removed
         detrended_sm = xr.DataArray(sps.detrend(arr_oneday_smooth),
                             dims=arr_oneday.dims,
                             coords=arr_oneday.coords)
         # subtract trend smoothened signal of arr_oneday values
+        # add intercept of detrended array
+        trend = (arr_oneday_smooth - detrended_sm) - np.mean(arr_oneday_smooth, 0)       
         if anomaly == False:
-            trend = (arr_oneday_smooth - detrended_sm)            
+            # add intercept of detrended array
+            detrended = arr_oneday - trend 
+            # trend = (arr_oneday_smooth - detrended_sm) + np.mean(arr_oneday_smooth, 0)            
         else:
-            trend = (arr_oneday_smooth - detrended_sm)- np.mean(arr_oneday_smooth, 0)
-        detrended = arr_oneday - trend
+            # intercept is by default removed
+            detrended = arr_oneday - trend  - np.mean(arr_oneday_smooth, 0)       
+            # trend = (arr_oneday_smooth - detrended_sm)
+        # detrended = arr_oneday - trend
         output[i::stepsyr.size] = detrended
     dao = xr.DataArray(output,
                             dims=da.dims,

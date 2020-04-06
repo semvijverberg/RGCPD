@@ -154,7 +154,7 @@ class fcev():
                                 left_index=True, right_index=True)                                    
         
 
-    def get_TV(self, kwrgs_events=None, RV_anomaly=True, RV_name: str=None):
+    def get_TV(self, kwrgs_events=None, RV_anomaly=False, RV_name: str=None):
 
         if hasattr(self, 'df_data') == False:
             print("df_data not loaded, initialize fcev class with path to df_data")
@@ -162,16 +162,6 @@ class fcev():
 
         self.RV_anomaly = RV_anomaly
         self.df_TV = self.df_data.iloc[:,[0,-2,-1]].copy()
-
-        
-        # aggregation from daily to n-day means
-        if self.TV_aggr is None and self.precur_aggr is not None:
-            self.TV_aggr = self.precur_aggr
-        if self.TV_aggr is not None:
-            self.df_TV, dates_tobin = _daily_to_aggr(self.df_TV, self.TV_aggr)
-        else:
-            dates_tobin = None
-            
         if RV_name is None:
             self.RV_name = self.df_TV.columns[0]
         else:
@@ -179,7 +169,7 @@ class fcev():
             
         df_fold = self.df_TV.loc[0]
         self.fulltso = df_fold.iloc[:,0].to_xarray().squeeze()
-        self.fullts = functions_pp.detrend1D(self.fulltso, anomaly=RV_anomaly)
+        self.fullts = functions_pp.detrend1D(self.fulltso, anomaly=self.RV_anomaly)
         n_spl = self.df_data.index.levels[0].size
         df_RV_s   = np.zeros( (n_spl) , dtype=object)
         for s in range(n_spl):
@@ -189,6 +179,19 @@ class fcev():
         self.df_TV[self.RV_name] = pd.concat(list(df_RV_s), keys= range(n_spl))
         # replacing TV in df_data dataframe 
         self.df_data[self.RV_name] = self.df_TV[self.RV_name]
+        
+        
+        # aggregation from daily to n-day means
+        if self.TV_aggr is None and self.precur_aggr is not None:
+            self.TV_aggr = self.precur_aggr
+        if self.TV_aggr is not None:
+            self.df_TV, dates_tobin = _daily_to_aggr(self.df_TV, self.TV_aggr)
+        else:
+            dates_tobin = None
+            
+
+            
+        
         
         # target events
         if kwrgs_events is None:
