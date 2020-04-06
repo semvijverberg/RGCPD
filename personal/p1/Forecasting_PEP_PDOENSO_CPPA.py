@@ -54,7 +54,7 @@ ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/
 # kwrgs_events_daily =    (filename_ts,
 #                          {'event_percentile': 90})
 
-kwrgs_events = {'event_percentile': 'std'}
+kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
 precur_aggr = 15
@@ -209,32 +209,33 @@ if __name__ == "__main__":
 
 
 #%%
-import df_ana ; import matplotlib.pyplot as plt
-flatten = lambda l: [item for sublist in l for item in sublist]
-ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_0_ff393.h5'
-working_folder = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/'
+            
+# import df_ana ; import matplotlib.pyplot as plt
+# flatten = lambda l: [item for sublist in l for item in sublist]
+# ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_0_ff393.h5'
+# working_folder = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/'
 
 
-fc = fcev(path_data=ERA_data, precur_aggr=1, 
-                    use_fold=None, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
-                    dataset=f'CPPA vs PEP',
-                    keys_d=None,
-                    n_cpu=n_cpu)
+# fc = fcev(path_data=ERA_data, precur_aggr=1, 
+#                     use_fold=None, start_end_TVdate=None,
+#                     stat_model=logitCV, 
+#                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
+#                     dataset=f'CPPA vs PEP',
+#                     keys_d=None,
+#                     n_cpu=n_cpu)
 
-columns = ['mx2t', '0..CPPAsv', '0..PEPsv', 'PDO', 'ENSO34']
+# columns = ['mx2t', '0..CPPAsv', '0..PEPsv', 'PDO', 'ENSO34']
 
-rename = {'mx2t':'T90m', '0..CPPAsv':'CPPAsp', '0..PEPsv':'PEP'}
-df_corr = fc.df_data.loc[:,['mx2t', 'ENSO34','PDO', '0..CPPAsv', '0..PEPsv', 'RV_mask', 'TrainIsTrue']].copy()
+# rename = {'mx2t':'T90m', '0..CPPAsv':'CPPAsp', '0..PEPsv':'PEP'}
+# df_corr = fc.df_data.loc[:,['mx2t', 'ENSO34','PDO', '0..CPPAsv', '0..PEPsv', 'RV_mask', 'TrainIsTrue']].copy()
 
-df_ana.plot_ts_matric(df_corr, columns=columns, rename=rename, period='summer60days')
-fig_filename = os.path.join(working_folder, 'figures', 'cross_corr_summer60days')
-plt.savefig(fig_filename + '.pdf', bbox_inches='tight')
+# df_ana.plot_ts_matric(df_corr, columns=columns, rename=rename, period='summer60days')
+# fig_filename = os.path.join(working_folder, 'figures', 'cross_corr_summer60days')
+# plt.savefig(fig_filename + '.pdf', bbox_inches='tight')
 
-df_ana.plot_ts_matric(df_corr, win=365, columns=columns, rename=rename, period='fullyear')
-fig_filename = os.path.join(working_folder, 'figures', 'cross_corr_fullyear')
-plt.savefig(fig_filename + '.pdf', bbox_inches='tight')
+# df_ana.plot_ts_matric(df_corr, win=365, columns=columns, rename=rename, period='fullyear')
+# fig_filename = os.path.join(working_folder, 'figures', 'cross_corr_fullyear')
+# plt.savefig(fig_filename + '.pdf', bbox_inches='tight')
 
 #%%
 # ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/1_ff393_12jun-11aug_lag15-15_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
