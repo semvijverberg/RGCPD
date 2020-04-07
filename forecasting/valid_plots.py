@@ -952,9 +952,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
             lines = np.unique(lines_req)
         return lines, cols 
     
-    
-    
-    
+
     if line_dim is not None:
         assert line_dim in ['model', 'exper', 'dataset'], ('illegal key for line_dim, '
                                'choose \'exper\' or \'model\'')
@@ -969,9 +967,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
             lines_req = datasets
             left = [models, expers]
 
-    
-        
-        
+   
         lines, cols = line_col_arrangement(lines_req, *left, comb)
         cols = cols[::-1]
     
@@ -1081,12 +1077,8 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                 if got_it == True:
                     # if experiment not present, continue loop, but skip this
                     # string_exp
-                    
-                    
 
                     lags_tf     = y_pred_all.columns.astype(int)
-    
-    
                     # =========================================================
                     # # plot metrics in df_valid
                     # =========================================================
@@ -1116,7 +1108,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                     # =========================================================
                     if metric == 'Rel. Curve':
                         if l == 0:
-                            ax, n_bins = rel_curve_base(df_RV, col=col, ax=ax)
+                            doubleax, n_bins = rel_curve_base(df_RV, col=col, ax=ax)
                         if len(lines) > 1:
                             legend = 'multiple' 
                         else:
@@ -1125,7 +1117,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                             lags_relcurve = [lags_tf[int(lags_tf.size/2)]]
                         rel_curve(df_RV, y_pred_all, lags_relcurve, n_bins,
                                   color=color, line_style=line_styles[l],
-                                  legend=legend, ax=ax)
+                                  legend=legend, ax=doubleax)
     
     
                     # legend conditions

@@ -94,7 +94,7 @@ times = []
 t00 = time()
 for fc in list_of_fc:
     t0 = time()
-    fc.get_TV(kwrgs_events=kwrgs_events)
+    fc.get_TV(kwrgs_events=kwrgs_events, detrend=False)
 
     fc.fit_models(lead_max=lags_i, verbosity=1)
     
@@ -130,7 +130,7 @@ kwrgs = {'wspace':0.2, 'col_wrap':3, 'skip_redundant_title':True,
          'lags_relcurve':[50], 'figaspect':2}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision', 'Accuracy']
-line_dim = 'dataset'
+line_dim = 'exper'
 group_line_by = None
 
 fig = dfplots.valid_figures(dict_merge_all, 
@@ -144,7 +144,9 @@ pathfig_valid = os.path.join(filename + f_format)
 fig.savefig(pathfig_valid,
             bbox_inches='tight') # dpi auto 600
 
-
+df, fig = fc.plot_feature_importances(lag=50)
+path_feat = filename + f'ifc{1}_logitregul_l{50}' + f_format
+fig.savefig(path_feat, bbox_inches='tight')
 
 #%%
 

@@ -423,22 +423,34 @@ def plot_importances(models_splits_lags, lag=0, keys=None, cutoff=6,
         df_all = _get_importances(models_splits_lags, lag=lag)
 
         if plot:
-            fig, ax = plt.subplots(constrained_layout=True)
-            lag_d = df_all.index[0]
-            if keys is None:
+            import matplotlib as mpl
+            mpl.rcParams.update(mpl.rcParamsDefault)
+            # fig, ax = plt.subplots(constrained_layout=True)
+            lag_d = df_all.index[0][0]
+            df_r = df_all.loc[lag_d]
+            if keys is not None:
                 # take show up to cutoff most important features
-                df_r = df_all.reindex(df_all.loc[lag].abs().sort_values(ascending=False).index, axis=1)
-            else:
-                df_r = df_all.loc[lag_d].loc[keys]
+                df_r = df_r[keys]
+ 
+            g = sns.catplot(data=df_r, palette=sns.color_palette(["#e74c3c"]), 
+                            orient='h', kind='box', ax=None, height=7)
+            
+            ax = g.ax
+            # ax.set_facecolor('white')
+            ax.grid(which='both')
             ax.set_title(f"{df_all.columns.name}")
-            ax.barh(np.arange(df_r.size), df_r.squeeze().values, tick_label=df_r.columns)
-            ax.text(0.97, 0.07, f'lead time: {lag_d} days',
+            # ax.barh(np.arange(df_r.size), df_r.squeeze().values, tick_label=df_r.columns)
+            ax.text(0.98, 0.03, f'lead time: {lag_d} days',
                     fontsize=12,
                     bbox=dict(boxstyle='round', facecolor='wheat',
                               edgecolor='black', alpha=0.5),
                 horizontalalignment='right',
                 verticalalignment='top',
                 transform=ax.transAxes)
+            lim = df_r.apply(abs).max().max()
+            lim = lim + .1*lim
+            ax.set_xlim((-lim,lim))
+            fig = g.fig
     elif type(lag) is list or type(lag) is np.ndarray:
 
         dfs = []
@@ -454,13 +466,14 @@ def plot_importances(models_splits_lags, lag=0, keys=None, cutoff=6,
             df_all = df_all.append(df_n, sort=False)
         sort_index = df_all.mean(0).sort_values(ascending=False).index
         df_all = df_all.reindex(sort_index, axis='columns')
-
+        df_all = df_all.reindex(pd.MultiIndex.from_tuples(df_all.index))
         if plot:
 
             if keys is None:
                 # take show up to cutoff most important features
                 df_pl = df_all.reindex(df_all.mean(0).abs().sort_values(
                                                                 ascending=False).index, axis=1)
+                df_pl = df_pl.iloc[:,:cutoff]
 
             else:
                 df_pl = df_all.loc[:,[k for k in sort_index if k in keys]]
@@ -468,14 +481,31 @@ def plot_importances(models_splits_lags, lag=0, keys=None, cutoff=6,
             fig, ax = plt.subplots(constrained_layout=True)
             styles_ = [['solid'], ['dashed']]
             styles = flatten([6*s for i, s in enumerate(styles_)])[:df_pl.size]
-            linewidths = np.linspace(abs(cutoff)/3, 1, abs(cutoff))
-            for col, style, lw in zip(df_pl.columns, styles, linewidths):
-                df_all.loc[:,col].plot(figsize=(8,5),
-                                      linestyle=style,
-                                      linewidth=lw,
-                                      ax=ax)
-                ax.set_xticks(df_all.index)
-            ax.hlines(y=0, xmin=df_all.index[0], xmax=df_all.index[-1])
+            linewidths = np.linspace(abs(cutoff)/4, 2, abs(cutoff))[::-1]
+            lags_df = df_all.index.levels[0]
+            for col, style, lw, cm in zip(df_pl.columns, styles, linewidths, colors_datasets):
+                splits = df_all.loc[:,col].index.levels[1]
+                df_var = df_all.loc[:,col]
+                print(col)
+                for s in splits:                   
+                    ax.plot(lags_df.values, df_var.loc[:,s].values, 
+                             linestyle=style,
+                             linewidth=1,
+                             color=cm, alpha=.3,
+                             label=None)
+                ax.plot(lags_df.values, 
+                        df_var.mean(axis=0, level=0).values, 
+                        linestyle=style,
+                        linewidth=lw,
+                        color=cm,
+                        label=col)
+                    # df_var.loc[:,s].plot(figsize=(8,5),
+                    #                       linestyle=style,
+                    #                       linewidth=1,
+                    #                       label=label,
+                    #                       ax=ax)
+                ax.set_xticks(lags_df)
+            ax.hlines(y=0, xmin=lags_df[0], xmax=lags_df[-1])
             ax.legend()
             ax.set_title(f'{df_.columns.name} vs. lead time')
             ax.set_xlabel('lead time [days]')
@@ -492,22 +522,46 @@ def _get_importances(models_splits_lags, lag=0):
     '''
 
     models_splits = models_splits_lags[f'lag_{lag}']
+    splits = np.arange(len(models_splits_lags[f'lag_{lag}']))
     feature_importances = {}
+    
 
-
-    for splitkey, regressor in models_splits.items():
-        all_keys = list(regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)])
-        if hasattr(regressor, 'feature_importances_'): # for GBR
-            name_values = 'Relative Feature Importance'
-            importances = regressor.feature_importances_
-        elif hasattr(regressor, 'coef_'): # for logit
-            name_values = 'Logistic Regression Coefficients'
-            importances = regressor.coef_.squeeze(0)
-        for name, importance in zip(all_keys, importances):
-            if name not in feature_importances:
-                feature_importances[name] = [0, 0]
-            feature_importances[name][0] += importance
-            feature_importances[name][1] += 1
+    # if keys is None:
+    keys = set()
+    [keys.update(list(r.X_pred.columns)) for k, r in models_splits.items()]
+    masks = ['TrainIsTrue', 'x_fit', 'x_pred', 'y_fit', 'y_pred']
+    keys = [k for k in keys if k not in masks]
+    tuples_multiindex = []
+    for i, k in enumerate(keys):
+        np_import = np.zeros( (splits.size))
+        for splitkey, regressor in models_splits.items():
+            s = int(splitkey.split('_')[1])
+            keys_s = list(regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)])
+            if hasattr(regressor, 'feature_importances_'): # for GBR
+                name_values = 'Relative Feature Importance'
+                importances = regressor.feature_importances_
+            elif hasattr(regressor, 'coef_'): # for logit
+                name_values = 'Logistic Regression Coefficients'
+                importances = regressor.coef_.squeeze(0)
+            
+            if k not in feature_importances.keys():
+                feature_importances[k] = []
+            if k not in keys_s:
+                np_import[s] = np.nan
+            else:
+                # coeff belonging to var
+                 idx = keys_s.index(k)
+                 np_import[s] = importances[idx]
+            tuples_multiindex.append((k, s))
+        
+        feature_importances[k] = np_import
+        
+            # for name, importance in zip(keys_s, importances):
+            #     if name not in feature_importances:
+            #         if name not in feature_importances.keys():
+            #             feature_importances[name] = []
+            #     feature_importances[name].append( importance )
+                # feature_importances[name][1] += 1
 
     # remnant from Bram, importance by amount of time precursor was in model.
     # robust precursors get divided by 10, while other precursors are divided
@@ -516,25 +570,37 @@ def _get_importances(models_splits_lags, lag=0):
     # for name, (importance, count) in feature_importances.items():
     #     names.append(name)
     #     importances.append(float(importance) / float(count))
-    names, importances = [], []
-
-    for name, (importance, count) in feature_importances.items():
-        names.append(name)
-        importances.append(float(importance))
-    if hasattr(regressor, 'feature_importances_'):
-        importances = np.array(importances) / np.sum(importances)
-    elif hasattr(regressor, 'coef_'): # for logit
-        importances = np.array(importances)
-    order = np.argsort(importances)
-    names_order = [names[index] for index in order] ; names_order.reverse()
-    # freq = (regressor.X_pred.index[1] - regressor.X_pred.index[0]).days
-    # lags_tf = [l*freq for l in [lag]]
-    # if freq != 1:
-    #     # the last day of the time mean bin is tfreq/2 later then the centerered day
-    #     lags_tf = [l_tf- int(freq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
-    df = pd.DataFrame([sorted(importances, reverse=True)], columns=names_order,
-                      index=[lag])
+        
+    df = pd.DataFrame(feature_importances)
+    df_mean = df.apply(np.nanmean).apply(abs)
+    columns = df_mean.sort_values(ascending=False).index
+    df = df[columns]
+    # add info lags
+    df = pd.concat([df], keys=[lag])
     df = df.rename_axis(name_values, axis=1)
+    # names, importances = [], []
+
+    # for name, importances_splits in feature_importances.items():
+    #     names.append(name)
+    #     importances.append(np.mean(importances_splits))
+    # if hasattr(regressor, 'feature_importances_'):
+    #     importances = np.array(importances) / np.sum(importances)
+    # elif hasattr(regressor, 'coef_'): # for logit
+    #     importances = np.array(importances)
+    # order = np.argsort(importances)
+    # names_order = [names[index] for index in order] ; names_order.reverse()
+    # zz = np.zeros( (len(names_order)), dtype=object)
+    # for i, k in enumerate(names_order):
+    #     zz[i] = feature_importances[k]
+    # # freq = (regressor.X_pred.index[1] - regressor.X_pred.index[0]).days
+    # # lags_tf = [l*freq for l in [lag]]
+    # # if freq != 1:
+    # #     # the last day of the time mean bin is tfreq/2 later then the centerered day
+    # #     lags_tf = [l_tf- int(freq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
+    # df = pd.DataFrame(zz, index=names_order, columns=[lag])
+    # # df = pd.DataFrame([sorted(importances, reverse=True)], columns=names_order,
+    # #                   index=[lag])
+    
 
     #%%
     return df

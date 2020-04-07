@@ -158,6 +158,8 @@ rg.plot_maps_sum(var='snow',
                  kwrgs_plot={'aspect': 2, 'wspace': -0.02})
 rg.plot_maps_sum(var='sst', 
                  kwrgs_plot={'cbar_vert':.02})
+rg.plot_maps_sum(var='z500', 
+                 kwrgs_plot={'cbar_vert':.02})
 
 rg.get_ts_prec(precur_aggr=1)
 rg.store_df_PCMCI()

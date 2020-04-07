@@ -155,7 +155,8 @@ class fcev():
                                 left_index=True, right_index=True)                                    
         
 
-    def get_TV(self, kwrgs_events=None, RV_anomaly=False, RV_name: str=None):
+    def get_TV(self, kwrgs_events=None, detrend=True, RV_anomaly=False, 
+               RV_name: str=None):
 
         if hasattr(self, 'df_data') == False:
             print("df_data not loaded, initialize fcev class with path to df_data")
@@ -167,19 +168,20 @@ class fcev():
             self.RV_name = self.df_TV.columns[0]
         else:
             self.RV_name = RV_name
-            
+        self.detrend = detrend
         df_fold = self.df_TV.loc[0]
         self.fulltso = df_fold.iloc[:,0].to_xarray().squeeze()
-        self.fullts = functions_pp.detrend1D(self.fulltso, anomaly=self.RV_anomaly)
-        n_spl = self.df_data.index.levels[0].size
-        df_RV_s   = np.zeros( (n_spl) , dtype=object)
-        for s in range(n_spl):
-            df_RV_s[s] = pd.DataFrame(self.fullts.values, 
-                                    columns=[self.RV_name],
-                                    index=self.df_TV.loc[0].index)
-        self.df_TV[self.RV_name] = pd.concat(list(df_RV_s), keys= range(n_spl))
-        # replacing TV in df_data dataframe 
-        self.df_data[self.RV_name] = self.df_TV[self.RV_name]
+        if self.detrend:
+            self.fullts = functions_pp.detrend1D(self.fulltso, anomaly=self.RV_anomaly)
+            n_spl = self.df_data.index.levels[0].size
+            df_RV_s   = np.zeros( (n_spl) , dtype=object)
+            for s in range(n_spl):
+                df_RV_s[s] = pd.DataFrame(self.fullts.values, 
+                                        columns=[self.RV_name],
+                                        index=self.df_TV.loc[0].index)
+            self.df_TV[self.RV_name] = pd.concat(list(df_RV_s), keys= range(n_spl))
+            # replacing TV in df_data dataframe 
+            self.df_data[self.RV_name] = self.df_TV[self.RV_name]
         
         
         # aggregation from daily to n-day means
