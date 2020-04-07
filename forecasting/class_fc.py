@@ -126,7 +126,8 @@ class fcev():
                                                           causal=self.causal)[keys_d]
             if self.kwrgs_pp['add_autocorr']:
                 self.experiment += '+AR'
-
+        columns = self.df_data.columns[self.df_data.dtypes!=bool]
+        self.df_precurset = self.df_data[columns].count(axis=0, level=1).iloc[0]
         
         if n_cpu is None:
             self.n_cpu = max_cpu - 1
@@ -504,7 +505,7 @@ class fcev():
     def plot_scatter(self, keys=None, colwrap=3, sharex='none', s=0, mask='RV_mask', aggr=None,
                      title=None):
         import df_ana
-        df_d = fc.df_data.mean(axis=0, level=1)
+        df_d = self.df_data.mean(axis=0, level=1)
         if mask is None:
             tv = self.df_data.loc[0].iloc[:,0]
             df_d = df_d

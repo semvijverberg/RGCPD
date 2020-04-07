@@ -212,11 +212,12 @@ if __name__ == "__main__":
 import df_ana, functions_pp
 import pandas as pd
 f_format = '.pdf'
-if os.path.isdir(fc.filename) == False : os.makedirs(fc.filename)
-filepath = '/'.join(fc.filename.split('/')[:-2])
+# if os.path.isdir(fc.filename) == False : os.makedirs(fc.filename)
+# filepath = '/'.join(fc.filename.split('/')[:-2])
+filepath = '/Users/semvijverberg/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/figures'
 
-df_daily = fc.df_data_orig.loc[0][['1']].rename(columns={'1':'mx2t'})
-df_15 = fc.TV.fullts.rename(columns={'1':'mx2t 15-day mean'})
+df_daily = fc.df_data_orig.loc[0][['1']].rename(columns={'1':'ERA5 mx2t'})
+df_15 = fc.TV.fullts.rename(columns={'1':'ERA5 mx2t 15-day mean'})
 
 fig = df_ana.loop_df(df_daily, function=df_ana.plot_ac, colwrap=1, kwrgs={'AUC_cutoff':False})
 fig.savefig(filepath+'/ac_detrend_daily'+f_format, bbox_inches='tight')
@@ -232,10 +233,12 @@ fc = fcev(path_data=EC_data, precur_aggr=precur_aggr,
             dataset=f'EC-earth',
             keys_d='CPPA')
 
-df_EC = fc.df_data_orig.loc[0][['tas']]
+# fc.get_TV()
+
+df_EC = fc.df_data.loc[0][['tas']]
 df_EC.index.name = 'time'
 xr1d = functions_pp.detrend1D(df_EC.to_xarray().to_array().squeeze())
-df_EC = pd.DataFrame(xr1d.values, index=xr1d.to_pandas().index, columns=['t2m'])
+df_EC = pd.DataFrame(xr1d.values, index=xr1d.to_pandas().index, columns=['EC-earth t2m'])
 fig = df_ana.loop_df(df_EC, function=df_ana.plot_ac, colwrap=1, kwrgs={'AUC_cutoff':False})                   
 fig.savefig(filepath+'/ac_EC_daily_detrend'+f_format, bbox_inches='tight')
 
