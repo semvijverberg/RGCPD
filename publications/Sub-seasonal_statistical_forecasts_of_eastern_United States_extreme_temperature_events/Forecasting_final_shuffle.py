@@ -36,13 +36,7 @@ logit = ('logit', None)
 #%%
 start_time = time()
 
-ERA_data = user_dir + '/surfdrive/output_RGCPD/1_ff393_12jun-11aug_lag0-0_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
-
-# path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
-# RVts_filename = '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'
-# filename_ts = os.path.join(path_ts, RVts_filename)
-# kwrgs_events_daily =    (filename_ts,
-#                          {'event_percentile': 90})
+ERA_data = curr_dir + '/data/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
 
 kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break': 1}
 
@@ -68,38 +62,35 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                                  'seed':1}), 
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                     dataset=f'CV shuffle 1',
-                    keys_d=None)]
-fc = list_of_fc[0]
-fc.get_TV(kwrgs_events=kwrgs_events)
-
-              # fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-              #       use_fold=use_fold, start_end_TVdate=None,
-              #       stat_model= ('logitCV',
-              #                   {'Cs':10, #np.logspace(-4,1,10)
-              #                   'class_weight':{ 0:1, 1:1},
-              #                    'scoring':'brier_score_loss',
-              #                    'penalty':'l2',
-              #                    'solver':'lbfgs',
-              #                    'max_iter':100,
-              #                    'kfold':5,
-              #                    'seed':2}), 
-              #       kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-              #       dataset=f'CV shuffle 2',
-              #       keys_d=None),
-              #  fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-              #        use_fold=use_fold, start_end_TVdate=None,
-              #        stat_model= ('logitCV',
-              #                    {'Cs':10, #np.logspace(-4,1,10)
-              #                    'class_weight':{ 0:1, 1:1},
-              #                     'scoring':'brier_score_loss',
-              #                     'penalty':'l2',
-              #                     'solver':'lbfgs',
-              #                     'max_iter':100,
-              #                     'kfold':5,
-              #                     'seed':3}), 
-              #        kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-              #        dataset=f'CV shuffle 3',
-              #        keys_d=None)]
+                    keys_d=None),
+               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                     use_fold=use_fold, start_end_TVdate=None,
+                     stat_model= ('logitCV',
+                                 {'Cs':10, #np.logspace(-4,1,10)
+                                 'class_weight':{ 0:1, 1:1},
+                                  'scoring':'brier_score_loss',
+                                  'penalty':'l2',
+                                  'solver':'lbfgs',
+                                  'max_iter':100,
+                                  'kfold':5,
+                                  'seed':2}), 
+                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                     dataset=f'CV shuffle 2',
+                     keys_d=None),
+                fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                      use_fold=use_fold, start_end_TVdate=None,
+                      stat_model= ('logitCV',
+                                  {'Cs':10, #np.logspace(-4,1,10)
+                                  'class_weight':{ 0:1, 1:1},
+                                   'scoring':'brier_score_loss',
+                                   'penalty':'l2',
+                                   'solver':'lbfgs',
+                                   'max_iter':100,
+                                   'kfold':5,
+                                   'seed':3}), 
+                      kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                      dataset=f'CV shuffle 3',
+                      keys_d=None)]
 
 
 
