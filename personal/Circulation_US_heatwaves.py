@@ -163,6 +163,129 @@ rg.plot_maps_sum(var='z500',
 
 rg.get_ts_prec(precur_aggr=1)
 rg.store_df_PCMCI()
+
+
+#%%
+
+variable = '5'
+s = 0
+pc_alpha = .05
+
+tig = rg.pcmci_dict[s]
+var_names = tig.var_names
+idx = var_names.index(variable)
+try:
+    pvals = rg.pcmci_results_dict[0]['q_matrix'][idx]
+except:
+    pvals = rg.pcmci_results_dict[0]['p_matrix'][idx]
+coeffs = rg.pcmci_results_dict[0]['val_matrix'][idx]
+data = np.concatenate([coeffs, pvals],  1)
+
+
+df_MCI = pd.DataFrame(data, index=var_names, 
+                  columns=['coeff_l0', 'coeff_l1', 'pval_l0', 'pval_l1'] )
+
+max_cond_dims = rg.kwrgs_pcmci['max_conds_dim']
+
+filepath_txt = os.path.join(rg.path_outsub2, f'split_{s}_PCMCI_out.txt')
+#%%
+lines = [] ; 
+converged = False ; start_var = False ; start_pc_alpha = False
+start_variable_line = f'## Variable {variable}\n'
+get_pc_alpha_lines = f'# pc_alpha = {pc_alpha}'
+convergence_line = 'converged'
+
+var_kickedout = 'Non-significance detected.'
+with open (filepath_txt, 'rt') as myfile:
+    for i, myline in enumerate(myfile):      
+        if start_variable_line == myline :
+            lines.append(myline)
+            start_var = True
+        if start_var and get_pc_alpha_lines in myline:
+            start_pc_alpha = True
+        if start_pc_alpha:
+            lines.append(myline)
+        if start_var and start_pc_alpha and convergence_line in myline:
+            break
+        
+# collect init OLR
+tested_links = [] ; pvalues = [] ; coeffs = [] 
+track = False
+start_init = 'Testing condition sets of dimension 0:'
+end_init   = 'Updating parents:'
+init_OLR = 'No conditions of dimension 0 left.' 
+for i, myline in enumerate(lines):
+    
+    if start_init in myline:
+        track = True
+    if track:
+        if 'Link' in myline:
+            # print(subline)
+            link = myline
+            var = link.split('Link (')[1].split(')')[0]
+            tested_links.append(var)
+        if 'pval' in myline:
+            OLR = myline
+            p = float(OLR.split('pval = ')[1].split(' / ')[0])
+            pvalues.append(p)
+            c = float(OLR.split(' val = ')[1].replace('\n',''))
+            coeffs.append(c)
+    if end_init in myline:
+        break
+
+OLR_data = np.concatenate([np.array(coeffs)[:,None], np.array(pvalues)[:,None]], 
+                          axis=1)
+df_OLR = pd.DataFrame(data=OLR_data, index=tested_links, 
+                      columns=['coeff', 'pval'])
+#%%
+
+tested_links = [] ; pvalues = [] ; coeffs = [] ; by = {}
+for i, myline in enumerate(lines):
+    # print(myline)
+    # get max_cond_dims
+    if 'Testing condition sets of dimension' in myline:
+        max_cond_dims_i = int(myline.split(' ')[-1].split(':')[0])
+        max_cond_dims_i = max(1,min(max_cond_dims_i , max_cond_dims))
+    
+    if init_OLR in myline:   
+        # print(lines[i-2])
+        link = lines[i-2] 
+        var = link.split('Link (')[1].split(')')[0]
+        tested_links.append(var)
+        OLR = lines[i-1]
+        p = float(OLR.split('pval = ')[1].split(' / ')[0])
+        pvalues.append(p)
+        c = float(OLR.split(' val = ')[1].replace('\n',''))
+        coeffs.append(c)
+    if var_kickedout in myline:
+        # print(lines[i-1])
+        xy = lines[i-max_cond_dims_i-1 : i+1]
+        # print(xy)
+        for subline in xy:
+            if 'Link' in subline:
+                # print(subline)
+                link = subline
+                var = link.split('Link (')[1].split(')')[0]
+                tested_links.append(var)
+            if 'pval' in subline:
+                OLR = subline
+                p = float(OLR.split('pval = ')[1].split(' / ')[0])
+                pvalues.append(p)
+                c = float(OLR.split(' val = ')[1].replace('\n',''))
+                coeffs.append(c)
+        z  = lines[i-1]
+        if '(' in z:
+            zvar = z.split(': ')[1].split('  -->')[0]
+            by[var] = zvar
+        else:
+            by[var] = '-'
+for k in df_OLR.index:
+    print(k)
+    if k not in by.keys():
+        by[k] = 'C.D.'
+df_OLR['ParrCorr'] = df_OLR.index.map(by)
+
+
 #%%
 # from class_fc import fcev
 # import os

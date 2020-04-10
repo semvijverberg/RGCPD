@@ -457,68 +457,6 @@ def bookkeeping_precursors(links_RV, var_names):
 # #%%
 #     return
 
-# def plot_regs_xarray(for_plt):
-#     #%%
-#     max_N_regs = min(20, int(for_plt.max() + 0.5))
-#     label_weak = np.nan_to_num(for_plt.values) >=  max_N_regs
-#     for_plt.values[label_weak] = max_N_regs
-
-
-#     adjust_vert_cbar = 0.0 ; adj_fig_h = 1.0
-
-
-#     cmap = plt.cm.tab20
-#     for_plt.values = for_plt.values-0.5
-# #    if np.unique(for_plt.values[~np.isnan(for_plt.values)]).size == 1:
-# #        for_plt[0,0,0] = 0
-#     kwrgs = dict( {'title' : for_plt.attrs['title'], 'clevels' : 'notdefault',
-#                    'steps' : max_N_regs+1, 'subtitles': None,
-#                    'vmin' : 0, 'vmax' : max_N_regs,
-#                    'cmap' : cmap, 'column' : 1,
-#                    'cbar_vert' : adjust_vert_cbar, 'cbar_hght' : 0.0,
-#                    'adj_fig_h' : adj_fig_h, 'adj_fig_w' : 1.,
-#                    'hspace' : 0.2, 'wspace' : 0.08,
-#                    'cticks_center' : False, 'title_h' : 1.01} )
-    
-
-#     for l in for_plt.lag.values:
-#         filename = '{}_{}_vs_{}_lag{}'.format(ex['params'], 
-#                     ex['RV_name'], for_plt.name, l) + ex['file_type2']
-#         plotting_wrapper(for_plt.sel(lag=l), ex, filename, kwrgs=kwrgs)
-#     #%%
-#     return
-
-
-# def plotting_wrapper(plotarr, ex, filename=None,  kwrgs=None):
-#     import os
-
-#     try:
-#         folder_name = os.path.join(ex['figpathbase'], ex['exp_folder'])
-#     except:
-#         folder_name = ex['fig_path']
-
-#     if os.path.isdir(folder_name) != True :
-#         os.makedirs(folder_name)
-
-#     if kwrgs == None:
-#         kwrgs = dict( {'title' : plotarr.name, 'clevels' : 'notdefault', 'steps':17,
-#                         'vmin' : -3*plotarr.std().values, 'vmax' : 3*plotarr.std().values,
-#                        'cmap' : plt.cm.RdBu_r, 'column' : 1, 'subtitles' : None} )
-#     else:
-#         kwrgs = kwrgs
-#         kwrgs['title'] = plotarr.attrs['title']
-
-#     if filename != None:
-#         file_name = os.path.join(folder_name, filename)
-#         kwrgs['savefig'] = True
-#     else:
-#         kwrgs['savefig'] = False
-#         file_name = 'Users/semvijverberg/Downloads/test.png'
-#     finalfigure(plotarr, file_name, kwrgs)
-
-
-
-
 def store_ts(df_data, df_sum, dict_ds, filename): # outdic_precur, add_spatcov=True
     import functions_pp
     
