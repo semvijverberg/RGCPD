@@ -10,7 +10,7 @@ user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
-cluster_func = os.path.join(main_dir, 'clustering/') 
+cluster_func = os.path.join(main_dir, 'clustering/')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -29,30 +29,30 @@ CPPA_s30  = [('sst_CPPAs30', user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_
 
 
 list_of_name_path = [(1 ,user_dir + '/surfdrive/output_RGCPD/easternUS/tf1_n_clusters4_q90_dendo_ff393.nc'),
-                     ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),                    
+                     ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),
                      ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),
                       ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc')]
 
 import_prec_ts = CPPA_s30
 
 
-list_for_MI   = [BivariateMI(name='sm2', func=BivariateMI.corr_map, 
-                             kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+list_for_MI   = [BivariateMI(name='sm2', func=BivariateMI.corr_map,
+                             kwrgs_func={'alpha':.05, 'FDR_control':True},
                              distance_eps=600, min_area_in_degrees2=5),
-                 BivariateMI(name='sm3', func=BivariateMI.corr_map, 
-                              kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                 BivariateMI(name='sm3', func=BivariateMI.corr_map,
+                              kwrgs_func={'alpha':.05, 'FDR_control':True},
                               distance_eps=600, min_area_in_degrees2=7)]
-                 # BivariateMI(name='sst', func=BivariateMI.corr_map, 
-                 #              kwrgs_func={'alpha':.001, 'FDR_control':True}, 
+                 # BivariateMI(name='sst', func=BivariateMI.corr_map,
+                 #              kwrgs_func={'alpha':.001, 'FDR_control':True},
                  #              distance_eps=800, min_area_in_degrees2=5)]
-                            
+
 
 
 start_end_TVdate = ('06-24', '08-22')
 start_end_date = ('1-1', '12-31')
 
 
-rg = RGCPD(list_of_name_path=list_of_name_path, 
+rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
            import_prec_ts=import_prec_ts,
            start_end_TVdate=start_end_TVdate,
@@ -91,7 +91,7 @@ rg.traintest(method='random10', kwrgs_events=kwrgs_events)
 # In[166]:
 
 
-rg.calc_corr_maps() 
+rg.calc_corr_maps()
 
 
 # In[167]:
@@ -103,46 +103,7 @@ rg.cluster_list_MI()
 # In[168]:
 
 
-rg.quick_view_labels() 
-
-
-# # In[169]:
-
-
-# rg.get_ts_prec(precur_aggr=None)
-
-
-# # In[170]:
-
-
-# rg.df_data
-
-# rg.store_df()
-
-# # In[171]:
-
-# # rg.get_ts_prec(precur_aggr=None)
-# rg.PCMCI_df_data(pc_alpha=None, 
-#                   tau_max=2,
-#                   max_combinations=2)
-# rg.PCMCI_get_links(alpha_level=.05)
-# rg.df_links
-
-# # # In[172]:
-
-
-# rg.plot_maps_sum(var='sm2', cols=['corr'],
-#                  kwrgs_plot={'aspect': 2, 'wspace': -0.2})
-# rg.plot_maps_sum(var='sm3', 
-#                  kwrgs_plot={'aspect': 2, 'wspace': -0.2})
-# rg.plot_maps_sum(var='sst', 
-#                  kwrgs_plot={'cbar_vert':.02})
-
-# In[173]:
-
-
-#rg.df_data
-
+rg.quick_view_labels()
 
 
 
