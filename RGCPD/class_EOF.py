@@ -151,7 +151,7 @@ class EOF:
     def _single_split(func, ds_EOF, s, df_splits, neofs):
         splits = df_splits.index.levels[0]
         progress = 100 * (s+1) / splits.size
-        print(f"\rProgress traintest set {progress}%)", end="")
+        print(f"\rProgress traintest set {progress}%", end="")
         dates_train = functions_pp.dfsplits_to_dates(df_splits, s)[0]
         # convert Train test year from original time to monthly
         train_yrs = np.unique(dates_train.year)

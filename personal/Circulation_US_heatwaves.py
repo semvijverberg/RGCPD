@@ -32,11 +32,11 @@ from RGCPD import EOF
 
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf5_nc5_dendo_80d77.nc'
-cluster_label = 3
-name_ds='ts'
-start_end_TVdate = ('06-24', '08-22')
+cluster_label = 5
+name_ds='q75tail'
+start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
-tfreq = 14
+tfreq = 15
 #%%
 list_of_name_path = [(cluster_label, TVpath), 
                       ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
@@ -82,30 +82,26 @@ rg.plot_maps_corr(aspect=4.5, cbar_vert=-.1, save=True)
 list_of_name_path = [(cluster_label, TVpath), 
                      ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
-                     ('sm2', os.path.join(path_raw, 'sm2_1979-2018_1_12_daily_1.0deg.nc')),
-                     ('sm3', os.path.join(path_raw, 'sm3_1979-2018_1_12_daily_1.0deg.nc')),
+                     ('sm123', os.path.join(path_raw, 'sm_123_1979-2018_1_12_daily_1.0deg.nc')),
                      ('snow',os.path.join(path_raw, 'snow_1979-2018_1_12_daily_1.0deg.nc')),
                      ('st2',  os.path.join(path_raw, 'lsm_st2_1979-2018_1_12_daily_1.0deg.nc')),
                      ('OLRtrop',  os.path.join(path_raw, 'OLRtrop_1979-2018_1_12_daily_2.5deg.nc'))]
 
 list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
                              kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                             distance_eps=600, min_area_in_degrees2=7, 
+                             distance_eps=700, min_area_in_degrees2=7, 
                              calc_ts='pattern cov'),
-                  BivariateMI(name='sst', func=BivariateMI.corr_map, 
+                 BivariateMI(name='sst', func=BivariateMI.corr_map, 
                               kwrgs_func={'alpha':.0001, 'FDR_control':True}, 
-                              distance_eps=600, min_area_in_degrees2=5),
-                  BivariateMI(name='sm2', func=BivariateMI.corr_map, 
-                               kwrgs_func={'alpha':.05, 'FDR_control':True}, 
-                               distance_eps=600, min_area_in_degrees2=5),
-                  BivariateMI(name='sm3', func=BivariateMI.corr_map, 
-                               kwrgs_func={'alpha':.05, 'FDR_control':True}, 
-                               distance_eps=700, min_area_in_degrees2=7),
-                  BivariateMI(name='snow', func=BivariateMI.corr_map, 
-                               kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                              distance_eps=700, min_area_in_degrees2=5),
+                 BivariateMI(name='sm123', func=BivariateMI.corr_map, 
+                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                               distance_eps=700, min_area_in_degrees2=5),
+                 BivariateMI(name='snow', func=BivariateMI.corr_map, 
+                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                                distance_eps=700, min_area_in_degrees2=7),
                  BivariateMI(name='st2', func=BivariateMI.corr_map, 
-                               kwrgs_func={'alpha':.05, 'FDR_control':True}, 
+                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                                distance_eps=700, min_area_in_degrees2=5)]
 
 list_for_EOFS = [EOF(name='OLRtrop', neofs=2, selbox=[-180, 360, -15, 30])]
@@ -117,12 +113,12 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_EOFS=list_for_EOFS,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           tfreq=tfreq, lags_i=np.array([1]),
+           tfreq=tfreq, lags_i=np.array([0]),
            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
            append_pathsub='_' + name_ds)
 
 rg.pp_TV(name_ds=name_ds)
-selbox = [None, {'sst':[-180,360,-10,90], 'z500':[130,350,10,90], 'v200':[130,350,10,90]}]
+selbox = [None, {'z500':[130,350,10,90], 'v200':[130,350,10,90]}]
 rg.pp_precursors(selbox=selbox)
 
 rg.traintest(method='random10')
@@ -139,8 +135,8 @@ rg.get_EOFs()
 
 rg.get_ts_prec(precur_aggr=None)
 rg.PCMCI_df_data(pc_alpha=None, 
-                 tau_max=1,
-                 max_conds_dim=2,
+                 tau_max=2,
+                 max_conds_dim=10,
                  max_combinations=3)
 rg.PCMCI_get_links(alpha_level=.01)
 rg.df_links.loc[4]
@@ -166,124 +162,17 @@ rg.store_df_PCMCI()
 
 
 #%%
+import pandas as pd
+flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 
 variable = '5'
-s = 0
+s = 1
 pc_alpha = .05
-
-tig = rg.pcmci_dict[s]
-var_names = tig.var_names
-idx = var_names.index(variable)
-try:
-    pvals = rg.pcmci_results_dict[0]['q_matrix'][idx]
-except:
-    pvals = rg.pcmci_results_dict[0]['p_matrix'][idx]
-coeffs = rg.pcmci_results_dict[0]['val_matrix'][idx]
-data = np.concatenate([coeffs, pvals],  1)
-
-
-df_MCI = pd.DataFrame(data, index=var_names, 
-                  columns=['coeff_l0', 'coeff_l1', 'pval_l0', 'pval_l1'] )
-
-max_cond_dims = rg.kwrgs_pcmci['max_conds_dim']
+lags = range(0, rg.kwrgs_pcmci['tau_max']+1)
+pcmci_class = rg.pcmci_dict[s]
 
 filepath_txt = os.path.join(rg.path_outsub2, f'split_{s}_PCMCI_out.txt')
-#%%
-lines = [] ; 
-converged = False ; start_var = False ; start_pc_alpha = False
-start_variable_line = f'## Variable {variable}\n'
-get_pc_alpha_lines = f'# pc_alpha = {pc_alpha}'
-convergence_line = 'converged'
 
-var_kickedout = 'Non-significance detected.'
-with open (filepath_txt, 'rt') as myfile:
-    for i, myline in enumerate(myfile):      
-        if start_variable_line == myline :
-            lines.append(myline)
-            start_var = True
-        if start_var and get_pc_alpha_lines in myline:
-            start_pc_alpha = True
-        if start_pc_alpha:
-            lines.append(myline)
-        if start_var and start_pc_alpha and convergence_line in myline:
-            break
-        
-# collect init OLR
-tested_links = [] ; pvalues = [] ; coeffs = [] 
-track = False
-start_init = 'Testing condition sets of dimension 0:'
-end_init   = 'Updating parents:'
-init_OLR = 'No conditions of dimension 0 left.' 
-for i, myline in enumerate(lines):
-    
-    if start_init in myline:
-        track = True
-    if track:
-        if 'Link' in myline:
-            # print(subline)
-            link = myline
-            var = link.split('Link (')[1].split(')')[0]
-            tested_links.append(var)
-        if 'pval' in myline:
-            OLR = myline
-            p = float(OLR.split('pval = ')[1].split(' / ')[0])
-            pvalues.append(p)
-            c = float(OLR.split(' val = ')[1].replace('\n',''))
-            coeffs.append(c)
-    if end_init in myline:
-        break
-
-OLR_data = np.concatenate([np.array(coeffs)[:,None], np.array(pvalues)[:,None]], 
-                          axis=1)
-df_OLR = pd.DataFrame(data=OLR_data, index=tested_links, 
-                      columns=['coeff', 'pval'])
-#%%
-
-tested_links = [] ; pvalues = [] ; coeffs = [] ; by = {}
-for i, myline in enumerate(lines):
-    # print(myline)
-    # get max_cond_dims
-    if 'Testing condition sets of dimension' in myline:
-        max_cond_dims_i = int(myline.split(' ')[-1].split(':')[0])
-        max_cond_dims_i = max(1,min(max_cond_dims_i , max_cond_dims))
-    
-    if init_OLR in myline:   
-        # print(lines[i-2])
-        link = lines[i-2] 
-        var = link.split('Link (')[1].split(')')[0]
-        tested_links.append(var)
-        OLR = lines[i-1]
-        p = float(OLR.split('pval = ')[1].split(' / ')[0])
-        pvalues.append(p)
-        c = float(OLR.split(' val = ')[1].replace('\n',''))
-        coeffs.append(c)
-    if var_kickedout in myline:
-        # print(lines[i-1])
-        xy = lines[i-max_cond_dims_i-1 : i+1]
-        # print(xy)
-        for subline in xy:
-            if 'Link' in subline:
-                # print(subline)
-                link = subline
-                var = link.split('Link (')[1].split(')')[0]
-                tested_links.append(var)
-            if 'pval' in subline:
-                OLR = subline
-                p = float(OLR.split('pval = ')[1].split(' / ')[0])
-                pvalues.append(p)
-                c = float(OLR.split(' val = ')[1].replace('\n',''))
-                coeffs.append(c)
-        z  = lines[i-1]
-        if '(' in z:
-            zvar = z.split(': ')[1].split('  -->')[0]
-            by[var] = zvar
-        else:
-            by[var] = '-'
-for k in df_OLR.index:
-    print(k)
-    if k not in by.keys():
-        by[k] = 'C.D.'
-df_OLR['ParrCorr'] = df_OLR.index.map(by)
 
 
 #%%

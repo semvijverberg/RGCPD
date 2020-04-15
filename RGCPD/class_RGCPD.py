@@ -404,16 +404,18 @@ class RGCPD:
         if hasattr(self, 'pcmci_results_dict')==False:
             print('first perform PCMCI_df_data to get pcmci_results_dict')
         
-        if alpha_level is None:
-            alpha_level = self.kwrgs_TV['alpha_level']
         self.parents_dict = wrapper_PCMCI.get_links_pcmci(self.pcmci_dict, 
                                                           self.pcmci_results_dict,
                                                           alpha_level)
-        self.df_links, self.mapping_links = wrapper_PCMCI.get_df_sum(self.parents_dict)
+        self.df_links = wrapper_PCMCI.get_df_links(self.parents_dict)
+        lags = np.arange(self.kwrgs_pcmci['tau_min'], self.kwrgs_pcmci['tau_max']+1)
+        self.df_MCI   = wrapper_PCMCI.get_df_MCI(self.pcmci_dict, 
+                                                 self.pcmci_results_dict, 
+                                                 lags, self.TV.name)
 
-        # get xarray dataset for each variable
-        self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_links,
-                                                      self.list_for_MI)
+        # # get xarray dataset for each variable
+        # self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_links,
+        #                                               self.list_for_MI)
 
     def store_df_PCMCI(self):
         import wrapper_PCMCI
