@@ -75,8 +75,11 @@ class EOF:
             func = self._get_EOF_xarray
             try:
                 with ProcessPoolExecutor(max_workers=os.cpu_count()) as pool:
-                    futures = [pool.submit(self._single_split, func, self.ds_EOF, s, df_splits, self.neofs) for s in range(splits.size)]
-                    results = [future.result() for future in futures]
+                    for s in range(splits.size):
+                        progress = 100 * (s+1) / splits.size
+                        print(f"\rProgress traintest set {progress}%", end="")
+                        pool.submit(self._single_split, func, self.ds_EOF, s, df_splits, self.neofs) 
+                    # results = [future.result() for future in futures]
             except:
                 results = [self._single_split(func, self.ds_EOF, s, df_splits, self.neofs) for s in range(splits.size)]
             # unpack results
@@ -119,14 +122,16 @@ class EOF:
                                                 start_end_date=self.start_end_date,
                                                 start_end_year=self.start_end_year)
         df_data_s   = np.zeros( (splits.size) , dtype=object)
+        dates = pd.to_datetime(ds['time'].values)
         for s in splits:
-
-            dfs = pd.DataFrame(index=pd.to_datetime(ds['time'].values))
+            
+            dfs = pd.DataFrame(columns=neofs, index=dates)
             for i, e in enumerate(neofs):
 
                 pattern = self.eofs.sel(split=s, eof=e)
                 data = find_precursors.calc_spatcov(ds, pattern)
-                dfs[e] = pd.Series(data.values, index=dfs.index)
+                dfs[e] = pd.Series(data.values, 
+                                   index=dates)
                 if i == neofs.size-1:
                     dfs = dfs.merge(df_splits.loc[s], left_index=True, right_index=True)
             df_data_s[s] = dfs
@@ -150,8 +155,7 @@ class EOF:
     @staticmethod
     def _single_split(func, ds_EOF, s, df_splits, neofs):
         splits = df_splits.index.levels[0]
-        progress = 100 * (s+1) / splits.size
-        print(f"\rProgress traintest set {progress}%", end="")
+        
         dates_train = functions_pp.dfsplits_to_dates(df_splits, s)[0]
         # convert Train test year from original time to monthly
         train_yrs = np.unique(dates_train.year)

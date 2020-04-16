@@ -82,7 +82,7 @@ rg.plot_maps_corr(aspect=4.5, cbar_vert=-.1, save=True)
 list_of_name_path = [(cluster_label, TVpath), 
                      ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
-                     ('sm123', os.path.join(path_raw, 'sm_123_1979-2018_1_12_daily_1.0deg.nc')),
+                     ('sm12', os.path.join(path_raw, 'sm12_1979-2018_1_12_daily_1.0deg.nc')),
                      ('snow',os.path.join(path_raw, 'snow_1979-2018_1_12_daily_1.0deg.nc')),
                      ('st2',  os.path.join(path_raw, 'lsm_st2_1979-2018_1_12_daily_1.0deg.nc')),
                      ('OLRtrop',  os.path.join(path_raw, 'OLRtrop_1979-2018_1_12_daily_2.5deg.nc'))]
@@ -94,7 +94,7 @@ list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
                  BivariateMI(name='sst', func=BivariateMI.corr_map, 
                               kwrgs_func={'alpha':.0001, 'FDR_control':True}, 
                               distance_eps=700, min_area_in_degrees2=5),
-                 BivariateMI(name='sm123', func=BivariateMI.corr_map, 
+                 BivariateMI(name='sm12', func=BivariateMI.corr_map, 
                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                                distance_eps=700, min_area_in_degrees2=5),
                  BivariateMI(name='snow', func=BivariateMI.corr_map, 
@@ -119,7 +119,8 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 
 rg.pp_TV(name_ds=name_ds)
 selbox = [None, {'z500':[130,350,10,90], 'v200':[130,350,10,90]}]
-rg.pp_precursors(selbox=selbox)
+anomaly = [True, {'sm12':False, 'OLRtrop':False}]
+rg.pp_precursors(selbox=selbox, anomaly=anomaly)
 
 rg.traintest(method='random10')
 
@@ -127,26 +128,24 @@ rg.calc_corr_maps()
 
  #%%
 rg.cluster_list_MI()
-rg.quick_view_labels() 
-rg.plot_maps_corr(precursors=None, save=True)
+
 
 rg.get_EOFs()
 
 
 rg.get_ts_prec(precur_aggr=None)
-rg.PCMCI_df_data(pc_alpha=None, 
+rg.PCMCI_df_data(pc_alpha=.05, 
                  tau_max=2,
                  max_conds_dim=10,
-                 max_combinations=3)
+                 max_combinations=10)
 rg.PCMCI_get_links(alpha_level=.01)
-rg.df_links.loc[4]
+rg.df_links.loc[1]
 
 
+rg.quick_view_labels() 
+rg.plot_maps_corr(precursors=None, save=True)
 
-
-rg.plot_maps_sum(var='sm2', 
-                 kwrgs_plot={'aspect': 2, 'wspace': -0.02})
-rg.plot_maps_sum(var='sm3', 
+rg.plot_maps_sum(var='sm12', 
                  kwrgs_plot={'aspect': 2, 'wspace': -0.02})
 rg.plot_maps_sum(var='st2', 
                  kwrgs_plot={'aspect': 2, 'wspace': -0.02})
@@ -166,14 +165,52 @@ import pandas as pd
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 
 variable = '5'
-s = 1
 pc_alpha = .05
 lags = range(0, rg.kwrgs_pcmci['tau_max']+1)
-pcmci_class = rg.pcmci_dict[s]
+splits = rg.df_splits.index.levels[0]
+df_ParCorr_s = np.zeros( (splits.size) , dtype=object)
+for s in splits:
+    pcmci_class = rg.pcmci_dict[s]
+    
+    filepath_txt = os.path.join(rg.path_outsub2, f'split_{s}_PCMCI_out.txt')
+    
+    df = wrapper_PCMCI.extract_ParCorr_info_from_text(filepath_txt, 
+                                                      variable=variable)
+    df_ParCorr_s[s] = df
 
-filepath_txt = os.path.join(rg.path_outsub2, f'split_{s}_PCMCI_out.txt')
+df_ParCorr = pd.concat(list(df_ParCorr_s), keys= range(splits.size))
+df_ParCorr_sum = pd.concat([df_ParCorr['coeff'].mean(level=1),
+                            df_ParCorr['coeff'].min(level=1), 
+                            df_ParCorr['coeff'].max(level=1), 
+                            df_ParCorr['pval'].mean(level=1), 
+                            df_ParCorr['pval'].max(level=1)], 
+                           keys = ['coeff mean', 'coeff min', 'coeff max',
+                                   'pval mean', 'pval max'], axis=1)
+all_options = np.unique(df_ParCorr['ParCorr'])[::-1]
+list_of_series = []
+for op in all_options:
+    newseries = (df_ParCorr['ParCorr'] == op).sum(level=1).astype(int)
+    newseries.name = f'ParCorr {op}'
+    list_of_series.append(newseries)
 
+df_ParCorr_sum = pd.merge(df_ParCorr_sum, 
+                          pd.concat(list_of_series, axis=1), 
+                          left_index=True, right_index=True)
+    
+#%%
+from tigramite import plotting as tp
+import matplotlib as mpl
+s = 5
+mpl.rcParams.update(mpl.rcParamsDefault)
 
+link_only_RV = np.zeros_like(rg.parents_dict[s][2])
+link_matrix = rg.parents_dict[s][2]
+link_only_RV[:,0] = link_matrix[:,0]
+tp.plot_graph(val_matrix=rg.pcmci_results_dict[s]['val_matrix'], 
+              var_names=rg.pcmci_dict[s].var_names, 
+              link_matrix=link_only_RV, 
+              link_colorbar_label='cross-MCI',
+node_colorbar_label='auto-MCI')
 
 #%%
 # from class_fc import fcev

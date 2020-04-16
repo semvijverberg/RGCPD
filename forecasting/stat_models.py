@@ -35,7 +35,7 @@ logit = ('logit', None)
 #               'random_state':60,
 #               'min_impurity_decrease':1E-7} )
 
-def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=1, 
+def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5, 
                                 seed: int=1):
     '''
     Train-test split that gives priority to keep data of same year as blocks, 

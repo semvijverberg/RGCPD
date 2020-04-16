@@ -14,9 +14,16 @@ import find_precursors
 from class_RV import RV_class
 from class_EOF import EOF
 from class_BivariateMI import BivariateMI
+import stat_models_cont as sm
 from typing import List, Tuple, Union
 import inspect, os, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+
+try:
+    import wrapper_PCMCI as wPCMCI
+except:
+    print('not able to load in Tigramite modules, please (pip) install '
+          'Tigramite from https://github.com/jakobrunge/tigramite/')
 
 df_ana_func = os.path.join(curr_dir, '..', 'df_analysis/df_analysis/') # add df_ana path
 sys.path.append(df_ana_func)
@@ -224,7 +231,7 @@ class RGCPD:
                   'year.'.format(max(self.lags)) ) )
 
 
-    def traintest(self, method='no_train_test_split', seed=1,
+    def traintest(self, method: str=None, seed=1,
                   kwrgs_events=None):
         ''' Splits the training and test dates, either via cross-validation or
         via a simple single split.
@@ -248,7 +255,8 @@ class RGCPD:
         concomitant to each split.
         '''
 
-
+        if method is None:
+            method = 'no_train_test_split'
         self.kwrgs_TV = dict(method=method,
                     seed=seed,
                     kwrgs_events=kwrgs_events,
@@ -359,8 +367,7 @@ class RGCPD:
 
 
     def PCMCI_init(self):
-        import wrapper_PCMCI
-        self.pcmci_dict = wrapper_PCMCI.init_pcmci(self.df_data)
+        self.pcmci_dict = wPCMCI.init_pcmci(self.df_data)
 
     def PCMCI_df_data(self, path_txtoutput=None, tau_min=0, tau_max=1,
                     pc_alpha=None, max_conds_dim=None,
@@ -399,23 +406,57 @@ class RGCPD:
         self.pcmci_results_dict = out
     
     def PCMCI_get_links(self, alpha_level: float=None):
-        import wrapper_PCMCI
+        
         
         if hasattr(self, 'pcmci_results_dict')==False:
             print('first perform PCMCI_df_data to get pcmci_results_dict')
         
-        self.parents_dict = wrapper_PCMCI.get_links_pcmci(self.pcmci_dict, 
-                                                          self.pcmci_results_dict,
-                                                          alpha_level)
-        self.df_links = wrapper_PCMCI.get_df_links(self.parents_dict)
+        self.parents_dict = wPCMCI.get_links_pcmci(self.pcmci_dict, 
+                                                   self.pcmci_results_dict,
+                                                   alpha_level)
+        self.df_links = wPCMCI.get_df_links(self.parents_dict)
         lags = np.arange(self.kwrgs_pcmci['tau_min'], self.kwrgs_pcmci['tau_max']+1)
-        self.df_MCI   = wrapper_PCMCI.get_df_MCI(self.pcmci_dict, 
+        self.df_MCIc, self.df_MCIa = wPCMCI.get_df_MCI(self.pcmci_dict, 
                                                  self.pcmci_results_dict, 
                                                  lags, self.TV.name)
+        # get xarray dataset for each variable
+        self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_links,
+                                                      self.list_for_MI)
 
-        # # get xarray dataset for each variable
-        # self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_links,
-        #                                               self.list_for_MI)
+    def PCMCI_get_ParCorr_from_txt(self, variable=None, pc_alpha='auto'):
+        
+        if variable is None:
+            variable = self.TV.name
+        
+        # lags = range(0, self..kwrgs_pcmci['tau_max']+1)
+        splits = self.df_splits.index.levels[0]
+        df_ParCorr_s = np.zeros( (splits.size) , dtype=object)
+        for s in splits:           
+            filepath_txt = os.path.join(self.path_outsub2, 
+                                        f'split_{s}_PCMCI_out.txt')
+            
+            df = wPCMCI.extract_ParCorr_info_from_text(filepath_txt, 
+                                                       variable=variable)
+            df_ParCorr_s[s] = df
+        df_ParCorr = pd.concat(list(df_ParCorr_s), keys= range(splits.size))
+        df_ParCorr_sum = pd.concat([df_ParCorr['coeff'].mean(level=1),
+                                    df_ParCorr['coeff'].min(level=1), 
+                                    df_ParCorr['coeff'].max(level=1), 
+                                    df_ParCorr['pval'].mean(level=1), 
+                                    df_ParCorr['pval'].max(level=1)], 
+                                   keys = ['coeff mean', 'coeff min', 'coeff max',
+                                           'pval mean', 'pval max'], axis=1)
+        all_options = np.unique(df_ParCorr['ParCorr'])[::-1]
+        list_of_series = []
+        for op in all_options:
+            newseries = (df_ParCorr['ParCorr'] == op).sum(level=1).astype(int)
+            newseries.name = f'ParCorr {op}'
+            list_of_series.append(newseries)
+        
+        self.df_ParCorr_sum = pd.merge(df_ParCorr_sum, 
+                                  pd.concat(list_of_series, axis=1), 
+                                  left_index=True, right_index=True)
+
 
     def store_df_PCMCI(self):
         import wrapper_PCMCI
@@ -501,7 +542,7 @@ class RGCPD:
                 plt.savefig(fig_path, bbox_inches='tight')
 
     def plot_maps_sum(self, var='all', map_proj=None, figpath=None, 
-                      paramsstr=None, cols: List=['corr', 'causal'], kwrgs_plot={}):
+                      paramsstr=None, cols: List=['corr', 'C.D.'], kwrgs_plot={}):
 
 #         if map_proj is None:
 #             central_lon_plots = 200
@@ -537,6 +578,58 @@ class RGCPD:
             traintest_yrs.append(test_yrs)
         return traintest_yrs
 
+    def reduce_df_data_ridge(self, keys: Union[list, np.ndarray], 
+                             newname:str = None, kwrgs_model: dict=None):
+        '''
+        Perform cross-validated Ridge regression to reduce a set of predictors
+        to a single timeseries in a linear additive way. 
+
+        This is to avoid problems with multicolinearity issue in Tigramite.
+        Standardize is required to ensure fair 'punishment' of too high 
+        coefficients when tuning the regulization.
+
+        Parameters
+        ----------
+        keys : Union[list, np.ndarray]
+            list of nparray of predictors that you want to merge into one.
+        newname : str, optional
+            new column name of the predicted timeseries. The default is None.
+        kwrgs_model : dict, optional
+            DESCRIPTION. The default is None.
+
+        Returns
+        -------
+        None.
+
+        '''
+        self.df_data_all = self.df_data.copy()
+        if keys is None:
+            keys = self.df_data.columns[self.df_data.dtypes != bool]
+        splits = self.df_splits.index.levels[0]
+        y_ts = {'ts':self.TV.RV_ts}
+        for s in splits:
+            RV_mask = self.df_splits.loc[s]['RV_mask']
+            TrainIsTrue = self.df_splits.loc[s]['TrainIsTrue'][RV_mask.values]
+            df_s = self.df_data.loc[s][RV_mask.values].dropna(axis=1)
+            def standardize_on_train(c, TrainIsTrue):
+                return (c - c[TrainIsTrue.values].mean()) \
+                        / c[TrainIsTrue.values].std()
+            ks = [k for k in keys if k in df_s.columns] # keys split
+            df_s[ks] = df_s[ks].apply(standardize_on_train, 
+                                      args=[TrainIsTrue], 
+                                      result_type='broadcast')
+
+            prediction, model = sm.ridgeCV(y_ts, df_s, ks, kwrgs_model)
+            # extend prediction, 
+            X_fullyear = self.df_data.loc[s][ks]
+            ext_pred = pd.Series(model.predict(X_fullyear),
+                                 index=self.df_data.loc[s].index)
+
+            # prediction = prediction.rename(columns={0:newname})
+            df_data_s = self.df_data.loc[s].drop(columns=keys).copy()
+            df_data_s[newname] = ext_pred
+            self.df_data.loc[s] = df_data_s
+            
 def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=None, 
                      seed=int, verbosity=1): #, method=str, kwrgs_events=None, precursor_ts=None, seed=int, verbosity=1
 

@@ -215,8 +215,8 @@ def get_df_links(parents_dict):
     splits = np.array(list(parents_dict.keys()))
     df_links_s = np.zeros( (splits.size) , dtype=object)
     for s in range(splits.size):
-        links_RV, var_names, link_matrix = parents_dict[s] 
-        df = pd.DataFrame(link_matrix[0], index=var_names)
+        var_names, link_matrix = parents_dict[s][1:] 
+        df = pd.DataFrame(link_matrix[:,0], index=var_names)
         df_links_s[s] = df
         
     df_links = pd.concat(list(df_links_s), keys= range(splits.size))
@@ -251,12 +251,12 @@ def get_df_MCI(pcmci_dict, pcmci_results_dict, lags, variable):
         var_names = pcmci_class.var_names
         idx = var_names.index(variable)
         try:
-            pvals = results_dict['q_matrix'][idx]
+            pvals = results_dict['q_matrix'][:,idx]
             c = 'qval'
         except:
             c = 'pval'
-            pvals = results_dict['p_matrix'][idx]
-        coeffs = results_dict['val_matrix'][idx]
+            pvals = results_dict['p_matrix'][:,idx]
+        coeffs = results_dict['val_matrix'][:,idx]
         # data = np.concatenate([coeffs, pvals],  1)
         
         cols = [f'coeff l{l}' for l in lags]
@@ -276,13 +276,15 @@ def get_df_MCI(pcmci_dict, pcmci_results_dict, lags, variable):
 
 
 def extract_ParCorr_info_from_text(filepath_txt=str, variable=str, pc_alpha='auto'):
-    #%%
+    #%%    
+    assert variable is not None, 'variable not given' # check if var is not None
+        
+    if pc_alpha == 'auto' or pc_alpha is None:
+        pc_alpha = print_pc_alphas_summ_from_txt(filepath_txt, variable)
+
     start_variable_line = f'## Variable {variable}\n'
     get_pc_alpha_lines = f'# pc_alpha = {pc_alpha}'
     convergence_line = 'converged'
-    
-    if pc_alpha == 'auto':
-        pc_alpha = print_pc_alphas_summ_from_txt(filepath_txt, variable)
     
     # get max_conds_dim parameter
     with open (filepath_txt, 'rt') as myfile:
@@ -378,19 +380,28 @@ def extract_ParCorr_info_from_text(filepath_txt=str, variable=str, pc_alpha='aut
         # print(k)
         if k not in by.keys():
             by[k] = 'C.D.'
-    df_OLR['ParrCorr'] = df_OLR.index.map(by)
+    df_OLR['ParCorr'] = df_OLR.index.map(by)
     #%%
     return df_OLR
 
 def print_pc_alphas_summ_from_txt(filepath_txt=str, variable=str):
     # get pc_alpha parameter from text
     #%%
+    init_pc_alpha = 'pc_alpha = '
     start_pc_alpha_sum = '# Condition selection results:'
     var_searched = f'Algorithm converged for variable {variable}'
     end_pc_alpha_sum   = f'--> optimal pc_alpha for variable {variable} is '
     detected = False ; reached_pc_alpha_sum=False
     with open (filepath_txt, 'rt') as myfile:
-        for i, myline in enumerate(myfile):           
+        for i, myline in enumerate(myfile):   
+            if init_pc_alpha in myline and i < 20:
+                pc_alpha = myline.split('pc_alpha = ')[1].split('\n')[0]
+                if pc_alpha == 'None':
+                    continue
+                else:
+                    pc_alpha = float(pc_alpha)
+                    break
+           
             if var_searched in myline:
                 detected = True
             if detected and start_pc_alpha_sum in myline:

@@ -60,14 +60,21 @@ def import_ds_lazy(filename, loadleap=False,
             format_lon = 'only_east'
         if _check_format(ds) != format_lon:
             ds = convert_longitude(ds, format_lon)
-
-
+    
+    # ensure longitude in increasing order
+    if np.where(ds.longitude == ds.longitude.min()) > np.where(ds.longitude == ds.longitude.max()):
+        ds = ds.sortby('longitude')
+    
+    # ensure latitude is in increasing order
+    if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
+        ds = ds.sortby('latitude')
+        
     if selbox is not None:
         ds = get_selbox(ds, selbox)
 
-#    # ensure latitude is in increasing order
-#    if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
-#        ds = ds.sortby('latitude')
+
+    
+    
 
     # get dates
     if 'time' in ds.squeeze().dims:
@@ -246,9 +253,9 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
         data_smooth = ds.values
 
     elif (stepsyr.day== 1).all() == False and int(ds.time.size / 365) < 120:
-        window_s = min(25,int(stepsyr.size / 12))
+        window_s = min(35,int(stepsyr.size / 12))
         print('Performing {} day rolling mean with gaussian window (std={})'
-              ' to get better interannual statistics'.format(window_s, window_s/2))
+              ' to get better interannual statistics'.format(window_s, window_s/1.5))
 
         print('using absolute anomalies w.r.t. climatology of '
               'smoothed concurrent day accross years')
@@ -305,7 +312,7 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
 #%%
 def rolling_mean_np(arr, win, center=True):
     import scipy.signal.windows as spwin
-    plt.plot(range(-int(win/2),+int(win/2)+1), spwin.gaussian(win, win/2))
+    plt.plot(range(-int(win/2),+round(win/2+.49)), spwin.gaussian(win, win/2))
     plt.title('window used for rolling mean')
     plt.xlabel('timesteps')
     df = pd.DataFrame(data=arr.reshape( (arr.shape[0], arr[0].size)))
@@ -326,50 +333,59 @@ def _check_format(ds):
     else:
         format_lon = 'west_east'
     return format_lon
-        
+
 def convert_longitude(data, to_format='east_west'):
-    '''
-    to_format = 'only_east' or 'east_west'
-    '''
-    longitude = data.longitude
     if to_format == 'east_west':
-        lon_above = longitude[np.where(longitude > 180)[0]]
-        lon_normal = longitude[np.where(longitude <= 180)[0]]
-        # roll all values to the right for len(lon_above amount of steps)
-        data = data.roll(longitude=len(lon_above), roll_coords=False)
-        # adapt longitude values above 180 to negative values
-        substract = lambda x, y: (x - y)
-        lon_above = xr.apply_ufunc(substract, lon_above, 360)
-        if lon_normal.size != 0:
-            if lon_normal[0] == 0.:
-                convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
-
-            else:
-                convert_lon = xr.concat([lon_normal, lon_above], dim='longitude')
-        else:
-            convert_lon = lon_above
-
+        data = data.assign_coords(longitude=(((data.longitude + 180) % 360) - 180))
     elif to_format == 'only_east':
-        deg = float(abs(longitude[1] - longitude[0]))
-        lon_above = longitude[np.where(longitude >= 0)[0]]
-        lon_below = longitude[np.where(longitude < 0)[0]]
-        lon_below += 360
-        
-        if lon_above.size != 0:
-            if min(lon_above) < deg:
-                # crossing the meridional:
-                data = data.roll(longitude=-len(lon_below), roll_coords=False)
-                convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
-            else:
-                # crossing - 180 line
-                data = data.roll(longitude=len(lon_below), roll_coords=False)
-                convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
-        else:
-            # crossing - 180 line
-            data = data.roll(longitude=len(lon_below), roll_coords=False)
-            convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
-    data['longitude'] = convert_lon
+        data = data.assign_coords(longitude=((data.longitude + 360) % 360))
     return data
+
+
+# def convert_longitude(data, to_format='east_west'):
+#     '''
+#     to_format = 'only_east' or 'east_west'
+#     '''
+#     longitude = data.longitude
+#     if to_format == 'east_west':
+#         lon_above = longitude[np.where(longitude > 180)[0]]
+#         lon_normal = longitude[np.where(longitude <= 180)[0]]
+#         # roll all values to the right for len(lon_above amount of steps)
+#         data = data.roll(longitude=len(lon_above), roll_coords=False)
+#         # adapt longitude values above 180 to negative values
+#         substract = lambda x, y: (x - y)
+#         lon_above = xr.apply_ufunc(substract, lon_above, 360)
+#         if lon_normal.size != 0:
+#             if lon_normal[0] == 0.:
+#                 convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
+
+#             else:
+#                 convert_lon = xr.concat([lon_normal, lon_above], dim='longitude')
+#         else:
+#             convert_lon = lon_above
+
+#     elif to_format == 'only_east':
+#         deg = float(abs(longitude[1] - longitude[0]))
+#         lon_above = longitude[np.where(longitude >= 0)[0]]
+#         lon_below = longitude[np.where(longitude < 0)[0]]
+#         lon_below = lon_below.assign_coords(longitude=lon_below.values +360)
+#         lon_below.values 
+#         if lon_above.size != 0:
+#             if min(lon_above) < deg:
+#                 # crossing the meridional:
+#                 data = data.roll(longitude=-len(lon_below), roll_coords=False)
+#                 convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
+#             else:
+#                 # crossing - 180 line
+#                 data = data.roll(longitude=len(lon_below), roll_coords=False)
+#                 convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
+#         else:
+#             # crossing - 180 line
+#             data = data.roll(longitude=len(lon_below), roll_coords=False)
+#             convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
+#     data['longitude'] = convert_lon
+#     return data
+        
 
 def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
     #%%
@@ -458,8 +474,32 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
     return datessubset
 
 #%%
+def ensmean(outfile, weights=list, name=None, *args):
+    outfile = '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm12_1979-2018_1_12_daily_1.0deg.nc'
+    for i, arg in enumerate(args):
+        ds = import_ds_lazy(arg)
+        if i == 0:
+            list_xr = [ds.expand_dims('extra_dim', axis=0) for i in range(len(args))]
+            ds_e = xr.concat(list_xr, dim = 'extra_dim')
+            ds_e['extra_dim'] = range(len(args))
+        ds_e[i] = ds
 
-
+    if weights is not None:
+        weights = xr.DataArray(weights, 
+                               dims=['extra_dim'], 
+                               coords={'extra_dim':list(range(len(args)))})
+        weights.name = "weights"
+        ds_e.weighted(weights)
+    ds_mean = ds_e.mean(dim='extra_dim')
+    if name is not None:
+        ds_mean.name = name
+        
+    ds_mean = ds_mean.where(ds_mean.values != 0.).fillna(-9999)
+    encoding = ( {ds_mean.name : {'_FillValue': -9999}} )
+    mask =  (('latitude', 'longitude'), (ds_mean.values[0] != -9999) )
+    ds_mean.coords['mask'] = mask
+    ds_mean.to_netcdf(outfile, mode='w', encoding=encoding)
+    
 if __name__ == '__main__':
     ex = {}
     ex['input_freq'] = 'daily'
