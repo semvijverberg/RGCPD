@@ -124,7 +124,7 @@ def loop_train_test(pcmci_dict, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=N
 
     pcmci_results_dict = {}
     for s in range(splits.size):
-        progress = 100 * (s+1) / splits.size
+        progress = int(100 * (s+1) / splits.size)
         print(f"\rProgress causal inference - traintest set {progress}%", end="")
         results = run_pcmci(pcmci_dict[s], path_txtoutput, s,
                         tau_min, tau_max, pc_alpha, max_conds_dim, 

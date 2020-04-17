@@ -14,21 +14,25 @@ import find_precursors
 from class_RV import RV_class
 from class_EOF import EOF
 from class_BivariateMI import BivariateMI
-import stat_models_cont as sm
+
 from typing import List, Tuple, Union
 import inspect, os, sys
-import func_models
+
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 
 try:
     import wrapper_PCMCI as wPCMCI
 except:
-    print('not able to load in Tigramite modules, please (pip) install '
-          'Tigramite from https://github.com/jakobrunge/tigramite/')
+    print('Not able to load in Tigramite modules, to enable causal inference '
+          'features, install Tigramite from '
+          'https://github.com/jakobrunge/tigramite/')
 
-df_ana_func = os.path.join(curr_dir, '..', 'df_analysis/df_analysis/') # add df_ana path
-sys.path.append(df_ana_func)
+df_ana_dir = os.path.join(curr_dir, '..', 'df_analysis/df_analysis/') # add df_ana path
+fc_dir       = os.path.join(curr_dir, '..', 'forecasting/') # add df_ana path
+sys.path.append(df_ana_dir) ; sys.path.append(fc_dir)
 import df_ana
+import func_models
+import stat_models_cont as sm
 path_test = os.path.join(curr_dir, '..', 'data')
 
 
@@ -453,6 +457,9 @@ class RGCPD:
         self.df_ParCorr_sum = pd.merge(df_ParCorr_sum, 
                                   pd.concat(list_of_series, axis=1), 
                                   left_index=True, right_index=True)
+        
+    # def PCMCI_plot_graph(self, variable='RV', s=0):
+        
 
 
     def store_df_PCMCI(self):
@@ -478,9 +485,11 @@ class RGCPD:
         print('Data stored in \n{}'.format(filename))
         self.df_data_filename = filename
 
-    def quick_view_labels(self, map_proj=None):
+    def quick_view_labels(self, map_proj=None, median=True):
         for precur in self.list_for_MI:  
             prec_labels = precur.prec_labels.copy()
+            if median:
+                prec_labels = prec_labels.median(dim='split')
             if all(np.isnan(prec_labels.values.flatten()))==False:
                 # colors of cmap are dived over min to max in n_steps.
                 # We need to make sure that the maximum value in all dimensions will be
@@ -494,8 +503,9 @@ class RGCPD:
                 prec_labels.values = prec_labels.values-0.5
                 clevels = np.linspace(0, max_N_regs,steps)
 
-                if prec_labels.split.size == 1:
-                    cbar_vert = -0.1
+                if median==False:
+                    if prec_labels.split.size == 1:
+                        cbar_vert = -0.1
                 else:
                     cbar_vert = -0.025
 

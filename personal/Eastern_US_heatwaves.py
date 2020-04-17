@@ -38,43 +38,43 @@ start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
 tfreq = 15
 #%%
-list_of_name_path = [(cluster_label, TVpath), 
-                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
-                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
+# list_of_name_path = [(cluster_label, TVpath), 
+#                       ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
+#                       ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
 
 
 
-list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
-                              kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                              distance_eps=600, min_area_in_degrees2=7),
-                  BivariateMI(name='v200', func=BivariateMI.corr_map, 
-                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                                distance_eps=600, min_area_in_degrees2=5)]
+# list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
+#                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+#                               distance_eps=600, min_area_in_degrees2=7),
+#                   BivariateMI(name='v200', func=BivariateMI.corr_map, 
+#                                 kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+#                                 distance_eps=600, min_area_in_degrees2=5)]
 
 
 
 
 
-rg = RGCPD(list_of_name_path=list_of_name_path, 
-            list_for_MI=list_for_MI,
-            start_end_TVdate=start_end_TVdate,
-            start_end_date=start_end_date,
-            start_end_year=None,
-            tfreq=tfreq, lags_i=np.array([0,1]),
-            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
-            append_pathsub='_' + name_ds)
+# rg = RGCPD(list_of_name_path=list_of_name_path, 
+#             list_for_MI=list_for_MI,
+#             start_end_TVdate=start_end_TVdate,
+#             start_end_date=start_end_date,
+#             start_end_year=None,
+#             tfreq=tfreq, lags_i=np.array([0,1]),
+#             path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
+#             append_pathsub='_' + name_ds)
 
 
-rg.pp_TV(name_ds=name_ds)
+# rg.pp_TV(name_ds=name_ds)
 
-rg.pp_precursors(selbox=(130,350,10,90))
+# rg.pp_precursors(selbox=(130,350,10,90))
 
-rg.traintest('no_train_test_split')
+# rg.traintest('no_train_test_split')
 
 
-rg.calc_corr_maps()
-rg.plot_maps_corr(aspect=4.5, cbar_vert=-.1, save=True)
+# rg.calc_corr_maps()
+# rg.plot_maps_corr(aspect=4.5, cbar_vert=-.1, save=True)
 
 
 #%%
@@ -135,6 +135,7 @@ rg.get_EOFs()
 
 rg.get_ts_prec(precur_aggr=None)
 
+
 merge_smst = [k for k in rg.df_data.columns if 'sm' in k or '..st' in k]
 rg.reduce_df_data_ridge(keys=merge_smst, newname='0..0..sm12st2')
 
@@ -150,8 +151,8 @@ rg.df_links.loc[1]
 
 rg.PCMCI_get_ParCorr_from_txt()
 
-rg.quick_view_labels() 
-rg.plot_maps_corr(precursors=None, save=True)
+rg.quick_view_labels(median=True) 
+rg.plot_maps_corr(precursors=['sm12'], save=False)
 
 rg.plot_maps_sum(var='sm12', 
                  kwrgs_plot={'aspect': 2, 'wspace': -0.02})
@@ -173,18 +174,63 @@ rg.store_df_PCMCI()
 #%%
 from tigramite import plotting as tp
 import matplotlib as mpl
-s = 5
+import pandas as pd
+
+s = 2
+s = None
 mpl.rcParams.update(mpl.rcParamsDefault)
 variable = '0..0..sm12st2'
-idx = rg.pcmci_dict[s].var_names.index(variable)
-link_only_RV = np.zeros_like(rg.parents_dict[s][2])
-link_matrix = rg.parents_dict[s][2]
-link_only_RV[:,idx] = link_matrix[:,idx]
+variable = '3'
+# variable = '0..0..z500_sp'
+min_link_robustness = 8
+splits = np.array(list(rg.pcmci_dict.keys()))
+variable = None
+
+if s is None:
+    links_s = np.zeros( splits.size , dtype=object)
+    for s in splits:
+        links_plot = np.zeros_like(rg.parents_dict[s][2])
+        link_matrix = rg.parents_dict[s][2]
+        var_names = rg.pcmci_dict[s].var_names
+        if variable is not None:
+            idx = var_names.index(variable)
+            links_plot[:,idx] = link_matrix[:,idx]
+        else:
+            links_plot[:,:] = link_matrix[:,:]
+        index = [p for p in product(var_names, var_names)]
+        data = links_plot.reshape(len(var_names)**2, -1)
+        links_s[s] = pd.DataFrame(data, index=index)
+    # plot most common links by taking median
+    df_links = pd.concat(links_s, keys=splits)
+    df_robustness = df_links.sum(axis=0, level=1)
+    weights = df_robustness.values
+    weights = weights.reshape(len(var_names), len(var_names), -1)
+    # df_links = pd.concat(links_s, keys=splits).max(axis=0, level=1)
+    df_links = df_robustness > min_link_robustness
+    mergeindex = pd.MultiIndex.from_tuples(df_links.index)
+    df_link_matrix = df_links.reindex(index=mergeindex)
+    links_plot = df_link_matrix.values.reshape(len(var_names), len(var_names), -1)
+   
+       
+elif type(s) is int:
+    df_weights = None
+    links_plot = np.zeros_like(rg.parents_dict[s][2])
+    link_matrix = rg.parents_dict[s][2]
+    if variable is not None:
+        idx = rg.pcmci_dict[s].var_names.index(variable)
+        links_plot[:,idx] = link_matrix[:,idx]
+    else:
+        links_plot[:,:] = link_matrix[:,:]
+            
+        
 tp.plot_graph(val_matrix=rg.pcmci_results_dict[s]['val_matrix'], 
               var_names=rg.pcmci_dict[s].var_names, 
-              link_matrix=link_only_RV, 
+              link_width=weights,
+              link_matrix=links_plot, 
               link_colorbar_label='cross-MCI',
-node_colorbar_label='auto-MCI')
+              node_colorbar_label='auto-MCI')
+plt.show()
+
 
 #%%
 # from class_fc import fcev

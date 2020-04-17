@@ -77,7 +77,7 @@ class EOF:
                 with ProcessPoolExecutor(max_workers=os.cpu_count()) as pool:
                     futures = []
                     for s in range(splits.size):
-                        progress = 100 * (s+1) / splits.size
+                        progress = int(100 * (s+1) / splits.size)
                         print(f"\rProgress traintest set {progress}%", end="")
                         futures.append(pool.submit(self._single_split, func, 
                                                   self.ds_EOF, s, df_splits, 
