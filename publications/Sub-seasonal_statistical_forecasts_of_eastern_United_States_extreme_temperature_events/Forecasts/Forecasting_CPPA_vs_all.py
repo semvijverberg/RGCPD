@@ -51,21 +51,21 @@ lags_i = np.array([0, 10, 15, 20 , 25, 30, 35, 40, 45, 50, 55, 60])
 start_end_TVdate = None # ('7-04', '8-22')
 
 
+# list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+#                     use_fold=use_fold, start_end_TVdate=None,
+#                     stat_model= ('logitCV',
+#                                 {'Cs':10, #np.logspace(-4,1,10)
+#                                 'class_weight':{ 0:1, 1:1},
+#                                  'scoring':'brier_score_loss',
+#                                  'penalty':'l2',
+#                                  'solver':'lbfgs',
+#                                  'max_iter':100,
+#                                  'kfold':5,
+#                                  'seed':2}), 
+#                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+#                     dataset='',
+#                     keys_d='sst combined'),
 list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model= ('logitCV',
-                                {'Cs':10, #np.logspace(-4,1,10)
-                                'class_weight':{ 0:1, 1:1},
-                                 'scoring':'brier_score_loss',
-                                 'penalty':'l2',
-                                 'solver':'lbfgs',
-                                 'max_iter':100,
-                                 'kfold':5,
-                                 'seed':2}), 
-                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
-                    dataset='',
-                    keys_d='sst combined'),
-              fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
                     use_fold=use_fold, start_end_TVdate=None,
                     stat_model= ('logitCV',
                                 {'Cs':10, #np.logspace(-4,1,10)

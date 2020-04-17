@@ -32,7 +32,7 @@ from RGCPD import EOF
 
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf5_nc5_dendo_80d77.nc'
-cluster_label = 5
+cluster_label = 3
 name_ds='q75tail'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
@@ -122,7 +122,7 @@ selbox = [None, {'z500':[130,350,10,90], 'v200':[130,350,10,90]}]
 anomaly = [True, {'sm12':False, 'OLRtrop':False}]
 rg.pp_precursors(selbox=selbox, anomaly=anomaly)
 
-rg.traintest(method=None)
+rg.traintest(method='random10')
 
 rg.calc_corr_maps()
 
@@ -134,6 +134,13 @@ rg.get_EOFs()
 
 
 rg.get_ts_prec(precur_aggr=None)
+
+merge_smst = [k for k in rg.df_data.columns if 'sm' in k or '..st' in k]
+rg.reduce_df_data_ridge(keys=merge_smst, newname='0..0..sm12st2')
+
+merge_sst = [k for k in rg.df_data.columns if 'sst' in k]
+rg.reduce_df_data_ridge(keys=merge_sst, newname='0..0..sst')
+
 rg.PCMCI_df_data(pc_alpha=.05, 
                  tau_max=2,
                  max_conds_dim=10,
@@ -141,6 +148,7 @@ rg.PCMCI_df_data(pc_alpha=.05,
 rg.PCMCI_get_links(alpha_level=.01)
 rg.df_links.loc[1]
 
+rg.PCMCI_get_ParCorr_from_txt()
 
 rg.quick_view_labels() 
 rg.plot_maps_corr(precursors=None, save=True)
@@ -160,52 +168,18 @@ rg.get_ts_prec(precur_aggr=1)
 rg.store_df_PCMCI()
 
 
-#%%
-import pandas as pd
-flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 
-variable = '5'
-pc_alpha = .05
-lags = range(0, rg.kwrgs_pcmci['tau_max']+1)
-splits = rg.df_splits.index.levels[0]
-df_ParCorr_s = np.zeros( (splits.size) , dtype=object)
-for s in splits:
-    pcmci_class = rg.pcmci_dict[s]
-    
-    filepath_txt = os.path.join(rg.path_outsub2, f'split_{s}_PCMCI_out.txt')
-    
-    df = wrapper_PCMCI.extract_ParCorr_info_from_text(filepath_txt, 
-                                                      variable=variable)
-    df_ParCorr_s[s] = df
-
-df_ParCorr = pd.concat(list(df_ParCorr_s), keys= range(splits.size))
-df_ParCorr_sum = pd.concat([df_ParCorr['coeff'].mean(level=1),
-                            df_ParCorr['coeff'].min(level=1), 
-                            df_ParCorr['coeff'].max(level=1), 
-                            df_ParCorr['pval'].mean(level=1), 
-                            df_ParCorr['pval'].max(level=1)], 
-                           keys = ['coeff mean', 'coeff min', 'coeff max',
-                                   'pval mean', 'pval max'], axis=1)
-all_options = np.unique(df_ParCorr['ParCorr'])[::-1]
-list_of_series = []
-for op in all_options:
-    newseries = (df_ParCorr['ParCorr'] == op).sum(level=1).astype(int)
-    newseries.name = f'ParCorr {op}'
-    list_of_series.append(newseries)
-
-df_ParCorr_sum = pd.merge(df_ParCorr_sum, 
-                          pd.concat(list_of_series, axis=1), 
-                          left_index=True, right_index=True)
     
 #%%
 from tigramite import plotting as tp
 import matplotlib as mpl
 s = 5
 mpl.rcParams.update(mpl.rcParamsDefault)
-
+variable = '0..0..sm12st2'
+idx = rg.pcmci_dict[s].var_names.index(variable)
 link_only_RV = np.zeros_like(rg.parents_dict[s][2])
 link_matrix = rg.parents_dict[s][2]
-link_only_RV[:,0] = link_matrix[:,0]
+link_only_RV[:,idx] = link_matrix[:,idx]
 tp.plot_graph(val_matrix=rg.pcmci_results_dict[s]['val_matrix'], 
               var_names=rg.pcmci_dict[s].var_names, 
               link_matrix=link_only_RV, 

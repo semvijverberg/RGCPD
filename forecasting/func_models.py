@@ -80,7 +80,7 @@ def feature_selection(X_train, y_train, model='logitCV', scoring='brier_score_lo
                                      **kwrgs_logit)
 
     rfecv = RFECV(estimator=model, step=1, cv=cv,
-              scoring='brier_score_loss')
+                  scoring=scoring)
     rfecv.fit(X_train, y_train)
     new_features = X_train.columns[rfecv.ranking_==1]
     new_model = rfecv.estimator_
@@ -123,6 +123,13 @@ def get_masks(df_norm):
 
 
 def standardize_on_train(c, TrainIsTrue):
-                return (c - c[TrainIsTrue.values].mean()) \
-                        / c[TrainIsTrue.values].std()
+    return (c - c[TrainIsTrue.values].mean()) \
+            / c[TrainIsTrue.values].std()
 
+def robustscaling_on_train(c, TrainIsTrue):
+    return (c - c[TrainIsTrue.values].quantile(q=.25)) \
+            / (c[TrainIsTrue.values].quantile(q=.75) - c[TrainIsTrue.values].quantile(q=.25))
+
+def minmaxscaler_on_train(c, TrainIsTrue):
+    return (c - c[TrainIsTrue.values].min()) \
+            / (c[TrainIsTrue.values].max() - c[TrainIsTrue.values].min())

@@ -17,6 +17,7 @@ from class_BivariateMI import BivariateMI
 import stat_models_cont as sm
 from typing import List, Tuple, Union
 import inspect, os, sys
+import func_models
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 
 try:
@@ -372,9 +373,7 @@ class RGCPD:
     def PCMCI_df_data(self, path_txtoutput=None, tau_min=0, tau_max=1,
                     pc_alpha=None, max_conds_dim=None,
                     max_combinations=2, max_conds_py=None, max_conds_px=None,
-                    verbosity=4):
-        import wrapper_PCMCI
-        
+                    verbosity=4):      
 
         self.kwrgs_pcmci = dict(tau_min=tau_min,
                            tau_max=tau_max,
@@ -384,9 +383,6 @@ class RGCPD:
                            max_conds_py=max_conds_py,
                            max_conds_px=max_conds_px,
                            verbosity=4)
-
-
-
 
         if path_txtoutput is None:
             self.params_str = '{}_tau_{}-{}_conds_dim{}_combin{}_dt{}'.format(
@@ -398,10 +394,11 @@ class RGCPD:
 
         if os.path.isdir(self.path_outsub2) == False : os.makedirs(self.path_outsub2)
         
-        if hasattr(self, 'pcmci_dict')==False:
-            self.pcmci_dict = wrapper_PCMCI.init_pcmci(self.df_data)
         
-        out = wrapper_PCMCI.loop_train_test(self.pcmci_dict, self.path_outsub2,
+        
+        self.pcmci_dict = wPCMCI.init_pcmci(self.df_data)
+        
+        out = wPCMCI.loop_train_test(self.pcmci_dict, self.path_outsub2,
                                                           **self.kwrgs_pcmci)
         self.pcmci_results_dict = out
     
@@ -420,7 +417,7 @@ class RGCPD:
                                                  self.pcmci_results_dict, 
                                                  lags, self.TV.name)
         # get xarray dataset for each variable
-        self.dict_ds = plot_maps.causal_reg_to_xarray(self.TV.name, self.df_links,
+        self.dict_ds = plot_maps.causal_reg_to_xarray(self.df_links,
                                                       self.list_for_MI)
 
     def PCMCI_get_ParCorr_from_txt(self, variable=None, pc_alpha='auto'):
@@ -579,7 +576,8 @@ class RGCPD:
         return traintest_yrs
 
     def reduce_df_data_ridge(self, keys: Union[list, np.ndarray], 
-                             newname:str = None, kwrgs_model: dict=None):
+                             newname:str = None, transformer=None, 
+                             kwrgs_model: dict={'scoring':'neg_mean_squared_error'}):
         '''
         Perform cross-validated Ridge regression to reduce a set of predictors
         to a single timeseries in a linear additive way. 
@@ -614,21 +612,24 @@ class RGCPD:
             df_s = self.df_data.loc[s][RV_mask.values].dropna(axis=1)
             
             ks = [k for k in keys if k in df_s.columns] # keys split
-            df_s[ks] = df_s[ks].apply(standardize_on_train, 
+            
+            if transformer is None:
+                transformer = func_models.standardize_on_train
+            df_s[ks] = df_s[ks].apply(transformer, 
                                       args=[TrainIsTrue], 
                                       result_type='broadcast')
-
+            
             prediction, model = sm.ridgeCV(y_ts, df_s, ks, kwrgs_model)
+            model.score_ = model.score(df_s[ks], y_ts['ts'])
             # extend prediction, 
             X_fullyear = self.df_data.loc[s][ks]
             ext_pred = pd.Series(model.predict(X_fullyear),
                                  index=self.df_data.loc[s].index)
-
-            # prediction = prediction.rename(columns={0:newname})
+            # merge prediction into new df_data
             df_data_s = self.df_data.loc[s].drop(columns=keys).copy()
             df_data_s[newname] = ext_pred
             data_new_s[s] = df_data_s
-        self.df_data = pd.concat(list(data_new_s), keys= range(splits.size))
+        self.df_data = pd.concat(list(data_new_s), keys=range(splits.size))
             
 def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=None, 
                      seed=int, verbosity=1): #, method=str, kwrgs_events=None, precursor_ts=None, seed=int, verbosity=1
