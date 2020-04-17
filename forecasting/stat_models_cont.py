@@ -8,20 +8,15 @@ Created on Wed Oct  2 15:03:31 2019
 
 import pandas as pd
 import numpy as np
-# import statsmodels.formula.api as sm
-# from statsmodels.api import add_constant
-# from sklearn.ensemble import GradientBoostingRegressor, GradientBoostingClassifier
 from sklearn.linear_model import RidgeCV
-from sklearn.model_selection import GridSearchCV, StratifiedKFold
-from sklearn import metrics
-from sklearn.metrics import make_scorer
 
-from stat_models import get_cv_accounting_for_years, get_masks
-from stat_models import feature_selection
+
+
+
+import func_models as utils
+
 
 def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
-
-    
     '''
     X contains all precursor data, incl train and test
     X_train, y_train are split up by TrainIsTrue
@@ -53,7 +48,7 @@ def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
         feat_sel = None
         
     # Get training years
-    x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = get_masks(df_norm)
+    x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = utils.get_masks(df_norm)
 
     X = df_norm[keys]
     # X = add_constant(X)
@@ -77,7 +72,7 @@ def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
     # kwrgs_cv = {k:i for k, i in kwrgs.items() if k in kwrgs_cv}
     # [kwrgs.pop(k) for k in kwrgs_cv.keys()]
    
-    # cv = get_cv_accounting_for_years(y_train, **kwrgs_cv)
+    # cv = utils.get_cv_accounting_for_years(y_train, **kwrgs_cv)
     cv = None
     model = RidgeCV(cv=cv,
                     store_cv_values=True,
@@ -86,7 +81,7 @@ def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
     if feat_sel is not None:
         if feat_sel['model'] is None:
             feat_sel['model'] = model
-        model, new_features, rfecv = feature_selection(X_train, y_train.values, **feat_sel)
+        model, new_features, rfecv = utils.feature_selection(X_train, y_train.values, **feat_sel)
         X_pred = X_pred[new_features]
     else:
         model.fit(X_train, y_train)

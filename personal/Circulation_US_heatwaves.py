@@ -122,7 +122,7 @@ selbox = [None, {'z500':[130,350,10,90], 'v200':[130,350,10,90]}]
 anomaly = [True, {'sm12':False, 'OLRtrop':False}]
 rg.pp_precursors(selbox=selbox, anomaly=anomaly)
 
-rg.traintest(method='random10')
+rg.traintest(method=None)
 
 rg.calc_corr_maps()
 

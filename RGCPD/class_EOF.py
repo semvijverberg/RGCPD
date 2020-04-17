@@ -75,11 +75,15 @@ class EOF:
             func = self._get_EOF_xarray
             try:
                 with ProcessPoolExecutor(max_workers=os.cpu_count()) as pool:
+                    futures = []
                     for s in range(splits.size):
                         progress = 100 * (s+1) / splits.size
                         print(f"\rProgress traintest set {progress}%", end="")
-                        pool.submit(self._single_split, func, self.ds_EOF, s, df_splits, self.neofs) 
-                    # results = [future.result() for future in futures]
+                        futures.append(pool.submit(self._single_split, func, 
+                                                  self.ds_EOF, s, df_splits, 
+                                                  self.neofs))
+                        results = [future.result() for future in futures]
+                    pool.shutdown()
             except:
                 results = [self._single_split(func, self.ds_EOF, s, df_splits, self.neofs) for s in range(splits.size)]
             # unpack results

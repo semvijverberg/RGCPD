@@ -92,11 +92,6 @@ GBC = ('GBC',
 # In[6]:
 path_data = user_dir + '/surfdrive/McKinRepl/EC_tas_tos_Northern/958dd_ran_strat10_s30/data/EC_16-03-20_15hr_lag_0_958dd.h5'
 
-path_ts = '/Users/semvijverberg/surfdrive/MckinRepl/RVts'
-RVts_filename = '/Users/semvijverberg/surfdrive/MckinRepl/RVts/era5_t2mmax_US_1979-2018_averAggljacc0.25d_tf1_n4__to_t2mmax_US_tf1_selclus4_okt19_Xzkup1.npy'
-filename_ts = os.path.join(path_ts, RVts_filename)
-kwrgs_events_daily =    (filename_ts,
-                         {'event_percentile': 90})
 
 kwrgs_events = {'event_percentile': 66}
 

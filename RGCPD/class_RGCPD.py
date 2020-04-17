@@ -606,14 +606,13 @@ class RGCPD:
         if keys is None:
             keys = self.df_data.columns[self.df_data.dtypes != bool]
         splits = self.df_splits.index.levels[0]
+        data_new_s   = np.zeros( (splits.size) , dtype=object)
         y_ts = {'ts':self.TV.RV_ts}
         for s in splits:
             RV_mask = self.df_splits.loc[s]['RV_mask']
             TrainIsTrue = self.df_splits.loc[s]['TrainIsTrue'][RV_mask.values]
             df_s = self.df_data.loc[s][RV_mask.values].dropna(axis=1)
-            def standardize_on_train(c, TrainIsTrue):
-                return (c - c[TrainIsTrue.values].mean()) \
-                        / c[TrainIsTrue.values].std()
+            
             ks = [k for k in keys if k in df_s.columns] # keys split
             df_s[ks] = df_s[ks].apply(standardize_on_train, 
                                       args=[TrainIsTrue], 
@@ -628,7 +627,8 @@ class RGCPD:
             # prediction = prediction.rename(columns={0:newname})
             df_data_s = self.df_data.loc[s].drop(columns=keys).copy()
             df_data_s[newname] = ext_pred
-            self.df_data.loc[s] = df_data_s
+            data_new_s[s] = df_data_s
+        self.df_data = pd.concat(list(data_new_s), keys= range(splits.size))
             
 def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=None, 
                      seed=int, verbosity=1): #, method=str, kwrgs_events=None, precursor_ts=None, seed=int, verbosity=1

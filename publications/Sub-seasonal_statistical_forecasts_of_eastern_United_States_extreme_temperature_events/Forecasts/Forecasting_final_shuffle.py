@@ -10,7 +10,8 @@ import os, inspect, sys
 import numpy as np
 from time import time
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-2])
+main_dir = '/'.join(curr_dir.split('/')[:-3])
+data_dir = '/'.join(curr_dir.split('/')[:-1]) + '/data'
 RGCPD_dir = os.path.join(main_dir, 'RGCPD')
 fc_dir = os.path.join(main_dir, 'forecasting')
 df_ana_dir = os.path.join(main_dir, 'df_analysis/df_analysis/')
@@ -36,7 +37,7 @@ logit = ('logit', None)
 #%%
 start_time = time()
 
-ERA_data = curr_dir + '/data/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
+ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
 
 kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break': 1}
 
@@ -54,7 +55,7 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                     stat_model= ('logitCV',
                                 {'Cs':10, #np.logspace(-4,1,10)
                                 'class_weight':{ 0:1, 1:1},
-                                 'scoring':'brier_score_loss',
+                                 'scoring':'neg_brier_score',
                                  'penalty':'l2',
                                  'solver':'lbfgs',
                                  'max_iter':100,
@@ -68,7 +69,7 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                      stat_model= ('logitCV',
                                  {'Cs':10, #np.logspace(-4,1,10)
                                  'class_weight':{ 0:1, 1:1},
-                                  'scoring':'brier_score_loss',
+                                  'scoring':'neg_brier_score',
                                   'penalty':'l2',
                                   'solver':'lbfgs',
                                   'max_iter':100,
@@ -82,7 +83,7 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                       stat_model= ('logitCV',
                                   {'Cs':10, #np.logspace(-4,1,10)
                                   'class_weight':{ 0:1, 1:1},
-                                   'scoring':'brier_score_loss',
+                                   'scoring':'neg_brier_score',
                                    'penalty':'l2',
                                    'solver':'lbfgs',
                                    'max_iter':100,
