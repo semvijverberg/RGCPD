@@ -408,9 +408,10 @@ def print_pc_alphas_summ_from_txt(filepath_txt=str, variable=str):
                 reached_pc_alpha_sum = True
             if reached_pc_alpha_sum:
                 print(myline)
-                pc_alpha = float(myline.split(end_pc_alpha_sum)[1].split('\n')[0])
                 if end_pc_alpha_sum in myline:
+                    pc_alpha = float(myline.split(end_pc_alpha_sum)[1].split('\n')[0])
                     break
+    #%%
     return pc_alpha
 
 

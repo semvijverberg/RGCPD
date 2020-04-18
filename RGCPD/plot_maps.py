@@ -625,13 +625,13 @@ def plot_corr_regions(ds, var, lag, map_proj, filepath,
     list_xr_m = []
     if cols == ['corr','C.D.']:
         columns = [['corr', 'labels'],['corr_tigr', 'labels_tigr']]
-        subtitles = np.array([[f'{var} correlated', f'{var} causal']])
+        subtitles = np.array([[f'{var} correlated', f'{var} C.D.']])
     elif cols == ['corr']:
         columns = [['corr', 'labels']]
         subtitles = np.array([[f'{var} correlated']])
     elif cols == ['C.D.']:
         columns = [['corr_tigr', 'labels_tigr']]
-        subtitles = np.array([[f'{var} causal']])
+        subtitles = np.array([[f'{var} C.D.']])
 
     if mean_splits == True:
         for c in columns:

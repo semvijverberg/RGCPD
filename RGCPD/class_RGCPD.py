@@ -38,7 +38,7 @@ path_test = os.path.join(curr_dir, '..', 'data')
 
 class RGCPD:
 
-    def __init__(self, list_of_name_path=List[Tuple[str, str]], 
+    def __init__(self, list_of_name_path: List[Tuple[str, str]]=None, 
                  list_for_EOFS: List[Union[EOF]]=None, 
                  list_for_MI: List[Union[BivariateMI]]=None, 
                  import_prec_ts: List[Tuple[str, str]]=None, 
@@ -46,31 +46,49 @@ class RGCPD:
                  tfreq: int=10, 
                  start_end_date: Tuple[str, str]=None, 
                  start_end_year: Tuple[int, int]=None, 
-                 lags_i: np.ndarray=np.array([1]),
+                 lags_i: np.ndarray=np.array([0]),
                  path_outmain: str=None, 
                  append_pathsub='',
                  verbosity: int=1):
         '''
-        Class to study teleconnection of a Response Variable* of interest. 
+        Class to study teleconnections of a Response Variable* of interest. 
         
         Methods to extract teleconnections/precursors:
-            - correlation maps
+            - BivariateMI (now only supporting correlation maps)
             - EOF analysis
         
-        Correlation maps
-        One can calculate correlation maps for the 1-dimensional timeseries of
-        interest (RV timeseries), cluster the correlation precursor regions 
+        BivariateMI (MI = Mutual Information) is class which allows for a 
+        statistical test in the form:
+        MI(lon,lat) = for gc in map: func(x(t), y(t)),
+        where map is a (time,lon,lat) map and gc stands for each gridcell/coordinate 
+        in that map. The y is always the same 1-dimensional timeseries of interest 
+        (i.e. the Response Variable). At this point, only supports the 
+        correlation analysis. Once the significance is attributed, it is stored
+        in the MI map. Precursor regions are found by clustering the
+        significantly (correlating) gridcells (+ and - regions are separated)
         and extract their spatial mean timeseries. 
-        
         
         *Sometimes Response Variable is also called Target Variable.
 
         Parameters
         ----------
         list_of_name_path : list, optional
-            list of (name, path) tuples. If None, test data is loaded.
-            Convention: first entry should be (name, path) of target variable (TV).
-        e.g. list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
+            list of (name, path) tuples defining the input data (.nc). 
+            
+            Convention: first entry should be (name, path) of target variable (TV).    
+            e.g. list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
+            
+            'prec_name' is a string/key that can be chosen freely, does not have to refer
+            to the variable in the .nc file.
+            Each prec_path .nc file should contain only a single variable
+            of format (time, lat, lon).
+            'TVname' should refer the name you have given the timeseries on 
+            the dimesion 'cluster', i.e. xrTV.sel(cluster=TVname)
+            The TVpath Netcdf file assumes that it contains a xr.DataArray
+            called xrclustered containing a spatial map with clustered regions.
+            It must contain an xr.DataArray which contains timeseries for each 
+            cluster. See RGCPD.pp_TV().
+
         list_for_EOFS : list, optional
             list of EOF classes, see docs EOF?
         import_prec_ts : list, optional
@@ -88,7 +106,7 @@ class RGCPD:
         start_end_year : tuple, optional
             default is to load all years
         lags_i : nparray, optional
-            The default is np.array([1]).            
+            The default is np.array([0]).            
         path_outmain : str, optional
             Root folder for output. Default is your 
             '/users/{username}/Download'' path
@@ -107,8 +125,8 @@ class RGCPD:
         '''
         if list_of_name_path is None:
             print('initializing with test data')
-            list_of_name_path = [('t2m_eUS',
-                                  os.path.join(path_test, 't2m_eUS.npy')),
+            list_of_name_path = [(3,
+                                  os.path.join(path_test, 'tf5_nc5_dendo_80d77.nc')),
                                  ('sst_test',
                                   os.path.join(path_test, 'sst_1979-2018_2.5deg_Pacific.nc'))]
 
@@ -378,7 +396,8 @@ class RGCPD:
                     pc_alpha=None, max_conds_dim=None,
                     max_combinations=2, max_conds_py=None, max_conds_px=None,
                     verbosity=4):      
-
+        if max_conds_dim is None:
+            max_conds_dim = self.df_data.columns.size - 2 # -2 for bool masks
         self.kwrgs_pcmci = dict(tau_min=tau_min,
                            tau_max=tau_max,
                            pc_alpha=pc_alpha,
@@ -468,7 +487,7 @@ class RGCPD:
             path = self.path_outsub2 + f'_dtd{self.precur_aggr}'
         else:
             path = self.path_outsub2
-        wrapper_PCMCI.store_ts(self.df_data, self.df_sum, self.dict_ds,
+        wrapper_PCMCI.store_ts(self.df_data, self.df_links, self.dict_ds,
                                path+'.h5')
         self.df_data_filename = path+'.h5'
                                
@@ -506,8 +525,10 @@ class RGCPD:
                 if median==False:
                     if prec_labels.split.size == 1:
                         cbar_vert = -0.1
+                    else:
+                        cbar_vert = -0.025
                 else:
-                    cbar_vert = -0.025
+                    cbar_vert = -0.1
 
                 kwrgs = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
                               'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
