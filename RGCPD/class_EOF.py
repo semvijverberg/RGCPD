@@ -19,7 +19,7 @@ import find_precursors
 class EOF:
 
     def __init__(self, tfreq_EOF='monthly', neofs=1, selbox=None,
-                 name=None):
+                 name=None, n_cpu=1):
         '''
         selbox has format of (lon_min, lon_max, lat_min, lat_max)
         '''
@@ -27,6 +27,7 @@ class EOF:
         self.neofs = neofs
         self.name = name
         self.selbox = selbox
+        self.n_cpu = n_cpu
         return
 
     def get_pattern(self, filepath, df_splits=None, selbox=None, start_end_date=None,
@@ -39,7 +40,7 @@ class EOF:
 
         if self.tfreq_EOF == 'monthly':
             ds = functions_pp.import_ds_timemeanbins(self.filepath, tfreq=1,
-                                                     selbox=selbox,
+                                                     selbox=self.selbox,
                                          start_end_date=start_end_date,
                                          start_end_year=start_end_year)
             # # ensure latitude is in increasing order
@@ -49,7 +50,7 @@ class EOF:
         else:
             self.ds_EOF = functions_pp.import_ds_timemeanbins(self.filepath,
                                                           tfreq=self.tfreq_EOF,
-                                                          selbox=selbox,
+                                                          selbox=self.selbox,
                                                           start_end_date=start_end_date,
                                                           start_end_year=start_end_year)
         if self.name is None:
@@ -73,18 +74,21 @@ class EOF:
             self.df_splits = df_splits
             splits = df_splits.index.levels[0]
             func = self._get_EOF_xarray
-            try:
-                with ProcessPoolExecutor(max_workers=os.cpu_count()) as pool:
-                    futures = []
-                    for s in range(splits.size):
-                        progress = int(100 * (s+1) / splits.size)
-                        print(f"\rProgress traintest set {progress}%", end="")
-                        futures.append(pool.submit(self._single_split, func, 
-                                                  self.ds_EOF, s, df_splits, 
-                                                  self.neofs))
-                        results = [future.result() for future in futures]
-                    pool.shutdown()
-            except:
+            if self.n_cpu > 1:
+                try:
+                    with ProcessPoolExecutor(max_workers=os.cpu_count()) as pool:
+                        futures = []
+                        for s in range(splits.size):
+                            progress = int(100 * (s+1) / splits.size)
+                            print(f"\rProgress traintest set {progress}%", end="")
+                            futures.append(pool.submit(self._single_split, func, 
+                                                      self.ds_EOF, s, df_splits, 
+                                                      self.neofs))
+                            results = [future.result() for future in futures]
+                        pool.shutdown()
+                except:
+                    results = [self._single_split(func, self.ds_EOF, s, df_splits, self.neofs) for s in range(splits.size)]
+            else:
                 results = [self._single_split(func, self.ds_EOF, s, df_splits, self.neofs) for s in range(splits.size)]
             # unpack results
             data = np.zeros( (splits.size, self.neofs, self.ds_EOF.latitude.size,

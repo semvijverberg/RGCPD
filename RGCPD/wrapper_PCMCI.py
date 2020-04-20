@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import os, io, sys
 from tigramite import data_processing as pp
-from tigramite import plotting as tp
 from tigramite.pcmci import PCMCI
 from tigramite.independence_tests import ParCorr #, GPDC, CMIknn, CMIsymb
 import numpy as np
@@ -334,9 +333,9 @@ def extract_ParCorr_info_from_text(filepath_txt=str, variable=str, pc_alpha='aut
         if end_init in myline:
             break
     
-    OLR_data = np.concatenate([np.array(coeffs)[:,None], np.array(pvalues)[:,None]], 
+    OLS_data = np.concatenate([np.array(coeffs)[:,None], np.array(pvalues)[:,None]], 
                               axis=1)
-    df_OLR = pd.DataFrame(data=OLR_data, index=tested_links, 
+    df_OLS = pd.DataFrame(data=OLS_data, index=tested_links, 
                           columns=['coeff', 'pval'])
     
     # Find by which (set of) var(s) the link was found C.I.
@@ -376,13 +375,13 @@ def extract_ParCorr_info_from_text(filepath_txt=str, variable=str, pc_alpha='aut
             else:
                 by[var] = '-'
                 
-    for k in df_OLR.index:
+    for k in df_OLS.index:
         # print(k)
         if k not in by.keys():
             by[k] = 'C.D.'
-    df_OLR['ParCorr'] = df_OLR.index.map(by)
+    df_OLS['ParCorr'] = df_OLS.index.map(by)
     #%%
-    return df_OLR
+    return df_OLS
 
 def print_pc_alphas_summ_from_txt(filepath_txt=str, variable=str):
     # get pc_alpha parameter from text
@@ -414,6 +413,128 @@ def print_pc_alphas_summ_from_txt(filepath_txt=str, variable=str):
     #%%
     return pc_alpha
 
+def store_ts(df_data, df_sum, dict_ds, filename): # outdic_precur, add_spatcov=True
+    import functions_pp
+
+    df_data_to_store = df_data
+    df_sum_to_store = df_sum
+
+    dict_of_dfs = {'df_data':df_data_to_store, 'df_sum':df_sum_to_store}
+
+    functions_pp.store_hdf_df(dict_of_dfs, filename)
+    print('Data stored in \n{}'.format(filename))
+    return
+
+def get_traintest_links(pcmci_dict:dict, parents_dict:dict, 
+                        pcmci_results_dict:dict, 
+                        variable: str=None, s: int=None, 
+                        min_link_robustness: int=1):
+    '''
+    Retrieves the links / MCI coefficients of a single variable or all. 
+    Does this for a single traintest split, or by calculating the mean over
+    all traintest splits. If so, weights are calculated based on the robustness
+    to enable modification (number of times link was found) of the link width
+    of a network graph. 
+
+    Parameters
+    ----------
+    pcmci_dict : dict
+        Dictionairy with keys as traintest split index, and items are the pcmci
+        classes. 
+    parents_dict : dict 
+        Dictionairy with keys as traintest split index, and items is tuple
+        containing the links_parent, var_names and the link_matrix belonging
+        to the alpha_value that was used in the analysis.
+    pcmci_results_dict : dict, optional
+        Dictionairy with keys as traintest split index, and items is another 
+        dictionairy with the results dict with: 
+        dict_keys(['val_matrix', 'p_matrix', 'q_matrix', 'conf_matrix'])
+    variable : str, optional
+        return links of a single or of all variables.
+    s : int, optional
+        return links of a single traintest split or take the mean over them.
+    min_link_robustness : int, optional
+        Only when s=None: If a link is not present at least min_link_robustness
+        times, it is masked.
+
+    Returns
+    -------
+    links_plot : ndarray
+        link_matrix, shape (len(var_names), len(var_names), len(lags))
+    val_plot : ndarray
+        val_matrix, shape (len(var_names), len(var_names), len(lags))
+    weights : ndarray
+        in shape of links_plot, number of times link was found.
+    var_names : list
+
+    '''
+    
+    splits = np.array(list(pcmci_dict.keys()))
+    if s is None:
+        todef_order_index = [len(pcmci_dict[s].var_names) for s in splits]
+        links_s = np.zeros( splits.size , dtype=object)
+        MCIvals_s= np.zeros( splits.size , dtype=object)    
+        for s in splits:
+            links_plot = np.zeros_like(parents_dict[s][2])
+            link_matrix_s = parents_dict[s][2]
+            val_plot = np.zeros_like(pcmci_results_dict[s]['val_matrix'], dtype=float)
+            val_matrix_s = pcmci_results_dict[s]['val_matrix']
+            var_names = pcmci_dict[s].var_names
+            if variable is not None:
+                idx = var_names.index(variable)
+                links_plot[:,idx] = link_matrix_s[:,idx]
+                val_plot[:,:] = val_matrix_s[:,:] # keep val_matrix complete
+            else:
+                links_plot[:,:] = link_matrix_s[:,:]
+                val_plot[:,:] = val_matrix_s[:,:]
+            index = [p for p in itertools.product(var_names, var_names)]
+            if len(var_names) == max(todef_order_index):
+                fullindex = index    
+                fullvar_names = var_names
+            nplinks = links_plot.reshape(len(var_names)**2, -1)
+            links_s[s] = pd.DataFrame(nplinks, index=index)
+            npMCIvals = val_plot.reshape(len(var_names)**2, -1)
+            MCIvals_s[s] = pd.DataFrame(npMCIvals, index=index)
+        df_links = pd.concat(links_s, keys=splits)
+        # get links present at least min_link_robustness times
+        df_robustness = df_links.sum(axis=0, level=1)
+        df_robustness = df_robustness.reindex(index=fullindex)
+        weights = df_robustness.values
+        weights = weights.reshape(len(var_names), len(var_names), -1)
+        # df_links = pd.concat(links_s, keys=splits).max(axis=0, level=1)
+        df_links = df_robustness >= min_link_robustness
+        # ensure that missing links due to potential precursor step are not 
+        # appended to pandas df (auto behavior)
+        df_links = df_links.reindex(index=fullindex)
+        mergeindex = pd.MultiIndex.from_tuples(df_links.index)
+        df_link_matrix = df_links.reindex(index=mergeindex)
+        # calculate mean MCI over train test splits
+        df_MCIvals = pd.concat(MCIvals_s, keys=splits).mean(axis=0, level=1)
+        # ensure that missing links due to potential precursor step are not 
+        # appended to pandas df (auto behavior)
+        df_MCIvals = df_MCIvals.reindex(index=fullindex)
+        df_MCIval_matrix = df_MCIvals.reindex(index=mergeindex)
+        # now we can safely reshape
+        links_plot = df_link_matrix.values.reshape(len(var_names), len(var_names), -1)
+        val_plot = df_MCIval_matrix.values.reshape(len(var_names), len(var_names), -1)
+        val_plot = pcmci_results_dict[s]['val_matrix']
+        var_names = fullvar_names
+    elif type(s) is int:
+        var_names = pcmci_dict[s].var_names
+        weights = None
+        link_matrix_s = parents_dict[s][2]
+        links_plot = np.zeros_like(parents_dict[s][2])
+        val_matrix_s = pcmci_results_dict[s]['val_matrix']
+        val_plot = np.zeros_like(links_plot, dtype=float)
+        if variable is not None:
+            idx = pcmci_dict[s].var_names.index(variable)
+            links_plot[:,idx] = link_matrix_s[:,idx]
+            val_plot[:,idx] = val_matrix_s[:,idx]
+            
+        else:
+            links_plot[:,:] = link_matrix_s[:,:]
+            val_plot = val_matrix_s
+    return links_plot, val_plot, weights, var_names  
 
 # def print_particular_region_new(links_RV, var_names, s, outdic_precur, map_proj, ex):
 
@@ -478,27 +599,5 @@ def print_pc_alphas_summ_from_txt(filepath_txt=str, variable=str):
 # #%%
 #     return
 
-def store_ts(df_data, df_sum, dict_ds, filename): # outdic_precur, add_spatcov=True
-    import functions_pp
-    
-    
-    # splits = df_data.index.levels[0]
-    # if add_spatcov:
-    #     df_sp_s   = np.zeros( (splits.size) , dtype=object)
-    #     for s in splits:
-    #         df_split = df_data.loc[s]
-    #         df_sp_s[s] = find_precursors.get_spatcovs(dict_ds, df_split, s, outdic_precur, normalize=True)
 
-    #     df_sp = pd.concat(list(df_sp_s), keys= range(splits.size))
-    #     df_data_to_store = pd.merge(df_data, df_sp, left_index=True, right_index=True)
-    #     df_sum_to_store = find_precursors.add_sp_info(df_sum, df_sp)
-    # else:
-    df_data_to_store = df_data
-    df_sum_to_store = df_sum
-
-    dict_of_dfs = {'df_data':df_data_to_store, 'df_sum':df_sum_to_store}
-
-    functions_pp.store_hdf_df(dict_of_dfs, filename)
-    print('Data stored in \n{}'.format(filename))
-    return
 

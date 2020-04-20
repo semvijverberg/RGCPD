@@ -33,7 +33,7 @@ path_outmain = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW'
 # In[2]:
 
 
-import functions_pp
+import functions_pp, find_precursors, core_pp
 import clustering_spatial as cl
 import plot_maps
 import df_ana
@@ -60,12 +60,26 @@ var_filename = rg.list_precur_pp[0][1]
 
 #%%
 import make_country_mask
+orography = '/Users/semvijverberg/surfdrive/ERA5/input_raw/Orography.nc'
 selbox = (225, 300, 30, 70)
 xarray, Country = make_country_mask.create_mask(var_filename, kwrgs_load={'selbox':selbox}, level='Countries')
 mask_US_CA = np.logical_or(xarray.values == Country.US, xarray.values==Country.CA)
+# xr_mask =  xarray.where(mask_US_CA)
 xr_mask = xarray.where(make_country_mask.binary_erosion(mask_US_CA))
-xr_mask.values[make_country_mask.binary_erosion(mask_US_CA)]  = 1
-xr_mask = cl.mask_latlon(xr_mask, latmax=63, lonmax=270)
+# xr_mask =  xarray.where(make_country_mask.binary_erosion(np.nan_to_num(xr_mask)))
+xr_mask.values[~np.isnan(xr_mask)] = 1
+xr_mask = find_precursors.xrmask_by_latlon(xr_mask, upper_right=(270, 63))
+# mask small Western US Island
+xr_mask = find_precursors.xrmask_by_latlon(xr_mask, bottom_left=(228, 58))
+# add Rocky mask
+geo_surf_height = core_pp.import_ds_lazy(orography, 
+                                  var='z_NON_CDM', selbox=selbox) / 9.81
+geo_surf_height = geo_surf_height.drop('time').drop('realization')
+plot_maps.plot_corr_maps(geo_surf_height, cmap=plt.cm.Oranges, clevels=np.arange(0, 2600, 500))
+mask_Rockies = geo_surf_height < 1500
+plot_maps.plot_labels(mask_Rockies)
+xr_mask = xr_mask.where(mask_Rockies)
+
 plot_maps.plot_labels(xr_mask)
 
 
@@ -86,7 +100,7 @@ xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
                                                             'n_clusters':n_clusters,
                                                             'affinity':'jaccard',
                                                             'linkage':'average'})
-fig = plot_maps.plot_labels(xrclustered, wspace=.05, hspace=-.2, cbar_vert=.08,
+fig = plot_maps.plot_labels(xrclustered, wspace=.03, hspace=-.52, cbar_vert=.14,
                       row_dim='tfreq', col_dim='n_clusters')
 f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
 path_fig = os.path.join(rg.path_outmain, f_name)
@@ -145,7 +159,7 @@ print(f'{round(time()-t0, 2)}')
 
 for t in tfreq:
     for c in n_clusters:    
-        t = 5 ; c=6
+        t = 15 ; c=4
         xrclust = xrclustered.sel(tfreq=t, n_clusters=c)
         ds = cl.spatial_mean_clusters(var_filename,
                                   xrclust,

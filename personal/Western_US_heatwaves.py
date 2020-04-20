@@ -31,8 +31,8 @@ from RGCPD import BivariateMI
 from RGCPD import EOF
 
 
-TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf5_nc5_dendo_80d77.nc'
-cluster_label = 5
+TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc15_dendo_51ed6.nc'
+cluster_label = 1
 name_ds='q75tail'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
@@ -89,17 +89,17 @@ list_of_name_path = [(cluster_label, TVpath),
 
 list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
                              kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                             distance_eps=700, min_area_in_degrees2=7, 
+                             distance_eps=700, min_area_in_degrees2=5, 
                              calc_ts='pattern cov'),
                  BivariateMI(name='sst', func=BivariateMI.corr_map, 
                               kwrgs_func={'alpha':.0001, 'FDR_control':True}, 
-                              distance_eps=700, min_area_in_degrees2=5),
+                              distance_eps=800, min_area_in_degrees2=5),
                  BivariateMI(name='sm12', func=BivariateMI.corr_map, 
                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                                distance_eps=700, min_area_in_degrees2=5),
                  BivariateMI(name='snow', func=BivariateMI.corr_map, 
                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                               distance_eps=700, min_area_in_degrees2=7),
+                               distance_eps=700, min_area_in_degrees2=5),
                  BivariateMI(name='st2', func=BivariateMI.corr_map, 
                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                                distance_eps=700, min_area_in_degrees2=5)]
@@ -141,8 +141,8 @@ rg.reduce_df_data_ridge(keys=merge_smst, newname='0..0..sm12st2')
 merge_sst = [k for k in rg.df_data.columns if 'sst' in k]
 rg.reduce_df_data_ridge(keys=merge_sst, newname='0..0..sst')
 
-rg.PCMCI_df_data(pc_alpha=.05, 
-                 tau_max=2,
+rg.PCMCI_df_data(pc_alpha=None, 
+                 tau_max=3,
                  max_conds_dim=10,
                  max_combinations=10)
 rg.PCMCI_get_links(alpha_level=.01)
@@ -151,6 +151,7 @@ rg.df_links.loc[1]
 rg.PCMCI_get_ParCorr_from_txt()
 
 rg.quick_view_labels() 
+
 rg.plot_maps_corr(precursors=None, save=True)
 
 rg.plot_maps_sum(var='sm12', 

@@ -23,10 +23,17 @@ curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe(
 try:
     import wrapper_PCMCI as wPCMCI
 except:
+    raise(ModuleNotFoundError)
     print('Not able to load in Tigramite modules, to enable causal inference '
           'features, install Tigramite from '
           'https://github.com/jakobrunge/tigramite/')
 
+try:
+    from tigramite import plotting as tp
+except:
+    raise(ModuleNotFoundError)
+    print('Not able to load in plotting modules, check installment of networkx')
+    
 df_ana_dir = os.path.join(curr_dir, '..', 'df_analysis/df_analysis/') # add df_ana path
 fc_dir       = os.path.join(curr_dir, '..', 'forecasting/') # add df_ana path
 sys.path.append(df_ana_dir) ; sys.path.append(fc_dir)
@@ -297,24 +304,27 @@ class RGCPD:
 
 
         
-    def calc_corr_maps(self, list_for_MI: List[Union[BivariateMI]]=None):
+    def calc_corr_maps(self, var: Union[str, list]=None):
         keys = ['selbox', 'loadleap', 'seldates', 'format_lon']
         kwrgs_load = {k: self.kwrgs_pp[k] for k in keys}
         kwrgs_load['start_end_date']= self.start_end_date
         kwrgs_load['start_end_year']= self.start_end_year
         kwrgs_load['tfreq']         = self.tfreq
         self.kwrgs_load = kwrgs_load
-        if list_for_MI is None:
-            list_for_MI = self.list_for_MI
+        if var is None:
+            if type(var) is str:
+                var = [var]
+            var = [MI.name for MI in self.list_for_MI]
         
         # self.list_for_MI = []
-        for precur in list_for_MI:
-            precur.filepath = [l for l in self.list_precur_pp if l[0]==precur.name][0][1]
-            precur.lags = self.lags
-            find_precursors.calculate_region_maps(precur, 
-                                                  self.TV, 
-                                                  self.df_splits,
-                                                  self.kwrgs_load)
+        for precur in self.list_for_MI:
+            if precur.name in var:
+                precur.filepath = [l for l in self.list_precur_pp if l[0]==precur.name][0][1]
+                precur.lags = self.lags
+                find_precursors.calculate_region_maps(precur, 
+                                                      self.TV, 
+                                                      self.df_splits,
+                                                      self.kwrgs_load)
                                                   
             # self.list_for_MI.append(precur)
     
@@ -442,6 +452,33 @@ class RGCPD:
         # get xarray dataset for each variable
         self.dict_ds = plot_maps.causal_reg_to_xarray(self.df_links,
                                                       self.list_for_MI)
+    
+    def PCMCI_plot_graph(self, variable: str=None, s: int=None, kwrgs: dict=None,
+                         figshape: tuple=(10,15), min_link_robustness: int=1):
+        
+        out = wPCMCI.get_traintest_links(self.pcmci_dict, 
+                                         self.parents_dict, 
+                                         self.pcmci_results_dict, 
+                                         variable=variable,
+                                         s=s, 
+                                         min_link_robustness=min_link_robustness)
+        links_plot, val_plot, weights, var_names = out
+        fig = plt.figure(figsize=figshape)
+        ax = fig.add_subplot(111)    
+        if kwrgs is None:
+            kwrgs = {'link_colorbar_label':'cross-MCI',
+                     'node_colorbar_label':'auto-MCI',
+                     'curved_radius':.4,
+                     'arrowhead_size':1000,
+                     'arrow_linewidth':30}
+        
+        tp.plot_graph(val_matrix=val_plot, 
+                      var_names=var_names, 
+                      link_width=weights,
+                      link_matrix=links_plot, 
+                      fig_ax=(fig, ax),
+                      **kwrgs)
+        plt.show()
 
     def PCMCI_get_ParCorr_from_txt(self, variable=None, pc_alpha='auto'):
         
@@ -476,7 +513,7 @@ class RGCPD:
         self.df_ParCorr_sum = pd.merge(df_ParCorr_sum, 
                                   pd.concat(list_of_series, axis=1), 
                                   left_index=True, right_index=True)
-        
+        return self.df_ParCorr_sum
     # def PCMCI_plot_graph(self, variable='RV', s=0):
         
 

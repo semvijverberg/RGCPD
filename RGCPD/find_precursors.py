@@ -456,12 +456,12 @@ def xrmask_by_latlon(xarray,
         xarray = xarray.where(npmask)
     # bottom left masking
     if bottom_left is not None:
-        latmin, lonmin = bottom_left
+        lonmin, latmin  = bottom_left
         npmask = np.logical_or(ll[1] > latmin, ll[0] > lonmin)
         xarray = xarray.where(npmask)
     # upper left masking
     if upper_left is not None:
-        latmax, lonmin = upper_left
+        lonmin, latmax = upper_left
         npmask = np.logical_or(ll[1] < latmax, ll[0] > lonmin)
         xarray = xarray.where(npmask)
     return xarray
