@@ -113,11 +113,11 @@ def PDO(filepath, df_splits):
     t0 = time()
 #    old format selbox
 #    {'la_min':20, # select domain in degrees east
-#     'la_max':65,
+#     'la_max':70,
 #     'lo_min':115,
 #     'lo_max':250},
 
-    kwrgs_pp = {'selbox' :  (115, 250, 20, 65),
+    kwrgs_pp = {'selbox' :  (115, 250, 20, 70),
                 'format_lon': 'only_east'}
 
     ds = core_pp.import_ds_lazy(filepath, **kwrgs_pp)
@@ -158,9 +158,9 @@ def PDO(filepath, df_splits):
                 'went wrong with train test splits')
     #%%
     return df_PDO, PDO_patterns
-   
-    
-    
+
+
+
 
 def get_PDO(sst_Pacific):
     #%%

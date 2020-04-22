@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 import os, io, sys
 from tigramite import data_processing as pp
-from tigramite import plotting as tp
 from tigramite.pcmci import PCMCI
 from tigramite.independence_tests import ParCorr #, GPDC, CMIknn, CMIsymb
 import numpy as np
 import pandas as pd
 import itertools
-
+flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 
 
@@ -124,7 +123,7 @@ def loop_train_test(pcmci_dict, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=N
 
     pcmci_results_dict = {}
     for s in range(splits.size):
-        progress = 100 * (s+1) / splits.size
+        progress = int(100 * (s+1) / splits.size)
         print(f"\rProgress causal inference - traintest set {progress}%", end="")
         results = run_pcmci(pcmci_dict[s], path_txtoutput, s,
                         tau_min, tau_max, pc_alpha, max_conds_dim, 
@@ -193,35 +192,35 @@ def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level):
         
         pcmci = pcmci_dict[s]
         results = pcmci_results_dict[s]
-        # returns all causal links, not just causal parents/precursors (of lag>0)
-        sig = return_sign_links(pcmci, pq_matrix=results['q_matrix'],
-                                            val_matrix=results['val_matrix'],
-                                            alpha_level=alpha_level)
+        # # returns all causal links, not just causal parents/precursors (of lag>0)
+        # sig = return_sign_links(pcmci, pq_matrix=results['q_matrix'],
+        #                                     val_matrix=results['val_matrix'],
+        #                                     alpha_level=alpha_level)
+        
+        sig = pcmci.return_significant_parents(results['q_matrix'], 
+                                               val_matrix=results['val_matrix'],
+                                               alpha_level=alpha_level)
 
         all_parents = sig['parents']
-    #    link_matrix = sig['link_matrix']
+        link_matrix = sig['link_matrix']
     
         links_RV = all_parents[0]
-        parents_dict[s] = links_RV, pcmci.var_names
+        parents_dict[s] = links_RV, pcmci.var_names, link_matrix
         
     #%%
     return parents_dict
 
-def get_df_sum(parents_dict):
+def get_df_links(parents_dict):
     splits = np.array(list(parents_dict.keys()))
-    df_sum_s = np.zeros( (splits.size) , dtype=object)
-    mapping_links_dict = {}
+    df_links_s = np.zeros( (splits.size) , dtype=object)
     for s in range(splits.size):
-        links_RV, var_names = parents_dict[s] 
-        df, mapping_links = bookkeeping_precursors(links_RV, var_names)
-        df_sum_s[s] = df
+        var_names, link_matrix = parents_dict[s][1:] 
+        df = pd.DataFrame(link_matrix[:,0], index=var_names)
+        df_links_s[s] = df
         
-        mapping_links_dict[s] = mapping_links
-    df_sum = pd.concat(list(df_sum_s), keys= range(splits.size))
-    count_causal = df_sum.loc[:,'causal'].sum(level=[1]).astype(int)
-    df_sum['count'] = pd.concat([count_causal] * splits.size, 
-                                   keys=range(splits.size))
-    return df_sum, mapping_links_dict
+    df_links = pd.concat(list(df_links_s), keys= range(splits.size))
+
+    return df_links
 
 def return_sign_links(pc_class, pq_matrix, val_matrix,
                             alpha_level=0.05):
@@ -240,159 +239,302 @@ def return_sign_links(pc_class, pq_matrix, val_matrix,
             'link_matrix': pq_matrix <= alpha_level}
 
 
-def bookkeeping_precursors(links_RV, var_names):
-    #%%
-    # if links_RV[0][0] == 0: # index 0 should refer to RV_name
-    RV_name = var_names[0]
-    # else:
-        # RV_name = None
-    var_names_ = var_names.copy()
-    mapping_links = [(var_names_[l[0]],l[1]) for l in links_RV]
-    lin_RVsor = sorted(links_RV)
-    index = [n.split('..')[1] for n in var_names_[1:]] ; 
-    index.insert(0, var_names_[0])
-    link_names = [var_names_[l[0]].split('..')[1] if l[0] !=0 else var_names_[l[0]] for l in lin_RVsor]
 
-    # check if two lags of same region and are tigr significant
-    idx_tigr = [l[0] for l in lin_RVsor] ;
-    var_names_ext = var_names_.copy()
-    index_ext = index.copy()
-    for r in np.unique(idx_tigr):
-        # counting double indices (but with different lags)
-        if idx_tigr.count(r) != 1:
-            if var_names_[r] == RV_name:
-                double = var_names_[r].split('..')[0]
-            else:
-                double = var_names_[r].split('..')[1]
-#            print(double)
-            idx = int(np.argwhere(np.array(index)==double)[0])
-            # append each double to index for the dataframe
-            for i in range(idx_tigr.count(r)-1):
-                index_ext.insert(idx+i, double)
-                d = len(index) - len(var_names_)
-#                var_names_ext.insert(idx+i+1, var_names_[idx+1-d])
-                var_names_ext.insert(idx+i, var_names_[idx-d])            
-
-    # retrieving only var name
-    l = [n.split('..')[-1] for n in var_names_ext[1:]]
-    l.insert(0, var_names_ext[0])
-    var = np.array(l)
-    # creating mask (True) of causal links
-    mask_causal = np.array([True if i in link_names else False for i in index_ext])
-    # retrieving lag of corr map
+def get_df_MCI(pcmci_dict, pcmci_results_dict, lags, variable):
+    splits = np.array(list(pcmci_dict.keys()))
+    df_MCIc_s = np.zeros( (splits.size) , dtype=object)
+    df_MCIa_a = np.zeros( (splits.size) , dtype=object)
+    for s in range(splits.size):
+        pcmci_class = pcmci_dict[s]
+        results_dict = pcmci_results_dict[s]
+        var_names = pcmci_class.var_names
+        idx = var_names.index(variable)
+        try:
+            pvals = results_dict['q_matrix'][:,idx]
+            c = 'qval'
+        except:
+            c = 'pval'
+            pvals = results_dict['p_matrix'][:,idx]
+        coeffs = results_dict['val_matrix'][:,idx]
+        # data = np.concatenate([coeffs, pvals],  1)
+        
+        cols = [f'coeff l{l}' for l in lags]
+        # cols.append([f'pval l{l}' for l in lags])
+        df_coeff = pd.DataFrame(coeffs, index=var_names, 
+                          columns=cols)
+        df_MCIc_s[s] = df_coeff
+        cols = [f'{c} l{l}' for l in lags]
+        df_alphas = pd.DataFrame(pvals, index=var_names, 
+                          columns=cols)
+        df_MCIa_a[s] = df_alphas
+    df_MCIc = pd.concat(list(df_MCIc_s), keys= range(splits.size))
+    df_MCIa = pd.concat(list(df_MCIa_a), keys= range(splits.size))
+    return df_MCIc, df_MCIa
     
-    TV_lag = np.repeat(0, var_names_ext.count(RV_name))
-    prec_corr_map = np.array([int(n.split('..')[0]) for n in var_names_ext if n != RV_name]) ;
-    lag_corr_map = np.insert(prec_corr_map, TV_lag, 0) # unofficial lag for TV
+    
 
-    # retrieving region number, corresponding to figures
-    region_number = np.array([int(n.split('..')[1]) for n in var_names_ext if n != RV_name])
-    # unofficial region  number for TV
-    region_number = np.insert(region_number, TV_lag, 0) 
-    # retrieving lag of tigramite link
-    # all Tigr links, can include same region at multiple lags:
-    # looping through all unique tigr var labels format {lag..var_name}
-    lag_tigr_map = {str(lin_RVsor[i][1])+'..'+link_names[i]:lin_RVsor[i][1] for i in range(len(link_names))}
-    sorted(lag_tigr_map, reverse=False)
-    # fill in the nans where the var_name is not causal
-    lag_tigr_ = index_ext.copy() ; track_idx = list(range(len(index_ext)))
-    # looping through all unique tigr var labels and tracking the concomitant indices 
-    for k in lag_tigr_map.keys():
-        l = int(k.split('..')[0])
-        var_temp = k.split('..')[1]
-        idx = lag_tigr_.index(var_temp)
-        track_idx.remove(idx)
-        lag_tigr_[idx] = l
-    for i in track_idx:
-        lag_tigr_[i] = np.nan
-    lag_tigr_ = np.array(lag_tigr_)
 
-    mask_causal = ~np.isnan(lag_tigr_)
+def extract_ParCorr_info_from_text(filepath_txt=str, variable=str, pc_alpha='auto'):
+    #%%    
+    assert variable is not None, 'variable not given' # check if var is not None
+        
+    if pc_alpha == 'auto' or pc_alpha is None:
+        pc_alpha = print_pc_alphas_summ_from_txt(filepath_txt, variable)
 
-    # print(var.shape, lag_corr_map.shape, region_number.shape, mask_causal.shape, lag_tigr_.shape)
-
-    data = np.concatenate([lag_corr_map[None,:], region_number[None,:], var[None,:],
-                            mask_causal[None,:], lag_tigr_[None,:]], axis=0)
-    df = pd.DataFrame(data=data.T, index=var_names_ext,
-                      columns=['lag_corr', 'region_number', 'var', 'causal', 'lag_tig'])
-    df['causal'] = df['causal'] == 'True'
-    df = df.astype({'lag_corr':int,
-                               'region_number':int, 'var':str, 'causal':bool, 'lag_tig':float})
+    start_variable_line = f'## Variable {variable}\n'
+    get_pc_alpha_lines = f'# pc_alpha = {pc_alpha}'
+    convergence_line = 'converged'
+    
+    # get max_conds_dim parameter
+    with open (filepath_txt, 'rt') as myfile:
+        for i, myline in enumerate(myfile):           
+            if 'max_conds_dim = ' in myline:
+                max_conds_dim = int(myline.split(' = ')[1])
+                break
+        
+    lines = [] ; 
+    start_var = False ; start_pc_alpha = False    
+    
+    var_kickedout = 'Non-significance detected.'
+    with open (filepath_txt, 'rt') as myfile:
+        for i, myline in enumerate(myfile):      
+            if start_variable_line == myline :
+                lines.append(myline)
+                start_var = True
+            if start_var and get_pc_alpha_lines in myline:
+                start_pc_alpha = True
+            if start_pc_alpha:
+                lines.append(myline)
+            if start_var and start_pc_alpha and convergence_line in myline:
+                break
+            
+    # collect init OLR results
+    tested_links = [] ; pvalues = [] ; coeffs = [] 
+    track = False
+    start_init = 'Testing condition sets of dimension 0:'
+    end_init   = 'Updating parents:'
+    init_OLR = 'No conditions of dimension 0 left.' 
+    for i, myline in enumerate(lines):
+        
+        if start_init in myline:
+            track = True
+        if track:
+            if 'Link' in myline:
+                # print(subline)
+                link = myline
+                var = link.split('Link (')[1].split(')')[0]
+                tested_links.append(var)
+            if 'pval' in myline:
+                OLR = myline
+                p = float(OLR.split('pval = ')[1].split(' / ')[0])
+                pvalues.append(p)
+                c = float(OLR.split(' val = ')[1].replace('\n',''))
+                coeffs.append(c)
+        if end_init in myline:
+            break
+    
+    OLS_data = np.concatenate([np.array(coeffs)[:,None], np.array(pvalues)[:,None]], 
+                              axis=1)
+    df_OLS = pd.DataFrame(data=OLS_data, index=tested_links, 
+                          columns=['coeff', 'pval'])
+    
+    # Find by which (set of) var(s) the link was found C.I.
+    tested_links = [] ; pvalues = [] ; coeffs = [] ; by = {}
+    for i, myline in enumerate(lines):
+        
+        if init_OLR in myline:   
+            link = lines[i-2] 
+            var = link.split('Link (')[1].split(')')[0]
+            tested_links.append(var)
+            OLR = lines[i-1]
+            p = float(OLR.split('pval = ')[1].split(' / ')[0])
+            pvalues.append(p)
+            c = float(OLR.split(' val = ')[1].replace('\n',''))
+            coeffs.append(c)
+            
+        if var_kickedout in myline:
+            # Last line of xy == Non-significance detected.
+            # second last line is the test where precursor it was found C.I.
+            xy = lines[i-max_conds_dim-1 : i+1]            
+            # Search for first name tested link in lines above 'Non-significance detected.'
+            for subline in xy[::-1]:
+                if 'Link' in subline:
+                    link = subline
+                    var = link.split('Link (')[1].split(')')[0]
+                    tested_links.append(var)
+                    break
+            OLR = xy[-2]
+            p = float(OLR.split('pval = ')[1].split(' / ')[0])
+            pvalues.append(p)
+            c = float(OLR.split(' val = ')[1].replace('\n',''))
+            coeffs.append(c)
+                
+            if '(' in OLR:
+                zvar = OLR.split(': ')[1].split('  -->')[0]
+                by[var] = zvar
+            else:
+                by[var] = '-'
+                
+    for k in df_OLS.index:
+        # print(k)
+        if k not in by.keys():
+            by[k] = 'C.D.'
+    df_OLS['ParCorr'] = df_OLS.index.map(by)
     #%%
-    return df, mapping_links
+    return df_OLS
 
+def print_pc_alphas_summ_from_txt(filepath_txt=str, variable=str):
+    # get pc_alpha parameter from text
+    #%%
+    init_pc_alpha = 'pc_alpha = '
+    start_pc_alpha_sum = '# Condition selection results:'
+    var_searched = f'Algorithm converged for variable {variable}'
+    end_pc_alpha_sum   = f'--> optimal pc_alpha for variable {variable} is '
+    detected = False ; reached_pc_alpha_sum=False
+    with open (filepath_txt, 'rt') as myfile:
+        for i, myline in enumerate(myfile):   
+            if init_pc_alpha in myline and i < 20:
+                pc_alpha = myline.split('pc_alpha = ')[1].split('\n')[0]
+                if pc_alpha == 'None':
+                    continue
+                else:
+                    pc_alpha = float(pc_alpha)
+                    break
+           
+            if var_searched in myline:
+                detected = True
+            if detected and start_pc_alpha_sum in myline:
+                reached_pc_alpha_sum = True
+            if reached_pc_alpha_sum:
+                print(myline)
+                if end_pc_alpha_sum in myline:
+                    pc_alpha = float(myline.split(end_pc_alpha_sum)[1].split('\n')[0])
+                    break
+    #%%
+    return pc_alpha
 
-## =============================================================================
-## Haversine function
-## =============================================================================
-#from math import radians, cos, sin, asin, sqrt
-#from enum import Enum
-#
-#
-## mean earth radius - https://en.wikipedia.org/wiki/Earth_radius#Mean_radius
-#_AVG_EARTH_RADIUS_KM = 6371.0088
-#
-#
-#class Unit(Enum):
-#    """
-#    Enumeration of supported units.
-#    The full list can be checked by iterating over the class; e.g.
-#    the expression `tuple(Unit)`.
-#    """
-#
-#    KILOMETERS = 'km'
-#    METERS = 'm'
-#    MILES = 'mi'
-#    NAUTICAL_MILES = 'nmi'
-#    FEET = 'ft'
-#    INCHES = 'in'
-#
-#
-## Unit values taken from http://www.unitconversion.org/unit_converter/length.html
-#_CONVERSIONS = {Unit.KILOMETERS:       1.0,
-#                Unit.METERS:           1000.0,
-#                Unit.MILES:            0.621371192,
-#                Unit.NAUTICAL_MILES:   0.539956803,
-#                Unit.FEET:             3280.839895013,
-#                Unit.INCHES:           39370.078740158}
-#
-#
-#def haversine(point1, point2, unit=Unit.KILOMETERS):
-#    """ Calculate the great-circle distance between two points on the Earth surface.
-#    Takes two 2-tuples, containing the latitude and longitude of each point in decimal degrees,
-#    and, optionally, a unit of length.
-#    :param point1: first point; tuple of (latitude, longitude) in decimal degrees
-#    :param point2: second point; tuple of (latitude, longitude) in decimal degrees
-#    :param unit: a member of haversine.Unit, or, equivalently, a string containing the
-#                 initials of its corresponding unit of measurement (i.e. miles = mi)
-#                 default 'km' (kilometers).
-#    Example: ``haversine((45.7597, 4.8422), (48.8567, 2.3508), unit=Unit.METERS)``
-#    Precondition: ``unit`` is a supported unit (supported units are listed in the `Unit` enum)
-#    :return: the distance between the two points in the requested unit, as a float.
-#    The default returned unit is kilometers. The default unit can be changed by
-#    setting the unit parameter to a member of ``haversine.Unit``
-#    (e.g. ``haversine.Unit.INCHES``), or, equivalently, to a string containing the
-#    corresponding abbreviation (e.g. 'in'). All available units can be found in the ``Unit`` enum.
-#    """
-#
-#    # get earth radius in required units
-#    unit = Unit(unit)
-#    avg_earth_radius = _AVG_EARTH_RADIUS_KM * _CONVERSIONS[unit]
-#
-#    # unpack latitude/longitude
-#    lat1, lng1 = point1
-#    lat2, lng2 = point2
-#
-#    # convert all latitudes/longitudes from decimal degrees to radians
-#    lat1, lng1, lat2, lng2 = map(radians, (lat1, lng1, lat2, lng2))
-#
-#    # calculate haversine
-#    lat = lat2 - lat1
-#    lng = lng2 - lng1
-#    d = sin(lat * 0.5) ** 2 + cos(lat1) * cos(lat2) * sin(lng * 0.5) ** 2
-#
-#    return 2 * avg_earth_radius * asin(sqrt(d))
+def store_ts(df_data, df_sum, dict_ds, filename): # outdic_precur, add_spatcov=True
+    import functions_pp
 
+    df_data_to_store = df_data
+    df_sum_to_store = df_sum
+
+    dict_of_dfs = {'df_data':df_data_to_store, 'df_sum':df_sum_to_store}
+
+    functions_pp.store_hdf_df(dict_of_dfs, filename)
+    print('Data stored in \n{}'.format(filename))
+    return
+
+def get_traintest_links(pcmci_dict:dict, parents_dict:dict, 
+                        pcmci_results_dict:dict, 
+                        variable: str=None, s: int=None, 
+                        min_link_robustness: int=1):
+    '''
+    Retrieves the links / MCI coefficients of a single variable or all. 
+    Does this for a single traintest split, or by calculating the mean over
+    all traintest splits. If so, weights are calculated based on the robustness
+    to enable modification (number of times link was found) of the link width
+    of a network graph. 
+
+    Parameters
+    ----------
+    pcmci_dict : dict
+        Dictionairy with keys as traintest split index, and items are the pcmci
+        classes. 
+    parents_dict : dict 
+        Dictionairy with keys as traintest split index, and items is tuple
+        containing the links_parent, var_names and the link_matrix belonging
+        to the alpha_value that was used in the analysis.
+    pcmci_results_dict : dict, optional
+        Dictionairy with keys as traintest split index, and items is another 
+        dictionairy with the results dict with: 
+        dict_keys(['val_matrix', 'p_matrix', 'q_matrix', 'conf_matrix'])
+    variable : str, optional
+        return links of a single or of all variables.
+    s : int, optional
+        return links of a single traintest split or take the mean over them.
+    min_link_robustness : int, optional
+        Only when s=None: If a link is not present at least min_link_robustness
+        times, it is masked.
+
+    Returns
+    -------
+    links_plot : ndarray
+        link_matrix, shape (len(var_names), len(var_names), len(lags))
+    val_plot : ndarray
+        val_matrix, shape (len(var_names), len(var_names), len(lags))
+    weights : ndarray
+        in shape of links_plot, number of times link was found.
+    var_names : list
+
+    '''
+    
+    splits = np.array(list(pcmci_dict.keys()))
+    if s is None:
+        todef_order_index = [len(pcmci_dict[s].var_names) for s in splits]
+        links_s = np.zeros( splits.size , dtype=object)
+        MCIvals_s= np.zeros( splits.size , dtype=object)    
+        for s in splits:
+            links_plot = np.zeros_like(parents_dict[s][2])
+            link_matrix_s = parents_dict[s][2]
+            val_plot = np.zeros_like(pcmci_results_dict[s]['val_matrix'], dtype=float)
+            val_matrix_s = pcmci_results_dict[s]['val_matrix']
+            var_names = pcmci_dict[s].var_names
+            if variable is not None:
+                idx = var_names.index(variable)
+                links_plot[:,idx] = link_matrix_s[:,idx]
+                val_plot[:,:] = val_matrix_s[:,:] # keep val_matrix complete
+            else:
+                links_plot[:,:] = link_matrix_s[:,:]
+                val_plot[:,:] = val_matrix_s[:,:]
+            index = [p for p in itertools.product(var_names, var_names)]
+            if len(var_names) == max(todef_order_index):
+                fullindex = index    
+                fullvar_names = var_names
+            nplinks = links_plot.reshape(len(var_names)**2, -1)
+            links_s[s] = pd.DataFrame(nplinks, index=index)
+            npMCIvals = val_plot.reshape(len(var_names)**2, -1)
+            MCIvals_s[s] = pd.DataFrame(npMCIvals, index=index)
+        df_links = pd.concat(links_s, keys=splits)
+        # get links present at least min_link_robustness times
+        df_robustness = df_links.sum(axis=0, level=1)
+        df_robustness = df_robustness.reindex(index=fullindex)
+        weights = df_robustness.values
+        weights = weights.reshape(len(var_names), len(var_names), -1)
+        # df_links = pd.concat(links_s, keys=splits).max(axis=0, level=1)
+        df_links = df_robustness >= min_link_robustness
+        # ensure that missing links due to potential precursor step are not 
+        # appended to pandas df (auto behavior)
+        df_links = df_links.reindex(index=fullindex)
+        mergeindex = pd.MultiIndex.from_tuples(df_links.index)
+        df_link_matrix = df_links.reindex(index=mergeindex)
+        # calculate mean MCI over train test splits
+        df_MCIvals = pd.concat(MCIvals_s, keys=splits).mean(axis=0, level=1)
+        # ensure that missing links due to potential precursor step are not 
+        # appended to pandas df (auto behavior)
+        df_MCIvals = df_MCIvals.reindex(index=fullindex)
+        df_MCIval_matrix = df_MCIvals.reindex(index=mergeindex)
+        # now we can safely reshape
+        links_plot = df_link_matrix.values.reshape(len(var_names), len(var_names), -1)
+        val_plot = df_MCIval_matrix.values.reshape(len(var_names), len(var_names), -1)
+        val_plot = pcmci_results_dict[s]['val_matrix']
+        var_names = fullvar_names
+    elif type(s) is int:
+        var_names = pcmci_dict[s].var_names
+        weights = None
+        link_matrix_s = parents_dict[s][2]
+        links_plot = np.zeros_like(parents_dict[s][2])
+        val_matrix_s = pcmci_results_dict[s]['val_matrix']
+        val_plot = np.zeros_like(links_plot, dtype=float)
+        if variable is not None:
+            idx = pcmci_dict[s].var_names.index(variable)
+            links_plot[:,idx] = link_matrix_s[:,idx]
+            val_plot[:,idx] = val_matrix_s[:,idx]
+            
+        else:
+            links_plot[:,:] = link_matrix_s[:,:]
+            val_plot = val_matrix_s
+    return links_plot, val_plot, weights, var_names  
 
 # def print_particular_region_new(links_RV, var_names, s, outdic_precur, map_proj, ex):
 
@@ -457,89 +599,5 @@ def bookkeeping_precursors(links_RV, var_names):
 # #%%
 #     return
 
-# def plot_regs_xarray(for_plt):
-#     #%%
-#     max_N_regs = min(20, int(for_plt.max() + 0.5))
-#     label_weak = np.nan_to_num(for_plt.values) >=  max_N_regs
-#     for_plt.values[label_weak] = max_N_regs
 
-
-#     adjust_vert_cbar = 0.0 ; adj_fig_h = 1.0
-
-
-#     cmap = plt.cm.tab20
-#     for_plt.values = for_plt.values-0.5
-# #    if np.unique(for_plt.values[~np.isnan(for_plt.values)]).size == 1:
-# #        for_plt[0,0,0] = 0
-#     kwrgs = dict( {'title' : for_plt.attrs['title'], 'clevels' : 'notdefault',
-#                    'steps' : max_N_regs+1, 'subtitles': None,
-#                    'vmin' : 0, 'vmax' : max_N_regs,
-#                    'cmap' : cmap, 'column' : 1,
-#                    'cbar_vert' : adjust_vert_cbar, 'cbar_hght' : 0.0,
-#                    'adj_fig_h' : adj_fig_h, 'adj_fig_w' : 1.,
-#                    'hspace' : 0.2, 'wspace' : 0.08,
-#                    'cticks_center' : False, 'title_h' : 1.01} )
-    
-
-#     for l in for_plt.lag.values:
-#         filename = '{}_{}_vs_{}_lag{}'.format(ex['params'], 
-#                     ex['RV_name'], for_plt.name, l) + ex['file_type2']
-#         plotting_wrapper(for_plt.sel(lag=l), ex, filename, kwrgs=kwrgs)
-#     #%%
-#     return
-
-
-# def plotting_wrapper(plotarr, ex, filename=None,  kwrgs=None):
-#     import os
-
-#     try:
-#         folder_name = os.path.join(ex['figpathbase'], ex['exp_folder'])
-#     except:
-#         folder_name = ex['fig_path']
-
-#     if os.path.isdir(folder_name) != True :
-#         os.makedirs(folder_name)
-
-#     if kwrgs == None:
-#         kwrgs = dict( {'title' : plotarr.name, 'clevels' : 'notdefault', 'steps':17,
-#                         'vmin' : -3*plotarr.std().values, 'vmax' : 3*plotarr.std().values,
-#                        'cmap' : plt.cm.RdBu_r, 'column' : 1, 'subtitles' : None} )
-#     else:
-#         kwrgs = kwrgs
-#         kwrgs['title'] = plotarr.attrs['title']
-
-#     if filename != None:
-#         file_name = os.path.join(folder_name, filename)
-#         kwrgs['savefig'] = True
-#     else:
-#         kwrgs['savefig'] = False
-#         file_name = 'Users/semvijverberg/Downloads/test.png'
-#     finalfigure(plotarr, file_name, kwrgs)
-
-
-
-
-def store_ts(df_data, df_sum, dict_ds, filename): # outdic_precur, add_spatcov=True
-    import functions_pp
-    
-    
-    # splits = df_data.index.levels[0]
-    # if add_spatcov:
-    #     df_sp_s   = np.zeros( (splits.size) , dtype=object)
-    #     for s in splits:
-    #         df_split = df_data.loc[s]
-    #         df_sp_s[s] = find_precursors.get_spatcovs(dict_ds, df_split, s, outdic_precur, normalize=True)
-
-    #     df_sp = pd.concat(list(df_sp_s), keys= range(splits.size))
-    #     df_data_to_store = pd.merge(df_data, df_sp, left_index=True, right_index=True)
-    #     df_sum_to_store = find_precursors.add_sp_info(df_sum, df_sp)
-    # else:
-    df_data_to_store = df_data
-    df_sum_to_store = df_sum
-
-    dict_of_dfs = {'df_data':df_data_to_store, 'df_sum':df_sum_to_store}
-
-    functions_pp.store_hdf_df(dict_of_dfs, filename)
-    print('Data stored in \n{}'.format(filename))
-    return
 

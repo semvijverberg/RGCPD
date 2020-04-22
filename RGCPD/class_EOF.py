@@ -19,7 +19,7 @@ import find_precursors
 class EOF:
 
     def __init__(self, tfreq_EOF='monthly', neofs=1, selbox=None,
-                 name=None):
+                 name=None, n_cpu=1):
         '''
         selbox has format of (lon_min, lon_max, lat_min, lat_max)
         '''
@@ -27,6 +27,7 @@ class EOF:
         self.neofs = neofs
         self.name = name
         self.selbox = selbox
+        self.n_cpu = n_cpu
         return
 
     def get_pattern(self, filepath, df_splits=None, selbox=None, start_end_date=None,
@@ -39,7 +40,7 @@ class EOF:
 
         if self.tfreq_EOF == 'monthly':
             ds = functions_pp.import_ds_timemeanbins(self.filepath, tfreq=1,
-                                                     selbox=selbox,
+                                                     selbox=self.selbox,
                                          start_end_date=start_end_date,
                                          start_end_year=start_end_year)
             # # ensure latitude is in increasing order
@@ -49,7 +50,7 @@ class EOF:
         else:
             self.ds_EOF = functions_pp.import_ds_timemeanbins(self.filepath,
                                                           tfreq=self.tfreq_EOF,
-                                                          selbox=selbox,
+                                                          selbox=self.selbox,
                                                           start_end_date=start_end_date,
                                                           start_end_year=start_end_year)
         if self.name is None:
@@ -73,11 +74,21 @@ class EOF:
             self.df_splits = df_splits
             splits = df_splits.index.levels[0]
             func = self._get_EOF_xarray
-            try:
-                with ProcessPoolExecutor(max_workers=os.cpu_count()) as pool:
-                    futures = [pool.submit(self._single_split, func, self.ds_EOF, s, df_splits, self.neofs) for s in range(splits.size)]
-                    results = [future.result() for future in futures]
-            except:
+            if self.n_cpu > 1:
+                try:
+                    with ProcessPoolExecutor(max_workers=os.cpu_count()) as pool:
+                        futures = []
+                        for s in range(splits.size):
+                            progress = int(100 * (s+1) / splits.size)
+                            print(f"\rProgress traintest set {progress}%", end="")
+                            futures.append(pool.submit(self._single_split, func, 
+                                                      self.ds_EOF, s, df_splits, 
+                                                      self.neofs))
+                            results = [future.result() for future in futures]
+                        pool.shutdown()
+                except:
+                    results = [self._single_split(func, self.ds_EOF, s, df_splits, self.neofs) for s in range(splits.size)]
+            else:
                 results = [self._single_split(func, self.ds_EOF, s, df_splits, self.neofs) for s in range(splits.size)]
             # unpack results
             data = np.zeros( (splits.size, self.neofs, self.ds_EOF.latitude.size,
@@ -93,18 +104,21 @@ class EOF:
                 solvers.append(results[s][1])
                 # ensure same sign
                 mask_pos = (self.eofs[0] > self.eofs[0].mean())
-                sign = np.sign(self.eofs[s].where(mask_pos).mean())
+                sign = np.sign(self.eofs[s].where(mask_pos).mean(axis=(1,2)))
                 self.eofs[s,:] = sign * self.eofs[s,:]
 
 
-    def plot_eofs(self, mean=True):
+    def plot_eofs(self, mean=True, kwrgs: dict=None):
+        kwrgs_plot = {'col_dim':'eof'}
         if mean:
             eof_patterns = self.eofs.mean(dim='split')
-            kwrgs = {'aspect':3}
+            if kwrgs is None:
+                kwrgs_plot.update({'aspect':3})
         else:
-            self.eofs
-        kwrgs.update({'col_dim':'eof'})
-        plot_maps.plot_corr_maps(eof_patterns, **kwrgs)
+            eof_patterns = self.eofs
+        if kwrgs is not None:
+           kwrgs_plot.update(kwrgs)
+        plot_maps.plot_corr_maps(eof_patterns, **kwrgs_plot)
 
     def get_ts(self, tfreq_ts=1, df_splits=None):
         if df_splits is None:
@@ -119,14 +133,16 @@ class EOF:
                                                 start_end_date=self.start_end_date,
                                                 start_end_year=self.start_end_year)
         df_data_s   = np.zeros( (splits.size) , dtype=object)
+        dates = pd.to_datetime(ds['time'].values)
         for s in splits:
-
-            dfs = pd.DataFrame(index=pd.to_datetime(ds['time'].values))
+            
+            dfs = pd.DataFrame(columns=neofs, index=dates)
             for i, e in enumerate(neofs):
 
                 pattern = self.eofs.sel(split=s, eof=e)
                 data = find_precursors.calc_spatcov(ds, pattern)
-                dfs[e] = pd.Series(data.values, index=dfs.index)
+                dfs[e] = pd.Series(data.values, 
+                                   index=dates)
                 if i == neofs.size-1:
                     dfs = dfs.merge(df_splits.loc[s], left_index=True, right_index=True)
             df_data_s[s] = dfs
@@ -150,8 +166,7 @@ class EOF:
     @staticmethod
     def _single_split(func, ds_EOF, s, df_splits, neofs):
         splits = df_splits.index.levels[0]
-        progress = 100 * (s+1) / splits.size
-        print(f"\rProgress traintest set {progress}%)", end="")
+        
         dates_train = functions_pp.dfsplits_to_dates(df_splits, s)[0]
         # convert Train test year from original time to monthly
         train_yrs = np.unique(dates_train.year)

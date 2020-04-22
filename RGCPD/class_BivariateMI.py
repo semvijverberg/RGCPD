@@ -172,7 +172,7 @@ class BivariateMI:
 
         RV_mask = df_splits.loc[0]['RV_mask']
         for s in xrcorr.split.values:
-            progress = 100 * (s+1) / n_spl
+            progress = int(100 * (s+1) / n_spl)
             # =============================================================================
             # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']
             # =============================================================================
