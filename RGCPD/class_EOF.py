@@ -104,18 +104,21 @@ class EOF:
                 solvers.append(results[s][1])
                 # ensure same sign
                 mask_pos = (self.eofs[0] > self.eofs[0].mean())
-                sign = np.sign(self.eofs[s].where(mask_pos).mean())
+                sign = np.sign(self.eofs[s].where(mask_pos).mean(axis=(1,2)))
                 self.eofs[s,:] = sign * self.eofs[s,:]
 
 
-    def plot_eofs(self, mean=True):
+    def plot_eofs(self, mean=True, kwrgs: dict=None):
+        kwrgs_plot = {'col_dim':'eof'}
         if mean:
             eof_patterns = self.eofs.mean(dim='split')
-            kwrgs = {'aspect':3}
+            if kwrgs is None:
+                kwrgs_plot.update({'aspect':3})
         else:
-            self.eofs
-        kwrgs.update({'col_dim':'eof'})
-        plot_maps.plot_corr_maps(eof_patterns, **kwrgs)
+            eof_patterns = self.eofs
+        if kwrgs is not None:
+           kwrgs_plot.update(kwrgs)
+        plot_maps.plot_corr_maps(eof_patterns, **kwrgs_plot)
 
     def get_ts(self, tfreq_ts=1, df_splits=None):
         if df_splits is None:

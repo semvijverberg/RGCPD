@@ -301,20 +301,15 @@ def causal_reg_to_xarray(df_links, list_MI):
     Returns Dataset of merged variables, this aligns there coordinates (easy for plots)
     Returns list_ds to keep the original dimensions
     '''
-    RV_name = df_links.loc[0,0].index[0]
     splits = df_links.index.levels[0]
 
     df_c = df_links.sum(axis=1) >= 1
-
-    # remove response variable if the ac is a causal link
-    splits = df_links.index.levels[0]
+    # only MI vars:
+    var_MI = set()
     for s in splits:
-        try:
-            # try because can be no causal regions in split s
-            if RV_name in df_c.loc[s].index:
-                df_c = df_c.drop((s, RV_name), axis=0)
-        except:
-            pass
+        var_MI.update([i for i in df_c.loc[s].index if '..' in i])
+
+    df_c = df_c.loc[:,var_MI]
 
     # collect var en region labels   
     var = pd.Series([i[1].split('..')[2] for i in df_c.index], 

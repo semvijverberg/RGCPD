@@ -45,10 +45,10 @@ list_of_name_path = [(cluster_label, TVpath),
 
 
 
-# list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
-#                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-#                               distance_eps=600, min_area_in_degrees2=7),
-list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map, 
+list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
+                              kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                              distance_eps=600, min_area_in_degrees2=7),
+                 BivariateMI(name='v200', func=BivariateMI.corr_map, 
                                 kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                                 distance_eps=600, min_area_in_degrees2=5)]
 
@@ -58,13 +58,14 @@ list_for_EOFS = [EOF(name='v200', neofs=2, selbox=[-180, 360, 10, 90],
 
 
 rg = RGCPD(list_of_name_path=list_of_name_path, 
-            list_for_EOFS=list_for_EOFS,
-            start_end_TVdate=start_end_TVdate,
-            start_end_date=start_end_date,
-            start_end_year=None,
-            tfreq=tfreq, lags_i=np.array([0]),
-            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
-            append_pathsub='_' + name_ds)
+           list_for_MI=list_for_MI,
+           list_for_EOFS=list_for_EOFS,
+           start_end_TVdate=start_end_TVdate,
+           start_end_date=start_end_date,
+           start_end_year=None,
+           tfreq=tfreq, lags_i=np.array([0]),
+           path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
+           append_pathsub='_' + name_ds)
 
 
 rg.pp_TV(name_ds=name_ds)
@@ -76,7 +77,7 @@ rg.traintest('no_train_test_split')
 import cartopy.crs as ccrs
 # rg.calc_corr_maps()
 rg.get_EOFs()
-#%%
+
 rg.plot_maps_corr(aspect=2, size=5, cbar_vert=.2, save=True,
                   map_proj=ccrs.LambertCylindrical(central_longitude=100))
 
@@ -88,15 +89,15 @@ list_of_name_path = [(cluster_label, TVpath),
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
                      ('sm12', os.path.join(path_raw, 'sm12_1979-2018_1_12_daily_1.0deg.nc')),
                      ('snow',os.path.join(path_raw, 'snow_1979-2018_1_12_daily_1.0deg.nc')),
-                     ('st2',  os.path.join(path_raw, 'lsm_st2_1979-2018_1_12_daily_1.0deg.nc')),
-                     ('OLRtrop',  os.path.join(path_raw, 'OLRtrop_1979-2018_1_12_daily_2.5deg.nc'))]
+                     ('st2',  os.path.join(path_raw, 'lsm_st2_1979-2018_1_12_daily_1.0deg.nc'))]
+                     # ('OLRtrop',  os.path.join(path_raw, 'OLRtrop_1979-2018_1_12_daily_2.5deg.nc'))]
 
 list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
                              kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                              distance_eps=700, min_area_in_degrees2=7, 
                              calc_ts='pattern cov'),
                  BivariateMI(name='sst', func=BivariateMI.corr_map, 
-                              kwrgs_func={'alpha':1E-4, 'FDR_control':True}, 
+                              kwrgs_func={'alpha':1E-3, 'FDR_control':True}, 
                               distance_eps=700, min_area_in_degrees2=5),
                  BivariateMI(name='sm12', func=BivariateMI.corr_map, 
                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
@@ -107,15 +108,20 @@ list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
                  BivariateMI(name='st2', func=BivariateMI.corr_map, 
                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                                distance_eps=700, min_area_in_degrees2=5)]
+                 # BivariateMI(name='OLRtrop', func=BivariateMI.corr_map, 
+                 #               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                 #               distance_eps=700, min_area_in_degrees2=5)]
 
-list_for_EOFS = [EOF(name='OLRtrop', neofs=2, selbox=[-180, 360, -15, 30], 
-                     n_cpu=1)]
+# list_for_EOFS = [EOF(name='OLRtrop', neofs=2, selbox=[-180, 360, -15, 30], 
+#                      n_cpu=1)]
+
+list_import_ts = [('OMI', '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/OMI.h5')]
 
 
 
 rg = RGCPD(list_of_name_path=list_of_name_path, 
            list_for_MI=list_for_MI,
-           list_for_EOFS=list_for_EOFS,
+           list_import_ts=list_import_ts,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
            tfreq=tfreq, lags_i=np.array([0]),
@@ -124,7 +130,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 
 rg.pp_TV(name_ds=name_ds)
 selbox = [None, {'z500':[130,350,10,90], 'v200':[130,350,10,90]}]
-anomaly = [True, {'sm12':False, 'OLRtrop':False}]
+anomaly = [True, {'sm12':False}]
 rg.pp_precursors(selbox=selbox, anomaly=anomaly)
 
 rg.traintest(method='random10')
@@ -135,17 +141,14 @@ rg.calc_corr_maps()
 rg.cluster_list_MI()
 
 
-rg.get_EOFs()
-
-
 rg.get_ts_prec(precur_aggr=None)
 
 
 merge_smst = [k for k in rg.df_data.columns if 'sm' in k or '..st' in k]
-rg.reduce_df_data_ridge(keys=merge_smst, newname='0..0..sm12st2')
+rg.reduce_df_data_ridge(keys=merge_smst, newname='sm12st2')
 
 merge_sst = ['0..3..sst', '0..4..sst']
-rg.reduce_df_data_ridge(keys=merge_sst, newname='0..0..sstNPacific')
+rg.reduce_df_data_ridge(keys=merge_sst, newname='sstNPacific')
 
 rg.PCMCI_df_data(pc_alpha=None, 
                  tau_max=3,
@@ -160,7 +163,7 @@ df_ParCorr_sum = rg.PCMCI_get_ParCorr_from_txt()
 
 rg.quick_view_labels(median=True) 
 
-rg.plot_maps_corr(precursors=['sst'], save=False)
+# rg.plot_maps_corr(precursors=['OLRtrop'], save=False)
 
 rg.plot_maps_sum(var='sm12', 
                  kwrgs_plot={'aspect': 2, 'wspace': -0.02})

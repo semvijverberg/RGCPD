@@ -315,30 +315,37 @@ def import_ds_timemeanbins(filepath, tfreq=1, start_end_date=None,
 
 
 
-def csv_to_npy(ex):
-   #%%
-   import os
-   import pandas as pd
-   import xarray as xr
-   import numpy as np
-   # load data from csv file and save to .npy as xarray format
+def csv_to_df(path:str, sep=','):
+   '''
+   convert csv timeseries to hdf5 (.h5) format. Assumes column order:
+    year, month, day, ts1, ts2, ..., ...,
 
-   path = os.path.join(ex['path_pp'], 'RVts2.5', ex['RVts_filename'])
-   table = pd.read_csv(path)
-   data  = np.array(table)
-   dates = pd.to_datetime(['{}-{}-{}'.format(A[0],A[1],A[2]) for A in data])
+    Parameters
+    ----------
+    path : str
+        path to .csv file.
+    sep : str, optional
+        seperator to seperate columns. The default is ','.
 
-   y_val = data[:,-1]  # ATTENTION: This only works if values are in last column
+    Returns
+    -------
+    df_data with datetime as index
+        DESCRIPTION.
 
-   xrdata = xr.DataArray(data=y_val, coords=[dates], dims=['time'])
+    '''
+    #%%
+    
+   # load data from csv file and save to .h5
 
-   ofile = ex['RVts_filename'].split('.')[0] + '.npy'
-   to_dict = dict( {'RVfullts'     : xrdata } )
-   np.save(os.path.join(ex['path_pp'], 'RVts2.5', ofile), to_dict)
-   ex['RVts_filename'] = ofile
+   path = '/Users/semvijverberg/Downloads/OMI.csv'
+   data = pd.read_csv(path, sep=sep, parse_dates=[[0,1,2]], 
+                       index_col='year_month_day')
+   data.index.name='date'
+   
+   store_hdf_df(dict_of_dfs={'df_data':data}, 
+                file_path=path.replace('.csv', '.h5'))
+   return data
 
-   #%%
-   return ex
 
 
 def time_mean_bins(xr_or_df, to_freq=int, start_end_date=None, start_end_year=None, 
@@ -957,30 +964,52 @@ def store_hdf_df(dict_of_dfs, file_path=None):
         hdf.close()
     return file_path
 
+
 def load_hdf5(path_data):
     '''
     Loading hdf5 can not be done simultaneously:
     '''
-    import h5py
-    import time
-    for attempt in range(5):
+    import h5py, time
+    attempt = 'Fail'
+    c = 0
+    while attempt =='Fail':
+        c += 1
         try:
             hdf = h5py.File(path_data,'r+')
+            dict_of_dfs = {}
+            for k in hdf.keys():
+                dict_of_dfs[k] = pd.read_hdf(path_data, k)
+            hdf.close()
+            attempt = 1
         except:
-            time.sleep(0.5) # wait 0.5 seconds, perhaps other process is trying
-            # to load it simultaneously
-            continue
-        else:
-            break
-    dict_of_dfs = {}
-    for k in hdf.keys():
-        df = pd.read_hdf(path_data, k)
-        if k in hdf.attrs.keys():
-            str_attr_index = str(hdf.attrs[k])
-            df.index.name = str_attr_index
-        dict_of_dfs[k] = df
-    hdf.close()
+            time.sleep(1)
+        assert c!= 5, print('loading in hdf5 failed')
     return dict_of_dfs
+
+# def load_hdf5(path_data):
+#     '''
+#     Loading hdf5 can not be done simultaneously:
+#     '''
+#     import h5py
+#     import time
+#     for attempt in range(5):
+#         try:
+#             hdf = h5py.File(path_data,'r+')
+#         except:
+#             time.sleep(0.5) # wait 0.5 seconds, perhaps other process is trying
+#             # to load it simultaneously
+#             continue
+#         else:
+#             break
+#     dict_of_dfs = {}
+#     for k in hdf.keys():
+#         df = pd.read_hdf(path_data, k)
+#         if k in hdf.attrs.keys():
+#             str_attr_index = str(hdf.attrs[k])
+#             df.index.name = str_attr_index
+#         dict_of_dfs[k] = df
+#     hdf.close()
+#     return dict_of_dfs
 
 def rand_traintest_years(RV, test_yrs=None, method=str, seed=None, 
                          kwrgs_events=None, verb=0):

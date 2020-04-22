@@ -9,13 +9,10 @@ Created on Thu Dec  5 12:17:25 2019
 import itertools
 import numpy as np
 import xarray as xr
-#import datetime
-# import scipy
 import pandas as pd
-#import core_pp
-from statsmodels.sandbox.stats import multicomp
-import functions_pp
 
+import functions_pp
+import core_pp
 import plot_maps
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 from typing import List, Tuple, Union
@@ -681,10 +678,15 @@ def df_data_prec_regs(list_MI, TV, df_splits): #, outdic_precur, df_splits, TV #
     return df_data
 
 
-def import_precur_ts(import_prec_ts, df_splits, to_freq, start_end_date,
-                     start_end_year):
+def import_precur_ts(list_import_ts : List[tuple], 
+                     df_splits: pd.DataFrame,  
+                     start_end_date: Tuple[str, str],
+                     start_end_year: Tuple[int, int],
+                     cols: list=None,
+                     precur_aggr: int=1):
     '''
-    import_prec_ts has format tuple (name, path_data)
+    list_import_ts has format List[tuples],
+    [(name, path_data)]
     '''
     #%%
 #    df_splits = rg.df_splits
@@ -695,63 +697,75 @@ def import_precur_ts(import_prec_ts, df_splits, to_freq, start_end_date,
     orig_traintest = functions_pp.get_testyrs(df_splits)
     df_data_ext_s   = np.zeros( (splits.size) , dtype=object)
     counter = 0
-    for i, (name, path_data) in enumerate(import_prec_ts):
-        df_data_e_all = functions_pp.load_hdf5(path_data)['df_data'].iloc[:,1:]
-        ext_traintest = functions_pp.get_testyrs(df_data_e_all[['TrainIsTrue']])
-        _check_traintest = all(np.equal(orig_traintest.flatten(), ext_traintest.flatten()))
-        assert _check_traintest, ('Train test years of df_splits are not the '
-                                  'same as imported timeseries')
+    for i, (name, path_data) in enumerate(list_import_ts):
+
+
+        df_data_e_all = functions_pp.load_hdf5(path_data)['df_data'].iloc[:,:]
+        if cols is None:
+            cols = list(df_data_e_all.columns[(df_data_e_all.dtypes != bool).values])
+        dates_subset = core_pp.get_subdates(df_data_e_all.index, start_end_date, 
+                                            start_end_year)
+        df_data_e_all = df_data_e_all.loc[dates_subset]
         
-        cols_ext = list(df_data_e_all.columns[(df_data_e_all.dtypes != bool).values])
-        # cols_ext must be of format '{lag_days}..{label_int}..{var_name}'
-        # or '{lag_days}..{var_name}'. 
-        # If only var_name is in str (no seperation by {..}, then lag_days=0)
-        # note label_int should be unique
-        rename_cols = {}
-        col_sep = [c.split('..') for c in cols_ext]
-        label_int = 100
-        for i, c in enumerate(col_sep):
-            # if no seperation, the col is simply the var_name
-            #c[-1]  is the var_name
-            var_name = c[-1]
-            if len(c) == 1:
-                lag = 0
-                new_col = f'{lag}..{label_int}..{var_name}'
-                label_int +=1
-            if len(c) == 2:
-                #c[0] is assumed the lag in days
-                lag = c[0]
-                # label int is assigned to confirm the PCMCI format
-                new_col = f'{lag}..{label_int}..{var_name}'
-                label_int +=1
-            if len(c) == 3:
-                #c[0] is assumed the lag in days
-                lag = c[0]
-                #c[1] is assumed a unique label
-                own_label = c[1]
-                new_col = f'{lag}..{int(own_label)}..{var_name}'
-            rename_cols[cols_ext[i]] = new_col
-        df_data_e_all = df_data_e_all.rename(columns=rename_cols)
+        if 'TrainIsTrue' in df_data_e_all.columns:
+            # check if traintest split is correct
+            ext_traintest = functions_pp.get_testyrs(df_data_e_all[['TrainIsTrue']])
+            _check_traintest = all(np.equal(orig_traintest.flatten(), ext_traintest.flatten()))
+            assert _check_traintest, ('Train test years of df_splits are not the '
+                                      'same as imported timeseries')
+        
+        # cols_ext = list(df_data_e_all.columns[(df_data_e_all.dtypes != bool).values])
+        # # cols_ext must be of format '{lag_days}..{label_int}..{var_name}'
+        # # or '{lag_days}..{var_name}'. 
+        # # If only var_name is in str (no seperation by {..}, then lag_days=0)
+        # # note label_int should be unique
+        # rename_cols = {}
+        # col_sep = [c.split('..') for c in cols_ext]
+        # label_int = 100
+        # for i, c in enumerate(col_sep):
+        #     # if no seperation, the col is simply the var_name
+        #     #c[-1]  is the var_name
+        #     var_name = c[-1]
+        #     if len(c) == 1:
+        #         lag = 0
+        #         new_col = f'{lag}..{label_int}..{var_name}'
+        #         label_int +=1
+        #     if len(c) == 2:
+        #         #c[0] is assumed the lag in days
+        #         lag = c[0]
+        #         # label int is assigned to confirm the PCMCI format
+        #         new_col = f'{lag}..{label_int}..{var_name}'
+        #         label_int +=1
+        #     if len(c) == 3:
+        #         #c[0] is assumed the lag in days
+        #         lag = c[0]
+        #         #c[1] is assumed a unique label
+        #         own_label = c[1]
+        #         new_col = f'{lag}..{int(own_label)}..{var_name}'
+        #     rename_cols[cols_ext[i]] = new_col
+        # df_data_e_all = df_data_e_all.rename(columns=rename_cols)
         
         for s in range(splits.size):
-            # skip first col because it is the RV ts
-            df_data_e = df_data_e_all.loc[s]
-            cols_ext = list(df_data_e_all.columns[(df_data_e_all.dtypes != bool).values])
-                    
-            df_data_ext_s[s] = df_data_e[cols_ext]
+            if 'TrainIsTrue' in df_data_e_all.columns:
+                df_data_e = df_data_e_all.loc[s]
+            else:
+                df_data_e = df_data_e_all
+                
+            
+            df_data_ext_s[s] = df_data_e[cols]
             tfreq_date_e = (df_data_e.index[1] - df_data_e.index[0]).days
             
-            if to_freq != tfreq_date_e:
+            if precur_aggr != tfreq_date_e:
                 try:
                     df_data_ext_s[s] = functions_pp.time_mean_bins(df_data_ext_s[s], 
-                                                         to_freq,
+                                                         precur_aggr,
                                                         start_end_date,
                                                         start_end_year)[0]
                 except KeyError as e:
                     print('KeyError captured, likely the requested dates '
                           'given by start_end_date and start_end_year are not' 
                           'found in external pandas timeseries.\n{}'.format(str(e)))
-        print(f'loaded in exterinal timeseres: {cols_ext}')
+        print(f'loaded in exterinal timeseres: {cols}')
                                                         
         if counter == 0:
             df_data_ext = pd.concat(list(df_data_ext_s), keys=range(splits.size))

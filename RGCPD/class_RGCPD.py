@@ -48,7 +48,7 @@ class RGCPD:
     def __init__(self, list_of_name_path: List[Tuple[str, str]]=None, 
                  list_for_EOFS: List[Union[EOF]]=None, 
                  list_for_MI: List[Union[BivariateMI]]=None, 
-                 import_prec_ts: List[Tuple[str, str]]=None, 
+                 list_import_ts: List[Tuple[str, str]]=None, 
                  start_end_TVdate=None, 
                  tfreq: int=10, 
                  start_end_date: Tuple[str, str]=None, 
@@ -98,7 +98,7 @@ class RGCPD:
 
         list_for_EOFS : list, optional
             list of EOF classes, see docs EOF?
-        import_prec_ts : list, optional
+        list_import_ts : list, optional
             Load in precursor 1-d timeseries in format:
                           [(name1, path_to_h5_file1), [(name2, path_to_h5_file2)]]
                           precursor_ts should follow the RGCPD traintest format
@@ -150,7 +150,7 @@ class RGCPD:
         self.list_of_name_path = list_of_name_path
         self.list_for_EOFS = list_for_EOFS
         self.list_for_MI = list_for_MI
-        self.import_prec_ts = import_prec_ts
+        self.list_import_ts = list_import_ts
 
         self.start_end_TVdate   = start_end_TVdate
         self.start_end_date     = start_end_date
@@ -290,7 +290,7 @@ class RGCPD:
         self.kwrgs_TV = dict(method=method,
                     seed=seed,
                     kwrgs_events=kwrgs_events,
-                    precursor_ts=self.import_prec_ts)
+                    precursor_ts=self.list_import_ts)
 
         TV, self.df_splits = RV_and_traintest(self.fullts,
                                               self.TV_ts,
@@ -338,6 +338,11 @@ class RGCPD:
             print(f'Retrieving {e_class.neofs} EOF(s) for {e_class.name}')
             filepath = [l for l in self.list_precur_pp if l[0]==e_class.name][0][1]
             e_class.get_pattern(filepath=filepath, df_splits=self.df_splits)
+        
+    def plot_EOFs(self, mean=True, kwrgs: dict=None):
+        for i, e_class in enumerate(self.list_for_EOFS):
+            print(f'Retrieving {e_class.neofs} EOF(s) for {e_class.name}')
+            e_class.plot_eofs(mean=mean, kwrgs=kwrgs)
             
     def get_ts_prec(self, precur_aggr=None):
         if precur_aggr is None:
@@ -360,7 +365,7 @@ class RGCPD:
             # use original TV timeseries
             TV = self.TV ; df_splits = self.df_splits
         
-        if hasattr(self, 'list_for_MI'):
+        if self.list_for_MI is not None:
             print('\nGetting MI timeseries')
             for i, precur in enumerate(self.list_for_MI):
                 precur.get_prec_ts(precur_aggr=precur_aggr,
@@ -370,13 +375,15 @@ class RGCPD:
                                                              df_splits)
                                                 
         # Append (or only load in) external timeseries
-        if self.import_prec_ts is not None:
+        if self.list_import_ts is not None:
             print('\nGetting external timeseries')
-            self.df_data_ext = find_precursors.import_precur_ts(self.import_prec_ts,
-                                                             df_splits,
-                                                             self.precur_aggr,
-                                                             self.start_end_date,
-                                                             self.start_end_year)
+            f = find_precursors
+            self.df_data_ext = f.import_precur_ts(self.list_import_ts,
+                                                  df_splits,
+                                                  self.start_end_date,
+                                                  self.start_end_year,
+                                                  cols=None,
+                                                  precur_aggr=self.precur_aggr)
             if hasattr(self, 'df_data'):
                 self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
             else:
@@ -449,7 +456,7 @@ class RGCPD:
         self.df_MCIc, self.df_MCIa = wPCMCI.get_df_MCI(self.pcmci_dict, 
                                                  self.pcmci_results_dict, 
                                                  lags, self.TV.name)
-        # get xarray dataset for each variable
+        # # get xarray dataset for each variable
         self.dict_ds = plot_maps.causal_reg_to_xarray(self.df_links,
                                                       self.list_for_MI)
     
@@ -534,7 +541,7 @@ class RGCPD:
         else:
             varstr = ''
         if hasattr(self, 'df_data_ext'):
-            varstr = '_'.join([n[0] for n in self.import_prec_ts]) + varstr
+            varstr = '_'.join([n[0] for n in self.list_import_ts]) + varstr
         filename = os.path.join(self.path_outsub1, f'df_data_{varstr}_'
                                 f'dt{self.precur_aggr}_{self.hash}.h5')
         functions_pp.store_hdf_df({'df_data':self.df_data}, filename)
@@ -726,20 +733,23 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
     
     
     if precursor_ts is not None:
-        print('Retrieve same train test split as imported ts')
-        method = 'from_import' ; seed = ''
         path_data = ''.join(precursor_ts[0][1])
-        df_splits = functions_pp.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
-        test_yrs_imp  = functions_pp.get_testyrs(df_splits)
-        df_splits = functions_pp.rand_traintest_years(TV, test_yrs=test_yrs_imp,
-                                                        method=method,
-                                                        seed=seed, 
-                                                        kwrgs_events=kwrgs_events, 
-                                                        verb=verbosity)
-
-        test_yrs_set  = functions_pp.get_testyrs(df_splits)
-        assert (np.equal(test_yrs_imp, test_yrs_set)).all(), "Train test split not equal"
-    else:
+        df_ext = functions_pp.load_hdf5(path_data)['df_data'].loc[:,:]
+        if 'TrainIsTrue' in df_ext.columns:
+            print('Retrieve same train test split as imported ts')
+            method = 'from_import' ; seed = ''
+            
+            df_splits = functions_pp.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
+            test_yrs_imp  = functions_pp.get_testyrs(df_splits)
+            df_splits = functions_pp.rand_traintest_years(TV, test_yrs=test_yrs_imp,
+                                                            method=method,
+                                                            seed=seed, 
+                                                            kwrgs_events=kwrgs_events, 
+                                                            verb=verbosity)
+    
+            test_yrs_set  = functions_pp.get_testyrs(df_splits)
+            assert (np.equal(test_yrs_imp, test_yrs_set)).all(), "Train test split not equal"
+    if method != 'from_import':
         df_splits = functions_pp.rand_traintest_years(TV, method=method,
                                                         seed=seed, 
                                                         kwrgs_events=kwrgs_events, 
