@@ -4,7 +4,7 @@
 Created on Tue Oct  1 15:13:58 2019
 @author: semvijverberg
 """
-
+import inspect, os, sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -14,12 +14,18 @@ import find_precursors
 from class_RV import RV_class
 from class_EOF import EOF
 from class_BivariateMI import BivariateMI
+curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+main_dir = '/'.join(curr_dir.split('/')[:-1])
+fc_dir = os.path.join(main_dir, 'forecasting/')
+
+if fc_dir not in sys.path:
+    sys.path.append(fc_dir)
 from class_fc import apply_shift_lag
 
 from typing import List, Tuple, Union
-import inspect, os, sys
 
-curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+
+
 
 try:
     import wrapper_PCMCI as wPCMCI
