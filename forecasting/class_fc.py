@@ -20,7 +20,7 @@ import datetime
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
 max_cpu = multiprocessing.cpu_count()
-print(f'{max_cpu} cpu\'s detected')
+# print(f'{max_cpu} cpu\'s detected')
 from itertools import chain
 flatten = lambda l: list(chain.from_iterable(l))
 from typing import List, Tuple, Union

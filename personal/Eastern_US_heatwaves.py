@@ -32,7 +32,7 @@ from RGCPD import EOF
 
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc15_dendo_51ed6.nc'
-cluster_label = 1
+cluster_label = 2
 name_ds='q75tail'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
@@ -96,15 +96,15 @@ list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
                              kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                              distance_eps=700, min_area_in_degrees2=7, 
                              calc_ts='pattern cov'),
-                 BivariateMI(name='sst', func=BivariateMI.corr_map, 
-                              kwrgs_func={'alpha':1E-3, 'FDR_control':True}, 
-                              distance_eps=700, min_area_in_degrees2=5),
                  BivariateMI(name='sm12', func=BivariateMI.corr_map, 
                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                                distance_eps=700, min_area_in_degrees2=5),
                  BivariateMI(name='snow', func=BivariateMI.corr_map, 
                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                                distance_eps=700, min_area_in_degrees2=7),
+                 BivariateMI(name='sst', func=BivariateMI.corr_map, 
+                              kwrgs_func={'alpha':1E-3, 'FDR_control':True}, 
+                              distance_eps=700, min_area_in_degrees2=5),                 
                  BivariateMI(name='st2', func=BivariateMI.corr_map, 
                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                                distance_eps=700, min_area_in_degrees2=5)]

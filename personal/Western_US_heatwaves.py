@@ -89,28 +89,29 @@ list_of_name_path = [(cluster_label, TVpath),
 
 list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
                              kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                             distance_eps=700, min_area_in_degrees2=5, 
+                             distance_eps=700, min_area_in_degrees2=7, 
                              calc_ts='pattern cov'),
-                 BivariateMI(name='sst', func=BivariateMI.corr_map, 
-                              kwrgs_func={'alpha':.0001, 'FDR_control':True}, 
-                              distance_eps=800, min_area_in_degrees2=5),
                  BivariateMI(name='sm12', func=BivariateMI.corr_map, 
                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                                distance_eps=700, min_area_in_degrees2=5),
                  BivariateMI(name='snow', func=BivariateMI.corr_map, 
                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                               distance_eps=700, min_area_in_degrees2=5),
+                               distance_eps=700, min_area_in_degrees2=7),
+                 BivariateMI(name='sst', func=BivariateMI.corr_map, 
+                              kwrgs_func={'alpha':1E-3, 'FDR_control':True}, 
+                              distance_eps=700, min_area_in_degrees2=5),                 
                  BivariateMI(name='st2', func=BivariateMI.corr_map, 
                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                                distance_eps=700, min_area_in_degrees2=5)]
 
-list_for_EOFS = [EOF(name='OLRtrop', neofs=2, selbox=[-180, 360, -15, 30])]
+# list_for_EOFS = [EOF(name='OLRtrop', neofs=2, selbox=[-180, 360, -15, 30])]
 
+list_import_ts = [('OMI', '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/OMI.h5')]
 
 
 rg = RGCPD(list_of_name_path=list_of_name_path, 
            list_for_MI=list_for_MI,
-           list_for_EOFS=list_for_EOFS,
+           list_import_ts=list_import_ts,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
            tfreq=tfreq, lags_i=np.array([0]),
@@ -130,16 +131,14 @@ rg.calc_corr_maps()
 rg.cluster_list_MI()
 
 
-rg.get_EOFs()
+rg.get_ts_prec(precur_aggr=None, keys_ext=['PC2'])
 
-
-rg.get_ts_prec(precur_aggr=None)
 
 merge_smst = [k for k in rg.df_data.columns if 'sm' in k or '..st' in k]
 rg.reduce_df_data_ridge(keys=merge_smst, newname='0..0..sm12st2')
 
 merge_sst = [k for k in rg.df_data.columns if 'sst' in k]
-rg.reduce_df_data_ridge(keys=merge_sst, newname='0..0..sst')
+rg.reduce_df_data_ridge(keys=merge_sst, newname='sst')
 
 rg.PCMCI_df_data(pc_alpha=None, 
                  tau_max=3,
