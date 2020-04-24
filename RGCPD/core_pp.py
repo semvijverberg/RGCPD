@@ -253,9 +253,9 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
         data_smooth = ds.values
 
     elif (stepsyr.day== 1).all() == False and int(ds.time.size / 365) < 120:
-        window_s = min(35,int(stepsyr.size / 12))
+        window_s = min(25,int(stepsyr.size / 12))
         print('Performing {} day rolling mean with gaussian window (std={})'
-              ' to get better interannual statistics'.format(window_s, window_s/1.5))
+              ' to get better interannual statistics'.format(window_s, window_s/2))
 
         print('using absolute anomalies w.r.t. climatology of '
               'smoothed concurrent day accross years')

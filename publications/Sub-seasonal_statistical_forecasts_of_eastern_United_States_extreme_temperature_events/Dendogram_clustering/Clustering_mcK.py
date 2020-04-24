@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-2])
+main_dir = '/'.join(curr_dir.split('/')[:-3])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 df_ana_func =  os.path.join(main_dir, 'df_analysis/df_analysis/')
@@ -98,8 +98,8 @@ xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
 
 # xr_temp = xrclustered.sel(longitude=
 #                           np.arange(232., 295., .25)).sel(latitude=np.arange(25, 50, .25)).copy()
-fig = plot_maps.plot_labels(xrclustered, wspace=.05, hspace=-.2, cbar_vert=.08,
-                            row_dim='q', col_dim='n_clusters')
+fig = plot_maps.plot_labels(xrclustered, wspace=.04, hspace=-.35, cbar_vert=.09,
+                            col_dim='q', row_dim='n_clusters')
 f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) 
 path_fig = os.path.join(path_outmain, f_name + '.pdf')
 plt.savefig(path_fig,

@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-2])
+main_dir = '/'.join(curr_dir.split('/')[:-3])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 df_ana_func =  os.path.join(main_dir, 'df_analysis/df_analysis/')
@@ -97,8 +97,8 @@ xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
                                                             'n_clusters':n_clusters,
                                                             'affinity':'jaccard',
                                                             'linkage':'average'})
-fig = plot_maps.plot_labels(xrclustered, wspace=.05, hspace=-.2, cbar_vert=.08,
-                            row_dim='q', col_dim='n_clusters')
+fig = plot_maps.plot_labels(xrclustered, wspace=.04, hspace=-.35, cbar_vert=.09,
+                            col_dim='q', row_dim='n_clusters')
 f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
 path_fig = os.path.join(path_outmain, f_name)
 plt.savefig(path_fig,
@@ -121,7 +121,7 @@ xrclustered, results = cl.correlation_clustering(var_filename, mask=xr_mask,
                                                             'linkage':'average'})
 
 plot_maps.plot_labels(xrclustered,  wspace=.05, hspace=-.2, cbar_vert=.08,
-                            row_dim='tfreq', col_dim='n_clusters')
+                            col_dim='tfreq', row_dim='n_clusters')
 
 f_name = 'clustering_correlation_{}'.format(xrclustered.attrs['hash']) + '.pdf'
 path_fig = os.path.join(path_outmain, f_name)
