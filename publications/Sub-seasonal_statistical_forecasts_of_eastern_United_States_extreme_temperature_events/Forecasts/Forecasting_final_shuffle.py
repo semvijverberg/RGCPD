@@ -63,7 +63,7 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                                  'seed':1}), 
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                     dataset=f'CV shuffle 1',
-                    keys_d=None),
+                    keys_d='CPPA+PEP+sm'),
                fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
                      use_fold=use_fold, start_end_TVdate=None,
                      stat_model= ('logitCV',
@@ -77,7 +77,7 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                                   'seed':2}), 
                      kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                      dataset=f'CV shuffle 2',
-                     keys_d=None),
+                     keys_d='CPPA+PEP+sm'),
                 fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
                       use_fold=use_fold, start_end_TVdate=None,
                       stat_model= ('logitCV',
@@ -91,7 +91,7 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                                    'seed':3}), 
                       kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
                       dataset=f'CV shuffle 3',
-                      keys_d=None)]
+                      keys_d='CPPA+PEP+sm')]
 
 
 
@@ -194,7 +194,7 @@ if __name__ == "__main__":
                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
                             bbox_inches='tight') # dpi auto 600
                 
-            df_importance, fig = fc.plot_feature_importances()
+            df_importance, fig = fc.plot_feature_importances(lag=55)
             f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
             fig.savefig(os.path.join(working_folder, f_name) + f_format, 
                         bbox_inches='tight') # dpi auto 600

@@ -492,6 +492,9 @@ class RGCPD:
                       link_matrix=links_plot, 
                       fig_ax=(fig, ax),
                       **kwrgs)
+        f_name = f'CEN_{variable}_s{s}'
+        fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
+        plt.savefig(fig_path, bbox_inches='tight')
         plt.show()
 
     def PCMCI_get_ParCorr_from_txt(self, variable=None, pc_alpha='auto'):

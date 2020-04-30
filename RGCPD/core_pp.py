@@ -233,7 +233,7 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
         no_nans = np.nan_to_num(arr_oneday_smooth)
         detrended_sm = signal.detrend(no_nans, axis=0, type='linear')
         nan_true = np.isnan(arr_oneday)
-        detrended_sm[nan_true] = np.nan
+        detrended_sm[nan_true.values] = np.nan
         # subtract trend smoothened signal of arr_oneday values
         trend = (arr_oneday_smooth - detrended_sm)- np.mean(arr_oneday_smooth, 0)
         detrended = arr_oneday - trend

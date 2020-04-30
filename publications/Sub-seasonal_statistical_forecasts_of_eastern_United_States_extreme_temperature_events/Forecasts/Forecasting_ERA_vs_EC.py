@@ -30,12 +30,6 @@ if sys.platform == 'linux':
 from class_fc import fcev
 
 
-
-
-
-
-
-
 # Define statmodel:
 logit = ('logit', None)
 
@@ -187,29 +181,17 @@ if __name__ == "__main__":
             fig.savefig(os.path.join(working_folder, f_name) + f_format, 
                         bbox_inches='tight') # dpi auto 600
 
+#%%
+            
+ERA_data = data_dir + '/CPPA_ERA5_21-03-20_12hr_lag_0_ff393.h5'
 
+kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break': 1}
+fc = fcev(path_data=ERA_data, 
+                    use_fold=use_fold, start_end_TVdate=None,
+                    stat_model=logitCV, 
+                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
+                    dataset=f'ERA-5',
+                    keys_d='PEP')
+fc.get_TV(kwrgs_events=kwrgs_events, detrend=False)
 
-#rename_ERA =    {'ERA-5: sst(PEP)+sm':'PEP+sm', 
-#             'ERA-5: sst(PDO,ENSO)+sm':'PDO+ENSO+sm', 
-#             'ERA-5: sst(CPPA)+sm':'CPPA+sm'}
-#
-#for old, new in rename_ERA.items():
-#    if new not in dict_experiments.keys():
-#        dict_experiments[new] = dict_experiments.pop(old)
-
-#rename_EC = {'ERA-5 PEP':'PEP', 
-#             'ERA-5 CPPA':'CPPA', 
-#             'EC-earth 2.3 PEP':'PEP ', 
-#             'EC-earth 2.3 CPPA':'CPPA '}
-#
-#for old, new in rename_EC.items():
-#    if new not in dict_experiments.keys():
-#        dict_experiments[new] = dict_experiments.pop(old)
-
-#rename_CPPA_comp =    {'ERA-5: CPPAregs+sm' : 'precursor regions + sm', 
-#                       'ERA-5: CPPApattern+sm': 'precursor pattern + sm', 
-#                       'ERA-5: sst(CPPA)+sm' : 'CPPA (all) + sm'}
-#
-#for old, new in rename_CPPA_comp.items():
-#    if new not in dict_experiments.keys():
-#        dict_experiments[new] = dict_experiments.pop(old)
+fc.TV.RV_ts[fc.TV.RV_bin.astype(bool).values].mean()

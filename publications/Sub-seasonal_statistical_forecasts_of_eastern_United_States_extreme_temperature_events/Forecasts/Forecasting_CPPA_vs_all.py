@@ -139,15 +139,15 @@ pathfig_valid = os.path.join(filename + f_format)
 fig.savefig(pathfig_valid,
             bbox_inches='tight') # dpi auto 600
 
-df, fig = fc.plot_feature_importances(lag=50)
-path_feat = filename + f'ifc{1}_logitregul_l{50}' + f_format
+df, fig = fc.plot_feature_importances(lag=55)
+path_feat = filename + f'ifc{1}_logitregul_l{55}' + f_format
 fig.savefig(path_feat, bbox_inches='tight')
 
 #%%
 
 im = 0
 il = 1
-ifc = 0
+ifc = 1
 f_format = '.pdf'
 if os.path.isdir(fc.filename) == False : os.makedirs(fc.filename)
 import valid_plots as dfplots
@@ -187,6 +187,12 @@ if __name__ == "__main__":
             f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
             fig.savefig(os.path.join(working_folder, f_name) + f_format, 
                         bbox_inches='tight') # dpi auto 600
+
+    df_importance, fig = fc.plot_feature_importances(lag=55)
+    l = 10
+    f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
+    fig.savefig(os.path.join(working_folder, f_name) + f_format, 
+                bbox_inches='tight') # dpi auto 600
 
 
 

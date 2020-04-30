@@ -180,6 +180,10 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
             elif option == 'CPPA+PEP+sm':
                 keys_ = [k for k in all_keys if 'PDO' not in k]
                 keys_ = [k for k in keys_ if 'ENSO' not in k]
+            elif option == 'CPPApr+PEP+sm':
+                keys_ = [k for k in all_keys if 'PDO' not in k]
+                keys_ = [k for k in keys_ if 'ENSO' not in k]
+                keys_ = [k for k in keys_ if 'CPPAsv' not in k]
             elif option == 'CPPA+sm+OLR':
                 keys_ = [k for k in all_keys if 'PDO' not in k]
                 keys_ = [k for k in keys_ if 'ENSO' not in k]
