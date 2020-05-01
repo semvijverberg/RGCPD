@@ -302,9 +302,9 @@ def retrieval_moda(var_cf_code, stream, grid, area, lvllist,
 def kornshell_with_input(args, cls):
     '''some kornshell with input '''
     import subprocess
-    cwd = os.getcwd()
+    # cwd = os.getcwd()
     # Writing the bash script:
-    new_bash_script = os.path.join(cwd,'bash_scripts', "bash_script.sh")
+    new_bash_script = './bash_scripts/bash_script.sh'
     
     bash_and_args = [new_bash_script]
     [bash_and_args.append(arg) for arg in args]

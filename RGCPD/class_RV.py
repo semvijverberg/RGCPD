@@ -105,15 +105,15 @@ class RV_class:
                 dates_RVe = self.aggr_to_daily_dates(self.dates_RV)
                 dates_alle  = self.aggr_to_daily_dates(self.dates_all)
     
-                df_RV_ts_e = fullts.loc[dates_RVe]
+                self.df_RV_ts_e = fullts.loc[dates_RVe]
                 df_fullts_e = fullts.loc[dates_alle]
     
     
-                out = handle_fit_model_dates(dates_RVe, dates_alle, df_RV_ts_e, fit_model_dates)
+                out = handle_fit_model_dates(dates_RVe, dates_alle, self.df_RV_ts_e, fit_model_dates)
                 self.fit_model_mask, self.fit_dates, self.RV_ts_fit_e = out
     
                 # RV_ts and RV_ts_fit are equal if fit_model_dates = None
-                self.threshold = Ev_threshold(df_RV_ts_e,
+                self.threshold = Ev_threshold(self.df_RV_ts_e,
                                                   kwrgs_events['event_percentile'])
                 self.threshold_ts_fit = Ev_threshold(self.RV_ts_fit_e,
                                                   kwrgs_events['event_percentile'])
@@ -126,24 +126,25 @@ class RV_class:
                 if only_RV_events == True:
                     # RV_bin_fit is defined such taht we can fit on RV_bin_fit
                     # but validate on RV_bin
-                    self.RV_bin_fit = Ev_timeseries(df_RV_ts_e,
+                    self.RV_bin_fit_e = Ev_timeseries(self.df_RV_ts_e,
                                    threshold=self.threshold_ts_fit, **kwrgs)[0]
-                    self.RV_bin = self.RV_bin_fit.loc[dates_RVe]
+                    self.RV_bin_e = self.RV_bin_fit_e.loc[dates_RVe]
                 elif only_RV_events == False:
-                    self.RV_b_full = Ev_timeseries(df_fullts_e,
-                                   threshold=self.threshold, **kwrgs)[0]
-                    self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
-    
-                # convert daily binary to window probability binary
+                    print('check code, not supported yet')
+                
+
+                # convert daily binary to window binary
                 if self.tfreq != 1:
-                    self.RV_bin, dates_gr = functions_pp.time_mean_bins(self.RV_bin.astype('float'),
+                    self.RV_bin, dates_gr = functions_pp.time_mean_bins(self.RV_bin_e.astype('float'),
                                                                     self.tfreq,
                                                                     None,
                                                                     None)
-                    self.RV_bin_fit, dates_gr = functions_pp.time_mean_bins(self.RV_bin_fit.astype('float'),
+                    self.RV_bin_fit, dates_gr = functions_pp.time_mean_bins(self.RV_bin_fit_e.astype('float'),
                                                                             self.tfreq,
                                                                             None,
                                                                             None)
+                else:
+                    print('tfreq must be larger than 1 to calculate the window binary')
     
                 # all bins, with mean > 0 contained an 'extreme' event
                 self.RV_bin_fit[self.RV_bin_fit>0] = 1

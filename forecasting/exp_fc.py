@@ -99,10 +99,10 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
     #%%
     '''
     keys_options=['all', 'only_db_regs', 'sp_and_regs', 'sst+sm+RWT',
-                  'sst(CPPA)+sm', 'sst(PEP)+sm', 'sst(PDO,ENSO)+sm',
+                  'CPPA+sm', 'sst(PEP)+sm', 'sst(PDO,ENSO)+sm',
                   'CPPA', 'PEP', 'sst combined', 'sst combined + sm', 
                   'sst(CPPA) expert knowledge', 'sst(CPPA Pattern)'
-                  'CPPA Pattern', 'PDO+ENSO', 'persistence']
+                  'CPPA Pattern', 'PDO+ENSO', 'persistence', 'CPPA+PEP+sm']
                   
     '''
     
@@ -171,13 +171,20 @@ def normal_precursor_regions(path_data, keys_options=['all'], causal=False):
                 keys_.append([k for k in all_keys if '..z500' in k])
                 keys_ = flatten(keys_)
 
-            elif option == 'sst(CPPA)+sm':
+            elif option == 'CPPA+sm':
                 keys_ = [k for k in all_keys if 'PDO' not in k]
                 keys_ = [k for k in keys_ if 'ENSO' not in k]
                 keys_ = [k for k in keys_ if 'PEP' not in k]  
                 keys_ = [k for k in keys_ if 'OLR' not in k]  
                 keys_ = [k for k in keys_ if k not in skip]
-            elif option == 'sst(CPPA)+sm+OLR':
+            elif option == 'CPPA+PEP+sm':
+                keys_ = [k for k in all_keys if 'PDO' not in k]
+                keys_ = [k for k in keys_ if 'ENSO' not in k]
+            elif option == 'CPPApr+PEP+sm':
+                keys_ = [k for k in all_keys if 'PDO' not in k]
+                keys_ = [k for k in keys_ if 'ENSO' not in k]
+                keys_ = [k for k in keys_ if 'CPPAsv' not in k]
+            elif option == 'CPPA+sm+OLR':
                 keys_ = [k for k in all_keys if 'PDO' not in k]
                 keys_ = [k for k in keys_ if 'ENSO' not in k]
                 keys_ = [k for k in keys_ if 'PEP' not in k]  

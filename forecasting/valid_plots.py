@@ -756,6 +756,7 @@ def plot_oneyr_events(df, event_percentile, test_year):
         ax.set_title('Timeseries and Events', fontsize=18)
         ax.set_ylabel('Temperature anomalies [K]', fontsize=15)
         ax.set_xlabel('')
+        ax.tick_params(labelsize=15)
     #%%
     return
 

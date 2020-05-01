@@ -4,7 +4,7 @@
 Created on Tue Oct  1 15:13:58 2019
 @author: semvijverberg
 """
-
+import inspect, os, sys
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -14,11 +14,18 @@ import find_precursors
 from class_RV import RV_class
 from class_EOF import EOF
 from class_BivariateMI import BivariateMI
+curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+main_dir = '/'.join(curr_dir.split('/')[:-1])
+fc_dir = os.path.join(main_dir, 'forecasting/')
+
+if fc_dir not in sys.path:
+    sys.path.append(fc_dir)
+from class_fc import apply_shift_lag
 
 from typing import List, Tuple, Union
-import inspect, os, sys
 
-curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+
+
 
 try:
     import wrapper_PCMCI as wPCMCI
@@ -344,7 +351,7 @@ class RGCPD:
             print(f'Retrieving {e_class.neofs} EOF(s) for {e_class.name}')
             e_class.plot_eofs(mean=mean, kwrgs=kwrgs)
             
-    def get_ts_prec(self, precur_aggr=None):
+    def get_ts_prec(self, precur_aggr=None, keys_ext=None):
         if precur_aggr is None:
             self.precur_aggr = self.tfreq
         else:
@@ -382,7 +389,7 @@ class RGCPD:
                                                   df_splits,
                                                   self.start_end_date,
                                                   self.start_end_year,
-                                                  cols=None,
+                                                  cols=keys_ext,
                                                   precur_aggr=self.precur_aggr)
             if hasattr(self, 'df_data'):
                 self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
@@ -485,6 +492,9 @@ class RGCPD:
                       link_matrix=links_plot, 
                       fig_ax=(fig, ax),
                       **kwrgs)
+        f_name = f'CEN_{variable}_s{s}'
+        fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
+        plt.savefig(fig_path, bbox_inches='tight')
         plt.show()
 
     def PCMCI_get_ParCorr_from_txt(self, variable=None, pc_alpha='auto'):
@@ -651,6 +661,8 @@ class RGCPD:
         return traintest_yrs
 
     def reduce_df_data_ridge(self, keys: Union[list, np.ndarray], 
+                             target: str=None,
+                             tau_max: int=1,
                              newname:str = None, transformer=None, 
                              kwrgs_model: dict={'scoring':'neg_mean_squared_error'}):
         '''
@@ -665,6 +677,13 @@ class RGCPD:
         ----------
         keys : Union[list, np.ndarray]
             list of nparray of predictors that you want to merge into one.
+        target : str, optional
+            target timeseries to predict. The default target is the RV.
+        tau_max : int, optional
+            prediction is repeated at lags 0 to tau_max. It might be that the 
+            signal stronger at a certain lag. Relationship is established for 
+            all lags in range(tau_min, tau_max+1) and the strongest is 
+            relationship is kept.
         newname : str, optional
             new column name of the predicted timeseries. The default is None.
         kwrgs_model : dict, optional
@@ -680,22 +699,30 @@ class RGCPD:
             keys = self.df_data.columns[self.df_data.dtypes != bool]
         splits = self.df_splits.index.levels[0]
         data_new_s   = np.zeros( (splits.size) , dtype=object)
-        y_ts = {'ts':self.TV.RV_ts}
+        if target is None:
+            target_ts = self.TV.RV_ts
         for s in splits:
+            fit_masks = self.df_splits.loc[s][['RV_mask', 'TrainIsTrue']]
+            fm = apply_shift_lag(fit_masks, 1)
+            xfit_m, yfit_m, xpred_m, ypred_m = func_models.get_masks(fm)
             RV_mask = self.df_splits.loc[s]['RV_mask']
             TrainIsTrue = self.df_splits.loc[s]['TrainIsTrue'][RV_mask.values]
-            df_s = self.df_data.loc[s][RV_mask.values].dropna(axis=1)
+            df_s = self.df_data.loc[s][xfit_m.values].dropna(axis=1)
             
             ks = [k for k in keys if k in df_s.columns] # keys split
             
             if transformer is None:
                 transformer = func_models.standardize_on_train
+            if target is not None:
+                target_ts = self.df_data.loc[0][target][RV_mask]
+            y_train = target_ts[yfit_m]
             df_s[ks] = df_s[ks].apply(transformer, 
                                       args=[TrainIsTrue], 
                                       result_type='broadcast')
             
-            prediction, model = sm.ridgeCV(y_ts, df_s, ks, kwrgs_model)
-            model.score_ = model.score(df_s[ks], y_ts['ts'])
+            prediction, model = sm.ridgeCV({'ts':y_train}, 
+                                           df_s, ks, kwrgs_model)
+            model.score_ = model.score(df_s[ks], target_ts['ts'])
             # extend prediction, 
             X_fullyear = self.df_data.loc[s][ks]
             ext_pred = pd.Series(model.predict(X_fullyear),
