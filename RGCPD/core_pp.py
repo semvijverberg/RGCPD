@@ -50,27 +50,28 @@ def import_ds_lazy(filename, loadleap=False,
     elif len(var) > 1:
         # load whole dataset
         ds = ds
-
-    if 'latitude' and 'longitude' not in ds.dims:
-        ds = ds.rename({'lat':'latitude',
-                  'lon':'longitude'})
-
-    if format_lon is not None:
-        if test_periodic(ds)==False and 0 not in ds.longitude:
-            format_lon = 'only_east'
-        if _check_format(ds) != format_lon:
-            ds = convert_longitude(ds, format_lon)
     
-    # ensure longitude in increasing order
-    if np.where(ds.longitude == ds.longitude.min()) > np.where(ds.longitude == ds.longitude.max()):
-        ds = ds.sortby('longitude')
-    
-    # ensure latitude is in increasing order
-    if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
-        ds = ds.sortby('latitude')
+    if len(ds.shape) > 1: # more then 1-d
+        if 'latitude' and 'longitude' not in ds.dims:
+            ds = ds.rename({'lat':'latitude',
+                            'lon':'longitude'})
+
+        if format_lon is not None:
+            if test_periodic(ds)==False and 0 not in ds.longitude:
+                format_lon = 'only_east'
+            if _check_format(ds) != format_lon:
+                ds = convert_longitude(ds, format_lon)
         
-    if selbox is not None:
-        ds = get_selbox(ds, selbox)
+        # ensure longitude in increasing order
+        if np.where(ds.longitude == ds.longitude.min()) > np.where(ds.longitude == ds.longitude.max()):
+            ds = ds.sortby('longitude')
+        
+        # ensure latitude is in increasing order
+        if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
+            ds = ds.sortby('latitude')
+            
+        if selbox is not None:
+            ds = get_selbox(ds, selbox)
 
 
     

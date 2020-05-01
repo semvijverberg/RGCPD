@@ -26,14 +26,15 @@ from RGCPD import BivariateMI
 # In[5]:
 
 CPPA_s30  = [('sst_CPPAs30', user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_0_ff393.h5')]
+RV = user_dir + '/surfdrive/output_RGCPD/easternUS/tf1_n_clusters4_q90_dendo_ff393.nc'
+RV = user_dir + '/surfdrive/output_RGCPD/1d_ts.nc'
 
-
-list_of_name_path = [(1 ,user_dir + '/surfdrive/output_RGCPD/easternUS/tf1_n_clusters4_q90_dendo_ff393.nc'),
+list_of_name_path = [(1 , RV),
                      ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),
                      ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),
                       ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc')]
 
-import_prec_ts = CPPA_s30
+list_import_ts = CPPA_s30
 
 
 list_for_MI   = [BivariateMI(name='sm2', func=BivariateMI.corr_map,
@@ -54,7 +55,7 @@ start_end_date = ('1-1', '12-31')
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
-           import_prec_ts=import_prec_ts,
+           list_import_ts=list_import_ts,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
            tfreq=15, lags_i=np.array([0]),

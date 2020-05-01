@@ -172,7 +172,10 @@ def load_TV(list_of_name_path, loadleap=False, name_ds='ts'):
         fulltso = load_npy(filename, name=name)
     elif filename.split('.')[-1] == 'nc':
         ds = core_pp.import_ds_lazy(filename)
-        fulltso = ds[name_ds].sel(cluster=name)
+        if len(ds.shape) > 1:
+            fulltso = ds[name_ds].sel(cluster=name)
+        else:
+            fulltso = ds.squeeze()
     hashh = filename.split('_')[-1].split('.')[0]
     fulltso.name = str(list_of_name_path[0][0])
     if loadleap == False:

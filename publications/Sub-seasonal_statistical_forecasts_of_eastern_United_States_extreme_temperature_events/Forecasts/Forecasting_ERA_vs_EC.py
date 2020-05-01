@@ -181,17 +181,82 @@ if __name__ == "__main__":
             fig.savefig(os.path.join(working_folder, f_name) + f_format, 
                         bbox_inches='tight') # dpi auto 600
 
-#%%
+#%% Get absolute anomalies of HW events
             
-ERA_data = data_dir + '/CPPA_ERA5_21-03-20_12hr_lag_0_ff393.h5'
+# ERA_data = data_dir + '/CPPA_ERA5_21-03-20_12hr_lag_0_ff393.h5'
+# tfreq = 1
+# start_end_TVdate = ('06-05','09-02')
+# kwrgs_events = {'event_percentile': 'std', 'window':'mean', 'min_dur':3, 'max_break': 1}
+# fc = fcev(path_data=ERA_data, 
+#                     use_fold=use_fold, start_end_TVdate=start_end_TVdate,
+#                     stat_model=logitCV, precur_aggr=tfreq,
+#                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
+#                     dataset=f'ERA-5',
+#                     keys_d='PEP')
+# fc.get_TV(kwrgs_events=kwrgs_events, detrend=False)
 
-kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break': 1}
-fc = fcev(path_data=ERA_data, 
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
-                    dataset=f'ERA-5',
-                    keys_d='PEP')
-fc.get_TV(kwrgs_events=kwrgs_events, detrend=False)
+# HW = fc.TV.RV_ts[fc.TV.RV_bin.astype(bool).values]
+# HW.mean()
+# print(fc.TV.threshold)
+# HW.min()
+            
+# #%% load raw data and calculate T90m
 
-fc.TV.RV_ts[fc.TV.RV_bin.astype(bool).values].mean()
+# #%% get clustered from Teleconnections (rg.plot_df_clust())
+
+# xr_maskEUS = rg.ds['xrclustered'] == 1
+# import clustering_spatial as cl
+# selbox = (232, 295, 25, 50)
+
+# Tmean = cl.spatial_mean_clusters(rawmx2t,
+#                           xr_maskEUS,
+#                           selbox=selbox)['ts']
+# Tmean = Tmean.sel(cluster=1)['ts']
+#%%            
+import core_pp, plot_maps
+import matplotlib.pyplot as plt
+rawmx2t = '/Users/semvijverberg/surfdrive/ERA5/input_raw/mx2t_US_1979-2018_1_12_daily_0.25deg.nc'
+selbox = (232, 295, 25, 50)
+HW2d = core_pp.import_ds_lazy(rawmx2t, selbox=selbox, seldates=HW.index)
+xr_mask = core_pp.import_ds_lazy('/Users/semvijverberg/surfdrive/Scripts/rasterio/mask_North_America_0.25deg_orig.nc', 
+                                  var='lsm', selbox=selbox)
+#%%
+
+HW_composite = (HW2d - 273.15).mean(dim='time')
+
+# xr_mask.values = make_country_mask.binary_erosion(xr_mask.values)
+
+plot_maps.plot_corr_maps(HW_composite.where(xr_mask), 
+                         clevels=np.arange(17, 36, 2), 
+                         cmap=plt.cm.hot_r,
+                         aspect=2.5,
+                         zoomregion=(232, 295, 25, 50),
+                         cbar_vert=-.05,
+                         size=4,
+                         units='Temperature [degree Celsius]',
+                         subtitles=np.array([['Composite mean of heatwaves']]))
+#%%
+
+import core_pp, plot_maps
+import matplotlib.pyplot as plt
+rawmx2t = '/Users/semvijverberg/surfdrive/ERA5/input_raw/preprocessed/mx2t_US_1979-2018_1jan_31dec_daily_0.25deg.nc'
+selbox = (232, 295, 25, 50)
+HW2d_ano = core_pp.import_ds_lazy(rawmx2t, selbox=selbox, seldates=HW.index)
+xr_mask = core_pp.import_ds_lazy('/Users/semvijverberg/surfdrive/Scripts/rasterio/mask_North_America_0.25deg_orig.nc', 
+                                  var='lsm', selbox=selbox)
+#%%
+
+HW_ano_composite = (HW2d_ano).median(dim='time')
+
+# xr_mask.values = make_country_mask.binary_erosion(xr_mask.values)
+
+plot_maps.plot_corr_maps(HW_ano_composite.where(xr_mask), 
+                          clevels=np.arange(-5, 6, 1), 
+                         cmap=plt.cm.hot_r,
+                         aspect=2.5,
+                         zoomregion=(232, 295, 25, 50),
+                         cbar_vert=-.05,
+                         size=4,
+                         units='Temperature anomalies [degree Celsius]',
+                         subtitles=np.array([['Median of heatwave events']]))
+
