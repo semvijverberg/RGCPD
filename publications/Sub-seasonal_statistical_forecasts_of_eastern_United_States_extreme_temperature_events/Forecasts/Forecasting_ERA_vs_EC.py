@@ -36,7 +36,7 @@ logit = ('logit', None)
 logitCV = ('logitCV',
           {'Cs':np.logspace(-4,1,10),
           'class_weight':{ 0:1, 1:1},
-           'scoring':'brier_score_loss',
+           'scoring':'neg_brier_score',
            'penalty':'l2',
            'solver':'lbfgs',
            'max_iter':100,
@@ -52,7 +52,7 @@ ERA_data = data_dir + '/CPPA_ERA5_21-03-20_12hr_lag_0_ff393.h5'
 kwrgs_events = {'event_percentile': 'std'}
 
 kwrgs_events = kwrgs_events
-precur_aggr = 1
+precur_aggr = 15
 use_fold = None
 n_boot = 1000
 lags_i = np.array([0, 10, 15, 20 , 25, 30])
@@ -183,19 +183,19 @@ if __name__ == "__main__":
 
 #%% Get absolute anomalies of HW events
             
-# ERA_data = data_dir + '/CPPA_ERA5_21-03-20_12hr_lag_0_ff393.h5'
-# tfreq = 1
-# start_end_TVdate = ('06-05','09-02')
-# kwrgs_events = {'event_percentile': 'std', 'window':'mean', 'min_dur':3, 'max_break': 1}
-# fc = fcev(path_data=ERA_data, 
-#                     use_fold=use_fold, start_end_TVdate=start_end_TVdate,
-#                     stat_model=logitCV, precur_aggr=tfreq,
-#                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
-#                     dataset=f'ERA-5',
-#                     keys_d='PEP')
-# fc.get_TV(kwrgs_events=kwrgs_events, detrend=False)
+ERA_data = data_dir + '/CPPA_ERA5_21-03-20_12hr_lag_0_ff393.h5'
+tfreq = 1
+start_end_TVdate = ('06-05','09-02')
+kwrgs_events = {'event_percentile': 'std', 'window':'mean', 'min_dur':3, 'max_break': 1}
+fc = fcev(path_data=ERA_data, 
+                    use_fold=use_fold, start_end_TVdate=start_end_TVdate,
+                    stat_model=None, precur_aggr=tfreq,
+                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
+                    dataset=f'ERA-5',
+                    keys_d='PEP')
+fc.get_TV(kwrgs_events=kwrgs_events, detrend=False)
 
-# HW = fc.TV.RV_ts[fc.TV.RV_bin.astype(bool).values]
+HW = fc.TV.RV_ts[fc.TV.RV_bin.astype(bool).values]
 # HW.mean()
 # print(fc.TV.threshold)
 # HW.min()

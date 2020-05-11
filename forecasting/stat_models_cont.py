@@ -51,6 +51,7 @@ def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
     x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = utils.get_masks(df_norm)
 
     X = df_norm[keys]
+    X = X.dropna(axis='columns') # drop only nan columns
     # X = add_constant(X)
     X_train = X[x_fit_mask.values]
     X_pred  = X[x_pred_mask.values]

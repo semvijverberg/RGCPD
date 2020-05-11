@@ -328,10 +328,12 @@ class RGCPD:
             if precur.name in var:
                 precur.filepath = [l for l in self.list_precur_pp if l[0]==precur.name][0][1]
                 precur.lags = self.lags
+                if hasattr(precur, 'selbox'):
+                    kwrgs_load['selbox'] = precur.selbox
                 find_precursors.calculate_region_maps(precur, 
                                                       self.TV, 
                                                       self.df_splits,
-                                                      self.kwrgs_load)
+                                                      kwrgs_load)
                                                   
             # self.list_for_MI.append(precur)
     
@@ -413,15 +415,22 @@ class RGCPD:
         self.df_data = self.df_data.merge(df_splits, left_index=True, right_index=True)
 
 
-    def PCMCI_init(self):
-        self.pcmci_dict = wPCMCI.init_pcmci(self.df_data)
+    def PCMCI_init(self, keys: list=None):
+        if keys is None:
+            keys = self.df_data.columns
+        else:
+            keys.append('TrainIsTrue') ; keys.append('RV_mask')
+        self.pcmci_dict = wPCMCI.init_pcmci(self.df_data[keys])
 
-    def PCMCI_df_data(self, path_txtoutput=None, tau_min=0, tau_max=1,
-                    pc_alpha=None, max_conds_dim=None,
-                    max_combinations=2, max_conds_py=None, max_conds_px=None,
-                    verbosity=4):      
+    def PCMCI_df_data(self, keys: list=None, path_txtoutput=None, 
+                      tau_min=0, tau_max=1, pc_alpha=None,
+                      max_conds_dim=None, max_combinations=2,
+                      max_conds_py=None, max_conds_px=None,
+                      verbosity=4):     
+        
         if max_conds_dim is None:
             max_conds_dim = self.df_data.columns.size - 2 # -2 for bool masks
+        
         self.kwrgs_pcmci = dict(tau_min=tau_min,
                            tau_max=tau_max,
                            pc_alpha=pc_alpha,
@@ -442,18 +451,21 @@ class RGCPD:
         if os.path.isdir(self.path_outsub2) == False : os.makedirs(self.path_outsub2)
         
         
-        
-        self.pcmci_dict = wPCMCI.init_pcmci(self.df_data)
+        if keys is None:
+            keys = self.df_data.columns[self.df_data.dtypes != bool]
+        self.pcmci_dict = wPCMCI.init_pcmci(self.df_data[keys])
         
         out = wPCMCI.loop_train_test(self.pcmci_dict, self.path_outsub2,
                                                           **self.kwrgs_pcmci)
         self.pcmci_results_dict = out
     
-    def PCMCI_get_links(self, alpha_level: float=None):
+    def PCMCI_get_links(self, var: str=None, alpha_level: float=None):
         
         
         if hasattr(self, 'pcmci_results_dict')==False:
             print('first perform PCMCI_df_data to get pcmci_results_dict')
+        if var is None:
+            var = self.TV.name
         
         self.parents_dict = wPCMCI.get_links_pcmci(self.pcmci_dict, 
                                                    self.pcmci_results_dict,
@@ -462,13 +474,13 @@ class RGCPD:
         lags = np.arange(self.kwrgs_pcmci['tau_min'], self.kwrgs_pcmci['tau_max']+1)
         self.df_MCIc, self.df_MCIa = wPCMCI.get_df_MCI(self.pcmci_dict, 
                                                  self.pcmci_results_dict, 
-                                                 lags, self.TV.name)
+                                                 lags, var=var)
         # # get xarray dataset for each variable
         self.dict_ds = plot_maps.causal_reg_to_xarray(self.df_links,
                                                       self.list_for_MI)
     
     def PCMCI_plot_graph(self, variable: str=None, s: int=None, kwrgs: dict=None,
-                         figshape: tuple=(10,15), min_link_robustness: int=1):
+                         figshape: tuple=(10,10), min_link_robustness: int=1):
         
         out = wPCMCI.get_traintest_links(self.pcmci_dict, 
                                          self.parents_dict, 
@@ -477,15 +489,16 @@ class RGCPD:
                                          s=s, 
                                          min_link_robustness=min_link_robustness)
         links_plot, val_plot, weights, var_names = out
-        fig = plt.figure(figsize=figshape)
-        ax = fig.add_subplot(111)    
+       
         if kwrgs is None:
             kwrgs = {'link_colorbar_label':'cross-MCI',
                      'node_colorbar_label':'auto-MCI',
                      'curved_radius':.4,
-                     'arrowhead_size':1000,
-                     'arrow_linewidth':30}
-        
+                     'arrowhead_size':4000,
+                     'arrow_linewidth':50,
+                     'label_fontsize':14}
+        fig = plt.figure(figsize=figshape, facecolor='white')
+        ax = fig.add_subplot(111, facecolor='white')    
         tp.plot_graph(val_matrix=val_plot, 
                       var_names=var_names, 
                       link_width=weights,
@@ -531,8 +544,7 @@ class RGCPD:
                                   pd.concat(list_of_series, axis=1), 
                                   left_index=True, right_index=True)
         return self.df_ParCorr_sum
-    # def PCMCI_plot_graph(self, variable='RV', s=0):
-        
+
 
 
     def store_df_PCMCI(self):
@@ -596,27 +608,38 @@ class RGCPD:
             else:
                 print(f'no {precur.name} regions that pass distance_eps and min_area_in_degrees2 citeria')
         
-    def plot_maps_corr(self, precursors=None, mask_xr=None, map_proj=None,
+    def plot_maps_corr(self, var=None, mean=True, mask_xr=None, map_proj=None,
                        row_dim='split', col_dim='lag', clim='relaxed', 
                        hspace=-0.6, wspace=.02, size=2.5, cbar_vert=-0.01, units='units',
                        cmap=None, clevels=None, cticks_center=None, drawbox=None,
                        title=None, subtitles=None, zoomregion=None, lat_labels=True,
                        aspect=None, save=False):
 
-        
-        if precursors is None:
-            precursors = [p.name for p in self.list_for_MI]
-        for precur_name in precursors:
-            pclass = [p for p in self.list_for_MI if p.name == precur_name][0]
-            plot_maps.plot_corr_maps(pclass.corr_xr,
-                                     mask_xr=pclass.corr_xr['mask'], map_proj=map_proj,
-                                   row_dim=row_dim, col_dim=col_dim, clim=clim, 
-                                   hspace=hspace, wspace=wspace, size=size, cbar_vert=cbar_vert, 
-                                   units=units, cmap=cmap, clevels=clevels, 
-                                   cticks_center=cticks_center, drawbox=drawbox,
-                                   title=None, subtitles=subtitles, 
-                                   zoomregion=zoomregion, 
-                                   lat_labels=lat_labels, aspect=aspect)
+        if type(var) is str:
+            var = [var]
+        if var is None:
+            var = [p.name for p in self.list_for_MI]
+        for precur_name in var:
+            try:
+                pclass = [p for p in self.list_for_MI if p.name == precur_name][0]
+            except IndexError as e:
+                print(e)
+                print('var not in list_for_MI')
+            if mean:
+                xrvals = pclass.corr_xr.mean(dim='split')
+                xrmask = pclass.corr_xr['mask'].mean(dim='split')
+            else:
+                xrvals = pclass.corr_xr
+                xrmask = pclass.corr_xr['mask']
+            plot_maps.plot_corr_maps(xrvals,
+                                     mask_xr=xrmask, map_proj=map_proj,
+                                    row_dim=row_dim, col_dim=col_dim, clim=clim, 
+                                    hspace=hspace, wspace=wspace, size=size, cbar_vert=cbar_vert, 
+                                    units=units, cmap=cmap, clevels=clevels, 
+                                    cticks_center=cticks_center, drawbox=drawbox,
+                                    title=None, subtitles=subtitles, 
+                                    zoomregion=zoomregion, 
+                                    lat_labels=lat_labels, aspect=aspect)
             if save is True:
                 f_name = 'corr_map_{}'.format(precur_name)
                                                  
@@ -662,7 +685,8 @@ class RGCPD:
 
     def reduce_df_data_ridge(self, keys: Union[list, np.ndarray], 
                              target: str=None,
-                             tau_max: int=1,
+                             tau_min: int=1,
+                             tau_max: int=3,
                              newname:str = None, transformer=None, 
                              kwrgs_model: dict={'scoring':'neg_mean_squared_error'}):
         '''
@@ -694,44 +718,66 @@ class RGCPD:
         None.
 
         '''
-        self.df_data_all = self.df_data.copy()
+        # self.df_data_all = self.df_data.copy()
+        lags = range(0, tau_max+1)
         if keys is None:
             keys = self.df_data.columns[self.df_data.dtypes != bool]
         splits = self.df_splits.index.levels[0]
-        data_new_s   = np.zeros( (splits.size) , dtype=object)
+        # data_new_s   = np.zeros( (splits.size) , dtype=object)
+        
         if target is None:
             target_ts = self.TV.RV_ts
-        for s in splits:
+        
+        preds = np.zeros( (splits.size), dtype=object)
+        wghts = np.zeros( (splits.size) , dtype=object)
+        for isp, s in enumerate(splits):
             fit_masks = self.df_splits.loc[s][['RV_mask', 'TrainIsTrue']]
-            fm = apply_shift_lag(fit_masks, 1)
-            xfit_m, yfit_m, xpred_m, ypred_m = func_models.get_masks(fm)
-            RV_mask = self.df_splits.loc[s]['RV_mask']
-            TrainIsTrue = self.df_splits.loc[s]['TrainIsTrue'][RV_mask.values]
-            df_s = self.df_data.loc[s][xfit_m.values].dropna(axis=1)
-            
-            ks = [k for k in keys if k in df_s.columns] # keys split
-            
+            TrainIsTrue = self.df_splits.loc[s]['TrainIsTrue']
             if transformer is None:
                 transformer = func_models.standardize_on_train
-            if target is not None:
-                target_ts = self.df_data.loc[0][target][RV_mask]
-            y_train = target_ts[yfit_m]
-            df_s[ks] = df_s[ks].apply(transformer, 
-                                      args=[TrainIsTrue], 
-                                      result_type='broadcast')
             
-            prediction, model = sm.ridgeCV({'ts':y_train}, 
-                                           df_s, ks, kwrgs_model)
-            model.score_ = model.score(df_s[ks], target_ts['ts'])
-            # extend prediction, 
-            X_fullyear = self.df_data.loc[s][ks]
-            ext_pred = pd.Series(model.predict(X_fullyear),
-                                 index=self.df_data.loc[s].index)
-            # merge prediction into new df_data
-            df_data_s = self.df_data.loc[s].drop(columns=keys).copy()
-            df_data_s[newname] = ext_pred
-            data_new_s[s] = df_data_s
-        self.df_data = pd.concat(list(data_new_s), keys=range(splits.size))
+            df_s = self.df_data.loc[s]
+            ks = [k for k in keys if k in df_s.columns] # keys split
+            df_trans = df_s[ks].apply(transformer, 
+                                   args=[TrainIsTrue], 
+                                   result_type='broadcast')
+                
+            if target is not None:
+                RV_mask = self.df_splits.loc[s]['RV_mask']
+                target_ts = self.df_data.loc[0][target][RV_mask]    
+                
+            for il, lag in enumerate(lags):
+                df_train = df_trans.merge(apply_shift_lag(fit_masks, lag), 
+                                          left_index=True, 
+                                          right_index=True)
+    
+
+                
+                pred, model = sm.ridgeCV({'ts':target_ts}, 
+                                               df_train, ks, kwrgs_model)
+                if il == 0:
+                    prediction = pred.rename(columns={0:lag})
+                    coeff = pd.DataFrame(model.coef_, index=model.X_pred.columns, 
+                                         columns=[lag])
+                else:
+                    prediction = prediction.merge(pred.rename(columns={0:lag}),
+                                     left_index=True,
+                                     right_index=True)
+                    coeff = coeff.merge(pd.DataFrame(model.coef_, 
+                                                     index=model.X_pred.columns, 
+                                                     columns=[lag]),
+                                         left_index=True,
+                                         right_index=True)
+            preds[isp] = prediction
+            wghts[isp] = coeff
+            
+        predict = pd.concat(list(preds), keys=splits)
+        weights = pd.concat(list(wghts), keys=splits)
+        weights_norm = weights.mean(axis=0, level=1)
+        weights_norm.div(weights_norm.max(axis=0)).T.plot()
+        return predict, weights
+
+            
             
 def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=None, 
                      seed=int, verbosity=1): #, method=str, kwrgs_events=None, precursor_ts=None, seed=int, verbosity=1

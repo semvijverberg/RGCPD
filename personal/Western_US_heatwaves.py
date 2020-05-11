@@ -36,73 +36,80 @@ cluster_label = 1
 name_ds='q75tail'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
-tfreq = 15
+tfreq = 5
 #%%
-list_of_name_path = [(cluster_label, TVpath), 
-                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
-                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
+# list_of_name_path = [(cluster_label, TVpath), 
+#                       ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
+#                       ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
 
 
 
-list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
-                              kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                              distance_eps=600, min_area_in_degrees2=7),
-                  BivariateMI(name='v200', func=BivariateMI.corr_map, 
-                                kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                                distance_eps=600, min_area_in_degrees2=5)]
+# list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
+#                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+#                               distance_eps=600, min_area_in_degrees2=7),
+#                   BivariateMI(name='v200', func=BivariateMI.corr_map, 
+#                                 kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+#                                 distance_eps=600, min_area_in_degrees2=5)]
 
 
 
 
 
-rg = RGCPD(list_of_name_path=list_of_name_path, 
-            list_for_MI=list_for_MI,
-            start_end_TVdate=start_end_TVdate,
-            start_end_date=start_end_date,
-            start_end_year=None,
-            tfreq=tfreq, lags_i=np.array([0,1]),
-            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
-            append_pathsub='_' + name_ds)
+# rg = RGCPD(list_of_name_path=list_of_name_path, 
+#             list_for_MI=list_for_MI,
+#             start_end_TVdate=start_end_TVdate,
+#             start_end_date=start_end_date,
+#             start_end_year=None,
+#             tfreq=tfreq, lags_i=np.array([0,1]),
+#             path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
+#             append_pathsub='_' + name_ds,
+#             verbosity=1)
 
 
-rg.pp_TV(name_ds=name_ds)
+# rg.pp_TV(name_ds=name_ds)
 
-rg.pp_precursors(selbox=(130,350,10,90))
+# rg.pp_precursors(selbox=(130,350,10,90))
 
-rg.traintest('no_train_test_split')
+# rg.traintest('no_train_test_split')
 
 
-rg.calc_corr_maps()
-rg.plot_maps_corr(aspect=4.5, cbar_vert=-.1, save=True)
+# rg.calc_corr_maps()
+# rg.plot_maps_corr(aspect=4.5, cbar_vert=-.1, save=True)
 
 
 #%%
 
 list_of_name_path = [(cluster_label, TVpath), 
                      ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
-                     ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
-                     ('sm12', os.path.join(path_raw, 'sm12_1979-2018_1_12_daily_1.0deg.nc')),
-                     ('snow',os.path.join(path_raw, 'snow_1979-2018_1_12_daily_1.0deg.nc')),
-                     ('st2',  os.path.join(path_raw, 'lsm_st2_1979-2018_1_12_daily_1.0deg.nc')),
-                     ('OLRtrop',  os.path.join(path_raw, 'OLRtrop_1979-2018_1_12_daily_2.5deg.nc'))]
+                     ('NorthPac', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
+                     ('NorthAtl', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
+                     ('sm12', os.path.join(path_raw, 'sm12_1979-2018_1_12_daily_1.0deg.nc'))]
+                     # ('snow',os.path.join(path_raw, 'snow_1979-2018_1_12_daily_1.0deg.nc')),
+                     # ('OLRtrop',  os.path.join(path_raw, 'OLRtrop_1979-2018_1_12_daily_2.5deg.nc'))]
+                     # ('st2',  os.path.join(path_raw, 'lsm_st2_1979-2018_1_12_daily_1.0deg.nc'))]
 
 list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
                              kwrgs_func={'alpha':.01, 'FDR_control':True}, 
                              distance_eps=700, min_area_in_degrees2=7, 
                              calc_ts='pattern cov'),
-                 BivariateMI(name='sm12', func=BivariateMI.corr_map, 
-                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                               distance_eps=700, min_area_in_degrees2=5),
-                 BivariateMI(name='snow', func=BivariateMI.corr_map, 
-                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                               distance_eps=700, min_area_in_degrees2=7),
-                 BivariateMI(name='sst', func=BivariateMI.corr_map, 
+                   BivariateMI(name='sm12', func=BivariateMI.corr_map, 
+                                 kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                                 distance_eps=700, min_area_in_degrees2=5),
+                 # BivariateMI(name='snow', func=BivariateMI.corr_map, 
+                 #               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                 #               distance_eps=700, min_area_in_degrees2=7),
+                 BivariateMI(name='NorthPac', func=BivariateMI.corr_map, 
                               kwrgs_func={'alpha':1E-3, 'FDR_control':True}, 
-                              distance_eps=700, min_area_in_degrees2=5),                 
-                 BivariateMI(name='st2', func=BivariateMI.corr_map, 
-                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                               distance_eps=700, min_area_in_degrees2=5)]
+                              distance_eps=700, min_area_in_degrees2=5,
+                              calc_ts='pattern cov'),
+                  BivariateMI(name='NorthAtl', func=BivariateMI.corr_map, 
+                              kwrgs_func={'alpha':1E-3, 'FDR_control':True}, 
+                              distance_eps=700, min_area_in_degrees2=5,
+                              calc_ts='pattern cov')]        
+                 # BivariateMI(name='st2', func=BivariateMI.corr_map, 
+                 #               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                 #               distance_eps=700, min_area_in_degrees2=5)]
 
 # list_for_EOFS = [EOF(name='OLRtrop', neofs=2, selbox=[-180, 360, -15, 30])]
 
@@ -118,10 +125,15 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
            append_pathsub='_' + name_ds)
 
-rg.pp_TV(name_ds=name_ds)
-selbox = [None, {'z500':[130,350,10,90], 'v200':[130,350,10,90]}]
+
+selbox = [None, {'NorthPac':(115, 250, 0, 70), 
+                 'NorthAtl':(360-83, 6, 0, 70),
+                 'v200':[130,350,10,90]}]
+
 anomaly = [True, {'sm12':False, 'OLRtrop':False}]
 rg.pp_precursors(selbox=selbox, anomaly=anomaly)
+
+rg.pp_TV(name_ds=name_ds)
 
 rg.traintest(method='random10')
 
@@ -134,28 +146,47 @@ rg.cluster_list_MI()
 rg.get_ts_prec(precur_aggr=None, keys_ext=['PC2'])
 
 
-merge_smst = [k for k in rg.df_data.columns if 'sm' in k or '..st' in k]
-rg.reduce_df_data_ridge(keys=merge_smst, newname='0..0..sm12st2')
+# keys = ['0..1..st2', '0..2..sm12']
+# rg.reduce_df_data_ridge(keys=keys, newname='SM_ST')
 
-merge_sst = [k for k in rg.df_data.columns if 'sst' in k]
-rg.reduce_df_data_ridge(keys=merge_sst, newname='sst')
+# merge_sst = [k for k in rg.df_data.columns if 'sst' in k]
+# merge_sst = ['0..2..sst',
+#              '0..6..sst']
+# predict, weights = rg.reduce_df_data_ridge(keys=merge_sst, tau_max=5,newname='sst')
 
-rg.PCMCI_df_data(pc_alpha=None, 
+# merge_sst = ['0..1..sst',
+#              '0..5..sst']
+# predict, weights = rg.reduce_df_data_ridge(keys=merge_sst, 
+#                                            tau_min=0,
+#                                            tau_max=7,newname='sst')
+
+# zz = weights.swaplevel()
+# # zz['splits'] = np.repeat(zz.index.levels[1], zz.index.levels[0].size)
+# zz['var'] = np.repeat(zz.index.levels[0], zz.index.levels[1].size)
+# axes = weights.swaplevel().T.groupby(axis=1, level=1).boxplot()
+# axes[0].set_xticks(range(1,8))
+
+
+keys = ['1', '0..0..z500_sp', '0..3..sm12', 'PC2', '0..0..NorthPac_sp', '0..0..NorthAtl_sp',
+        'TrainIsTrue', 'RV_mask']
+       
+rg.PCMCI_df_data(keys=keys,
+                 pc_alpha=None, 
                  tau_max=3,
                  max_conds_dim=10,
                  max_combinations=10)
 rg.PCMCI_get_links(alpha_level=.01)
-rg.df_links.loc[1]
+rg.df_links.mean(0, level=1)
+rg.df_MCIc.mean(0, level=1)
+# rg.PCMCI_plot_graph
 
 rg.PCMCI_get_ParCorr_from_txt()
 
 rg.quick_view_labels() 
 
-rg.plot_maps_corr(precursors=None, save=True)
+
 
 rg.plot_maps_sum(var='sm12', 
-                 kwrgs_plot={'aspect': 2, 'wspace': -0.02})
-rg.plot_maps_sum(var='st2', 
                  kwrgs_plot={'aspect': 2, 'wspace': -0.02})
 rg.plot_maps_sum(var='snow', 
                  kwrgs_plot={'aspect': 2, 'wspace': -0.02})
@@ -164,8 +195,14 @@ rg.plot_maps_sum(var='sst',
 rg.plot_maps_sum(var='z500', 
                  kwrgs_plot={'cbar_vert':.02})
 
+
+#%%
+
+
+#%%
 rg.get_ts_prec(precur_aggr=1)
 rg.store_df_PCMCI()
+
 
 
 

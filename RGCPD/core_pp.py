@@ -23,7 +23,8 @@ def get_oneyr(datetime):
 
 def import_ds_lazy(filename, loadleap=False, 
                    seldates: Union[tuple, pd.core.indexes.datetimes.DatetimeIndex]=None, 
-                   selbox: Union[list, tuple]=None, format_lon='only_east', var=None):
+                   selbox: Union[list, tuple]=None, format_lon='only_east', var=None,
+                   verbosity=0):
                    
     '''
     selbox has format of (lon_min, lon_max, lat_min, lat_max)
@@ -33,6 +34,8 @@ def import_ds_lazy(filename, loadleap=False,
     
     ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
     
+    if len(ds.dims.keys()) > 1: # more then 1-d
+        multi_dims = True
     
     variables = list(ds.variables.keys())
     strvars = [' {} '.format(var) for var in variables]
@@ -51,7 +54,7 @@ def import_ds_lazy(filename, loadleap=False,
         # load whole dataset
         ds = ds
     
-    if len(ds.shape) > 1: # more then 1-d
+    if multi_dims:
         if 'latitude' and 'longitude' not in ds.dims:
             ds = ds.rename({'lat':'latitude',
                             'lon':'longitude'})
@@ -71,11 +74,8 @@ def import_ds_lazy(filename, loadleap=False,
             ds = ds.sortby('latitude')
             
         if selbox is not None:
-            ds = get_selbox(ds, selbox)
-
-
-    
-    
+            ds = get_selbox(ds, selbox, verbosity)
+  
 
     # get dates
     if 'time' in ds.squeeze().dims:
@@ -136,7 +136,7 @@ def remove_leapdays(datetime):
     dates_noleap = datetime[mask_lpyrfeb==False]
     return dates_noleap
 
-def get_selbox(ds, selbox):
+def get_selbox(ds, selbox, verbosity=0):
     '''
     selbox has format of (lon_min, lon_max, lat_min, lat_max)
     # test selbox assumes [west_lon, east_lon, south_lat, north_lat]
@@ -155,9 +155,21 @@ def get_selbox(ds, selbox):
     else:
         slice_lat = slice(min(selbox[2:]), max(selbox[2:]))
     ds = ds.sel(latitude=slice_lat)
-    min_lon = min(selbox[:2])
-    max_lon = max(selbox[:2])
-    ds = ds.sel(longitude=slice(min_lon, max_lon))
+    east_lon = selbox[0]
+    west_lon = selbox[1]
+    if (east_lon > west_lon and east_lon > 180) or east_lon < 0:
+        if verbosity > 0:
+            print('east lon > 180 and cross GW meridional, converting to west ' 
+                  'east longitude format because lons must be sorted by value')
+        zz = convert_longitude(ds, to_format='east_west')
+        zz = zz.sortby('longitude')
+        if east_lon <= 0:
+            e_lon =east_lon
+        elif east_lon > 180:
+            e_lon = east_lon - 360
+        ds = zz.sel(longitude=slice(e_lon, west_lon))
+    else:
+        ds = ds.sel(longitude=slice(east_lon, west_lon))
     return ds
 
 def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
@@ -254,9 +266,9 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
         data_smooth = ds.values
 
     elif (stepsyr.day== 1).all() == False and int(ds.time.size / 365) < 120:
-        window_s = min(25,int(stepsyr.size / 12))
+        window_s = min(35,int(stepsyr.size / 12))
         print('Performing {} day rolling mean with gaussian window (std={})'
-              ' to get better interannual statistics'.format(window_s, window_s/2))
+              ' to get better interannual statistics'.format(window_s, window_s/1.5))
 
         print('using absolute anomalies w.r.t. climatology of '
               'smoothed concurrent day accross years')
@@ -326,6 +338,10 @@ def rolling_mean_np(arr, win, center=True):
 def test_periodic(ds):
     dlon = ds.longitude[1] - ds.longitude[0]
     return (360 / dlon == ds.longitude.size).values
+
+def test_periodic_lat(ds):
+    dlat = ds.latitude[1] - ds.latitude[0]
+    return ((180/dlat)+1 == ds.latitude.size).values
 
 def _check_format(ds):
     longitude = ds.longitude.values
@@ -502,18 +518,19 @@ def ensmean(outfile, weights=list, name=None, *args):
     ds_mean.to_netcdf(outfile, mode='w', encoding=encoding)
     
 if __name__ == '__main__':
-    ex = {}
-    ex['input_freq'] = 'daily'
-    DATAFOLDER = input('give path to datafolder where raw data in folder input_raw:\n')
-    infilename  = input('give input filename you want to preprocess:\n')
-    infile = os.path.join(DATAFOLDER, 'input_raw', infilename)
-    outfilename = infilename.split('.nc')[0] + '_pp.nc'
-    output_folder = os.path.join(DATAFOLDER, 'input_pp')
-    if os.path.isdir(output_folder) != True : os.makedirs(output_folder)
-    outfile = os.path.join(output_folder, outfilename)
+    pass
+    # ex = {}
+    # ex['input_freq'] = 'daily'
+    # DATAFOLDER = input('give path to datafolder where raw data in folder input_raw:\n')
+    # infilename  = input('give input filename you want to preprocess:\n')
+    # infile = os.path.join(DATAFOLDER, 'input_raw', infilename)
+    # outfilename = infilename.split('.nc')[0] + '_pp.nc'
+    # output_folder = os.path.join(DATAFOLDER, 'input_pp')
+    # if os.path.isdir(output_folder) != True : os.makedirs(output_folder)
+    # outfile = os.path.join(output_folder, outfilename)
 
-    kwargs = {'detrend':True, 'anomaly':True}
-    try:
-        detrend_anom_ncdf3D(infile, outfile, ex, **kwargs)
-    except:
-        print('just chilling bro, relax..')
+    # kwargs = {'detrend':True, 'anomaly':True}
+    # try:
+    #     detrend_anom_ncdf3D(infile, outfile, ex, **kwargs)
+    # except:
+    #     print('just chilling bro, relax..')

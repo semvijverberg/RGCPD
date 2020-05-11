@@ -15,7 +15,7 @@ import pandas as pd
 from statsmodels.sandbox.stats import multicomp
 import functions_pp
 import find_precursors
-#import plot_maps
+from typing import Union
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 

@@ -54,16 +54,15 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
         else:
             kwrgs[key] = value
     #===========================================
-    # 3c) Precursor field
+    # Precursor field
     #===========================================
     precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
     # =============================================================================
-    # Calculate correlation
+    # Calculate BivariateMI (correlation) map
     # =============================================================================
-    corr_xr = precur.func(precur_arr, df_splits, TV) #precur.corr_map
-
+    corr_xr = precur.func(precur_arr, df_splits, TV) 
     # =============================================================================
-    # Cluster into precursor regions
+    # update class precur
     # =============================================================================
     add_info_precur(precur, corr_xr, precur_arr)
 

@@ -42,8 +42,17 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
     
     list_precur_pp = []
     for idx, (name, filename) in enumerate(list_of_name_path[1:]):
+        # update from kwrgs_pp for variable {name}
+        kwrgs = {}
+        for key, value in kwrgs_pp.items():
+            if type(value) is list and name in value[1].keys():
+                kwrgs[key] = value[1][name]
+            elif type(value) is list and name not in value[1].keys():
+                kwrgs[key] = value[0] # plugging in default value
+            else:
+                kwrgs[key] = value
         
-        outfile = check_pp_done(name, filename)
+        outfile = check_pp_done(name, filename, kwrgs_load=kwrgs)
         list_precur_pp.append( (name, outfile) )
         if os.path.isfile(outfile) == True:
             if verbosity == 1:
@@ -51,14 +60,7 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
             pass
         else:
             print('\nPerforming the post-processing {}'.format(name))
-            kwrgs = {}
-            for key, value in kwrgs_pp.items():
-                if type(value) is list and name in value[1].keys():
-                    kwrgs[key] = value[1][name]
-                elif type(value) is list and name not in value[1].keys():
-                    kwrgs[key] = value[0] # plugging in default value
-                else:
-                    kwrgs[key] = value
+
             
             core_pp.detrend_anom_ncdf3D(filename, outfile, **kwrgs)
     return list_precur_pp
@@ -68,7 +70,7 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
 #        ex[var] = var_class
 
 
-def check_pp_done(name, filename, verbosity=1):
+def check_pp_done(name, filename, kwrgs_load: dict=None, verbosity=1):
     #%%
     '''
     Check if pre processed ncdf already exists
@@ -77,12 +79,19 @@ def check_pp_done(name, filename, verbosity=1):
     # load dataset lazy
     # =============================================================================
 #    filename = os.path.join(ex['path_raw'], cls.filename)
-    kwrgs_pp = {'loadleap':False, 'format_lon':None}
-    ds = core_pp.import_ds_lazy(filename, **kwrgs_pp)
+    if kwrgs_load is None:
+        kwrgs = {'loadleap':False, 'format_lon':None}
+    else:
+        keep = ['loadleap', 'format_lon', 'selbox']
+        kwrgs = {k: kwrgs_load[k] for k in keep}
+    ds = core_pp.import_ds_lazy(filename, **kwrgs)
     dates = pd.to_datetime(ds['time'].values)
     start_day = get_oneyr(dates)[0]
     end_day   = get_oneyr(dates)[-1]
-
+    # degree = int(ds.longitude[1] - ds.longitude[0])
+    selbox = [int(ds.longitude.min()), int(ds.longitude.max()), 
+              int(ds.latitude.min()), int(ds.latitude.max())]
+    
     # =============================================================================
     # give appropriate name to output file
     # =============================================================================
@@ -98,8 +107,13 @@ def check_pp_done(name, filename, verbosity=1):
     elif input_freq > 27 and input_freq < 32: # monthly data
         startdatestr = '_{}_'.format(months[start_day.month])
         enddatestr   = '_{}_'.format(months[end_day.month])
+        
+    selboxstr = '_'+'_'.join(map(str, selbox))
+    if core_pp.test_periodic(ds) and core_pp.test_periodic_lat(ds): 
+        selboxstr = '' # if global, no selbox str
+    selboxstr_startdate = selboxstr+startdatestr
 
-    outfilename = outfilename.replace('_{}_'.format(1), startdatestr)
+    outfilename = outfilename.replace('_{}_'.format(1), selboxstr_startdate)
     outfilename = outfilename.replace('_{}_'.format(12), enddatestr)
 #    filename_pp = outfilename
     path_raw = '/'.join(filename.split('/')[:-1])
@@ -172,7 +186,7 @@ def load_TV(list_of_name_path, loadleap=False, name_ds='ts'):
         fulltso = load_npy(filename, name=name)
     elif filename.split('.')[-1] == 'nc':
         ds = core_pp.import_ds_lazy(filename)
-        if len(ds.shape) > 1:
+        if len(ds.dims.keys()) > 1:
             fulltso = ds[name_ds].sel(cluster=name)
         else:
             fulltso = ds.squeeze()
