@@ -8,7 +8,17 @@
 
 import os, inspect, sys
 import numpy as np
-import matplotlib.pyplot as plt
+
+if sys.platform == 'linux':
+    import matplotlib as mpl
+    mpl.use('Agg')
+    root_data = '/scistor/ivm/data_catalogue/reanalysis/ERA5'
+else:
+    root_data = '/Users/semvijverberg/surfdrive/ERA5'
+
+
+
+
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-3])
@@ -21,14 +31,7 @@ if cluster_func not in sys.path:
     sys.path.append(cluster_func)
     sys.path.append(df_ana_func)
 
-
-if sys.platform == 'linux':
-    import matplotlib as mpl
-    mpl.use('Agg')
-    root_data = '/scistor/ivm/data_catalogue/reanalysis/ERA5'
-else:
-    root_data = '/Users/semvijverberg/surfdrive/ERA5'
-
+import matplotlib.pyplot as plt
 path_outmain = user_dir+'/surfdrive/output_RGCPD/easternUS'
 # In[2]:
 
