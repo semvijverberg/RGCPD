@@ -17,7 +17,7 @@ local_script_dir = os.path.join(local_base_path, "Scripts/RGCPD/RGCPD" )
 # cluster_base_path = "/p/projects/climber3/atm_data/"
 cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/ERA5/"
 
-cluster_script_dir = "/scistor/ivm/svg460/Scripts/RGCPD/RGCPD"
+cluster_script_dir = "/scistor/ivm/svg460/surfdrive/Scripts/RGCPD/ECMWF_retrieval"
 
 
 
@@ -37,7 +37,7 @@ except:
 dataset   = 'era5' # choose 'era5' or 'ERAint' or era20c
 exp_folder = ''
 path_raw = os.path.join(base_path,f'Data_{dataset}/{exp_folder}')
-                        
+
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 
 
@@ -54,11 +54,11 @@ ex = dict(
      'months'       :       list(range(1,12+1)), #downoad months
      # for monthly means of daily means, choose 'moda' or 'mnth'
      # for daily means choose 'oper' or 'enda' (for accumulations)
-     'stream'       :       'oper', 
+     'stream'       :       'oper',
      'time'         :       pd.date_range(start='00:00', end='23:00',
                                 freq=(pd.Timedelta(6, unit='h'))),
      'area'         :       'global', # [North, West, South, East]. Default: global
-     'CDO_command'  :       'daymean',     
+     'CDO_command'  :       'daymean',
      'base_path'    :       base_path,
      'path_raw'     :       path_raw}
      )
