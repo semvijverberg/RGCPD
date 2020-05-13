@@ -12,7 +12,7 @@ import numpy as np
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-    root_data = '/scistor/ivm/data_catalogue/reanalysis/ERA5'
+    root_data = '/scistor/ivm/svg460/surfdrive/ERA5'
 else:
     root_data = '/Users/semvijverberg/surfdrive/ERA5'
 
