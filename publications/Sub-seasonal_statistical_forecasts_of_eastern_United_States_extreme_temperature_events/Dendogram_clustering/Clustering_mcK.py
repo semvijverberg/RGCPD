@@ -8,18 +8,18 @@
 
 import os, inspect, sys
 import numpy as np
-
+user_dir = os.path.expanduser('~')
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-    root_data = '/scistor/ivm/svg460/surfdrive/ERA5'
+    root_data = user_dir + '/surfdrive/ERA5'
 else:
-    root_data = '/Users/semvijverberg/surfdrive/ERA5'
+    root_data = user_dir + '/surfdrive/ERA5'
 
 
 
 
-user_dir = os.path.expanduser('~')
+
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-3])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
@@ -74,7 +74,7 @@ import make_country_mask
 # xr_mask = cl.mask_latlon(xr_mask, latmax=63, lonmax=270)
 
 selbox = (232, 295, 25, 50)
-xr_mask = core_pp.import_ds_lazy('/Users/semvijverberg/surfdrive/Scripts/rasterio/mask_North_America_0.25deg_orig.nc',
+xr_mask = core_pp.import_ds_lazy(user_dir + '/surfdrive/Scripts/rasterio/mask_North_America_0.25deg_orig.nc',
                                   var='lsm', selbox=selbox)
 xr_mask.values = make_country_mask.binary_erosion(xr_mask.values)
 plot_maps.plot_labels(xr_mask)
