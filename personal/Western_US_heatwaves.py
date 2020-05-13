@@ -15,7 +15,7 @@ user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
-cluster_func = os.path.join(main_dir, 'clustering/') 
+cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
@@ -36,27 +36,27 @@ cluster_label = 1
 name_ds='q75tail'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
-tfreq = 5
+tfreq = 15
 #%%
-# list_of_name_path = [(cluster_label, TVpath), 
+# list_of_name_path = [(cluster_label, TVpath),
 #                       ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
 #                       ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
 
 
 
-# list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
-#                               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+# list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
+#                               kwrgs_func={'alpha':.01, 'FDR_control':True},
 #                               distance_eps=600, min_area_in_degrees2=7),
-#                   BivariateMI(name='v200', func=BivariateMI.corr_map, 
-#                                 kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+#                   BivariateMI(name='v200', func=BivariateMI.corr_map,
+#                                 kwrgs_func={'alpha':.01, 'FDR_control':True},
 #                                 distance_eps=600, min_area_in_degrees2=5)]
 
 
 
 
 
-# rg = RGCPD(list_of_name_path=list_of_name_path, 
+# rg = RGCPD(list_of_name_path=list_of_name_path,
 #             list_for_MI=list_for_MI,
 #             start_end_TVdate=start_end_TVdate,
 #             start_end_date=start_end_date,
@@ -80,7 +80,7 @@ tfreq = 5
 
 #%%
 
-list_of_name_path = [(cluster_label, TVpath), 
+list_of_name_path = [(cluster_label, TVpath),
                      ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
                      ('NorthPac', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
                      ('NorthAtl', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
@@ -89,26 +89,26 @@ list_of_name_path = [(cluster_label, TVpath),
                      # ('OLRtrop',  os.path.join(path_raw, 'OLRtrop_1979-2018_1_12_daily_2.5deg.nc'))]
                      # ('st2',  os.path.join(path_raw, 'lsm_st2_1979-2018_1_12_daily_1.0deg.nc'))]
 
-list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map, 
-                             kwrgs_func={'alpha':.01, 'FDR_control':True}, 
-                             distance_eps=700, min_area_in_degrees2=7, 
+list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
+                             kwrgs_func={'alpha':.01, 'FDR_control':True},
+                             distance_eps=700, min_area_in_degrees2=7,
                              calc_ts='pattern cov'),
-                   BivariateMI(name='sm12', func=BivariateMI.corr_map, 
-                                 kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                   BivariateMI(name='sm12', func=BivariateMI.corr_map,
+                                 kwrgs_func={'alpha':.01, 'FDR_control':True},
                                  distance_eps=700, min_area_in_degrees2=5),
-                 # BivariateMI(name='snow', func=BivariateMI.corr_map, 
-                 #               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                 # BivariateMI(name='snow', func=BivariateMI.corr_map,
+                 #               kwrgs_func={'alpha':.01, 'FDR_control':True},
                  #               distance_eps=700, min_area_in_degrees2=7),
-                 BivariateMI(name='NorthPac', func=BivariateMI.corr_map, 
-                              kwrgs_func={'alpha':1E-3, 'FDR_control':True}, 
-                              distance_eps=700, min_area_in_degrees2=5,
+                 BivariateMI(name='NorthPac', func=BivariateMI.corr_map,
+                              kwrgs_func={'alpha':1E-3, 'FDR_control':True},
+                              distance_eps=1000, min_area_in_degrees2=5,
                               calc_ts='pattern cov'),
-                  BivariateMI(name='NorthAtl', func=BivariateMI.corr_map, 
-                              kwrgs_func={'alpha':1E-3, 'FDR_control':True}, 
+                  BivariateMI(name='NorthAtl', func=BivariateMI.corr_map,
+                              kwrgs_func={'alpha':1E-3, 'FDR_control':True},
                               distance_eps=700, min_area_in_degrees2=5,
-                              calc_ts='pattern cov')]        
-                 # BivariateMI(name='st2', func=BivariateMI.corr_map, 
-                 #               kwrgs_func={'alpha':.01, 'FDR_control':True}, 
+                              calc_ts='pattern cov')]
+                 # BivariateMI(name='st2', func=BivariateMI.corr_map,
+                 #               kwrgs_func={'alpha':.01, 'FDR_control':True},
                  #               distance_eps=700, min_area_in_degrees2=5)]
 
 # list_for_EOFS = [EOF(name='OLRtrop', neofs=2, selbox=[-180, 360, -15, 30])]
@@ -116,17 +116,17 @@ list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
 list_import_ts = [('OMI', '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/OMI.h5')]
 
 
-rg = RGCPD(list_of_name_path=list_of_name_path, 
+rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
            list_import_ts=list_import_ts,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           tfreq=tfreq, lags_i=np.array([0]),
+           tfreq=tfreq, lags_i=np.array([1]),
            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
            append_pathsub='_' + name_ds)
 
 
-selbox = [None, {'NorthPac':(115, 250, 0, 70), 
+selbox = [None, {'NorthPac':(115, 250, 0, 70),
                  'NorthAtl':(360-83, 6, 0, 70),
                  'v200':[130,350,10,90]}]
 
@@ -142,6 +142,7 @@ rg.calc_corr_maps()
  #%%
 rg.cluster_list_MI()
 
+rg.quick_view_labels()
 
 rg.get_ts_prec(precur_aggr=None, keys_ext=['PC2'])
 
@@ -156,7 +157,7 @@ rg.get_ts_prec(precur_aggr=None, keys_ext=['PC2'])
 
 # merge_sst = ['0..1..sst',
 #              '0..5..sst']
-# predict, weights = rg.reduce_df_data_ridge(keys=merge_sst, 
+# predict, weights = rg.reduce_df_data_ridge(keys=merge_sst,
 #                                            tau_min=0,
 #                                            tau_max=7,newname='sst')
 
@@ -167,32 +168,34 @@ rg.get_ts_prec(precur_aggr=None, keys_ext=['PC2'])
 # axes[0].set_xticks(range(1,8))
 
 
-keys = ['1', '0..0..z500_sp', '0..3..sm12', 'PC2', '0..0..NorthPac_sp', '0..0..NorthAtl_sp',
+keys = ['1', '5..0..z500_sp', 'PC2', '5..0..NorthPac_sp', '5..0..NorthAtl_sp',
         'TrainIsTrue', 'RV_mask']
-       
+
 rg.PCMCI_df_data(keys=keys,
-                 pc_alpha=None, 
+                 pc_alpha=None,
                  tau_max=3,
                  max_conds_dim=10,
                  max_combinations=10)
-rg.PCMCI_get_links(alpha_level=.01)
+rg.PCMCI_get_links(alpha_level=.05)
 rg.df_links.mean(0, level=1)
 rg.df_MCIc.mean(0, level=1)
-# rg.PCMCI_plot_graph
+
+rg.PCMCI_plot_graph(min_link_robustness=10)
 
 rg.PCMCI_get_ParCorr_from_txt()
 
-rg.quick_view_labels() 
+rg.quick_view_labels(var='NorthPac', median=False)
 
 
+rg.plot_maps_corr(var=['sm12'], mean=False, save=False)
 
-rg.plot_maps_sum(var='sm12', 
+rg.plot_maps_sum(var='sm12',
                  kwrgs_plot={'aspect': 2, 'wspace': -0.02})
-rg.plot_maps_sum(var='snow', 
+rg.plot_maps_sum(var='snow',
                  kwrgs_plot={'aspect': 2, 'wspace': -0.02})
-rg.plot_maps_sum(var='sst', 
+rg.plot_maps_sum(var='sst',
                  kwrgs_plot={'cbar_vert':.02})
-rg.plot_maps_sum(var='z500', 
+rg.plot_maps_sum(var='z500',
                  kwrgs_plot={'cbar_vert':.02})
 
 
@@ -206,7 +209,7 @@ rg.store_df_PCMCI()
 
 
 
-    
+
 #%%
 from tigramite import plotting as tp
 import matplotlib as mpl
@@ -217,9 +220,9 @@ idx = rg.pcmci_dict[s].var_names.index(variable)
 link_only_RV = np.zeros_like(rg.parents_dict[s][2])
 link_matrix = rg.parents_dict[s][2]
 link_only_RV[:,idx] = link_matrix[:,idx]
-tp.plot_graph(val_matrix=rg.pcmci_results_dict[s]['val_matrix'], 
-              var_names=rg.pcmci_dict[s].var_names, 
-              link_matrix=link_only_RV, 
+tp.plot_graph(val_matrix=rg.pcmci_results_dict[s]['val_matrix'],
+              var_names=rg.pcmci_dict[s].var_names,
+              link_matrix=link_only_RV,
               link_colorbar_label='cross-MCI',
 node_colorbar_label='auto-MCI')
 
@@ -246,32 +249,32 @@ node_colorbar_label='auto-MCI')
 # use_fold = -9
 
 
-# list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr, 
+# list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr,
 #                     use_fold=None, start_end_TVdate=None,
-#                     stat_model=logitCV, 
-#                     kwrgs_pp={}, 
+#                     stat_model=logitCV,
+#                     kwrgs_pp={},
 #                     dataset=f'{precur_aggr} day means exper 1',
 #                     keys_d='persistence'),
-#               fcev(path_data=path_data, precur_aggr=precur_aggr, 
+#               fcev(path_data=path_data, precur_aggr=precur_aggr,
 #                    use_fold=None, start_end_TVdate=None,
-#                    stat_model=logitCV, 
-#                    kwrgs_pp={}, 
+#                    stat_model=logitCV,
+#                    kwrgs_pp={},
 #                    dataset=f'{precur_aggr} day means exper 2',
 #                    keys_d='all')]
-           
 
-                  
+
+
 # for i, fc in enumerate(list_of_fc):
 
 
 #     fc.get_TV(kwrgs_events=kwrgs_events)
-    
+
 #     fc.fit_models(lead_max=lags_i, verbosity=1)
 
 # for i, fc in enumerate(list_of_fc):
 #     fc.perform_validation(n_boot=500, blocksize='auto', alpha=0.05,
 #                           threshold_pred=(1.5, 'times_clim'))
-    
+
 
 
 # df_valid, RV, y_pred_all = fc.dict_sum
@@ -285,7 +288,7 @@ node_colorbar_label='auto-MCI')
 # #met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
 # line_dim = 'dataset'
 
-# fig = dfplots.valid_figures(list_of_fc, 
+# fig = dfplots.valid_figures(list_of_fc,
 #                           line_dim=line_dim,
 #                           group_line_by=None,
 #                           met=met, **kwrgs)

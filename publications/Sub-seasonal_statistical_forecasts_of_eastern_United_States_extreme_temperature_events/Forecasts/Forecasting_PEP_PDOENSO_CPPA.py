@@ -36,7 +36,7 @@ logit = ('logit', None)
 logitCV = ('logitCV',
           {'Cs':10, #np.logspace(-4,1,10)
           'class_weight':{ 0:1, 1:1},
-           'scoring':'brier_score_loss',
+           'scoring':'neg_brier_score',
            'penalty':'l2',
            'solver':'lbfgs',
            'max_iter':100,
@@ -50,7 +50,7 @@ EC_data  = data_dir + '/CPPA_EC_21-03-20_16hr_lag_0_958dd.h5'
 ERA_data = data_dir + '/CPPA_ERA5_21-03-20_12hr_lag_0_ff393.h5'
 
 
-kwrgs_events = {'event_percentile': 66}
+kwrgs_events = {'event_percentile': 50}
 
 kwrgs_events = kwrgs_events
 precur_aggr = 15
@@ -61,56 +61,56 @@ lags_i = np.array([0, 10, 15, 20, 25, 30])
 start_end_TVdate = None # ('7-04', '8-22')
 
 
-list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                     use_fold=use_fold, start_end_TVdate=None,
-                    stat_model=logitCV, 
-                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                    stat_model=logitCV,
+                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
                     dataset=f'CPPA vs PEP',
                     keys_d='PEP',
-                    n_cpu=n_cpu),              
-                fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                    n_cpu=n_cpu),
+                fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                       use_fold=use_fold, start_end_TVdate=None,
-                      stat_model=logitCV, 
-                      kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                      stat_model=logitCV,
+                      kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
                       dataset=f'CPPA vs PEP',
                       keys_d='CPPA',
-                      n_cpu=n_cpu),   
-               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                      n_cpu=n_cpu),
+               fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                      use_fold=use_fold, start_end_TVdate=None,
-                     stat_model=logitCV, 
-                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                     stat_model=logitCV,
+                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
                      dataset=f'CPPA vs PDO+ENSO',
                      keys_d='PDO+ENSO',
-                     n_cpu=n_cpu),              
-               fcev(path_data=ERA_data, precur_aggr=precur_aggr, 
+                     n_cpu=n_cpu),
+               fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                      use_fold=use_fold, start_end_TVdate=None,
-                     stat_model=logitCV, 
-                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'}, 
+                     stat_model=logitCV,
+                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
                      dataset=f'CPPA vs PDO+ENSO',
                      keys_d='CPPA',
                     n_cpu=n_cpu)]
 
-              
 
-              
+
+
 fc = list_of_fc[0]
 #%%
 for i, fc in enumerate(list_of_fc):
-    
+
     fc.get_TV(kwrgs_events=kwrgs_events)
-    
+
     fc.fit_models(lead_max=lags_i, verbosity=1)
 
     fc.perform_validation(n_boot=n_boot, blocksize='auto', alpha=0.05,
                           threshold_pred=(1.5, 'times_clim'))
-    
+
 
 # In[8]:
 working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)
 
 store = False
 if __name__ == "__main__":
-    filename = fc.filename 
+    filename = fc.filename
     store = True
 
 import valid_plots as dfplots
@@ -122,7 +122,7 @@ if store:
     dict_merge_all = functions_pp.load_hdf5(filename+'.h5')
 
 
-kwrgs = {'wspace':0.15, 'col_wrap':None, 'skip_redundant_title':True, 
+kwrgs = {'wspace':0.15, 'col_wrap':None, 'skip_redundant_title':True,
          'lags_relcurve':[10,20]}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve']
@@ -131,7 +131,7 @@ line_dim = None
 group_line_by = 'dataset'
 # line_dim = 'exper' ; group_line_by = None
 
-fig = dfplots.valid_figures(dict_merge_all, 
+fig = dfplots.valid_figures(dict_merge_all,
                           line_dim=line_dim,
                           group_line_by=group_line_by,
                           met=met, **kwrgs)
@@ -162,47 +162,47 @@ if __name__ == "__main__":
                 # visual analysis
                 f_name = os.path.join(filename, f'ifc{ifc}_va_l{l}_{m}')
                 fig = dfplots.visual_analysis(fc, lag=l, model=m)
-                fig.savefig(os.path.join(working_folder, f_name) + f_format, 
+                fig.savefig(os.path.join(working_folder, f_name) + f_format,
                             bbox_inches='tight') # dpi auto 600
                 # plot deviance
                 if m[:3] == 'GBC':
                     fig = dfplots.plot_deviance(fc, lag=l, model=m)
                     f_name = os.path.join(filename, f'ifc{ifc}_deviance_l{l}')
-                    
+
 
                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
                                 bbox_inches='tight') # dpi auto 600
-                    
+
                     fig = fc.plot_oneway_partial_dependence()
                     f_name = os.path.join(filename, f'ifc{ifc}_partial_depen_l{l}')
                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
                                 bbox_inches='tight') # dpi auto 600
-                    
+
                 if m[:7] == 'logitCV':
                     fig = fc.plot_logit_regularization(lag_i=l)
                     f_name = os.path.join(filename, f'ifc{ifc}_logitregul_l{l}')
                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
                             bbox_inches='tight') # dpi auto 600
-                
+
             df_importance, fig = fc.plot_feature_importances()
             f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
-            fig.savefig(os.path.join(working_folder, f_name) + f_format, 
+            fig.savefig(os.path.join(working_folder, f_name) + f_format,
                         bbox_inches='tight') # dpi auto 600
 
 
 
 #%%
-            
+
 # import df_ana ; import matplotlib.pyplot as plt
 # flatten = lambda l: [item for sublist in l for item in sublist]
 # ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_0_ff393.h5'
 # working_folder = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/'
 
 
-# fc = fcev(path_data=ERA_data, precur_aggr=1, 
+# fc = fcev(path_data=ERA_data, precur_aggr=1,
 #                     use_fold=None, start_end_TVdate=None,
-#                     stat_model=logitCV, 
-#                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
+#                     stat_model=logitCV,
+#                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
 #                     dataset=f'CPPA vs PEP',
 #                     keys_d=None,
 #                     n_cpu=n_cpu)
@@ -222,10 +222,10 @@ if __name__ == "__main__":
 
 #%%
 # ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/1_ff393_12jun-11aug_lag15-15_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
-# fc_ = fcev(path_data=ERA_data, precur_aggr=1, 
+# fc_ = fcev(path_data=ERA_data, precur_aggr=1,
 #                     use_fold=None, start_end_TVdate=None,
-#                     stat_model=logitCV, 
-#                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'}, 
+#                     stat_model=logitCV,
+#                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
 #                     dataset=f'CPPA vs PEP',
 #                     keys_d=None,
 #                     n_cpu=n_cpu)

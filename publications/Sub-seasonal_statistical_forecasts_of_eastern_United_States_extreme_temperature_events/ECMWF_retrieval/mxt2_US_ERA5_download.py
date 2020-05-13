@@ -15,7 +15,8 @@ local_base_path = "/Users/semvijverberg/surfdrive/"
 local_script_dir = os.path.join(local_base_path, "Scripts/RGCPD/ECMWF_retrieval" )
 
 # cluster_base_path = "/p/projects/climber3/atm_data/"
-cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/"
+# cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/"
+cluster_base_path = local_base_path
 
 cluster_script_dir = "/scistor/ivm/svg460/Scripts/RGCPD/ECMWF_retrieval"
 
@@ -36,7 +37,7 @@ except:
 
 dataset   = 'ERA5' # choose 'era5' or 'ERAint' or era20c
 path_raw = os.path.join(base_path,f'{dataset}/input_raw')
-                        
+
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 
 
@@ -53,8 +54,8 @@ ex = dict(
      'months'       :       list(range(1,12+1)), #downoad months
      # for monthly means of daily means, choose 'moda' or 'mnth'
      # for daily means choose 'oper' or 'enda' (for accumulations)
-     'stream'       :       'oper', 
-     'time'         :       pd.date_range(start='12:00', end='18:00',
+     'stream'       :       'oper',
+     'time'         :       pd.date_range(start='00:00', end='23:00',
                                 freq=(pd.Timedelta(1, unit='h'))),
      'area'         :       [60, -130, 0, -60], # [North, West, South, East]. Default: global
      'CDO_command'  :       'daymax',
