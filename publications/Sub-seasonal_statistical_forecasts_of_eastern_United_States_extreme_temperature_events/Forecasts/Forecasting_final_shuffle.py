@@ -37,7 +37,7 @@ logit = ('logit', None)
 #%%
 start_time = time()
 
-ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
+ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f.h5'
 
 kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break': 1}
 
