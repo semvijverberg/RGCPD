@@ -704,9 +704,15 @@ def import_precur_ts(list_import_ts : List[tuple],
         df_data_e_all = functions_pp.load_hdf5(path_data)['df_data'].iloc[:,:]
         if cols is None:
             cols = list(df_data_e_all.columns[(df_data_e_all.dtypes != bool).values])
-        dates_subset = core_pp.get_subdates(df_data_e_all.index, start_end_date,
+
+        if hasattr(df_data_e_all.index, 'levels'):
+            dates_subset = core_pp.get_subdates(df_data_e_all.loc[0].index, start_end_date,
                                             start_end_year)
-        df_data_e_all = df_data_e_all.loc[dates_subset]
+            df_data_e_all = df_data_e_all.loc[pd.IndexSlice[:,dates_subset], :]
+        else:
+            dates_subset = core_pp.get_subdates(df_data_e_all.index, start_end_date,
+                                start_end_year)
+            df_data_e_all = df_data_e_all.loc[dates_subset]
 
         if 'TrainIsTrue' in df_data_e_all.columns:
             # check if traintest split is correct

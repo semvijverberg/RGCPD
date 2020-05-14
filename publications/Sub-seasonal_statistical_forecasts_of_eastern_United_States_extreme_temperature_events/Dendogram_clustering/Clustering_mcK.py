@@ -167,7 +167,7 @@ print(f'{round(time()-t0, 2)}')
 
 
 # for c in n_clusters:
-q = 95 ; c=4
+q = 95 ; c=5
 xrclust = xrclustered.sel(q=q, n_clusters=c)
 ds = cl.spatial_mean_clusters(var_filename,
                           xrclust,

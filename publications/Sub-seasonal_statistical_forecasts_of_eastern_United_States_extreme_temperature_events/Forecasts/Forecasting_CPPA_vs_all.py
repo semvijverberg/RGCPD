@@ -37,7 +37,7 @@ logit = ('logit', None)
 #%%
 start_time = time()
 
-ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
+ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f.h5'
 
 kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break': 1}
 
@@ -77,7 +77,7 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                                  'seed':2}),
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
                     dataset='',
-                    keys_d='CPPA+PEP+sm')]
+                    keys_d='CPPA+sm')]
 
 
 fc = list_of_fc[1]
@@ -122,7 +122,7 @@ if store:
 
 
 kwrgs = {'wspace':0.16, 'hspace':.25, 'col_wrap':2, 'skip_redundant_title':True,
-         'lags_relcurve':[55], 'fontbase':14, 'figaspect':2}
+         'lags_relcurve':[40], 'fontbase':14, 'figaspect':2}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'Precision', 'BSS', 'Accuracy', 'Rel. Curve']
 line_dim = 'exper'
@@ -139,60 +139,60 @@ pathfig_valid = os.path.join(filename + f_format)
 fig.savefig(pathfig_valid,
             bbox_inches='tight') # dpi auto 600
 
-df, fig = fc.plot_feature_importances(lag=55)
+df, fig = fc.plot_feature_importances(lag=45)
 path_feat = filename + f'ifc{1}_logitregul_l{55}' + f_format
 fig.savefig(path_feat, bbox_inches='tight')
 
 #%%
 
-im = 0
-il = 1
-ifc = 1
-f_format = '.pdf'
-if os.path.isdir(fc.filename) == False : os.makedirs(fc.filename)
-import valid_plots as dfplots
-if __name__ == "__main__":
-    for ifc, fc in enumerate(list_of_fc):
-        for im, m in enumerate([n[0] for n in fc.stat_model_l]):
-            for il, l in enumerate(fc.lags_i):
-                fc = list_of_fc[ifc]
-                m = [n[0] for n in fc.stat_model_l][im]
-                l = fc.lags_i[il]
-                # visual analysis
-                f_name = os.path.join(filename, f'ifc{ifc}_va_l{l}_{m}')
-                fig = dfplots.visual_analysis(fc, lag=l, model=m)
-                fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                            bbox_inches='tight') # dpi auto 600
-                # plot deviance
-                if m[:3] == 'GBC':
-                    fig = dfplots.plot_deviance(fc, lag=l, model=m)
-                    f_name = os.path.join(filename, f'ifc{ifc}_deviance_l{l}')
+# im = 0
+# il = 1
+# ifc = 1
+# f_format = '.pdf'
+# if os.path.isdir(fc.filename) == False : os.makedirs(fc.filename)
+# import valid_plots as dfplots
+# if __name__ == "__main__":
+#     for ifc, fc in enumerate(list_of_fc):
+#         for im, m in enumerate([n[0] for n in fc.stat_model_l]):
+#             for il, l in enumerate(fc.lags_i):
+#                 fc = list_of_fc[ifc]
+#                 m = [n[0] for n in fc.stat_model_l][im]
+#                 l = fc.lags_i[il]
+#                 # visual analysis
+#                 f_name = os.path.join(filename, f'ifc{ifc}_va_l{l}_{m}')
+#                 fig = dfplots.visual_analysis(fc, lag=l, model=m)
+#                 fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                             bbox_inches='tight') # dpi auto 600
+#                 # plot deviance
+#                 if m[:3] == 'GBC':
+#                     fig = dfplots.plot_deviance(fc, lag=l, model=m)
+#                     f_name = os.path.join(filename, f'ifc{ifc}_deviance_l{l}')
 
 
-                    fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                                bbox_inches='tight') # dpi auto 600
+#                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                                 bbox_inches='tight') # dpi auto 600
 
-                    fig = fc.plot_oneway_partial_dependence()
-                    f_name = os.path.join(filename, f'ifc{ifc}_partial_depen_l{l}')
-                    fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                                bbox_inches='tight') # dpi auto 600
+#                     fig = fc.plot_oneway_partial_dependence()
+#                     f_name = os.path.join(filename, f'ifc{ifc}_partial_depen_l{l}')
+#                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                                 bbox_inches='tight') # dpi auto 600
 
-                if m[:7] == 'logitCV':
-                    fig = fc.plot_logit_regularization(lag_i=l)
-                    f_name = os.path.join(filename, f'ifc{ifc}_logitregul_l{l}')
-                    fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                            bbox_inches='tight') # dpi auto 600
+#                 if m[:7] == 'logitCV':
+#                     fig = fc.plot_logit_regularization(lag_i=l)
+#                     f_name = os.path.join(filename, f'ifc{ifc}_logitregul_l{l}')
+#                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                             bbox_inches='tight') # dpi auto 600
 
-            df_importance, fig = fc.plot_feature_importances()
-            f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
-            fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                        bbox_inches='tight') # dpi auto 600
+#             df_importance, fig = fc.plot_feature_importances()
+#             f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
+#             fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                         bbox_inches='tight') # dpi auto 600
 
-    df_importance, fig = fc.plot_feature_importances(lag=55)
-    l = 10
-    f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
-    fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                bbox_inches='tight') # dpi auto 600
+#     df_importance, fig = fc.plot_feature_importances(lag=55)
+#     l = 10
+#     f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
+#     fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                 bbox_inches='tight') # dpi auto 600
 
 
 

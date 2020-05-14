@@ -25,14 +25,14 @@ from RGCPD import RGCPD
 from RGCPD import BivariateMI
 # In[5]:
 
-CPPA_s30  = [('sst_CPPAs30', user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_0_ff393.h5')]
-RV = user_dir + '/surfdrive/output_RGCPD/easternUS/tf1_n_clusters4_q90_dendo_ff393.nc'
+CPPA_s30  = [('sst_CPPAs30', user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_CPPA/ERA5_14-05-20_08hr_lag_0_c378f.h5')]
+RV = user_dir + '/surfdrive/output_RGCPD/easternUS/tf1_n_clusters5_q95_dendo_c378f.nc'
 # RV = user_dir + '/surfdrive/output_RGCPD/1d_ts_38N_275E_90W.nc'
 
 list_of_name_path = [(1 , RV),
                      ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),
-                     ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),
-                      ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc')]
+                     ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc')]
+                      # ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc')]
 
 list_import_ts = CPPA_s30
 
@@ -42,10 +42,10 @@ list_for_MI   = [BivariateMI(name='sm2', func=BivariateMI.corr_map,
                              distance_eps=600, min_area_in_degrees2=5),
                  BivariateMI(name='sm3', func=BivariateMI.corr_map,
                               kwrgs_func={'alpha':.05, 'FDR_control':True},
-                              distance_eps=600, min_area_in_degrees2=7),
-                  BivariateMI(name='sst', func=BivariateMI.corr_map,
-                               kwrgs_func={'alpha':.001, 'FDR_control':True},
-                               distance_eps=800, min_area_in_degrees2=5)]
+                              distance_eps=600, min_area_in_degrees2=7)]
+                  # BivariateMI(name='sst', func=BivariateMI.corr_map,
+                  #              kwrgs_func={'alpha':.001, 'FDR_control':True},
+                  #              distance_eps=800, min_area_in_degrees2=5)]
 
 
 
@@ -77,7 +77,7 @@ rg.pp_precursors(selbox=selbox, anomaly=anomaly)
 # In[7]:
 
 
-rg.pp_TV()
+rg.pp_TV(detrend=False, anomaly=False)
 
 
 
@@ -109,8 +109,10 @@ rg.quick_view_labels()
 
 
 # In[ ]:
-# rg.get_ts_prec(precur_aggr=1)
-# rg.store_df()
+keys = ['ENSO34', 'PDO', '0..CPPAsv', '0..PEPsv', '0..1..sst', '0..2..sst',
+        '0..3..sst', '0..4..sst', '0..5..sst', '0..6..sst', '0..7..sst', '0..8..sst']
+rg.get_ts_prec(precur_aggr=1, keys_ext=keys)
+rg.store_df()
 
 
 

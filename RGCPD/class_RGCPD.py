@@ -367,11 +367,14 @@ class RGCPD:
             # retrieving timeseries at different aggregation, TV and df_splits
             # need to redefined on new tfreq using the same arguments
             print(f'redefine target variable on {self.precur_aggr} day means')
-            self.fullts, self.TV_ts, inf = functions_pp.process_TV(self.fulltso,
-                                                              self.precur_aggr,
-                                                              self.start_end_TVdate,
-                                                              self.start_end_date,
-                                                              self.start_end_year)
+            f = functions_pp
+            self.fullts, self.TV_ts, inf = f.process_TV(self.fulltso,
+                                                    tfreq=self.precur_aggr,
+                                                    start_end_TVdate=self.start_end_TVdate,
+                                                    start_end_date=self.start_end_date,
+                                                    start_end_year=self.start_end_year,
+                                                    RV_detrend=self.RV_detrend,
+                                                    RV_anomaly=self.RV_anomaly)
             TV, df_splits = RV_and_traintest(self.fullts,
                                              self.TV_ts, **self.kwrgs_TV)
         else:

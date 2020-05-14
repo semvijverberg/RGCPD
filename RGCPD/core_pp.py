@@ -21,22 +21,22 @@ def get_oneyr(datetime):
 
 
 
-def import_ds_lazy(filename, loadleap=False, 
-                   seldates: Union[tuple, pd.core.indexes.datetimes.DatetimeIndex]=None, 
+def import_ds_lazy(filename, loadleap=False,
+                   seldates: Union[tuple, pd.core.indexes.datetimes.DatetimeIndex]=None,
                    selbox: Union[list, tuple]=None, format_lon='only_east', var=None,
                    verbosity=0):
-                   
+
     '''
     selbox has format of (lon_min, lon_max, lat_min, lat_max)
-    # in format only_east 
+    # in format only_east
     # selbox assumes [lowest_east_lon, highest_east_lon, south_lat, north_lat]
     '''
-    
+
     ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
-    
+
     if len(ds.dims.keys()) > 1: # more then 1-d
         multi_dims = True
-    
+
     variables = list(ds.variables.keys())
     strvars = [' {} '.format(var) for var in variables]
     common_fields = ' time time_bnds longitude latitude lev lon lat level mask lsm '
@@ -46,14 +46,14 @@ def import_ds_lazy(filename, loadleap=False,
         var = [var for var in strvars if var not in common_fields]
     else:
         var = [var]
-        
+
     if len(var) == 1:
         var = var[0].replace(' ', '')
         ds = ds[var]
     elif len(var) > 1:
         # load whole dataset
         ds = ds
-    
+
     if multi_dims:
         if 'latitude' and 'longitude' not in ds.dims:
             ds = ds.rename({'lat':'latitude',
@@ -64,18 +64,18 @@ def import_ds_lazy(filename, loadleap=False,
                 format_lon = 'only_east'
             if _check_format(ds) != format_lon:
                 ds = convert_longitude(ds, format_lon)
-        
+
         # ensure longitude in increasing order
         if np.where(ds.longitude == ds.longitude.min()) > np.where(ds.longitude == ds.longitude.max()):
             ds = ds.sortby('longitude')
-        
+
         # ensure latitude is in increasing order
         if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
             ds = ds.sortby('latitude')
-            
+
         if selbox is not None:
             ds = get_selbox(ds, selbox, verbosity)
-  
+
 
     # get dates
     if 'time' in ds.squeeze().dims:
@@ -116,7 +116,7 @@ def import_ds_lazy(filename, loadleap=False,
                          start_end_year=None, lpyr=loadleap
                          )
             ds = ds.sel(time=pddates)
-        else:    
+        else:
             ds = ds.sel(time=seldates)
 
         if loadleap==False:
@@ -141,15 +141,15 @@ def get_selbox(ds, selbox, verbosity=0):
     selbox has format of (lon_min, lon_max, lat_min, lat_max)
     # test selbox assumes [west_lon, east_lon, south_lat, north_lat]
     '''
-    
+
     except_cross180_westeast = test_periodic(ds)==False and 0 not in ds.longitude
-        
+
     if except_cross180_westeast:
         # convert selbox to degrees east
         selbox = np.array(selbox)
         selbox[selbox < 0] += 360
         selbox = list(selbox)
-    
+
     if ds.latitude[0] > ds.latitude[1]:
         slice_lat = slice(max(selbox[2:]), min(selbox[2:]))
     else:
@@ -159,7 +159,7 @@ def get_selbox(ds, selbox, verbosity=0):
     west_lon = selbox[1]
     if (east_lon > west_lon and east_lon > 180) or east_lon < 0:
         if verbosity > 0:
-            print('east lon > 180 and cross GW meridional, converting to west ' 
+            print('east lon > 180 and cross GW meridional, converting to west '
                   'east longitude format because lons must be sorted by value')
         zz = convert_longitude(ds, to_format='east_west')
         zz = zz.sortby('longitude')
@@ -266,9 +266,9 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
         data_smooth = ds.values
 
     elif (stepsyr.day== 1).all() == False and int(ds.time.size / 365) < 120:
-        window_s = min(35,int(stepsyr.size / 12))
+        window_s = min(25,int(stepsyr.size / 12))
         print('Performing {} day rolling mean with gaussian window (std={})'
-              ' to get better interannual statistics'.format(window_s, window_s/1.5))
+              ' to get better interannual statistics'.format(window_s, window_s/2))
 
         print('using absolute anomalies w.r.t. climatology of '
               'smoothed concurrent day accross years')
@@ -346,7 +346,7 @@ def test_periodic_lat(ds):
 def _check_format(ds):
     longitude = ds.longitude.values
     if longitude[longitude > 180.].size != 0:
-        format_lon = 'only_east'    
+        format_lon = 'only_east'
     else:
         format_lon = 'west_east'
     return format_lon
@@ -386,7 +386,7 @@ def convert_longitude(data, to_format='east_west'):
 #         lon_above = longitude[np.where(longitude >= 0)[0]]
 #         lon_below = longitude[np.where(longitude < 0)[0]]
 #         lon_below = lon_below.assign_coords(longitude=lon_below.values +360)
-#         lon_below.values 
+#         lon_below.values
 #         if lon_above.size != 0:
 #             if min(lon_above) < deg:
 #                 # crossing the meridional:
@@ -402,7 +402,7 @@ def convert_longitude(data, to_format='east_west'):
 #             convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
 #     data['longitude'] = convert_lon
 #     return data
-        
+
 
 def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
     #%%
@@ -423,7 +423,7 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
     else:
         startyr = start_end_year[0]
         endyr   = start_end_year[1]
-        
+
     sstartdate = pd.to_datetime(str(startyr) + '-' + start_end_date[0])
     senddate_   = pd.to_datetime(str(startyr) + '-' + start_end_date[1])
 
@@ -502,21 +502,21 @@ def ensmean(outfile, weights=list, name=None, *args):
         ds_e[i] = ds
 
     if weights is not None:
-        weights = xr.DataArray(weights, 
-                               dims=['extra_dim'], 
+        weights = xr.DataArray(weights,
+                               dims=['extra_dim'],
                                coords={'extra_dim':list(range(len(args)))})
         weights.name = "weights"
         ds_e.weighted(weights)
     ds_mean = ds_e.mean(dim='extra_dim')
     if name is not None:
         ds_mean.name = name
-        
+
     ds_mean = ds_mean.where(ds_mean.values != 0.).fillna(-9999)
     encoding = ( {ds_mean.name : {'_FillValue': -9999}} )
     mask =  (('latitude', 'longitude'), (ds_mean.values[0] != -9999) )
     ds_mean.coords['mask'] = mask
     ds_mean.to_netcdf(outfile, mode='w', encoding=encoding)
-    
+
 if __name__ == '__main__':
     pass
     # ex = {}
