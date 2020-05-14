@@ -39,7 +39,7 @@ start_time = time()
 
 ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f.h5'
 
-kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break': 1}
+kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break': 2}
 
 kwrgs_events = kwrgs_events
 precur_aggr = 15
@@ -121,8 +121,9 @@ if store:
     dict_merge_all = functions_pp.load_hdf5(filename+'.h5')
 
 
+lag_rel = 40
 kwrgs = {'wspace':0.16, 'hspace':.25, 'col_wrap':2, 'skip_redundant_title':True,
-         'lags_relcurve':[40], 'fontbase':14, 'figaspect':2}
+         'lags_relcurve':[lag_rel], 'fontbase':14, 'figaspect':2}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'Precision', 'BSS', 'Accuracy', 'Rel. Curve']
 line_dim = 'exper'
@@ -139,8 +140,8 @@ pathfig_valid = os.path.join(filename + f_format)
 fig.savefig(pathfig_valid,
             bbox_inches='tight') # dpi auto 600
 
-df, fig = fc.plot_feature_importances(lag=45)
-path_feat = filename + f'ifc{1}_logitregul_l{55}' + f_format
+df, fig = fc.plot_feature_importances(lag=lag_rel)
+path_feat = filename + f'ifc{1}_logitregul_l{lag_rel}' + f_format
 fig.savefig(path_feat, bbox_inches='tight')
 
 #%%
