@@ -77,7 +77,7 @@ rg.pp_precursors(selbox=selbox, anomaly=anomaly)
 # In[7]:
 
 
-rg.pp_TV(detrend=False, anomaly=False)
+rg.pp_TV(name_ds='q90tail', detrend=False, anomaly=False)
 
 
 
