@@ -37,7 +37,7 @@ logit = ('logit', None)
 #%%
 start_time = time()
 
-ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
+ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f.h5'
 
 kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break': 1}
 
@@ -77,7 +77,7 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                                  'seed':2}),
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
                     dataset='',
-                    keys_d='CPPA+sm')]
+                    keys_d='CPPA+PEP+sm')]
 
 
 fc = list_of_fc[1]
