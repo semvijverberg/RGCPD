@@ -89,7 +89,7 @@ times = []
 t00 = time()
 for fc in list_of_fc:
     t0 = time()
-    fc.get_TV(kwrgs_events=kwrgs_events, detrend=False)
+    fc.get_TV(kwrgs_events=kwrgs_events, detrend=True)
 
     fc.fit_models(lead_max=lags_i, verbosity=1)
 

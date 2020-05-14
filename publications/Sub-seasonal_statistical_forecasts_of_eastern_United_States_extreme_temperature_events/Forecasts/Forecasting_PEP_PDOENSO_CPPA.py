@@ -46,11 +46,10 @@ logitCV = ('logitCV',
 
 
 # In[6]:
-EC_data  = data_dir + '/CPPA_EC_21-03-20_16hr_lag_0_958dd.h5'
-ERA_data = data_dir + '/CPPA_ERA5_21-03-20_12hr_lag_0_ff393.h5'
+ERA_data = data_dir + '/CPPA_ERA5_14-05-20_08hr_lag_0_c378f.h5'
 
 
-kwrgs_events = {'event_percentile': 'std'}
+kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
 precur_aggr = 15
