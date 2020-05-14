@@ -77,7 +77,7 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                                  'seed':2}),
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
                     dataset='',
-                    keys_d='CPPA+PEP+sm')]
+                    keys_d='CPPA+sm')]
 
 
 fc = list_of_fc[1]
