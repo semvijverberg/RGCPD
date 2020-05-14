@@ -37,7 +37,9 @@ logit = ('logit', None)
 #%%
 start_time = time()
 
-ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f_detr.h5'
+ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f_detr_ano.h5'
+# ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f_detr.h5'
+# ERA_data = data_dir + '/CPPA_ERA5_14-05-20_08hr_lag_0_c378f.h5'
 
 kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break': 1}
 
@@ -63,24 +65,24 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                                   'seed':2}),
                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
                     dataset='',
-                    keys_d='CPPA'),
-              fcev(path_data=ERA_data, precur_aggr=precur_aggr,
-                    use_fold=use_fold, start_end_TVdate=None,
-                    stat_model= ('logitCV',
-                                {'Cs':10, #np.logspace(-4,1,10)
-                                'class_weight':{ 0:1, 1:1},
-                                 'scoring':'neg_brier_score',
-                                 'penalty':'l2',
-                                 'solver':'lbfgs',
-                                 'max_iter':100,
-                                 'kfold':5,
-                                 'seed':2}),
-                    kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
-                    dataset='',
-                    keys_d='CPPA+sm')]
+                    keys_d='CPPA')]
+              # fcev(path_data=ERA_data, precur_aggr=precur_aggr,
+              #       use_fold=use_fold, start_end_TVdate=None,
+              #       stat_model= ('logitCV',
+              #                   {'Cs':10, #np.logspace(-4,1,10)
+              #                   'class_weight':{ 0:1, 1:1},
+              #                    'scoring':'neg_brier_score',
+              #                    'penalty':'l2',
+              #                    'solver':'lbfgs',
+              #                    'max_iter':100,
+              #                    'kfold':5,
+              #                    'seed':2}),
+              #       kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
+              #       dataset='',
+              #       keys_d='CPPA+sm')]
 
 
-fc = list_of_fc[1]
+# fc = list_of_fc[1]
 
 
 
@@ -89,7 +91,7 @@ times = []
 t00 = time()
 for fc in list_of_fc:
     t0 = time()
-    fc.get_TV(kwrgs_events=kwrgs_events, detrend=True)
+    fc.get_TV(kwrgs_events=kwrgs_events, detrend=False)
 
     fc.fit_models(lead_max=lags_i, verbosity=1)
 
