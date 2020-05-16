@@ -191,7 +191,7 @@ def load_TV(list_of_name_path, loadleap=False, name_ds='ts'):
         else:
             fulltso = ds.squeeze()
     hashh = filename.split('_')[-1].split('.')[0]
-    fulltso.name = str(list_of_name_path[0][0])
+    fulltso.name = str(list_of_name_path[0][0])+name_ds
     if loadleap == False:
         dates = core_pp.remove_leapdays(pd.to_datetime(fulltso.time.values))
         fulltso = fulltso.sel(time=dates)

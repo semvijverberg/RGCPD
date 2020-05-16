@@ -22,7 +22,7 @@ import core_pp
 
 
 class RV_class:
-    def __init__(self, fullts: pd.DataFrame, RV_ts: pd.DataFrame, 
+    def __init__(self, fullts: pd.DataFrame, RV_ts: pd.DataFrame,
                  kwrgs_events: Union[dict, tuple], only_RV_events: bool=True,
                  fit_model_dates: Tuple[str,str]=None):
         '''
@@ -57,7 +57,7 @@ class RV_class:
                 start_end_date = (startperiod, endperiod)
                 start_end_year = (startyr, endyr)
                 fit_dates = core_pp.get_subdates(dates_all,
-                                                 start_end_date=start_end_date, 
+                                                 start_end_date=start_end_date,
                                                  start_end_year=start_end_year)
                 bool_mask = [True if d in fit_dates else False for d in dates_all]
                 fit_model_mask = pd.DataFrame(bool_mask, columns=['fit_model_mask'],
@@ -79,11 +79,11 @@ class RV_class:
                                                   kwrgs_events['event_percentile'])
                 self.threshold_ts_fit = Ev_threshold(self.RV_ts_fit,
                                                   kwrgs_events['event_percentile'])
-    
-                # unpack other optional arguments for defining event timeseries 
+
+                # unpack other optional arguments for defining event timeseries
                 redun_keys = ['event_percentile', 'window']
                 kwrgs = {key:item for key, item in kwrgs_events.items() if key not in redun_keys}
-    
+
                 if only_RV_events == True:
                     self.RV_bin_fit = Ev_timeseries(self.RV_ts_fit,
                                    threshold=self.threshold_ts_fit ,
@@ -94,35 +94,35 @@ class RV_class:
                                    threshold=self.threshold ,
                                    **kwrgs)[0]
                     self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
-    
+
                 self.freq_per_year      = RV_class.get_freq_years(self)
-    
-    
+
+
             # make RV_bin for extreme occurring in time window
             if type(kwrgs_events['window']) is pd.DataFrame:
-    
+
                 fullts = kwrgs_events['window']
                 dates_RVe = self.aggr_to_daily_dates(self.dates_RV)
                 dates_alle  = self.aggr_to_daily_dates(self.dates_all)
-    
+
                 self.df_RV_ts_e = fullts.loc[dates_RVe]
                 df_fullts_e = fullts.loc[dates_alle]
-    
-    
+
+
                 out = handle_fit_model_dates(dates_RVe, dates_alle, self.df_RV_ts_e, fit_model_dates)
                 self.fit_model_mask, self.fit_dates, self.RV_ts_fit_e = out
-    
+
                 # RV_ts and RV_ts_fit are equal if fit_model_dates = None
                 self.threshold = Ev_threshold(self.df_RV_ts_e,
                                                   kwrgs_events['event_percentile'])
                 self.threshold_ts_fit = Ev_threshold(self.RV_ts_fit_e,
                                                   kwrgs_events['event_percentile'])
-                
-                
-                # unpack other optional arguments for defining event timeseries 
+
+
+                # unpack other optional arguments for defining event timeseries
                 redun_keys = ['event_percentile', 'window']
                 kwrgs = {key:item for key, item in kwrgs_events.items() if key not in redun_keys}
-    
+
                 if only_RV_events == True:
                     # RV_bin_fit is defined such taht we can fit on RV_bin_fit
                     # but validate on RV_bin
@@ -131,7 +131,7 @@ class RV_class:
                     self.RV_bin_e = self.RV_bin_fit_e.loc[dates_RVe]
                 elif only_RV_events == False:
                     print('check code, not supported yet')
-                
+
 
                 # convert daily binary to window binary
                 if self.tfreq != 1:
@@ -144,8 +144,8 @@ class RV_class:
                                                                             None,
                                                                             None)
                 else:
-                    print('tfreq must be larger than 1 to calculate the window binary')
-    
+                    print('Warning: tfreq must be larger than 1 to calculate the window binary')
+
                 # all bins, with mean > 0 contained an 'extreme' event
                 self.RV_bin_fit[self.RV_bin_fit>0] = 1
                 self.RV_bin[self.RV_bin>0] = 1
@@ -161,7 +161,7 @@ class RV_class:
                                         freq=pd.Timedelta('1d'))
         years = np.unique(dates_precur_data.year)
         ext_dates = functions_pp.make_dates(yr_daily, years)
-    
+
         return ext_dates
 
     def get_freq_years(self, RV_bin=None):
@@ -185,13 +185,13 @@ class RV_class:
             RV_train_mask = TrainIsTrue[s][RV_mask_s[s]]
             y_b_train = self.RV_bin[RV_train_mask]
             y_b_test  = self.RV_bin[RV_train_mask==False]
-    
+
             clim_prevail = y_b_train.sum() / y_b_train.size
             clim_arr = np.repeat(clim_prevail, y_b_test.size).values
             pdseries = pd.Series(clim_arr, index=y_b_test.index)
             y_prob_clim.loc[y_b_test.index, 'prob_clim'] = pdseries
         self.prob_clim = y_prob_clim
-        return 
+        return
 
 
 def Ev_threshold(xarray, event_percentile):

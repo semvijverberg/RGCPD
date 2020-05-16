@@ -37,9 +37,12 @@ logit = ('logit', None)
 #%%
 start_time = time()
 
-ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f_detr_ano.h5'
+ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f_good.h5'
 # ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f_detr.h5'
 # ERA_data = data_dir + '/CPPA_ERA5_14-05-20_08hr_lag_0_c378f.h5'
+# ERA_data = '/Users/semvijverberg/surfdrive/output_RGCPD/1q90tail_c378f_24jun-22aug_lag0-0_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f.h5'
+ERA_old = '/Users/semvijverberg/surfdrive/output_RGCPD/1_ff393_12jun-11aug_lag0-0_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
+
 
 kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break': 1}
 

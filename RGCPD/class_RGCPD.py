@@ -162,6 +162,8 @@ class RGCPD:
         self.start_end_TVdate   = start_end_TVdate
         self.start_end_date     = start_end_date
         self.start_end_year     = start_end_year
+
+
         self.verbosity          = verbosity
         self.tfreq              = tfreq
         self.lags_i             = lags_i
@@ -186,8 +188,15 @@ class RGCPD:
         detrend = detrend
         anomaly = anomaly
 
-        self.kwrgs_pp = dict(loadleap=loadleap, seldates=seldates, selbox=selbox,
-                            format_lon=format_lon, detrend=detrend, anomaly=anomaly)
+
+        self.kwrgs_load = dict(loadleap=loadleap, seldates=seldates, selbox=selbox,
+                               format_lon=format_lon)
+        self.kwrgs_pp = self.kwrgs_load.copy()
+        self.kwrgs_pp.update(dict(detrend=detrend, anomaly=anomaly))
+
+        self.kwrgs_load.update(dict(start_end_date=self.start_end_date,
+                                    start_end_year=self.start_end_year,
+                                    tfreq=self.tfreq))
 
         self.list_precur_pp = functions_pp.perform_post_processing(self.list_of_name_path,
                                              kwrgs_pp=self.kwrgs_pp,
@@ -316,17 +325,12 @@ class RGCPD:
 
 
     def calc_corr_maps(self, var: Union[str, list]=None):
-        keys = ['selbox', 'loadleap', 'seldates', 'format_lon']
-        kwrgs_load = {k: self.kwrgs_pp[k] for k in keys}
-        kwrgs_load['start_end_date']= self.start_end_date
-        kwrgs_load['start_end_year']= self.start_end_year
-        kwrgs_load['tfreq']         = self.tfreq
-        self.kwrgs_load = kwrgs_load
+
         if var is None:
             if type(var) is str:
                 var = [var]
             var = [MI.name for MI in self.list_for_MI]
-
+        kwrgs_load = self.kwrgs_load
         # self.list_for_MI = []
         for precur in self.list_for_MI:
             if precur.name in var:
@@ -562,7 +566,7 @@ class RGCPD:
             path = self.path_outsub2
         wrapper_PCMCI.store_ts(self.df_data, self.df_links, self.dict_ds,
                                path+'.h5')
-        self.df_data_filename = path+'.h5'
+        self.path_df_data = path+'.h5'
 
     def store_df(self):
         if len(self.list_for_MI) != 0:
@@ -575,7 +579,7 @@ class RGCPD:
                                 f'dt{self.precur_aggr}_{self.hash}.h5')
         functions_pp.store_hdf_df({'df_data':self.df_data}, filename)
         print('Data stored in \n{}'.format(filename))
-        self.df_data_filename = filename
+        self.path_df_data = filename
 
     def quick_view_labels(self, var=None, map_proj=None, median=True):
 

@@ -161,14 +161,14 @@ class fcev():
         if hasattr(self, 'df_data') == False:
             print("df_data not loaded, initialize fcev class with path to df_data")
 
-
+        self.detrend = detrend
         self.RV_anomaly = RV_anomaly
         self.df_TV = self.df_data.iloc[:,[0,-2,-1]].copy()
         if RV_name is None:
             self.RV_name = self.df_TV.columns[0]
         else:
             self.RV_name = RV_name
-        self.detrend = detrend
+
         df_fold = self.df_TV.loc[0]
         self.fulltso = df_fold.iloc[:,0].to_xarray().squeeze()
         if self.detrend:
@@ -494,7 +494,7 @@ class fcev():
         self.df_data['RV_mask'] = pd.concat([new_RVmask] * self.splits.size,
                                             keys=self.splits)
     def _get_start_end_TVdate(self):
-        RV_mask_orig   = self.df_data.loc[0]['RV_mask'].copy()
+        RV_mask_orig   = self.TV.RV_mask.loc[0].copy()
         dates_RV = RV_mask_orig[RV_mask_orig].index
         return (f'{dates_RV[0].month}-{dates_RV[0].day}',
                                  f'{dates_RV[-1].month}-{dates_RV[-1].day}')
