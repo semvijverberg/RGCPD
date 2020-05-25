@@ -40,19 +40,19 @@ def loop_df_ana(df, function, keys=None, to_np=False, kwrgs=None):
         # retrieve only float series
         type_check = np.logical_or(df.dtypes == 'float',df.dtypes == 'float32')
         keys = type_check[type_check].index
-    
+
     out_list = []
     for header in df:
         if to_np == False:
             y = df[header]
         elif to_np == True:
             y = df[header].values
-        out_i = function(y, **kwrgs) 
+        out_i = function(y, **kwrgs)
         out_list.append(out_i)
     return pd.DataFrame(np.array(out_list).T, index=df.index, columns=keys)
-    
 
-def loop_df(df: pd.DataFrame(), function, keys=None, colwrap=3, sharex='col', 
+
+def loop_df(df: pd.DataFrame(), function, keys=None, colwrap=3, sharex='col',
             sharey='row', hspace=.4, kwrgs=None):
     #%%
     assert type(df) == type(pd.DataFrame()), ('df should be DataFrame, '
@@ -61,19 +61,20 @@ def loop_df(df: pd.DataFrame(), function, keys=None, colwrap=3, sharex='col',
         # retrieve only float series
         type_check = np.logical_or(df.dtypes == 'float',
                                    df.dtypes == 'float32')
-                                   
+
         keys = type_check[type_check].index
 
     df = df.loc[:,keys]
-    
+
     if (df.columns.size) % colwrap == 0:
         rows = int(df.columns.size / colwrap)
     elif (df.columns.size) % colwrap != 0:
         rows = int(df.columns.size / colwrap) + 1
-        
+
     gridspec_kw = {'hspace':hspace}
     fig, ax = plt.subplots(rows, colwrap, sharex=sharex, sharey=sharey,
-                           figsize = (3*colwrap,rows*2.5), gridspec_kw=gridspec_kw)
+                           figsize = (3*colwrap,rows*2.5),
+                           gridspec_kw=gridspec_kw)
 
     for i, ax in enumerate(fig.axes):
         if i >= df.columns.size:
@@ -109,7 +110,7 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=None, ax=None):
     if hasattr(y.index,'levels'):
         y = y.loc[0]
     ac, con_int = autocorr_sm(y)
-    
+
     time = y.index
     if type(time) is pd.core.indexes.datetimes.DatetimeIndex:
         tfreq = (time[1] - time[0]).days
@@ -128,7 +129,7 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=None, ax=None):
             cutoff = int(where[np.where(n_of_times == n)[0][0] ])
         except:
             cutoff = tfreq * 20
-        
+
         s = 2*cutoff
     else:
         cutoff = int(s/2)
@@ -140,15 +141,15 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=None, ax=None):
             AUC = np.trapz(ac[:AUC_cutoff], x=range(AUC_cutoff))
             text = 'AUC {:.2f} up to lag {}'.format(AUC, AUC_cutoff)
         elif type(AUC_cutoff) is tuple:
-            AUC = np.trapz(ac[AUC_cutoff[0]:AUC_cutoff[1]], 
+            AUC = np.trapz(ac[AUC_cutoff[0]:AUC_cutoff[1]],
                            x=range(AUC_cutoff[0], AUC_cutoff[1]))
             text = 'AUC {:.2f} range lag {}-{}'.format(AUC, AUC_cutoff[0],
                                                        AUC_cutoff[1])
-        ax.text(0.99, 0.90, 
-        text, 
+        ax.text(0.99, 0.90,
+        text,
         transform=ax.transAxes, horizontalalignment='right',
         fontdict={'fontsize':8})
-        
+
     xlabels = [x * tfreq for x in range(s)]
     # con high
     high = [ min(1,h) for h in con_int[:,1][:s]]
@@ -159,31 +160,32 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=None, ax=None):
     ax.plot(xlabels,ac[:s])
     ax.scatter(xlabels,ac[:s])
     ax.hlines(y=0, xmin=min(xlabels), xmax=max(xlabels))
-    
+
 
     xlabels = [x * tfreq for x in range(s)]
     n_labels = max(1, int(s / 5))
     ax.set_xticks(xlabels[::n_labels])
-    ax.set_xticklabels(xlabels[::n_labels], fontsize=10)
+    ax.set_xticklabels(xlabels[::n_labels])
+    ax.tick_params(axis='both', which='major', labelsize=10)
     ax.set_xlabel(xaxlabel, fontsize=10)
     if title is not None:
         ax.set_title(title, fontsize=10)
     return ax
 
-def plot_timeseries(y, timesteps: list=None, 
+def plot_timeseries(y, timesteps: list=None,
                     selyears: Union[list, int]=None, title=None, ax=None):
     # ax=None
     #%%
-   
-    
+
+
     if hasattr(y.index,'levels'):
         y_ac = y.loc[0]
     else:
         y_ac = y
-        
+
     if type(y_ac.index) == pd.core.indexes.datetimes.DatetimeIndex:
         datetimes = y_ac.index
-    
+
     if timesteps is None and selyears is None:
         ac, con_int = autocorr_sm(y_ac)
         where = np.where(con_int[:,0] < 0 )[0]
@@ -194,21 +196,21 @@ def plot_timeseries(y, timesteps: list=None,
             cutoff = where[np.where(n_of_times == n)[0][0] ]
         else:
             cutoff = 100
-        
+
         timesteps = min(y_ac.index.size, 10*cutoff)
         datetimes = y_ac.iloc[:timesteps].index
-    
+
     if selyears is not None and timesteps is None:
         if type(selyears) is int:
             selyears = [selyears]
         datetimes = get_oneyr(y.index, *selyears)
-        
+
     if timesteps is not None and selyears is None:
         datetimes = datetimes[:timesteps]
-    
+
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
-        
+
     if hasattr(y.index,'levels'):
         for fold in y.index.levels[0]:
             ax.plot(datetimes, y.loc[fold, datetimes], alpha=.5,
@@ -216,7 +218,7 @@ def plot_timeseries(y, timesteps: list=None,
         ax.legend(prop={'size':6})
     else:
         ax.plot(datetimes, y.loc[datetimes])
-    
+
     every_nth = round(len(ax.xaxis.get_ticklabels())/3)
     for n, label in enumerate(ax.xaxis.get_ticklabels()):
         if n % every_nth != 0:
@@ -244,8 +246,8 @@ def plot_scatter(y, tv=pd.Series, aggr=None, title=None, ax=None):
 
 def mtspectrum(ts, d=1., tb=4, nt=4):
     import mtspec
-    """ multi-taper spectrum 
-    
+    """ multi-taper spectrum
+
     input:
     ts .. time series
     d  .. sampling period
@@ -258,8 +260,8 @@ def mtspectrum(ts, d=1., tb=4, nt=4):
     return freq, spec
 
 def periodogram(ts, d=1.):
-    """ naive absolute squared Fourier components 
-    
+    """ naive absolute squared Fourier components
+
     input:
     ts .. time series
     d  .. sampling period
@@ -276,20 +278,20 @@ def fft_np(y, sampling_period=1.):
     return fftfreq, ypsd
 
 def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
-                  vlines=None, y_lim=None, 
+                  vlines=None, y_lim=None,
                   year_max=.5, title=None, ax=None):
-    
-    
-    # ax=None ; 
+
+
+    # ax=None ;
     if hasattr(y.index,'levels'):
         y = y.loc[0]
-    
+
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
-        
+
     if methods is None:
         methods = [('periodogram', periodogram)]
-                       
+
 
     try:
         freq_df = (y.index[1] - y.index[0]).days
@@ -300,43 +302,43 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
 
     except:
         freq_df = 1
-        
+
     def freq_to_period(xfreq, freq_df):
         if freq_df == 'month':
             periods = 1/(xfreq * 12)
         elif type(freq_df) is int:
             periods = 1/(xfreq*freq_df)
         return np.round(periods, 3)
-    
+
     def period_to_fred(periods, freq_df):
         if freq_df == 'month':
             freq = 1 / (periods * 12)
         else:
             freq = 1 / (periods * freq_df)
         return np.round(freq, 1)
-        
-    
+
+
     for i, method in enumerate(methods):
         label, func_ = method
         freq, spec = func_(y)
         _periods = freq_to_period(freq[1:], freq_df)
         idx = int(np.argwhere(_periods-year_max ==min(abs(_periods - year_max)))[0])
-        periods = _periods[:idx+1] 
-        ax.plot(periods, spec[1:idx+2], ls='-', c=nice_colors[i], label=label)     
+        periods = _periods[:idx+1]
+        ax.plot(periods, spec[1:idx+2], ls='-', c=nice_colors[i], label=label)
         ax.set_xscale('log')
         ax.set_xticks(periods[np.logical_or(periods%2 == 0, periods==1)])
         ax.set_xticklabels(np.array(periods[np.logical_or(periods%2 == 0, periods==1)], dtype=int))
         ax.set_xlim((periods[0], periods[-1]))
         ax.set_xlabel('Periods [years]', fontsize=9)
         ax.tick_params(axis='both', labelsize=8)
-        
+
         ax2 = ax.twiny()
-        ax2.plot(periods, spec[1:idx+2], ls='-', c=nice_colors[i], label=label)     
+        ax2.plot(periods, spec[1:idx+2], ls='-', c=nice_colors[i], label=label)
         ax2.set_xscale('log')
         ax2.set_xticks(periods[:][np.logical_or(periods%2 == 0, periods==1)])
         ax2.set_xticklabels(np.round(freq[1:idx+2][np.logical_or(periods%2 == 0, periods==1)], 3))
         ax2.set_xlim((periods[0], periods[-1]))
-        
+
         ax2.tick_params(axis='both', labelsize=8)
         ax.set_xlabel('Periods [years]', fontsize=8)
         if freq_df == 'month':
@@ -344,12 +346,12 @@ def plot_spectrum(y, methods: List[tuple]=[('periodogram', periodogram)],
         else:
             ax2.set_xlabel(f'Frequency [1/ {freq_df} days]', fontsize=6)
         # ax.set_ylabel('Power Spectrum Density', fontsize=8)
-        
+
     ax.legend(fontsize='xx-small')
     if title is not None:
         ax.set_title(title, fontsize=9)
     return ax
-        
+
 def resample(df, to_freq='M'):
     return df.resample(to_freq).mean()
 
@@ -369,7 +371,7 @@ def corr_matrix_pval(df, alpha=0.05):
     sig_mask = pval_matrix < alpha
     return cross_corr, sig_mask, pval_matrix
 
-def plot_ts_matric(df_init, win=1, lag=0, columns=list, rename: dict=None, 
+def plot_ts_matric(df_init, win=1, lag=0, columns=list, rename: dict=None,
                    period='fullyear'):
     #%%
     '''
@@ -493,7 +495,7 @@ def remove_leapdays(datetime_or_xr):
    noleap = datetime[mask_lpyrfeb==False]
    if type(datetime_or_xr) != type(pd.to_datetime(['2000-01-01'])):
        noleap = datetime_or_xr.sel(time=noleap)
-       
+
    return noleap
 
 def store_hdf_df(dict_of_dfs, file_path):
@@ -523,7 +525,7 @@ def load_hdf5(path_data):
         except:
             time.sleep(1)
         assert c!= 5, print('loading in hdf5 failed')
-            
+
     return dict_of_dfs
 
 
@@ -643,9 +645,9 @@ def df_figures(df_data, keys, analysis, line_dim='model', group_line_by=None,
                         clim = None
                     plot_score_lags(df_metric, metric, color, lags_tf,
                                     linestyle=line_styles[l], clim=clim,
-                                    cv_lines=False, col=col, 
+                                    cv_lines=False, col=col,
                                     threshold_bin=threshold_bin, ax=ax)
-                                    
+
                 if metric == 'Rel. Curve':
                     if l == 0:
                         ax, n_bins = rel_curve_base(RV, lags_tf, col=col, ax=ax)

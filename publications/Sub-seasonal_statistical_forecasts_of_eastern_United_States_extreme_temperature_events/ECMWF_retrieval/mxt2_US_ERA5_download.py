@@ -6,7 +6,7 @@ Created on Wed Mar  6 16:31:58 2019
 @author: semvijverberg
 """
 
-#%%
+
 import os, inspect, sys
 import numpy as np
 import pandas as pd
@@ -15,7 +15,8 @@ local_base_path = "/Users/semvijverberg/surfdrive/"
 local_script_dir = os.path.join(local_base_path, "Scripts/RGCPD/ECMWF_retrieval" )
 
 # cluster_base_path = "/p/projects/climber3/atm_data/"
-cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/"
+# cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/"
+cluster_base_path = "/scistor/ivm/svg460/surfdrive/"
 
 cluster_script_dir = "/scistor/ivm/svg460/surfdrive/Scripts/RGCPD/ECMWF_retrieval"
 
@@ -35,7 +36,7 @@ except:
 
 
 dataset   = 'ERA5' # choose 'era5' or 'ERAint' or era20c
-path_raw = os.path.join(base_path,f'{dataset}/input_raw/')
+path_raw = os.path.join(base_path,f'{dataset}/input_raw')
 
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 
@@ -47,7 +48,7 @@ if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 
 ex = dict(
      {'dataset'     :       dataset,
-     'grid_res'     :       2.5,
+     'grid_res'     :       .25,
      'startyear'    :       1979, # download startyear
      'endyear'      :       2018, # download endyear
      'months'       :       list(range(1,12+1)), #downoad months
@@ -55,9 +56,9 @@ ex = dict(
      # for daily means choose 'oper' or 'enda' (for accumulations)
      'stream'       :       'oper',
      'time'         :       pd.date_range(start='00:00', end='23:00',
-                                freq=(pd.Timedelta(6, unit='h'))),
-     'area'         :       'global', # [North, West, South, East]. Default: global
-     'CDO_command'  :       'daymean',
+                                freq=(pd.Timedelta(1, unit='h'))),
+     'area'         :       [60, -130, 0, -60], # [North, West, South, East]. Default: global
+     'CDO_command'  :       'daymax',
      'base_path'    :       base_path,
      'path_raw'     :       path_raw}
      )
@@ -78,11 +79,11 @@ elif ex['dataset'] == 'ERA5':
 
 # See https://confluence.ecmwf.int/display/CKB/How+to+download+ERA5
 
-ex['vars']     =    [
-                    ['v500hpa'],              # ['name_var1','name_var2', ...]
-                    ['v_component_of_wind'],    # ECMWF param ids
-                    ['pl'],             # Levtypes ('sfc' or 'pl')
-                    [['500']],                  # Vertical levels
+ex['vars']     =   [
+                    ['mx2t_US'],              # ['name_var1','name_var2', ...]
+                    ['maximum_2m_temperature_since_previous_post_processing'],    # ECMWF param ids
+                    ['sfc'],             # Levtypes ('sfc' or 'pl')
+                    [['0']],                  # Vertical levels
                     ]
 
 for idx in range(len(ex['vars'][0]))[:]:

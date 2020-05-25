@@ -46,11 +46,11 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     '''
     #%%
     # default parameters
-    # mask_xr=None ; row_dim='split'; col_dim='lag'; clim='relaxed'; 
-    # size=2.5; cbar_vert=-0.01; units='units'; cmap=None; hspace=-0.6; 
+    # mask_xr=None ; row_dim='split'; col_dim='lag'; clim='relaxed';
+    # size=2.5; cbar_vert=-0.01; units='units'; cmap=None; hspace=-0.6;
     # clevels=None; cticks_center=None; map_proj=None ; wspace=.0
     # drawbox=None; subtitles=None; title=None; lat_labels=True; zoomregion=None
-    
+
     if map_proj is None:
         cen_lon = int(corr_xr.longitude.mean().values)
         map_proj = ccrs.LambertCylindrical(central_longitude=cen_lon)
@@ -82,8 +82,8 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     lon = plot_xr.longitude
     zonal_width = abs(lon[-1] - lon[0]).values
     if aspect is None:
-        aspect = (lon.size) / lat.size 
-    
+        aspect = (lon.size) / lat.size
+
 
     g = xr.plot.FacetGrid(plot_xr, col='col', row='row', subplot_kws={'projection': map_proj},
                       sharex=True, sharey=True,
@@ -244,6 +244,9 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                                           alpha=0.3,
                                           facecolor='grey',
                                           linewidth=2)
+            # black outline subplot
+            g.axes[row,col].outline_patch.set_edgecolor('black')
+
             if corr_xr.name is not None:
                 if corr_xr.name[:3] == 'sst':
                     g.axes[row,col].add_feature(cfeature.LAND, facecolor='grey', alpha=0.3)
@@ -311,15 +314,15 @@ def causal_reg_to_xarray(df_links, list_MI):
 
     df_c = df_c.loc[:,var_MI]
 
-    # collect var en region labels   
-    var = pd.Series([i[1].split('..')[2] for i in df_c.index], 
+    # collect var en region labels
+    var = pd.Series([i[1].split('..')[-1] for i in df_c.index],
                     index=df_c.index)
-    region_number = pd.Series([int(i[1].split('..')[1]) for i in df_c.index], 
+    region_number = pd.Series([int(i[1].split('..')[-2]) for i in df_c.index],
                     index=df_c.index)
-    df_c = pd.concat([df_c, var, region_number], 
+    df_c = pd.concat([df_c, var, region_number],
               keys=['C.D.', 'var', 'region_number'], axis=1)
-    
-    
+
+
     var_rel_sizes = {i:precur.area_grid.sum() for i,precur in enumerate(list_MI)}
     sorted_sizes = sorted(var_rel_sizes.items(), key=lambda kv: kv[1], reverse=False)
     var_large_to_small = [s[0] for s in sorted_sizes]
@@ -346,7 +349,7 @@ def causal_reg_to_xarray(df_links, list_MI):
         var = precur.name
         ds_var = xr.Dataset()
         regs_c = df_c.loc[ df_c['var'] == var ].copy()
-        
+
         label_tig = precur.prec_labels.copy()
         # if show spatcov of var was used: convert all labels to one
         if regs_c.size==0:
@@ -362,10 +365,10 @@ def causal_reg_to_xarray(df_links, list_MI):
             for lag_cor in label_tig.lag.values:
 
                 var_tig = label_tig.sel(lag=lag_cor)
-                
+
                 reg_cd = regs_c[regs_c['C.D.']]
-                
-                
+
+
 
                 new_mask = np.zeros( shape=var_tig.shape, dtype=bool)
                 for s in splits.values:
@@ -398,9 +401,9 @@ def causal_reg_to_xarray(df_links, list_MI):
     return dict_ds
 
 def plot_labels_vars_splits(dict_ds, df_links, map_proj, figpath, paramsstr, RV_name,
-                            filetype='.pdf', mean_splits=True, 
+                            filetype='.pdf', mean_splits=True,
                         cols: List=['corr', 'C.D.'], kwrgs_plot={}):
-                            
+
     #%%
     # =============================================================================
     print('\nPlotting all fields significant at alpha_level_tig, while conditioning on parents'
@@ -420,13 +423,13 @@ def plot_labels_vars_splits(dict_ds, df_links, map_proj, figpath, paramsstr, RV_
                 f_name = '{}_{}_vs_{}_labels'.format(paramsstr, RV_name, var) + filetype
 
             filepath = os.path.join(figpath, f_name)
-            plot_labels_RGCPD(ds, var, lag, map_proj, filepath, 
+            plot_labels_RGCPD(ds, var, lag, map_proj, filepath,
                               mean_splits, cols, kwrgs_plot)
     #%%
     return
 
-def plot_labels_RGCPD(ds, var, lag, map_proj, filepath, 
-                      mean_splits=True, cols: List=['corr', 'C.D.'], 
+def plot_labels_RGCPD(ds, var, lag, map_proj, filepath,
+                      mean_splits=True, cols: List=['corr', 'C.D.'],
                       kwrgs_plot={}):
     #%%
     ds_l = ds.sel(lag=lag)
@@ -444,8 +447,8 @@ def plot_labels_RGCPD(ds, var, lag, map_proj, filepath,
         columns = columns = ['labels_tigr']
         subtitles_l = [[f'{var} regions C.D.']]
         subtitles_r = [[f'robustness {var} C.D.']]
-        
-    
+
+
 #    columns = ['labels']
     robustness_l = []
     if mean_splits == True:
@@ -477,11 +480,11 @@ def plot_labels_RGCPD(ds, var, lag, map_proj, filepath,
 
     prec_labels = xr.concat(list_xr, dim='lag')
     prec_labels = prec_labels.assign_coords(lag=name)
-    
+
     # colors of cmap are dived over min to max in n_steps.
     # We need to make sure that the maximum value in all dimensions will be
     # used for each plot (otherwise it assign inconsistent colors)
-    
+
     kwrgs_labels = _get_kwrgs_labels(prec_labels)
     kwrgs_labels['subtitles'] = np.array(subtitles_l)
 
@@ -500,7 +503,7 @@ def plot_labels_RGCPD(ds, var, lag, map_proj, filepath,
 
         if mean_splits == True:
             # plot robustness
-            
+
 
             colors = plt.cm.magma_r(np.linspace(0,0.7, 20))
             colors[-1] = plt.cm.magma_r(np.linspace(0.99,1, 1))
@@ -535,7 +538,7 @@ def plot_labels_RGCPD(ds, var, lag, map_proj, filepath,
     return
 
 def plot_corr_vars_splits(dict_ds, df_sum, map_proj, figpath, paramsstr, RV_name,
-                          filetype='.pdf', mean_splits=True, 
+                          filetype='.pdf', mean_splits=True,
                           cols: List=['corr', 'C.D.'], kwrgs_plot={}):
     #%%
     # =============================================================================
@@ -568,7 +571,7 @@ def plot_corr_vars_splits(dict_ds, df_sum, map_proj, figpath, paramsstr, RV_name
             else:
                 f_name = '{}_{}_vs_{}_tigr_corr'.format(paramsstr, RV_name, var) + filetype
             filepath = os.path.join(figpath, f_name)
-            plot_corr_regions(ds, var, lag, map_proj, filepath, 
+            plot_corr_regions(ds, var, lag, map_proj, filepath,
                               mean_splits, cols, kwrgs_plot)
     #%%
     return
@@ -579,7 +582,7 @@ def _get_kwrgs_labels(prec_labels):
     else:
         max_N_regs = 20
     label_weak = np.nan_to_num(prec_labels.values) >=  max_N_regs
-    
+
     prec_labels.values[label_weak] = max_N_regs
     steps = max_N_regs+1
     cmap = plt.cm.tab20
@@ -589,12 +592,12 @@ def _get_kwrgs_labels(prec_labels):
 
     kwrgs_labels = {'size':3, 'clevels':clevels,
                   'lat_labels':True, 'cticks_center':True,
-                  'cmap':cmap, 
+                  'cmap':cmap,
                   'units': None}
-                  
+
     if len(prec_labels.shape) == 2 or prec_labels.shape[0] == 1:
         kwrgs_labels['cbar_vert'] = -0.1
-        
+
     return kwrgs_labels
 
 def plot_labels(prec_labels, cbar_vert=None, col_dim='lag', row_dim='split',
@@ -606,11 +609,11 @@ def plot_labels(prec_labels, cbar_vert=None, col_dim='lag', row_dim='split',
         kwrgs_labels['cbar_vert'] = cbar_vert
     for k, item in kwrgs_plot.items():
         kwrgs_labels[k] = item
-    plot_corr_maps(xrlabels, col_dim=col_dim, row_dim=row_dim, 
-                   hspace=hspace, wspace=wspace, zoomregion=zoomregion, 
+    plot_corr_maps(xrlabels, col_dim=col_dim, row_dim=row_dim,
+                   hspace=hspace, wspace=wspace, zoomregion=zoomregion,
                    **kwrgs_labels)
 
-def plot_corr_regions(ds, var, lag, map_proj, filepath, 
+def plot_corr_regions(ds, var, lag, map_proj, filepath,
                       mean_splits=True, cols: List=['corr','C.D.'],
                       kwrgs_plot={}):
     #%%
@@ -638,7 +641,7 @@ def plot_corr_regions(ds, var, lag, map_proj, filepath,
             corr_mean = corr_splits.mean(dim='split')
             if all(mask.values.flatten()==False) and c[0] == 'corr':
                 # if no regions significant in corr map step:
-                # do not mask 
+                # do not mask
                 corr_mean = corr_mean
             else:
                 corr_mean = corr_mean.where(mask)

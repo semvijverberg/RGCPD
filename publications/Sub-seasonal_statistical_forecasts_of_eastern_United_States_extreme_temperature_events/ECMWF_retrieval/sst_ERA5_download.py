@@ -12,10 +12,10 @@ import numpy as np
 import pandas as pd
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 local_base_path = "/Users/semvijverberg/surfdrive/"
-local_script_dir = os.path.join(local_base_path, "Scripts/RGCPD/ECMWF_retrieval" )
+local_script_dir = os.path.join(local_base_path, "Scripts/RGCPD/RGCPD" )
 
 # cluster_base_path = "/p/projects/climber3/atm_data/"
-cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/"
+cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/ERA5/"
 
 cluster_script_dir = "/scistor/ivm/svg460/surfdrive/Scripts/RGCPD/ECMWF_retrieval"
 
@@ -34,8 +34,9 @@ except:
 # =============================================================================
 
 
-dataset   = 'ERA5' # choose 'era5' or 'ERAint' or era20c
-path_raw = os.path.join(base_path,f'{dataset}/input_raw/')
+dataset   = 'era5' # choose 'era5' or 'ERAint' or era20c
+exp_folder = ''
+path_raw = os.path.join(base_path,f'Data_{dataset}/{exp_folder}')
 
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 
@@ -47,7 +48,7 @@ if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 
 ex = dict(
      {'dataset'     :       dataset,
-     'grid_res'     :       2.5,
+     'grid_res'     :       1.0,
      'startyear'    :       1979, # download startyear
      'endyear'      :       2018, # download endyear
      'months'       :       list(range(1,12+1)), #downoad months
@@ -64,7 +65,7 @@ ex = dict(
 
 if ex['dataset'] == 'ERAint' or ex['dataset'] == 'era20c':
     import download_ERA_interim_API as ECMWF
-elif ex['dataset'] == 'ERA5':
+elif ex['dataset'] == 'era5':
     import download_ERA5_API as ECMWF
 
 
@@ -78,11 +79,11 @@ elif ex['dataset'] == 'ERA5':
 
 # See https://confluence.ecmwf.int/display/CKB/How+to+download+ERA5
 
-ex['vars']     =    [
-                    ['v500hpa'],              # ['name_var1','name_var2', ...]
-                    ['v_component_of_wind'],    # ECMWF param ids
-                    ['pl'],             # Levtypes ('sfc' or 'pl')
-                    [['500']],                  # Vertical levels
+ex['vars']     =   [
+                    ['sst'],              # ['name_var1','name_var2', ...]
+                    ['sea_surface_temperature'],    # ECMWF param ids
+                    ['sfc'],             # Levtypes ('sfc' or 'pl')
+                    [['0']],                  # Vertical levels
                     ]
 
 for idx in range(len(ex['vars'][0]))[:]:

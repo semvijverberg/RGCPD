@@ -55,8 +55,8 @@ class fcev():
             format ('mm-dd', 'mm-dd'). default is the RV_mask present in the
             .h5 dataframe 'df_data'
         '''
-                   
-        
+
+
         fcev.number_of_times_called += 1
         self.path_data = path_data
         if dataset is None:
@@ -73,15 +73,15 @@ class fcev():
                 if np.sign(self.fold) == -1:
                     print(f'removing fold {self.fold}')
                     self.df_data =self._remove_folds()
-            if type(self.fold) is not int:   
-                if np.sign(self.fold[0]) == 1:                 
+            if type(self.fold) is not int:
+                if np.sign(self.fold[0]) == 1:
                     self.df_data = self.df_data_orig.loc[[0,1]]
-                
+
                 if np.sign(self.fold[0]) == -1:
                     print(f'removing folds {self.fold}')
                     self.df_data =self._remove_folds()
-                    
-                    
+
+
         # if self.fold is not None and np.sign(self.fold) == -1:
         #     # remove all data from test years
         #     print(f'removing fold {self.fold}')
@@ -128,7 +128,7 @@ class fcev():
                 self.experiment += '+AR'
         columns = self.df_data.columns[self.df_data.dtypes!=bool]
         self.df_precurset = self.df_data[columns].count(axis=0, level=1).iloc[0]
-        
+
         if n_cpu is None:
             self.n_cpu = max_cpu - 1
         else:
@@ -143,32 +143,32 @@ class fcev():
         f = functions_pp
         self.fulltso, self.hash = f.load_TV(list_of_name_path, name_ds=name_ds)
         # overwriting first column of df_data
-        
+
         df_TV_split = self.df_data.iloc[:,0].loc[0]
         self.fullts = f.detrend1D(self.fulltso.sel(time=df_TV_split.index))
         new_vals = self.fullts.sel(time=df_TV_split.index)
-        new_df = pd.DataFrame(new_vals.values, index=df_TV_split.index, 
+        new_df = pd.DataFrame(new_vals.values, index=df_TV_split.index,
                               columns=[f'{label}_{name_ds}'])
         new_df = pd.concat([new_df]*self.splits.size, keys=self.splits)
-        self.df_data = pd.merge(new_df, 
-                                self.df_data.drop(columns=self.df_data.columns[0]), 
-                                left_index=True, right_index=True)                                    
-        
+        self.df_data = pd.merge(new_df,
+                                self.df_data.drop(columns=self.df_data.columns[0]),
+                                left_index=True, right_index=True)
 
-    def get_TV(self, kwrgs_events=None, detrend=True, RV_anomaly=False, 
+
+    def get_TV(self, kwrgs_events=None, detrend=False, RV_anomaly=False,
                RV_name: str=None):
 
         if hasattr(self, 'df_data') == False:
             print("df_data not loaded, initialize fcev class with path to df_data")
 
-
+        self.detrend = detrend
         self.RV_anomaly = RV_anomaly
         self.df_TV = self.df_data.iloc[:,[0,-2,-1]].copy()
         if RV_name is None:
             self.RV_name = self.df_TV.columns[0]
         else:
             self.RV_name = RV_name
-        self.detrend = detrend
+
         df_fold = self.df_TV.loc[0]
         self.fulltso = df_fold.iloc[:,0].to_xarray().squeeze()
         if self.detrend:
@@ -176,14 +176,14 @@ class fcev():
             n_spl = self.df_data.index.levels[0].size
             df_RV_s   = np.zeros( (n_spl) , dtype=object)
             for s in range(n_spl):
-                df_RV_s[s] = pd.DataFrame(self.fullts.values, 
+                df_RV_s[s] = pd.DataFrame(self.fullts.values,
                                         columns=[self.RV_name],
                                         index=self.df_TV.loc[0].index)
             self.df_TV[self.RV_name] = pd.concat(list(df_RV_s), keys= range(n_spl))
-            # replacing TV in df_data dataframe 
+            # replacing TV in df_data dataframe
             self.df_data[self.RV_name] = self.df_TV[self.RV_name]
-        
-        
+
+
         # aggregation from daily to n-day means
         if self.TV_aggr is None and self.precur_aggr is not None:
             self.TV_aggr = self.precur_aggr
@@ -191,11 +191,11 @@ class fcev():
             self.df_TV, dates_tobin = _daily_to_aggr(self.df_TV, self.TV_aggr)
         else:
             dates_tobin = None
-            
 
-            
-        
-        
+
+
+
+
         # target events
         if kwrgs_events is None:
             self.kwrgs_events = {'event_percentile': 66,
@@ -205,16 +205,16 @@ class fcev():
                         'window' : 'mean'}
             _kwrgs_events = self.kwrgs_events
         else:
-            
+
             self.kwrgs_events = kwrgs_events
             if 'window' not in kwrgs_events.keys():
                 self.kwrgs_events['window'] = 'mean'
             _kwrgs_events = self.kwrgs_events.copy()
-            
+
 
         if _kwrgs_events['window'] == 'single_event' and self.tfreq==1:
             _kwrgs_events['window'] = self.df_data.iloc[:,[0]].loc[0].copy()
-        
+
         TV = df_data_to_RV(self.df_TV, kwrgs_events=_kwrgs_events,
                            fit_model_dates=None)
         TV.TrainIsTrue = self.df_TV['TrainIsTrue']
@@ -291,7 +291,7 @@ class fcev():
             self.dict_preds[uniqname] = (y_pred_all, y_pred_c)
             self.dict_models[uniqname] = models
         return
-    
+
     @staticmethod
     def _create_new_traintest_split(df_data, method='random9', seed=1, kwrgs_events=None):
 
@@ -308,7 +308,7 @@ class fcev():
         splits = df_splits.index.levels[0]
         df_data_s   = np.zeros( (splits.size) , dtype=object)
         for s in splits:
-            df_data_s[s] = pd.merge(df_data, df_splits.loc[s], 
+            df_data_s[s] = pd.merge(df_data, df_splits.loc[s],
                                     left_index=True, right_index=True)
 
         df_data  = pd.concat(list(df_data_s), keys= range(splits.size))
@@ -319,8 +319,8 @@ class fcev():
         self.test_years_orig = valid.get_testyrs(self.df_data_orig)
         df_data = self.df_data_orig.loc[self.fold][self.df_data_orig.loc[self.fold]['TrainIsTrue'].values]
         df_data = self._create_new_traintest_split(df_data.copy())
-        return df_data 
-    
+        return df_data
+
     def _remove_folds(self):
         if type(self.fold) is int:
             remove_folds = [abs(self.fold)]
@@ -416,7 +416,7 @@ class fcev():
     def _print_sett(self, list_of_fc=None, subfoldername=None, f_name=None,
                     filename=None):
 
-        self._get_outpaths(list_of_fc=None, subfoldername=subfoldername, 
+        self._get_outpaths(list_of_fc=None, subfoldername=subfoldername,
                            f_name=f_name,
                            filename=filename)
 
@@ -494,14 +494,16 @@ class fcev():
         self.df_data['RV_mask'] = pd.concat([new_RVmask] * self.splits.size,
                                             keys=self.splits)
     def _get_start_end_TVdate(self):
-        RV_mask_orig   = self.df_data.loc[0]['RV_mask'].copy()
+        RV_mask_orig   = self.TV.RV_mask.loc[0].copy()
         dates_RV = RV_mask_orig[RV_mask_orig].index
         return (f'{dates_RV[0].month}-{dates_RV[0].day}',
                                  f'{dates_RV[-1].month}-{dates_RV[-1].day}')
 
-    def plot_freq_year(self):
+    def plot_freq_year(self, df: pd.DataFrame=None):
         import valid_plots as df_plots
-        df_plots.plot_freq_per_yr(self.TV)
+        if df is None:
+            df = self.TV.RV_bin
+        df_plots.plot_freq_per_yr(df)
 
     # @classmethod
     def plot_scatter(self, keys=None, colwrap=3, sharex='none', s=0, mask='RV_mask', aggr=None,
@@ -553,7 +555,7 @@ class fcev():
         fig = stat_models.plot_regularization(models_splits_lags, lag_i=lag_i)
         return fig
 
-    def apply_df_ana_plot(self, df=None, func=None, 
+    def apply_df_ana_plot(self, df=None, func=None,
                           hspace=.4, sharex=False, sharey=False,
                           kwrgs_func={}):
         if df is None:
@@ -566,7 +568,7 @@ class fcev():
     def _fit_model(self, stat_model=tuple, verbosity=0):
 
         #%%
-        
+
         RV = self.TV
         kwrgs_pp = self.kwrgs_pp
         keys_d = self.keys_d
@@ -619,7 +621,7 @@ class fcev():
             print('parallel failed')
             # if on cluster, stop
             assert sys.platform != 'linux', ('Parallel Failed on cluster')
-                
+
             t0 = time()
             results = {}
             for lag in lags_i:
