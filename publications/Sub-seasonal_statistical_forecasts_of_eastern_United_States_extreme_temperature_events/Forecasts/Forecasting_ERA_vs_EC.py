@@ -24,6 +24,7 @@ user_dir = os.path.expanduser('~')
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
+    n_cpu = 16
 
 
 
@@ -64,25 +65,25 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                     stat_model=logitCV,
                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
                     dataset=f'ERA-5',
-                    keys_d='PEP'),
+                    keys_d='PEP', n_cpu=n_cpu),
               fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                     use_fold=use_fold, start_end_TVdate=start_end_TVdate,
                     stat_model=logitCV,
                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
                     dataset=f'ERA-5',
-                    keys_d='CPPA'),
+                    keys_d='CPPA', n_cpu=n_cpu),
               fcev(path_data=EC_data, precur_aggr=precur_aggr,
                     use_fold=use_fold, start_end_TVdate=start_end_TVdate,
                     stat_model=logitCV,
                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
                     dataset=f'EC-Earth',
-                    keys_d='PEP'),
+                    keys_d='PEP', n_cpu=n_cpu),
               fcev(path_data=EC_data, precur_aggr=precur_aggr,
                     use_fold=use_fold, start_end_TVdate=start_end_TVdate,
                     stat_model=logitCV,
                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
                     dataset=f'EC-Earth',
-                    keys_d='CPPA')]
+                    keys_d='CPPA', n_cpu=n_cpu)]
 
 
 fc = list_of_fc[0]
