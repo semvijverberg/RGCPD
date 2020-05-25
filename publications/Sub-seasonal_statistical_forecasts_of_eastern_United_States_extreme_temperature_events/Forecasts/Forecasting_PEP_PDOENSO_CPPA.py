@@ -49,7 +49,7 @@ logitCV = ('logitCV',
 ERA_data = data_dir + '/CPPA_ERA5_14-05-20_08hr_lag_0_c378f.h5'
 
 
-kwrgs_events = {'event_percentile': 'std'}
+kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
 precur_aggr = 15
