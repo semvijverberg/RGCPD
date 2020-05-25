@@ -24,7 +24,7 @@ user_dir = os.path.expanduser('~')
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-    n_cpu = 16
+    n_cpu = 29
 
 
 
@@ -53,7 +53,7 @@ ERA_data = data_dir + '/CPPA_ERA5_14-05-20_08hr_lag_0_c378f.h5'
 kwrgs_events = {'event_percentile': 'std'} # = mean + std, see class_RV.Ev_threshold
 
 kwrgs_events = kwrgs_events
-precur_aggr = 1
+precur_aggr = 15
 use_fold = None
 n_boot = 2000
 lags_i = np.array([0, 10, 15, 20 , 25, 30])
