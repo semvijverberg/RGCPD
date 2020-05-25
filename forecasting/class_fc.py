@@ -494,7 +494,7 @@ class fcev():
         self.df_data['RV_mask'] = pd.concat([new_RVmask] * self.splits.size,
                                             keys=self.splits)
     def _get_start_end_TVdate(self):
-        RV_mask_orig   = self.TV.RV_mask.loc[0].copy()
+        RV_mask_orig   = self.df_data['RV_mask'].loc[0].copy()
         dates_RV = RV_mask_orig[RV_mask_orig].index
         return (f'{dates_RV[0].month}-{dates_RV[0].day}',
                                  f'{dates_RV[-1].month}-{dates_RV[-1].day}')

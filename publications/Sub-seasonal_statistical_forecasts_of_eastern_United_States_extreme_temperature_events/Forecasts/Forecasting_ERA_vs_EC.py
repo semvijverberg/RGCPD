@@ -45,7 +45,7 @@ logitCV = ('logitCV',
 
 
 # In[6]:
-EC_data  = '/Users/semvijverberg/surfdrive/output_RGCPD/easternUS_EC/EC_tas_tos_Northern/958dd_ran_strat10_s30/data/EC_21-03-20_16hr_lag_10_958dd.h5'
+EC_data  = user_dir + '/surfdrive/output_RGCPD/easternUS_EC/EC_tas_tos_Northern/958dd_ran_strat10_s30/data/EC_21-03-20_16hr_lag_10_958dd.h5'
 ERA_data = data_dir + '/CPPA_ERA5_14-05-20_08hr_lag_0_c378f.h5'
 
 
@@ -56,29 +56,29 @@ precur_aggr = 1
 use_fold = None
 n_boot = 2000
 lags_i = np.array([0, 10, 15, 20 , 25, 30])
-start_end_TVdate = None # ('7-04', '8-22')
+start_end_TVdate = ('6-24', '8-22')
 
 
 list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
-                    use_fold=use_fold, start_end_TVdate=None,
+                    use_fold=use_fold, start_end_TVdate=start_end_TVdate,
                     stat_model=logitCV,
                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
                     dataset=f'ERA-5',
                     keys_d='PEP'),
               fcev(path_data=ERA_data, precur_aggr=precur_aggr,
-                    use_fold=use_fold, start_end_TVdate=None,
+                    use_fold=use_fold, start_end_TVdate=start_end_TVdate,
                     stat_model=logitCV,
                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
                     dataset=f'ERA-5',
                     keys_d='CPPA'),
               fcev(path_data=EC_data, precur_aggr=precur_aggr,
-                    use_fold=use_fold, start_end_TVdate=None,
+                    use_fold=use_fold, start_end_TVdate=start_end_TVdate,
                     stat_model=logitCV,
                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
                     dataset=f'EC-Earth',
                     keys_d='PEP'),
               fcev(path_data=EC_data, precur_aggr=precur_aggr,
-                    use_fold=use_fold, start_end_TVdate=None,
+                    use_fold=use_fold, start_end_TVdate=start_end_TVdate,
                     stat_model=logitCV,
                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
                     dataset=f'EC-Earth',
@@ -98,7 +98,7 @@ for i, fc in enumerate(list_of_fc):
 
 
 # In[8]:
-working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)
+working_folder, filename = list_of_fc[0]._print_sett(list_of_fc=list_of_fc)
 
 store = False
 if __name__ == "__main__":
