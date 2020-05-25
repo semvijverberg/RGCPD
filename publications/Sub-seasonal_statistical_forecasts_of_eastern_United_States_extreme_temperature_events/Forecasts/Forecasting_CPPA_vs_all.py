@@ -37,25 +37,25 @@ logit = ('logit', None)
 #%%
 start_time = time()
 
-ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f_good.h5'
-# ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f_detr.h5'
-# ERA_data = data_dir + '/CPPA_ERA5_14-05-20_08hr_lag_0_c378f.h5'
-# ERA_data = '/Users/semvijverberg/surfdrive/output_RGCPD/1q90tail_c378f_24jun-22aug_lag0-0_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f.h5'
-ERA_old = '/Users/semvijverberg/surfdrive/output_RGCPD/1_ff393_12jun-11aug_lag0-0_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
+# ERA_data = data_dir + '/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f_good.h5'
+ERA_T90tail = data_dir + '/1q90tail_df_data_sst_CPPAs30_sm2_sm3_dt1_c378f.h5'
+ERA_q50tail = data_dir + '/1q50tail_df_data_sst_CPPAs30_sm2_sm3_dt1_c378f.h5'
+ERA_q65tail = data_dir + '/1q65tail_df_data_sst_CPPAs30_sm2_sm3_dt1_c378f.h5'
 
+kwrgs_events = {'event_percentile': 'std',
+                'window':'single_event', 'min_dur':2, 'max_break':1,
+                'grouped':False}
 
-kwrgs_events = {'event_percentile': 'std', 'window':'single_event', 'min_dur':3, 'max_break': 1}
+# kwrgs_events = {'event_percentile': 'std', 'window':'single_event'}
 
 kwrgs_events = kwrgs_events
 precur_aggr = 15
-add_autocorr = True
 use_fold = None
 n_boot = 5000
-lags_i = np.array([0, 10, 15, 20 , 25, 30, 35, 40, 45, 50, 55, 60])
-start_end_TVdate = None # ('7-04', '8-22')
+lags_i = np.array([0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60])
 
 
-list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
+list_of_fc = [fcev(path_data=ERA_q65tail, precur_aggr=precur_aggr,
                     use_fold=use_fold, start_end_TVdate=None,
                     stat_model= ('logitCV',
                                 {'Cs':10, #np.logspace(-4,1,10)
@@ -66,37 +66,37 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                                   'max_iter':100,
                                   'kfold':5,
                                   'seed':2}),
-                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
+                    kwrgs_pp={'add_autocorr':True, 'normalize':'datesRV'},
                     dataset='',
-                    keys_d='CPPA')]
-              # fcev(path_data=ERA_data, precur_aggr=precur_aggr,
-              #       use_fold=use_fold, start_end_TVdate=None,
-              #       stat_model= ('logitCV',
-              #                   {'Cs':10, #np.logspace(-4,1,10)
-              #                   'class_weight':{ 0:1, 1:1},
-              #                    'scoring':'neg_brier_score',
-              #                    'penalty':'l2',
-              #                    'solver':'lbfgs',
-              #                    'max_iter':100,
-              #                    'kfold':5,
-              #                    'seed':2}),
-              #       kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
-              #       dataset='',
-              #       keys_d='CPPA+sm')]
+                    keys_d='CPPA+sm'),
+                fcev(path_data=ERA_q65tail, precur_aggr=precur_aggr,
+                      use_fold=use_fold, start_end_TVdate=None,
+                      stat_model= ('logitCV',
+                                  {'Cs':10, #np.logspace(-4,1,10)
+                                  'class_weight':{ 0:1, 1:1},
+                                   'scoring':'neg_brier_score',
+                                   'penalty':'l2',
+                                   'solver':'lbfgs',
+                                   'max_iter':100,
+                                   'kfold':5,
+                                   'seed':2}),
+                      kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
+                      dataset='',
+                      keys_d='CPPA')]
 
 
-# fc = list_of_fc[1]
-
-
+fc = list_of_fc[0]
 
 #%%
 times = []
 t00 = time()
 for fc in list_of_fc:
     t0 = time()
-    fc.get_TV(kwrgs_events=kwrgs_events, detrend=False)
+    fc.get_TV(kwrgs_events=kwrgs_events, detrend=False) # detrending already done on gridded data
 
     fc.fit_models(lead_max=lags_i, verbosity=1)
+
+    # fc.TV.prob_clim = pd.DataFrame(np.repeat(fc.TV.prob_clim.mean(), fc.TV.prob_clim.size).values, index=fc.TV.prob_clim.index)
 
     fc.perform_validation(n_boot=n_boot, blocksize='auto', alpha=0.05,
                           threshold_pred=50)
@@ -110,7 +110,7 @@ for fc in list_of_fc:
 
 
 # In[8]:
-working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)
+working_folder, filename = list_of_fc[0]._print_sett(list_of_fc=list_of_fc)
 
 store = False
 if __name__ == "__main__":
@@ -126,7 +126,7 @@ if store:
     dict_merge_all = functions_pp.load_hdf5(filename+'.h5')
 
 
-lag_rel = 40
+lag_rel = 50
 kwrgs = {'wspace':0.16, 'hspace':.25, 'col_wrap':2, 'skip_redundant_title':True,
          'lags_relcurve':[lag_rel], 'fontbase':14, 'figaspect':2}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
@@ -145,9 +145,15 @@ pathfig_valid = os.path.join(filename + f_format)
 fig.savefig(pathfig_valid,
             bbox_inches='tight') # dpi auto 600
 
+fc = list_of_fc[0]
 df, fig = fc.plot_feature_importances(lag=lag_rel)
 path_feat = filename + f'ifc{1}_logitregul_l{lag_rel}' + f_format
 fig.savefig(path_feat, bbox_inches='tight')
+
+
+fc.dict_sum[0].loc['Precision'].loc['Precision']
+
+fc.dict_sum[0].loc['Accuracy'].loc['Accuracy']
 
 #%%
 

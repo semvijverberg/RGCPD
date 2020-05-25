@@ -499,9 +499,11 @@ class fcev():
         return (f'{dates_RV[0].month}-{dates_RV[0].day}',
                                  f'{dates_RV[-1].month}-{dates_RV[-1].day}')
 
-    def plot_freq_year(self):
+    def plot_freq_year(self, df: pd.DataFrame=None):
         import valid_plots as df_plots
-        df_plots.plot_freq_per_yr(self.TV)
+        if df is None:
+            df = self.TV.RV_bin
+        df_plots.plot_freq_per_yr(df)
 
     # @classmethod
     def plot_scatter(self, keys=None, colwrap=3, sharex='none', s=0, mask='RV_mask', aggr=None,

@@ -49,13 +49,13 @@ logitCV = ('logitCV',
 ERA_data = data_dir + '/CPPA_ERA5_14-05-20_08hr_lag_0_c378f.h5'
 
 
-kwrgs_events = {'event_percentile': 50}
+kwrgs_events = {'event_percentile': 'std'}
 
 kwrgs_events = kwrgs_events
 precur_aggr = 15
 add_autocorr = False
 use_fold = None
-n_boot = 1000
+n_boot = 2000
 lags_i = np.array([0, 10, 15, 20, 25, 30])
 start_end_TVdate = None # ('7-04', '8-22')
 
@@ -145,81 +145,123 @@ fig.savefig(pathfig_valid,
 
 #%%
 
-im = 0
-il = 1
-ifc = 0
+# im = 0
+# il = 1
+# ifc = 0
+# f_format = '.pdf'
+# if os.path.isdir(fc.filename) == False : os.makedirs(fc.filename)
+# import valid_plots as dfplots
+# if __name__ == "__main__":
+#     for ifc, fc in enumerate(list_of_fc):
+#         for im, m in enumerate([n[0] for n in fc.stat_model_l]):
+#             for il, l in enumerate(fc.lags_i):
+#                 fc = list_of_fc[ifc]
+#                 m = [n[0] for n in fc.stat_model_l][im]
+#                 l = fc.lags_i[il]
+#                 # visual analysis
+#                 f_name = os.path.join(filename, f'ifc{ifc}_va_l{l}_{m}')
+#                 fig = dfplots.visual_analysis(fc, lag=l, model=m)
+#                 fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                             bbox_inches='tight') # dpi auto 600
+#                 # plot deviance
+#                 if m[:3] == 'GBC':
+#                     fig = dfplots.plot_deviance(fc, lag=l, model=m)
+#                     f_name = os.path.join(filename, f'ifc{ifc}_deviance_l{l}')
+
+
+#                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                                 bbox_inches='tight') # dpi auto 600
+
+#                     fig = fc.plot_oneway_partial_dependence()
+#                     f_name = os.path.join(filename, f'ifc{ifc}_partial_depen_l{l}')
+#                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                                 bbox_inches='tight') # dpi auto 600
+
+#                 if m[:7] == 'logitCV':
+#                     fig = fc.plot_logit_regularization(lag_i=l)
+#                     f_name = os.path.join(filename, f'ifc{ifc}_logitregul_l{l}')
+#                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                             bbox_inches='tight') # dpi auto 600
+
+#             df_importance, fig = fc.plot_feature_importances()
+#             f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
+#             fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                         bbox_inches='tight') # dpi auto 600
+
+
+
+#%%
+
+import df_ana ; import matplotlib.pyplot as plt
+flatten = lambda l: [item for sublist in l for item in sublist]
+ERA_q90tail = user_dir + '/surfdrive/output_RGCPD/1q90tail_c378f_12jun-11aug_lag0-0_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_c378f.h5'
+working_folder = user_dir + '/surfdrive/MckinRepl/ERA5_mx2t_sst_Northern/c378f_ran_strat10_s30/'
+
+
+fc = fcev(path_data=ERA_q90tail, precur_aggr=1,
+                    use_fold=None, start_end_TVdate=None,
+                    stat_model=logitCV,
+                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
+                    dataset=f'CPPA vs PEP',
+                    keys_d=None,
+                    n_cpu=n_cpu)
+
+columns = ['1q90tail', '0..CPPAsv', '0..PEPsv', 'PDO', 'ENSO34']
+
+rename = {'1q90tail':'T90m', '0..CPPAsv':'CPPAsp', '0..PEPsv':'PEP'}
+df_corr = fc.df_data.loc[:,['1q90tail', 'ENSO34','PDO', '0..CPPAsv', '0..PEPsv', 'RV_mask', 'TrainIsTrue']].copy()
+
+df_ana.plot_ts_matric(df_corr, columns=columns, rename=rename, period='summer60days')
+fig_filename = os.path.join(working_folder, 'figures', 'cross_corr_summer60days')
+plt.savefig(fig_filename + '.pdf', bbox_inches='tight')
+
+df_ana.plot_ts_matric(df_corr, win=365, columns=columns, rename=rename, period='fullyear')
+fig_filename = os.path.join(working_folder, 'figures', 'cross_corr_fullyear')
+plt.savefig(fig_filename + '.pdf', bbox_inches='tight')
+
+#%% plot autocorrelation
+
+import df_ana, functions_pp, validation
+import pandas as pd
+
 f_format = '.pdf'
-if os.path.isdir(fc.filename) == False : os.makedirs(fc.filename)
-import valid_plots as dfplots
-if __name__ == "__main__":
-    for ifc, fc in enumerate(list_of_fc):
-        for im, m in enumerate([n[0] for n in fc.stat_model_l]):
-            for il, l in enumerate(fc.lags_i):
-                fc = list_of_fc[ifc]
-                m = [n[0] for n in fc.stat_model_l][im]
-                l = fc.lags_i[il]
-                # visual analysis
-                f_name = os.path.join(filename, f'ifc{ifc}_va_l{l}_{m}')
-                fig = dfplots.visual_analysis(fc, lag=l, model=m)
-                fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                            bbox_inches='tight') # dpi auto 600
-                # plot deviance
-                if m[:3] == 'GBC':
-                    fig = dfplots.plot_deviance(fc, lag=l, model=m)
-                    f_name = os.path.join(filename, f'ifc{ifc}_deviance_l{l}')
+fc = list_of_fc[0]
+# if os.path.isdir(fc.filename) == False : os.makedirs(fc.filename)
+# filepath = '/'.join(fc.filename.split('/')[:-2])
+filepath = '/Users/semvijverberg/surfdrive/MckinRepl/ERA5_mx2t_sst_Northern/c378f_ran_strat10_s30/figures'
 
+df_daily = fc.df_data_orig.loc[0][['mx2t']].rename(columns={'mx2t':'ERA5 mx2t'})
+df_15 = fc.TV.fullts.rename(columns={'mx2t':'ERA5 mx2t 15-day mean'})
+print(validation.get_bstrap_size(df_daily))
+fig = df_ana.loop_df(df_daily, function=df_ana.plot_ac, colwrap=1, kwrgs={'AUC_cutoff':False})
+fig.savefig(filepath+'/ac_daily'+f_format, bbox_inches='tight')
+fig = df_ana.loop_df(df_15, function=df_ana.plot_ac, colwrap=1, kwrgs={'AUC_cutoff':False})
+fig.savefig(filepath+'/ac_15-daymean'+f_format, bbox_inches='tight')
 
-                    fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                                bbox_inches='tight') # dpi auto 600
+EC_data  = user_dir + '/surfdrive/output_RGCPD/easternUS_EC/EC_tas_tos_Northern/958dd_ran_strat10_s30/data/EC_21-03-20_16hr_lag_10_958dd.h5'
 
-                    fig = fc.plot_oneway_partial_dependence()
-                    f_name = os.path.join(filename, f'ifc{ifc}_partial_depen_l{l}')
-                    fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                                bbox_inches='tight') # dpi auto 600
+fc = fcev(path_data=EC_data, precur_aggr=precur_aggr,
+          use_fold=use_fold, start_end_TVdate=None,
+            stat_model=None,
+            kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
+            dataset=f'EC-earth',
+            keys_d='CPPA')
 
-                if m[:7] == 'logitCV':
-                    fig = fc.plot_logit_regularization(lag_i=l)
-                    f_name = os.path.join(filename, f'ifc{ifc}_logitregul_l{l}')
-                    fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                            bbox_inches='tight') # dpi auto 600
+# fc.get_TV()
 
-            df_importance, fig = fc.plot_feature_importances()
-            f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
-            fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                        bbox_inches='tight') # dpi auto 600
+df_EC = fc.df_data.loc[0][['tas']]
+df_EC.index.name = 'time'
+# xr1d = functions_pp.detrend1D(df_EC.to_xarray().to_array().squeeze())
+# df_EC = pd.DataFrame(xr1d.values, index=xr1d.to_pandas().index, columns=['EC-earth t2m'])
+df_EC = df_EC.rename(columns={'tas':'EC-Earth t2m'})
+fig = df_ana.loop_df(df_EC, function=df_ana.plot_ac, colwrap=1, kwrgs={'AUC_cutoff':False})
+fig.savefig(filepath+'/ac_EC_daily'+f_format, bbox_inches='tight')
 
 
 
-#%%
-
-# import df_ana ; import matplotlib.pyplot as plt
-# flatten = lambda l: [item for sublist in l for item in sublist]
-# ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/data/ERA5_21-03-20_12hr_lag_0_ff393.h5'
-# working_folder = user_dir + '/surfdrive/output_RGCPD/easternUS/ERA5_mx2t_sst_Northern/ff393_ran_strat10_s30/'
 
 
-# fc = fcev(path_data=ERA_data, precur_aggr=1,
-#                     use_fold=None, start_end_TVdate=None,
-#                     stat_model=logitCV,
-#                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
-#                     dataset=f'CPPA vs PEP',
-#                     keys_d=None,
-#                     n_cpu=n_cpu)
 
-# columns = ['mx2t', '0..CPPAsv', '0..PEPsv', 'PDO', 'ENSO34']
-
-# rename = {'mx2t':'T90m', '0..CPPAsv':'CPPAsp', '0..PEPsv':'PEP'}
-# df_corr = fc.df_data.loc[:,['mx2t', 'ENSO34','PDO', '0..CPPAsv', '0..PEPsv', 'RV_mask', 'TrainIsTrue']].copy()
-
-# df_ana.plot_ts_matric(df_corr, columns=columns, rename=rename, period='summer60days')
-# fig_filename = os.path.join(working_folder, 'figures', 'cross_corr_summer60days')
-# plt.savefig(fig_filename + '.pdf', bbox_inches='tight')
-
-# df_ana.plot_ts_matric(df_corr, win=365, columns=columns, rename=rename, period='fullyear')
-# fig_filename = os.path.join(working_folder, 'figures', 'cross_corr_fullyear')
-# plt.savefig(fig_filename + '.pdf', bbox_inches='tight')
-
-#%%
 # ERA_data = user_dir + '/surfdrive/output_RGCPD/easternUS/1_ff393_12jun-11aug_lag15-15_from_imports/df_data_sst_CPPAs30_sm2_sm3_dt1_ff393.h5'
 # fc_ = fcev(path_data=ERA_data, precur_aggr=1,
 #                     use_fold=None, start_end_TVdate=None,

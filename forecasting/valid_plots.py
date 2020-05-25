@@ -23,8 +23,8 @@ import matplotlib as mpl
 from matplotlib import cycler
 import matplotlib.ticker as ticker
 from matplotlib.lines import Line2D
-nice_colors = ['#EE6666', '#3388BB', '#9988DD',
-                 '#EECC55', '#88BB44', '#FFBBBB']
+nice_colors = ['#EE6666', '#3388BB', '#9988DD', '#EECC55',
+                '#88BB44', '#FFBBBB']
 colors_nice = cycler('color',
                 nice_colors)
 colors_datasets = [np.array(c) for c in sns.color_palette('deep')]
@@ -478,8 +478,9 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
 
     x = lags_tf
 
-    ax.fill_between(x, y_min, y_max, linestyle='solid',
-                            edgecolor='black', facecolor=color, alpha=0.3)
+    ax.fill_between(x, y_min, y_max,
+                    edgecolor=color, facecolor=color, alpha=0.3,
+                    linestyle=linestyle, linewidth=2)
     ax.plot(x, y, color=color, linestyle=linestyle,
                     linewidth=2, alpha=1 )
     ax.scatter(x, y, color=color, linestyle=linestyle,
@@ -617,7 +618,7 @@ def rel_curve_base(df_RV, n_bins=5, col=0, fontbase=12, ax=None):
     #    ax.vlines(x=np.mean(pred_clim), ymin=0, ymax=1, label=None)
     #    ax.vlines(x=np.min(pred_clim), ymin=0, ymax=1, label=None, alpha=0.2)
     #    ax.vlines(x=np.max(pred_clim), ymin=0, ymax=1, label=None, alpha=0.2)
-    ax.text(np.min(obs_clim)-0.025, obs_clim.mean()+0.35, 'Obs. clim',
+    ax.text(np.min(obs_clim)-0.025, obs_clim.mean()+0.32, 'Obs. clim',
             horizontalalignment='center', fontsize=fontbase-2,
      verticalalignment='center', rotation=90, rotation_mode='anchor')
     # resolution = reliability line
@@ -648,6 +649,7 @@ def rel_curve_base(df_RV, n_bins=5, col=0, fontbase=12, ax=None):
         axhist.set_ylabel('Count', labelpad=15, fontsize=fontbase)
     else:
         ax.tick_params(labelleft=False)
+        axhist.tick_params(labelleft=False)
     ax.set_ylim(-0.02,1.02)
     ax.set_xlim(-0.02,1.02)
 
@@ -689,7 +691,17 @@ def rel_curve(df_RV, y_pred_all, lags_relcurve, n_bins, color, line_style=None,
         # print(l)
         # print(line_styles[l])
         axhist.hist(y_pred_all[lag], range=(0,1), bins=2*n_bins, color=color,
-                    histtype="step", linestyle=line_style, label=None)
+                    histtype="step", density=True, linestyle=line_style, label=None)
+
+        ## Normalized to 1
+        # bin_height,bin_boundary = np.histogram(y_pred_all[lag],bins=2*n_bins)
+        # #define width of each column
+        # width = bin_boundary[1]-bin_boundary[0]
+        # #standardize each column by dividing with the maximum height
+        # bin_height = bin_height/float(max(bin_height))
+        # #plot
+        # axhist.bar(bin_boundary[:-1],bin_height,width = width, edgecolor=color,
+        #            linestyle=line_style, label=None, fill=False, linewidth=1)
 
         axhist.set_xlim(-0.02,1.02)
     if legend == 'single':
@@ -840,14 +852,14 @@ def plot_ts(RV, y_pred_all, dates_ts, color='blue', linestyle='solid', lag_i=1, 
     #%%
     return ax
 
-def plot_freq_per_yr(RV):
+def plot_freq_per_yr(RV_bin):
     #%%
-    dates_RV = RV.RV_bin.index
+    dates_RV = RV_bin.index
     all_yrs = np.unique(dates_RV.year)
     freq = pd.DataFrame(data= np.zeros(all_yrs.size),
                         index = all_yrs, columns=['freq'])
     for i, yr in enumerate(all_yrs):
-        oneyr = RV.RV_bin.loc[functions_pp.get_oneyr(dates_RV, yr)]
+        oneyr = RV_bin.loc[functions_pp.get_oneyr(dates_RV, yr)]
         freq.loc[yr] = oneyr.sum().values
     plt.figure( figsize=(8,6) )
     plt.bar(freq.index, freq['freq'])
@@ -873,7 +885,7 @@ def merge_valid_info(list_of_fc, store=True):
 
 def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                   met='default', wspace=0.08, hspace=0.25, col_wrap=None,
-                  skip_redundant_title=False,figaspect=1.4,
+                  skip_redundant_title=False,figaspect=1.4, lines_legend=None,
                   lags_relcurve: list=None, fontbase=12):
 
     '''
@@ -955,6 +967,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
 
 
     if line_dim is not None:
+        # compare different lines by:
         assert line_dim in ['model', 'exper', 'dataset'], ('illegal key for line_dim, '
                                'choose \'exper\' or \'model\'')
 
@@ -973,6 +986,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
         cols = cols[::-1]
 
     elif group_line_by is not None:
+        # group lines with same dimension {group_line_by}:
         assert group_line_by in ['model', 'exper', 'dataset'], ('illegal key for line_dim, '
                                'choose \'exper\' or \'model\'')
 
@@ -985,16 +999,15 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
         elif group_line_by == 'dataset':
             cols_req = datasets
             left = [models, expers]
-
-
         group_s = np.unique(cols_req).size
+        lines_per_group = int(len(comb) / group_s)
         cols = np.unique(cols_req)
         lines_grouped = []
-        for i, gs in enumerate(range(0,len(comb),group_s)):
-            lines_full = comb[gs:gs+group_s]
+        for i, gs in enumerate(range(0,len(comb),lines_per_group)):
+            lines_full = comb[gs:gs+lines_per_group]
             lines_col = [l.replace(cols[i], '') for l in lines_full]
             lines_grouped.append(lines_col)
-        # lines = flatten(lines_grouped)
+
 
 
 
@@ -1125,7 +1138,10 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
 
 
                     # legend conditions
-                    lines_leg = [style_label(dims, l, lines, skip_redundant_title) for l in lines]
+                    if lines_legend is None:
+                        lines_leg = [style_label(dims, l, lines, skip_redundant_title) for l in lines]
+                    else:
+                        lines_leg = lines_legend[col]
                     same_models = all([row==0, col==0, line==lines[-1]])
                     grouped_lines = np.logical_and(row==0, group_line_by is not None)
                     if same_models or grouped_lines:

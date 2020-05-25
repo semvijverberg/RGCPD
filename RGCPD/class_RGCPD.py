@@ -470,7 +470,7 @@ class RGCPD:
                                                           **self.kwrgs_pcmci)
         self.pcmci_results_dict = out
 
-    def PCMCI_get_links(self, var: str=None, alpha_level: float=None):
+    def PCMCI_get_links(self, var: str=None, alpha_level: float=.05):
 
 
         if hasattr(self, 'pcmci_results_dict')==False:

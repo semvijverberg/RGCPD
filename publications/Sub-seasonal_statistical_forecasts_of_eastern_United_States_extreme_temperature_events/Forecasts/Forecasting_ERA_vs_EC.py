@@ -49,12 +49,12 @@ EC_data  = data_dir + '/CPPA_EC_21-03-20_16hr_lag_0_958dd.h5'
 ERA_data = data_dir + '/CPPA_ERA5_14-05-20_08hr_lag_0_c378f.h5'
 
 
-kwrgs_events = {'event_percentile': 'std'}
+kwrgs_events = {'event_percentile': 'std'} # = mean + std, see class_RV.Ev_threshold
 
 kwrgs_events = kwrgs_events
 precur_aggr = 1
 use_fold = None
-n_boot = 1000
+n_boot = 2000
 lags_i = np.array([0, 10, 15, 20 , 25, 30])
 start_end_TVdate = None # ('7-04', '8-22')
 
@@ -138,125 +138,95 @@ fig.savefig(pathfig_valid,
 
 #%%
 
-im = 0
-il = 1
-ifc = 0
-f_format = '.pdf'
-if os.path.isdir(fc.filename) == False : os.makedirs(fc.filename)
-import valid_plots as dfplots
-if __name__ == "__main__":
-    for ifc, fc in enumerate(list_of_fc):
-        for im, m in enumerate([n[0] for n in fc.stat_model_l]):
-            for il, l in enumerate(fc.lags_i):
-                fc = list_of_fc[ifc]
-                m = [n[0] for n in fc.stat_model_l][im]
-                l = fc.lags_i[il]
-                # visual analysis
-                f_name = os.path.join(filename, f'ifc{ifc}_va_l{l}_{m}')
-                fig = dfplots.visual_analysis(fc, lag=l, model=m)
-                fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                            bbox_inches='tight') # dpi auto 600
-                # plot deviance
-                if m[:3] == 'GBC':
-                    fig = dfplots.plot_deviance(fc, lag=l, model=m)
-                    f_name = os.path.join(filename, f'ifc{ifc}_deviance_l{l}')
+# im = 0
+# il = 1
+# ifc = 0
+# f_format = '.pdf'
+# if os.path.isdir(fc.filename) == False : os.makedirs(fc.filename)
+# import valid_plots as dfplots
+# if __name__ == "__main__":
+#     for ifc, fc in enumerate(list_of_fc):
+#         for im, m in enumerate([n[0] for n in fc.stat_model_l]):
+#             for il, l in enumerate(fc.lags_i):
+#                 fc = list_of_fc[ifc]
+#                 m = [n[0] for n in fc.stat_model_l][im]
+#                 l = fc.lags_i[il]
+#                 # visual analysis
+#                 f_name = os.path.join(filename, f'ifc{ifc}_va_l{l}_{m}')
+#                 fig = dfplots.visual_analysis(fc, lag=l, model=m)
+#                 fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                             bbox_inches='tight') # dpi auto 600
+#                 # plot deviance
+#                 if m[:3] == 'GBC':
+#                     fig = dfplots.plot_deviance(fc, lag=l, model=m)
+#                     f_name = os.path.join(filename, f'ifc{ifc}_deviance_l{l}')
 
 
-                    fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                                bbox_inches='tight') # dpi auto 600
+#                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                                 bbox_inches='tight') # dpi auto 600
 
-                    fig = fc.plot_oneway_partial_dependence()
-                    f_name = os.path.join(filename, f'ifc{ifc}_partial_depen_l{l}')
-                    fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                                bbox_inches='tight') # dpi auto 600
+#                     fig = fc.plot_oneway_partial_dependence()
+#                     f_name = os.path.join(filename, f'ifc{ifc}_partial_depen_l{l}')
+#                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                                 bbox_inches='tight') # dpi auto 600
 
-                if m[:7] == 'logitCV':
-                    fig = fc.plot_logit_regularization(lag_i=l)
-                    f_name = os.path.join(filename, f'ifc{ifc}_logitregul_l{l}')
-                    fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                            bbox_inches='tight') # dpi auto 600
+#                 if m[:7] == 'logitCV':
+#                     fig = fc.plot_logit_regularization(lag_i=l)
+#                     f_name = os.path.join(filename, f'ifc{ifc}_logitregul_l{l}')
+#                     fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                             bbox_inches='tight') # dpi auto 600
 
-            df_importance, fig = fc.plot_feature_importances()
-            f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
-            fig.savefig(os.path.join(working_folder, f_name) + f_format,
-                        bbox_inches='tight') # dpi auto 600
+#             df_importance, fig = fc.plot_feature_importances()
+#             f_name = os.path.join(filename, f'ifc{ifc}_feat_l{l}_{m}')
+#             fig.savefig(os.path.join(working_folder, f_name) + f_format,
+#                         bbox_inches='tight') # dpi auto 600
 
-#%% Get absolute anomalies of HW events
 
-ERA_data = data_dir + '/CPPA_ERA5_21-03-20_12hr_lag_0_ff393.h5'
-tfreq = 1
-start_end_TVdate = ('06-05','09-02')
-kwrgs_events = {'event_percentile': 'std', 'window':'mean', 'min_dur':3, 'max_break': 1}
-fc = fcev(path_data=ERA_data,
-                    use_fold=use_fold, start_end_TVdate=start_end_TVdate,
-                    stat_model=None, precur_aggr=tfreq,
-                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
-                    dataset=f'ERA-5',
-                    keys_d='PEP')
-fc.get_TV(kwrgs_events=kwrgs_events, detrend=False)
-
-HW = fc.TV.RV_ts[fc.TV.RV_bin.astype(bool).values]
-# HW.mean()
-# print(fc.TV.threshold)
-# HW.min()
-
-# #%% load raw data and calculate T90m
-
-# #%% get clustered from Teleconnections (rg.plot_df_clust())
-
-# xr_maskEUS = rg.ds['xrclustered'] == 1
-# import clustering_spatial as cl
+#%%
+# import core_pp, plot_maps
+# import matplotlib.pyplot as plt
+# rawmx2t = '/Users/semvijverberg/surfdrive/ERA5/input_raw/mx2t_US_1979-2018_1_12_daily_0.25deg.nc'
 # selbox = (232, 295, 25, 50)
+# HW2d = core_pp.import_ds_lazy(rawmx2t, selbox=selbox, seldates=HW.index)
+# xr_mask = core_pp.import_ds_lazy('/Users/semvijverberg/surfdrive/Scripts/rasterio/mask_North_America_0.25deg_orig.nc',
+#                                   var='lsm', selbox=selbox)
+# #%%
 
-# Tmean = cl.spatial_mean_clusters(rawmx2t,
-#                           xr_maskEUS,
-#                           selbox=selbox)['ts']
-# Tmean = Tmean.sel(cluster=1)['ts']
-#%%
-import core_pp, plot_maps
-import matplotlib.pyplot as plt
-rawmx2t = '/Users/semvijverberg/surfdrive/ERA5/input_raw/mx2t_US_1979-2018_1_12_daily_0.25deg.nc'
-selbox = (232, 295, 25, 50)
-HW2d = core_pp.import_ds_lazy(rawmx2t, selbox=selbox, seldates=HW.index)
-xr_mask = core_pp.import_ds_lazy('/Users/semvijverberg/surfdrive/Scripts/rasterio/mask_North_America_0.25deg_orig.nc',
-                                  var='lsm', selbox=selbox)
-#%%
+# HW_composite = (HW2d - 273.15).mean(dim='time')
 
-HW_composite = (HW2d - 273.15).mean(dim='time')
+# # xr_mask.values = make_country_mask.binary_erosion(xr_mask.values)
 
-# xr_mask.values = make_country_mask.binary_erosion(xr_mask.values)
+# plot_maps.plot_corr_maps(HW_composite.where(xr_mask),
+#                          clevels=np.arange(17, 36, 2),
+#                          cmap=plt.cm.hot_r,
+#                          aspect=2.5,
+#                          zoomregion=(232, 295, 25, 50),
+#                          cbar_vert=-.05,
+#                          size=4,
+#                          units='Temperature [degree Celsius]',
+#                          subtitles=np.array([['Composite mean of heatwaves']]))
+# #%%
 
-plot_maps.plot_corr_maps(HW_composite.where(xr_mask),
-                         clevels=np.arange(17, 36, 2),
-                         cmap=plt.cm.hot_r,
-                         aspect=2.5,
-                         zoomregion=(232, 295, 25, 50),
-                         cbar_vert=-.05,
-                         size=4,
-                         units='Temperature [degree Celsius]',
-                         subtitles=np.array([['Composite mean of heatwaves']]))
-#%%
+# import core_pp, plot_maps
+# import matplotlib.pyplot as plt
+# rawmx2t = '/Users/semvijverberg/surfdrive/ERA5/input_raw/preprocessed/mx2t_US_1979-2018_1jan_31dec_daily_0.25deg.nc'
+# selbox = (232, 295, 25, 50)
+# HW2d_ano = core_pp.import_ds_lazy(rawmx2t, selbox=selbox, seldates=HW.index)
+# xr_mask = core_pp.import_ds_lazy('/Users/semvijverberg/surfdrive/Scripts/rasterio/mask_North_America_0.25deg_orig.nc',
+#                                   var='lsm', selbox=selbox)
+# #%%
 
-import core_pp, plot_maps
-import matplotlib.pyplot as plt
-rawmx2t = '/Users/semvijverberg/surfdrive/ERA5/input_raw/preprocessed/mx2t_US_1979-2018_1jan_31dec_daily_0.25deg.nc'
-selbox = (232, 295, 25, 50)
-HW2d_ano = core_pp.import_ds_lazy(rawmx2t, selbox=selbox, seldates=HW.index)
-xr_mask = core_pp.import_ds_lazy('/Users/semvijverberg/surfdrive/Scripts/rasterio/mask_North_America_0.25deg_orig.nc',
-                                  var='lsm', selbox=selbox)
-#%%
+# HW_ano_composite = (HW2d_ano).median(dim='time')
 
-HW_ano_composite = (HW2d_ano).median(dim='time')
+# # xr_mask.values = make_country_mask.binary_erosion(xr_mask.values)
 
-# xr_mask.values = make_country_mask.binary_erosion(xr_mask.values)
-
-plot_maps.plot_corr_maps(HW_ano_composite.where(xr_mask),
-                          clevels=np.arange(-5, 6, 1),
-                         cmap=plt.cm.hot_r,
-                         aspect=2.5,
-                         zoomregion=(232, 295, 25, 50),
-                         cbar_vert=-.05,
-                         size=4,
-                         units='Temperature anomalies [degree Celsius]',
-                         subtitles=np.array([['Median of heatwave events']]))
+# plot_maps.plot_corr_maps(HW_ano_composite.where(xr_mask),
+#                           clevels=np.arange(-5, 6, 1),
+#                          cmap=plt.cm.hot_r,
+#                          aspect=2.5,
+#                          zoomregion=(232, 295, 25, 50),
+#                          cbar_vert=-.05,
+#                          size=4,
+#                          units='Temperature anomalies [degree Celsius]',
+#                          subtitles=np.array([['Median of heatwave events']]))
 
