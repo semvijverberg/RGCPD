@@ -121,7 +121,7 @@ for fc in list_of_fc:
 
 
 # In[8]:
-working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)
+working_folder, filename = list_of_fc[0]._print_sett(list_of_fc=list_of_fc)
 
 store = False
 if __name__ == "__main__":
