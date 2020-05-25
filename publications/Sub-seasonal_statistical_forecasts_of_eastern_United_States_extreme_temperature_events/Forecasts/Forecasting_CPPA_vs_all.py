@@ -44,7 +44,7 @@ ERA_q65tail = data_dir + '/1q65tail_df_data_sst_CPPAs30_sm2_sm3_dt1_c378f.h5'
 
 kwrgs_events = {'event_percentile': 'std',
                 'window':'single_event', 'min_dur':2, 'max_break':1,
-                'grouped':False}
+                'grouped':True}
 
 # kwrgs_events = {'event_percentile': 'std', 'window':'single_event'}
 
@@ -66,7 +66,7 @@ list_of_fc = [fcev(path_data=ERA_q65tail, precur_aggr=precur_aggr,
                                   'max_iter':100,
                                   'kfold':5,
                                   'seed':2}),
-                    kwrgs_pp={'add_autocorr':True, 'normalize':'datesRV'},
+                    kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
                     dataset='',
                     keys_d='CPPA+sm'),
                 fcev(path_data=ERA_q65tail, precur_aggr=precur_aggr,
@@ -114,7 +114,7 @@ working_folder, filename = list_of_fc[0]._print_sett(list_of_fc=list_of_fc)
 
 store = False
 if __name__ == "__main__":
-    filename = fc.filename
+    filename = list_of_fc[0].filename
     store = True
 
 import valid_plots as dfplots

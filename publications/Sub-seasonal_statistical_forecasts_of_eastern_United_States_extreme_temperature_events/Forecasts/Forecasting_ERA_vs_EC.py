@@ -45,7 +45,7 @@ logitCV = ('logitCV',
 
 
 # In[6]:
-EC_data  = data_dir + '/CPPA_EC_21-03-20_16hr_lag_0_958dd.h5'
+EC_data  = '/Users/semvijverberg/surfdrive/output_RGCPD/easternUS_EC/EC_tas_tos_Northern/958dd_ran_strat10_s30/data/EC_21-03-20_16hr_lag_10_958dd.h5'
 ERA_data = data_dir + '/CPPA_ERA5_14-05-20_08hr_lag_0_c378f.h5'
 
 
@@ -102,7 +102,7 @@ working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)
 
 store = False
 if __name__ == "__main__":
-    filename = fc.filename
+    filename = list_of_fc[0].filename
     store = True
 
 import valid_plots as dfplots

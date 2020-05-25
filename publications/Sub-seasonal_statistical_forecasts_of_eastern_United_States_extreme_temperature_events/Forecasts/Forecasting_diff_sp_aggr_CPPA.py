@@ -129,11 +129,11 @@ for fc in list_of_fc:
 
 
 # In[8]:
-working_folder, filename = fc._print_sett(list_of_fc=list_of_fc)
+working_folder, filename = list_of_fc[0]._print_sett(list_of_fc=list_of_fc)
 
 store = False
 if __name__ == "__main__":
-    filename = fc.filename
+    filename = list_of_fc[0].filename
     store = True
 
 import valid_plots as dfplots

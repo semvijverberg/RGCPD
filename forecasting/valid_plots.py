@@ -571,7 +571,7 @@ def plot_score_lags(df_metric, metric, color, lags_tf, linestyle='solid',
     return ax
 
 
-def rel_curve_base(df_RV, n_bins=5, col=0, fontbase=12, ax=None):
+def rel_curve_base(df_RV, n_bins=10, col=0, fontbase=12, ax=None):
     #%%
 
     # ax=None
@@ -690,7 +690,7 @@ def rel_curve(df_RV, y_pred_all, lags_relcurve, n_bins, color, line_style=None,
         # print(line_styles)
         # print(l)
         # print(line_styles[l])
-        axhist.hist(y_pred_all[lag], range=(0,1), bins=2*n_bins, color=color,
+        axhist.hist(y_pred_all[lag], range=(0,1), bins=n_bins, color=color,
                     histtype="step", density=True, linestyle=line_style, label=None)
 
         ## Normalized to 1
@@ -878,6 +878,7 @@ def merge_valid_info(list_of_fc, store=True):
         dict_merge_all[uniq_label+'...y_pred_all'] = fc.dict_sum[2]
 
     if store:
+        fc = list_of_fc[0]
         if hasattr(fc, 'filename')==False:
             fc._get_outpaths()
         functions_pp.store_hdf_df(dict_merge_all, file_path=fc.filename+'.h5')
