@@ -103,7 +103,7 @@ def autocorr_sm(ts, max_lag=None, alpha=0.01):
                                  fft=True)
     return ac, con_int
 
-def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=None, ax=None):
+def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=False, ax=None):
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
 
