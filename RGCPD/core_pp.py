@@ -237,8 +237,6 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
     stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
     ds['time'] = dates
 
-
-
     def _detrendfunc2d(arr_oneday, arr_oneday_smooth):
         from scipy import signal
         # get trend of smoothened signal
@@ -266,9 +264,9 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
         data_smooth = ds.values
 
     elif (stepsyr.day== 1).all() == False and int(ds.time.size / 365) < 120:
-        window_s = min(25,int(stepsyr.size / 12))
-        print('Performing {} day rolling mean with gaussian window (std={})'
-              ' to get better interannual statistics'.format(window_s, window_s/2))
+        window_s = max(min(90,int(stepsyr.size / 3)), 1)
+        print('Performing {} day rolling mean)'
+              ' to get better interannual statistics'.format(window_s))
 
         print('using absolute anomalies w.r.t. climatology of '
               'smoothed concurrent day accross years')
@@ -302,6 +300,22 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
         else:
             output[i::stepsyr.size] = arr_oneday
 
+        if i in list(np.linspace(0, stepsyr.size, 3, dtype=int)):
+            latix = int(arr_oneday.shape[1]/2)
+            lonix = int(arr_oneday.shape[2]/2)
+            trend1d = (arr_oneday_smooth[:,latix, lonix] - detrended_sm[:,latix, lonix])
+            fig, ax = plt.subplots(figsize=(3,3))
+            ax.set_title(str(stepsyr[i]) + f' la{latix}, lo{lonix}')
+            ax.plot(arr_oneday[:,latix, lonix].values, label='raw')
+            ax.plot(arr_oneday_smooth[:,latix, lonix], label='smooth')
+            ax.plot(trend1d)
+            linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
+            ax.text(.05, .05,
+                    'y = {:.2g}x + {:.2g}'.format(*linregab),
+                    transform=ax.transAxes)
+            ax.text(.05, .90,
+                    '{:.2g} sigma arr_oneday'.format(arr_oneday.std().values),
+                    transform=ax.transAxes)
         progress = int((100*(i+1)/stepsyr.size))
         print(f"\rProcessing {progress}%", end="")
 
@@ -323,15 +337,27 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
     #%%
     return output
 #%%
-def rolling_mean_np(arr, win, center=True):
+def rolling_mean_np(arr, win, center=True, win_type='boxcar'):
     import scipy.signal.windows as spwin
-    plt.plot(range(-int(win/2),+round(win/2+.49)), spwin.gaussian(win, win/2))
-    plt.title('window used for rolling mean')
-    plt.xlabel('timesteps')
+
     df = pd.DataFrame(data=arr.reshape( (arr.shape[0], arr[0].size)))
 
-    rollmean = df.rolling(win, center=center, min_periods=1,
+    if win_type == 'gaussian':
+        print('Performing {} day rolling mean with gaussian window (std={})'
+              ' to get better interannual statistics'.format(win, win/2))
+        fig, ax = plt.subplots(figsize=(3,3))
+        ax.plot(range(-int(win/2),+round(win/2+.49)), spwin.gaussian(win, win/2))
+        plt.title('window used for rolling mean')
+        plt.xlabel('timesteps')
+        rollmean = df.rolling(win, center=center, min_periods=1,
                           win_type='gaussian').mean(std=win/2.)
+    elif win_type == 'boxcar':
+        fig, ax = plt.subplots(figsize=(3,3))
+        plt.plot(spwin.boxcar(win))
+        plt.title('window used for rolling mean')
+        plt.xlabel('timesteps')
+        rollmean = df.rolling(win, center=center, min_periods=1,
+                          win_type='boxcar').mean()
 
     return rollmean.values.reshape( (arr.shape))
 

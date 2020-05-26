@@ -13,7 +13,7 @@ import numpy as np
 
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-1])
+main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
@@ -36,50 +36,50 @@ cluster_label = 2
 name_ds='q75tail'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
-tfreq = 15
+tfreq = 1
 #%%
-# list_of_name_path = [(cluster_label, TVpath),
-#                       ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
-#                       ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
+list_of_name_path = [(cluster_label, TVpath),
+                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
+                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
 
 
 
-# list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
-#                               kwrgs_func={'alpha':.01, 'FDR_control':True},
-#                               distance_eps=600, min_area_in_degrees2=7),
-#                  BivariateMI(name='v200', func=BivariateMI.corr_map,
-#                                 kwrgs_func={'alpha':.01, 'FDR_control':True},
-#                                 distance_eps=600, min_area_in_degrees2=5)]
+list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
+                              kwrgs_func={'alpha':.01, 'FDR_control':True},
+                              distance_eps=600, min_area_in_degrees2=7),
+                  BivariateMI(name='v200', func=BivariateMI.corr_map,
+                                kwrgs_func={'alpha':.01, 'FDR_control':True},
+                                distance_eps=600, min_area_in_degrees2=5)]
 
-# list_for_EOFS = [EOF(name='v200', neofs=2, selbox=[-180, 360, 10, 90],
-#                      n_cpu=1)]
-
-
-
-# rg = RGCPD(list_of_name_path=list_of_name_path,
-#            list_for_MI=list_for_MI,
-#            list_for_EOFS=list_for_EOFS,
-#            start_end_TVdate=start_end_TVdate,
-#            start_end_date=start_end_date,
-#            start_end_year=None,
-#            tfreq=tfreq, lags_i=np.array([0]),
-#            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
-#            append_pathsub='_' + name_ds)
+list_for_EOFS = [EOF(name='v200', neofs=2, selbox=[-180, 360, 10, 90],
+                      n_cpu=1)]
 
 
-# rg.pp_TV(name_ds=name_ds)
 
-# rg.pp_precursors(selbox=(0,360,10,90))
+rg = RGCPD(list_of_name_path=list_of_name_path,
+            list_for_MI=list_for_MI,
+            list_for_EOFS=list_for_EOFS,
+            start_end_TVdate=start_end_TVdate,
+            start_end_date=start_end_date,
+            start_end_year=None,
+            tfreq=tfreq, lags_i=np.array([0]),
+            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
+            append_pathsub='_' + name_ds)
 
-# rg.traintest('no_train_test_split')
 
-# import cartopy.crs as ccrs
-# # rg.calc_corr_maps()
-# rg.get_EOFs()
+rg.pp_TV(name_ds=name_ds, detrend=False)
 
-# rg.plot_maps_corr(aspect=2, size=5, cbar_vert=.2, save=True,
-#                   map_proj=ccrs.LambertCylindrical(central_longitude=100))
+rg.pp_precursors(selbox=(0,360,10,90))
+
+rg.traintest('no_train_test_split')
+
+import cartopy.crs as ccrs
+rg.calc_corr_maps()
+rg.get_EOFs()
+
+rg.plot_maps_corr(aspect=2, size=5, cbar_vert=.2, save=True,
+                  map_proj=ccrs.LambertCylindrical(central_longitude=100))
 
 
 #%%

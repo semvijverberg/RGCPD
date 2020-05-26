@@ -846,18 +846,18 @@ def detrend1D(da, anomaly=False):
         data_smooth = da.values
 
     elif (stepsyr.day== 1).all() == False and int(da.time.size / 365) < 120:
-        window_s = max(min(25,int(stepsyr.size / 12)), 1)
-        print('Performing {} day rolling mean with gaussian window (std={})'
-              ' to get better interannual statistics'.format(window_s, window_s/2))
-
+        window_s = max(min(90,int(stepsyr.size / 3)), 1)
         print('using absolute anomalies w.r.t. climatology of '
               'smoothed concurrent day accross years')
         data_smooth =  rolling_mean_np(da.values, window_s)
     output = np.empty( (da.time.size), dtype='float32' )
+    trend_dayofyear = np.zeros( (stepsyr.size))
     for i in range(stepsyr.size):
+
         sliceyr = np.arange(i, da.time.size, stepsyr.size)
         arr_oneday = da.isel(time=sliceyr)
         arr_oneday_smooth = data_smooth[sliceyr]
+
 
         # sps.detrend fits least squares and an intercept, mean is always removed
         detrended_sm = xr.DataArray(sps.detrend(arr_oneday_smooth),
@@ -876,6 +876,28 @@ def detrend1D(da, anomaly=False):
             # trend = (arr_oneday_smooth - detrended_sm)
         # detrended = arr_oneday - trend
         output[i::stepsyr.size] = detrended
+        linregab = np.polyfit(np.arange(trend.size), trend, 1)
+        trend_dayofyear[i] = linregab[0]
+        # Plotting
+        if i == 0:
+            trend1d = (arr_oneday_smooth - detrended_sm)
+            fig, ax = plt.subplots(figsize=(3,3))
+            ax.set_title(str(stepsyr[0]))
+            ax.plot(arr_oneday.values, label='raw')
+            ax.plot(arr_oneday_smooth, label='smooth')
+            ax.plot(trend1d)
+            linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
+            trend_dayofyear[i] = linregab[0]
+            ax.text(.05, .05,
+                    'y = {:.2g}x + {:.2g}'.format(*linregab),
+                    transform=ax.transAxes)
+            ax.text(.05, .90,
+                    '{:.2g} sigma arr_oneday'.format(arr_oneday.std().values),
+                    transform=ax.transAxes)
+    plt.figure(figsize=(3,3))
+    plt.plot_date(stepsyr, trend_dayofyear)
+    plt.xticks(rotation=70)
+    plt.title('long-term trend as function year')
     dao = xr.DataArray(output,
                             dims=da.dims,
                             coords=da.coords)
