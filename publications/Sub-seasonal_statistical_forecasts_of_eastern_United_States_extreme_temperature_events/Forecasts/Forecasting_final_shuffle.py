@@ -48,7 +48,7 @@ precur_aggr = 15
 add_autocorr = False
 use_fold = None
 n_boot = 5000
-lags_i = np.array([0, 10, 15, 20 , 25, 30, 35, 40, 45, 50, 55, 60])
+lags_i = np.arange(0,120, 10)
 start_end_TVdate = None # ('7-04', '8-22')
 
 
