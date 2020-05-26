@@ -52,7 +52,7 @@ kwrgs_events = kwrgs_events
 precur_aggr = 15
 use_fold = None
 n_boot = 5000
-lags_i = np.array([0, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60])
+lags_i = np.arange(0,120, 10)
 
 
 list_of_fc = [fcev(path_data=ERA_q65tail, precur_aggr=precur_aggr,
