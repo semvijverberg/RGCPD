@@ -99,7 +99,7 @@ for fc in list_of_fc:
     # fc.TV.prob_clim = pd.DataFrame(np.repeat(fc.TV.prob_clim.mean(), fc.TV.prob_clim.size).values, index=fc.TV.prob_clim.index)
 
     fc.perform_validation(n_boot=n_boot, blocksize='auto', alpha=0.05,
-                          threshold_pred=50)
+                          threshold_pred=60)
 
     single_run_time = int(time()-t0)
     times.append(single_run_time)
