@@ -29,17 +29,17 @@ import warnings
 import tables
 import h5py
 # from forecasting import *
-from statsmodels.tsa import stattools 
+from statsmodels.tsa import stattools
 from core_pp import get_subdates
 
 
 class DataFrameAnalysis:
     def __init__(self):
         self.keys = None
-        self.time_steps = None 
-        self.methods = dict() 
+        self.time_steps = None
+        self.methods = dict()
         self.period = None
-        self.window_size = 0 
+        self.window_size = 0
         self.threshold_bin = 0
         self.target_variable = None
         self.file_path = ""
@@ -60,7 +60,7 @@ class DataFrameAnalysis:
         if max_lag == None :
             max_lag = time_serie.size
         return stattools.acf(time_serie.values, nlags=max_lag - 1, unbiased=False, alpha=alpha, fft=True)
-    
+
     def __get_keys(self, data_frame, keys):
         if keys == None:
             # retrieve only float series
@@ -69,7 +69,7 @@ class DataFrameAnalysis:
             keys = type_check[type_check].index
         return keys
 
-    
+
     def loop_df_ana(self, df, function, keys=None, to_np=False, kwargs=None):
         # Should be analysis from any function which return non-tuple like results
         keys = self.__get_keys(df, keys)
@@ -77,7 +77,7 @@ class DataFrameAnalysis:
             output = df.apply(function, raw=True, **kwargs)
         output = df.apply(function, **kwargs)
         return pd.DataFrame(output, columns=keys)
-    
+
     def loop_df(self, df, functions, args=None, kwargs=None, keys=None):
         # TODO Test this functionality
         # Should be analysis from any function with methods from functions that might return tuples
@@ -88,11 +88,11 @@ class DataFrameAnalysis:
         # # if not isinstance(functions, list) or not isinstance(functions, dict) or isinstance(functions, property):
         # return self.apply_concat_series(df, functions, arg=args)
         raise NotImplementedError
-    
-    def subset_pdseries(self, df_serie, time_steps=None, 
+
+    def subset_pdseries(self, df_serie, time_steps=None,
                    select_years: Union[int,list]=None):
         # if isinstance(df_serie.index, pd.core.indexes.datetimes.DatetimeIndex):
-        #     date_time = df_serie.index 
+        #     date_time = df_serie.index
         if time_steps == None:
             _, conf_intval = self.apply_concat_series(df_serie, self.autocorrelation_stats_meth)
             conf_low = [np.where(conf_intval[i][:, 0] < 0)[0] for i in range(len(conf_intval))]
@@ -118,10 +118,10 @@ class DataFrameAnalysis:
         # TODO Fix the try except logic here, freq_dframe gets changed twice.
         try:
             freq_dframe = None
-            one_year_size = None 
+            one_year_size = None
             if methods == None:
                 methods = {'periodogram': self.periodogram, 'mtspec':self.multi_tape_spectr}
-            
+
             assert isinstance(methods, dict), "Methods needs to be dict datatype"
             if isinstance(y, pd.Series) or isinstance(y, pd.DataFrame):
                 freq_dframe = (y.index[1] - y.index[0]).days
@@ -142,7 +142,7 @@ class DataFrameAnalysis:
                 freq, spec =  self.apply_concat_series(y, func=func, arg=1)
                 period = [1 * freq_dframe / freq[i][1:] for i in range(len(freq))]
                 spec = [ spec[i][1:] for i in range(len(spec))]
-                results[label] = [period, spec]          
+                results[label] = [period, spec]
         return [results, xlim]
 
     def accuracy(self, y, sample='auto', auc_cutoff=None):
@@ -173,12 +173,12 @@ class DataFrameAnalysis:
         df_test = pd.concat(test_list).sort_index()
         for pre_cursor in df_test.columns[1:]:
             df_test[pre_cursor] = df_test[pre_cursor].shift(periods=- lag)
-        
+
         return df_test.resample(f'{window_size}D').mean()
 
     def select_period(self, df, targ_var_mask, start_date, end_date, start_end_year, leap_year, rename=False):
-        
-        dates_full_origin = df.loc[0].index 
+
+        dates_full_origin = df.loc[0].index
         dates_target_var_origin = df.loc[0].index[df.loc[0]['RV_mask'] == True ]
         df_resample  = self.resample(df=df)
         df_period  = get_subdates(dates_target_var_origin, start_date, end_date, start_end_year, leap_year)
@@ -186,7 +186,7 @@ class DataFrameAnalysis:
         if rename:
              df_period = df_period.rename(rename, axis= 1)
              return df_period
-        
+
         return df_period
 
     def apply_concat_dFrame(self, df, field, func, col_name):
@@ -196,7 +196,7 @@ class DataFrameAnalysis:
         return zip(*series.apply(func, args=(arg,)))
 
     def multi_tape_spectr(self, time_serie, sampling_period=1, band_width=4, numb_tapers=4):
-       spectrum, frequence, _, _, _ =  mtspec.mtspec(data=time_serie, delta=sampling_period, 
+       spectrum, frequence, _, _, _ =  mtspec.mtspec(data=time_serie, delta=sampling_period,
                                     time_bandwidth=band_width, number_of_tapers=numb_tapers, statistics=True)
        return [frequence, spectrum]
 
@@ -206,12 +206,12 @@ class DataFrameAnalysis:
         return [frequence, spectrum]
 
     def fft_np(self, data, sampling_period=1.0):
-        yfft = sp.fftpack.fft(data)
+        yfft = sp.fftpack.fft(data, axis=0)
         ypsd = np.abs(yfft)**2
         ypsd = 2.0 / len(data) * ypsd
         fft_frequence = sp.fftpack.fftfreq(len(ypsd), sampling_period)
         return [fft_frequence, ypsd]
-        
+
     def cross_corr_p_val(self, data, alpha=0.05):
         def pearson_pval(x, y):
             return stats.pearsonr(x, y)[1]
@@ -231,7 +231,7 @@ class DataFrameAnalysis:
             dates = [pd_date_time.where(pd_date_time.year == arg).dropna() for arg in args]
             return  pd.to_datetime(self.flatten(dates))
         else:
-            return pd_date_time.where(pd_date_time.year == first_year).dropna() 
+            return pd_date_time.where(pd_date_time.year == first_year).dropna()
 
     def remove_leap_period(self, date_time_or_xr):
         no_leap_month = None
@@ -241,9 +241,9 @@ class DataFrameAnalysis:
                 date_time = pd.to_datetime(date_time_or_xr.time.values)
                 mask = np.logical_and((date_time.month == 2), (date_time.day == 29))
                 no_leap_month = date_time[mask==False]
-            else: 
+            else:
                 raise ValueError('Not dataframe datatype')
-            
+
         except ValueError as v_err_1:
             try:
                 if isinstance(date_time_or_xr, xarray):
@@ -268,7 +268,7 @@ class DataFrameAnalysis:
         with pd.HDFStore(file_path, 'w') as hdf :
             for k, items in dict_of_dfs.items():
                 hdf.put(k, items,  format='table', data_columns=True)
-        return 
+        return
 
 class VisualizeAnalysis:
     # TODO untangle the inheritance and make two stand alone classes to avoid inheritance cluster fuck.
@@ -315,15 +315,15 @@ class VisualizeAnalysis:
             return plt.subplots(constrained_layout=True)
         else:
             if col % self.col_wrap == 0:
-                return plt.subplots(int(col/self.col_wrap),self.col_wrap, 
+                return plt.subplots(int(col/self.col_wrap),self.col_wrap,
                                     constrained_layout=True)
             else:
-                return plt.subplots(int(col/self.col_wrap) + 1, self.col_wrap, 
+                return plt.subplots(int(col/self.col_wrap) + 1, self.col_wrap,
                                     constrained_layout=True)
 
     def subplots_fig_settings(self, df):
         row = self._column_wrap(df)
-        return plt.subplots(row, self.col_wrap, sharex=self.sharex, 
+        return plt.subplots(row, self.col_wrap, sharex=self.sharex,
         sharey=self.sharey, figsize= (3* self.col_wrap, 2.5* row), gridspec_kw=self.gridspec_kw, constrained_layout=True)
 
     # def plot(self, df):
@@ -370,7 +370,7 @@ class VisualizeAnalysis:
             ax.tick_params(axis='both', which='major', labelsize=8)
             ax.set_title(pdseries.name, fontsize=10)
         plt.show()
-    
+
     def scatter(self, df, target_var, aggr, title):
         fig, ax = self._subplots_func_adjustment()
 
@@ -383,18 +383,18 @@ class VisualizeAnalysis:
         if title:
             ax.set_title(title, fontsize=10)
         plt.show()
-    
+
     def time_serie_matrix(self, df_period, cross_corr, sig_mask, pval):
         fig, ax = self._subplots_func_adjustment()
         plt.figure(figsize=(10, 10))
 
-        # Generate mask for upper triangle matrix 
+        # Generate mask for upper triangle matrix
         mask_triangle = np.zeros_like(cross_corr, dtype=bool)
         mask_triangle[np.triu_indices_from(mask_triangle)] = True
         mask_signal = mask_triangle.copy()
         mask_signal[sig_mask == False] = True
 
-        # Removing meaningless row and column 
+        # Removing meaningless row and column
         cross_corr = cross_corr.columns.drop(cross_corr.columns[0], axis=0).drop(cross_corr.columns[-1], axis=1)
         mask_signal = mask_signal[1: , :-1]
         mask_triangle = mask_triangle[1: , :-1]
@@ -417,7 +417,7 @@ class VisualizeAnalysis:
 
     def spectrum(self, title,subtitle, results, xlim, ylim=(1e-4,1e3)):
         fig, ax = self._subplots_func_adjustment(col=len(subtitle))
-        
+
         # TODO Better way to plot all results tuples  instead of double for-loops
         counter = len(results)
         label = list(results.keys())
@@ -438,7 +438,7 @@ class VisualizeAnalysis:
         if title is not None:
             fig.suptitle(title, fontsize=10)
         return fig, ax
-           
+
     def significance_annotation(self, corr, pvals):
         corr_str = np.zeros_like( corr, dtype=str ).tolist()
         for i1, r in enumerate(corr.values):
@@ -453,14 +453,14 @@ class VisualizeAnalysis:
 
 
 class DFA(DataFrameAnalysis, VisualizeAnalysis):
-    
+
     def __init__(self, df=pd.DataFrame):
         DataFrameAnalysis.__init__(self)
         VisualizeAnalysis.__init__(self)
         self.df = df
         self.index = self.df.index
         self.multiindex = hasattr(self.df.index, 'levels')
-        
+
     def plot_timeseries(self, s=0, cols: list=None):
         '''
         Moet ook nog plot timeseries different traintest
@@ -487,7 +487,7 @@ class DFA(DataFrameAnalysis, VisualizeAnalysis):
 
 
 if __name__ == "__main__":
-        
+
     # df = DFA(df=rg.df_data)
     # df.dataframe(df.df)
     # df_ana = DataFrameAnalysis()

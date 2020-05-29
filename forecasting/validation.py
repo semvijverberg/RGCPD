@@ -47,7 +47,7 @@ mpl.rcParams['figure.titlesize'] = 'medium'
 
 
 def get_metrics_sklearn(y_true, y_pred_all, y_pred_c, alpha=0.05, n_boot=5,
-                        blocksize=10, threshold_pred='upper_clim', 
+                        blocksize=10, threshold_pred='upper_clim',
                         n_cpu: int=None):
 
     #%%
@@ -191,7 +191,7 @@ def get_metrics_bin(y_true, y_pred, t=None):
 def get_metrics_confusion_matrix(y_true, y_pred_all, thr=['clim', 33, 66], n_shuffle=0):
     #%%
     lags = y_pred_all.columns
-    # y_true = 
+    # y_true =
     if thr[0] == 'clim':
         clim_prob = np.round((1-y_true[y_true.values==1.].size / y_true.size),2)
         thresholds = [[clim_prob]]
@@ -291,7 +291,6 @@ def get_bstrap_size(ts, max_lag=200, n=1):
     max_lag = min(max_lag, ts.size)
     ac, con_int = autocorr_sm(ts, max_lag=max_lag, alpha=0.01)
 
-
     where = np.where(con_int[:,0] < 0 )[0]
     # has to be below 0 for n times (not necessarily consecutive):
     n_of_times = np.array([idx+1 - where[0] for idx in where])
@@ -300,7 +299,7 @@ def get_bstrap_size(ts, max_lag=200, n=1):
 
 
 def metrics_sklearn(y_true=np.ndarray, y_pred=np.ndarray, y_pred_c=np.ndarray,
-                    alpha=0.05, n_boot=5, blocksize=1, clim_prob=None, 
+                    alpha=0.05, n_boot=5, blocksize=1, clim_prob=None,
                     threshold_pred='upper_clim', n_cpu: int=None):
     '''
     threshold_pred  options: 'clim', 'upper_clim', 'int or float'
@@ -518,8 +517,8 @@ def _bootstrap(y_true, y_pred, n_boot_sub, chunks, percentile_t, rng_seed):
         boots_acc.append(score_acc)
         boots_KSS.append(score_KSS)
         boots_EDI.append(score_EDI)
-    return (boots_AUC, boots_AUCPR, boots_brier, 
-            boots_prec, boots_acc, boots_KSS, 
+    return (boots_AUC, boots_AUCPR, boots_brier,
+            boots_prec, boots_acc, boots_KSS,
             boots_EDI)
 
 def get_KSS_clim(y_true, y_pred, threshold_clim_events):

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+
+
+from __future__ import division
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,6 +12,9 @@ import seaborn as sns
 # import mtspec
 flatten = lambda l: [item for sublist in l for item in sublist]
 from typing import List, Tuple, Union
+
+
+
 
 
 import matplotlib as mpl
@@ -530,152 +537,146 @@ def load_hdf5(path_data):
 
 
 
-def df_figures(df_data, keys, analysis, line_dim='model', group_line_by=None,
-                  met='default', wspace=0.08, col_wrap=None, threshold_bin=None):
-    #%%
-    '''
-    3 dims to plot: [metrics, experiments, stat_models]
-    2 can be assigned to row or col, the third will be lines in the same axes.
-    '''
-
-    dims = ['exper', 'models', 'met']
-    col_dim = [s for s in dims if s not in [line_dim, 'met']][0]
-    if met == 'default':
-        met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Rel. Curve', 'ts']
 
 
 
-    if line_dim == 'model':
-        lines = models
-        cols  = expers
-    elif line_dim == 'exper':
-        lines = expers
-        cols  = models
-    assert line_dim in ['model', 'exper'], ('illegal key for line_dim, '
-                           'choose \'exper\' or \'model\'')
-
-    if len(cols) == 1 and group_line_by is not None:
-        group_s = len(group_line_by)
-        cols = group_line_by
-        lines_grouped = []
-        for i in range(0,len(lines),group_s):
-            lines_grouped.append(lines[i:i+group_s])
+pi = np.pi
 
 
+def square_function(N, square_width):
+    """Generate a square signal.
 
-    grid_data = np.zeros( (2, len(met)), dtype=str)
-    grid_data = np.stack( [np.repeat(met, len(cols)),
-                           np.repeat(cols, len(met))])
+    Args:
+        N (int): Total number of points in the signal.
+        square_width (int): Number of "high" points.
 
+    Returns (ndarray):
+        A square signal which looks like this:
 
-    df = pd.DataFrame(grid_data.T, columns=['met', col_dim])
-    if len(cols) != 1 or col_wrap is None:
-        g = sns.FacetGrid(df, row='met', col=col_dim, height=3, aspect=1.4,
-                      sharex=False,  sharey=False)
-        # Only if 1 column is requisted, col_wrap is allowed
-    if len(cols) == 1 and col_wrap is not None:
-#        cols = met
-        g = sns.FacetGrid(df, col='met', height=3, aspect=1.4,
-                      sharex=False,  sharey=False, col_wrap=col_wrap)
+              |____________________
+              |<-- square_width -->
+              |                    ______________
+              |
+              |^                   ^            ^
+        index |0             square_width      N-1
 
-
-
-
-    for col, c_label in enumerate(cols):
-
-        if col_wrap is None:
-            g.axes[0,col].set_title(c_label)
-        if len(models) == 1 and group_line_by is not None:
-            lines = lines_grouped[col]
+        In other words, the output has [0:N]=1 and [N:]=0.
+    """
+    signal = np.zeros(N)
+    signal[0:square_width] = 1
+    return signal
 
 
-        for row, metric in enumerate(met):
+def check_num_coefficients_ok(N, num_coefficients):
+    """Make sure we're not trying to add more coefficients than we have."""
+    limit = None
+    if N % 2 == 0 and num_coefficients > N // 2:
+        limit = N/2
+    elif N % 2 == 1 and num_coefficients > (N - 1)/2:
+        limit = (N - 1)/2
+    if limit is not None:
+        raise ValueError(
+            "num_coefficients is {} but should not be larger than {}".format(
+                num_coefficients, limit))
 
-            if col_wrap is None:
-                ax = g.axes[row,col]
-            else:
-                ax = g.axes[row]
 
+def reconstruct_fft(signal, coefficients:list=None,
+                    list_of_harm: list=[1, 1/2, 1/3], square_width: int=None):
+    """Test partial (i.e. filtered) Fourier reconstruction of a square signal.
 
-            for l, line in enumerate(lines):
+    Args:
+        N (int): Number of time (and frequency) points. We support both even
+            and odd N.
+        square_width (int): Number of "high" points in the time domain signal.
+            This number must be less than or equal to N.
+        num_coefficients (int): Number of frequencies, in addition to the dc
+            term, to use in Fourier reconstruction. This is the number of
+            positive frequencies _and_ the number of negative frequencies.
+            Therefore, if N is odd, this number cannot be larger than
+            (N - 1)/2, and if N is even this number cannot be larger than
+            N/2.
+        list_of_harm (int):
+    """
+    if square_width is not None:
+        N = 2*square_width
+        if square_width > N:
+            raise ValueError("square_width cannot be larger than N")
+        check_num_coefficients_ok(N, len(coefficients))
 
-                if line_dim == 'model':
-                    model = line
-                    exper = c_label
-                    color = nice_colors[l]
-
-                elif line_dim == 'exper':
-                    model = c_label
-                    exper = line
-                    if len(models) == 1 and group_line_by is not None:
-                        exper = line
-                        model = models[0]
-                    color = colors_datasets[l]
-
-#                if col_wrap is not None:
-#                    metric = c_label # metrics on rows
-                    # exper is normally column, now we only have 1 expers
-#                    exper = expers[0]
+        signal = square_function(N, square_width)
+    else:
+        N = signal.shape[0]
 
 
 
-                df_valid, RV, y_pred_all = dict_experiments[exper][model]
-                tfreq = (y_pred_all.iloc[1].name - y_pred_all.iloc[0].name).days
-                lags_i     = list(dict_experiments[exper][model][2].columns.astype(int))
-                lags_tf = [l*tfreq for l in lags_i]
-                if tfreq != 1:
-                    # the last day of the time mean bin is tfreq/2 later then the centerered day
-                    lags_tf = [l_tf- int(tfreq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
+    time_axis = np.linspace(0, N-1, N)
+    ft = np.fft.fft(signal, axis=0)
+
+    freqs = np.fft.fftfreq(signal.size)
+    periods = np.zeros_like(freqs)
+    periods[1:] = 1/(freqs[1:]*365)
+
+    def get_harmonics(periods, list_of_harm=[1, 1/2, 1/3, 1/4, 1/5, 1/6]):
+        harmonics = []
+        for h in list_of_harm:
+            harmonics.append(np.argmin((abs(periods - h))))
+        harmonics = np.array(harmonics) - 1 # subtract 1 because loop below is adding 1
+        return harmonics
+
+    if coefficients is None:
+        if list_of_harm is [1, 1/2, 1/3]:
+            print('using default first 3 annual harmonics, expecting cycles of 365 days')
+        coefficients = get_harmonics(periods, list_of_harm=list_of_harm)
+    elif coefficients is not None:
+        coefficients = coefficients
+
+
+        # # determine coefficients based up first 3 annual harmonics
+        # two_yearly_harmonics = np.logical_or(periods==1,
+        #                                        periods==.5)
+        # third_harmonic = np.argmin((abs(periods - 1/3)))
+        # three_harm_year = np.concatenate([np.argwhere(two_yearly_harmonics).squeeze(),
+        #                                   [third_harmonic]])
+        # coefficients = three_harm_year - 1
+
+
+    reconstructed_signal = np.zeros(N, dtype='complex128')
+    reconstructed_signal += ft[0] * np.ones(N, dtype='complex128')
+    # Adding the dc term explicitly makes the looping easier in the next step.
+
+    for k in coefficients:
+        k += 1  # Bump by one since we already took care of the dc term.
+        if k == N-k:
+            reconstructed_signal += ft[k] * np.exp(
+                1.0j*2 * np.pi * (k) * time_axis / N)
+        # This catches the case where N is even and ensures we don't double-
+        # count the frequency k=N/2.
+
+        else:
+            reconstructed_signal += ft[k] * np.exp(
+                1.0j*2 * np.pi * (k) * time_axis / N)
+            reconstructed_signal += ft[N-k] * np.exp(
+                1.0j*2 * np.pi * (N-k) * time_axis / N)
+        # In this case we're just adding a frequency component and it's
+        # "partner" at minus the frequency
+
+    reconstructed_signal = reconstructed_signal / N
+    # Normalize by the number of points in the signal. numpy's discete Fourier
+    # transform convention puts the (1/N) normalization factor in the inverse
+    # transform, so we have to do it here.
+
+    plt.plot(time_axis[:365*3], signal[:365*3],
+             'b-.',
+             label='original first 3 years')
+    plt.plot(time_axis[:365*3], reconstructed_signal.real[:365*3],
+             'r-', linewidth=3,
+             label='reconstructed first 3 years')
+    # The imaginary part is zero anyway. We take the real part to
+    # avoid matplotlib warnings.
+
+    plt.grid()
+    plt.legend(loc='upper right')
+    return reconstructed_signal.real
 
 
 
-                if metric in ['AUC-ROC', 'AUC-PR', 'BSS', 'Precision', 'Accuracy']:
-                    df_metric = df_valid.loc[metric]
-                    if metric in ['AUC-PR', 'Precision', 'Accuracy']:
-                        clim = RV.RV_bin.values[RV.RV_bin==1].size / RV.RV_bin.size
-                        if metric == 'Accuracy':
-                            import validation as valid
-                            # threshold upper 3/4 of above clim
-                            threshold = int(100 * (1 - 0.75*clim))
-                            df_ran = valid.get_metrics_confusion_matrix(RV, y_pred_all.loc[:,:0],
-                                                    thr=[threshold], n_shuffle=400)
-                            clim = df_ran[threshold/100]['fc shuf'].loc[:,'Accuracy'].mean()
-
-                    else:
-                        clim = None
-                    plot_score_lags(df_metric, metric, color, lags_tf,
-                                    linestyle=line_styles[l], clim=clim,
-                                    cv_lines=False, col=col,
-                                    threshold_bin=threshold_bin, ax=ax)
-
-                if metric == 'Rel. Curve':
-                    if l == 0:
-                        ax, n_bins = rel_curve_base(RV, lags_tf, col=col, ax=ax)
-                    print(l,line)
-
-                    rel_curve(RV, y_pred_all, color, lags_i, n_bins,
-                              linestyle=line_styles[l], mean_lags=True,
-                              ax=ax)
-
-                if metric == 'ts':
-                    if l == 0:
-                        ax, dates_ts = plot_events(RV, color=nice_colors[-1], n_yrs=6,
-                                         col=col, ax=ax)
-                    plot_ts(RV, y_pred_all, dates_ts, color, line_styles[l], lag_i=1, ax=ax)
-
-                # legend conditions
-                same_models = np.logical_and(row==0, col==0)
-                grouped_lines = np.logical_and(row==0, group_line_by is not None)
-                if same_models or grouped_lines:
-#                    legend.append(patches.Rectangle((0,0),0.5,0.5,facecolor=color))
-
-                    ax.legend(ax.lines, lines,
-                          loc = 'lower left', fancybox=True,
-                          handletextpad = 0.2, markerscale=0.1,
-                          borderaxespad = 0.1,
-                          handlelength=2.5, handleheight=1, prop={'size': 12})
-
-    #%%
-    g.fig.subplots_adjust(wspace=wspace)
-
-    return g.fig

@@ -138,7 +138,7 @@ if store:
 
 
 kwrgs = {'wspace':0.16, 'hspace':.25, 'col_wrap':2, 'skip_redundant_title':True,
-         'lags_relcurve':[55], 'fontbase':14, 'figaspect':2}
+         'lags_relcurve':[50], 'fontbase':14, 'figaspect':2}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
 met = ['AUC-ROC', 'AUC-PR', 'Precision', 'BSS', 'Accuracy', 'Rel. Curve']
 line_dim = 'dataset'

@@ -5,19 +5,31 @@ Created on Fri May 17 16:31:11 2019
 
 @author: semvijverberg
 """
-import os
+
 import numpy as np
+import scipy as sp
 import pandas as pd
 import matplotlib.pyplot as plt
 import xarray as xr
+from netCDF4 import num2date
 import itertools
-from dateutil.relativedelta import relativedelta as date_dt
+# from dateutil.relativedelta import relativedelta as date_dt
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 from typing import Union
 
-def get_oneyr(datetime):
-        return datetime.where(datetime.year==datetime.year[0]).dropna()
+def get_oneyr(pddatetime, *args):
+    dates = []
+    pddatetime = pd.to_datetime(pddatetime)
+    year = pddatetime.year[0]
+
+    for arg in args:
+        year = arg
+        dates.append(pddatetime.where(pddatetime.year==year).dropna())
+    dates = pd.to_datetime(flatten(dates))
+    if len(dates) == 0:
+        dates = pddatetime.where(pddatetime.year==year).dropna()
+    return dates
 
 
 
@@ -79,7 +91,6 @@ def import_ds_lazy(filename, loadleap=False,
 
     # get dates
     if 'time' in ds.squeeze().dims:
-        from netCDF4 import num2date
         numtime = ds['time']
         dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
 
@@ -177,14 +188,12 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
                         detrend=True, anomaly=True, encoding=None):
     '''
     Function for preprocessing
-    - Select time period of interest from daily mean time series
-    - Calculate anomalies (w.r.t. multi year daily means)
-    - linear detrend
+    - Calculate anomalies (by removing seasonal cycle based on first
+      three harmonics)
+    - linear long-term detrend
     '''
 
     #%%
-    import xarray as xr
-    from netCDF4 import num2date
     ds = import_ds_lazy(infile, loadleap=loadleap,
                         seldates=seldates, selbox=selbox, format_lon=format_lon)
 
@@ -198,9 +207,13 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
         output[:] = np.nan
         for lev_idx, lev in enumerate(levels.values):
             ds_2D = ds.sel(levels=lev)
-            output[:,lev_idx,:,:] = detrend_xarray_ds_2D(ds_2D, detrend=detrend, anomaly=anomaly)
+
+            output[:,lev_idx,:,:] = deseasonalizefft_detrend_2D(ds_2D, detrend, anomaly)
+
+            # output[:,lev_idx,:,:] = detrend_xarray_ds_2D(ds_2D, detrend=detrend, anomaly=anomaly)
     else:
-        output = detrend_xarray_ds_2D(ds, detrend=detrend, anomaly=anomaly)
+        # output = detrend_xarray_ds_2D(ds, detrend=detrend, anomaly=anomaly)
+        output = deseasonalizefft_detrend_2D(ds, detrend, anomaly)
 
     print(f'\nwriting ncdf file to:\n{outfile}')
     output = xr.DataArray(output, name=ds.name, dims=ds.dims, coords=ds.coords)
@@ -221,11 +234,162 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
     #%%
     return
 
+def reconstruct_fft_3D(ds, coefficients:list=None,
+                    list_of_harm: list=[1, 1/2, 1/3],
+                    add_constant: bool=True):
+
+    dates = pd.to_datetime(ds.time.values)
+    N = dates.size
+    oneyr = get_oneyr(dates)
+    time_axis = np.linspace(0, N-1, N)
+    A_k = np.fft.fft(ds.values, axis=0) # positive & negative amplitude
+    freqs_belongingto_A_k = np.fft.fftfreq(ds.shape[0])
+    periods = np.zeros_like(freqs_belongingto_A_k)
+    periods[1:] = 1/(freqs_belongingto_A_k[1:]*oneyr.size)
+    def get_harmonics(periods, list_of_harm=list):
+        harmonics = []
+        for h in list_of_harm:
+            harmonics.append(np.argmin((abs(periods - h))))
+        harmonics = np.array(harmonics) - 1 # subtract 1 because loop below is adding 1
+        return harmonics
+
+    if coefficients is None:
+        if list_of_harm is [1, 1/2, 1/3]:
+            print('using default first 3 annual harmonics, expecting cycles of 365 days')
+        coefficients = get_harmonics(periods, list_of_harm=list_of_harm)
+    elif coefficients is not None:
+        coefficients = coefficients
+
+    reconstructed_signal = np.zeros_like(ds.values, dtype='c16')
+    reconstructed_signal += A_k[0].real * np.zeros_like(ds.values, dtype='c16')
+    # Adding the dc term explicitly makes the looping easier in the next step.
+
+
+    for c, k in enumerate(coefficients):
+        progress = int((100*(c+1)/coefficients.size))
+        print(f"\rProcessing {progress}%", end="")
+        k += 1  # Bump by one since we already took care of the dc term.
+        if k == N-k:
+            reconstructed_signal += A_k[k] * np.exp(
+                1.0j*2 * np.pi * (k) * time_axis / N)[:,None,None] # add fake space dims
+        # This catches the case where N is even and ensures we don't double-
+        # count the frequency k=N/2.
+
+        else:
+            reconstructed_signal += A_k[k] * np.exp(
+                1.0j*2 * np.pi * (k) * time_axis / N)[:,None,None]
+            reconstructed_signal += A_k[N-k] * np.exp(
+                1.0j*2 * np.pi * (N-k) * time_axis / N)[:,None,None]
+        # In this case we're just adding a frequency component and it's
+        # "partner" at minus the frequency
+
+    reconstructed_signal = (reconstructed_signal / N)
+    if add_constant:
+        reconstructed_signal.real += ds.values.mean(0)
+    return reconstructed_signal.real
+
+def deseasonalizefft_detrend_2D(ds, detrend: bool=True, anomaly: bool=True):
+    '''
+    Remove long-term trend and/or remove seasonal cycle.
+
+    Seasonal cycle is removed by the subtracting the sum of the first 3 annual
+    harmonics (freq = 1/365, .5/365, .33/365).
+
+    Parameters
+    ----------
+    ds : TYPE
+        xr.DataArray() of dims (time, latitude, longitude).
+    detrend : bool, optional
+        Detrend (long-term trend along all datapoints). The default is True.
+    anomaly : bool, optional
+        Remove Seasonal cycle using FFT. The default is True.
+    Returns
+    -------
+    xr.DataArray()
+
+    '''
+    import df_ana
+
+    dates = pd.to_datetime(ds.time.values)
+    if anomaly:
+       reconstructed_signal = reconstruct_fft_3D(ds, list_of_harm=[1, 1/2, 1/3])
+
+    ds = ds - ds.mean(dim='time')
+    # plot gridpoints for visual check
+
+    # try to find location above EU
+    ts = ds.sel(longitude=30, method='nearest').sel(latitude=40, method='nearest')
+    la1 = np.argwhere(ts.latitude.values ==ds.latitude.values)[0][0]
+    lo1 = np.argwhere(ts.longitude.values ==ds.longitude.values)[0][0]
+    ts = ds[:,la1,lo1]
+
+    la2 = int(ds.shape[1]/3)
+    lo2 = int(ds.shape[2]/3)
+
+    tuples = [(la1, lo1), (la1+1, lo1), (la1, lo1+1),
+              (la2, lo2), (la2+1, lo2), (la2, lo2+1)]
+    fig, ax = plt.subplots(3,2, figsize=(16,8))
+    ax = ax.flatten()
+    for i, lalo in enumerate(tuples):
+        lat = int(ds.latitude[lalo[0]])
+        lon = int(ds.longitude[lalo[1]])
+        ax[i].set_title(f'latlon coord {lat} {lon}')
+        ax[i].plot(ds.values[:10*365, lalo[0],lalo[1]], label='raw data minus mean all data')
+        if anomaly:
+            ax[i].plot(reconstructed_signal[:10*365, lalo[0],lalo[1]].real, label='seasonal cycle')
+        ax[i].legend()
+    plt.subplots_adjust(hspace=.3)
+    ax[-1].text(.5,1.2, 'Visual analysis: should only a seasonal cycle',
+            transform=ax[0].transAxes,
+            ha='center', va='bottom')
+    if anomaly:
+        ds = ds - reconstructed_signal
+    try:
+        ts = ds[:,la1,lo1]
+        df_ana.plot_spectrum(pd.Series(ts.values, index=dates), year_max=.1)
+    except:
+        pass
+    if detrend:
+        ds = detrend_lin_longterm(ds)
+    return ds
+
+def detrend_lin_longterm(ds):
+    no_nans = np.nan_to_num(ds)
+    detrended = sp.signal.detrend(no_nans, axis=0, type='linear')
+    nan_true = np.isnan(ds)
+    detrended[nan_true.values] = np.nan
+    trend = ds - detrended
+    constant = np.repeat(np.mean(ds, 0).expand_dims('time'), ds.time.size, 0 )
+    detrended += constant
+
+    # plot single gridpoint for visual check
+    la = int(ds.shape[1]/2)
+    lo = int(ds.shape[2]/2)
+    tuples = [(la, lo), (la+1, lo), (la, lo+1)]
+    fig, ax = plt.subplots(3, figsize=(8,8))
+    for i, lalo in enumerate(tuples):
+        lat = int(ds.latitude[lalo[0]])
+        lon = int(ds.longitude[lalo[1]])
+        ax[i].set_title(f'latlon coord {lat} {lon}')
+        ax[i].plot(ds.values[:,lalo[0],lalo[1]])
+        ax[i].plot(detrended[:,lalo[0],lalo[1]])
+        trend1d = trend[:,lalo[0],lalo[1]]
+        linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
+        ax[i].plot(trend1d)
+        ax[i].text(.05, .05,
+        'y = {:.2g}x + {:.2g}'.format(*linregab),
+        transform=ax[i].transAxes)
+    plt.subplots_adjust(hspace=.3)
+    ax[-1].text(.5,1.2, 'Visual analysis: trends of nearby gridcells should be similar',
+                transform=ax[0].transAxes,
+                ha='center', va='bottom')
+    return detrended
+
+
 def detrend_xarray_ds_2D(ds, detrend, anomaly):
     #%%
-    import xarray as xr
-    import numpy as np
-#    marray = np.squeeze(ncdf.to_array(name=var))
+
+
     if type(ds.time[0].values) != type(np.datetime64()):
         numtime = ds['time']
         dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
@@ -238,11 +402,11 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
     ds['time'] = dates
 
     def _detrendfunc2d(arr_oneday, arr_oneday_smooth):
-        from scipy import signal
+
         # get trend of smoothened signal
 
         no_nans = np.nan_to_num(arr_oneday_smooth)
-        detrended_sm = signal.detrend(no_nans, axis=0, type='linear')
+        detrended_sm = sp.signal.detrend(no_nans, axis=0, type='linear')
         nan_true = np.isnan(arr_oneday)
         detrended_sm[nan_true.values] = np.nan
         # subtract trend smoothened signal of arr_oneday values
@@ -255,83 +419,138 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly):
         return xr.apply_ufunc(_detrendfunc2d, arr_oneday,
                               dask='parallelized',
                               output_dtypes=[float])
-#        return xr.apply_ufunc(_detrendfunc2d, arr_oneday.compute(),
-#                              dask='parallelized',
-#                              output_dtypes=[float])
+    #        return xr.apply_ufunc(_detrendfunc2d, arr_oneday.compute(),
+    #                              dask='parallelized',
+    #                              output_dtypes=[float])
 
     if (stepsyr.day== 1).all() == True or int(ds.time.size / 365) >= 120:
         print('\nHandling time series longer then 120 day or monthly data, no smoothening applied')
         data_smooth = ds.values
 
     elif (stepsyr.day== 1).all() == False and int(ds.time.size / 365) < 120:
-        window_s = max(min(90,int(stepsyr.size / 3)), 1)
-        print('Performing {} day rolling mean)'
+        window_s = max(min(25,int(stepsyr.size / 12)), 1)
+        print('Performing {} day rolling mean'
               ' to get better interannual statistics'.format(window_s))
 
-        print('using absolute anomalies w.r.t. climatology of '
-              'smoothed concurrent day accross years')
         data_smooth =  rolling_mean_np(ds.values, window_s)
 
 
 
 #    output_std = np.empty( (stepsyr.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
 #    output_std[:] = np.nan
-#    output_clim = np.empty( (stepsyr.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
+    output_clim3d = np.empty((stepsyr.size, ds.latitude.size, ds.longitude.size),
+                               dtype='float32')
+    # output_trendtest = np.empty( (stepsyr.size), dtype='float32' )
 #    output_clim[:] = np.nan
-    output = np.empty( (ds.time.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
+    # output = np.empty( (ds.time.size,  ds.latitude.size, ds.longitude.size), dtype='float32' )
 #    output[:] = np.nan
 
 
     for i in range(stepsyr.size):
 
         sliceyr = np.arange(i, ds.time.size, stepsyr.size)
-        arr_oneday = ds.isel(time=sliceyr)
         arr_oneday_smooth = data_smooth[sliceyr]
-        if detrend:
-            if i==0: print('Detrending based on interannual trend of 25 day smoothened day of year\n')
-            arr_oneday, detrended_sm = _detrendfunc2d(arr_oneday, arr_oneday_smooth)
 
+
+        # if detrend:
+            # if i==0: print('Removing Linear least-squares trend based on interannual of 25 day smoothened day of year\n')
+            # arr_oneday, detrended_sm = _detrendfunc2d(arr_oneday, arr_oneday_smooth)
+            # # find linreg single location
+            # trend1d = (arr_oneday_smooth[:,latix, lonix] - detrended_sm[:,latix, lonix])
+            # linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
+            # output_trendtest[i] = linregab[0]
 #        output_std[i]  = arr_oneday.std(axis=0)
         if anomaly:
             if i==0: print('using absolute anomalies w.r.t. climatology of '
-                           'smoothed concurrent day accross years\n')
-            output_clim = arr_oneday_smooth.mean(axis=0)
-            output[i::stepsyr.size] = arr_oneday - output_clim
-        else:
-            output[i::stepsyr.size] = arr_oneday
+                            'smoothed concurrent day accross years\n')
+            output_clim2d = arr_oneday_smooth.mean(axis=0)
+            # output[i::stepsyr.size] = arr_oneday - output_clim3d
+            output_clim3d[i,:,:] = output_clim2d
 
-        if i in list(np.linspace(0, stepsyr.size, 3, dtype=int)):
-            latix = int(arr_oneday.shape[1]/2)
-            lonix = int(arr_oneday.shape[2]/2)
-            trend1d = (arr_oneday_smooth[:,latix, lonix] - detrended_sm[:,latix, lonix])
-            fig, ax = plt.subplots(figsize=(3,3))
-            ax.set_title(str(stepsyr[i]) + f' la{latix}, lo{lonix}')
-            ax.plot(arr_oneday[:,latix, lonix].values, label='raw')
-            ax.plot(arr_oneday_smooth[:,latix, lonix], label='smooth')
-            ax.plot(trend1d)
-            linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
-            ax.text(.05, .05,
-                    'y = {:.2g}x + {:.2g}'.format(*linregab),
-                    transform=ax.transAxes)
-            ax.text(.05, .90,
-                    '{:.2g} sigma arr_oneday'.format(arr_oneday.std().values),
-                    transform=ax.transAxes)
+
+
+        # if i in list(np.linspace(0, stepsyr.size, 3, dtype=int)):
+
+
+        #     fig, ax = plt.subplots(figsize=(3,3))
+        #     ax.set_title(str(stepsyr[i]) + f' la{latix}, lo{lonix}')
+        #     ax.plot(arr_oneday[:,latix, lonix].values, label='raw')
+        #     ax.plot(arr_oneday_smooth[:,latix, lonix], label='smooth')
+        #     # ax.plot(trend1d)
+        #     # ax.text(.05, .05,
+        #     #         'y = {:.2g}x + {:.2g}'.format(*linregab),
+        #     #         transform=ax.transAxes)
+        #     ax.text(.05, .90,
+        #             '{:.2g} sigma arr_oneday'.format(arr_oneday.std().values),
+        #             transform=ax.transAxes)
         progress = int((100*(i+1)/stepsyr.size))
         print(f"\rProcessing {progress}%", end="")
 
 #    output_std_new = rolling_mean_np(output_std, 50)
 
-#    plt.figure(figsize=(15,10)) ; plt.title('T2m at 66N, 24E. 1 day bins mean (39 years)');
-#    plt.plot((output_clim[:,16,10]-output_clim[:,16,10].mean()))
-#    plt.plot((output_clim_old[:,16,10]-output_clim_old[:,16,10].mean()))
-#    plt.yticks(np.arange(-15,15,2.5)) ; plt.xticks(np.arange(0,366,25)) ; plt.grid(which='major') ;
-#    plt.ylabel('Kelvin')
 
-#    plt.figure(figsize=(15,10))
-#    plt.plot(output_std[:,16,10], label='one day of year')
-#    plt.plot(output_std_new[:,16,10], label='50 day smooth of blue line') ; plt.yticks(np.arange(3,7.5,0.25)) ; plt.xticks(np.arange(0,366,25)) ; plt.grid(which='major') ;
-#    plt.legend()
-#    plt.ylabel('Kelvin')
+    # beware, mean = 0, add constant
+    clim_rec = reconstruct_fft_3D(xr.DataArray(data=output_clim3d,
+                                               coords=ds.sel(time=stepsyr).coords,
+                                               dims=ds.dims),
+                                  list_of_harm=[1, 1/2, 1/3],
+                                  add_constant=True)#, 1/7, 1/8, 1/9, 1/10, 1/12, 1/13])
+    output = ds - np.tile(clim_rec, (int(dates.size/stepsyr.size), 1, 1))
+
+
+    # =============================================================================
+    # test gridcells:
+    # =============================================================================
+    # try to find location above EU
+    print('Plotting visual test')
+    ts = ds.sel(longitude=30, method='nearest').sel(latitude=40, method='nearest')
+    la1 = np.argwhere(ts.latitude.values ==ds.latitude.values)[0][0]
+    lo1 = np.argwhere(ts.longitude.values ==ds.longitude.values)[0][0]
+    la2 = int(ds.shape[1]/3)
+    lo2 = int(ds.shape[2]/3)
+
+    tuples = [(la1, lo1), (la1+1, lo1),
+              (la2, lo2), (la2+1, lo2)]
+    fig, ax = plt.subplots(4,2, figsize=(16,8))
+    ax = ax.flatten()
+    for i, lalo in enumerate(tuples):
+        ts = ds[:,lalo[0],lalo[1]]
+        print(float(ts.latitude))
+        rawdayofyear = ts.groupby('time.dayofyear').mean('time').sel(dayofyear=np.arange(365)+1)
+        lat = int(ds.latitude[lalo[0]])
+        lon = int(ds.longitude[lalo[1]])
+        ax[i].set_title(f'latlon coord {lat} {lon}')
+        for yr in np.unique(dates.year):
+            singleyeardates = get_oneyr(dates, yr)
+            ax[i].plot(ts.sel(time=singleyeardates), alpha=.1, color='black')
+        ax[i].plot(output_clim3d[:,lalo[0],lalo[1]], color='green', linewidth=2,
+             label=f'clim {window_s}-day rm')
+        ax[i].plot(rawdayofyear, color='black', alpha=.6,
+                   label='clim mean dayofyear')
+        ax[i].plot(clim_rec[:,lalo[0],lalo[1]][:365], 'r-',
+                   label=f'fft on clim {window_s}-day rm')
+        ax[i+len(tuples)].plot(clim_rec[:,lalo[0],lalo[1]][:365] - output_clim3d[:,lalo[0],lalo[1]])
+        ax[i+len(tuples)].set_title(f'latlon coord {lat} {lon}')
+        ax[i].legend()
+    plt.subplots_adjust(hspace=.4)
+    ax[-1].text(.5,1.2, 'Visual analysis',
+            transform=ax[0].transAxes,
+            ha='center', va='bottom')
+
+
+    if detrend:
+        output = detrend_lin_longterm(output)
+    # Alternative smoothening clim signal by fitting polynomial
+    # output_climext = np.concatenate([output_climtest[-30:],
+    #                                   output_climtest,
+    #                                   output_climtest[:30]])
+    # polyfit = np.poly1d(np.polyfit(range(output_climext.size),
+    #                     output_climext, deg=10))
+    # clim_poly = polyfit(range(output_climext.size))[30:-30]
+    # plt.figure()
+    # plt.plot(clim_poly[:3*365], 'r-')
+    # plt.plot(np.concatenate([output_climtest]*3), 'b-')
+
 
 
     #%%
@@ -361,6 +580,8 @@ def rolling_mean_np(arr, win, center=True, win_type='boxcar'):
 
     return rollmean.values.reshape( (arr.shape))
 
+
+
 def test_periodic(ds):
     dlon = ds.longitude[1] - ds.longitude[0]
     return (360 / dlon == ds.longitude.size).values
@@ -385,49 +606,6 @@ def convert_longitude(data, to_format='east_west'):
     return data
 
 
-# def convert_longitude(data, to_format='east_west'):
-#     '''
-#     to_format = 'only_east' or 'east_west'
-#     '''
-#     longitude = data.longitude
-#     if to_format == 'east_west':
-#         lon_above = longitude[np.where(longitude > 180)[0]]
-#         lon_normal = longitude[np.where(longitude <= 180)[0]]
-#         # roll all values to the right for len(lon_above amount of steps)
-#         data = data.roll(longitude=len(lon_above), roll_coords=False)
-#         # adapt longitude values above 180 to negative values
-#         substract = lambda x, y: (x - y)
-#         lon_above = xr.apply_ufunc(substract, lon_above, 360)
-#         if lon_normal.size != 0:
-#             if lon_normal[0] == 0.:
-#                 convert_lon = xr.concat([lon_above, lon_normal], dim='longitude')
-
-#             else:
-#                 convert_lon = xr.concat([lon_normal, lon_above], dim='longitude')
-#         else:
-#             convert_lon = lon_above
-
-#     elif to_format == 'only_east':
-#         deg = float(abs(longitude[1] - longitude[0]))
-#         lon_above = longitude[np.where(longitude >= 0)[0]]
-#         lon_below = longitude[np.where(longitude < 0)[0]]
-#         lon_below = lon_below.assign_coords(longitude=lon_below.values +360)
-#         lon_below.values
-#         if lon_above.size != 0:
-#             if min(lon_above) < deg:
-#                 # crossing the meridional:
-#                 data = data.roll(longitude=-len(lon_below), roll_coords=False)
-#                 convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
-#             else:
-#                 # crossing - 180 line
-#                 data = data.roll(longitude=len(lon_below), roll_coords=False)
-#                 convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
-#         else:
-#             # crossing - 180 line
-#             data = data.roll(longitude=len(lon_below), roll_coords=False)
-#             convert_lon = xr.concat([lon_above, lon_below], dim='longitude')
-#     data['longitude'] = convert_lon
-#     return data
 
 
 def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):

@@ -846,7 +846,7 @@ def detrend1D(da, anomaly=False):
         data_smooth = da.values
 
     elif (stepsyr.day== 1).all() == False and int(da.time.size / 365) < 120:
-        window_s = max(min(90,int(stepsyr.size / 3)), 1)
+        window_s = max(min(25,int(stepsyr.size / 12)), 1)
         print('using absolute anomalies w.r.t. climatology of '
               'smoothed concurrent day accross years')
         data_smooth =  rolling_mean_np(da.values, window_s)
