@@ -378,40 +378,50 @@ def corr_matrix_pval(df, alpha=0.05):
     sig_mask = pval_matrix < alpha
     return cross_corr, sig_mask, pval_matrix
 
-def plot_ts_matric(df_init, win=1, lag=0, columns=list, rename: dict=None,
+def plot_ts_matric(df_init, win: int=None, lag=0, columns: list=None, rename: dict=None,
                    period='fullyear'):
     #%%
     '''
     period = ['fullyear', 'summer60days', 'pre60days']
     '''
-    splits = df_init.index.levels[0]
-    dates_full_orig = df_init.loc[0].index
-    dates_RV_orig   = df_init.loc[0].index[df_init.loc[0]['RV_mask']==True]
     if columns is None:
         columns = df_init.columns
 
     df_cols = df_init[columns]
-    TrainIsTrue = df_init['TrainIsTrue']
 
-    list_test = []
-    for s in range(splits.size):
-        TestIsTrue = TrainIsTrue[s]==False
-        list_test.append(df_cols.loc[s][TestIsTrue])
 
-    df_test = pd.concat(list_test).sort_index()
-    # shift precursor vs. tmax
-    for c in df_test.columns[1:]:
-        df_test[c] = df_test[c].shift(periods=-lag)
+    if hasattr(df_init, 'levels'):
+        splits = df_init.index.levels[0]
+        dates_RV_orig   = df_init.loc[0].index[df_init.loc[0]['RV_mask']==True]
+        TrainIsTrue = df_init['TrainIsTrue']
+        dates_full_orig = df_init.loc[0].index
+        list_test = []
+        for s in range(splits.size):
+            TestIsTrue = TrainIsTrue[s]==False
+            list_test.append(df_cols.loc[s][TestIsTrue])
+
+        df_test = pd.concat(list_test).sort_index()
+    else:
+        df_test = df_init
+        dates_full_orig = df_init.index
+
+    if lag != 0:
+        # shift precursor vs. tmax
+        for c in df_test.columns[1:]:
+            df_test[c] = df_test[c].shift(periods=-lag)
 
     # bin means
-    df_test = df_test.resample(f'{win}D').mean()
+    if win is not None:
+        df_test = df_test.resample(f'{win}D').mean()
+
 
     if period=='fullyear':
         dates_sel = dates_full_orig.strftime('%Y-%m-%d')
-    elif period == 'summer60days':
-        dates_sel = dates_RV_orig.strftime('%Y-%m-%d')
-    elif period == 'pre60days':
-        dates_sel = (dates_RV_orig - pd.Timedelta(60, unit='d')).strftime('%Y-%m-%d')
+    if 'RV_mask' in df_test.columns:
+        if period == 'RV_mask':
+            dates_sel = dates_RV_orig.strftime('%Y-%m-%d')
+        elif period == 'RM_mask_lag60':
+            dates_sel = (dates_RV_orig - pd.Timedelta(60, unit='d')).strftime('%Y-%m-%d')
 
     # after resampling, not all dates are in their:
     dates_sel =  pd.to_datetime([d for d in dates_sel if d in df_test.index] )

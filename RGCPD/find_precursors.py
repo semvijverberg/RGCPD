@@ -654,17 +654,17 @@ def df_data_prec_regs(list_MI, TV, df_splits): #, outdic_precur, df_splits, TV #
         var_names_corr = [] ; pos_prec_list = [] ; cols = [[TV.name]]
 
         for var_idx, pos_prec in enumerate(list_MI):
-            # var = pos_prec.name
-            if pos_prec.ts_corr[s].size != 0:
-                ts_train = pos_prec.ts_corr[s].values
-                pos_prec_list.append(ts_train)
-                # create array which numbers the regions
-                n_regions = pos_prec.ts_corr[s].shape[1]
-                pos_prec.var_info = [[i+1, pos_prec.ts_corr[s].columns[i], var_idx] for i in range(n_regions)]
-                # Array of corresponing regions with var_names_corr (first entry is RV)
-                var_names_corr = var_names_corr + pos_prec.var_info
-                cols.append(list(pos_prec.ts_corr[s].columns))
-                index_dates = pos_prec.ts_corr[s].index
+            if hasattr(pos_prec, 'ts_corr'):
+                if pos_prec.ts_corr[s].size != 0:
+                    ts_train = pos_prec.ts_corr[s].values
+                    pos_prec_list.append(ts_train)
+                    # create array which numbers the regions
+                    n_regions = pos_prec.ts_corr[s].shape[1]
+                    pos_prec.var_info = [[i+1, pos_prec.ts_corr[s].columns[i], var_idx] for i in range(n_regions)]
+                    # Array of corresponing regions with var_names_corr (first entry is RV)
+                    var_names_corr = var_names_corr + pos_prec.var_info
+                    cols.append(list(pos_prec.ts_corr[s].columns))
+                    index_dates = pos_prec.ts_corr[s].index
         var_names_corr.insert(0, TV.name)
         # stack actor time-series together:
         fulldata = np.concatenate(tuple(pos_prec_list), axis = 1)

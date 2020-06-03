@@ -345,9 +345,14 @@ class RGCPD:
 
             # self.list_for_MI.append(precur)
 
-    def cluster_list_MI(self):
+    def cluster_list_MI(self, var: Union[str, list]=None):
+        if var is None:
+            if type(var) is str:
+                var = [var]
+            var = [MI.name for MI in self.list_for_MI]
         for precur in self.list_for_MI:
-            precur = find_precursors.cluster_DBSCAN_regions(precur)
+            if precur.name in var:
+                precur = find_precursors.cluster_DBSCAN_regions(precur)
 
 
     def get_EOFs(self):
@@ -634,7 +639,7 @@ class RGCPD:
                        hspace=-0.6, wspace=.02, size=2.5, cbar_vert=-0.01, units='units',
                        cmap=None, clevels=None, cticks_center=None, drawbox=None,
                        title=None, subtitles=None, zoomregion=None, lat_labels=True,
-                       aspect=None, save=False):
+                       aspect=None, n_xticks=5, n_yticks=3, save=False):
 
         if type(var) is str:
             var = [var]
@@ -660,7 +665,8 @@ class RGCPD:
                                     cticks_center=cticks_center, drawbox=drawbox,
                                     title=None, subtitles=subtitles,
                                     zoomregion=zoomregion,
-                                    lat_labels=lat_labels, aspect=aspect)
+                                    lat_labels=lat_labels, aspect=aspect,
+                                    n_xticks=n_xticks, n_yticks=n_yticks)
             if save is True:
                 f_name = 'corr_map_{}'.format(precur_name)
 

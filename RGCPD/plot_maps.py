@@ -254,7 +254,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     #                last_ax = g.axes[row,col]
     # lay out settings
 
-    plt.tight_layout(pad=1.1-0.02*rows.size, h_pad=None, w_pad=None, rect=None)
+
 
     # height colorbor 1/10th of height of subfigure
     height = g.axes[-1,0].get_position().height / 10
@@ -291,6 +291,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         # ax.set_ylim(zoomregion[:2])
     if title is not None:
         g.fig.suptitle(title)
+    # plt.tight_layout(pad=1.1-0.02*rows.size, h_pad=None, w_pad=None, rect=None)
 
     # print("\n")
 

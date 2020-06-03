@@ -23,8 +23,8 @@ flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 class BivariateMI:
 
-    def __init__(self, name, func=None, kwrgs_func={}, lags=np.array([1]), 
-                 distance_eps=400, min_area_in_degrees2=3, group_split='together', 
+    def __init__(self, name, func=None, kwrgs_func={}, lags=np.array([1]),
+                 distance_eps=400, min_area_in_degrees2=3, group_split='together',
                  calc_ts='region mean', verbosity=1):
         '''
 
@@ -32,22 +32,22 @@ class BivariateMI:
         ----------
         name : str
             Name that links to a filepath pointing to a Netcdf4 file.
-        func : function to apply to calculate the bivariate 
+        func : function to apply to calculate the bivariate
             Mutual Informaiton (MI), optional
             The default is applying a correlation map.
         kwrgs_func : TYPE, optional
             DESCRIPTION. The default is {}.
         lags : int, optional
-            lag w.r.t. the the target variable at which to calculate the MI. 
+            lag w.r.t. the the target variable at which to calculate the MI.
             The default is np.array([1]).
         distance_eps : int, optional
-            The maximum distance between two gridcells for one to be considered 
-            as in the neighborhood of the other, only gridcells with the same 
+            The maximum distance between two gridcells for one to be considered
+            as in the neighborhood of the other, only gridcells with the same
             sign are grouped together.
             The default is 400.
         min_area_in_degrees2 : TYPE, optional
-            The number of samples gridcells in a neighborhood for a 
-            region to be considered as a core point. The parameter is 
+            The number of samples gridcells in a neighborhood for a
+            region to be considered as a core point. The parameter is
             propotional to the average size of 1 by 1 degree gridcell.
             The default is 3.
         group_split : str, optional
@@ -55,9 +55,9 @@ class BivariateMI:
             will be equal between different train test splits.
             The default is 'together'.
         calc_ts : str, optional
-            Choose 'region mean' or 'pattern cov'. If 'region mean', a 
-            timeseries is calculated for each label. If 'pattern cov', the 
-            spatial covariance of the whole pattern is calculated. 
+            Choose 'region mean' or 'pattern cov'. If 'region mean', a
+            timeseries is calculated for each label. If 'pattern cov', the
+            spatial covariance of the whole pattern is calculated.
             The default is 'region_mean'.
         verbosity : int, optional
             Not used atm. The default is 1.
@@ -70,7 +70,7 @@ class BivariateMI:
         self.name = name
         if func is None:
             self.func = self.corr_map
-            
+
         else:
             self.func = self.corr_map
         if kwrgs_func is None:
@@ -85,11 +85,11 @@ class BivariateMI:
         self.distance_eps = distance_eps
         self.min_area_in_degrees2 = min_area_in_degrees2
         self.group_split = group_split
-        
+
         self.verbosity = verbosity
 
         return
-    
+
 
     def corr_map(self, precur_arr, df_splits, RV): #, lags=np.array([0]), alpha=0.05, FDR_control=True #TODO
         #%%
@@ -104,7 +104,7 @@ class BivariateMI:
         time_cycle: time cycyle of dataset, =12 for monthly data...
         RV_period: indices that matches the response variable time series
         alpha: significance level
-        
+
         A land sea mask is assumed from settin all the nan value to True (masked).
         For xrcorr['mask'], all gridcell which are significant are not masked,
         i.e. bool == False
@@ -165,7 +165,7 @@ class BivariateMI:
 
                 Corr_Coeff[:,i] = corr_val[:]
                 Corr_Coeff[:,i].mask = mask
-                
+
             Corr_Coeff = np.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
             Corr_Coeff = Corr_Coeff.reshape(lat.size,lon.size,len(lags)).swapaxes(2,1).swapaxes(1,0)
             return Corr_Coeff
@@ -193,35 +193,38 @@ class BivariateMI:
         mask = (('split', 'lag', 'latitude', 'longitude'), np_mask )
         xrcorr.coords['mask'] = mask
         # fill nans with mask = True
-        xrcorr['mask'] = xrcorr['mask'].where(orig_mask==False, other=orig_mask) 
+        xrcorr['mask'] = xrcorr['mask'].where(orig_mask==False, other=orig_mask)
         #%%
         return xrcorr
-  
-    
+
+
     def get_prec_ts(self, precur_aggr=None, kwrgs_load=None): #, outdic_precur #TODO
         # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
         # stacked on top of each other (from lag_min to lag_max)
-        
+
         n_tot_regs = 0
         splits = self.corr_xr.split
-        if np.isnan(self.prec_labels.values).all():
-            self.ts_corr = np.array(splits.size*[[]])
+        if hasattr(self, 'prec_labels') == False:
+            print(f'{self.name} is not clustered yet')
         else:
-            if self.calc_ts == 'region mean':
-                self.ts_corr = find_precursors.spatial_mean_regions(self, 
-                                              precur_aggr=precur_aggr, 
-                                              kwrgs_load=kwrgs_load)
-            elif self.calc_ts == 'pattern cov':
-                self.ts_corr = loop_get_spatcov(self, 
-                                                precur_aggr=precur_aggr, 
-                                                kwrgs_load=kwrgs_load)
-            # self.outdic_precur[var] = precur
-            n_tot_regs += max([self.ts_corr[s].shape[1] for s in range(splits.size)])
-        return 
+            if np.isnan(self.prec_labels.values).all():
+                self.ts_corr = np.array(splits.size*[[]])
+            else:
+                if self.calc_ts == 'region mean':
+                    self.ts_corr = find_precursors.spatial_mean_regions(self,
+                                                  precur_aggr=precur_aggr,
+                                                  kwrgs_load=kwrgs_load)
+                elif self.calc_ts == 'pattern cov':
+                    self.ts_corr = loop_get_spatcov(self,
+                                                    precur_aggr=precur_aggr,
+                                                    kwrgs_load=kwrgs_load)
+                # self.outdic_precur[var] = precur
+                n_tot_regs += max([self.ts_corr[s].shape[1] for s in range(splits.size)])
+        return
 
 def corr_new(field, ts):
     """
-    This function calculates the correlation coefficent r and 
+    This function calculates the correlation coefficent r and
     the pvalue p for each grid-point of field vs response-variable ts
 
     """
@@ -229,30 +232,30 @@ def corr_new(field, ts):
     corr_vals = np.array(x)
     pvals = np.array(x)
     fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
-    
+
     nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
-    
+
     for i in nonans_gc:
         corr_vals[i], pvals[i] = scipy.stats.pearsonr(ts,field[:,i])
     return corr_vals, pvals
 
 def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
-    
+
     name            = precur.name
     corr_xr         = precur.corr_xr
     prec_labels     = precur.prec_labels
     df_splits = precur.df_splits
     splits = df_splits.index.levels[0]
     lags            = precur.corr_xr.lag.values
-    
-    
+
+
     if precur_aggr is None:
-        # use precursor array with temporal aggregation that was used to create 
+        # use precursor array with temporal aggregation that was used to create
         # correlation map
         precur_arr = precur.precur_arr
     else:
         # =============================================================================
-        # Unpack kwrgs for loading 
+        # Unpack kwrgs for loading
         # =============================================================================
         filepath = precur.filepath
         kwrgs = {}
@@ -266,16 +269,16 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
         kwrgs['tfreq'] = precur_aggr
         precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
 
-    full_timeserie = precur_arr        
+    full_timeserie = precur_arr
     dates = pd.to_datetime(precur_arr.time.values)
-    
+
 
     ts_sp = np.zeros( (splits.size), dtype=object)
     for s in splits:
         ts_list = np.zeros( (lags.size), dtype=list )
         track_names = []
         for il,lag in enumerate(lags):
-        
+
             corr_vals = corr_xr.sel(split=s).isel(lag=il)
             mask = prec_labels.sel(split=s).isel(lag=il)
             pattern = corr_vals.where(~np.isnan(mask))
@@ -295,12 +298,12 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
                 xrts = find_precursors.calc_spatcov(full_timeserie, pattern)
                 ts_list[il] = xrts.values[:,None]
             track_names.append(f'{lag}..0..{precur.name}' + '_sp')
-        
+
         # concatenate timeseries all of lags
         tsCorr = np.concatenate(tuple(ts_list), axis = 1)
 
-            
-        ts_sp[s] = pd.DataFrame(tsCorr, 
+
+        ts_sp[s] = pd.DataFrame(tsCorr,
                                 index=dates,
                                 columns=track_names)
     # df_sp = pd.concat(list(ts_sp), keys=range(splits.size))

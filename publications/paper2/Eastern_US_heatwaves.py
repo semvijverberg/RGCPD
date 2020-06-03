@@ -28,29 +28,30 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
-from RGCPD import EOF
+# from RGCPD import EOF
 
 
-TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc15_dendo_51ed6.nc'
+TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
 cluster_label = 2
-name_ds='q75tail'
+name_ds='ts'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
 tfreq = 15
 #%%
 list_of_name_path = [(cluster_label, TVpath),
-                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc'))]
-                      # ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
-
+                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
+                       ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
 
 
 list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map,
                               kwrgs_func={'alpha':.01, 'FDR_control':True},
-                              distance_eps=600, min_area_in_degrees2=7)]
-                  # BivariateMI(name='z500', func=BivariateMI.corr_map,
-                  #               kwrgs_func={'alpha':.01, 'FDR_control':True},
-                  #               distance_eps=600, min_area_in_degrees2=5)]
+                              distance_eps=600, min_area_in_degrees2=1,
+                              calc_ts='pattern cov'),
+                   BivariateMI(name='z500', func=BivariateMI.corr_map,
+                                kwrgs_func={'alpha':.01, 'FDR_control':True},
+                                distance_eps=600, min_area_in_degrees2=1,
+                                calc_ts='pattern cov')]
 
 list_for_EOFS = None #[EOF(name='v200', neofs=2, selbox=[-180, 360, 10, 90],
                      # n_cpu=1)]
@@ -78,9 +79,17 @@ import cartopy.crs as ccrs
 rg.calc_corr_maps()
 # rg.get_EOFs()
 
-rg.plot_maps_corr(aspect=2, size=5, cbar_vert=.2, save=True,
-                  map_proj=ccrs.LambertCylindrical(central_longitude=100))
+subtitles = np.array([['Eastern U.S. one-point correlation map v-wind 200hpa']])
+units = 'Corr. Coeff. [-]'
+rg.plot_maps_corr(var='v200', aspect=2, size=5, cbar_vert=.19, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5)
 
+subtitles = np.array([['Eastern U.S. one-point correlation map Z 500hpa']])
+units = 'Corr. Coeff. [-]'
+rg.plot_maps_corr(var='z500', aspect=2, size=5, cbar_vert=.19, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5)
 
 # #%%
 

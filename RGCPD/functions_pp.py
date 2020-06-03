@@ -56,10 +56,10 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
         list_precur_pp.append( (name, outfile) )
         if os.path.isfile(outfile) == True:
             if verbosity == 1:
-                print('Loaded post-processed data of {}\n'.format(name))
+                print('Loaded pre-processed data of {}\n'.format(name))
             pass
         else:
-            print('\nPerforming the post-processing {}'.format(name))
+            print('\nPerforming pre-processing {}'.format(name))
 
 
             core_pp.detrend_anom_ncdf3D(filename, outfile, **kwrgs)
