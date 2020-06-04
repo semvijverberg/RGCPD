@@ -79,17 +79,22 @@ import cartopy.crs as ccrs
 rg.calc_corr_maps()
 # rg.get_EOFs()
 
+
+
 subtitles = np.array([['Eastern U.S. one-point correlation map v-wind 200hpa']])
 units = 'Corr. Coeff. [-]'
 rg.plot_maps_corr(var='v200', aspect=2, size=5, cbar_vert=.19, save=True,
                   subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5)
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
+                  clim=(-.6,.6))
 
 subtitles = np.array([['Eastern U.S. one-point correlation map Z 500hpa']])
 units = 'Corr. Coeff. [-]'
 rg.plot_maps_corr(var='z500', aspect=2, size=5, cbar_vert=.19, save=True,
                   subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5)
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
+                  drawbox=['all', (170,295,23,73)],
+                  clim=(-.6,.6))
 
 # #%%
 

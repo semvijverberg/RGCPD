@@ -42,7 +42,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    drawbox=None, subtitles=None, zoomregion=None,
                    lat_labels=True, aspect=None, n_xticks=5, n_yticks=3):
     '''
-    zoombox = tuple(east_lon, west_lon, south_lat, north_lat)
+    zoomregion = tuple(east_lon, west_lon, south_lat, north_lat)
     '''
     #%%
     # default parameters
@@ -50,6 +50,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     # size=2.5; cbar_vert=-0.01; units='units'; cmap=None; hspace=-0.6;
     # clevels=None; cticks_center=None; map_proj=None ; wspace=.0
     # drawbox=None; subtitles=None; title=None; lat_labels=True; zoomregion=None
+    # aspect=None; n_xticks=5; n_yticks=3
 
     if map_proj is None:
         cen_lon = int(corr_xr.longitude.mean().values)
@@ -152,7 +153,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
             if mask_xr is not None:
                 xrmaskvar = plot_mask.sel(col=c_label)
-                if abs(lon[-1] - 360) <= (lon[1] - lon[0]):
+                if abs(lon[-1] - 360) <= (lon[1] - lon[0]) and lon[0]==0:
                     xrmaskvar = extend_longitude(xrmaskvar)
                 plotmask = xrmaskvar.sel(row=r_label)
 

@@ -13,6 +13,13 @@ import xarray as xr
 import itertools
 import core_pp
 import datetime
+# user_dir = os.path.expanduser('~')
+# curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+# main_dir = '/'.join(curr_dir.split('/')[:-1])
+# df_ana_dir = os.path.join(main_dir, 'df_analysis/df_analysis')
+# if df_ana_dir not in sys.path:
+#     sys.path.append(df_ana_dir)
+# from df_ana import load_hdf5
 
 
 from dateutil.relativedelta import relativedelta as date_dt
@@ -177,7 +184,7 @@ def load_TV(list_of_name_path, loadleap=False, name_ds='ts'):
 
 
     returns:
-    fulltso : full timeseries original
+    fulltso : xr.DataArray() 1-d full timeseries
     '''
     name = list_of_name_path[0][0]
     filename = list_of_name_path[0][1]
@@ -190,6 +197,27 @@ def load_TV(list_of_name_path, loadleap=False, name_ds='ts'):
             fulltso = ds[name_ds].sel(cluster=name)
         else:
             fulltso = ds.squeeze()
+    elif filename.split('.')[-1] == 'h5':
+        dict_df = load_hdf5(filename)
+        df = dict_df[list(dict_df.keys())[0]]
+
+        if hasattr(df.index, 'levels'):
+            splits = df.index.levels[0]
+            if splits.size > 1:
+                based_on_test = True
+                print('Retrieving target timeseries from test data')
+            else:
+                based_on_test = False
+                df = df.loc[0]
+            if based_on_test:
+                TrainIsTrue = df['TrainIsTrue']
+                list_test = []
+                for s in range(splits.size):
+                    TestIsTrue = TrainIsTrue[s]==False
+                    list_test.append(df.loc[s][TestIsTrue])
+                df = pd.concat(list_test).sort_index()
+        df = df[[name_ds]] ; df.index.name = 'time'
+        fulltso = df.to_xarray().to_array(name=name_ds).squeeze()
     hashh = filename.split('_')[-1].split('.')[0]
     fulltso.name = str(list_of_name_path[0][0])+name_ds
     if loadleap == False:

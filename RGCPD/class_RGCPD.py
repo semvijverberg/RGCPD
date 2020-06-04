@@ -24,7 +24,9 @@ from class_fc import apply_shift_lag
 
 from typing import List, Tuple, Union
 
-
+def get_timestr(formatstr='%Y-%m-%d_%Hhr_%Mmin'):
+    import datetime
+    return datetime.datetime.today().strftime(formatstr)
 
 
 try:
@@ -575,12 +577,13 @@ class RGCPD:
 
     def store_df(self):
         if len(self.list_for_MI) != 0:
-            varstr = '_' + '_'.join([p.name for p in self.list_for_MI])
+            varstr = '_'.join([p.name for p in self.list_for_MI])
         else:
             varstr = ''
         if hasattr(self, 'df_data_ext'):
             varstr = '_'.join([n[0] for n in self.list_import_ts]) + varstr
-        filename = os.path.join(self.path_outsub1, f'df_data_{varstr}_'
+        filename = os.path.join(self.path_outsub1,
+                                f'{get_timestr()}_df_data_{varstr}_'
                                 f'dt{self.precur_aggr}_{self.hash}.h5')
         functions_pp.store_hdf_df({'df_data':self.df_data}, filename)
         print('Data stored in \n{}'.format(filename))

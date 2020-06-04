@@ -10,6 +10,7 @@ Created on Tue Feb 18 15:03:30 2020
 #%%
 import os, inspect, sys
 import numpy as np
+import cartopy.crs as ccrs
 
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
@@ -76,20 +77,16 @@ rg.pp_precursors(selbox=(0,360,10,90))
 
 rg.traintest('no_train_test_split')
 
-import cartopy.crs as ccrs
 rg.calc_corr_maps()
 
-subtitles = np.array([['Western U.S. one-point correlation map Z 500hpa']])
-units = 'Corr. Coeff. [-]'
-rg.plot_maps_corr(var='z500', aspect=2, size=5, cbar_vert=.19, save=True,
-                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5)
+
 
 subtitles = np.array([['Western U.S. one-point correlation map v-wind 200hpa']])
 units = 'Corr. Coeff. [-]'
 rg.plot_maps_corr(var='v200', aspect=2, size=5, cbar_vert=.19, save=True,
                   subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5)
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
+                  clim=(-.6,.6))
 
 rg.get_EOFs()
 E = rg.list_for_EOFS[0]
@@ -97,6 +94,15 @@ secondEOF = E.eofs[0][1]
 plot_maps.plot_corr_maps(secondEOF, aspect=2, size=5, cbar_vert=.19,
                   subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5)
+
+greenrectangle_bb = (150,330,23,68)
+subtitles = np.array([['Western U.S. one-point correlation map Z 500hpa']])
+units = 'Corr. Coeff. [-]'
+rg.plot_maps_corr(var='z500', aspect=2, size=5, cbar_vert=.19, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
+                  drawbox=['all', greenrectangle_bb],
+                  clim=(-.6,.6))
 
 #%%
 rg.cluster_list_MI(var='v200')
@@ -109,7 +115,49 @@ import df_ana
 rg.df_data.loc[0].columns
 df_sub = rg.df_data.loc[0][['1ts', '0..0..v200_sp', '0..2..EOF_v200']][rg.df_data.loc[0]['RV_mask']]
 df_ana.plot_ts_matric(df_sub)
-#%%
+
+#%% Determine Rossby wave target variable within green rectangle
+
+list_of_name_path = [(cluster_label, TVpath),
+                     ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
+
+list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
+                             kwrgs_func={'alpha':.01, 'FDR_control':True},
+                             distance_eps=500, min_area_in_degrees2=1,
+                             calc_ts='pattern cov')]
+
+rg = RGCPD(list_of_name_path=list_of_name_path,
+           list_for_MI=list_for_MI,
+           start_end_TVdate=start_end_TVdate,
+           start_end_date=start_end_date,
+           tfreq=tfreq, lags_i=np.array([0]),
+           path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
+           append_pathsub='_' + name_ds)
+
+
+rg.pp_precursors(selbox=greenrectangle_bb, anomaly=True)
+rg.pp_TV(name_ds=name_ds)
+
+rg.traintest(method='no_train_test_split')
+
+rg.calc_corr_maps()
+rg.plot_maps_corr(var='z500')
+rg.cluster_list_MI(var='z500')
+# rg.get_ts_prec(precur_aggr=None)
+rg.get_ts_prec(precur_aggr=1)
+rg.store_df()
+#%% store data
+rg.cluster_list_MI(var='z500')
+# rg.get_ts_prec(precur_aggr=None)
+rg.get_ts_prec(precur_aggr=1)
+rg.store_df()
+
+
+
+
+#%% Remnants past
+
+
 
 list_of_name_path = [(cluster_label, TVpath),
                      ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),

@@ -399,7 +399,6 @@ def plot_ts_matric(df_init, win: int=None, lag=0, columns: list=None, rename: di
         for s in range(splits.size):
             TestIsTrue = TrainIsTrue[s]==False
             list_test.append(df_cols.loc[s][TestIsTrue])
-
         df_test = pd.concat(list_test).sort_index()
     else:
         df_test = df_init

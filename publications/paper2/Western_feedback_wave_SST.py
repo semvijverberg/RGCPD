@@ -8,6 +8,7 @@ Created on Mon May 25 15:33:52 2020
 
 import os, inspect, sys
 import numpy as np
+import cartopy.crs as ccrs
 
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
@@ -29,37 +30,23 @@ from RGCPD import BivariateMI
 from RGCPD import EOF
 
 
-TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
-cluster_label = 1
-name_ds='ts'
+TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/1ts_0ff31_28may-26aug_lag0-0_ts_no_train_test_splits1/2020-06-04_13hr_52min_df_data_z500_dt1_0ff31.h5'
+name_or_cluster_label = 'z500'
+name_ds='0..0..z500_sp'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
 
 tfreq = 15
 
+
 #%%
 
-list_of_name_path = [(cluster_label, TVpath),
-                     ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
+list_of_name_path = [(name_or_cluster_label, TVpath),
                      ('NorthPacAtl', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
-list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
-                             kwrgs_func={'alpha':.01, 'FDR_control':True},
-                             distance_eps=700, min_area_in_degrees2=7,
-                             calc_ts='pattern cov'),
-                   # BivariateMI(name='sm12', func=BivariateMI.corr_map,
-                   #               kwrgs_func={'alpha':.01, 'FDR_control':True},
-                   #               distance_eps=900, min_area_in_degrees2=5),
-                 # BivariateMI(name='snow', func=BivariateMI.corr_map,
-                 #               kwrgs_func={'alpha':.01, 'FDR_control':True},
-                 #               distance_eps=700, min_area_in_degrees2=7),
-                 # BivariateMI(name='NorthPac', func=BivariateMI.corr_map,
-                 #              kwrgs_func={'alpha':1E-4, 'FDR_control':True},
-                 #              distance_eps=700, min_area_in_degrees2=5,
-                 #              calc_ts='pattern cov'),
-                  BivariateMI(name='NorthPacAtl', func=BivariateMI.corr_map,
-                              kwrgs_func={'alpha':1E-4, 'FDR_control':True},
-                              distance_eps=700, min_area_in_degrees2=5,
+list_for_MI   = [BivariateMI(name='NorthPacAtl', func=BivariateMI.corr_map,
+                              kwrgs_func={'alpha':.001, 'FDR_control':True},
+                              distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov')]
 
 
@@ -78,15 +65,14 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            append_pathsub='_' + name_ds)
 
 
-selbox = [None, {'NorthPacAtl':(115, 359, 0, 70),
-                 'z500':[130,350,10,90]}]
+selbox = [None, {'NorthPacAtl':[130,350,10,90]}]
 
 # selbox = [None, {'NorthPac':(115, 250, 0, 70),
 #                  'NorthAtl':(360-83, 6, 0, 70),
 #                  'v200':[130,350,10,90]}]
 
-anomaly = [True, {'sm12':False, 'OLRtrop':False}]
-rg.pp_precursors(selbox=selbox, anomaly=anomaly)
+
+rg.pp_precursors(selbox=selbox, anomaly=True)
 
 rg.pp_TV(name_ds=name_ds)
 
@@ -94,14 +80,22 @@ rg.traintest(method='random10')
 
 rg.calc_corr_maps()
 
+
+subtitles = np.array([['Correlation map SST vs Western U.S. z500 Rossby wave']])
+units = 'Corr. Coeff. [-]'
+rg.plot_maps_corr(var='NorthPacAtl', aspect=2, size=5, cbar_vert=.0, save=True,
+                  subtitles=subtitles, units=units,
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
+                  clim=(-.6,.6))
+
  #%%
 rg.cluster_list_MI()
 rg.quick_view_labels(median=True)
 
 rg.get_ts_prec(precur_aggr=1)
 
-keys = ['0..0..z500_sp',
-       '0..0..NorthPac_sp', 'TrainIsTrue',
+keys = ['z5000..0..z500_sp',
+       '0..0..NorthPacAtl_sp', 'TrainIsTrue',
        'RV_mask']
 
 rg.PCMCI_df_data(keys=keys,
@@ -113,7 +107,7 @@ rg.PCMCI_get_links(var=keys[0], alpha_level=.01)
 rg.df_links.mean(0, level=1)
 rg.df_MCIc.mean(0, level=1)
 
-rg.PCMCI_plot_graph(min_link_robustness=5)
+rg.PCMCI_plot_graph(min_link_robustness=5, kwrgs={'vmax_nodes':.5})
 
 df_ParCorr_sum = rg.PCMCI_get_ParCorr_from_txt()
 
