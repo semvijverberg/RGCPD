@@ -444,6 +444,7 @@ class RGCPD:
                       tau_min=0, tau_max=1, pc_alpha=None,
                       max_conds_dim=None, max_combinations=2,
                       max_conds_py=None, max_conds_px=None,
+                      replace_RV_mask: np.ndarray=None,
                       verbosity=4):
 
         if max_conds_dim is None:
@@ -468,10 +469,15 @@ class RGCPD:
 
         if os.path.isdir(self.path_outsub2) == False : os.makedirs(self.path_outsub2)
 
-
         if keys is None:
             keys = self.df_data.columns
-        self.pcmci_dict = wPCMCI.init_pcmci(self.df_data[keys])
+
+        df_data = self.df_data.copy()
+        if type(replace_RV_mask) is np.ndarray:
+            new = pd.DataFrame(data=(np.array([replace_RV_mask]*10)).flatten(),
+                               index=df_data.index, columns=['RV_mask'])
+            df_data['RV_mask'] = new
+        self.pcmci_dict = wPCMCI.init_pcmci(df_data[keys])
 
         out = wPCMCI.loop_train_test(self.pcmci_dict, self.path_outsub2,
                                                           **self.kwrgs_pcmci)

@@ -210,12 +210,7 @@ def load_TV(list_of_name_path, loadleap=False, name_ds='ts'):
                 based_on_test = False
                 df = df.loc[0]
             if based_on_test:
-                TrainIsTrue = df['TrainIsTrue']
-                list_test = []
-                for s in range(splits.size):
-                    TestIsTrue = TrainIsTrue[s]==False
-                    list_test.append(df.loc[s][TestIsTrue])
-                df = pd.concat(list_test).sort_index()
+                df = get_df_test(df)
         df = df[[name_ds]] ; df.index.name = 'time'
         fulltso = df.to_xarray().to_array(name=name_ds).squeeze()
     hashh = filename.split('_')[-1].split('.')[0]
@@ -225,6 +220,30 @@ def load_TV(list_of_name_path, loadleap=False, name_ds='ts'):
         fulltso = fulltso.sel(time=dates)
     return fulltso, hashh
 
+def get_df_test(df, cols: list=None):
+    '''
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DESCRIPTION.
+    cols : list, optional
+        return sub df based on columns. The default is None.
+
+    Returns
+    -------
+    Returns only the data at which TrainIsTrue==False.
+
+    '''
+    splits = df.index.levels[0]
+    TrainIsTrue = df['TrainIsTrue']
+    list_test = []
+    for s in range(splits.size):
+        TestIsTrue = TrainIsTrue[s]==False
+        list_test.append(df.loc[s][TestIsTrue])
+    df = pd.concat(list_test).sort_index()
+    if cols is not None:
+        df = df[cols]
+    return df
 
 def nc_xr_ts_to_df(filename, name_ds='ts'):
     if filename.split('.')[-1] == 'nc':

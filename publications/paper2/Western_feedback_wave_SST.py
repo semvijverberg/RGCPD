@@ -93,7 +93,7 @@ rg.cluster_list_MI()
 rg.quick_view_labels(median=True)
 
 rg.get_ts_prec(precur_aggr=1)
-
+#%%
 keys = ['z5000..0..z500_sp',
        '0..0..NorthPacAtl_sp', 'TrainIsTrue',
        'RV_mask']
@@ -107,9 +107,58 @@ rg.PCMCI_get_links(var=keys[0], alpha_level=.01)
 rg.df_links.mean(0, level=1)
 rg.df_MCIc.mean(0, level=1)
 
-rg.PCMCI_plot_graph(min_link_robustness=5, kwrgs={'vmax_nodes':.5})
+rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(5,2),
+                    kwrgs={'vmax_nodes':.5,
+                           'vmax_edges':.5,
+                           'vmin_edges':-.5})
 
-df_ParCorr_sum = rg.PCMCI_get_ParCorr_from_txt()
+rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
+rg.df_links.mean(0, level=1)
+rg.df_MCIc.mean(0, level=1)
+
+# df_ParCorr_sum = rg.PCMCI_get_ParCorr_from_txt()
+
+#%% Adapt RV_mask
+import functions_pp
+# when both SST and RW above threshold
+RW_ts = rg.df_data.loc[0].iloc[:,0]
+RW_mask = RW_ts > float(rg.TV.RV_ts.quantile(q=.75))
+new_mask = np.logical_and(rg.df_data.loc[0]['RV_mask'], RW_mask)
+sst = functions_pp.get_df_test(rg.df_data, cols=['0..0..NorthPacAtl_sp'])
+sst_mask = (sst > sst.quantile(q=.75).values).squeeze()
+new_mask = np.logical_and(sst_mask, new_mask)
+sumyears = new_mask.groupby(new_mask.index.year).sum()
+sumyears = list(sumyears.index[sumyears > 25])
+RV_mask = rg.df_data.loc[0]['RV_mask']
+m = np.array([True if y in sumyears else False for y in RV_mask.index.year])
+new_mask = np.logical_and(m, RV_mask)
+new_mask.astype(int).plot()
+# new_mask = None
+keys = ['z5000..0..z500_sp',
+       '0..0..NorthPacAtl_sp', 'TrainIsTrue',
+       'RV_mask']
+
+rg.PCMCI_df_data(keys=keys,
+                 replace_RV_mask=new_mask.values,
+                 pc_alpha=None,
+                 tau_max=1,
+                 max_conds_dim=10,
+                 max_combinations=10)
+
+rg.PCMCI_get_links(var=keys[0], alpha_level=.01)
+rg.df_links.mean(0, level=1)
+rg.df_MCIc.mean(0, level=1)
+
+rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(5,2),
+                    kwrgs={'vmax_nodes':.5,
+                           'vmax_edges':.5,
+                           'vmin_edges':-.5})
+
+
+
+rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
+rg.df_links.mean(0, level=1)
+rg.df_MCIc.mean(0, level=1)
 
 
 # rg.quick_view_labels(median=True)
