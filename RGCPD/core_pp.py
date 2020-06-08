@@ -94,15 +94,18 @@ def import_ds_lazy(filename, loadleap=False,
         numtime = ds['time']
         dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
 
-        if (dates[1] - dates[0]).days == 1:
+        timestep_days = (dates[1] - dates[0]).days
+        if timestep_days == 1:
             input_freq = 'daily'
-        elif (dates[1] - dates[0]).days == 30 or (dates[1] - dates[0]).days == 31:
+        elif timestep_days == 30 or timestep_days == 31:
             input_freq = 'monthly'
+        elif timestep_days == 365 or timestep_days == 366:
+            input_freq = 'annual'
 
         if numtime.attrs['calendar'] != 'gregorian':
             dates = [d.strftime('%Y-%m-%d') for d in dates]
 
-        if input_freq == 'monthly':
+        if input_freq == 'monthly' or input_freq == 'annual':
             dates = [d.replace(day=1,hour=0) for d in pd.to_datetime(dates)]
         else:
             dates = pd.to_datetime(dates)
@@ -648,15 +651,17 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
                              np.timedelta64(1, 'D')
     else:
         sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
-
+        while sstartdate < pd.to_datetime(str(startyr) + '-' + start_end_date[0]):
+            daily_yr_fit -=1
+            sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
 
 
     start_yr = pd.date_range(start=sstartdate, end=senddate,
                                 freq=(dates[1] - dates[0]))
     if lpyr==True and calendar.isleap(startyr):
         start_yr -= pd.Timedelta( '1 days')
-    else:
-        pass
+    elif lpyr==False and calendar.isleap(startyr):
+        start_yr = remove_leapdays(start_yr)
     breakyr = endyr
     datesstr = [str(date).split('.', 1)[0] for date in start_yr.values]
     nyears = (endyr - startyr)+1

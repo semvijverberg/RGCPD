@@ -191,13 +191,14 @@ class RGCPD:
         anomaly = anomaly
 
 
-        self.kwrgs_load = dict(loadleap=loadleap, seldates=seldates, selbox=selbox,
-                               format_lon=format_lon)
+        self.kwrgs_load = dict(loadleap=loadleap, seldates=seldates,
+                               selbox=selbox, format_lon=format_lon)
         self.kwrgs_pp = self.kwrgs_load.copy()
         self.kwrgs_pp.update(dict(detrend=detrend, anomaly=anomaly))
 
         self.kwrgs_load.update(dict(start_end_date=self.start_end_date,
                                     start_end_year=self.start_end_year,
+                                    closed_on_date=self.start_end_TVdate[-1],
                                     tfreq=self.tfreq))
 
         self.list_precur_pp = functions_pp.perform_post_processing(self.list_of_name_path,
