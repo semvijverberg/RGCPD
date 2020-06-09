@@ -33,6 +33,7 @@ from RGCPD import EOF
 import plot_maps
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
+path_out_main = os.path.join(main_dir, 'publications/paper2/output')
 cluster_label = 1
 name_ds='ts'
 start_end_TVdate = ('06-01', '08-31')
@@ -67,7 +68,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             start_end_date=start_end_date,
             start_end_year=None,
             tfreq=tfreq, lags_i=np.array([0]),
-            path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
+            path_outmain=path_out_main,
             append_pathsub='_' + name_ds)
 
 
@@ -116,7 +117,7 @@ rg.df_data.loc[0].columns
 df_sub = rg.df_data.loc[0][['1ts', '0..0..v200_sp', '0..2..EOF_v200']][rg.df_data.loc[0]['RV_mask']]
 df_ana.plot_ts_matric(df_sub)
 
-#%% Determine Rossby wave target variable within green rectangle
+#%% Determine Rossby wave within green rectangle, become target variable
 
 list_of_name_path = [(cluster_label, TVpath),
                      ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]

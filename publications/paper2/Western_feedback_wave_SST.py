@@ -31,6 +31,7 @@ from RGCPD import EOF
 
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/1ts_0ff31_28may-26aug_lag0-0_ts_no_train_test_splits1/2020-06-04_13hr_52min_df_data_z500_dt1_0ff31.h5'
+path_out_main = os.path.join(main_dir, 'publications/paper2/output')
 name_or_cluster_label = 'z500'
 name_ds='0..0..z500_sp'
 start_end_TVdate = ('06-01', '08-31')
@@ -49,19 +50,12 @@ list_for_MI   = [BivariateMI(name='NorthPacAtl', func=BivariateMI.corr_map,
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov')]
 
-
-
-list_import_ts = None #[('OMI', '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/OMI.h5')]
-
-
-
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
-           list_import_ts=list_import_ts,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
            tfreq=tfreq, lags_i=np.array([0]),
-           path_outmain=user_dir+'/surfdrive/output_RGCPD/circulation_US_HW',
+           path_outmain=path_out_main,
            append_pathsub='_' + name_ds)
 
 

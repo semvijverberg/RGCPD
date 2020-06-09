@@ -27,10 +27,10 @@ from RGCPD import BivariateMI
 TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/q50_nc4_dendo_707fb.nc')
 cluster_label = 3
 name_ds='ts'
-start_end_TVdate = ('11-01', '05-31')
+start_end_TVdate = ('01-01', '05-31')
 start_end_date = None
 start_end_year = (1980, 2015)
-tfreq = 200
+tfreq = 150
 #%%
 list_of_name_path = [(cluster_label, TVpath),
                       ('sst', os.path.join(path_raw, 'sst_1980-2015_1_12_daily_1.0deg.nc'))]
@@ -51,7 +51,7 @@ rg.plot_df_clust()
 
 # Post-processing Target Variable
 rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=False)
-#%%
+#%% Pre-processing precursors
 
 # plot_maps.plot_labels(rg.ds['xrclustered'], zoomregion=(235, 295, 25, 50),
 #                       kwrgs_plot={'aspect':2, 'map_proj':ccrs.PlateCarree(central_longitude=240)})
@@ -71,9 +71,7 @@ rg.pp_precursors(selbox=selbox, anomaly=anomaly)
 
 # In[165]:
 
-#kwrgs_events={'event_percentile':66}
-kwrgs_events=None
-rg.traintest(method='random10', kwrgs_events=kwrgs_events)
+rg.traintest(method='leave_5', kwrgs_events=None)
 
 
 
@@ -97,9 +95,11 @@ rg.quick_view_labels()
 #%%
 
 rg.get_ts_prec()
+rg.get_ts_prec(precur_aggr=1)
+
 
 rg.PCMCI_df_data(pc_alpha=None,
-                 tau_max=1,
+                 tau_max=0,
                  max_conds_dim=5,
                  max_combinations=5)
 rg.PCMCI_get_links(alpha_level=.05)
@@ -131,11 +131,11 @@ ERA_data = rg.path_df_data
 kwrgs_events = {'event_percentile': 50}
 
 kwrgs_events = kwrgs_events
-precur_aggr = None
+precur_aggr = 150
 use_fold = None
 n_boot = 10
 lags_i = np.array([0])
-start_end_TVdate = ('02-01', '05-31')
+start_end_TVdate = ('01-01', '05-31')
 
 
 fc = fcev(path_data=ERA_data, precur_aggr=precur_aggr,

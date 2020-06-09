@@ -38,6 +38,8 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
 
     '''
     #%%
+    # precur = rg.list_for_MI[0] ; TV = rg.TV; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
+
     name = precur.name
     filepath = precur.filepath
 

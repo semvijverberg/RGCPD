@@ -79,10 +79,12 @@ def import_ds_lazy(filename, loadleap=False,
 
         # ensure longitude in increasing order
         if np.where(ds.longitude == ds.longitude.min()) > np.where(ds.longitude == ds.longitude.max()):
+            print('sorting longitude')
             ds = ds.sortby('longitude')
 
         # ensure latitude is in increasing order
         if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
+            print('sorting latitude')
             ds = ds.sortby('latitude')
 
         if selbox is not None:
@@ -497,10 +499,12 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=True, n_harmonics=6):
     # =============================================================================
     # test gridcells:
     # =============================================================================
-    # try to find location above EU
-    ts = ds.sel(longitude=30, method='nearest').sel(latitude=40, method='nearest')
-    la1 = np.argwhere(ts.latitude.values ==ds.latitude.values)[0][0]
-    lo1 = np.argwhere(ts.longitude.values ==ds.longitude.values)[0][0]
+    # # try to find location above EU
+    # ts = ds.sel(longitude=30, method='nearest').sel(latitude=40, method='nearest')
+    # la1 = np.argwhere(ts.latitude.values ==ds.latitude.values)[0][0]
+    # lo1 = np.argwhere(ts.longitude.values ==ds.longitude.values)[0][0]
+    la1 = int(ds.shape[1]/2)
+    lo1 = int(ds.shape[2]/2)
     la2 = int(ds.shape[1]/3)
     lo2 = int(ds.shape[2]/3)
 
@@ -539,7 +543,10 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=True, n_harmonics=6):
             ha='center', va='bottom')
     plt.subplots_adjust(hspace=.4)
     fig, ax = plt.subplots(1, figsize=(5,3))
-    output[:,lalo[0],lalo[1]].groupby('time.month').mean(dim='time').plot(ax=ax)
+    std_all = output[:,lalo[0],lalo[1]].std(dim='time')
+    monthlymean = output[:,lalo[0],lalo[1]].groupby('time.month').mean(dim='time')
+    (monthlymean/std_all).plot(ax=ax)
+    ax.set_ylabel('standardized anomaly [-]')
     ax.set_title(f'climatological monthly means anomalies latlon coord {lat} {lon}')
     fig, ax = plt.subplots(1, figsize=(5,3))
     summer = output.sel(time=get_subdates(dates, start_end_date=('06-01', '08-31')))

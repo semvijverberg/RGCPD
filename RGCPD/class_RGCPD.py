@@ -231,21 +231,23 @@ class RGCPD:
         self.fulltso, self.hash = f.load_TV(self.list_of_name_path,
                                             loadleap=loadleap,
                                             name_ds=self.name_TVds)
-        self.fullts, self.TV_ts, inf = f.process_TV(self.fulltso,
-                                                    tfreq=self.tfreq,
-                                                    start_end_TVdate=self.start_end_TVdate,
-                                                    start_end_date=self.start_end_date,
-                                                    start_end_year=self.start_end_year,
-                                                    RV_detrend=self.RV_detrend,
-                                                    RV_anomaly=self.RV_anomaly)
-
+        out = f.process_TV(self.fulltso,
+                            tfreq=self.tfreq,
+                            start_end_TVdate=self.start_end_TVdate,
+                            start_end_date=self.start_end_date,
+                            start_end_year=self.start_end_year,
+                            RV_detrend=self.RV_detrend,
+                            RV_anomaly=self.RV_anomaly)
+        self.fullts, self.TV_ts, inf, start_end_TVdate = out
 
         self.input_freq = inf
         self.dates_or  = pd.to_datetime(self.fulltso.time.values)
         self.dates_all = pd.to_datetime(self.fullts.time.values)
         self.dates_TV = pd.to_datetime(self.TV_ts.time.values)
         # Store added information in RV class to the exp dictionary
-        if self.start_end_date is None:
+        # if self.start_end_date is None and self.input_freq == 'annual':
+        #     self.start_end_date = self.start_end_TVdate
+        if self.start_end_date is None and self.input_freq != 'annual':
             self.start_end_date = ('{}-{}'.format(self.dates_or.month[0],
                                                  self.dates_or[0].day),
                                 '{}-{}'.format(self.dates_or.month[-1],
@@ -380,13 +382,13 @@ class RGCPD:
             # need to redefined on new tfreq using the same arguments
             print(f'redefine target variable on {self.precur_aggr} day means')
             f = functions_pp
-            self.fullts, self.TV_ts, inf = f.process_TV(self.fulltso,
-                                                    tfreq=self.precur_aggr,
-                                                    start_end_TVdate=self.start_end_TVdate,
-                                                    start_end_date=self.start_end_date,
-                                                    start_end_year=self.start_end_year,
-                                                    RV_detrend=self.RV_detrend,
-                                                    RV_anomaly=self.RV_anomaly)
+            self.fullts, self.TV_ts = f.process_TV(self.fulltso,
+                                                tfreq=self.precur_aggr,
+                                                start_end_TVdate=self.start_end_TVdate,
+                                                start_end_date=self.start_end_date,
+                                                start_end_year=self.start_end_year,
+                                                RV_detrend=self.RV_detrend,
+                                                RV_anomaly=self.RV_anomaly)[:2]
             TV, df_splits = RV_and_traintest(self.fullts,
                                              self.TV_ts, **self.kwrgs_TV)
         else:
@@ -818,6 +820,8 @@ class RGCPD:
 
 def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=None,
                      seed=int, verbosity=1): #, method=str, kwrgs_events=None, precursor_ts=None, seed=int, verbosity=1
+
+
 
     # Define traintest:
     df_fullts = pd.DataFrame(fullts.values,
