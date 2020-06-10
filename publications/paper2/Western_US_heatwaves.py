@@ -146,7 +146,7 @@ rg.plot_maps_corr(var='z500')
 rg.cluster_list_MI(var='z500')
 # rg.get_ts_prec(precur_aggr=None)
 rg.get_ts_prec(precur_aggr=1)
-rg.store_df()
+# rg.store_df()
 #%% store data
 rg.cluster_list_MI(var='z500')
 # rg.get_ts_prec(precur_aggr=None)

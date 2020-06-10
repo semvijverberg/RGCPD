@@ -73,7 +73,7 @@ class RV_class:
 
         if kwrgs_events is not None:
             # make RV_bin for events based on aggregated daymeans
-            if kwrgs_events['window'] is 'mean':
+            if kwrgs_events['window'] == 'mean':
                 # RV_ts and RV_ts_fit are equal if fit_model_dates = None
                 self.threshold = Ev_threshold(self.RV_ts,
                                                   kwrgs_events['event_percentile'])
@@ -205,7 +205,7 @@ def Ev_threshold(xarray, event_percentile):
     return float(threshold)
 
 def Ev_timeseries(xr_or_df, threshold, min_dur=1, max_break=0, grouped=False,
-                  high_ano_events=True):
+                  high_ano_events=True, reference_group='center'):
     #%%
     '''
     Binary events timeseries is created according to parameters:
@@ -250,24 +250,16 @@ def Ev_timeseries(xr_or_df, threshold, min_dur=1, max_break=0, grouped=False,
         Ev_ts = xarray.where( xarray.values < threshold)
 
     Ev_dates = Ev_ts.dropna(how='all', dim='time').time
-    events_idx = [list(xarray.time.values).index(E) for E in Ev_dates.values]
-    n_timesteps = Ev_ts.size
 
-    peak_o_thresh = Ev_binary(events_idx, n_timesteps, min_dur, max_break, grouped)
+
+    peak_o_thresh, dur = Ev_binary(Ev_dates, Ev_ts, min_dur, max_break,
+                                   grouped, reference_group)
     event_binary_np  = np.array(peak_o_thresh != 0, dtype=int)
-
-    # get duration of events
-    if np.unique(peak_o_thresh).size == 2:
-        dur = np.zeros( (peak_o_thresh.size) )
-        for i in np.arange(1, max(peak_o_thresh)+1):
-            size = peak_o_thresh[peak_o_thresh==i].size
-            dur[peak_o_thresh==i] = size
-    else:
-        dur = 'dur_events_1'
 
     if np.sum(peak_o_thresh) < 1:
         Events = Ev_ts.where(peak_o_thresh > 0 ).dropna(how='all', dim='time').time
     else:
+        peak_o_thresh = peak_o_thresh.astype(float)
         peak_o_thresh[peak_o_thresh == 0] = np.nan
         Ev_labels = xr.DataArray(peak_o_thresh, coords=[Ev_ts.coords['time']])
         Ev_dates = Ev_labels.dropna(how='all', dim='time').time
@@ -283,10 +275,23 @@ def Ev_timeseries(xr_or_df, threshold, min_dur=1, max_break=0, grouped=False,
     #%%
     return event_binary, Events, dur
 
-def Ev_binary(events_idx, n_timesteps, min_dur, max_break, grouped=False):
+def Ev_binary(Ev_dates, Ev_ts, min_dur, max_break, grouped=False,
+              reference_group='center'):
 
+    events_idx = [list(Ev_ts.time.values).index(E) for E in Ev_dates.values]
+    n_timesteps = Ev_ts.size
+    dates = pd.to_datetime(Ev_ts.time.values)
+    diff_days = (dates[1:] - dates[:-1]).days
+    dt = [list(diff_days).count(diff) for diff in np.unique(diff_days)]
+    normal_diff = np.unique(diff_days)[np.argmax(dt)]
+    # first jump in time after rep timesteps
+    rep = np.argmax((diff_days!= normal_diff).astype(int)) + 1 # since taking diff
+    no_jumps = np.array(dt)[np.array(dt) != np.max(dt)].sum() + 1 # +1 last year no jump
+    jump_in_time_groups = np.concatenate([np.repeat(gr+1, rep) for gr in range(no_jumps)],
+                                         axis=0)
     max_break = max_break + 1
-    peak_o_thresh = np.zeros((n_timesteps))
+
+    peak_o_thresh = np.zeros((n_timesteps), dtype=int)
 
     if min_dur != 1 or max_break > 1:
         ev_num = 1
@@ -295,14 +300,18 @@ def Ev_binary(events_idx, n_timesteps, min_dur, max_break, grouped=False):
             if i < len(events_idx)-1:
                 curr_ev = events_idx[i]
                 next_ev = events_idx[i+1]
-            elif i == len(events_idx)-1:
+                curr_jt = jump_in_time_groups[curr_ev]
+                next_jt = jump_in_time_groups[next_ev]
+            if i == len(events_idx)-1:
                 curr_ev = events_idx[i]
                 next_ev = events_idx[i-1]
-
-            if abs(next_ev - curr_ev) <= max_break:
-                # if i_steps >= max_break, same event
+                curr_jt = jump_in_time_groups[curr_ev]
+                next_jt = jump_in_time_groups[next_ev]
+            same_gr = curr_jt == next_jt
+            if abs(next_ev - curr_ev) <= max_break and same_gr:
+                # if i_steps <= max_break, same event
                 peak_o_thresh[curr_ev] = ev_num
-            elif abs(next_ev - curr_ev) > max_break:
+            elif abs(next_ev - curr_ev) > max_break or same_gr==False:
                 # elif i_steps > max_break, assign new event number
                 peak_o_thresh[curr_ev] = ev_num
                 ev_num += 1
@@ -314,21 +323,48 @@ def Ev_binary(events_idx, n_timesteps, min_dur, max_break, grouped=False):
             if No_ev_ind.size < min_dur:
                 peak_o_thresh[No_ev_ind] = 0
 
+        # get duration of events
+        dur = np.zeros_like( peak_o_thresh, dtype=int )
+        for i in np.unique(peak_o_thresh)[1:]: #[1:] == skip zeros (non-events)
+            indices = np.argwhere(peak_o_thresh==i).squeeze()
+            if indices.size > 1:
+                d = max(indices) - min(indices) + 1
+            else:
+                d = 1
+            dur[peak_o_thresh==i] = d
+
         if grouped == True:
             data = np.concatenate([peak_o_thresh[:,None],
                                    np.arange(len(peak_o_thresh))[:,None]],
                                     axis=1)
+            dur_data = np.concatenate([dur[:,None],
+                                   np.arange(len(dur))[:,None]],
+                                    axis=1)
+
             df = pd.DataFrame(data, index = range(len(peak_o_thresh)),
-                                      columns=['values', 'idx'], dtype=int)
-            grouped = df.groupby(df['values']).mean().values.squeeze()[1:]
+                                  columns=['values', 'idx'], dtype=int)
+            df_dur = pd.DataFrame(dur_data, index = range(len(dur)),
+                                  columns=['values', 'idx'], dtype=int)
+            if reference_group == 'center':
+                npgrouped = df.groupby(df['values']).mean().values.squeeze()[1:]
+                npdur = df_dur.groupby(df['values']).mean().values.squeeze()[1:]
+            elif reference_group == 'left':
+                npgrouped = df.groupby(df['values']).min().values.squeeze()[1:]
+                npdur = df_dur.groupby(df['values']).min().values.squeeze()[1:]
+
             peak_o_thresh[:] = 0
-            peak_o_thresh[np.array(grouped, dtype=int)] = 1
+            peak_o_thresh[npgrouped.astype(int)] = 1
+            dur[:] = 0
+            dur[npdur[:,1].astype(int)] = npdur[:,0]
+            dur = np.array(dur, dtype=int)
         else:
             pass
     else:
         peak_o_thresh[events_idx] = 1
+        dur = peak_o_thresh
 
-    return peak_o_thresh
+
+    return peak_o_thresh, dur
 
 
 if __name__ == "__main__":

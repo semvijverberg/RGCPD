@@ -64,11 +64,11 @@ selbox = [None, {'NorthPacAtl':[130,350,10,90]}]
 # selbox = [None, {'NorthPac':(115, 250, 0, 70),
 #                  'NorthAtl':(360-83, 6, 0, 70),
 #                  'v200':[130,350,10,90]}]
-
+rg.pp_TV(name_ds=name_ds)
 
 rg.pp_precursors(selbox=selbox, anomaly=True)
 
-rg.pp_TV(name_ds=name_ds)
+
 
 rg.traintest(method='random10')
 
