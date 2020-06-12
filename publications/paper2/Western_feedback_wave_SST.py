@@ -30,7 +30,7 @@ from RGCPD import BivariateMI
 from RGCPD import EOF
 
 
-TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/1ts_0ff31_28may-26aug_lag0-0_ts_no_train_test_splits1/2020-06-04_13hr_52min_df_data_z500_dt1_0ff31.h5'
+TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/1ts_0ff31_10jun-24aug_lag0-0_ts_no_train_test_splits1/2020-06-11_15hr_16min_df_data_z500_dt1_0ff31.h5'
 path_out_main = os.path.join(main_dir, 'publications/paper2/output')
 name_or_cluster_label = 'z500'
 name_ds='0..0..z500_sp'
@@ -155,20 +155,66 @@ rg.df_links.mean(0, level=1)
 rg.df_MCIc.mean(0, level=1)
 
 
-# rg.quick_view_labels(median=True)
+# =============================================================================
+#%% Hovmoller diagram
+# =============================================================================
 
-# rg.plot_maps_corr(var=['z500'], save=False)
 
-# rg.plot_maps_sum(var='sm12',
-#                  kwrgs_plot={'aspect': 2, 'wspace': -0.02})
-# rg.plot_maps_sum(var='st2',
-#                  kwrgs_plot={'aspect': 2, 'wspace': -0.02})
-# rg.plot_maps_sum(var='snow',
-#                  kwrgs_plot={'aspect': 2, 'wspace': -0.02})
-# rg.plot_maps_sum(var='sst',
-#                  kwrgs_plot={'cbar_vert':.02})
-# rg.plot_maps_sum(var='z500',
-#                  kwrgs_plot={'cbar_vert':.02})
+tfreq = 15
 
-# rg.get_ts_prec(precur_aggr=1)
-# rg.store_df_PCMCI()
+list_of_name_path = [(name_or_cluster_label, TVpath),
+                     ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
+
+list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
+                             kwrgs_func={'alpha':.01, 'FDR_control':True},
+                             distance_eps=500, min_area_in_degrees2=1,
+                             calc_ts='pattern cov')]
+
+rg = RGCPD(list_of_name_path=list_of_name_path,
+           list_for_MI=list_for_MI,
+           start_end_TVdate=start_end_TVdate,
+           start_end_date=start_end_date,
+           tfreq=tfreq, lags_i=np.array([0]),
+           path_outmain=path_out_main,
+           append_pathsub='_' + name_ds)
+
+rg.pp_TV(name_ds=name_ds)
+greenrectangle_WestUS_bb = (140,325,24,62)
+wide_WestUS_bb = (0,360,15,62)
+rg.pp_precursors(selbox=wide_WestUS_bb, anomaly=True)
+
+
+kwrgs_events = {'event_percentile':85, 'window':'mean'}#,
+                # 'min_dur':7,'max_break':3, 'grouped':True,'reference_group':'center'}
+rg.traintest(method='random10', kwrgs_events=kwrgs_events)
+
+rg.calc_corr_maps()
+
+greenrectangle_WestUS_bb = (140,325,24,62)
+subtitles = np.array([['Western U.S. one-point correlation map Z 500hpa']])
+units = 'Corr. Coeff. [-]'
+rg.plot_maps_corr(var='z500', aspect=2, size=5, cbar_vert=.19, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
+                  drawbox=['all', greenrectangle_WestUS_bb],
+                  clim=(-.6,.6))
+
+
+
+event_dates = rg.TV.RV_bin[rg.TV.RV_bin.astype(bool).values].index
+one_ev_peryear = functions_pp.remove_duplicates_list(list(event_dates.year))[1]
+event_dates = event_dates[one_ev_peryear]
+
+#%%
+from class_hovmoller import Hovmoller
+kwrgs_load = rg.kwrgs_load.copy()
+kwrgs_load['tfreq'] = 1
+HM = Hovmoller(kwrgs_load=kwrgs_load, event_dates=event_dates,
+               seldates=rg.TV.dates_RV, standardize=True, lags_prior=10,
+               lags_posterior=15)
+self = HM
+HM.get_HM_data(rg.list_precur_pp[0][1])
+# HM.ds.mean(dim='time').plot()
+HM.plot_HM(drawbox=greenrectangle_WestUS_bb, clevels=np.arange(-.5, .51, .1))
+
+# HM.quick_HM_plot()

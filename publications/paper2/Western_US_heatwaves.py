@@ -96,13 +96,13 @@ plot_maps.plot_corr_maps(secondEOF, aspect=2, size=5, cbar_vert=.19,
                   subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5)
 
-greenrectangle_bb = (150,330,23,68)
+greenrectangle_WestUS_bb = (140,325,24,62)
 subtitles = np.array([['Western U.S. one-point correlation map Z 500hpa']])
 units = 'Corr. Coeff. [-]'
 rg.plot_maps_corr(var='z500', aspect=2, size=5, cbar_vert=.19, save=True,
                   subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
-                  drawbox=['all', greenrectangle_bb],
+                  drawbox=['all', greenrectangle_WestUS_bb],
                   clim=(-.6,.6))
 
 #%%
@@ -136,7 +136,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            append_pathsub='_' + name_ds)
 
 
-rg.pp_precursors(selbox=greenrectangle_bb, anomaly=True)
+rg.pp_precursors(selbox=greenrectangle_WestUS_bb, anomaly=True)
 rg.pp_TV(name_ds=name_ds)
 
 rg.traintest(method='no_train_test_split')

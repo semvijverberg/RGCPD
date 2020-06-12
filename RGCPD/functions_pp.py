@@ -448,7 +448,7 @@ def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
                                 format_lon=format_lon)
 
     to_freq = tfreq
-    if to_freq is not None:
+    if to_freq is not None and to_freq != 1:
         ds, dates_tobin = time_mean_bins(ds, to_freq,
                                         start_end_date,
                                         start_end_year,
@@ -1550,3 +1550,14 @@ def apply_lsm(var_filepath, lsm_filepath, threshold_lsm=.8):
 
 def sort_d_by_vals(d):
     return {k: v for k, v in sorted(d.items(), key=lambda item: item[1])}
+
+def remove_duplicates_list(l):
+    seen = set()
+    uniq = []
+    indices = []
+    for i, x in enumerate(l):
+        if x not in seen:
+            uniq.append(x)
+            seen.add(x)
+            indices.append(i)
+    return uniq, indices

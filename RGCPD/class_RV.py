@@ -85,14 +85,16 @@ class RV_class:
                 kwrgs = {key:item for key, item in kwrgs_events.items() if key not in redun_keys}
 
                 if only_RV_events == True:
-                    self.RV_bin_fit = Ev_timeseries(self.RV_ts_fit,
+                    out = Ev_timeseries(self.RV_ts_fit,
                                    threshold=self.threshold_ts_fit ,
-                                   **kwrgs)[0]
+                                   **kwrgs)
+                    self.RV_bin_fit, self.RV_dur = out
                     self.RV_bin = self.RV_bin_fit.loc[self.dates_RV]
                 elif only_RV_events == False:
-                    self.RV_b_full = Ev_timeseries(self.fullts,
+                    out = Ev_timeseries(self.fullts,
                                    threshold=self.threshold ,
-                                   **kwrgs)[0]
+                                   **kwrgs)
+                    self.RV_b_full, self.RV_dur = out
                     self.RV_bin   = self.RV_b_full.loc[self.dates_RV]
 
                 self.freq_per_year      = RV_class.get_freq_years(self)
@@ -126,8 +128,9 @@ class RV_class:
                 if only_RV_events == True:
                     # RV_bin_fit is defined such taht we can fit on RV_bin_fit
                     # but validate on RV_bin
-                    self.RV_bin_fit_e = Ev_timeseries(self.df_RV_ts_e,
-                                   threshold=self.threshold_ts_fit, **kwrgs)[0]
+                    out = Ev_timeseries(self.df_RV_ts_e,
+                                   threshold=self.threshold_ts_fit, **kwrgs)
+                    self.RV_bin_fit_e, self.RV_dur = out
                     self.RV_bin_e = self.RV_bin_fit_e.loc[dates_RVe]
                 elif only_RV_events == False:
                     print('check code, not supported yet')
@@ -238,12 +241,6 @@ def Ev_timeseries(xr_or_df, threshold, min_dur=1, max_break=0, grouped=False,
         xarray = xr_or_df
         give_df_back = False
 
-
-#    tfreq_RVts = pd.Timedelta((xarray.time[1]-xarray.time[0]).values)
-    min_dur = min_dur ;
-#    min_dur = pd.Timedelta(min_dur, 'd') / tfreq_RVts
-#    max_break = pd.Timedelta(max_break, 'd') / tfreq_RVts
-
     if high_ano_events:
         Ev_ts = xarray.where( xarray.values > threshold)
     else:
@@ -273,7 +270,7 @@ def Ev_timeseries(xr_or_df, threshold, min_dur=1, max_break=0, grouped=False,
         event_binary = xarray.copy()
         event_binary.values = event_binary_np
     #%%
-    return event_binary, Events, dur
+    return event_binary, dur
 
 def Ev_binary(Ev_dates, Ev_ts, min_dur, max_break, grouped=False,
               reference_group='center'):
