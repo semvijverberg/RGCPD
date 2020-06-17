@@ -477,9 +477,12 @@ class RGCPD:
 
         df_data = self.df_data.copy()
         if type(replace_RV_mask) is np.ndarray:
+            print('replacing RV_mask')
             new = pd.DataFrame(data=(np.array([replace_RV_mask]*10)).flatten(),
                                index=df_data.index, columns=['RV_mask'])
             df_data['RV_mask'] = new
+            df_data['RV_mask'].loc[0].astype(int).plot()
+
         self.pcmci_dict = wPCMCI.init_pcmci(df_data[keys])
 
         out = wPCMCI.loop_train_test(self.pcmci_dict, self.path_outsub2,
@@ -679,7 +682,7 @@ class RGCPD:
                                     zoomregion=zoomregion,
                                     lat_labels=lat_labels, aspect=aspect,
                                     n_xticks=n_xticks, n_yticks=n_yticks)
-            if save is True:
+            if save == True:
                 f_name = 'corr_map_{}'.format(precur_name)
 
                 fig_path = os.path.join(self.path_outsub1, f_name)+self.figext

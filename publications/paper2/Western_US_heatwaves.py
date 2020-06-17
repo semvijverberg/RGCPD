@@ -33,7 +33,7 @@ from RGCPD import EOF
 import plot_maps
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
-path_out_main = os.path.join(main_dir, 'publications/paper2/output')
+path_out_main = os.path.join(main_dir, 'publications/paper2/output/west/')
 cluster_label = 1
 name_ds='ts'
 start_end_TVdate = ('06-01', '08-31')

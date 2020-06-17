@@ -28,10 +28,11 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
 from RGCPD import EOF
+import functions_pp
 
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/1ts_0ff31_10jun-24aug_lag0-0_ts_no_train_test_splits1/2020-06-11_15hr_16min_df_data_z500_dt1_0ff31.h5'
-path_out_main = os.path.join(main_dir, 'publications/paper2/output')
+path_out_main = os.path.join(main_dir, 'publications/paper2/output/west/')
 name_or_cluster_label = 'z500'
 name_ds='0..0..z500_sp'
 start_end_TVdate = ('06-01', '08-31')
@@ -113,7 +114,7 @@ rg.df_MCIc.mean(0, level=1)
 # df_ParCorr_sum = rg.PCMCI_get_ParCorr_from_txt()
 
 #%% Adapt RV_mask
-import functions_pp
+
 # when both SST and RW above threshold
 RW_ts = rg.df_data.loc[0].iloc[:,0]
 RW_mask = RW_ts > float(rg.TV.RV_ts.quantile(q=.75))
@@ -180,7 +181,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 
 rg.pp_TV(name_ds=name_ds)
 greenrectangle_WestUS_bb = (140,325,24,62)
-wide_WestUS_bb = (0,360,15,62)
+wide_WestUS_bb = (0,360,0,62)
 rg.pp_precursors(selbox=wide_WestUS_bb, anomaly=True)
 
 
@@ -190,11 +191,11 @@ rg.traintest(method='random10', kwrgs_events=kwrgs_events)
 
 rg.calc_corr_maps()
 
-greenrectangle_WestUS_bb = (140,325,24,62)
+
 subtitles = np.array([['Western U.S. one-point correlation map Z 500hpa']])
 units = 'Corr. Coeff. [-]'
-rg.plot_maps_corr(var='z500', aspect=2, size=5, cbar_vert=.19, save=True,
-                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
+rg.plot_maps_corr(var='z500', aspect=2, size=5, cbar_vert=.19, save=False,
+                  subtitles=subtitles, units=units, zoomregion=(-180,360,0,75),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
                   drawbox=['all', greenrectangle_WestUS_bb],
                   clim=(-.6,.6))
@@ -210,11 +211,17 @@ from class_hovmoller import Hovmoller
 kwrgs_load = rg.kwrgs_load.copy()
 kwrgs_load['tfreq'] = 1
 HM = Hovmoller(kwrgs_load=kwrgs_load, event_dates=event_dates,
-               seldates=rg.TV.dates_RV, standardize=True, lags_prior=10,
-               lags_posterior=15)
+               seldates=rg.TV.aggr_to_daily_dates(rg.dates_TV), standardize=True, lags_prior=40,
+               lags_posterior=20, rollingmeanwindow=5)
 self = HM
 HM.get_HM_data(rg.list_precur_pp[0][1])
-# HM.ds.mean(dim='time').plot()
-HM.plot_HM(drawbox=greenrectangle_WestUS_bb, clevels=np.arange(-.5, .51, .1))
+
+
+fname1 = 'HM_'+'_'.join(['{}_{}'.format(*ki) for ki in kwrgs_events.items()])
+fname2 = '_'.join(np.array(HM.kwrgs_load['selbox']).astype(str)) + \
+                    f'_w{self.rollingmeanwindow}_std{self.standardize}.pdf'
+fig_path = os.path.join(rg.path_outsub1, '_'.join([fname1, fname2]))
+HM.plot_HM(drawbox=greenrectangle_WestUS_bb, clevels=np.arange(-.5, .51, .1),
+           fig_path=fig_path)
 
 # HM.quick_HM_plot()

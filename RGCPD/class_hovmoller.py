@@ -28,7 +28,8 @@ class Hovmoller:
     def __init__(self, kwrgs_load: dict=None, slice_dates: tuple=None,
                  event_dates: pd.DatetimeIndex=None, lags_prior: int=None,
                  lags_posterior: int=None, standardize: bool=False,
-                 seldates: tuple=None, name=None, n_cpu=1):
+                 seldates: tuple=None, rollingmeanwindow: int=None,
+                 name=None, n_cpu=1):
 
         '''
         selbox has format of (lon_min, lon_max, lat_min, lat_max)
@@ -38,6 +39,7 @@ class Hovmoller:
         self.event_dates = event_dates
         self.seldates = seldates
         self.standardize = standardize
+        self.rollingmeanwindow = rollingmeanwindow
 
         if slice_dates is None and event_dates is None:
             raise ValueError('No dates to select or slice, please define '
@@ -53,10 +55,15 @@ class Hovmoller:
         if lags_prior is None:
             lags_prior = 10
         if lags_posterior is None:
-            lags_posterior = 10
+            lags_posterior = 1
         self.lags_prior = lags_prior
         self.lags_posterior = lags_posterior
         self.lags = list(range(-abs(self.lags_prior), self.lags_posterior+1))
+        if self.rollingmeanwindow is not None and self.seldates is None:
+            raise Exception('You cannot do a rolling mean over only event dates, '
+                            'specify over which dates you want to do a rolling mean, '
+                            'after that you the dates will be selected from the smoothened array')
+
         self.event_lagged = np.array([event_dates + pd.Timedelta(f'{l}d') for l in self.lags])
 
         if np.unique(self.event_lagged).size != self.event_lagged.size:
@@ -71,17 +78,29 @@ class Hovmoller:
 
         self.name = name
         self.n_cpu = n_cpu
+
+        self._check_dates()
+
         return
 
     def get_HM_data(self, filepath, dim='latitude'):
         self.filepath = filepath
         if self.seldates is not None:
-            self.kwrgs_load['seldates'] = self.seldates
+            self.kwrgs_load['seldates'] = self.seldates_ext
             self.ds_seldates = functions_pp.import_ds_timemeanbins(self.filepath, **self.kwrgs_load)
-            self.std = self.ds_seldates.std(dim='time')
 
-        self.kwrgs_load['seldates'] = np.concatenate(self.event_lagged)
-        self.ds = functions_pp.import_ds_timemeanbins(self.filepath, **self.kwrgs_load)
+            if self.rollingmeanwindow is not None:
+            # apply rolling mean
+                self.ds = self.ds_seldates.rolling(time=self.rollingmeanwindow).mean()
+            else:
+                self.ds = self.ds_seldates
+            # calculating std based on seldates
+            self.std = self.ds.sel(time=self.seldates).std(dim='time')
+            # now that we have std over seldates, select dates for HM
+            self.ds = self.ds.sel(time=np.concatenate(self.event_lagged))
+        else:
+            self.kwrgs_load['seldates'] = np.concatenate(self.event_lagged)
+            self.ds = functions_pp.import_ds_timemeanbins(self.filepath, **self.kwrgs_load)
 
         if 'units' in list(self.ds.attrs.keys()):
             self.units = self.ds.attrs['units']
@@ -108,7 +127,8 @@ class Hovmoller:
 
     def plot_HM(self, main_title_right: str=None, ytickstep=5, lattickstep: int=3,
                 clevels: np.ndarray=None, clim: Union[str, tuple]='relaxed',
-                cmap=None, drawbox: list=None):
+                cmap=None, drawbox: list=None, save: bool=False,
+                fig_path: str=None):
         #%%
         # main_title_right=None; ytickstep=5;
         # clevels=None; clim='relaxed' ; cmap=None; drawbox=None
@@ -189,6 +209,22 @@ class Hovmoller:
         # ax1.set_xticklabels(x_tick_labels)
         ax1.grid(linestyle='dotted', linewidth=2)
 
+        # =============================================================================
+        # Draw (rectangular) box
+        # =============================================================================
+        if drawbox is not None:
+            def get_ring(coords):
+                '''tuple in format: west_lon, east_lon, south_lat, north_lat '''
+                west_lon, east_lon, south_lat, north_lat = coords
+                lons_sq = [west_lon, west_lon, east_lon, east_lon]
+                lats_sq = [north_lat, south_lat, south_lat, north_lat]
+                ring = [LinearRing(list(zip(lons_sq , lats_sq )))]
+                return ring
+
+            ring = get_ring(drawbox)
+
+            ax1.add_geometries(ring, ccrs.PlateCarree(), facecolor='none', edgecolor='green',
+                              linewidth=2, linestyle='dashed')
 
         # ax1.set_xticks([0, 90, 180, 270, 357.5])
         # ax1.set_xticklabels(x_tick_labels)
@@ -220,28 +256,48 @@ class Hovmoller:
             ax2.set_yticks(y_ticks)
             ax2.set_yticklabels(y_ticks)
 
-        # =============================================================================
-        # Draw (rectangular) box
-        # =============================================================================
-        if drawbox is not None:
-            def get_ring(coords):
-                '''tuple in format: west_lon, east_lon, south_lat, north_lat '''
-                west_lon, east_lon, south_lat, north_lat = coords
-                lons_sq = [west_lon, west_lon, east_lon, east_lon]
-                lats_sq = [north_lat, south_lat, south_lat, north_lat]
-                ring = [LinearRing(list(zip(lons_sq , lats_sq )))]
-                return ring
-
-            ring = get_ring(drawbox)
-
-            ax1.add_geometries(ring, ccrs.PlateCarree(), facecolor='none', edgecolor='green',
-                              linewidth=2, linestyle='dashed')
-
         # Set some titles
         if self.name is not None:
             plt.title(self.name, loc='left', fontsize=10)
         if self.slice_dates != None:
             plt.title('Time Range: {0:%Y%m%d %HZ} - {1:%Y%m%d %HZ}'.format(vtimes[0], vtimes[-1]),
                       loc='right', fontsize=10)
+        if save or fig_path is not None:
+            fname = '_'.join(np.array(self.kwrgs_load['selbox']).astype(str)) + \
+                    f'_w{self.rollingmeanwindow}_std{self.standardize}'
+            if fig_path is None:
+                fig_path = os.path.join(functions_pp.get_download_path(), fname)
+            plt.savefig(fig_path, bbox_inches='tight')
 
-        plt.show()
+
+    def _check_dates(self):
+        ev_lag = pd.to_datetime(self.event_lagged.flatten())
+        mde = [int('{:02d}{:02d}'.format(d.month, d.day)) for d in ev_lag] # monthdayevents
+        if type(self.seldates) is pd.DatetimeIndex:
+            mds = [int('{:02d}{:02d}'.format(d.month, d.day)) for d in self.seldates] # monthdayselect
+        if min(mde) < min(mds):
+            print(f'An event date minus the max lag {min(mde)} is not in seldates '
+                  f'{min(mds)}, adapting startdates of seldates')
+            start_date = (f'{self.seldates[0].year}-'
+                          f'{pd.to_datetime(ev_lag[np.argmin(mde)]).month}-'
+                          f'{pd.to_datetime(ev_lag[np.argmin(mde)]).day}')
+        else:
+            start_date = (f'{self.seldates[0].year}-'
+                          f'{self.seldates[0].month}-'
+                          f'{self.seldates[0].day}')
+
+        if max(mde) > max(mds):
+            print(f'An event date plus the max lag {max(mde)} is not in seldates '
+                  f'{max(mds)}, adapting enddate of seldates')
+            end_date = (f'{self.seldates[0].year}-'
+                f'{pd.to_datetime(ev_lag[np.argmax(mde)]).month}-'
+                f'{pd.to_datetime(ev_lag[np.argmax(mde)]).day}')
+        else:
+            start_date = (f'{self.seldates[0].year}-'
+                          f'{self.seldates[-1].month}-'
+                          f'{self.seldates[-1].day}')
+        self.seldates_ext = functions_pp.make_dates(pd.date_range(start_date, end_date),
+                                                    np.unique(self.seldates.year))
+
+
+
