@@ -29,7 +29,7 @@ class Hovmoller:
                  event_dates: pd.DatetimeIndex=None, lags_prior: int=None,
                  lags_posterior: int=None, standardize: bool=False,
                  seldates: tuple=None, rollingmeanwindow: int=None,
-                 name=None, n_cpu=1):
+                 name=None, zoomdim: tuple=None):
 
         '''
         selbox has format of (lon_min, lon_max, lat_min, lat_max)
@@ -40,6 +40,7 @@ class Hovmoller:
         self.seldates = seldates
         self.standardize = standardize
         self.rollingmeanwindow = rollingmeanwindow
+        self.zoomdim = zoomdim
 
         if slice_dates is None and event_dates is None:
             raise ValueError('No dates to select or slice, please define '
@@ -77,7 +78,6 @@ class Hovmoller:
 
 
         self.name = name
-        self.n_cpu = n_cpu
 
         self._check_dates()
 
@@ -85,9 +85,11 @@ class Hovmoller:
 
     def get_HM_data(self, filepath, dim='latitude'):
         self.filepath = filepath
+        self.dim = dim
         if self.seldates is not None:
             self.kwrgs_load['seldates'] = self.seldates_ext
             self.ds_seldates = functions_pp.import_ds_timemeanbins(self.filepath, **self.kwrgs_load)
+            ds_name = self.ds_seldates.name
 
             if self.rollingmeanwindow is not None:
             # apply rolling mean
@@ -101,6 +103,10 @@ class Hovmoller:
         else:
             self.kwrgs_load['seldates'] = np.concatenate(self.event_lagged)
             self.ds = functions_pp.import_ds_timemeanbins(self.filepath, **self.kwrgs_load)
+            ds_name = self.ds.name
+
+        if self.name is None:
+                self.name = ds_name
 
         if 'units' in list(self.ds.attrs.keys()):
             self.units = self.ds.attrs['units']
@@ -116,7 +122,13 @@ class Hovmoller:
             self.xarray = self.xarray.assign_coords(lag=np.concatenate(self.lag_axes))
         else:
             self.xarray = self.ds
-        xarray_w = functions_pp.area_weighted(self.xarray)
+
+        if self.zoomdim is not None:
+            xarray_w = self.xarray.sel(latitude=slice(self.zoomdim[0],
+                                                      self.zoomdim[1]))
+            xarray_w = functions_pp.area_weighted(xarray_w)
+        else:
+            xarray_w = functions_pp.area_weighted(self.xarray)
         self.xr_HM = xarray_w.mean(dim=dim).groupby('lag').mean()
 
     def quick_HM_plot(self):
@@ -128,9 +140,10 @@ class Hovmoller:
     def plot_HM(self, main_title_right: str=None, ytickstep=5, lattickstep: int=3,
                 clevels: np.ndarray=None, clim: Union[str, tuple]='relaxed',
                 cmap=None, drawbox: list=None, save: bool=False,
-                fig_path: str=None):
+                height_ratios: list=[1,6], fig_path: str=None):
+
         #%%
-        # main_title_right=None; ytickstep=5;
+        # main_title_right=None; ytickstep=5; lattickstep=3; height_ratios=[1,6]
         # clevels=None; clim='relaxed' ; cmap=None; drawbox=None
 
         # Get times and make array of datetime objects
@@ -145,12 +158,17 @@ class Hovmoller:
         fig = plt.figure(figsize=(10, 13))
 
         # Use gridspec to help size elements of plot; small top plot and big bottom plot
-        gs = gridspec.GridSpec(nrows=2, ncols=1, height_ratios=[1, 6], hspace=0.03)
+        gs = gridspec.GridSpec(nrows=2, ncols=1, height_ratios=height_ratios, hspace=0.03)
 
         # Tick labels
-        x_tick_labels = [u'0\N{DEGREE SIGN}E', u'90\N{DEGREE SIGN}E',
-                         u'180\N{DEGREE SIGN}E', u'90\N{DEGREE SIGN}W',
-                         u'0\N{DEGREE SIGN}E']
+        dim = [d for d in self.xr_HM.dims if d != 'lag'][0]
+        if dim == 'longitude':
+            x_tick_labels = [u'0\N{DEGREE SIGN}E', u'90\N{DEGREE SIGN}E',
+                             u'180\N{DEGREE SIGN}E', u'90\N{DEGREE SIGN}W',
+                             u'0\N{DEGREE SIGN}E']
+        elif dim == 'latitude':
+            x_ticks = np.unique(np.round(self.xarray.latitude.values.astype(int), -1))
+            x_tick_labels = [u'{}\N{DEGREE SIGN}N'.format(coord) for coord in x_ticks]
 
         # Plot of chosen variable averaged over latitude and slightly smoothed
         if clevels is None:
@@ -208,7 +226,11 @@ class Hovmoller:
         # ax1.set_xticks([-180, -90, 0, 90, 180])
         # ax1.set_xticklabels(x_tick_labels)
         ax1.grid(linestyle='dotted', linewidth=2)
-
+        if self.zoomdim is not None:
+            xmin = float(min(self.xr_HM[dim]))
+            xmax = float(max(self.xr_HM[dim]))
+            ax1.hlines(self.zoomdim[0], xmin, xmax, transform=ccrs.PlateCarree())
+            ax1.hlines(self.zoomdim[1], xmin, xmax, transform=ccrs.PlateCarree())
         # =============================================================================
         # Draw (rectangular) box
         # =============================================================================
@@ -262,9 +284,11 @@ class Hovmoller:
         if self.slice_dates != None:
             plt.title('Time Range: {0:%Y%m%d %HZ} - {1:%Y%m%d %HZ}'.format(vtimes[0], vtimes[-1]),
                       loc='right', fontsize=10)
+
         if save or fig_path is not None:
             fname = '_'.join(np.array(self.kwrgs_load['selbox']).astype(str)) + \
                     f'_w{self.rollingmeanwindow}_std{self.standardize}'
+            fname = self.name + '_' + fname
             if fig_path is None:
                 fig_path = os.path.join(functions_pp.get_download_path(), fname)
             plt.savefig(fig_path, bbox_inches='tight')

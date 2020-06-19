@@ -500,7 +500,7 @@ class RGCPD:
         self.parents_dict = wPCMCI.get_links_pcmci(self.pcmci_dict,
                                                    self.pcmci_results_dict,
                                                    alpha_level)
-        self.df_links = wPCMCI.get_df_links(self.parents_dict)
+        self.df_links = wPCMCI.get_df_links(self.parents_dict, variable=var)
         lags = np.arange(self.kwrgs_pcmci['tau_min'], self.kwrgs_pcmci['tau_max']+1)
         self.df_MCIc, self.df_MCIa = wPCMCI.get_df_MCI(self.pcmci_dict,
                                                  self.pcmci_results_dict,
@@ -510,7 +510,8 @@ class RGCPD:
                                                       self.list_for_MI)
 
     def PCMCI_plot_graph(self, variable: str=None, s: int=None, kwrgs: dict=None,
-                         figshape: tuple=(10,10), min_link_robustness: int=1):
+                         figshape: tuple=(10,10), min_link_robustness: int=1,
+                         append_figpath: str=None):
 
         out = wPCMCI.get_traintest_links(self.pcmci_dict,
                                          self.parents_dict,
@@ -536,8 +537,11 @@ class RGCPD:
                       fig_ax=(fig, ax),
                       **kwrgs)
         f_name = f'CEN_{variable}_s{s}'
-        fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
-        plt.savefig(fig_path, bbox_inches='tight')
+        if append_figpath is not None:
+            fig_path = os.path.join(self.path_outsub1, f_name+append_figpath)
+        else:
+            fig_path = os.path.join(self.path_outsub1, f_name)
+        plt.savefig(fig_path+self.figext, bbox_inches='tight')
         plt.show()
 
     def PCMCI_get_ParCorr_from_txt(self, variable=None, pc_alpha='auto'):

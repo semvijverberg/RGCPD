@@ -161,3 +161,11 @@ rg.cluster_list_MI(var='z500')
 # rg.get_ts_prec(precur_aggr=None)
 rg.get_ts_prec(precur_aggr=1)
 rg.store_df()
+
+
+#%%
+import class_RV
+RV_ts = rg.fulltso.sel(time=rg.TV.aggr_to_daily_dates(rg.dates_TV))
+threshold = class_RV.Ev_threshold(RV_ts, event_percentile=85)
+RV_bin, np_dur = class_RV.Ev_timeseries(RV_ts, threshold=threshold, grouped=True)
+plt.hist(np_dur[np_dur!=0])

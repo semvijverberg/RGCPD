@@ -290,7 +290,7 @@ def Ev_binary(Ev_dates, Ev_ts, min_dur, max_break, grouped=False,
 
     peak_o_thresh = np.zeros((n_timesteps), dtype=int)
 
-    if min_dur != 1 or max_break > 1:
+    if min_dur != 1 or max_break > 1 or grouped == True:
         ev_num = 1
         # group events inter event time less than max_break
         for i in range(len(events_idx)):
