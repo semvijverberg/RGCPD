@@ -111,7 +111,7 @@ for f in freqs:
 
     rg.PCMCI_df_data(keys=keys,
                      pc_alpha=None,
-                     tau_max=7,
+                     tau_max=5,
                      max_conds_dim=10,
                      max_combinations=10)
     rg.PCMCI_get_links(var=keys[0], alpha_level=.01)
@@ -129,49 +129,52 @@ for f in freqs:
     MCI_ALL = rg.df_MCIc.mean(0, level=1)
 
 #%% Adapt RV_mask
-
-# when both SST and RW above threshold
-RW_ts = rg.df_data.loc[0].iloc[:,0]
-RW_mask = RW_ts > float(rg.TV.RV_ts.quantile(q=.75))
-new_mask = np.logical_and(rg.df_data.loc[0]['RV_mask'], RW_mask)
-sst = functions_pp.get_df_test(rg.df_data, cols=['0..0..NorthPacAtl_sp'])
-sst_mask = (sst > sst.quantile(q=.75).values).squeeze()
-new_mask = np.logical_and(sst_mask, new_mask)
-sumyears = new_mask.groupby(new_mask.index.year).sum()
-sumyears = list(sumyears.index[sumyears > 25])
-RV_mask = rg.df_data.loc[0]['RV_mask']
-m = np.array([True if y in sumyears else False for y in RV_mask.index.year])
-new_mask = np.logical_and(m, RV_mask)
-new_mask.astype(int).plot()
-# new_mask = None
-keys = ['z5000..0..z500_sp',
-       '0..0..NorthPacAtl_sp', 'TrainIsTrue',
-       'RV_mask']
-
-rg.PCMCI_df_data(keys=keys,
-                 replace_RV_mask=new_mask.values,
-                 pc_alpha=None,
-                 tau_max=7,
-                 max_conds_dim=10,
-                 max_combinations=10)
-
-rg.PCMCI_get_links(var=keys[0], alpha_level=.01)
-rg.df_links.mean(0, level=1)
-rg.df_MCIc.mean(0, level=1)
-
-rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(8,2),
-                    kwrgs={'vmax_nodes':1.0,
-                           'vmax_edges':.3,
-                           'vmin_edges':-.3,
-                           'node_ticks':.2,
-                           'edge_ticks':.1},
-                    append_figpath='_subset_dates_tm7')
+import matplotlib.pyplot as plt
 
 
+freqs = [1, 15, 30, 60]
+for f in freqs:
+    rg.get_ts_prec(precur_aggr=f)
 
-rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
-rg.df_links.mean(0, level=1)
-MCI_subset = rg.df_MCIc.mean(0, level=1)
+    keys = ['z5000..0..z500_sp',
+           '0..0..NorthPacAtl_sp', 'TrainIsTrue',
+           'RV_mask']
+
+    # when both SST and RW above threshold
+    RW_ts = rg.df_data.loc[0].iloc[:,0]
+    RW_mask = RW_ts > float(rg.TV.RV_ts.quantile(q=.75))
+    new_mask = np.logical_and(rg.df_data.loc[0]['RV_mask'], RW_mask)
+    sst = functions_pp.get_df_test(rg.df_data, cols=['0..0..NorthPacAtl_sp'])
+    sst_mask = (sst > sst.quantile(q=.75).values).squeeze()
+    new_mask = np.logical_and(sst_mask, new_mask)
+    sumyears = new_mask.groupby(new_mask.index.year).sum()
+    sumyears = list(sumyears.index[sumyears > 25])
+    RV_mask = rg.df_data.loc[0]['RV_mask']
+    m = np.array([True if y in sumyears else False for y in RV_mask.index.year])
+    new_mask = np.logical_and(m, RV_mask)
+    new_mask.astype(int).plot()
+    plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates.pdf'))
+    print(f'{new_mask[new_mask].size} datapoints')
+
+    rg.PCMCI_df_data(keys=keys,
+                     replace_RV_mask=new_mask.values,
+                     pc_alpha=None,
+                     tau_max=5,
+                     max_conds_dim=10,
+                     max_combinations=10)
+
+    rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(8,2),
+                        kwrgs={'vmax_nodes':1.0,
+                               'vmax_edges':.6,
+                               'vmin_edges':-.6,
+                               'node_ticks':.2,
+                               'edge_ticks':.1},
+                        append_figpath=f'_all_dates_tf{rg.precur_aggr}')
+
+    rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
+    rg.df_links.mean(0, level=1)
+    MCI_subset = rg.df_MCIc.mean(0, level=1)
+
 
 
 
