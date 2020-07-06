@@ -93,36 +93,7 @@ def import_ds_lazy(filename, loadleap=False,
 
     # get dates
     if 'time' in ds.squeeze().dims:
-        numtime = ds['time']
-        dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
-
-        timestep_days = (dates[1] - dates[0]).days
-        if timestep_days == 1:
-            input_freq = 'daily'
-        elif timestep_days == 30 or timestep_days == 31:
-            input_freq = 'monthly'
-        elif timestep_days == 365 or timestep_days == 366:
-            input_freq = 'annual'
-
-        if numtime.attrs['calendar'] != 'gregorian':
-            dates = [d.strftime('%Y-%m-%d') for d in dates]
-
-        if input_freq == 'monthly' or input_freq == 'annual':
-            dates = [d.replace(day=1,hour=0) for d in pd.to_datetime(dates)]
-        else:
-            dates = pd.to_datetime(dates)
-            stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
-            test_if_fullyr = np.logical_and(dates[stepsyr.size-1].month == 12,
-                                       dates[stepsyr.size-1].day == 31)
-            assert test_if_fullyr, ('full is needed as raw data since rolling'
-                               ' mean is applied across timesteps')
-
-        dates = pd.to_datetime(dates)
-        # set hour to 00
-        if dates.hour[0] != 0:
-            dates -= pd.Timedelta(dates.hour[0], unit='h')
-
-        ds['time'] = dates
+        ds = ds_num2date(ds, loadleap=loadleap)
 
         if seldates is None:
             pass
@@ -135,10 +106,6 @@ def import_ds_lazy(filename, loadleap=False,
         else:
             ds = ds.sel(time=seldates)
 
-        if loadleap==False:
-            # mask away leapdays
-            dates_noleap = remove_leapdays(pd.to_datetime(ds.time.values))
-            ds = ds.sel(time=dates_noleap)
     if type(ds) == type(xr.DataArray(data=[0])):
         ds.attrs['is_DataArray'] = 1
     else:
@@ -151,6 +118,42 @@ def remove_leapdays(datetime):
 
     dates_noleap = datetime[mask_lpyrfeb==False]
     return dates_noleap
+
+def ds_num2date(ds, loadleap=False):
+    numtime = ds['time']
+    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+
+    timestep_days = (dates[1] - dates[0]).days
+    if timestep_days == 1:
+        input_freq = 'daily'
+    elif timestep_days == 30 or timestep_days == 31:
+        input_freq = 'monthly'
+    elif timestep_days == 365 or timestep_days == 366:
+        input_freq = 'annual'
+
+    if numtime.attrs['calendar'] != 'gregorian':
+        dates = [d.strftime('%Y-%m-%d') for d in dates]
+
+    if input_freq == 'monthly' or input_freq == 'annual':
+        dates = [d.replace(day=1,hour=0) for d in pd.to_datetime(dates)]
+    else:
+        dates = pd.to_datetime(dates)
+        stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
+        test_if_fullyr = np.logical_and(dates[stepsyr.size-1].month == 12,
+                                   dates[stepsyr.size-1].day == 31)
+        assert test_if_fullyr, ('full is needed as raw data since rolling'
+                           ' mean is applied across timesteps')
+    dates = pd.to_datetime(dates)
+    # set hour to 00
+    if dates.hour[0] != 0:
+        dates -= pd.Timedelta(dates.hour[0], unit='h')
+    ds['time'] = dates
+
+    if loadleap==False:
+        # mask away leapdays
+        dates_noleap = remove_leapdays(pd.to_datetime(ds.time.values))
+        ds = ds.sel(time=dates_noleap)
+    return ds
 
 def get_selbox(ds, selbox, verbosity=0):
     '''
@@ -593,7 +596,7 @@ def test_periodic(ds):
     return (360 / dlon == ds.longitude.size).values
 
 def test_periodic_lat(ds):
-    dlat = ds.latitude[1] - ds.latitude[0]
+    dlat = abs(ds.latitude[1] - ds.latitude[0])
     return ((180/dlat)+1 == ds.latitude.size).values
 
 def _check_format(ds):

@@ -171,7 +171,7 @@ class RGCPD:
         self.lags_i             = lags_i
         self.lags               = np.array([l*self.tfreq for l in self.lags_i], dtype=int)
         self.path_outmain       = path_outmain
-        self.append_pathsub    = append_pathsub
+        self.append_pathsub     = append_pathsub
         self.figext             = '.pdf'
         self.orig_stdout        = sys.stdout
         return
@@ -219,9 +219,12 @@ class RGCPD:
         return df_ana.loop_df(df, function=func, sharex=False,
                              colwrap=2, hspace=.5, kwrgs=kwrgs_func)
 
-    def plot_df_clust(self):
+    def plot_df_clust(self, save=False):
         self.get_clust()
         plot_maps.plot_labels(self.ds['xrclustered'])
+        if save and hasattr(self, 'path_sub1'):
+            fig_path = os.path.join(self.path_outsub1, 'RV_clusters')
+            plt.savefig(fig_path+self.figext, bbox_inches='tight')
 
     def pp_TV(self, name_ds='ts', loadleap=False, detrend=False, anomaly=False):
         self.name_TVds = name_ds
@@ -394,15 +397,19 @@ class RGCPD:
         else:
             # use original TV timeseries
             TV = self.TV ; df_splits = self.df_splits
-
+        self.df_data = pd.DataFrame(TV.fullts.values, columns=[TV.name],
+                                    index=TV.dates_all)
+        self.df_data = pd.concat([self.df_data]*self.df_splits.index.levels[0].size,
+                                 keys=self.df_splits.index.levels[0])
         if self.list_for_MI is not None:
             print('\nGetting MI timeseries')
             for i, precur in enumerate(self.list_for_MI):
                 precur.get_prec_ts(precur_aggr=precur_aggr,
                                    kwrgs_load=self.kwrgs_load)
-            self.df_data = find_precursors.df_data_prec_regs(self.list_for_MI,
+            df_data_MI = find_precursors.df_data_prec_regs(self.list_for_MI,
                                                              TV,
                                                              df_splits)
+            self.df_data = self.df_data.merge(df_data_MI, left_index=True, right_index=True)
 
         # Append (or only load in) external timeseries
         if self.list_import_ts is not None:
@@ -414,10 +421,8 @@ class RGCPD:
                                                   self.start_end_year,
                                                   cols=keys_ext,
                                                   precur_aggr=self.precur_aggr)
-            if hasattr(self, 'df_data'):
-                self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
-            else:
-                self.df_data = self.df_data_ext.copy()
+            self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
+
 
         # Append (or only load) EOF timeseries
         if self.list_for_EOFS is not None:
@@ -425,12 +430,9 @@ class RGCPD:
             for i, e_class in enumerate(self.list_for_EOFS):
                 e_class.get_ts(tfreq_ts=self.precur_aggr, df_splits=df_splits)
                 keys = np.array(e_class.df.dtypes.index[e_class.df.dtypes != bool], dtype='object')
-                if hasattr(self, 'df_data'):
-                    self.df_data = self.df_data.merge(e_class.df[keys],
+                self.df_data = self.df_data.merge(e_class.df[keys],
                                                       left_index=True,
                                                       right_index=True)
-                else:
-                    self.df_data = e_class.df[keys]
 
         # Append Traintest and RV_mask as last columns
         self.df_data = self.df_data.merge(df_splits, left_index=True, right_index=True)
@@ -592,7 +594,7 @@ class RGCPD:
         self.path_df_data = path+'.h5'
 
     def store_df(self):
-        if len(self.list_for_MI) != 0:
+        if self.list_for_MI is not None:
             varstr = '_'.join([p.name for p in self.list_for_MI])
         else:
             varstr = ''

@@ -86,18 +86,21 @@ def check_pp_done(name, filename, kwrgs_load: dict=None, verbosity=1):
     # load dataset lazy
     # =============================================================================
 #    filename = os.path.join(ex['path_raw'], cls.filename)
-    if kwrgs_load is None:
-        kwrgs = {'loadleap':False, 'format_lon':None}
-    else:
-        keep = ['loadleap', 'format_lon', 'selbox']
-        kwrgs = {k: kwrgs_load[k] for k in keep}
-    ds = core_pp.import_ds_lazy(filename, **kwrgs)
+    # if kwrgs_load is None:
+    #     kwrgs = {'loadleap':False, 'format_lon':None}
+    # else:
+    #     keep = ['loadleap', 'format_lon', 'selbox']
+    #     kwrgs = {k: kwrgs_load[k] for k in keep}
+    # ds = core_pp.import_ds_lazy(filename, **kwrgs)
+    ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
+    ds = core_pp.ds_num2date(ds)
     dates = pd.to_datetime(ds['time'].values)
     start_day = get_oneyr(dates)[0]
     end_day   = get_oneyr(dates)[-1]
     # degree = int(ds.longitude[1] - ds.longitude[0])
-    selbox = [int(ds.longitude.min()), int(ds.longitude.max()),
-              int(ds.latitude.min()), int(ds.latitude.max())]
+    # selbox = [int(ds.longitude.min()), int(ds.longitude.max()),
+    #            int(ds.latitude.min()), int(ds.latitude.max())]
+    selbox = kwrgs_load['selbox']
 
     # =============================================================================
     # give appropriate name to output file
@@ -115,10 +118,14 @@ def check_pp_done(name, filename, kwrgs_load: dict=None, verbosity=1):
         startdatestr = '_{}_'.format(months[start_day.month])
         enddatestr   = '_{}_'.format(months[end_day.month])
 
-    selboxstr = '_'+'_'.join(map(str, selbox))
-    if core_pp.test_periodic(ds) and core_pp.test_periodic_lat(ds):
-        selboxstr = '' # if global, no selbox str
+    if selbox is not None:
+        selboxstr = '_'+'_'.join(map(str, selbox))
+    else:
+        selboxstr = ''
+    # if core_pp.test_periodic(ds) and core_pp.test_periodic_lat(ds):
+    #     selboxstr = '' # if global, no selbox str
     selboxstr_startdate = selboxstr+startdatestr
+
 
     outfilename = outfilename.replace('_{}_'.format(1), selboxstr_startdate)
     outfilename = outfilename.replace('_{}_'.format(12), enddatestr)

@@ -10,6 +10,7 @@ import itertools
 import numpy as np
 import xarray as xr
 import pandas as pd
+from netCDF4 import num2date
 
 import functions_pp
 import core_pp
@@ -47,7 +48,7 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
         # =============================================================================
         # Unpack non-default arguments
         # =============================================================================
-    kwrgs = {}
+    kwrgs = {'selbox':precur.selbox}
     for key, value in kwrgs_load.items():
         if type(value) is list and name in value[1].keys():
             kwrgs[key] = value[1][name]
@@ -653,7 +654,7 @@ def df_data_prec_regs(list_MI, TV, df_splits): #, outdic_precur, df_splits, TV #
 
         # create list with all actors, these will be merged into the fulldata array
         # allvar = list(self.outdic_precur.keys())
-        var_names_corr = [] ; pos_prec_list = [] ; cols = [[TV.name]]
+        var_names_corr = [] ; pos_prec_list = [] ; cols = []
 
         for var_idx, pos_prec in enumerate(list_MI):
             if hasattr(pos_prec, 'ts_corr'):
@@ -667,12 +668,16 @@ def df_data_prec_regs(list_MI, TV, df_splits): #, outdic_precur, df_splits, TV #
                     var_names_corr = var_names_corr + pos_prec.var_info
                     cols.append(list(pos_prec.ts_corr[s].columns))
                     index_dates = pos_prec.ts_corr[s].index
-        var_names_corr.insert(0, TV.name)
+                else:
+                    print('Did not cluster BiVariateMI, no timeseries retrieved '
+                          f'for {pos_prec.name}')
+
         # stack actor time-series together:
         fulldata = np.concatenate(tuple(pos_prec_list), axis = 1)
         n_regions_list.append(fulldata.shape[1])
         # add the full 1D time series of interest as first entry:
-        fulldata = np.column_stack((TV.fullts, fulldata))
+        # var_names_corr.insert(0, TV.name)
+        # fulldata = np.column_stack((TV.fullts, fulldata))
         df_data_s[s] = pd.DataFrame(fulldata, columns=flatten(cols), index=index_dates)
 
     print(f'There are {n_regions_list} regions in total (list of different splits)')
@@ -692,7 +697,7 @@ def import_precur_ts(list_import_ts : List[tuple],
     [(name, path_data)]
     '''
     #%%
-#    df_splits = rg.df_splits
+    # df_splits = rg.df_splits
 
 
 
@@ -779,7 +784,8 @@ def import_precur_ts(list_import_ts : List[tuple],
         if counter == 0:
             df_data_ext = pd.concat(list(df_data_ext_s), keys=range(splits.size))
         else:
-            df_data_ext = df_data_ext.merge(df_data_ext, left_index=True, right_index=True)
-        counter += 1
+            df_add = pd.concat(list(df_data_ext_s), keys=range(splits.size))
+            df_data_ext = df_data_ext.merge(df_add, left_index=True, right_index=True)
+        counter += 1 ; cols = None
     #%%
     return df_data_ext

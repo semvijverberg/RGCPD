@@ -25,7 +25,7 @@ class BivariateMI:
 
     def __init__(self, name, func=None, kwrgs_func={}, lags=np.array([1]),
                  distance_eps=400, min_area_in_degrees2=3, group_split='together',
-                 calc_ts='region mean', verbosity=1):
+                 calc_ts='region mean', selbox: tuple=None, verbosity=1):
         '''
 
         Parameters
@@ -59,6 +59,8 @@ class BivariateMI:
             timeseries is calculated for each label. If 'pattern cov', the
             spatial covariance of the whole pattern is calculated.
             The default is 'region_mean'.
+        selbox : tuple, optional
+            has format of (lon_min, lon_max, lat_min, lat_max)
         verbosity : int, optional
             Not used atm. The default is 1.
 
@@ -85,7 +87,7 @@ class BivariateMI:
         self.distance_eps = distance_eps
         self.min_area_in_degrees2 = min_area_in_degrees2
         self.group_split = group_split
-
+        self.selbox = selbox
         self.verbosity = verbosity
 
         return

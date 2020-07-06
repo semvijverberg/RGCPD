@@ -27,7 +27,7 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
-import functions_pp
+import functions_pp, core_pp
 
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/1ts_0ff31_10jun-24aug_lag0-0_ts_no_train_test_splits1/2020-06-11_15hr_16min_df_data_z500_dt1_0ff31.h5'
@@ -43,12 +43,19 @@ tfreq = 15
 #%%
 
 list_of_name_path = [(name_or_cluster_label, TVpath),
-                     ('NorthPacAtl', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
+                     ('Pacific SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
+                     ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
-list_for_MI   = [BivariateMI(name='NorthPacAtl', func=BivariateMI.corr_map,
-                              kwrgs_func={'alpha':.001, 'FDR_control':True},
+list_for_MI   = [BivariateMI(name='Pacific SST', func=BivariateMI.corr_map,
+                              kwrgs_func={'alpha':.01, 'FDR_control':True},
                               distance_eps=500, min_area_in_degrees2=5,
-                              calc_ts='pattern cov')]
+                              calc_ts='pattern cov',
+                              selbox=(0,360,10,90)),
+                 BivariateMI(name='z500', func=BivariateMI.corr_map,
+                                kwrgs_func={'alpha':.01, 'FDR_control':True},
+                                distance_eps=600, min_area_in_degrees2=1,
+                                calc_ts='pattern cov',
+                                selbox=(0,360,10,90))]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
@@ -59,14 +66,14 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            append_pathsub='_' + name_ds)
 
 
-selbox = [None, {'NorthPacAtl':[130,350,10,90]}]
+
 
 # selbox = [None, {'NorthPac':(115, 250, 0, 70),
 #                  'NorthAtl':(360-83, 6, 0, 70),
 #                  'v200':[130,350,10,90]}]
 rg.pp_TV(name_ds=name_ds)
 
-rg.pp_precursors(selbox=selbox, anomaly=True)
+rg.pp_precursors(selbox=None, anomaly=True)
 
 
 
@@ -74,44 +81,68 @@ rg.traintest(method='random10')
 
 rg.calc_corr_maps()
 
-
-subtitles = np.array([['Correlation map SST vs Western U.S. z500 Rossby wave']])
+greenrectangle_WestUS_bb = (160,235,24,62)
+subtitles = np.array([['SST vs spat. covariance Rossby wave (z500)']])
 units = 'Corr. Coeff. [-]'
-rg.plot_maps_corr(var='NorthPacAtl', aspect=2, size=5, cbar_vert=.0, save=True,
-                  subtitles=subtitles, units=units,
+
+rg.plot_maps_corr(var='Pacific SST',
+                  aspect=2, size=5, cbar_vert=.19, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
+                  drawbox=['all', greenrectangle_WestUS_bb],
+                  clim=(-.6,.6))
+
+rg.plot_maps_corr(var='z500',
+                  aspect=2, size=5, cbar_vert=.19, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
+                  drawbox=['all', greenrectangle_WestUS_bb],
                   clim=(-.6,.6))
 
  #%%
-rg.cluster_list_MI()
-rg.quick_view_labels(median=True)
+rg.list_for_MI[0].selbox = greenrectangle_WestUS_bb
+rg.list_for_MI[0].calc_ts = 'pattern cov'
 
-rg.get_ts_prec(precur_aggr=30)
+rg.calc_corr_maps(var='Pacific SST')
+rg.cluster_list_MI(var='Pacific SST')
+rg.quick_view_labels(var='Pacific SST', median=True)
+rg.get_ts_prec(precur_aggr=1)
+rg.store_df()
 #%%
-keys = ['z5000..0..z500_sp',
-       '0..0..NorthPacAtl_sp', 'TrainIsTrue',
-       'RV_mask']
+rg.cluster_list_MI()
+rg.list_for_MI[0].calc_ts = 'pattern cov'
+freqs = [1, 5, 15, 30, 60]
+for f in freqs:
+    rg.get_ts_prec(precur_aggr=f)
+    rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':'Rossby wave', '0..0..Pacific SST_sp':'Pacific SST'}, axis=1)
 
-rg.PCMCI_df_data(keys=keys,
-                 pc_alpha=None,
-                 tau_max=5,
-                 max_conds_dim=10,
-                 max_combinations=10)
-rg.PCMCI_get_links(var=keys[0], alpha_level=.01)
-rg.df_links.mean(0, level=1)
-rg.df_MCIc.mean(0, level=1)
+    keys = ['Rossby wave',
+           'Pacific SST', 'TrainIsTrue',
+           'RV_mask']
 
-rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(8,2),
-                    kwrgs={'vmax_nodes':1.0,
-                           'vmax_edges':.6,
-                           'vmin_edges':-.6,
-                           'node_ticks':.2,
-                           'edge_ticks':.1},
-                    append_figpath=f'_all_dates_tf{rg.precur_aggr}')
+    rg.PCMCI_df_data(keys=keys,
+                     pc_alpha=None,
+                     tau_max=5,
+                     max_conds_dim=10,
+                     max_combinations=10)
+    rg.PCMCI_get_links(var=keys[0], alpha_level=.01)
 
-rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
-rg.df_links.mean(0, level=1)
-MCI_ALL = rg.df_MCIc.mean(0, level=1)
+    rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(3,2),
+                        kwrgs={'vmax_nodes':1.0,
+                               'vmax_edges':.6,
+                               'vmin_edges':-.6,
+                               'node_ticks':.3,
+                               'edge_ticks':.3,
+                               'curved_radius':.5,
+                               'arrowhead_size':1000,
+                               'label_fontsize':10,
+                               'link_label_fontsize':12,
+                               'node_label_size':16},
+                        append_figpath=f'_all_dates_tf{rg.precur_aggr}')
+
+    rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
+    rg.df_links.mean(0, level=1)
+    MCI_ALL = rg.df_MCIc.mean(0, level=1)
 
 # df_ParCorr_sum = rg.PCMCI_get_ParCorr_from_txt()
 
@@ -154,13 +185,18 @@ for f in freqs:
                      max_conds_dim=10,
                      max_combinations=10)
 
-    rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(8,2),
+    rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(3,2),
                         kwrgs={'vmax_nodes':1.0,
                                'vmax_edges':.6,
                                'vmin_edges':-.6,
-                               'node_ticks':.2,
-                               'edge_ticks':.1},
-                        append_figpath=f'_all_dates_tf{rg.precur_aggr}')
+                               'node_ticks':.3,
+                               'edge_ticks':.3,
+                               'curved_radius':.5,
+                               'arrowhead_size':1000,
+                               'label_fontsize':10,
+                               'link_label_fontsize':12,
+                               'node_label_size':16},
+                        append_figpath=f'_subset_dates_tf{rg.precur_aggr}')
 
     rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
     rg.df_links.mean(0, level=1)

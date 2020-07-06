@@ -112,10 +112,14 @@ class fcev():
             print('keys is None: Using all keys in training sets')
             self.experiment = 'all'
             self.keys_d = None
-        if isinstance(keys_d, dict):
+        elif isinstance(keys_d, dict):
             self.experiment = 'manual'
             # expecting dict with traintest number as key and associated list of keys
             self.keys_d = keys_d
+        elif isinstance(keys_d, tuple):
+            self.experiment = keys_d[0]
+            # expecting dict with traintest number as key and associated list of keys
+            self.keys_d = keys_d[1]
         if isinstance(keys_d, str):
             print(f'getting keys associated with name {keys_d}')
             self.experiment = keys_d
