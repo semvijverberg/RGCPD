@@ -607,7 +607,8 @@ class RGCPD:
         print('Data stored in \n{}'.format(filename))
         self.path_df_data = filename
 
-    def quick_view_labels(self, var=None, map_proj=None, median=True):
+    def quick_view_labels(self, var=None, map_proj=None, median=True,
+                          save=False):
 
         if type(var) is str:
             var = [var]
@@ -652,8 +653,13 @@ class RGCPD:
                 plot_maps.plot_corr_maps(prec_labels,
                                  contour_mask,
                                  map_proj, **kwrgs)
+                if save == True:
+                    f_name = 'cluster_labels_{}'.format(precur_name)
+                    fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
+                    plt.savefig(fig_path, bbox_inches='tight')
             else:
                 print(f'no {precur.name} regions that pass distance_eps and min_area_in_degrees2 citeria')
+
 
     def plot_maps_corr(self, var=None, mean=True, mask_xr=None, map_proj=None,
                        row_dim='split', col_dim='lag', clim='relaxed',

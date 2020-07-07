@@ -389,19 +389,19 @@ class fcev():
         return m
 
     def _get_outpaths(self,  list_of_fc=None, subfoldername: str=None, f_name: str=None,
-                      filename: str=None):
+                      pathexper: str=None):
         if list_of_fc is None:
             list_of_fc = [self]
         if subfoldername is None:
             subfoldername = 'forecasts'
-        if filename is None:
+        if pathexper is None:
             working_folder = '/'.join(self.path_data.split('/')[:-1])
             working_folder = os.path.join(working_folder, subfoldername)
             self.working_folder = working_folder
             if os.path.isdir(working_folder) != True : os.makedirs(working_folder)
             today = datetime.datetime.today().strftime('%Hhr_%Mmin_%d-%m-%Y')
-        if f_name is None and filename is None:
-            # define filename
+        if f_name is None and pathexper is None:
+            # define pathexper
             if type(self.kwrgs_events) is tuple:
                 percentile = self.kwrgs_events[1]['event_percentile']
             else:
@@ -410,23 +410,24 @@ class fcev():
             folds_used = str(folds).replace('[\'',
                             '').replace(', ','_').replace('\']','')
             f_name = f'{self.TV.name}_{self.precur_aggr}d_{percentile}p_fold{folds_used}_{today}'
-            filename = os.path.join(working_folder, f_name)
-        if f_name is not None and filename is None:
+            pathexper = os.path.join(working_folder, f_name)
+        if f_name is not None and pathexper is None:
             today_str = f'_{today}'
-            filename = os.path.join(working_folder, f_name+today_str)
-        self.filename = filename
+            pathexper = os.path.join(working_folder, f_name+today_str)
+        self.pathexper = pathexper
+        if os.path.isdir(self.pathexper) != True : os.makedirs(self.pathexper)
         self.working_folder = working_folder
 
     def _print_sett(self, list_of_fc=None, subfoldername=None, f_name=None,
-                    filename=None):
+                    pathexper=None):
 
         self._get_outpaths(list_of_fc=None, subfoldername=subfoldername,
                            f_name=f_name,
-                           filename=filename)
+                           pathexper=pathexper)
 
 
 
-        file= open(self.filename+".txt","w+")
+        file= open(os.path.join(self.pathexper,"exper.txt"),"w+")
         lines = []
         lines.append("\nEvent settings:")
         e = 1
@@ -456,7 +457,7 @@ class fcev():
         [print(n, file=file) for n in lines]
         file.close()
         [print(n) for n in lines[:-2]]
-        return self.working_folder, self.filename
+        return self.working_folder, self.pathexper
 
     def perform_validation(self, n_boot=2000, blocksize='auto',
                            threshold_pred='upper_clim', alpha=0.05):

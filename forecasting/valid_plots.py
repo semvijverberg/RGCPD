@@ -879,9 +879,9 @@ def merge_valid_info(list_of_fc, store=True):
 
     if store:
         fc = list_of_fc[0]
-        if hasattr(fc, 'filename')==False:
+        if hasattr(fc, 'pathexper')==False:
             fc._get_outpaths()
-        functions_pp.store_hdf_df(dict_merge_all, file_path=fc.filename+'.h5')
+        functions_pp.store_hdf_df(dict_merge_all, file_path=fc.pathexper+'/data.h5')
     return dict_merge_all
 
 def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,

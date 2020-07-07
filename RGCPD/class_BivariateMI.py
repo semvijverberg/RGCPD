@@ -239,6 +239,8 @@ def corr_new(field, ts):
 
     for i in nonans_gc:
         corr_vals[i], pvals[i] = scipy.stats.pearsonr(ts,field[:,i])
+    # restore original nans
+    corr_vals[fieldnans] = np.nan
     return corr_vals, pvals
 
 def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
@@ -268,7 +270,7 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
                 kwrgs[key] = value[0] # plugging in default value
             else:
                 kwrgs[key] = value
-        kwrgs['tfreq'] = precur_aggr
+        kwrgs['tfreq'] = precur_aggr ; kwrgs['selbox'] = precur.selbox
         precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
 
     full_timeserie = precur_arr

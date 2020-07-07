@@ -142,8 +142,8 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
     for col, c_label in enumerate(cols):
         xrdatavar = plot_xr.sel(col=c_label)
-
-        if abs(lon[-1] - 360) <= (lon[1] - lon[0]):
+        dlon = abs(lon[1] - lon[0])
+        if abs(lon[-1] - 360) <= dlon and lon[0] < dlon:
             xrdatavar = extend_longitude(xrdatavar)
 
 

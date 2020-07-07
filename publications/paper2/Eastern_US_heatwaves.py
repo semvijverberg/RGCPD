@@ -48,15 +48,15 @@ list_of_name_path = [(cluster_label, TVpath),
 list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map,
                               kwrgs_func={'alpha':.01, 'FDR_control':True},
                               distance_eps=600, min_area_in_degrees2=1,
-                              calc_ts='pattern cov'),
+                              calc_ts='pattern cov', selbox=(0,360,-10,90)),
                    BivariateMI(name='z500', func=BivariateMI.corr_map,
                                 kwrgs_func={'alpha':.01, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
-                                calc_ts='pattern cov'),
+                                calc_ts='pattern cov', selbox=(0,360,-10,90)),
                    BivariateMI(name='sst', func=BivariateMI.corr_map,
                                 kwrgs_func={'alpha':.001, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
-                                calc_ts='pattern cov')]
+                                calc_ts='pattern cov', selbox=(0,360,-10,90))]
 
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
@@ -64,14 +64,14 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             start_end_TVdate=start_end_TVdate,
             start_end_date=start_end_date,
             start_end_year=None,
-            tfreq=tfreq, lags_i=np.array([0]),
+            tfreq=tfreq, lags_i=np.array([0,1]),
             path_outmain=path_out_main,
             append_pathsub='_' + name_ds)
 
 
 rg.pp_TV(name_ds=name_ds, detrend=False)
 
-rg.pp_precursors(selbox=(0,360,10,90))
+rg.pp_precursors()
 
 rg.traintest('no_train_test_split')
 
@@ -85,52 +85,60 @@ rg.calc_corr_maps()
 # rg.get_EOFs()
 
 
-
-subtitles = np.array([['v-wind 200hpa vs eastern U.S. mx2t']])
+v200_green_bb = (170,359,23,73)
 units = 'Corr. Coeff. [-]'
-rg.plot_maps_corr(var='v200', aspect=2, size=5, cbar_vert=.19, save=True,
-                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
+subtitles = np.array([[f'lag {l}: v-wind 200hpa vs eastern U.S. mx2t'] for l in rg.lags])
+rg.plot_maps_corr(var='v200', row_dim='lag', col_dim='split',
+                  aspect=2, size=5, hspace=-0.58, cbar_vert=.18, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(-180,360,0,80),
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
+                  drawbox=['all', v200_green_bb],
                   clim=(-.6,.6))
 
 z500_green_bb = (170,250,23,73)
-subtitles = np.array([['z 500hpa vs eastern U.S. mx2t']])
-units = 'Corr. Coeff. [-]'
-rg.plot_maps_corr(var='z500', aspect=2, size=5, cbar_vert=.19, save=True,
-                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
+subtitles = np.array([[f'lag {l}: z 500hpa vs eastern U.S. mx2t'] for l in rg.lags])
+rg.plot_maps_corr(var='z500', row_dim='lag', col_dim='split',
+                  aspect=2, size=5, hspace=-0.58, cbar_vert=.18, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(-180,360,0,80),
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
                   drawbox=['all', z500_green_bb],
                   clim=(-.6,.6))
 
 SST_green_bb = (170,255,11,60)
-subtitles = np.array([['SST vs eastern U.S. mx2t']])
-units = 'Corr. Coeff. [-]'
-rg.plot_maps_corr(var='sst', aspect=2, size=5, cbar_vert=.19, save=True,
-                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
+subtitles = np.array([[f'lag {l}: SST vs eastern U.S. mx2t'] for l in rg.lags])
+rg.plot_maps_corr(var='sst', row_dim='lag', col_dim='split',
+                  aspect=2, hspace=-.57, size=5, cbar_vert=.175, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(-180,360,-10,70),
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
                   drawbox=['all', SST_green_bb],
                   clim=(-.6,.6))
 
 #%% Determine Rossby wave within green rectangle, become target variable for feedback
 
+rg.list_for_MI[0].selbox = v200_green_bb
 rg.list_for_MI[1].selbox = z500_green_bb
 
-rg.calc_corr_maps(var='z500')
-subtitles = np.array([['E-U.S. Temp. correlation map Z 500hpa green box']])
-rg.plot_maps_corr(var='z500', cbar_vert=-.05, subtitles=subtitles, save=False)
-rg.cluster_list_MI(var='z500')
+rg.calc_corr_maps()#var='z500')
+# subtitles = np.array([['E-U.S. Temp. correlation map Z 500hpa green box']])
+# rg.plot_maps_corr(var='z500', cbar_vert=-.05, subtitles=subtitles, save=False)
+rg.cluster_list_MI()#var='z500')
 # rg.get_ts_prec(precur_aggr=None)
 rg.get_ts_prec(precur_aggr=1)
 rg.store_df()
 #%% Determine Rossby wave within green rectangle, become target variable for HM
 
 list_of_name_path = [(cluster_label, TVpath),
-                     ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
+                     ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
+                     ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),]
 
 list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
                              kwrgs_func={'alpha':.01, 'FDR_control':True},
                              distance_eps=500, min_area_in_degrees2=1,
-                             calc_ts='pattern cov')]
+                             calc_ts='pattern cov', selbox=z500_green_bb),
+                 BivariateMI(name='v200', func=BivariateMI.corr_map,
+                             kwrgs_func={'alpha':.01, 'FDR_control':True},
+                             distance_eps=500, min_area_in_degrees2=1,
+                             calc_ts='pattern cov', selbox=v200_green_bb)]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
@@ -141,7 +149,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            append_pathsub='_' + name_ds)
 
 
-rg.pp_precursors(selbox=(170,300,15,73), anomaly=True)
+rg.pp_precursors(anomaly=True)
 rg.pp_TV(name_ds=name_ds)
 
 rg.traintest(method='no_train_test_split')
@@ -149,10 +157,12 @@ rg.traintest(method='no_train_test_split')
 rg.calc_corr_maps()
 subtitles = np.array([['E-U.S. Temp. correlation map Z 500hpa green box']])
 rg.plot_maps_corr(var='z500', cbar_vert=-.05, subtitles=subtitles, save=False)
-rg.cluster_list_MI(var='z500')
+subtitles = np.array([['E-U.S. Temp. correlation map v200 green box']])
+rg.plot_maps_corr(var='v200', cbar_vert=-.05, subtitles=subtitles, save=False)
+rg.cluster_list_MI()
 # rg.get_ts_prec(precur_aggr=None)
 rg.get_ts_prec(precur_aggr=1)
-rg.store_df()
+# rg.store_df()
 
 
 #%%
