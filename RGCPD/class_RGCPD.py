@@ -543,7 +543,7 @@ class RGCPD:
             fig_path = os.path.join(self.path_outsub1, f_name+append_figpath)
         else:
             fig_path = os.path.join(self.path_outsub1, f_name)
-        plt.savefig(fig_path+self.figext, bbox_inches='tight')
+        fig.savefig(fig_path+self.figext, bbox_inches='tight')
         plt.show()
 
     def PCMCI_get_ParCorr_from_txt(self, variable=None, pc_alpha='auto'):

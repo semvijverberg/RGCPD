@@ -208,8 +208,15 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                     ring = drawbox[1]
 
                 if drawbox[0] == g.axes.size or drawbox[0] == 'all':
-                    g.axes[row,col].add_geometries(ring, ccrs.PlateCarree(), facecolor='none', edgecolor='green',
-                                  linewidth=2, linestyle='dashed')
+                    g.axes[row,col].add_geometries(ring, ccrs.PlateCarree(),
+                                                   facecolor='none', edgecolor='green',
+                                                   linewidth=2, linestyle='dashed')
+                elif type(drawbox[0]) is tuple:
+                    row_box, col_box = drawbox[0]
+                    if row == row_box and col == col_box:
+                        g.axes[row,col].add_geometries(ring, ccrs.PlateCarree(),
+                                                       facecolor='none', edgecolor='green',
+                                                       linewidth=2, linestyle='dashed')
 
             # =============================================================================
             # Subtitles

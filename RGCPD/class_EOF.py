@@ -19,7 +19,8 @@ import find_precursors
 class EOF:
 
     def __init__(self, tfreq_EOF='monthly', neofs=1, selbox=None,
-                 name=None, n_cpu=1):
+                 name=None, start_end_date: tuple=None,
+                 start_end_year: tuple=None, n_cpu=1):
         '''
         selbox has format of (lon_min, lon_max, lat_min, lat_max)
         '''
@@ -28,21 +29,20 @@ class EOF:
         self.name = name
         self.selbox = selbox
         self.n_cpu = n_cpu
-        return
-
-    def get_pattern(self, filepath, df_splits=None, selbox=None, start_end_date=None,
-                    start_end_year=None):
-        # filepath = '/Users/semvijverberg/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2018_1jan_31dec_daily_2.5deg.nc'
-        self.filepath = filepath
-        self.selbox = selbox
         self.start_end_date = start_end_date
         self.start_end_year = start_end_year
+        return
+
+    def get_pattern(self, filepath, df_splits=None):
+        # filepath = '/Users/semvijverberg/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2018_1jan_31dec_daily_2.5deg.nc'
+        self.filepath = filepath
+
 
         if self.tfreq_EOF == 'monthly':
             ds = functions_pp.import_ds_timemeanbins(self.filepath, tfreq=1,
                                                      selbox=self.selbox,
-                                         start_end_date=start_end_date,
-                                         start_end_year=start_end_year)
+                                         start_end_date=self.start_end_date,
+                                         start_end_year=self.start_end_year)
             # # ensure latitude is in increasing order
             # if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
             #     ds = ds.sortby('latitude')
@@ -51,8 +51,9 @@ class EOF:
             self.ds_EOF = functions_pp.import_ds_timemeanbins(self.filepath,
                                                           tfreq=self.tfreq_EOF,
                                                           selbox=self.selbox,
-                                                          start_end_date=start_end_date,
-                                                          start_end_year=start_end_year)
+                                                          start_end_date=self.start_end_date,
+                                                          start_end_year=self.start_end_year,
+                                                          closed_on_date=self.start_end_date[-1])
         if self.name is None:
             if hasattr(self.ds_EOF, 'name'):
                 # take name of variable
@@ -81,8 +82,8 @@ class EOF:
                         for s in range(splits.size):
                             progress = int(100 * (s+1) / splits.size)
                             print(f"\rProgress traintest set {progress}%", end="")
-                            futures.append(pool.submit(self._single_split, func, 
-                                                      self.ds_EOF, s, df_splits, 
+                            futures.append(pool.submit(self._single_split, func,
+                                                      self.ds_EOF, s, df_splits,
                                                       self.neofs))
                             results = [future.result() for future in futures]
                         pool.shutdown()
@@ -131,17 +132,18 @@ class EOF:
                                                 tfreq=tfreq_ts,
                                                 selbox=self.selbox,
                                                 start_end_date=self.start_end_date,
-                                                start_end_year=self.start_end_year)
+                                                start_end_year=self.start_end_year,
+                                                closed_on_date=self.start_end_date[-1])
         df_data_s   = np.zeros( (splits.size) , dtype=object)
         dates = pd.to_datetime(ds['time'].values)
         for s in splits:
-            
+
             dfs = pd.DataFrame(columns=neofs, index=dates)
             for i, e in enumerate(neofs):
 
                 pattern = self.eofs.sel(split=s, eof=e)
                 data = find_precursors.calc_spatcov(ds, pattern)
-                dfs[e] = pd.Series(data.values, 
+                dfs[e] = pd.Series(data.values,
                                    index=dates)
                 if i == neofs.size-1:
                     dfs = dfs.merge(df_splits.loc[s], left_index=True, right_index=True)
@@ -166,7 +168,7 @@ class EOF:
     @staticmethod
     def _single_split(func, ds_EOF, s, df_splits, neofs):
         splits = df_splits.index.levels[0]
-        
+
         dates_train = functions_pp.dfsplits_to_dates(df_splits, s)[0]
         # convert Train test year from original time to monthly
         train_yrs = np.unique(dates_train.year)

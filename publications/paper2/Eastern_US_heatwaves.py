@@ -26,7 +26,7 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
-# from RGCPD import EOF
+import plot_maps
 
 
 
@@ -54,9 +54,9 @@ list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map,
                                 distance_eps=600, min_area_in_degrees2=1,
                                 calc_ts='pattern cov', selbox=(0,360,-10,90)),
                    BivariateMI(name='sst', func=BivariateMI.corr_map,
-                                kwrgs_func={'alpha':.001, 'FDR_control':True},
+                                kwrgs_func={'alpha':.01, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
-                                calc_ts='pattern cov', selbox=(0,360,-10,90))]
+                                calc_ts='pattern cov', selbox=(120,260,-10,90))]
 
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
@@ -73,7 +73,7 @@ rg.pp_TV(name_ds=name_ds, detrend=False)
 
 rg.pp_precursors()
 
-rg.traintest('no_train_test_split')
+rg.traintest('random10')
 
 rg.get_clust()
 subtitles = np.array([['Clustered simultaneous high temp. events']])
@@ -92,31 +92,34 @@ rg.plot_maps_corr(var='v200', row_dim='lag', col_dim='split',
                   aspect=2, size=5, hspace=-0.58, cbar_vert=.18, save=True,
                   subtitles=subtitles, units=units, zoomregion=(-180,360,0,80),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  drawbox=['all', v200_green_bb],
+                  drawbox=[(0,0), v200_green_bb],
                   clim=(-.6,.6))
 
-z500_green_bb = (170,250,23,73)
+z500_green_bb = (140,260,20,73)
 subtitles = np.array([[f'lag {l}: z 500hpa vs eastern U.S. mx2t'] for l in rg.lags])
 rg.plot_maps_corr(var='z500', row_dim='lag', col_dim='split',
-                  aspect=2, size=5, hspace=-0.58, cbar_vert=.18, save=True,
-                  subtitles=subtitles, units=units, zoomregion=(-180,360,0,80),
+                  aspect=2, size=5, hspace=-0.63, cbar_vert=.2, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,80),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  drawbox=['all', z500_green_bb],
+                  drawbox=[(0,0), z500_green_bb],
                   clim=(-.6,.6))
 
-SST_green_bb = (170,255,11,60)
-subtitles = np.array([[f'lag {l}: SST vs eastern U.S. mx2t'] for l in rg.lags])
-rg.plot_maps_corr(var='sst', row_dim='lag', col_dim='split',
-                  aspect=2, hspace=-.57, size=5, cbar_vert=.175, save=True,
-                  subtitles=subtitles, units=units, zoomregion=(-180,360,-10,70),
+SST_green_bb = (140,235,20,59)#(170,255,11,60)
+subtitles = np.array([[f'lag {l}: SST vs eastern U.S. mx2t' for l in rg.lags]])
+rg.plot_maps_corr(var='sst', row_dim='split', col_dim='lag',
+                  aspect=2, hspace=-.57, wspace=-.22, size=3.5, cbar_vert=-.08, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(130,260,-10,60),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  drawbox=['all', SST_green_bb],
+                  n_xticks=6,
+                  drawbox=[(0,0), SST_green_bb],
                   clim=(-.6,.6))
 
 #%% Determine Rossby wave within green rectangle, become target variable for feedback
 
 rg.list_for_MI[0].selbox = v200_green_bb
 rg.list_for_MI[1].selbox = z500_green_bb
+rg.list_for_MI[2].selbox = SST_green_bb
+rg.lags_i = np.array([0]) ; rg.lags = np.array([0])
 
 rg.calc_corr_maps()#var='z500')
 # subtitles = np.array([['E-U.S. Temp. correlation map Z 500hpa green box']])
@@ -165,9 +168,49 @@ rg.get_ts_prec(precur_aggr=1)
 # rg.store_df()
 
 
-#%%
+#%% interannual variability events?
 import class_RV
 RV_ts = rg.fulltso.sel(time=rg.TV.aggr_to_daily_dates(rg.dates_TV))
 threshold = class_RV.Ev_threshold(RV_ts, event_percentile=85)
 RV_bin, np_dur = class_RV.Ev_timeseries(RV_ts, threshold=threshold, grouped=True)
 plt.hist(np_dur[np_dur!=0])
+
+#%%
+
+
+freqs = [1, 5, 15, 30, 60]
+for f in freqs:
+    rg.get_ts_prec(precur_aggr=f)
+    rg.df_data = rg.df_data.rename({'0..0..z500_sp':'Rossby wave (z500)',
+                               '0..0..sst_sp':'Pacific SST',
+                               '15..0..sst_sp':'Pacific SST (lag 15)',
+                               '0..0..v200_sp':'Rossby wave (v200)'}, axis=1)
+
+    keys = [['Rossby wave (z500)', 'Pacific SST'], ['Rossby wave (v200)', 'Pacific SST']]
+    k = keys[0]
+    name_k = ''.join(k[:2]).replace(' ','')
+    k.append('TrainIsTrue') ; k.append('RV_mask')
+
+    rg.PCMCI_df_data(keys=k,
+                     pc_alpha=None,
+                     tau_max=5,
+                     max_conds_dim=10,
+                     max_combinations=10)
+    rg.PCMCI_get_links(var=k[0], alpha_level=.01)
+
+    rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(3,2),
+                        kwrgs={'vmax_nodes':1.0,
+                               'vmax_edges':.6,
+                               'vmin_edges':-.6,
+                               'node_ticks':.3,
+                               'edge_ticks':.3,
+                               'curved_radius':.5,
+                               'arrowhead_size':1000,
+                               'label_fontsize':10,
+                               'link_label_fontsize':12,
+                               'node_label_size':16},
+                        append_figpath=f'_tf{rg.precur_aggr}_{name_k}')
+
+    rg.PCMCI_get_links(var=k[1], alpha_level=.01)
+    rg.df_links.astype(int).sum(0, level=1)
+    MCI_ALL = rg.df_MCIc.mean(0, level=1)
