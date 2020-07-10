@@ -690,6 +690,7 @@ def import_precur_ts(list_import_ts : List[tuple],
                      df_splits: pd.DataFrame,
                      start_end_date: Tuple[str, str],
                      start_end_year: Tuple[int, int],
+                     start_end_TVdate: Tuple[str, str],
                      cols: list=None,
                      precur_aggr: int=1):
     '''
@@ -774,7 +775,8 @@ def import_precur_ts(list_import_ts : List[tuple],
                     df_data_ext_s[s] = functions_pp.time_mean_bins(df_data_ext_s[s],
                                                          precur_aggr,
                                                         start_end_date,
-                                                        start_end_year)[0]
+                                                        start_end_year,
+                                                        closed_on_date=start_end_TVdate[-1])[0]
                 except KeyError as e:
                     print('KeyError captured, likely the requested dates '
                           'given by start_end_date and start_end_year are not'

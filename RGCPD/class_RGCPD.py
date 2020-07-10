@@ -420,7 +420,8 @@ class RGCPD:
                                                   self.start_end_date,
                                                   self.start_end_year,
                                                   cols=keys_ext,
-                                                  precur_aggr=self.precur_aggr)
+                                                  precur_aggr=self.precur_aggr,
+                                                  start_end_TVdate=self.start_end_TVdate)
             self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
 
 
@@ -666,7 +667,8 @@ class RGCPD:
                        hspace=-0.6, wspace=.02, size=2.5, cbar_vert=-0.01, units='units',
                        cmap=None, clevels=None, cticks_center=None, drawbox=None,
                        title=None, subtitles=None, zoomregion=None, lat_labels=True,
-                       aspect=None, n_xticks=5, n_yticks=3, save=False):
+                       aspect=None, n_xticks=5, n_yticks=3, save=False,
+                       append_str: str=None):
 
         if type(var) is str:
             var = [var]
@@ -695,7 +697,10 @@ class RGCPD:
                                     lat_labels=lat_labels, aspect=aspect,
                                     n_xticks=n_xticks, n_yticks=n_yticks)
             if save == True:
-                f_name = 'corr_map_{}'.format(precur_name)
+                if append_str is not None:
+                    f_name = 'corr_map_{}'.format(precur_name)+'_'+append_str
+                else:
+                    f_name = 'corr_map_{}'.format(precur_name)
 
                 fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
                 plt.savefig(fig_path, bbox_inches='tight')

@@ -57,8 +57,11 @@ list_for_MI   = [BivariateMI(name='Pacific SST', func=BivariateMI.corr_map,
                                 calc_ts='pattern cov',
                                 selbox=(0,360,10,90))]
 
+list_import_ts = [('versusmx2t', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-09_09hr_48min_df_data_v200_z500_sst_dt1_0ff31.h5')]
+
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
+           list_import_ts=list_import_ts,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
            tfreq=tfreq, lags_i=np.array([0]),
@@ -82,7 +85,7 @@ rg.traintest(method='random10')
 rg.calc_corr_maps()
 
 greenrectangle_WestUS_bb = (160,235,24,62)
-subtitles = np.array([['SST vs spat. covariance Rossby wave (z500)']])
+subtitles = np.array([['SST vs Rossby wave (z500)']])
 units = 'Corr. Coeff. [-]'
 
 rg.plot_maps_corr(var='Pacific SST',
@@ -92,40 +95,45 @@ rg.plot_maps_corr(var='Pacific SST',
                   drawbox=['all', greenrectangle_WestUS_bb],
                   clim=(-.6,.6))
 
+z500_boxPac = (140,260,20,62)
+subtitles = np.array([['z500 vs Rossby wave (z500)']])
 rg.plot_maps_corr(var='z500',
                   aspect=2, size=5, cbar_vert=.19, save=True,
                   subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
-                  drawbox=['all', greenrectangle_WestUS_bb],
-                  clim=(-.6,.6))
+                  drawbox=['all', z500_boxPac], clim=(-.6,.6),
+                  append_str=''.join(map(str, z500_boxPac)))
 
  #%%
 rg.list_for_MI[0].selbox = greenrectangle_WestUS_bb
-rg.list_for_MI[0].calc_ts = 'pattern cov'
+rg.list_for_MI[1].selbox = z500_boxPac
 
-rg.calc_corr_maps(var='Pacific SST')
-rg.cluster_list_MI(var='Pacific SST')
-rg.quick_view_labels(var='Pacific SST', median=True)
-rg.get_ts_prec(precur_aggr=1)
-rg.store_df()
-#%%
+rg.calc_corr_maps()
 rg.cluster_list_MI()
-rg.list_for_MI[0].calc_ts = 'pattern cov'
+rg.quick_view_labels(median=True)
+# rg.get_ts_prec(precur_aggr=1)
+# rg.store_df()
+#%%
+# rg.cluster_list_MI()
+# rg.list_for_MI[0].calc_ts = 'pattern cov'
 freqs = [1, 5, 15, 30, 60]
 for f in freqs:
     rg.get_ts_prec(precur_aggr=f)
-    rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':'Rossby wave', '0..0..Pacific SST_sp':'Pacific SST'}, axis=1)
+    rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':'Rossby Wave (z500)',
+                                    '0..0..Pacific SST_sp':'SSTvsZ500'}, axis=1)
 
-    keys = ['Rossby wave',
-           'Pacific SST', 'TrainIsTrue',
-           'RV_mask']
 
-    rg.PCMCI_df_data(keys=keys,
+    keys = [['RW (z500) 1453252062', 'SSTvsZ500'], ['RW (z500) 1453252062', 'SSTvsmx2t']]
+    k = keys[0]
+    k.append('TrainIsTrue') ; k.append('RV_mask')
+    name_k = ''.join(k[:2]).replace(' ','')
+
+    rg.PCMCI_df_data(keys=k,
                      pc_alpha=None,
                      tau_max=5,
                      max_conds_dim=10,
                      max_combinations=10)
-    rg.PCMCI_get_links(var=keys[0], alpha_level=.01)
+    rg.PCMCI_get_links(var=k[0], alpha_level=.01)
 
     rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(3,2),
                         kwrgs={'vmax_nodes':1.0,
@@ -138,11 +146,17 @@ for f in freqs:
                                'label_fontsize':10,
                                'link_label_fontsize':12,
                                'node_label_size':16},
-                        append_figpath=f'_all_dates_tf{rg.precur_aggr}')
+                        append_figpath=f'_tf{rg.precur_aggr}_{name_k}')
 
-    rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
+    rg.PCMCI_get_links(var=k[1], alpha_level=.01)
     rg.df_links.mean(0, level=1)
     MCI_ALL = rg.df_MCIc.mean(0, level=1)
+
+
+#%%
+import func_models
+df = func_models.standardize_on_train(rg.df_data[k].loc[0], rg.df_data.loc[0]['TrainIsTrue'])
+df[df['SSTvsZ500'].shift(-3) > 1][k[:-2]].hist()
 
 # df_ParCorr_sum = rg.PCMCI_get_ParCorr_from_txt()
 

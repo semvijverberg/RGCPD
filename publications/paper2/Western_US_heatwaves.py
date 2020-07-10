@@ -88,57 +88,61 @@ rg.calc_corr_maps()
 
 
 
-rg.get_EOFs()
-E = rg.list_for_EOFS[0]
-secondEOF = E.eofs[0][1]
-subtitles = np.array([['v-wind 200hpa 2nd EOF pattern']])
-plot_maps.plot_corr_maps(secondEOF, aspect=2.5, size=5, cbar_vert=.07,
-                  subtitles=subtitles, units='-', zoomregion=(-180,360,0,80),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6)
-plt.savefig(os.path.join(rg.path_outsub1, 'EOF_2_v_wind')+'pdf')
+# rg.get_EOFs()
+# E = rg.list_for_EOFS[0]
+# secondEOF = E.eofs[0][1]
+# subtitles = np.array([['v-wind 200hpa 2nd EOF pattern']])
+# plot_maps.plot_corr_maps(secondEOF, aspect=2.5, size=5, cbar_vert=.07,
+#                   subtitles=subtitles, units='-', zoomregion=(-180,360,0,80),
+#                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6)
+# plt.savefig(os.path.join(rg.path_outsub1, 'EOF_2_v_wind')+'pdf')
 
-firstEOF = E.eofs[0][0]
-subtitles = np.array([['v-wind 200hpa 1st EOF pattern']])
-plot_maps.plot_corr_maps(firstEOF, aspect=2.5, size=5, cbar_vert=.07,
-                  subtitles=subtitles, units='-', zoomregion=(-180,360,0,80),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6)
-plt.savefig(os.path.join(rg.path_outsub1, 'EOF_1_v_wind')+'pdf')
+# firstEOF = E.eofs[0][0]
+# subtitles = np.array([['v-wind 200hpa 1st EOF pattern']])
+# plot_maps.plot_corr_maps(firstEOF, aspect=2.5, size=5, cbar_vert=.07,
+#                   subtitles=subtitles, units='-', zoomregion=(-180,360,0,80),
+#                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6)
+# plt.savefig(os.path.join(rg.path_outsub1, 'EOF_1_v_wind')+'pdf')
 
 
-greenrectangle_WestUS_v200 = (100,330,24,70)
+v200_box = (100,330,24,70)
 units = 'Corr. Coeff. [-]'
 subtitles = np.array([[f'lag {l}: v-wind 200hpa vs western U.S. mx2t'] for l in rg.lags])
 rg.plot_maps_corr(var='v200', row_dim='lag', col_dim='split',
                   aspect=2, size=5, hspace=-0.58, cbar_vert=.18, save=True,
                   subtitles=subtitles, units=units, zoomregion=(-180,360,0,80),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  drawbox=[(0,0), greenrectangle_WestUS_v200],
+                  drawbox=[(0,0), v200_box],
                   clim=(-.6,.6))
 
-greenrectangle_WestUS_bb = (140,260,20,62)
+z500_boxPac = (140,260,20,62)
+z500_boxRW = (145,325,20,62)
+
 subtitles = np.array([[f'lag {l}: z 500hpa vs western U.S. mx2t'] for l in rg.lags])
 rg.plot_maps_corr(var='z500', row_dim='lag', col_dim='split',
                   aspect=2, size=5, hspace=-0.63, cbar_vert=.2, save=True,
                   subtitles=subtitles, units=units, zoomregion=(-180,360,10,80),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  drawbox=[(0,0), greenrectangle_WestUS_bb],
-                  clim=(-.6,.6))
+                  drawbox=[(0,0), z500_boxPac], clim=(-.6,.6),
+                  append_str=''.join(map(str, z500_boxPac)))
 
-greenrectangle_WestSST_bb = (140,235,20,59)#(145,235,15,60)
+SST_box = (140,235,20,59)
 subtitles = np.array([[f'lag {l}: SST vs western U.S. mx2t' for l in rg.lags]])
 rg.plot_maps_corr(var='sst', row_dim='split', col_dim='lag',
                   aspect=2, hspace=-.57, wspace=-.22, size=3.5, cbar_vert=-.08, save=True,
                   subtitles=subtitles, units=units, zoomregion=(130,260,-10,60),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
                   n_xticks=6,
-                  drawbox=[(0,0), greenrectangle_WestSST_bb],
+                  drawbox=[(0,0), SST_box],
                   clim=(-.6,.6))
 
 #%%
-
-rg.list_for_MI[0].selbox = greenrectangle_WestUS_v200
-rg.list_for_MI[1].selbox = greenrectangle_WestUS_bb
-rg.list_for_MI[2].selbox = greenrectangle_WestSST_bb
+# rg.list_for_MI[0].name += ''.join(map(str, v200_box))
+rg.list_for_MI[0].selbox = v200_box
+# rg.list_for_MI[1].name += ''.join(map(str, z500_boxRW))
+rg.list_for_MI[1].selbox = z500_boxRW
+# rg.list_for_MI[2].name += ''.join(map(str, SST_box))
+rg.list_for_MI[2].selbox = SST_box
 rg.lags_i = np.array([0]) ; rg.lags = np.array([0])
 rg.list_for_EOFS = None
 rg.calc_corr_maps()
@@ -163,7 +167,7 @@ list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
                              kwrgs_func={'alpha':.01, 'FDR_control':True},
                              distance_eps=500, min_area_in_degrees2=1,
                              calc_ts=dim_reduction[0],
-                             selbox=greenrectangle_WestUS_bb)]
+                             selbox=z500_box)]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
@@ -203,12 +207,12 @@ plt.hist(np_dur[np_dur!=0])
 freqs = [1, 5, 15, 30, 60]
 for f in freqs:
     rg.get_ts_prec(precur_aggr=f)
-    rg.df_data = rg.df_data.rename({'0..0..z500_sp':'Rossby wave (z500)',
+    rg.df_data = rg.df_data.rename({'0..0..z500_sp':'RW (z500) '+''.join(map(str, rg.list_for_MI[1].selbox)) ,
                                '0..0..sst_sp':'Pacific SST',
                                '15..0..sst_sp':'Pacific SST (lag 15)',
                                '0..0..v200_sp':'Rossby wave (v200)'}, axis=1)
 
-    keys = [['Rossby wave (z500)', 'Pacific SST'], ['Rossby wave (v200)', 'Pacific SST']]
+    keys = [['RW (z500) 1453252062', 'Pacific SST'], ['Rossby wave (v200)', 'Pacific SST']]
     k = keys[0]
     k.append('TrainIsTrue') ; k.append('RV_mask')
     name_k = ''.join(k[:2]).replace(' ','')

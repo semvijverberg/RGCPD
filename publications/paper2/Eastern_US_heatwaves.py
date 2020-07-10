@@ -26,6 +26,7 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
+from RGCPD import EOF
 import plot_maps
 
 
@@ -58,9 +59,14 @@ list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map,
                                 distance_eps=600, min_area_in_degrees2=1,
                                 calc_ts='pattern cov', selbox=(120,260,-10,90))]
 
+list_for_EOFS = [EOF(name='v200', neofs=3, selbox=[140, 300, 10, 80],
+                     n_cpu=1, start_end_date=start_end_TVdate),
+                 EOF(name='z500', neofs=3, selbox=[140, 300, 10, 80],
+                     n_cpu=1, start_end_date=start_end_TVdate)]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
+            list_for_EOFS=list_for_EOFS,
             start_end_TVdate=start_end_TVdate,
             start_end_date=start_end_date,
             start_end_year=None,
@@ -80,10 +86,18 @@ subtitles = np.array([['Clustered simultaneous high temp. events']])
 plot_maps.plot_labels(rg.ds['xrclustered'], kwrgs_plot={'subtitles':subtitles})
 
 
-import cartopy.crs as ccrs
-rg.calc_corr_maps()
-# rg.get_EOFs()
+import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
 
+rg.get_EOFs()
+
+firstEOF = rg.list_for_EOFS[1].eofs.mean(dim='split')[0]
+subtitles = np.array([['z 500hpa 1st EOF pattern']])
+plot_maps.plot_corr_maps(firstEOF, aspect=2, size=5, cbar_vert=.07,
+                  subtitles=subtitles, units='-', #zoomregion=(-180,360,0,80),
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6)
+plt.savefig(os.path.join(rg.path_outsub1, 'EOF_1_z500')+'pdf')
+
+rg.calc_corr_maps()
 
 v200_green_bb = (170,359,23,73)
 units = 'Corr. Coeff. [-]'
@@ -121,10 +135,10 @@ rg.list_for_MI[1].selbox = z500_green_bb
 rg.list_for_MI[2].selbox = SST_green_bb
 rg.lags_i = np.array([0]) ; rg.lags = np.array([0])
 
-rg.calc_corr_maps()#var='z500')
+rg.calc_corr_maps(['v200','sst'])#var='z500')
 # subtitles = np.array([['E-U.S. Temp. correlation map Z 500hpa green box']])
 # rg.plot_maps_corr(var='z500', cbar_vert=-.05, subtitles=subtitles, save=False)
-rg.cluster_list_MI()#var='z500')
+rg.cluster_list_MI(['v200','sst'])#var='z500')
 # rg.get_ts_prec(precur_aggr=None)
 rg.get_ts_prec(precur_aggr=1)
 rg.store_df()
@@ -132,7 +146,7 @@ rg.store_df()
 
 list_of_name_path = [(cluster_label, TVpath),
                      ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
-                     ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),]
+                     ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
 list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
                              kwrgs_func={'alpha':.01, 'FDR_control':True},
