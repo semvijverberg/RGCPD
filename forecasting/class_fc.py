@@ -41,6 +41,7 @@ class fcev():
     def __init__(self, path_data, precur_aggr: int=None, TV_aggr: int=None,
                    use_fold: List[Union[int]]=None,
                    start_end_TVdate: Tuple[str, str]=None,
+                   start_end_PRdate: Tuple[str,str]=None,
                    stat_model: Tuple[str, dict]=('logit', None),
                    kwrgs_pp: dict={}, causal: bool=False,
                    dataset: str=None,
@@ -48,13 +49,63 @@ class fcev():
                    n_cpu: int=None,
                    verbosity: int=0):
         '''
-        Instance for certain dataset with keys and list of stat models
 
-        start_end_TVdate : tuple, optional
+
+        Parameters
+        ----------
+        path_data : str
+            path pointing towards a .h5 data object.
+        precur_aggr : int, optional
+            Aggregate precursor (and target if TV_aggr is not given) to n-day means.
+            The default is 1.
+        TV_aggr : int, optional
+            If TV_aggr is given, TV is aggregated over different range than
+            the precursor (latter defined by precur_aggr). The default is None.
+        use_fold : List[Union[int]], optional
+            select a single fold training of a range of training. The default is None.
+        start_end_TVdate : Tuple[str, str], optional
             tuple of start- and enddate for target variable in
-            format ('mm-dd', 'mm-dd'). default is the RV_mask present in the
-            .h5 dataframe 'df_data'
+            format ('mm-dd', 'mm-dd'). Default is the RV_mask present in the
+            .h5 dataframe 'df_data'.
+        start_end_PRdate : Tuple[str,str], optional
+            tuple of start- and enddate for precursor in
+            format ('mm-dd', 'mm-dd'). This can be use to do annual mean
+            forecasts of the target (TV period), overwrites lags_i.
+        stat_model : Tuple[str, dict], optional
+            tuple of name user gives to model function written in stat_models.py
+            and a dictionairy (kwrgs) of the arguments that are needed for that
+            function. The default is ('logit', sklearn.logit()).
+        kwrgs_pp : dict, optional
+            dictionary with arguments for preprocessing of input data,
+            see class_fc.prepare_data() for options.
+        causal : bool, optional
+            DESCRIPTION. The default is False.
+        dataset : str, optional
+            user-given name of dataset that is used. The default is None.
+        keys_d : Union[dict,str], optional
+            Different options possible:
+            (1) Either selecting all keys in the pd.DataFrame or
+            (2) Expecting dict with traintest number as key and associated
+            list of keys.
+            (3) Expecting tuple with str name and dict with traintest number
+            as key and associated list of keys.
+            (4) Give string that links to exp_fc.py to extract manual subset
+            of keys.
+            The default (None) links to option 1.
+        n_cpu : int, optional
+            Parallel computation of different train-test splits.
+            Default is using all -1 cpu's available.
+        verbosity : int, optional
+            Higher number determines (to some extent) how much feedback in the
+            form of printed text is given to the user. The default is 0.
+
+
+        Returns
+        -------
+        Initialized instance of class_fc.
+
         '''
+
 
 
         fcev.number_of_times_called += 1
@@ -87,16 +138,19 @@ class fcev():
         #     print(f'removing fold {self.fold}')
         #     self.df_data =self._remove_folds()
         if self.fold is None:
-            self.df_data = self.df_data_orig
+            self.df_data = self.df_data_orig.copy()
 
         self.dates_df  = self.df_data.loc[0].index.copy()
         self.precur_aggr = precur_aggr
         self.TV_aggr = TV_aggr
         self.splits  = self.df_data.index.levels[0]
         self.tfreq = (self.df_data.loc[0].index[1] - self.df_data.loc[0].index[0]).days
+        self.start_end_PRdate = start_end_PRdate
+
 
         if start_end_TVdate is not None:
             fcev._redefine_RV_mask(self, start_end_TVdate=start_end_TVdate)
+
 
         self.RV_mask = self.df_data['RV_mask']
         self.TrainIsTrue = self.df_data['TrainIsTrue']
@@ -189,14 +243,19 @@ class fcev():
 
 
         # aggregation from daily to n-day means
-        if self.TV_aggr is None and self.precur_aggr is not None:
-            self.TV_aggr = self.precur_aggr
-        if self.TV_aggr is not None:
-            self.df_TV, dates_tobin = _daily_to_aggr(self.df_TV, self.TV_aggr)
+        if self.start_end_PRdate is None:
+            if self.TV_aggr is None and self.precur_aggr is not None:
+                self.TV_aggr = self.precur_aggr
+            if self.TV_aggr is not None:
+                self.df_TV, dates_tobin = _daily_to_aggr(self.df_TV, self.TV_aggr)
+            else:
+                dates_tobin = None
         else:
-            dates_tobin = None
-
-
+            # annual mean forecast of TV, converting start_end_TVdate to 1 value
+            # per year.
+            self.df_TV = start_end_date_mean(self.df_TV,
+                                             start_end_date=self.start_end_TVdate)
+            dates_tobin = self.start_end_PRdate # will no longer aggerated to bins,
 
 
 
@@ -223,10 +282,11 @@ class fcev():
                            fit_model_dates=None)
         TV.TrainIsTrue = self.df_TV['TrainIsTrue']
         TV.RV_mask = self.df_TV['RV_mask']
-        TV.dates_tobin = dates_tobin
-        TV.dates_tobin_TV = TV.aggr_to_daily_dates(TV.dates_RV)
         TV.name = TV.RV_ts.columns[0]
         TV.get_obs_clim()
+        TV.dates_tobin = dates_tobin
+        if self.start_end_PRdate is None:
+            TV.dates_tobin_TV = TV.aggr_to_daily_dates(TV.dates_RV)
         self.TV = TV
         return
 
@@ -851,7 +911,7 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
         # in days of 5, 15, 25.
         fit_masks = df_split.loc[:,['TrainIsTrue', 'RV_mask']].copy()
         fit_masks = apply_shift_lag(fit_masks, lag_i)
-    else:
+    elif type(dates_tobin) == pd.DatetimeIndex:
         # df_data contain daily data, we can shift dates_tobin to allow any
         # lag in days w.r.t. target variable
         dates_TV = y_ts['cont'].index
@@ -875,6 +935,10 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
             assert lag_v == lag_i+base_lag, (
                 f'lag center precur vs center TV is {lag_v} days, with '
                 f'lag_i {lag_i} and base_lag {base_lag}')
+    elif type(dates_tobin) is tuple:
+        df_prec = start_end_date_mean(df_prec,
+                            start_end_date=dates_tobin)
+        fit_masks = apply_shift_lag(df_prec[['TrainIsTrue', 'RV_mask']], 0)
 
 
     df_prec = df_prec[x_keys]
@@ -1034,3 +1098,33 @@ def _daily_to_aggr(df_data, daily_to_aggr=int):
                                                        start_end_year=None,
                                                        verbosity=0)
     return df_data_resample, dates_tobin
+
+def start_end_date_mean(df_data, start_end_date):
+
+    # create mask to aggregate
+    if hasattr(df_data.index, 'levels'):
+        pd_dates = df_data.loc[0].index
+    else:
+        pd_dates = df_data.index
+    subset_dates = core_pp.get_subdates(pd_dates , start_end_date)
+    dates_to_aggr_mask = pd.Series(np.repeat(False, pd_dates.size), index=pd_dates)
+    dates_to_aggr_mask.loc[subset_dates] = True
+    if hasattr(df_data.index, 'levels'):
+        years = df_data.loc[0][dates_to_aggr_mask].index.year
+    else:
+        years = df_data[dates_to_aggr_mask].index.year
+    index = [functions_pp.get_oneyr(subset_dates, yr).mean() for yr in np.unique(years)]
+
+    if hasattr(df_data.index, 'levels'):
+        splits = df_data.index.levels[0]
+        df_data_s   = np.zeros( (splits.size) , dtype=object)
+        for s in splits:
+            df_s = df_data.loc[s]
+            df_s = df_s[dates_to_aggr_mask].groupby(years).mean()
+            df_s.index = pd.to_datetime(index)
+            df_data_s[s] = df_s
+        df_data_resample  = pd.concat(list(df_data_s), keys= range(splits.size))
+    else:
+         df_data_resample = df_data[dates_to_aggr_mask].groupby(years).mean()
+         df_data_resample.index = pd.to_datetime(index)
+    return df_data_resample

@@ -275,7 +275,7 @@ class RGCPD:
         # Test if you're not have a lag that will precede the start date of the year
         # =============================================================================
         # first date of year to be analyzed:
-        if self.input_freq == 'daily':
+        if self.input_freq == 'daily' or self.input_freq == 'annual':
             f = 'D'
         elif self.input_freq != 'monthly':
             f = 'M'
@@ -404,8 +404,11 @@ class RGCPD:
         if self.list_for_MI is not None:
             print('\nGetting MI timeseries')
             for i, precur in enumerate(self.list_for_MI):
-                precur.get_prec_ts(precur_aggr=precur_aggr,
+                if hasattr(precur, 'prec_labels'):
+                    precur.get_prec_ts(precur_aggr=precur_aggr,
                                    kwrgs_load=self.kwrgs_load)
+                else:
+                    print(f'{precur.name} not clustered yet')
             df_data_MI = find_precursors.df_data_prec_regs(self.list_for_MI,
                                                              TV,
                                                              df_splits)
@@ -610,6 +613,25 @@ class RGCPD:
 
     def quick_view_labels(self, var=None, map_proj=None, median=True,
                           save=False):
+        '''
+
+
+        Parameters
+        ----------
+        var : TYPE, optional
+            DESCRIPTION. The default is None.
+        map_proj : TYPE, optional
+            DESCRIPTION. The default is None.
+        median : TYPE, optional
+            DESCRIPTION. The default is True.
+        save : TYPE, optional
+            DESCRIPTION. The default is False.
+
+        Returns
+        -------
+        None.
+
+        '''
 
         if type(var) is str:
             var = [var]

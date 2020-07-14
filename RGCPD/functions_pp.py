@@ -451,7 +451,9 @@ def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
                            format_lon='only_east'):
 
     ds = core_pp.import_ds_lazy(filepath, loadleap=loadleap,
-                                seldates=seldates, selbox=selbox,
+                                seldates=seldates,
+                                start_end_year=start_end_year,
+                                selbox=selbox,
                                 format_lon=format_lon)
 
     to_freq = tfreq

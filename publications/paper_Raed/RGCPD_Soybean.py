@@ -27,25 +27,30 @@ from RGCPD import BivariateMI
 TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/q50_nc4_dendo_707fb.nc')
 cluster_label = 3
 name_ds='ts'
-start_end_TVdate = ('01-01', '05-31')
+start_end_TVdate = ('06-01', '09-30')
 start_end_date = None
 start_end_year = (1980, 2015)
-tfreq = 150
+tfreq = 100
 #%%
 list_of_name_path = [(cluster_label, TVpath),
-                      ('sst', os.path.join(path_raw, 'sst_1980-2015_1_12_daily_1.0deg.nc'))]
+                      ('sst', os.path.join(path_raw, 'sst_1980-2015_1_12_daily_1.0deg.nc')),
+                      ('sm', os.path.join(path_raw, 'sm23add_1979-2018_1_12_daily_1.0deg.nc'))]
 
 list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map,
                              kwrgs_func={'alpha':.05, 'FDR_control':True},
-                             distance_eps=1500, min_area_in_degrees2=5)]
+                             distance_eps=1000, min_area_in_degrees2=5,
+                             selbox=(-180,360,-10,90)),
+                 BivariateMI(name='sm', func=BivariateMI.corr_map,
+                             kwrgs_func={'alpha':.05, 'FDR_control':True},
+                             distance_eps=1000, min_area_in_degrees2=5)]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
                list_for_MI=list_for_MI,
                start_end_TVdate=start_end_TVdate,
                start_end_date=start_end_date,
                start_end_year=start_end_year,
-               tfreq=tfreq, lags_i=np.array([0]),
-               path_outmain=user_dir+'/surfdrive/output_RGCPD')
+               tfreq=tfreq, lags_i=np.array([0,1]),
+               path_outmain=curr_dir+'/output/')
 
 rg.plot_df_clust()
 
@@ -71,15 +76,10 @@ rg.pp_precursors(selbox=selbox, anomaly=anomaly)
 
 # In[165]:
 
-rg.traintest(method='leave_5', kwrgs_events=None)
+rg.traintest(method='leave_4', kwrgs_events=None)
 
-
-
-# In[166]:
-
-
-rg.calc_corr_maps()
-rg.plot_maps_corr()
+rg.calc_corr_maps('sst')
+rg.plot_maps_corr('sst', save=True)
 
 # In[167]:
 
@@ -90,7 +90,7 @@ rg.cluster_list_MI()
 # In[168]:
 
 
-rg.quick_view_labels()
+rg.quick_view_labels(save=True)
 
 #%%
 
@@ -119,27 +119,37 @@ print(rg.df_links.mean(0,level=1))
 rg.get_ts_prec(precur_aggr=1)
 rg.store_df()
 
-from class_fc import fcev
+
 
 
 #%%
+from class_fc import fcev
 from time import time
 start_time = time()
 
-ERA_data = rg.path_df_data
+# ERA_data = rg.path_df_data
+ERA_data = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper_Raed/output/3ts_707fb_18mar-18mar_lag0-0_leave_2s1/2020-07-13_12hr_08min_df_data_sst_dt1_707fb.h5'
+ERA_data2lags = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper_Raed/output/3ts_707fb_12aug-12aug_lag0-100_leave_4s1/2020-07-13_15hr_51min_df_data_sst_sm_dt1_707fb.h5'
+
 
 kwrgs_events = {'event_percentile': 50}
 
 kwrgs_events = kwrgs_events
-precur_aggr = 150
 use_fold = None
-n_boot = 10
-lags_i = np.array([0])
-start_end_TVdate = ('01-01', '05-31')
+n_boot = 2000
+start_end_TVdate = ('07-01', '10-31')
+start_end_PRdate_JJAS = ('06-01', '09-30')
+start_end_PRdate_FMAM = ('02-01', '05-31')
 
-
-fc = fcev(path_data=ERA_data, precur_aggr=precur_aggr,
-                    use_fold=use_fold, start_end_TVdate=start_end_TVdate,
+SST_L0 = ['0..1..sst', '0..2..sst', '0..3..sst', '0..4..sst', '0..5..sst',
+          '0..8..sst', '0..9..sst', '0..10..sst', '0..11..sst', '0..6..sst',
+          '0..12..sst', '0..13..sst', '0..7..sst']
+SST_L1 = ['100..1..sst', '100..2..sst', '100..3..sst', '100..4..sst',
+          '100..5..sst', '100..9..sst', '100..10..sst', '100..11..sst', '100..12..sst']
+list_of_fc = [fcev(path_data=ERA_data2lags,
+                    use_fold=use_fold,
+                    start_end_TVdate=start_end_PRdate_JJAS,
+                    start_end_PRdate=start_end_PRdate_JJAS,
                     stat_model= ('logitCV',
                                 {'Cs':10, #np.logspace(-4,1,10)
                                 'class_weight':{ 0:1, 1:1},
@@ -148,35 +158,54 @@ fc = fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                                   'solver':'lbfgs',
                                   'max_iter':100,
                                   'kfold':5,
-                                  'seed':2}),
-                    kwrgs_pp={'add_autocorr':True, 'normalize':'datesRV'},
+                                  'seed':1}),
+                    kwrgs_pp={'add_autocorr':False, 'normalize':'all'},
                     dataset='',
-                    keys_d='CPPA+PEP+sm')
+                    keys_d=('SST from JJAS', dict(zip(np.arange(9), [SST_L0]*9)))),
+              fcev(path_data=ERA_data2lags,
+                    use_fold=use_fold,
+                    start_end_TVdate=start_end_PRdate_FMAM,
+                    start_end_PRdate=start_end_PRdate_FMAM,
+                    stat_model= ('logitCV',
+                                {'Cs':10, #np.logspace(-4,1,10)
+                                'class_weight':{ 0:1, 1:1},
+                                  'scoring':'neg_brier_score',
+                                  'penalty':'l2',
+                                  'solver':'lbfgs',
+                                  'max_iter':100,
+                                  'kfold':5,
+                                  'seed':1}),
+                    kwrgs_pp={'add_autocorr':False, 'normalize':'all'},
+                    dataset='',
+                    keys_d=('SST from FMAM', dict(zip(np.arange(9), [SST_L1]*9))))]
 
-fc.get_TV(kwrgs_events=kwrgs_events, detrend=False)
+for fc in list_of_fc:
+    fc.get_TV(kwrgs_events=kwrgs_events, detrend=False)
 
-fc.fit_models(lead_max=lags_i, verbosity=1)
+    fc.fit_models(lead_max=np.array([0]), verbosity=1)
 
-fc.perform_validation(n_boot=n_boot, blocksize='auto', alpha=0.05,
-                          threshold_pred=50)
+    fc.perform_validation(n_boot=n_boot, blocksize='auto', alpha=0.05,
+                              threshold_pred=50)
 
-working_folder, filename = fc._print_sett(list_of_fc=[fc])
+# In[8]:
+# list_of_fc = [fc]
+working_folder, pathexper = list_of_fc[0]._print_sett(list_of_fc=list_of_fc)
 
 store = False
 if __name__ == "__main__":
-    filename = fc.filename
+    pathexper = list_of_fc[0].pathexper
     store = True
 
 import valid_plots as dfplots
 import functions_pp
 
 
-dict_all = dfplots.merge_valid_info([fc], store=store)
+dict_all = dfplots.merge_valid_info(list_of_fc, store=store)
 if store:
-    dict_merge_all = functions_pp.load_hdf5(filename+'.h5')
+    dict_merge_all = functions_pp.load_hdf5(pathexper+'/data.h5')
 
 
-lag_rel = 35
+lag_rel = 0
 kwrgs = {'wspace':0.16, 'hspace':.25, 'col_wrap':2, 'skip_redundant_title':True,
          'lags_relcurve':[lag_rel], 'fontbase':14, 'figaspect':2}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
@@ -191,7 +220,7 @@ fig = dfplots.valid_figures(dict_merge_all,
 
 
 f_format = '.pdf'
-pathfig_valid = os.path.join(filename + f_format)
+pathfig_valid = os.path.join(pathexper,'verification' + f_format)
 fig.savefig(pathfig_valid,
             bbox_inches='tight') # dpi auto 600
 

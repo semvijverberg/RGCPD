@@ -35,7 +35,8 @@ def get_oneyr(pddatetime, *args):
 
 def import_ds_lazy(filename, loadleap=False,
                    seldates: Union[tuple, pd.core.indexes.datetimes.DatetimeIndex]=None,
-                   selbox: Union[list, tuple]=None, format_lon='only_east', var=None,
+                   start_end_year: tuple=None, selbox: Union[list, tuple]=None,
+                   format_lon='only_east', var=None,
                    verbosity=0):
 
     '''
@@ -95,16 +96,15 @@ def import_ds_lazy(filename, loadleap=False,
     if 'time' in ds.squeeze().dims:
         ds = ds_num2date(ds, loadleap=loadleap)
 
-        if seldates is None:
-            pass
-        elif type(seldates) is tuple:
+        if type(seldates) is tuple or start_end_year is not None:
             pddates = get_subdates(dates=pd.to_datetime(ds.time.values),
                          start_end_date=seldates,
-                         start_end_year=None, lpyr=loadleap
-                         )
+                         start_end_year=start_end_year, lpyr=loadleap)
             ds = ds.sel(time=pddates)
-        else:
+        elif type(seldates) is pd.DatetimeIndex:
+            # seldates are pd.DatetimeIndex
             ds = ds.sel(time=seldates)
+
 
     if type(ds) == type(xr.DataArray(data=[0])):
         ds.attrs['is_DataArray'] = 1
@@ -637,6 +637,12 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
         startyr = start_end_year[0]
         endyr   = start_end_year[1]
 
+    if start_end_date is None:
+        start_end_date = (('{:02d}-{:02d}'.format(dates[0].month,
+                                                    dates[0].day)),
+                         ('{:02d}-{:02d}'.format(dates[-1].month,
+                                                    dates[-1].day)))
+
     sstartdate = pd.to_datetime(str(startyr) + '-' + start_end_date[0])
     senddate_   = pd.to_datetime(str(startyr) + '-' + start_end_date[1])
 
@@ -648,7 +654,7 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
 
     # dont get following
 #    firstyr = oneyr(oneyr_dates)
-    firstyr = oneyr(dates)
+    firstyr = get_oneyr(dates, startyr)
     #find closest senddate
     closest_enddate_idx = np.argmin(abs(firstyr - senddate_))
     senddate = firstyr[closest_enddate_idx]
