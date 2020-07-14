@@ -31,6 +31,7 @@ import functions_pp, core_pp
 
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/1ts_0ff31_10jun-24aug_lag0-0_ts_no_train_test_splits1/2020-06-11_15hr_16min_df_data_z500_dt1_0ff31.h5'
+TVpathRV= '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_08min_df_data_v200_z500_dt1_0ff31_z500_145-325-20-62.h5'
 path_out_main = os.path.join(main_dir, 'publications/paper2/output/west/')
 name_or_cluster_label = 'z500'
 name_ds='0..0..z500_sp'
@@ -42,22 +43,22 @@ tfreq = 15
 
 #%%
 
-list_of_name_path = [(name_or_cluster_label, TVpath),
+list_of_name_path = [(name_or_cluster_label, TVpathRV),
                      ('Pacific SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
 list_for_MI   = [BivariateMI(name='Pacific SST', func=BivariateMI.corr_map,
-                              kwrgs_func={'alpha':.01, 'FDR_control':True},
+                              kwrgs_func={'alpha':.05, 'FDR_control':True},
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov',
-                              selbox=(0,360,10,90)),
+                              selbox=(130,250,-10,90)),
                  BivariateMI(name='z500', func=BivariateMI.corr_map,
-                                kwrgs_func={'alpha':.01, 'FDR_control':True},
+                                kwrgs_func={'alpha':.05, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
                                 calc_ts='pattern cov',
-                                selbox=(0,360,10,90))]
+                                selbox=(0,360,-10,90), use_sign_pattern=True)]
 
-list_import_ts = [('versusmx2t', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-09_09hr_48min_df_data_v200_z500_sst_dt1_0ff31.h5')]
+list_import_ts = None #[('versusmx2t', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-09_09hr_48min_df_data_v200_z500_sst_dt1_0ff31.h5')]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
@@ -84,15 +85,15 @@ rg.traintest(method='random10')
 
 rg.calc_corr_maps()
 
-greenrectangle_WestUS_bb = (160,235,24,62)
+SST_WestUS_bb = (140,235,20,59)
 subtitles = np.array([['SST vs Rossby wave (z500)']])
 units = 'Corr. Coeff. [-]'
-
-rg.plot_maps_corr(var='Pacific SST',
-                  aspect=2, size=5, cbar_vert=.19, save=True,
-                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
-                  drawbox=['all', greenrectangle_WestUS_bb],
+rg.plot_maps_corr(var='Pacific SST', row_dim='split', col_dim='lag',
+                  aspect=2, hspace=-.57, wspace=-.22, size=3.5, cbar_vert=-.08, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(130,260,-10,60),
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
+                  n_xticks=6,
+                  drawbox=[(0,0), SST_WestUS_bb],
                   clim=(-.6,.6))
 
 z500_boxPac = (140,260,20,62)
@@ -105,25 +106,28 @@ rg.plot_maps_corr(var='z500',
                   append_str=''.join(map(str, z500_boxPac)))
 
  #%%
-rg.list_for_MI[0].selbox = greenrectangle_WestUS_bb
-rg.list_for_MI[1].selbox = z500_boxPac
+# rg.list_for_MI[0].selbox = greenrectangle_WestUS_bb
+rg.list_for_MI = [BivariateMI(name='Pacific SST', func=BivariateMI.corr_map,
+                              kwrgs_func={'alpha':.05, 'FDR_control':True},
+                              distance_eps=500, min_area_in_degrees2=5,
+                              calc_ts='pattern cov', selbox=SST_WestUS_bb)]
 
-rg.calc_corr_maps()
-rg.cluster_list_MI()
+rg.calc_corr_maps('Pacific SST')
+rg.cluster_list_MI('Pacific SST')
 rg.quick_view_labels(median=True)
-# rg.get_ts_prec(precur_aggr=1)
-# rg.store_df()
+rg.get_ts_prec(precur_aggr=1)
+rg.store_df(append_str='RW_and_SST_feedback')
 #%%
 # rg.cluster_list_MI()
 # rg.list_for_MI[0].calc_ts = 'pattern cov'
-freqs = [1, 5, 15, 30, 60]
+freqs = [1, 5, 10, 15, 30, 60]
 for f in freqs:
     rg.get_ts_prec(precur_aggr=f)
-    rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':'Rossby Wave (z500)',
-                                    '0..0..Pacific SST_sp':'SSTvsZ500'}, axis=1)
+    rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':'Rossby wave (z500)',
+                                    '0..0..Pacific SST_sp':'N-Pacific SST'}, axis=1)
 
 
-    keys = [['RW (z500) 1453252062', 'SSTvsZ500'], ['RW (z500) 1453252062', 'SSTvsmx2t']]
+    keys = [['Rossby wave (z500)','N-Pacific SST']]
     k = keys[0]
     k.append('TrainIsTrue') ; k.append('RV_mask')
     name_k = ''.join(k[:2]).replace(' ','')
@@ -155,9 +159,13 @@ for f in freqs:
 
 #%%
 import func_models
-df = func_models.standardize_on_train(rg.df_data[k].loc[0], rg.df_data.loc[0]['TrainIsTrue'])
-df[df['SSTvsZ500'].shift(-3) > 1][k[:-2]].hist()
-
+k = ['Rossby Wave (z500)', '0..0..z500_sp', 'SSTvsZ500']
+shift = 2
+mask_standardize = np.logical_and(rg.df_data.loc[0]['TrainIsTrue'], rg.df_data.loc[0]['RV_mask'])
+df = func_models.standardize_on_train(rg.df_data[k].loc[0], mask_standardize)
+RV_and_SST_mask = np.logical_and(rg.df_data.loc[0]['RV_mask'], df['SSTvsZ500'].shift(-shift) > .5)
+fig = df[RV_and_SST_mask][k[:]].hist(sharex=True)
+fig[0,0].set_xlim(-3,3)
 # df_ParCorr_sum = rg.PCMCI_get_ParCorr_from_txt()
 
 #%% Adapt RV_mask

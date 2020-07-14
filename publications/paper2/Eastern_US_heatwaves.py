@@ -49,11 +49,13 @@ list_of_name_path = [(cluster_label, TVpath),
 list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map,
                               kwrgs_func={'alpha':.01, 'FDR_control':True},
                               distance_eps=600, min_area_in_degrees2=1,
-                              calc_ts='pattern cov', selbox=(0,360,-10,90)),
+                              calc_ts='pattern cov', selbox=(0,360,-10,90),
+                              use_sign_pattern=True),
                    BivariateMI(name='z500', func=BivariateMI.corr_map,
                                 kwrgs_func={'alpha':.01, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
-                                calc_ts='pattern cov', selbox=(0,360,-10,90)),
+                                calc_ts='pattern cov', selbox=(0,360,-10,90),
+                                use_sign_pattern=True),
                    BivariateMI(name='sst', func=BivariateMI.corr_map,
                                 kwrgs_func={'alpha':.01, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
@@ -109,14 +111,16 @@ rg.plot_maps_corr(var='v200', row_dim='lag', col_dim='split',
                   drawbox=[(0,0), v200_green_bb],
                   clim=(-.6,.6))
 
-z500_green_bb = (140,260,20,73)
+# z500_green_bb = (140,260,20,73) #: Pacific box
+z500_green_bb = (140,300,20,73) #: RW box
 subtitles = np.array([[f'lag {l}: z 500hpa vs eastern U.S. mx2t'] for l in rg.lags])
 rg.plot_maps_corr(var='z500', row_dim='lag', col_dim='split',
                   aspect=2, size=5, hspace=-0.63, cbar_vert=.2, save=True,
                   subtitles=subtitles, units=units, zoomregion=(-180,360,10,80),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
                   drawbox=[(0,0), z500_green_bb],
-                  clim=(-.6,.6))
+                  clim=(-.6,.6),
+                  append_str=''.join(map(str, z500_green_bb)))
 
 SST_green_bb = (140,235,20,59)#(170,255,11,60)
 subtitles = np.array([[f'lag {l}: SST vs eastern U.S. mx2t' for l in rg.lags]])
@@ -130,18 +134,26 @@ rg.plot_maps_corr(var='sst', row_dim='split', col_dim='lag',
 
 #%% Determine Rossby wave within green rectangle, become target variable for feedback
 
-rg.list_for_MI[0].selbox = v200_green_bb
-rg.list_for_MI[1].selbox = z500_green_bb
-rg.list_for_MI[2].selbox = SST_green_bb
+rg.list_for_MI = [BivariateMI(name='v200', func=BivariateMI.corr_map,
+                              kwrgs_func={'alpha':.01, 'FDR_control':True},
+                              distance_eps=600, min_area_in_degrees2=1,
+                              calc_ts='pattern cov', selbox=v200_green_bb,
+                              use_sign_pattern=True),
+                   BivariateMI(name='z500', func=BivariateMI.corr_map,
+                                kwrgs_func={'alpha':.01, 'FDR_control':True},
+                                distance_eps=600, min_area_in_degrees2=1,
+                                calc_ts='pattern cov', selbox=z500_green_bb,
+                                use_sign_pattern=True)]
 rg.lags_i = np.array([0]) ; rg.lags = np.array([0])
-
-rg.calc_corr_maps(['v200','sst'])#var='z500')
+rg.list_for_EOFS = None
+rg.calc_corr_maps(['v200','z500'])#var='z500')
 # subtitles = np.array([['E-U.S. Temp. correlation map Z 500hpa green box']])
 # rg.plot_maps_corr(var='z500', cbar_vert=-.05, subtitles=subtitles, save=False)
-rg.cluster_list_MI(['v200','sst'])#var='z500')
+rg.cluster_list_MI(['v200','z500'])#var='z500')
 # rg.get_ts_prec(precur_aggr=None)
 rg.get_ts_prec(precur_aggr=1)
-rg.store_df()
+rg.store_df(append_str='z500_'+'-'.join(map(str, z500_green_bb)))
+
 #%% Determine Rossby wave within green rectangle, become target variable for HM
 
 list_of_name_path = [(cluster_label, TVpath),
@@ -179,7 +191,7 @@ rg.plot_maps_corr(var='v200', cbar_vert=-.05, subtitles=subtitles, save=False)
 rg.cluster_list_MI()
 # rg.get_ts_prec(precur_aggr=None)
 rg.get_ts_prec(precur_aggr=1)
-# rg.store_df()
+rg.store_df(append_str='z500_'+'-'.join(map(str, z500_green_bb)))
 
 
 #%% interannual variability events?

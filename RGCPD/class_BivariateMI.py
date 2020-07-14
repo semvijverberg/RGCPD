@@ -25,7 +25,8 @@ class BivariateMI:
 
     def __init__(self, name, func=None, kwrgs_func={}, lags=np.array([1]),
                  distance_eps=400, min_area_in_degrees2=3, group_split='together',
-                 calc_ts='region mean', selbox: tuple=None, verbosity=1):
+                 calc_ts='region mean', selbox: tuple=None,
+                 use_sign_pattern: bool=False, verbosity=1):
         '''
 
         Parameters
@@ -88,6 +89,7 @@ class BivariateMI:
         self.min_area_in_degrees2 = min_area_in_degrees2
         self.group_split = group_split
         self.selbox = selbox
+        self.use_sign_pattern = use_sign_pattern
         self.verbosity = verbosity
 
         return
@@ -251,6 +253,7 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
     df_splits = precur.df_splits
     splits = df_splits.index.levels[0]
     lags            = precur.corr_xr.lag.values
+    use_sign_pattern = precur.use_sign_pattern
 
 
     if precur_aggr is None:
@@ -286,6 +289,8 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
             corr_vals = corr_xr.sel(split=s).isel(lag=il)
             mask = prec_labels.sel(split=s).isel(lag=il)
             pattern = corr_vals.where(~np.isnan(mask))
+            if use_sign_pattern == True:
+                pattern = np.sign(pattern)
             if np.isnan(pattern.values).all():
                 # no regions of this variable and split
                 nants = np.zeros( (dates.size, 1) )

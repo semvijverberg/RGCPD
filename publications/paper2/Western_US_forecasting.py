@@ -149,11 +149,11 @@ for fc in list_of_fc:
 
 
 # In[8]:
-working_folder, filename = list_of_fc[0]._print_sett(list_of_fc=list_of_fc)
+working_folder, pathexper = list_of_fc[0]._print_sett(list_of_fc=list_of_fc)
 
 store = False
 if __name__ == "__main__":
-    filename = list_of_fc[0].filename
+    pathexper = list_of_fc[0].pathexper
     store = True
 
 import valid_plots as dfplots
@@ -162,14 +162,14 @@ import functions_pp
 
 dict_all = dfplots.merge_valid_info(list_of_fc, store=store)
 if store:
-    dict_merge_all = functions_pp.load_hdf5(filename+'.h5')
+    dict_merge_all = functions_pp.load_hdf5(pathexper+'/data.h5')
 
 
-lag_rel = 15
+lag_rel = 0
 kwrgs = {'wspace':0.16, 'hspace':.25, 'col_wrap':2, 'skip_redundant_title':True,
          'lags_relcurve':[lag_rel], 'fontbase':14, 'figaspect':2}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}
-met = ['BSS', 'Rel. Curve']
+met = ['AUC-ROC', 'AUC-PR', 'Precision', 'BSS', 'Accuracy', 'Rel. Curve']
 line_dim = 'exper'
 group_line_by = None
 
@@ -180,25 +180,7 @@ fig = dfplots.valid_figures(dict_merge_all,
 
 
 f_format = '.pdf'
-pathfig_valid = os.path.join(filename + f_format)
+pathfig_valid = os.path.join(pathexper,'verification' + f_format)
 fig.savefig(pathfig_valid,
             bbox_inches='tight') # dpi auto 600
 
-fig = dfplots.valid_figures(dict_merge_all,
-                          line_dim=line_dim,
-                          group_line_by=group_line_by,
-                          **kwrgs)
-
-pathfig_valid = os.path.join(filename +'_all_met'+ f_format)
-fig.savefig(pathfig_valid,
-            bbox_inches='tight') # dpi auto 600
-
-fc = list_of_fc[0]
-df, fig = fc.plot_feature_importances()
-path_feat = filename + f'ifc{1}_logitregul' + f_format
-fig.savefig(path_feat, bbox_inches='tight')
-
-
-fc.dict_sum[0].loc['Precision'].loc['Precision']
-
-fc.dict_sum[0].loc['Accuracy'].loc['Accuracy']

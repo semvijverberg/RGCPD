@@ -313,6 +313,9 @@ def causal_reg_to_xarray(df_links, list_MI):
     Returns Dataset of merged variables, this aligns there coordinates (easy for plots)
     Returns list_ds to keep the original dimensions
     '''
+
+    # ensure list_MI only contains the processed MI
+    list_MI = [p for p in list_MI if (hasattr(p, 'prec_labels'))]
     splits = df_links.index.levels[0]
 
     df_c = df_links.sum(axis=1) >= 1

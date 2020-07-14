@@ -38,30 +38,31 @@ cluster_label = 1
 name_ds='ts'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
-tfreq = 15
+tfreq = 60
 #%%
 list_of_name_path = [(cluster_label, TVpath),
-                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
+                      # ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
                        ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
                        ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
 
 
-
-list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map,
-                              kwrgs_func={'alpha':.01, 'FDR_control':True},
-                              distance_eps=600, min_area_in_degrees2=1,
-                              calc_ts='pattern cov', selbox=(0,360,-10,90)),
-                   BivariateMI(name='z500', func=BivariateMI.corr_map,
+# BivariateMI(name='v200', func=BivariateMI.corr_map,
+                              # kwrgs_func={'alpha':.01, 'FDR_control':True},
+                              # distance_eps=600, min_area_in_degrees2=1,
+                              # calc_ts='pattern cov', selbox=(0,360,-10,90),
+                              # use_sign_pattern=True),
+list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
                                 kwrgs_func={'alpha':.01, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
-                                calc_ts='pattern cov', selbox=(0,360,-10,90)),
+                                calc_ts='pattern cov', selbox=(0,360,-10,90),
+                                use_sign_pattern=True),
                    BivariateMI(name='sst', func=BivariateMI.corr_map,
                                 kwrgs_func={'alpha':.01, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
                                 calc_ts='pattern cov', selbox=(120,270,-10,90))]
 
-list_for_EOFS = [EOF(name='v200', neofs=2, selbox=[-180, 360, 0, 80],
+list_for_EOFS = [EOF(name='z500', neofs=2, selbox=[-180, 360, 0, 80],
                      n_cpu=1, start_end_date=start_end_TVdate)]
 
 
@@ -123,8 +124,8 @@ rg.plot_maps_corr(var='z500', row_dim='lag', col_dim='split',
                   aspect=2, size=5, hspace=-0.63, cbar_vert=.2, save=True,
                   subtitles=subtitles, units=units, zoomregion=(-180,360,10,80),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  drawbox=[(0,0), z500_boxPac], clim=(-.6,.6),
-                  append_str=''.join(map(str, z500_boxPac)))
+                  drawbox=[(0,0), z500_boxRW], clim=(-.6,.6),
+                  append_str=''.join(map(str, z500_boxRW)))
 
 SST_box = (140,235,20,59)
 subtitles = np.array([[f'lag {l}: SST vs western U.S. mx2t' for l in rg.lags]])
@@ -137,21 +138,29 @@ rg.plot_maps_corr(var='sst', row_dim='split', col_dim='lag',
                   clim=(-.6,.6))
 
 #%%
-# rg.list_for_MI[0].name += ''.join(map(str, v200_box))
-rg.list_for_MI[0].selbox = v200_box
-# rg.list_for_MI[1].name += ''.join(map(str, z500_boxRW))
-rg.list_for_MI[1].selbox = z500_boxRW
-# rg.list_for_MI[2].name += ''.join(map(str, SST_box))
-rg.list_for_MI[2].selbox = SST_box
+
+rg.list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map,
+                              kwrgs_func={'alpha':.01, 'FDR_control':True},
+                              distance_eps=600, min_area_in_degrees2=1,
+                              calc_ts='pattern cov', selbox=v200_box,
+                              use_sign_pattern=True),
+                   BivariateMI(name='z500', func=BivariateMI.corr_map,
+                                kwrgs_func={'alpha':.01, 'FDR_control':True},
+                                distance_eps=600, min_area_in_degrees2=1,
+                                calc_ts='pattern cov', selbox=z500_boxRW,
+                                use_sign_pattern=True)]
 rg.lags_i = np.array([0]) ; rg.lags = np.array([0])
 rg.list_for_EOFS = None
+
 rg.calc_corr_maps()
 rg.cluster_list_MI()
-
 rg.quick_view_labels()
 
-rg.get_ts_prec(precur_aggr=None)
+rg.get_ts_prec(precur_aggr=1)
+rg.store_df(append_str='z500_'+'-'.join(map(str, z500_boxRW)))
 
+#%%
+rg.get_ts_prec(precur_aggr=None)
 import df_ana
 rg.df_data.loc[0].columns
 df_sub = rg.df_data.loc[0][['1ts', '0..0..v200_sp', '0..2..EOF_v200']][rg.df_data.loc[0]['RV_mask']]
