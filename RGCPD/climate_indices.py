@@ -121,9 +121,7 @@ def PDO(filepath, df_splits):
                 'format_lon': 'only_east'}
 
     ds = core_pp.import_ds_lazy(filepath, **kwrgs_pp)
-    # ensure latitude is in increasing order
-    if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
-        ds = ds.sortby('latitude')
+
     ds_monthly = ds.resample(time='M',restore_coord_dims=False).mean(dim='time', skipna=True)
 
     splits = df_splits.index.levels[0]

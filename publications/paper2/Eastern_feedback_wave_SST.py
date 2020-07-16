@@ -42,7 +42,7 @@ name_ds = f'0..0..{name_or_cluster_label}_sp'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
 
-tfreq = 60
+tfreq = 15
 
 #%%
 
@@ -60,7 +60,7 @@ list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
                  BivariateMI(name='N-Pac. SST', func=BivariateMI.corr_map,
                               kwrgs_func={'alpha':.05, 'FDR_control':True},
                               distance_eps=500, min_area_in_degrees2=5,
-                              calc_ts='pattern cov', selbox=selbox)]
+                              calc_ts='pattern cov', selbox=(130,260,-10,90))]
                  # BivariateMI(name='Trop. Pac. SST', func=BivariateMI.corr_map,
                  #              kwrgs_func={'alpha':.01, 'FDR_control':True},
                  #              distance_eps=500, min_area_in_degrees2=5,
@@ -103,12 +103,12 @@ if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original war
 if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
 save = True
 units = 'Corr. Coeff. [-]'
-subtitles = np.array([[f'lag {l}: SST vs Rossby wave ({name_or_cluster_label})' for l in rg.lags]])
+subtitles = np.array([['SST vs eastern RW']])
 rg.plot_maps_corr(var='N-Pac. SST', row_dim='split', col_dim='lag',
-                  aspect=2, hspace=-.57, wspace=-.22, size=3.5, cbar_vert=-.08, save=True,
+                  aspect=2, hspace=-.57, wspace=-.22, size=2, cbar_vert=-.02, save=True,
                   subtitles=subtitles, units=units, zoomregion=(130,260,-10,60),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  n_xticks=6,
+                  x_ticks=np.array([]), y_ticks=np.array([]),
                   drawbox=[(0,0), sst_green_bb],
                   clim=(-.6,.6))
 

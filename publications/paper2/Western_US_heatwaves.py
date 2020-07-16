@@ -38,20 +38,20 @@ cluster_label = 1
 name_ds='ts'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
-tfreq = 60
+tfreq = 15
 #%%
 list_of_name_path = [(cluster_label, TVpath),
-                      # ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
+                       ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
                        ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
                        ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
 
 
 # BivariateMI(name='v200', func=BivariateMI.corr_map,
-                              # kwrgs_func={'alpha':.01, 'FDR_control':True},
-                              # distance_eps=600, min_area_in_degrees2=1,
-                              # calc_ts='pattern cov', selbox=(0,360,-10,90),
-                              # use_sign_pattern=True),
+#                                kwrgs_func={'alpha':.01, 'FDR_control':True},
+#                                distance_eps=600, min_area_in_degrees2=1,
+#                                calc_ts='pattern cov', selbox=(0,360,-10,90),
+#                                use_sign_pattern=True),
 list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
                                 kwrgs_func={'alpha':.01, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
@@ -62,7 +62,7 @@ list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
                                 distance_eps=600, min_area_in_degrees2=1,
                                 calc_ts='pattern cov', selbox=(120,270,-10,90))]
 
-list_for_EOFS = [EOF(name='z500', neofs=2, selbox=[-180, 360, 0, 80],
+list_for_EOFS = [EOF(name='v200', neofs=2, selbox=[-180, 360, 0, 80],
                      n_cpu=1, start_end_date=start_end_TVdate)]
 
 
@@ -87,35 +87,6 @@ rg.traintest('random10')
 rg.calc_corr_maps()
 
 
-
-
-# rg.get_EOFs()
-# E = rg.list_for_EOFS[0]
-# secondEOF = E.eofs[0][1]
-# subtitles = np.array([['v-wind 200hpa 2nd EOF pattern']])
-# plot_maps.plot_corr_maps(secondEOF, aspect=2.5, size=5, cbar_vert=.07,
-#                   subtitles=subtitles, units='-', zoomregion=(-180,360,0,80),
-#                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6)
-# plt.savefig(os.path.join(rg.path_outsub1, 'EOF_2_v_wind')+'pdf')
-
-# firstEOF = E.eofs[0][0]
-# subtitles = np.array([['v-wind 200hpa 1st EOF pattern']])
-# plot_maps.plot_corr_maps(firstEOF, aspect=2.5, size=5, cbar_vert=.07,
-#                   subtitles=subtitles, units='-', zoomregion=(-180,360,0,80),
-#                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6)
-# plt.savefig(os.path.join(rg.path_outsub1, 'EOF_1_v_wind')+'pdf')
-
-
-v200_box = (100,330,24,70)
-units = 'Corr. Coeff. [-]'
-subtitles = np.array([[f'lag {l}: v-wind 200hpa vs western U.S. mx2t'] for l in rg.lags])
-rg.plot_maps_corr(var='v200', row_dim='lag', col_dim='split',
-                  aspect=2, size=5, hspace=-0.58, cbar_vert=.18, save=True,
-                  subtitles=subtitles, units=units, zoomregion=(-180,360,0,80),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  drawbox=[(0,0), v200_box],
-                  clim=(-.6,.6))
-
 z500_boxPac = (140,260,20,62)
 z500_boxRW = (145,325,20,62)
 
@@ -130,12 +101,13 @@ rg.plot_maps_corr(var='z500', row_dim='lag', col_dim='split',
 SST_box = (140,235,20,59)
 subtitles = np.array([[f'lag {l}: SST vs western U.S. mx2t' for l in rg.lags]])
 rg.plot_maps_corr(var='sst', row_dim='split', col_dim='lag',
-                  aspect=2, hspace=-.57, wspace=-.22, size=3.5, cbar_vert=-.08, save=True,
+                  aspect=2, hspace=-.47, wspace=-.18, size=3, cbar_vert=-.08, save=True,
                   subtitles=subtitles, units=units, zoomregion=(130,260,-10,60),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  n_xticks=6,
-                  drawbox=[(0,0), SST_box],
+                  x_ticks=np.arange(130, 280, 25),
                   clim=(-.6,.6))
+
+
 
 #%%
 
@@ -159,11 +131,87 @@ rg.quick_view_labels()
 rg.get_ts_prec(precur_aggr=1)
 rg.store_df(append_str='z500_'+'-'.join(map(str, z500_boxRW)))
 
-#%%
+# =============================================================================
+#%% get Correlation between second EOF v200 and western RW
+# =============================================================================
+
+list_of_name_path = [(cluster_label, TVpath),
+                       ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
+                       ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
+
+
+list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map,
+                                kwrgs_func={'alpha':.01, 'FDR_control':True},
+                                distance_eps=600, min_area_in_degrees2=1,
+                                calc_ts='pattern cov', selbox=(0,360,-10,90),
+                                use_sign_pattern=True),
+                 BivariateMI(name='z500', func=BivariateMI.corr_map,
+                                kwrgs_func={'alpha':.01, 'FDR_control':True},
+                                distance_eps=600, min_area_in_degrees2=1,
+                                calc_ts='pattern cov', selbox=(0,360,-10,90),
+                                use_sign_pattern=True)]
+
+list_for_EOFS = [EOF(name='v200', neofs=2, selbox=[-180, 360, 0, 80],
+                     n_cpu=1, start_end_date=start_end_TVdate)]
+
+
+rg = RGCPD(list_of_name_path=list_of_name_path,
+            list_for_MI=list_for_MI,
+            list_for_EOFS=list_for_EOFS,
+            start_end_TVdate=start_end_TVdate,
+            start_end_date=start_end_date,
+            start_end_year=None,
+            tfreq=15, lags_i=np.array([0]),
+            path_outmain=path_out_main,
+            append_pathsub='_' + name_ds)
+
+rg.pp_TV(name_ds=name_ds, detrend=False)
+rg.pp_precursors()
+rg.traintest('no_train_test_split')
+
+rg.calc_corr_maps()
+rg.get_EOFs()
+E = rg.list_for_EOFS[0]
+E.eofs[0][1]= E.eofs[0][1] * -1
+
+rg.get_EOFs()
+E = rg.list_for_EOFS[0]
+secondEOF = E.eofs[0][1] * -1
+subtitles = np.array([['v-wind 200 hPa - 2nd EOF loading pattern']])
+plot_maps.plot_corr_maps(E.eofs[0][1], aspect=2.5, size=5, cbar_vert=.1,
+                  subtitles=subtitles, units='-', zoomregion=(-180,360,0,80),
+                  map_proj=ccrs.PlateCarree(central_longitude=220),
+                  y_ticks=np.arange(10,90, 20))
+plt.savefig(os.path.join(rg.path_outsub1, 'EOF_2_v_wind')+'pdf')
+
+# firstEOF = E.eofs[0][0]
+# subtitles = np.array([['v-wind 200hpa 1st EOF pattern']])
+# plot_maps.plot_corr_maps(firstEOF, aspect=2.5, size=5, cbar_vert=.07,
+#                   subtitles=subtitles, units='-', zoomregion=(-180,360,0,80),
+#                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6)
+# plt.savefig(os.path.join(rg.path_outsub1, 'EOF_1_v_wind')+'pdf')
+
+
+v200_box = (100,330,24,70)
+units = 'Corr. Coeff. [-]'
+subtitles = np.array([[f'lag {l}: v-wind 200hpa vs western U.S. mx2t'] for l in rg.lags])
+rg.plot_maps_corr(var='v200', row_dim='lag', col_dim='split',
+                  aspect=2, size=5, hspace=-0.58, cbar_vert=.18, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(-180,360,0,80),
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
+                  drawbox=[(0,0), v200_box],
+                  clim=(-.6,.6))
+
+rg.cluster_list_MI()
 rg.get_ts_prec(precur_aggr=None)
 import df_ana
 rg.df_data.loc[0].columns
-df_sub = rg.df_data.loc[0][['1ts', '0..0..v200_sp', '0..2..EOF_v200']][rg.df_data.loc[0]['RV_mask']]
+df_sub = rg.df_data.loc[0][['1ts', '0..0..v200_sp', '0..0..z500_sp',
+                            '0..2..EOF_v200']][rg.df_data.loc[0]['RV_mask']]
+df_sub = df_sub.rename({'1ts':'w-U.S. mx2t', '0..0..v200_sp':'RW (v200)',
+               '0..0..z500_sp':'RW (z500)',
+               '0..2..EOF_v200':'2nd EOF (v200)'}, axis=1)
+df_sub['2nd EOF (v200)'] *= -1
 df_ana.plot_ts_matric(df_sub)
 
 #%% Determine Rossby wave within green rectangle, become target variable

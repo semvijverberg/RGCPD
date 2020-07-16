@@ -83,12 +83,21 @@ rg.pp_precursors()
 
 rg.traintest('random10')
 
-rg.get_clust()
-subtitles = np.array([['Clustered simultaneous high temp. events']])
-plot_maps.plot_labels(rg.ds['xrclustered'], kwrgs_plot={'subtitles':subtitles})
 
 
 import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
+rg.get_clust()
+subtitles = np.array([['Clustered simultaneous high temp. events']])
+plot_maps.plot_labels(rg.ds['xrclustered'],
+                      zoomregion=(230,300,25,60),
+                      kwrgs_plot={'subtitles':subtitles,
+                                  'y_ticks':np.array([30, 40,50,60]),
+                                  'x_ticks':np.arange(230, 310, 10),
+                                  'cbar_vert':-.03,
+                                  'add_cfeature':'OCEAN'})
+plt.savefig(os.path.join(rg.path_outsub1, 'clusters')+'.pdf', bbox_inches='tight')
+
+
 
 rg.get_EOFs()
 
@@ -97,7 +106,7 @@ subtitles = np.array([['z 500hpa 1st EOF pattern']])
 plot_maps.plot_corr_maps(firstEOF, aspect=2, size=5, cbar_vert=.07,
                   subtitles=subtitles, units='-', #zoomregion=(-180,360,0,80),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6)
-plt.savefig(os.path.join(rg.path_outsub1, 'EOF_1_z500')+'pdf')
+plt.savefig(os.path.join(rg.path_outsub1, 'EOF_1_z500')+'.pdf')
 
 rg.calc_corr_maps()
 
@@ -125,11 +134,10 @@ rg.plot_maps_corr(var='z500', row_dim='lag', col_dim='split',
 SST_green_bb = (140,235,20,59)#(170,255,11,60)
 subtitles = np.array([[f'lag {l}: SST vs eastern U.S. mx2t' for l in rg.lags]])
 rg.plot_maps_corr(var='sst', row_dim='split', col_dim='lag',
-                  aspect=2, hspace=-.57, wspace=-.22, size=3.5, cbar_vert=-.08, save=True,
+                  aspect=2, hspace=-.47, wspace=-.18, size=3, cbar_vert=-.08, save=True,
                   subtitles=subtitles, units=units, zoomregion=(130,260,-10,60),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  n_xticks=6,
-                  drawbox=[(0,0), SST_green_bb],
+                  x_ticks=np.arange(130, 280, 25),
                   clim=(-.6,.6))
 
 #%% Determine Rossby wave within green rectangle, become target variable for feedback

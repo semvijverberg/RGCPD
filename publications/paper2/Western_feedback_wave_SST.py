@@ -51,7 +51,7 @@ list_for_MI   = [BivariateMI(name='Pacific SST', func=BivariateMI.corr_map,
                               kwrgs_func={'alpha':.05, 'FDR_control':True},
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov',
-                              selbox=(130,250,-10,90)),
+                              selbox=(130,260,-10,90)),
                  BivariateMI(name='z500', func=BivariateMI.corr_map,
                                 kwrgs_func={'alpha':.05, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
@@ -86,13 +86,13 @@ rg.traintest(method='random10')
 rg.calc_corr_maps()
 
 SST_WestUS_bb = (140,235,20,59)
-subtitles = np.array([['SST vs Rossby wave (z500)']])
+subtitles = np.array([['SST vs western RW']])
 units = 'Corr. Coeff. [-]'
 rg.plot_maps_corr(var='Pacific SST', row_dim='split', col_dim='lag',
-                  aspect=2, hspace=-.57, wspace=-.22, size=3.5, cbar_vert=-.08, save=True,
+                  aspect=2, hspace=-.57, wspace=-.22, size=2, cbar_vert=-.02, save=True,
                   subtitles=subtitles, units=units, zoomregion=(130,260,-10,60),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  n_xticks=6,
+                  x_ticks=np.array([]), y_ticks=np.array([]),
                   drawbox=[(0,0), SST_WestUS_bb],
                   clim=(-.6,.6))
 
@@ -105,6 +105,18 @@ rg.plot_maps_corr(var='z500',
                   drawbox=['all', z500_boxPac], clim=(-.6,.6),
                   append_str=''.join(map(str, z500_boxPac)))
 
+rg.tfreq = 60 ; rg.lags_i = np.array([0, 1]) ; rg.lags = np.array([0, 60])
+rg.calc_corr_maps('Pacific SST')
+# RW when tfreq = 60
+SST_box = (140,235,20,59)
+subtitles = np.array([[f'lag {l}: SST vs western U.S. RW' for l in rg.lags]])
+rg.plot_maps_corr(var='Pacific SST', row_dim='split', col_dim='lag',
+                  aspect=2, hspace=-.47, wspace=-.18, size=3, cbar_vert=-.08, save=True,
+                  subtitles=subtitles, units=units, zoomregion=(130,260,-10,60),
+                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
+                  x_ticks=np.arange(130, 280, 25),
+                  clim=(-.6,.6),
+                  append_str='60_daymean')
  #%%
 # rg.list_for_MI[0].selbox = greenrectangle_WestUS_bb
 rg.list_for_MI = [BivariateMI(name='Pacific SST', func=BivariateMI.corr_map,

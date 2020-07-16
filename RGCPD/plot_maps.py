@@ -40,7 +40,9 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
                    clevels=None, cticks_center=None, title=None,
                    drawbox=None, subtitles=None, zoomregion=None,
-                   lat_labels=True, aspect=None, n_xticks=5, n_yticks=3):
+                   lat_labels=True, aspect=None, n_xticks=5, n_yticks=3,
+                   x_ticks: np.ndarray=None, y_ticks: np.ndarray=None,
+                   add_cfeature: str=None):
     '''
     zoomregion = tuple(east_lon, west_lon, south_lat, north_lat)
     '''
@@ -95,11 +97,17 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     # Coordinate labels
     # =============================================================================
     import cartopy.mpl.ticker as cticker
-    longitude_labels = np.linspace(np.min(lon), np.max(lon), n_xticks, dtype=int)
-    longitude_labels = np.array(sorted(list(set(np.round(longitude_labels, -1)))))
-    latitude_labels = np.linspace(lat.min(), lat.max(), n_yticks, dtype=int)
-    latitude_labels = sorted(list(set(np.round(latitude_labels, -1))))
-    g.set_ticks(max_xticks=5, max_yticks=5, fontsize='large')
+    if x_ticks is None: # auto ticks
+        longitude_labels = np.linspace(np.min(lon), np.max(lon), n_xticks, dtype=int)
+        longitude_labels = np.array(sorted(list(set(np.round(longitude_labels, -1)))))
+    else:
+        longitude_labels = x_ticks
+    if y_ticks is None:  # auto ticks
+        latitude_labels = np.linspace(lat.min(), lat.max(), n_yticks, dtype=int)
+        latitude_labels = sorted(list(set(np.round(latitude_labels, -1))))
+    else:
+        latitude_labels = y_ticks
+    g.set_ticks(fontsize='large')
     g.set_xlabels(label=[str(el) for el in longitude_labels])
 
 
@@ -226,14 +234,12 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                              'fontweight'   : 'bold'})
                 g.axes[row,col].set_title(subtitles[row,col], fontdict=fontdict, loc='center')
             # =============================================================================
-            # set coordinate ticks
+            # Format coordinate ticks
             # =============================================================================
-#            rcParams['axes.titlesize'] = 'xx-large'
-
             if map_proj.proj4_params['proj'] in ['merc', 'eqc', 'cea']:
                 ax = g.axes[row,col]
-                ax.set_xticks(longitude_labels[:-1], crs=ccrs.PlateCarree())
-                ax.set_xticklabels(longitude_labels[:-1], fontsize=12)
+                ax.set_xticks(longitude_labels[:], crs=ccrs.PlateCarree())
+                ax.set_xticklabels(longitude_labels[:], fontsize=12)
                 lon_formatter = cticker.LongitudeFormatter()
                 ax.xaxis.set_major_formatter(lon_formatter)
 
@@ -258,18 +264,19 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             if corr_xr.name is not None:
                 if corr_xr.name[:3] == 'sst':
                     g.axes[row,col].add_feature(cfeature.LAND, facecolor='grey', alpha=0.3)
-    #            if row == rows.size-1:
-    #                last_ax = g.axes[row,col]
-    # lay out settings
+            if add_cfeature is not None:
+                g.axes[row,col].add_feature(cfeature.__dict__[add_cfeature],
+                                            facecolor='grey', alpha=0.3)
 
 
+
+    # =============================================================================
+    # lay out settings FacetGrid and colorbar
+    # =============================================================================
 
     # height colorbor 1/10th of height of subfigure
     height = g.axes[-1,0].get_position().height / 10
     bottom_ysub = (figheight/40)/(rows.size*2) + cbar_vert
-
-    #    bottom_ysub = last_ax.get_position(original=False).bounds[1] # bottom
-
     cbar_ax = g.fig.add_axes([0.25, bottom_ysub,
                               0.5, height]) #[left, bottom, width, height]
 

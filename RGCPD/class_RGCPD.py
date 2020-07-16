@@ -147,7 +147,7 @@ class RGCPD:
                                   os.path.join(path_test, 'sst_1979-2018_2.5deg_Pacific.nc'))]
 
         if start_end_TVdate is None:
-            start_end_TVdate = ('06-15', '08-20')
+            start_end_TVdate = ('06-01', '08-31')
 
 
 
@@ -691,7 +691,9 @@ class RGCPD:
                        hspace=-0.6, wspace=.02, size=2.5, cbar_vert=-0.01, units='units',
                        cmap=None, clevels=None, cticks_center=None, drawbox=None,
                        title=None, subtitles=None, zoomregion=None, lat_labels=True,
-                       aspect=None, n_xticks=5, n_yticks=3, save=False,
+                       aspect=None, n_xticks=5, n_yticks=3,
+                       x_ticks: np.ndarray=None, y_ticks: np.ndarray=None,
+                       save=False,
                        append_str: str=None):
 
         if type(var) is str:
@@ -719,7 +721,8 @@ class RGCPD:
                                     title=None, subtitles=subtitles,
                                     zoomregion=zoomregion,
                                     lat_labels=lat_labels, aspect=aspect,
-                                    n_xticks=n_xticks, n_yticks=n_yticks)
+                                    n_xticks=n_xticks, n_yticks=n_yticks,
+                                    x_ticks=x_ticks, y_ticks=y_ticks)
             if save == True:
                 if append_str is not None:
                     f_name = 'corr_map_{}'.format(precur_name)+'_'+append_str
