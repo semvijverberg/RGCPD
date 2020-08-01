@@ -23,27 +23,29 @@ if cluster_func not in sys.path:
     sys.path.append(fc_dir)
 
 
+from class_fc import fcev
+
+east_15data = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_140-300-20-73_10jun-24aug_lag0-15_0..0..z500_sp_random10s1/2020-07-14_15hr_44min_df_data_N-Pac. SST_dt1_140-300-20-73_RW_and_SST_feedback.h5'
+west_15data = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/west/z5000..0..z500_sp_145-325-20-62_10jun-24aug_lag0-0_0..0..z500_sp_random10s1/2020-07-14_19hr_52min_df_data_Pacific SST_dt1_145-325-20-62_RW_and_SST_feedback.h5'
+east_60data = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_140-300-20-73_3jun-2aug_lag0-60_0..0..z500_sp_random10s1/2020-07-14_16hr_56min_df_data_N-Pac. SST_dt1_140-300-20-73_RW_and_SST_fb_tf60.h5'
+east_60data = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_140-300-20-73_3jun-2aug_lag0-60_0..0..z500_sp_random10s1/2020-07-23_09hr_43min_df_data_v200_z500_sst_dt1_tf60_140-300-20-73.h5'
+
+
+kwrgs_events = {'event_percentile': 50}
+
+kwrgs_events = kwrgs_events
+use_fold = None
+n_boot = 0
+lags_i = np.array([0,10,20,30])
 
 
 # rg.store_df()
 
-#%%
-east_data = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_140-300-20-73_10jun-24aug_lag0-15_0..0..z500_sp_random10s1/2020-07-14_15hr_44min_df_data_N-Pac. SST_dt1_140-300-20-73_RW_and_SST_feedback.h5'
-
-path_data = east_data
-from class_fc import fcev
-
+#%% 15-day mean
 start_time = time()
 
-kwrgs_events = {'event_percentile': 'std'}
 
-kwrgs_events = kwrgs_events
-precur_aggr = 15
-use_fold = None
-n_boot = 2000
-lags_i = np.array([0,15,20,25,30])
-
-list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr,
+list_of_fc = [fcev(path_data=east_15data, precur_aggr=15,
                     use_fold=use_fold, start_end_TVdate=None,
                     stat_model= ('logitCV',
                                 {'Cs':10, #np.logspace(-4,1,10)
@@ -56,8 +58,8 @@ list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr,
                                   'seed':1}),
                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
                     dataset='',
-                    keys_d=('SST from corr. map RW', dict(zip(np.arange(10), [['0..0..N-Pac. SST_sp']]*10)))),
-               fcev(path_data=path_data, precur_aggr=precur_aggr,
+                    keys_d=('east-RW <-- N-Pac. SST 15-d', dict(zip(np.arange(10), [['0..0..N-Pac. SST_sp']]*10)))),
+              fcev(path_data=west_15data, precur_aggr=15,
                     use_fold=use_fold, start_end_TVdate=None,
                     stat_model= ('logitCV',
                                 {'Cs':10, #np.logspace(-4,1,10)
@@ -70,28 +72,18 @@ list_of_fc = [fcev(path_data=path_data, precur_aggr=precur_aggr,
                                   'seed':1}),
                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
                     dataset='',
-                    keys_d=('SST from corr. map mx2t', dict(zip(np.arange(10), [['15..0..N-Pac. SST_sp']]*10))))]
+                    keys_d=('west-RW <-- N-Pac. SST 15-d', dict(zip(np.arange(10), [['0..0..Pacific SST_sp']]*10))))
+              ]
+
 
 
 
 fc = list_of_fc[0]
-#%%
-west_data = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/west/z5000..0..z500_sp_145-325-20-62_10jun-24aug_lag0-0_0..0..z500_sp_random10s1/2020-07-14_16hr_12min_df_data_Pacific SST_dt1_145-325-20-62_RW_and_SST_feedback.h5'
-
-
-from class_fc import fcev
-
+#%% 60-day mean
+lags_i = np.array([0,30])
 start_time = time()
 
-kwrgs_events = {'event_percentile': 'std'}
-
-kwrgs_events = kwrgs_events
-precur_aggr = 15
-use_fold = None
-n_boot = 2000
-lags_i = np.array([0,15,20,25,30])
-
-list_of_fc = [fcev(path_data=west_data, precur_aggr=precur_aggr,
+list_of_fc = [fcev(path_data=east_60data, precur_aggr=60,
                     use_fold=use_fold, start_end_TVdate=None,
                     stat_model= ('logitCV',
                                 {'Cs':10, #np.logspace(-4,1,10)
@@ -104,7 +96,7 @@ list_of_fc = [fcev(path_data=west_data, precur_aggr=precur_aggr,
                                   'seed':1}),
                     kwrgs_pp={'add_autocorr':False, 'normalize':'datesRV'},
                     dataset='',
-                    keys_d=('SST from corr. map RW', dict(zip(np.arange(10), [[ '0..0..Pacific SST_sp']]*10))))]
+                    keys_d=('N-Pac. SST 60-d', dict(zip(np.arange(10), [['SST lag 60']]*10))))]
 
 
 
@@ -149,7 +141,7 @@ if store:
     dict_merge_all = functions_pp.load_hdf5(pathexper+'/data.h5')
 
 
-lag_rel = 15
+lag_rel = 30
 kwrgs = {'wspace':0.16, 'hspace':.25, 'col_wrap':2, 'skip_redundant_title':True,
          'lags_relcurve':[lag_rel], 'fontbase':14, 'figaspect':2}
 #kwrgs = {'wspace':0.25, 'col_wrap':3, 'threshold_bin':fc.threshold_pred}

@@ -30,7 +30,7 @@ from RGCPD import EOF
 import plot_maps
 
 TVpathRW = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/2ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_10min_df_data_v200_z500_dt1_0ff31_z500_140-300-20-73.h5'
-path_out_main = os.path.join(main_dir, 'publications/paper2/output/east/')
+path_out_main = os.path.join(main_dir, 'publications/paper2/output/east_forecast/')
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 start_end_TVdate = ('06-01', '08-31')
@@ -41,7 +41,8 @@ tfreq = 60
 list_of_name_path = [(name_or_cluster_label, TVpathRW),
                       ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
                        ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
-                       ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
+                       ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
+                       ('OLR', os.path.join(path_raw, 'OLRtrop_1979-2018_1_12_daily_2.5deg.nc'))]
 
 
 
@@ -55,6 +56,10 @@ list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map,
                                 distance_eps=600, min_area_in_degrees2=1,
                                 calc_ts='pattern cov', selbox=(0,360,-10,90),
                                 use_sign_pattern=True),
+                   BivariateMI(name='OLR', func=BivariateMI.corr_map,
+                                kwrgs_func={'alpha':.05, 'FDR_control':True},
+                                distance_eps=600, min_area_in_degrees2=1,
+                                calc_ts='pattern cov'),
                    BivariateMI(name='sst', func=BivariateMI.corr_map,
                                 kwrgs_func={'alpha':.05, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
@@ -112,15 +117,169 @@ rg.plot_maps_corr(var='sst', row_dim='split', col_dim='lag',
                   x_ticks=np.arange(130, 280, 25),
                   clim=(-.6,.6))
 
+#%% Only SST
+
+list_of_name_path = [(name_or_cluster_label, TVpathRW),
+                       ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
 
-#%% Get PDO
+
+list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map,
+                            kwrgs_func={'alpha':.05, 'FDR_control':True},
+                            distance_eps=1000, min_area_in_degrees2=1,
+                            calc_ts='pattern cov', selbox=(120,260,-10,90))]
+
+
+rg = RGCPD(list_of_name_path=list_of_name_path,
+            list_for_MI=list_for_MI,
+            start_end_TVdate=start_end_TVdate,
+            start_end_date=start_end_date,
+            start_end_year=None,
+            tfreq=tfreq, lags_i=np.array([0,1]),
+            path_outmain=path_out_main,
+            append_pathsub='_' + name_ds)
+
+
+rg.pp_TV(name_ds=name_ds, detrend=False)
+
+rg.pp_precursors()
+
+rg.traintest('random10')
+
+rg.calc_corr_maps()
+
+rg.cluster_list_MI()
+
+rg.get_ts_prec()
+
+rename = {'z5000..0..z500_sp': 'Rossby wave (z500)',
+          '0..0..v200_sp':'Rossby wave (v300) lag 0',
+          '60..0..v200_sp': 'Rossby wave (v300) lag 1',
+          '0..0..z500_sp': 'Rossby wave (z500) lag 0',
+          '60..0..z500_sp':'Rossby wave (z500) lag 1',
+          '0..0..sst_sp': 'SST lag 0',
+          '60..0..sst_sp': 'SST lag 1',
+          '60..1..sst': 'SST r1 lag 1',
+          '60..2..sst': 'SST r2 lag 1',
+          '0..1..sst': 'SST r1 lag 0',
+          '0..2..sst': 'SST r2 lag 0'}
+rg.df_data = rg.df_data.rename(rename, axis=1)
+
+#%% Ridge
+import df_ana; import sklearn, functions_pp
+keys = ['SST r1 lag 1', 'SST r2 lag 1'] # lag 1
+keys = ['SST lag 1']
+kwrgs_model = {'scoring':'neg_mean_squared_error',
+               'alphas':np.logspace(-3, 1, num=10)}
+s = 0
+target_ts = rg.df_data.loc[s].iloc[:,[0]][rg.df_data.loc[s]['RV_mask']].copy()
+target_mean = target_ts.mean().squeeze()
+target_std = target_ts.std().squeeze()
+# standardize :
+target_ts = (target_ts - target_mean) / target_std
+predict, coef, model = rg.fit_df_data_ridge(keys=keys, target=target_ts, tau_min =1,
+                                            tau_max=1,
+                                            transformer=func_models.standardize_on_train,
+                                            kwrgs_model=kwrgs_model)
+prediction = predict.rename({1:'Prediction', 'RVz5000..0..z500_sp':'Rossby wave (z500)'}, axis=1)
+
+# AR1
+AR1, c, m = rg.fit_df_data_ridge(keys=['Rossby wave (z500)'], target=target_ts,
+                                 tau_min =1,
+                                 tau_max=1,
+                                 transformer=func_models.standardize_on_train,
+                                 kwrgs_model=kwrgs_model)
+AR1 = AR1.rename({1:'AR1 fit'}, axis=1)
+
+#%%
+import matplotlib.dates as mdates
+
+df_splits = rg.df_data[['TrainIsTrue', 'RV_mask']]
+df_AR1test = functions_pp.get_df_test(AR1.merge(df_splits,
+                                                    left_index=True,
+                                                    right_index=True)).iloc[:,:2]
+df_test = functions_pp.get_df_test(prediction.merge(df_splits,
+                                                    left_index=True,
+                                                    right_index=True)).iloc[:,:2]
+
+# Plot
+fig, ax = plt.subplots(1, 1, figsize = (15,5))
+ax.plot(df_test[['Prediction']], label='SST pattern lag 1',
+        color='red',#ax.lines[0].get_color(),
+        linewidth=1)
+
+y = prediction['Prediction']
+for fold in y.index.levels[0]:
+    label = None ; color = 'red' ;
+    ax.plot(y.loc[fold].index, y.loc[fold], alpha=.1,
+            label=label, color=color)
+
+
+ax.xaxis.set_major_locator(mdates.YearLocator(5, month=6, day=3))   # every year)
+ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+ax.set_xlim(pd.to_datetime('1979-01-01'), xmax=pd.to_datetime('2020-12-31'))
+ax.tick_params(axis='both', labelsize=14)
+fig.autofmt_xdate()
+
+ax.scatter(df_test[['Prediction']].index,
+           df_test[['Prediction']].values, label=None,
+           color=ax.lines[0].get_color(),
+           s=15)
+ax.plot(df_test[['Rossby wave (z500)']], label='Truth', color='black',
+        linewidth=1)
+
+ax.plot(df_AR1test[['AR1 fit']], label='AR1', color='grey',
+        linewidth=1, linestyle='--')
+ax.set_title('Out of sample (10-fold) 60-day aggr. RW prediction from lagged SST pattern',
+             fontsize=16)
+ax.hlines(y=0,xmin=pd.to_datetime('1979-06-03'),
+          xmax=pd.to_datetime('2018-08-02'), color='black')
+
+
+ax.legend()
+ax.set_ylabel('Standardized E-U.S. RW timeseries', fontsize=16)
+ax.set_ylim(-3,3)
+
+
+MSE_func = sklearn.metrics.mean_squared_error
+fullts = rg.df_data.loc[0].iloc[:,0]
+Persistence = fullts.shift(1)[rg.df_data.loc[0]['RV_mask']]
+Persistence = (Persistence - target_mean) / target_std
+MSE_model = MSE_func(df_test.iloc[:,0],df_test.iloc[:,1], squared=False)
+MSE_pers  = MSE_func(df_test.iloc[:,0],Persistence, squared=False)
+MSE_AR1  = MSE_func(df_test.iloc[:,0],df_AR1test.iloc[:,1], squared=False)
+Corr_pers = np.corrcoef(Persistence.values.squeeze(), df_test.iloc[:,0].values)
+Corr_AR1 = np.corrcoef(df_test.iloc[:,0].values, df_AR1test.iloc[:,1].values)
+
+text1 =  'Corr. coeff. model          : {:.2f}\n'.format(df_test.corr().iloc[0,1])
+text1 +=  'Corr. coeff. persistence : {:.2f}\n'.format(Corr_pers[0][1])
+text1 +=  'Corr. coeff. AR1             : {:.2f}'.format(Corr_AR1[0][1])
+text2 = r'RMSE model          : {:.2f} $\sigma$'.format(MSE_model) + '\n'
+text2 += r'RMSE persistence : {:.2f} $\sigma$'.format(MSE_pers) + '\n'
+text2 += r'RMSE AR1            : {:.2f} $\sigma$'.format(MSE_AR1)
+
+ax.text(.038, .05, text1,
+        transform=ax.transAxes, horizontalalignment='left',
+        fontdict={'fontsize':14},
+        bbox = dict(boxstyle='round', facecolor='white', alpha=1,
+                    edgecolor='black'))
+ax.text(.395, .05, text2,
+        transform=ax.transAxes, horizontalalignment='left',
+        fontdict={'fontsize':14},
+        bbox = dict(boxstyle='round', facecolor='white', alpha=1,
+                    edgecolor='black'))
+
+figname = rg.path_outsub1 +f'/forecast_lagged_SST_tf{rg.precur_aggr}.pdf'
+plt.savefig(figname, bbox_inches='tight')
+
+
+#%% correlate with PDO part 1
 import climate_indices
 rg.tfreq = 1
 rg.pp_TV(name_ds=name_ds, detrend=False)
 rg.traintest('random10')
 df_PDO, PDO_patterns = climate_indices.PDO(rg.list_precur_pp[2][1], rg.df_splits)
-#%%
+#%% correlate with PDO part 2
 rg.cluster_list_MI('sst')
 rg.get_ts_prec()
 df = rg.df_data.mean(axis=0, level=1)[['0..0..sst_sp']]
@@ -128,46 +287,11 @@ df = df.rename({'0..0..sst_sp':'N-Pacifc SST (60d)'},axis=1)
 
 df_PDO_corr = df.merge(df_PDO.mean(axis=0, level=1),left_index=True, right_index=True)
 df_PDO_corr.corr()
-#%% Determine Rossby wave within green rectangle, become target variable for HM
 
-list_of_name_path = [(cluster_label, TVpath),
-                     ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
-                     ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc'))]
-
-list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
-                             kwrgs_func={'alpha':.01, 'FDR_control':True},
-                             distance_eps=500, min_area_in_degrees2=1,
-                             calc_ts='pattern cov', selbox=z500_green_bb),
-                 BivariateMI(name='v200', func=BivariateMI.corr_map,
-                             kwrgs_func={'alpha':.01, 'FDR_control':True},
-                             distance_eps=500, min_area_in_degrees2=1,
-                             calc_ts='pattern cov', selbox=v200_green_bb)]
-
-rg = RGCPD(list_of_name_path=list_of_name_path,
-           list_for_MI=list_for_MI,
-           start_end_TVdate=start_end_TVdate,
-           start_end_date=start_end_date,
-           tfreq=tfreq, lags_i=np.array([0]),
-           path_outmain=path_out_main,
-           append_pathsub='_' + name_ds)
-
-
-rg.pp_precursors(anomaly=True)
-rg.pp_TV(name_ds=name_ds)
-
-rg.traintest(method='no_train_test_split')
-
-rg.calc_corr_maps()
-subtitles = np.array([['E-U.S. Temp. correlation map Z 500hpa green box']])
-rg.plot_maps_corr(var='z500', cbar_vert=-.05, subtitles=subtitles, save=False)
-subtitles = np.array([['E-U.S. Temp. correlation map v200 green box']])
-rg.plot_maps_corr(var='v200', cbar_vert=-.05, subtitles=subtitles, save=False)
-rg.cluster_list_MI()
-# rg.get_ts_prec(precur_aggr=None)
+#%% Store daily data
 rg.get_ts_prec(precur_aggr=1)
-rg.store_df(append_str='z500_'+'-'.join(map(str, z500_green_bb)))
-
-
+rg.df_data = rg.df_data.rename(rename, axis=1)
+rg.store_df()
 #%% interannual variability events?
 import class_RV
 RV_ts = rg.fulltso.sel(time=rg.TV.aggr_to_daily_dates(rg.dates_TV))
@@ -214,3 +338,86 @@ for f in freqs:
     rg.PCMCI_get_links(var=k[1], alpha_level=.01)
     rg.df_links.astype(int).sum(0, level=1)
     MCI_ALL = rg.df_MCIc.mean(0, level=1)
+
+#%% Conditional probability summer RW
+
+rg.cluster_list_MI()
+
+rg.get_ts_prec()
+rename = {'z5000..0..z500_sp': 'Rossby wave (z500)',
+          '0..0..v200_sp':'Rossby wave (v300) lag 0',
+          '60..0..v200_sp': 'Rossby wave (v300) lag 1',
+          '0..0..z500_sp': 'Rossby wave (z500) lag 0',
+          '60..0..z500_sp':'Rossby wave (z500) lag 1',
+          '0..0..sst_sp': 'SST lag 0',
+          '60..0..sst_sp': 'SST lag 1',
+          '60..1..sst': 'SST r1 lag 1',
+          '60..2..sst': 'SST r2 lag 1',
+          '0..1..sst': 'SST r1 lag 0',
+          '0..2..sst': 'SST r2 lag 0'}
+rg.df_data = rg.df_data.rename(rename, axis=1)
+#%% (Conditional) Probability Density Function
+
+import func_models
+import functions_pp
+
+k = list(rename.values())
+# s = 9
+# df_std = func_models.standardize_on_train(rg.df_data[k], np.logical_and(df_test['RV_mask']))
+df_test = functions_pp.get_df_test(rg.df_data)
+
+shift = 1
+mask_standardize = df_test['RV_mask']
+df = func_models.standardize_on_train(df_test[k], mask_standardize)
+SST_lag_summer = df['SST lag 60'].shift(shift)[df_test['RV_mask']]
+RV_and_SST_mask = SST_lag_summer > np.percentile(SST_lag_summer, 85)
+fig = df[df_test['RV_mask']][RV_and_SST_mask][k].hist(sharex=True)
+fig[0,0].set_xlim(-3,3)
+
+mask_summer = (df['SST lag 1'].shift(shift) > np.percentile(df['SST lag 1'], 85))[df_test['RV_mask']]
+#%% Test MJO signal in OLR
+tfreq = 10
+list_of_name_path = [(name_or_cluster_label, TVpathRW),
+                       ('OLR', os.path.join(path_raw, 'OLRtrop_1979-2018_1_12_daily_2.5deg.nc'))]
+
+
+
+list_for_MI   = [BivariateMI(name='OLR', func=BivariateMI.corr_map,
+                                kwrgs_func={'alpha':.2, 'FDR_control':True},
+                                distance_eps=600, min_area_in_degrees2=1,
+                                calc_ts='pattern cov', selbox=(150,360,-30,30))]
+
+list_for_EOFS = [EOF(name='OLR', neofs=2, selbox=(150,360,-30,30),
+                     n_cpu=1, start_end_date=start_end_TVdate)]
+
+rg = RGCPD(list_of_name_path=list_of_name_path,
+            list_for_MI=list_for_MI,
+            list_for_EOFS=list_for_EOFS,
+            start_end_TVdate=start_end_TVdate,
+            start_end_date=start_end_date,
+            start_end_year=None,
+            tfreq=tfreq, lags_i=np.array([0,1]),
+            path_outmain=path_out_main,
+            append_pathsub='_' + name_ds)
+
+
+rg.pp_TV(name_ds=name_ds, detrend=False)
+
+rg.pp_precursors()
+
+rg.traintest('random10')
+
+
+import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
+
+rg.calc_corr_maps()
+
+rg.get_EOFs()
+
+rg.cluster_list_MI()
+
+rg.get_ts_prec()
+
+
+df_test = functions_pp.get_df_test(rg.df_data)
+corr = df_test.corr()

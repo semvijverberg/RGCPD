@@ -212,12 +212,13 @@ def load_TV(list_of_name_path, loadleap=False, name_ds='ts'):
             splits = df.index.levels[0]
             if splits.size > 1:
                 based_on_test = True
-                print('Retrieving target timeseries from test data')
+                print('calculate mean of different train-test folds')
             else:
                 based_on_test = False
                 df = df.loc[0]
             if based_on_test:
-                df = get_df_test(df)
+                df = df.mean(axis=0, level=1)
+                # df = get_df_test(df)
         df = df[[name_ds]] ; df.index.name = 'time'
         fulltso = df.to_xarray().to_array(name=name_ds).squeeze()
     hashh = filename.split('_')[-1].split('.')[0]

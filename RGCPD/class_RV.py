@@ -104,8 +104,8 @@ class RV_class:
             if type(kwrgs_events['window']) is pd.DataFrame:
 
                 fullts = kwrgs_events['window']
-                dates_RVe = self.aggr_to_daily_dates(self.dates_RV)
-                dates_alle  = self.aggr_to_daily_dates(self.dates_all)
+                dates_RVe = self.aggr_to_daily_dates(self.dates_RV, tfreq=self.tfreq)
+                dates_alle  = self.aggr_to_daily_dates(self.dates_all, tfreq=self.tfreq)
 
                 self.df_RV_ts_e = fullts.loc[dates_RVe]
                 df_fullts_e = fullts.loc[dates_alle]
@@ -155,9 +155,10 @@ class RV_class:
     #%%
     @staticmethod
     # Retrieve information on input timeseries
-    def aggr_to_daily_dates(dates_precur_data):
+    def aggr_to_daily_dates(dates_precur_data, tfreq: int=None):
         dates = functions_pp.get_oneyr(dates_precur_data)
-        tfreq = (dates[1] - dates[0]).days
+        if tfreq is None:
+            tfreq = (dates[1] - dates[0]).days
         start_date = dates[0] - pd.Timedelta(f'{int(tfreq/2)}d')
         end_date   = dates[-1] + pd.Timedelta(f'{int(-1+tfreq/2+0.5)}d')
         yr_daily  = pd.date_range(start=start_date, end=end_date,

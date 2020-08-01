@@ -59,11 +59,15 @@ def loop_df_ana(df, function, keys=None, to_np=False, kwrgs=None):
     return pd.DataFrame(np.array(out_list).T, index=df.index, columns=keys)
 
 
-def loop_df(df: pd.DataFrame(), function, keys=None, colwrap=3, sharex='col',
-            sharey='row', hspace=.4, kwrgs=None):
+def loop_df(df: pd.DataFrame(), function=None, keys=None, colwrap=3, sharex='col',
+            sharey='row', hspace=.4, figsize: tuple=None, kwrgs=None):
     #%%
     assert type(df) == type(pd.DataFrame()), ('df should be DataFrame, '
                 'not pd.Series or ndarray')
+
+    if function is None:
+        function = plot_timeseries
+
     if keys is None:
         # retrieve only float series
         type_check = np.logical_or(df.dtypes == 'float',
@@ -78,9 +82,11 @@ def loop_df(df: pd.DataFrame(), function, keys=None, colwrap=3, sharex='col',
     elif (df.columns.size) % colwrap != 0:
         rows = int(df.columns.size / colwrap) + 1
 
+    if figsize is None:
+        figsize = (3*colwrap,rows*2.5)
     gridspec_kw = {'hspace':hspace}
     fig, ax = plt.subplots(rows, colwrap, sharex=sharex, sharey=sharey,
-                           figsize = (3*colwrap,rows*2.5),
+                           figsize = figsize,
                            gridspec_kw=gridspec_kw)
 
     for i, ax in enumerate(fig.axes):
@@ -100,6 +106,48 @@ def loop_df(df: pd.DataFrame(), function, keys=None, colwrap=3, sharex='col',
             function(y, **kwrgs)
     return fig
     #%%
+
+def plot_df(df: pd.DataFrame(), function=None, keys=None, title: str=None,
+            figsize: tuple=None, kwrgs=None):
+
+    assert type(df) == type(pd.DataFrame()), ('df should be DataFrame, '
+                'not pd.Series or ndarray')
+
+    if function is None:
+        function = plot_timeseries
+
+    if keys is None:
+        # retrieve only float series
+        type_check = np.logical_or(df.dtypes == 'float',
+                                   df.dtypes == 'float32')
+
+        keys = type_check[type_check].index
+
+    df = df.loc[:,keys]
+
+    # if (df.columns.size) % colwrap == 0:
+    #     rows = int(df.columns.size / colwrap)
+    # elif (df.columns.size) % colwrap != 0:
+    #     rows = int(df.columns.size / colwrap) + 1
+
+    if figsize is None:
+        figsize = (10, 5)
+    fig, ax = plt.subplots(1, 1, figsize = figsize)
+
+    for i, key in enumerate(keys):
+
+        y = df[key]
+        if kwrgs is None:
+            if title is None:
+                title = key
+            kwrgs = {'title': title,
+                     'ax'   : ax}
+        else:
+            kwrgs['title'] = key
+            kwrgs['ax'] = ax
+
+        function(y, **kwrgs)
+    return fig, ax
 
 def autocorr_sm(ts, max_lag=None, alpha=0.01):
     from statsmodels.tsa import stattools
@@ -180,7 +228,8 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=False, ax=None):
     return ax
 
 def plot_timeseries(y, timesteps: list=None,
-                    selyears: Union[list, int]=None, title=None, ax=None):
+                    selyears: Union[list, int]=None, title=None,
+                    legend: bool=True, ax=None):
     # ax=None
     #%%
 
@@ -220,9 +269,14 @@ def plot_timeseries(y, timesteps: list=None,
 
     if hasattr(y.index,'levels'):
         for fold in y.index.levels[0]:
-            ax.plot(datetimes, y.loc[fold, datetimes], alpha=.5,
-                    label=f'f {fold}')
-        ax.legend(prop={'size':6})
+            if legend:
+                label = f'f {fold+1}' ; color = None ; alpha=.5
+            else:
+                label = None ; color = 'red' ; alpha=.1
+            ax.plot(datetimes, y.loc[fold, datetimes], alpha=alpha,
+                    label=label, color=color)
+        if legend:
+            ax.legend(prop={'size':6})
     else:
         ax.plot(datetimes, y.loc[datetimes])
 
@@ -390,8 +444,9 @@ def plot_ts_matric(df_init, win: int=None, lag=0, columns: list=None, rename: di
     df_cols = df_init[columns]
 
 
-    if hasattr(df_init, 'levels'):
+    if hasattr(df_init.index, 'levels'):
         splits = df_init.index.levels[0]
+        print('extracting RV dates from test set')
         dates_RV_orig   = df_init.loc[0].index[df_init.loc[0]['RV_mask']==True]
         TrainIsTrue = df_init['TrainIsTrue']
         dates_full_orig = df_init.loc[0].index

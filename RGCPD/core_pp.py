@@ -49,6 +49,8 @@ def import_ds_lazy(filename, loadleap=False,
 
     if len(ds.dims.keys()) > 1: # more then 1-d
         multi_dims = True
+    else:
+        multi_dims = False
 
     variables = list(ds.variables.keys())
     strvars = [' {} '.format(var) for var in variables]
@@ -96,7 +98,7 @@ def import_ds_lazy(filename, loadleap=False,
     if 'time' in ds.squeeze().dims:
         ds = ds_num2date(ds, loadleap=loadleap)
 
-        if type(seldates) is tuple or start_end_year is not None:
+        if type(seldates) is tuple or start_end_year is not None and seldates is None:
             pddates = get_subdates(dates=pd.to_datetime(ds.time.values),
                          start_end_date=seldates,
                          start_end_year=start_end_year, lpyr=loadleap)

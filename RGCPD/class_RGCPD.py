@@ -606,7 +606,7 @@ class RGCPD:
             varstr = '_'.join([n[0] for n in self.list_import_ts]) + varstr
         filename = os.path.join(self.path_outsub1,
                                 f'{get_timestr()}_df_data_{varstr}_'
-                                f'dt{self.precur_aggr}_{self.hash}')
+                                f'dt{self.precur_aggr}_tf{self.tfreq}_{self.hash}')
         if append_str is not None:
             filename += '_'+append_str
         functions_pp.store_hdf_df({'df_data':self.df_data}, filename+'.h5')
@@ -769,19 +769,14 @@ class RGCPD:
             traintest_yrs.append(test_yrs)
         return traintest_yrs
 
-    def reduce_df_data_ridge(self, keys: Union[list, np.ndarray],
-                             target: str=None,
+    def fit_df_data_ridge(self, keys: Union[list, np.ndarray],
+                             target: Union[str,pd.DataFrame]=None,
                              tau_min: int=1,
                              tau_max: int=3,
                              newname:str = None, transformer=None,
                              kwrgs_model: dict={'scoring':'neg_mean_squared_error'}):
         '''
-        Perform cross-validated Ridge regression to reduce a set of predictors
-        to a single timeseries in a linear additive way.
-
-        This is to avoid problems with multicolinearity issue in Tigramite.
-        Standardize is required to ensure fair 'punishment' of too high
-        coefficients when tuning the regulization.
+        Perform cross-validated Ridge regression to predict the target.
 
         Parameters
         ----------
@@ -805,33 +800,38 @@ class RGCPD:
 
         '''
         # self.df_data_all = self.df_data.copy()
-        lags = range(0, tau_max+1)
+        lags = range(tau_min, tau_max+1)
         if keys is None:
             keys = self.df_data.columns[self.df_data.dtypes != bool]
-        splits = self.df_splits.index.levels[0]
+        splits = self.df_data.index.levels[0]
         # data_new_s   = np.zeros( (splits.size) , dtype=object)
 
-        if target is None:
-            target_ts = self.TV.RV_ts
+        RV_mask = self.df_data.loc[0]['RV_mask'] # not changing
+        if target is None: # not changing
+            target_ts = self.df_data.loc[0].iloc[:,[0]][RV_mask]
 
         preds = np.zeros( (splits.size), dtype=object)
         wghts = np.zeros( (splits.size) , dtype=object)
         for isp, s in enumerate(splits):
-            fit_masks = self.df_splits.loc[s][['RV_mask', 'TrainIsTrue']]
-            TrainIsTrue = self.df_splits.loc[s]['TrainIsTrue']
-            if transformer is None:
-                transformer = func_models.standardize_on_train
+            fit_masks = self.df_data.loc[s][['RV_mask', 'TrainIsTrue']]
+            TrainIsTrue = self.df_data.loc[s]['TrainIsTrue']
 
             df_s = self.df_data.loc[s]
             ks = [k for k in keys if k in df_s.columns] # keys split
-            df_trans = df_s[ks].apply(transformer,
-                                   args=[TrainIsTrue],
-                                   result_type='broadcast')
 
-            if target is not None:
-                RV_mask = self.df_splits.loc[s]['RV_mask']
-                target_ts = self.df_data.loc[0][target][RV_mask]
+            if transformer is not None:
+                df_trans = df_s[ks].apply(transformer,
+                                        args=[TrainIsTrue],
+                                        result_type='broadcast')
+            else:
+                df_trans = df_s[ks] # no transformation
 
+            if type(target) is str:
+                target_ts = self.df_data.loc[s][target][RV_mask]
+            elif type(target) is pd.DataFrame:
+                target_ts = target
+
+            # make prediction for each lag
             for il, lag in enumerate(lags):
                 df_train = df_trans.merge(apply_shift_lag(fit_masks, lag),
                                           left_index=True,
@@ -842,7 +842,11 @@ class RGCPD:
                 pred, model = sm.ridgeCV({'ts':target_ts},
                                                df_train, ks, kwrgs_model)
                 if il == 0:
-                    prediction = pred.rename(columns={0:lag})
+                    # add truth
+                    prediction = target_ts.copy()
+                    prediction = prediction.merge(pred.rename(columns={0:lag}),
+                                                  left_index=True,
+                                                  right_index=True)
                     coeff = pd.DataFrame(model.coef_, index=model.X_pred.columns,
                                          columns=[lag])
                 else:
@@ -854,6 +858,7 @@ class RGCPD:
                                                      columns=[lag]),
                                          left_index=True,
                                          right_index=True)
+
             preds[isp] = prediction
             wghts[isp] = coeff
 
@@ -861,7 +866,7 @@ class RGCPD:
         weights = pd.concat(list(wghts), keys=splits)
         weights_norm = weights.mean(axis=0, level=1)
         weights_norm.div(weights_norm.max(axis=0)).T.plot()
-        return predict, weights
+        return predict, weights, model
 
 
 

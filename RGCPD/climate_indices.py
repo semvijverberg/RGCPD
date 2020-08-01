@@ -182,4 +182,49 @@ def get_PDO(sst_Pacific):
     eof1 *= adjust_sign
     return eof1, solver, adjust_sign
 
-#def project_PDO(sst_Pacific)
+def progressBar(current, total, barLength = 20):
+    percent = float(current) * 100 / total
+    arrow   = '-' * int(percent/100 * barLength - 1) + '>'
+    spaces  = ' ' * (barLength - len(arrow))
+
+    print('Progress: [%s%s] %d %%' % (arrow, spaces, percent), end='\r')
+
+def PNA_z500(filepath_z):
+    '''
+    From Liu et al. 2015: Recent contrasting winter temperature changes over
+    North America linked to enhanced positive Pacific‐North American pattern.
+
+    https://onlinelibrary.wiley.com/doi/abs/10.1002/2015GL065656
+
+    PNA = z1 - z2 + z3 - z4
+    z1 = Z (15 - 25N, 180 - 140W)
+    z2 = Z (40 - 50N, 180 - 140W)
+    z3 = Z (45 - 60N, 125 - 105W)
+    z4 = Z (25 - 35N, 90 - 70W)
+
+    Parameters
+    ----------
+    filepath : TYPE
+        filepath to SST Netcdf4.
+
+    Returns
+    -------
+    PNA.
+
+    '''
+    load = core_pp.import_ds_lazy
+    progressBar(1, 4)
+    z1 = functions_pp.area_weighted(load(filepath_z,
+                                         **{'selbox' :  (180, 220, 15, 25)}))
+    progressBar(2, 4)
+    z2 = functions_pp.area_weighted(load(filepath_z,
+                                         **{'selbox' :  (180, 220, 40, 50)}))
+    z3 = functions_pp.area_weighted(load(filepath_z,
+                                         **{'selbox' :  (235, 255, 45, 60)}))
+    progressBar(3, 4)
+    z4 = functions_pp.area_weighted(load(filepath_z,
+                                         **{'selbox' :  (270, 290, 25, 35)}))
+    progressBar(4, 4)
+    PNA = z1.mean(dim=('latitude', 'longitude')) - z2.mean(dim=('latitude', 'longitude')) \
+        + z3.mean(dim=('latitude', 'longitude')) - z4.mean(dim=('latitude', 'longitude'))
+    return PNA.to_dataframe(name='PNA')

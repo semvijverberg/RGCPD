@@ -8,7 +8,8 @@ Created on Wed Jun 10 09:24:50 2020
 
 import os
 import numpy as np
-import xarray as xr
+import scipy
+# import xarray as xr
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -29,11 +30,50 @@ class Hovmoller:
                  event_dates: pd.DatetimeIndex=None, lags_prior: int=None,
                  lags_posterior: int=None, standardize: bool=False,
                  seldates: tuple=None, rollingmeanwindow: int=None,
-                 name=None, zoomdim: tuple=None):
+                 name=None, zoomdim: tuple=None, t_test: bool=True):
+        '''
+        One can either plot a continuous slice of dates, or select (a) specific
+        event(s) date(s) using event_dates. Seldates is needed to get the
+        reference dates for statistics such as std and students' t-test.
+
+        Parameters
+        ----------
+        kwrgs_load : dict, optional
+            dict with argument for import_ds_timemeanbins. The default is None.
+        slice_dates : tuple, optional
+            DESCRIPTION. The default is None.
+        event_dates : pd.DatetimeIndex, optional
+            DESCRIPTION. The default is None.
+        lags_prior : int, optional
+            DESCRIPTION. The default is None.
+        lags_posterior : int, optional
+            DESCRIPTION. The default is None.
+        standardize : bool, optional
+            DESCRIPTION. The default is False.
+        seldates : tuple, optional
+            DESCRIPTION. The default is None.
+        rollingmeanwindow : int, optional
+            DESCRIPTION. The default is None.
+        name : TYPE, optional
+            DESCRIPTION. The default is None.
+        zoomdim : tuple, optional
+            DESCRIPTION. The default is None.
+        t_test: bool, optional
+            DESCRIPTION. The default is True.
+
+        Raises
+        ------
+        ValueError
+            DESCRIPTION.
+        Exception
+            DESCRIPTION.
+
+        Returns
+        -------
+        None.
 
         '''
-        selbox has format of (lon_min, lon_max, lat_min, lat_max)
-        '''
+
         self.kwrgs_load = kwrgs_load.copy()
         self.slice_dates = slice_dates
         self.event_dates = event_dates
@@ -41,6 +81,7 @@ class Hovmoller:
         self.standardize = standardize
         self.rollingmeanwindow = rollingmeanwindow
         self.zoomdim = zoomdim
+        self.t_test = t_test
 
         if slice_dates is None and event_dates is None:
             raise ValueError('No dates to select or slice, please define '
@@ -98,6 +139,8 @@ class Hovmoller:
                 self.ds = self.ds_seldates
             # calculating std based on seldates
             self.std = self.ds.sel(time=self.seldates).std(dim='time')
+            if self.t_test == True:
+                self.ds_all = self.ds.sel(time=self.seldates)
             # now that we have std over seldates, select dates for HM
             self.ds = self.ds.sel(time=np.concatenate(self.event_lagged))
         else:
@@ -129,7 +172,18 @@ class Hovmoller:
             xarray_w = functions_pp.area_weighted(xarray_w)
         else:
             xarray_w = functions_pp.area_weighted(self.xarray)
-        self.xr_HM = xarray_w.mean(dim=dim).groupby('lag').mean()
+        xarray_meandim = xarray_w.mean(dim=dim)
+        self.xr_HM = xarray_meandim.groupby('lag').mean()
+        if self.t_test:
+            full = (self.ds_all/self.std).mean(dim=dim)
+            self.xr_mask = self.xr_HM.astype(bool).copy()
+            pvals = np.zeros_like(self.xr_mask.values, dtype=float)
+            for i, lag in enumerate(self.xr_mask.lag.values):
+                sample = xarray_meandim.sel(lag=lag)
+                T, p, mask = Welchs_t_test(sample, full, equal_var=False)
+                pvals[i] = p
+            self.xr_mask.values = pvals
+
 
     def quick_HM_plot(self):
         if hasattr(self, 'xr_HM') == False:
@@ -140,11 +194,13 @@ class Hovmoller:
     def plot_HM(self, main_title_right: str=None, ytickstep=5, lattickstep: int=3,
                 clevels: np.ndarray=None, clim: Union[str, tuple]='relaxed',
                 cmap=None, drawbox: list=None, save: bool=False,
-                height_ratios: list=[1,6], fig_path: str=None):
+                height_ratios: list=[1,6], fontsize: int=14, alpha: float=.05,
+                lag_composite: int=0, fig_path: str=None):
 
         #%%
         # main_title_right=None; ytickstep=5; lattickstep=3; height_ratios=[1,6]
-        # clevels=None; clim='relaxed' ; cmap=None; drawbox=None
+        # clevels=None; clim='relaxed' ; cmap=None; drawbox=None; fontsize=14;
+        # alpha=.05; lag_composite=0
 
         # Get times and make array of datetime objects
         if self.event_dates is not None:
@@ -209,7 +265,7 @@ class Hovmoller:
         # Add geopolitical boundaries for map reference
         ax1.add_feature(cfeature.COASTLINE.with_scale('50m'))
         ax1.add_feature(cfeature.LAKES.with_scale('50m'), color='black', linewidths=0.5)
-        xr_events = self.ds.sel(time=self.event_dates).mean(dim='time')
+        xr_events = self.xarray.sel(lag=lag_composite).mean(dim='lag')
         lon = xr_events.longitude
         if abs(lon[-1] - 360) <= (lon[1] - lon[0]):
             xr_events = plot_maps.extend_longitude(xr_events)
@@ -221,8 +277,9 @@ class Hovmoller:
         ax1.set_extent(selbox, ccrs.PlateCarree(central_longitude=180))
         y_ticks = np.unique(np.round(xr_events.latitude, decimals=-1))[::lattickstep]
         ax1.set_yticks(y_ticks.astype(int))
-        ax1.set_yticklabels([u'{:.0f}\N{DEGREE SIGN}N'.format(l) for l in y_ticks])
-        ax1.set_ylabel('Latitude')
+        ax1.set_yticklabels([u'{:.0f}\N{DEGREE SIGN}N'.format(l) for l in y_ticks],
+                            fontdict={'fontsize':fontsize-2})
+        ax1.set_ylabel('Latitude', fontdict={'fontsize':fontsize})
         # ax1.set_xticks([-180, -90, 0, 90, 180])
         # ax1.set_xticklabels(x_tick_labels)
         ax1.grid(linestyle='dotted', linewidth=2)
@@ -245,45 +302,53 @@ class Hovmoller:
 
             ring = get_ring(drawbox)
 
-            ax1.add_geometries(ring, ccrs.PlateCarree(), facecolor='none', edgecolor='green',
-                              linewidth=2, linestyle='dashed')
-
-        # ax1.set_xticks([0, 90, 180, 270, 357.5])
-        # ax1.set_xticklabels(x_tick_labels)
-
+            ax1.add_geometries(ring, ccrs.PlateCarree(), facecolor='none',
+                               edgecolor='green', linewidth=2,
+                               linestyle='dashed')
 
         # Set some titles
-        plt.title('Hovmoller Diagram', loc='left')
+        title = f'Composite mean of {self.event_dates.size} events at lag={lag_composite}'
+        plt.title(title, loc='left')
         if main_title_right is not None:
-            plt.title(main_title_right, loc='right')
+            plt.title(main_title_right, loc='right', fontdict={'fontsize':fontsize})
 
         # Bottom plot for Hovmoller diagram
         ax2 = fig.add_subplot(gs[1, 0])
         ax2.invert_yaxis()  # Reverse the time order to do oldest first
-
+        ax2.hlines(y=0, xmin=0, xmax=357.5, linewidth=1)
         cf = self.xr_HM.plot.contourf(levels=clevels, cmap=cmap, ax=ax2,
                                       add_colorbar=False)
         self.xr_HM.plot.contour(clevels=clevels, colors='k', linewidths=1, ax=ax2)
+
+        # stippling significance
+        if self.t_test:
+            self.xr_mask.plot.contourf(ax=ax2, levels=[0, alpha, 1],
+                                       hatches=['...', ''],
+                                       colors='none', add_colorbar=False)
+
         cbar = plt.colorbar(cf, orientation='horizontal', pad=0.04, aspect=50,
                             extendrect=True, norm=norm, ticks=clevels[::ticksteps])
+        cbar.ax.tick_params(labelsize=fontsize)
         if hasattr(self, 'units'):
             cbar.set_label(self.units)
 
         # Make some ticks and tick labels
         ax2.set_xticks([0, 90, 180, 270, 357.5])
-        ax2.set_xticklabels(x_tick_labels)
+        ax2.set_xticklabels(x_tick_labels, fontdict={'fontsize':fontsize - 2})
         ax2.set_xlabel('')
         if self.event_dates is not None:
             y_ticks = list(vtimes[::ytickstep]) ; #y_ticks.append(vtimes[-1])
             ax2.set_yticks(y_ticks)
-            ax2.set_yticklabels(y_ticks)
+            ax2.set_yticklabels(y_ticks, fontdict={'fontsize':fontsize})
+            ax2.set_ylabel('lag [in days]', fontdict={'fontsize':fontsize})
+        ax2.grid(linestyle='dotted', linewidth=2)
 
         # Set some titles
         if self.name is not None:
-            plt.title(self.name, loc='left', fontsize=10)
+            plt.title(self.name, loc='left', fontsize=fontsize)
         if self.slice_dates != None:
             plt.title('Time Range: {0:%Y%m%d %HZ} - {1:%Y%m%d %HZ}'.format(vtimes[0], vtimes[-1]),
-                      loc='right', fontsize=10)
+                      loc='right', fontsize=fontsize)
 
         if save or fig_path is not None:
             fname = '_'.join(np.array(self.kwrgs_load['selbox']).astype(str)) + \
@@ -325,3 +390,16 @@ class Hovmoller:
 
 
 
+def Welchs_t_test(sample, full, alpha=.05, axis=0, equal_var=False):
+    np.warnings.filterwarnings('ignore')
+    mask = (sample[axis] == 0.).values
+    n_space = full[axis].size
+    npfull = np.reshape(full.values, (full.time.size, n_space))
+    npsample = np.reshape(sample.values, (sample.shape[axis], n_space))
+    T, pval = scipy.stats.ttest_ind(npsample, npfull, axis=0,
+                                equal_var=equal_var, nan_policy='omit')
+    pval = np.array(np.reshape(pval, n_space))
+    T = np.reshape(T, n_space)
+    mask_sig = (pval > alpha)
+    mask_sig[mask] = True
+    return T, pval, mask_sig
