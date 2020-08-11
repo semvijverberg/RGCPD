@@ -28,6 +28,7 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
 import functions_pp
+import pandas as pd
 
 
 
@@ -37,7 +38,7 @@ import functions_pp
 tfreq = 15
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
-west_or_east = 'western'
+west_or_east = 'eastern'
 
 path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_or_east}_HM/')
 
@@ -128,7 +129,7 @@ event_dates = event_vals.sort_values(by=event_vals.columns[0], ascending=False)[
 
 #%%
 from class_hovmoller import Hovmoller
-var, filepath = rg.list_precur_pp[0];
+var, filepath = rg.list_precur_pp[1];
 if var != 'sst':
     var = var[0]+'-'+var[1:] + ' hPa'
 rollingmeanwindow = 10
@@ -141,19 +142,21 @@ elif west_or_east == 'eastern':
     zoomdim=(25,60)
     lag_composite = 0
 kwrgs_load = rg.kwrgs_load.copy()
+kwrgs_load['selbox'] = rg.list_for_MI[-1].selbox # selbox of SST
 kwrgs_load['tfreq'] = 1
 HM = Hovmoller(name=var, kwrgs_load=kwrgs_load, event_dates=event_dates,
-               seldates=rg.TV.aggr_to_daily_dates(rg.dates_TV, tfreq=tfreq), standardize=True,
-               lags_prior=35, lags_posterior=35,
+               seldates=rg.TV.aggr_to_daily_dates(rg.dates_TV, tfreq=tfreq),
+               standardize=True, lags_prior=35, lags_posterior=35,
                rollingmeanwindow=rollingmeanwindow,
-               zoomdim=zoomdim)
+               zoomdim=zoomdim, ignore_overlap_events=False)
 self = HM
 HM.get_HM_data(filepath, dim='latitude')
 # HM.quick_HM_plot()
 
 fname1 = f'HM_{self.name}'+'_'.join(['{}_{}'.format(*ki) for ki in kwrgs_events.items()])
 fname2 = '_'.join(np.array(HM.kwrgs_load['selbox']).astype(str)) + \
-                    f'_w{self.rollingmeanwindow}_std{self.standardize}_lag{lag_composite}.pdf'
+                    f'_w{self.rollingmeanwindow}_std{self.standardize}_' + \
+                    f'lag{lag_composite}_Evtfreq{rg.tfreq}'
 fig_path = os.path.join(rg.path_outsub1, '_'.join([fname1, fname2]))
 HM.plot_HM(clevels=np.arange(-.5, .51, .1), height_ratios=[1.5,6],
            fig_path=fig_path, lag_composite=lag_composite)
@@ -175,6 +178,41 @@ kwrgs_plot = {'y_ticks':np.arange(0,61, 20),
               'clevels':np.arange(-.5, .51, .1)}
 plot_maps.plot_corr_maps(xr_snap, row_dim='lag', col_dim='split',
                          **kwrgs_plot)
+#%% Correlation PNA-like RW with Wavenumber 6 phase 2 # only for eastern
+import core_pp, find_precursors
+values = []
+if west_or_east == 'eastern':
+    lags_list = range(-10,10)
+    for lag in lags_list:
+        selbox = (0,360,25,60)
+        # selbox = (140,300,20,73)
+        tfreq = 1
+        # lag = 0
+        dates_RV = core_pp.get_subdates(pd.to_datetime(rg.fulltso.time.values),
+                                       start_end_date=rg.start_end_TVdate)
+        RV_ts = rg.fulltso.sel(time=dates_RV)
+        ds_v300 = core_pp.import_ds_lazy(rg.list_precur_pp[1][1])
+        dslocal = core_pp.get_selbox(ds_v300, selbox=selbox)
+
+
+
+        datesRW = core_pp.get_subdates(pd.to_datetime(dslocal.time.values),
+                                       start_end_date=rg.start_end_TVdate)
+        datesRW = datesRW + pd.Timedelta(f'{lag}d')
+        dslocal = dslocal.sel(time=datesRW)
+
+        wv6local = core_pp.get_selbox(xarray.sel(lag=5), selbox=selbox)
+        patternlocal = wv6local.mean(dim='lag')
+        ts = find_precursors.calc_spatcov(dslocal, patternlocal)
+        ts_15, d = functions_pp.time_mean_bins(ts, tfreq, start_end_date=start_end_TVdate,
+                                                   closed_on_date=start_end_TVdate[-1])
+        RV_15, d = functions_pp.time_mean_bins(RV_ts, tfreq, start_end_date=start_end_TVdate,
+                                                   closed_on_date=start_end_TVdate[-1])
+        corr_value = np.corrcoef(ts_15.values.squeeze(), RV_15.values.squeeze())[0][1]
+        print('corr: {:.2f}'.format(corr_value))
+        values.append(corr_value)
+    plt.plot(range(-10,10), values)
+    # df_wv6 = ts_15.to_dataframe(name='wv6p2')
 #%%
 sst = rg.list_for_MI[2]
 

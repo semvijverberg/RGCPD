@@ -30,7 +30,8 @@ class Hovmoller:
                  event_dates: pd.DatetimeIndex=None, lags_prior: int=None,
                  lags_posterior: int=None, standardize: bool=False,
                  seldates: tuple=None, rollingmeanwindow: int=None,
-                 name=None, zoomdim: tuple=None, t_test: bool=True):
+                 name=None, zoomdim: tuple=None, ignore_overlap_events: bool=False,
+                 t_test: bool=True):
         '''
         One can either plot a continuous slice of dates, or select (a) specific
         event(s) date(s) using event_dates. Seldates is needed to get the
@@ -81,6 +82,7 @@ class Hovmoller:
         self.standardize = standardize
         self.rollingmeanwindow = rollingmeanwindow
         self.zoomdim = zoomdim
+        self.ignore_overlap_events = ignore_overlap_events
         self.t_test = t_test
 
         if slice_dates is None and event_dates is None:
@@ -108,8 +110,9 @@ class Hovmoller:
 
         self.event_lagged = np.array([event_dates + pd.Timedelta(f'{l}d') for l in self.lags])
 
-        if np.unique(self.event_lagged).size != self.event_lagged.size:
-            raise Exception('There are overlapping dates when shifting events '
+        if self.ignore_overlap_events == False:
+            if np.unique(self.event_lagged).size != self.event_lagged.size:
+                raise Exception('There are overlapping dates when shifting events '
                             'dates with lags')
 
         self.lag_axes = np.zeros_like(self.event_lagged, dtype=int)
@@ -364,6 +367,7 @@ class Hovmoller:
         mde = [int('{:02d}{:02d}'.format(d.month, d.day)) for d in ev_lag] # monthdayevents
         if type(self.seldates) is pd.DatetimeIndex:
             mds = [int('{:02d}{:02d}'.format(d.month, d.day)) for d in self.seldates] # monthdayselect
+
         if min(mde) < min(mds):
             print(f'An event date minus the max lag {min(mde)} is not in seldates '
                   f'{min(mds)}, adapting startdates of seldates')
@@ -382,9 +386,10 @@ class Hovmoller:
                 f'{pd.to_datetime(ev_lag[np.argmax(mde)]).month}-'
                 f'{pd.to_datetime(ev_lag[np.argmax(mde)]).day}')
         else:
-            start_date = (f'{self.seldates[0].year}-'
+            end_date = (f'{self.seldates[0].year}-'
                           f'{self.seldates[-1].month}-'
                           f'{self.seldates[-1].day}')
+
         self.seldates_ext = functions_pp.make_dates(pd.date_range(start_date, end_date),
                                                     np.unique(self.seldates.year))
 

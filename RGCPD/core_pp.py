@@ -453,52 +453,52 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=True, n_harmonics=6):
     #                              dask='parallelized',
     #                              output_dtypes=[float])
 
-    if (stepsyr.day== 1).all() == True or int(ds.time.size / 365) >= 120:
-        print('\nHandling time series longer then 120 day or monthly data, no smoothening applied')
-        data_smooth = ds.values
+    if anomaly:
+        if (stepsyr.day== 1).all() == True or int(ds.time.size / 365) >= 120:
+            print('\nHandling time series longer then 120 day or monthly data, no smoothening applied')
+            data_smooth = ds.values
 
-    elif (stepsyr.day== 1).all() == False and int(ds.time.size / 365) < 120:
-        window_s = max(min(25,int(stepsyr.size / 12)), 1)
-        # print('Performing {} day rolling mean'
-        #       ' to get better interannual statistics'.format(window_s))
+        elif (stepsyr.day== 1).all() == False and int(ds.time.size / 365) < 120:
+            window_s = max(min(25,int(stepsyr.size / 12)), 1)
+            # print('Performing {} day rolling mean'
+            #       ' to get better interannual statistics'.format(window_s))
 
-        data_smooth =  rolling_mean_np(ds.values, window_s, win_type='boxcar')
+            data_smooth =  rolling_mean_np(ds.values, window_s, win_type='boxcar')
 
-    output_clim3d = np.empty((stepsyr.size, ds.latitude.size, ds.longitude.size),
-                               dtype='float32')
+        output_clim3d = np.zeros((stepsyr.size, ds.latitude.size, ds.longitude.size),
+                                   dtype='float32')
 
+        for i in range(stepsyr.size):
 
-
-    for i in range(stepsyr.size):
-
-        sliceyr = np.arange(i, ds.time.size, stepsyr.size)
-        arr_oneday_smooth = data_smooth[sliceyr]
+            sliceyr = np.arange(i, ds.time.size, stepsyr.size)
+            arr_oneday_smooth = data_smooth[sliceyr]
 
 
-        if anomaly:
+
             if i==0: print('using absolute anomalies w.r.t. climatology of '
                             'smoothed concurrent day accross years\n')
             output_clim2d = arr_oneday_smooth.mean(axis=0)
             # output[i::stepsyr.size] = arr_oneday - output_clim3d
             output_clim3d[i,:,:] = output_clim2d
 
-        progress = int((100*(i+1)/stepsyr.size))
-        print(f"\rProcessing {progress}%", end="")
+            progress = int((100*(i+1)/stepsyr.size))
+            print(f"\rProcessing {progress}%", end="")
 
-    if apply_fft:
-        # beware, mean by default 0, add constant = False
-        list_of_harm= [1/h for h in range(1,n_harmonics+1)]
-        clim_rec = reconstruct_fft_2D(xr.DataArray(data=output_clim3d,
-                                                   coords=ds.sel(time=stepsyr).coords,
-                                                   dims=ds.dims),
-                                      list_of_harm=list_of_harm,
-                                      add_constant=False)
-        # Adding mean of origninal ds
-        clim_rec += ds.values.mean(0)
-        output = ds - np.tile(clim_rec, (int(dates.size/stepsyr.size), 1, 1))
+        if apply_fft:
+            # beware, mean by default 0, add constant = False
+            list_of_harm= [1/h for h in range(1,n_harmonics+1)]
+            clim_rec = reconstruct_fft_2D(xr.DataArray(data=output_clim3d,
+                                                       coords=ds.sel(time=stepsyr).coords,
+                                                       dims=ds.dims),
+                                          list_of_harm=list_of_harm,
+                                          add_constant=False)
+            # Adding mean of origninal ds
+            clim_rec += ds.values.mean(0)
+            output = ds - np.tile(clim_rec, (int(dates.size/stepsyr.size), 1, 1))
+        elif apply_fft==False:
+            output = ds - np.tile(output_clim3d, (int(dates.size/stepsyr.size), 1, 1))
     else:
-        output = ds - np.tile(output_clim3d, (int(dates.size/stepsyr.size), 1, 1))
-
+        output = ds
 
 
     # =============================================================================
@@ -508,56 +508,57 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=True, n_harmonics=6):
     # ts = ds.sel(longitude=30, method='nearest').sel(latitude=40, method='nearest')
     # la1 = np.argwhere(ts.latitude.values ==ds.latitude.values)[0][0]
     # lo1 = np.argwhere(ts.longitude.values ==ds.longitude.values)[0][0]
-    la1 = int(ds.shape[1]/2)
-    lo1 = int(ds.shape[2]/2)
-    la2 = int(ds.shape[1]/3)
-    lo2 = int(ds.shape[2]/3)
+    if anomaly:
+        la1 = int(ds.shape[1]/2)
+        lo1 = int(ds.shape[2]/2)
+        la2 = int(ds.shape[1]/3)
+        lo2 = int(ds.shape[2]/3)
 
-    tuples = [(la1, lo1), (la1+1, lo1),
-              (la2, lo2), (la2+1, lo2)]
-    if apply_fft:
-        fig, ax = plt.subplots(4,2, figsize=(16,8))
-    else:
-        fig, ax = plt.subplots(2,2, figsize=(16,8))
-    ax = ax.flatten()
-    for i, lalo in enumerate(tuples):
-        lat = int(ds.latitude[lalo[0]])
-        lon = int(ds.longitude[lalo[1]])
-        print(f"\rVisual test latlon {lat} {lon}", end="")
-        ts = ds[:,lalo[0],lalo[1]]
-        rawdayofyear = ts.groupby('time.dayofyear').mean('time').sel(dayofyear=np.arange(365)+1)
-
-        ax[i].set_title(f'latlon coord {lat} {lon}')
-        for yr in np.unique(dates.year):
-            singleyeardates = get_oneyr(dates, yr)
-            ax[i].plot(ts.sel(time=singleyeardates), alpha=.1, color='purple')
-        ax[i].plot(output_clim3d[:,lalo[0],lalo[1]], color='green', linewidth=2,
-             label=f'clim {window_s}-day rm')
-        ax[i].plot(rawdayofyear, color='black', alpha=.6,
-                   label='clim mean dayofyear')
+        tuples = [(la1, lo1), (la1+1, lo1),
+                  (la2, lo2), (la2+1, lo2)]
         if apply_fft:
-            ax[i].plot(clim_rec[:,lalo[0],lalo[1]][:365], 'r-',
-                       label=f'fft {n_harmonics}h on clim {window_s}-day rm')
-            diff = clim_rec[:,lalo[0],lalo[1]][:365] - output_clim3d[:,lalo[0],lalo[1]]
-            diff = diff / ts.std(dim='time').values
-            ax[i+len(tuples)].plot(diff)
-            ax[i+len(tuples)].set_title(f'latlon coord {lat} {lon} diff/std(alldata)')
-        ax[i].legend()
-    ax[-1].text(.5,1.2, 'Visual analysis',
-            transform=ax[0].transAxes,
-            ha='center', va='bottom')
-    plt.subplots_adjust(hspace=.4)
-    fig, ax = plt.subplots(1, figsize=(5,3))
-    std_all = output[:,lalo[0],lalo[1]].std(dim='time')
-    monthlymean = output[:,lalo[0],lalo[1]].groupby('time.month').mean(dim='time')
-    (monthlymean/std_all).plot(ax=ax)
-    ax.set_ylabel('standardized anomaly [-]')
-    ax.set_title(f'climatological monthly means anomalies latlon coord {lat} {lon}')
-    fig, ax = plt.subplots(1, figsize=(5,3))
-    summer = output.sel(time=get_subdates(dates, start_end_date=('06-01', '08-31')))
-    summer.name = f'std {summer.name}'
-    (summer.mean(dim='time') / summer.std(dim='time')).plot(ax=ax)
-    ax.set_title('summer composite mean [in std]')
+            fig, ax = plt.subplots(4,2, figsize=(16,8))
+        else:
+            fig, ax = plt.subplots(2,2, figsize=(16,8))
+        ax = ax.flatten()
+        for i, lalo in enumerate(tuples):
+            lat = int(ds.latitude[lalo[0]])
+            lon = int(ds.longitude[lalo[1]])
+            print(f"\rVisual test latlon {lat} {lon}", end="")
+            ts = ds[:,lalo[0],lalo[1]]
+            rawdayofyear = ts.groupby('time.dayofyear').mean('time').sel(dayofyear=np.arange(365)+1)
+
+            ax[i].set_title(f'latlon coord {lat} {lon}')
+            for yr in np.unique(dates.year):
+                singleyeardates = get_oneyr(dates, yr)
+                ax[i].plot(ts.sel(time=singleyeardates), alpha=.1, color='purple')
+            ax[i].plot(output_clim3d[:,lalo[0],lalo[1]], color='green', linewidth=2,
+                 label=f'clim {window_s}-day rm')
+            ax[i].plot(rawdayofyear, color='black', alpha=.6,
+                       label='clim mean dayofyear')
+            if apply_fft:
+                ax[i].plot(clim_rec[:,lalo[0],lalo[1]][:365], 'r-',
+                           label=f'fft {n_harmonics}h on clim {window_s}-day rm')
+                diff = clim_rec[:,lalo[0],lalo[1]][:365] - output_clim3d[:,lalo[0],lalo[1]]
+                diff = diff / ts.std(dim='time').values
+                ax[i+len(tuples)].plot(diff)
+                ax[i+len(tuples)].set_title(f'latlon coord {lat} {lon} diff/std(alldata)')
+            ax[i].legend()
+        ax[-1].text(.5,1.2, 'Visual analysis',
+                transform=ax[0].transAxes,
+                ha='center', va='bottom')
+        plt.subplots_adjust(hspace=.4)
+        fig, ax = plt.subplots(1, figsize=(5,3))
+        std_all = output[:,lalo[0],lalo[1]].std(dim='time')
+        monthlymean = output[:,lalo[0],lalo[1]].groupby('time.month').mean(dim='time')
+        (monthlymean/std_all).plot(ax=ax)
+        ax.set_ylabel('standardized anomaly [-]')
+        ax.set_title(f'climatological monthly means anomalies latlon coord {lat} {lon}')
+        fig, ax = plt.subplots(1, figsize=(5,3))
+        summer = output.sel(time=get_subdates(dates, start_end_date=('06-01', '08-31')))
+        summer.name = f'std {summer.name}'
+        (summer.mean(dim='time') / summer.std(dim='time')).plot(ax=ax)
+        ax.set_title('summer composite mean [in std]')
 
 
     if detrend:

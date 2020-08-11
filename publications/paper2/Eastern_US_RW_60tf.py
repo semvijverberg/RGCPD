@@ -376,7 +376,7 @@ fig[0,0].set_xlim(-3,3)
 
 mask_summer = (df['SST lag 1'].shift(shift) > np.percentile(df['SST lag 1'], 85))[df_test['RV_mask']]
 #%% Test MJO signal in OLR
-tfreq = 10
+tfreq = 60
 list_of_name_path = [(name_or_cluster_label, TVpathRW),
                        ('OLR', os.path.join(path_raw, 'OLRtrop_1979-2018_1_12_daily_2.5deg.nc'))]
 
@@ -403,7 +403,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 
 rg.pp_TV(name_ds=name_ds, detrend=False)
 
-rg.pp_precursors()
+rg.pp_precursors(anomaly=False, detrend=False)
 
 rg.traintest('random10')
 
