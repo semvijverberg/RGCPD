@@ -81,7 +81,7 @@ rg.pp_TV(name_ds=name_ds, detrend=False)
 rg.pp_precursors()
 
 rg.traintest('random10')
-
+#%%
 
 import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
 
@@ -98,7 +98,8 @@ rg.plot_maps_corr(var='v200', row_dim='lag', col_dim='split',
                   clim=(-.6,.6))
 
 # z500_green_bb = (140,260,20,73) #: Pacific box
-z500_green_bb = (140,300,20,73) #: RW box
+# z500_green_bb = (140,300,20,73) #: RW box
+z500_green_bb = (140,300,20,65) #: testing forecasting skill
 subtitles = np.array([[f'lag {l}: z-500 hPa vs eastern U.S. RW'] for l in rg.lags_i])
 rg.plot_maps_corr(var='z500', row_dim='lag', col_dim='split',
                   aspect=2, size=5, hspace=-0.63, cbar_vert=.2, save=True,
@@ -158,15 +159,15 @@ rename = {'z5000..0..z500_sp': 'Rossby wave (z500)',
           '0..0..z500_sp': 'Rossby wave (z500) lag 0',
           '60..0..z500_sp':'Rossby wave (z500) lag 1',
           '0..0..sst_sp': 'SST lag 0',
-          '60..0..sst_sp': 'SST lag 1',
-          '60..1..sst': 'SST r1 lag 1',
-          '60..2..sst': 'SST r2 lag 1',
+          f'{rg.tfreq}..0..sst_sp': 'SST lag 1',
+          f'{rg.tfreq}..1..sst': 'SST r1 lag 1',
+          f'{rg.tfreq}..2..sst': 'SST r2 lag 1',
           '0..1..sst': 'SST r1 lag 0',
           '0..2..sst': 'SST r2 lag 0'}
 rg.df_data = rg.df_data.rename(rename, axis=1)
 
 #%% Ridge
-import df_ana; import sklearn, functions_pp
+import df_ana; import sklearn, functions_pp, func_models
 keys = ['SST r1 lag 1', 'SST r2 lag 1'] # lag 1
 keys = ['SST lag 1']
 kwrgs_model = {'scoring':'neg_mean_squared_error',

@@ -44,6 +44,9 @@ start_end_date = ('1-1', '12-31')
 
 tfreq = 15
 
+
+if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
+if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
 #%%
 
 list_of_name_path = [(name_or_cluster_label, TVpathRW),
@@ -99,8 +102,7 @@ rg.calc_corr_maps()
 #                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
 #                   drawbox=['all', sst_green_bb],
 #                   clim=(-.6,.6))
-if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
-if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
+
 save = True
 units = 'Corr. Coeff. [-]'
 subtitles = np.array([['SST vs eastern RW']])
@@ -134,17 +136,33 @@ rg.plot_maps_corr(var='z500', row_dim='lag', col_dim='split',
 
 
 
- #%%
-rg.list_for_MI = [BivariateMI(name='N-Pac. SST', func=BivariateMI.corr_map,
+#%% Only SST
+list_of_name_path = [(name_or_cluster_label, TVpathRW),
+                     ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
+
+list_for_MI = [BivariateMI(name='N-Pac. SST', func=BivariateMI.corr_map,
                               kwrgs_func={'alpha':.05, 'FDR_control':True},
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov', selbox=sst_green_bb)]
 
+rg = RGCPD(list_of_name_path=list_of_name_path,
+           list_for_MI=list_for_MI,
+           list_import_ts=None,
+           start_end_TVdate=start_end_TVdate,
+           start_end_date=start_end_date,
+           tfreq=tfreq, lags_i=np.array([0]),
+           path_outmain=path_out_main,
+           append_pathsub='_' + name_ds)
+
+rg.pp_TV(name_ds=name_ds)
+rg.pp_precursors(anomaly=True)
+rg.traintest(method='random10')
+
 rg.calc_corr_maps(var='N-Pac. SST')
 rg.cluster_list_MI(var='N-Pac. SST')
 rg.quick_view_labels(median=True)
-rg.get_ts_prec(precur_aggr=1)
-rg.store_df(append_str=f'RW_and_SST_fb_tf{rg.tfreq}')
+# rg.get_ts_prec(precur_aggr=1)
+# rg.store_df(append_str=f'RW_and_SST_fb_tf{rg.tfreq}')
 
 #%%
 # rg.cluster_list_MI()
@@ -220,7 +238,23 @@ for f in freqs:
     m = np.array([True if y in sumyears else False for y in RV_mask.index.year])
     new_mask = np.logical_and(m, RV_mask)
     new_mask.astype(int).plot()
-    plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates.pdf'))
+    plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates_SST_and_RW.pdf'))
+    print(f'{new_mask[new_mask].size} datapoints')
+
+    # when both SST is anomalous
+    RW_ts = rg.df_data.loc[0].iloc[:,0]
+    RW_mask = RW_ts > float(rg.TV.RV_ts.quantile(q=.75))
+    new_mask = np.logical_and(rg.df_data.loc[0]['RV_mask'], RW_mask)
+    sst = functions_pp.get_df_test(rg.df_data, cols=['0..0..NorthPacAtl_sp'])
+    sst_mask = (sst > sst.quantile(q=.75).values).squeeze()
+    new_mask = np.logical_and(sst_mask, new_mask)
+    sumyears = new_mask.groupby(new_mask.index.year).sum()
+    sumyears = list(sumyears.index[sumyears > 25])
+    RV_mask = rg.df_data.loc[0]['RV_mask']
+    m = np.array([True if y in sumyears else False for y in RV_mask.index.year])
+    new_mask = np.logical_and(m, RV_mask)
+    new_mask.astype(int).plot()
+    plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates_SST_and_RW.pdf'))
     print(f'{new_mask[new_mask].size} datapoints')
 
     rg.PCMCI_df_data(keys=keys,

@@ -85,11 +85,13 @@ rg.pp_precursors(anomaly=True)
 
 
 kwrgs_events = {'event_percentile':85, 'window':'mean',
-                'min_dur':1,'max_break':1, 'grouped':True}#,
+                'min_dur':1,'max_break':0, 'grouped':False}#,
 # kwrgs_events = {'event_percentile':66, 'window':'mean'}
                 # 'min_dur':7,'max_break':3, 'grouped':True,'reference_group':'center'}
 rg.traintest(method='no_train_test_split', kwrgs_events=kwrgs_events)
 
+
+#%%
 rg.calc_corr_maps()
 
 greenrectangle_EastUS_bb = (170,300,15,73)
@@ -120,14 +122,14 @@ rg.plot_maps_corr(var='v300', aspect=2, size=5, cbar_vert=.19, save=True,
 
 # rg.get_ts_prec()
 
-
+#%%
 event_dates = rg.TV.RV_bin[rg.TV.RV_bin.astype(bool).values].index
 one_ev_peryear = functions_pp.remove_duplicates_list(list(event_dates.year))[1]
 event_dates = event_dates[one_ev_peryear]
 event_vals = rg.TV.RV_ts.loc[event_dates]
 event_dates = event_vals.sort_values(by=event_vals.columns[0], ascending=False)[:21].index
 
-#%%
+
 from class_hovmoller import Hovmoller
 var, filepath = rg.list_precur_pp[1];
 if var != 'sst':
@@ -140,12 +142,12 @@ if west_or_east == 'western':
     lag_composite = 0
 elif west_or_east == 'eastern':
     zoomdim=(25,60)
-    lag_composite = 0
+    lag_composite = 5
 kwrgs_load = rg.kwrgs_load.copy()
 kwrgs_load['selbox'] = rg.list_for_MI[-1].selbox # selbox of SST
 kwrgs_load['tfreq'] = 1
 HM = Hovmoller(name=var, kwrgs_load=kwrgs_load, event_dates=event_dates,
-               seldates=rg.TV.aggr_to_daily_dates(rg.dates_TV, tfreq=tfreq),
+               seldates=rg.TV.aggr_to_daily_dates(rg.dates_TV, tfreq=rg.tfreq),
                standardize=True, lags_prior=35, lags_posterior=35,
                rollingmeanwindow=rollingmeanwindow,
                zoomdim=zoomdim, ignore_overlap_events=False)
@@ -156,7 +158,7 @@ HM.get_HM_data(filepath, dim='latitude')
 fname1 = f'HM_{self.name}'+'_'.join(['{}_{}'.format(*ki) for ki in kwrgs_events.items()])
 fname2 = '_'.join(np.array(HM.kwrgs_load['selbox']).astype(str)) + \
                     f'_w{self.rollingmeanwindow}_std{self.standardize}_' + \
-                    f'lag{lag_composite}_Evtfreq{rg.tfreq}'
+                    f'lag{lag_composite}_Evtfreq{rg.tfreq}.pdf'
 fig_path = os.path.join(rg.path_outsub1, '_'.join([fname1, fname2]))
 HM.plot_HM(clevels=np.arange(-.5, .51, .1), height_ratios=[1.5,6],
            fig_path=fig_path, lag_composite=lag_composite)
@@ -164,7 +166,8 @@ HM.plot_HM(clevels=np.arange(-.5, .51, .1), height_ratios=[1.5,6],
 #%% Snap shots composite means
 import plot_maps
 import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
-ds_sm = self.ds_seldates.rolling(time=5).mean()
+rm = 5
+ds_sm = self.ds_seldates.rolling(time=rm).mean()
 ds_raw_e = ds_sm.sel(time=np.concatenate(self.event_lagged))
 
 xarray = ds_raw_e.copy().rename({'time':'lag'})
@@ -178,6 +181,7 @@ kwrgs_plot = {'y_ticks':np.arange(0,61, 20),
               'clevels':np.arange(-.5, .51, .1)}
 plot_maps.plot_corr_maps(xr_snap, row_dim='lag', col_dim='split',
                          **kwrgs_plot)
+plt.savefig(os.path.join(rg.path_outsub1, f'snapshots_{var}_rm{rm}.pdf'))
 #%% Correlation PNA-like RW with Wavenumber 6 phase 2 # only for eastern
 import core_pp, find_precursors
 values = []
@@ -211,7 +215,7 @@ if west_or_east == 'eastern':
         corr_value = np.corrcoef(ts_15.values.squeeze(), RV_15.values.squeeze())[0][1]
         print('corr: {:.2f}'.format(corr_value))
         values.append(corr_value)
-    plt.plot(range(-10,10), values)
+    plt.plot(range(-9,10), values[1:])
     # df_wv6 = ts_15.to_dataframe(name='wv6p2')
 #%%
 sst = rg.list_for_MI[2]
