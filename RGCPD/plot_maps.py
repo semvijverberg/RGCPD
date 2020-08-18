@@ -266,7 +266,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                     g.axes[row,col].add_feature(cfeature.LAND, facecolor='grey', alpha=0.3)
             if add_cfeature is not None:
                 g.axes[row,col].add_feature(cfeature.__dict__[add_cfeature],
-                                            facecolor='grey', alpha=0.3)
+                                            facecolor='grey', alpha=0.2)
 
 
 

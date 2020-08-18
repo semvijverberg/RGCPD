@@ -183,6 +183,8 @@ class RGCPD:
         in format 'only_east':
         selbox assumes [lowest_east_lon, highest_east_lon, south_lat, north_lat]
         '''
+        # loadleap=False;seldates=None;selbox=None;format_lon='only_east',
+        # detrend=True; anomaly=True
         loadleap = loadleap
         seldates = seldates
         selbox = selbox
@@ -419,7 +421,7 @@ class RGCPD:
             print('\nGetting external timeseries')
             f = find_precursors
             self.df_data_ext = f.import_precur_ts(self.list_import_ts,
-                                                  df_splits,
+                                                  df_splits.copy(),
                                                   self.start_end_date,
                                                   self.start_end_year,
                                                   cols=keys_ext,
@@ -769,7 +771,7 @@ class RGCPD:
             traintest_yrs.append(test_yrs)
         return traintest_yrs
 
-    def fit_df_data_ridge(self, keys: Union[list, np.ndarray],
+    def fit_df_data_ridge(self, keys: Union[list, np.ndarray]=None,
                              target: Union[str,pd.DataFrame]=None,
                              tau_min: int=1,
                              tau_max: int=3,

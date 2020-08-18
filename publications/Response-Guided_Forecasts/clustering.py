@@ -30,11 +30,11 @@ if cluster_func not in sys.path:
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-    root_data = '/scistor/ivm/data_catalogue/reanalysis/ERA5'
+    root_data = os.path.join(user_dir, 'Data/')
 else:
     root_data = '/Users/semvijverberg/surfdrive/ERA5'
 
-path_outmain = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW'
+path_outmain = user_dir+'/surfdrive/output_RGCPD/Response-Guided/'
 # In[2]:
 
 
@@ -44,7 +44,7 @@ import plot_maps
 import df_ana
 from RGCPD import RGCPD
 list_of_name_path = [('fake', None),
-                     ('mx2t', root_data + '/input_raw/mx2t_US_1979-2018_1_12_daily_0.25deg.nc')]
+                     ('t2m', root_data + '/input_raw/t2mUS_1979_2018_1_12_daily_1.0deg.nc')]
 rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=path_outmain)
 
@@ -68,8 +68,8 @@ ds = core_pp.import_ds_lazy(var_filename)
 ds.sel(time=core_pp.get_subdates(pd.to_datetime(ds.time.values), start_end_date=('06-01', '08-31'))).mean(dim='time').plot()
 #%%
 import make_country_mask
-orography = '/Users/semvijverberg/surfdrive/ERA5/input_raw/Orography.nc'
-selbox = (225, 300, 25, 70)
+# orography = '/Users/semvijverberg/surfdrive/ERA5/input_raw/Orography.nc'
+selbox = (230, 300, 25, 60)
 xarray, Country = make_country_mask.create_mask(var_filename, kwrgs_load={'selbox':selbox}, level='Countries')
 mask_US_CA = np.logical_or(xarray.values == Country.US, xarray.values==Country.CA)
 # xr_mask =  xarray.where(mask_US_CA)
@@ -80,13 +80,13 @@ xr_mask = find_precursors.xrmask_by_latlon(xr_mask, upper_right=(270, 63))
 # mask small Western US Island
 xr_mask = find_precursors.xrmask_by_latlon(xr_mask, bottom_left=(228, 58))
 # add Rocky mask
-geo_surf_height = core_pp.import_ds_lazy(orography,
-                                  var='z_NON_CDM', selbox=selbox) / 9.81
-geo_surf_height = geo_surf_height.drop('time').drop('realization')
-plot_maps.plot_corr_maps(geo_surf_height, cmap=plt.cm.Oranges, clevels=np.arange(0, 2600, 500))
-mask_Rockies = geo_surf_height < 1500
-plot_maps.plot_labels(mask_Rockies)
-xr_mask = xr_mask.where(mask_Rockies)
+# geo_surf_height = core_pp.import_ds_lazy(orography,
+#                                   var='z_NON_CDM', selbox=selbox) / 9.81
+# geo_surf_height = geo_surf_height.drop('time').drop('realization')
+# plot_maps.plot_corr_maps(geo_surf_height, cmap=plt.cm.Oranges, clevels=np.arange(0, 2600, 500))
+# mask_Rockies = geo_surf_height < 1500
+# plot_maps.plot_labels(mask_Rockies)
+# xr_mask = xr_mask.where(mask_Rockies)
 
 plot_maps.plot_labels(xr_mask)
 
@@ -166,7 +166,7 @@ print(f'{round(time()-t0, 2)}')
 #%%
 
 
-t = 15 ; c=3
+t = 15 ; c=5
 xrclust = xrclustered.sel(tfreq=t, n_clusters=c)
 ds = cl.spatial_mean_clusters(var_filename,
                           xrclust,
@@ -203,11 +203,12 @@ fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False,
                      colwrap=2, kwrgs={'AUC_cutoff':(14,30),'s':60})
 fig.suptitle('tfreq: {}, n_clusters: {}, q{}tail'.format(t, c, q),
              x=.5, y=.97)
-#%%
+#%% Only spatial mean
 t = 15 ; c = 5
 ds = cl.spatial_mean_clusters(var_filename,
                          xrclustered.sel(tfreq=t, n_clusters=c),
                          selbox=selbox)
+#%%
 f_name = 'tf{}_nc{}'.format(int(ds['ts'].tfreq), int(ds['n_clusters'].n_clusters))
 filepath = os.path.join(rg.path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])

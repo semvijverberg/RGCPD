@@ -384,15 +384,14 @@ def deseasonalizefft_detrend_2D(ds, detrend: bool=True, anomaly: bool=True,
     return ds
 
 def detrend_lin_longterm(ds):
-    no_nans = np.nan_to_num(ds)
-    detrended = sp.signal.detrend(no_nans, axis=0, type='linear')
-    nan_true = np.isnan(ds)
-    detrended[nan_true.values] = np.nan
-    trend = ds - detrended
-    constant = np.repeat(np.mean(ds, 0).expand_dims('time'), ds.time.size, 0 )
-    detrended += constant
+    offset_clim = np.mean(ds, 0)
+    dates = pd.to_datetime(ds.time.values)
+    detrended = sp.signal.detrend(np.nan_to_num(ds), axis=0, type='linear')
+    detrended[np.repeat(np.isnan(offset_clim).expand_dims('t').values,
+                        dates.size, 0 )] = np.nan # restore NaNs
+    detrended += np.repeat(offset_clim.expand_dims('time'), dates.size, 0 )
     detrended = detrended.assign_coords(
-                coords={'time':pd.to_datetime(ds.time.values)})
+                coords={'time':dates})
     # plot single gridpoint for visual check
     la = int(ds.shape[1]/2)
     lo = int(ds.shape[2]/2)
@@ -404,11 +403,12 @@ def detrend_lin_longterm(ds):
         ax[i].set_title(f'latlon coord {lat} {lon}')
         ax[i].plot(ds.values[:,lalo[0],lalo[1]])
         ax[i].plot(detrended[:,lalo[0],lalo[1]])
-        trend1d = trend[:,lalo[0],lalo[1]]
+        trend1d = ds[:,lalo[0],lalo[1]] - detrended[:,lalo[0],lalo[1]]
         linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
-        ax[i].plot(trend1d)
+        linregab = np.insert(linregab, 2, float(trend1d[-1] - trend1d[0]))
+        ax[i].plot(trend1d+offset_clim[lalo[0],lalo[1]])
         ax[i].text(.05, .05,
-        'y = {:.2g}x + {:.2g}'.format(*linregab),
+        'y = {:.2g}x + {:.2g}, max diff: {:.2g}'.format(*linregab),
         transform=ax[i].transAxes)
     plt.subplots_adjust(hspace=.3)
     ax[-1].text(.5,1.2, 'Visual analysis: trends of nearby gridcells should be similar',
@@ -462,8 +462,13 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=True, n_harmonics=6):
             window_s = max(min(25,int(stepsyr.size / 12)), 1)
             # print('Performing {} day rolling mean'
             #       ' to get better interannual statistics'.format(window_s))
-
+            from time import time
+            start = time()
+            print('applying rolling mean, beware: memory intensive')
             data_smooth =  rolling_mean_np(ds.values, window_s, win_type='boxcar')
+            # data_smooth_xr = ds.rolling(time=window_s, min_periods=1,
+            #                             center=True).mean(skipna=False)
+            passed = time() - start / 60
 
         output_clim3d = np.zeros((stepsyr.size, ds.latitude.size, ds.longitude.size),
                                    dtype='float32')
@@ -562,6 +567,7 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=True, n_harmonics=6):
 
 
     if detrend:
+        print('Detrending ...')
         output = detrend_lin_longterm(output)
 
     #%%

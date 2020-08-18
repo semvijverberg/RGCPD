@@ -49,10 +49,10 @@ logitCV = ('logitCV',
 ERA_data = data_dir + '/CPPA_ERA5_14-05-20_08hr_lag_0_c378f.h5'
 
 
-kwrgs_events = {'event_percentile': 50}
+kwrgs_events = {'event_percentile': 66}
 
 kwrgs_events = kwrgs_events
-precur_aggr = 15
+precur_aggr = 1
 add_autocorr = False
 use_fold = None
 n_boot = 2000
@@ -105,11 +105,11 @@ for i, fc in enumerate(list_of_fc):
 
 
 # In[8]:
-working_folder, filename = list_of_fc[0]._print_sett(list_of_fc=list_of_fc)
+working_folder, pathexper = list_of_fc[0]._print_sett(list_of_fc=list_of_fc)
 
 store = False
 if __name__ == "__main__":
-    filename = list_of_fc[0].filename
+    pathexper = list_of_fc[0].pathexper
     store = True
 
 import valid_plots as dfplots
@@ -118,7 +118,7 @@ import functions_pp
 
 dict_all = dfplots.merge_valid_info(list_of_fc, store=store)
 if store:
-    dict_merge_all = functions_pp.load_hdf5(filename+'.h5')
+    dict_merge_all = functions_pp.load_hdf5(pathexper+'/data.h5')
 
 
 kwrgs = {'wspace':0.15, 'col_wrap':None, 'skip_redundant_title':True,
@@ -137,10 +137,9 @@ fig = dfplots.valid_figures(dict_merge_all,
 
 
 f_format = '.pdf'
-pathfig_valid = os.path.join(filename + f_format)
+pathfig_valid = os.path.join(pathexper,'verification' + f_format)
 fig.savefig(pathfig_valid,
             bbox_inches='tight') # dpi auto 600
-
 
 
 #%%

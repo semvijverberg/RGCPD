@@ -48,7 +48,7 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
     '''
 
     list_precur_pp = []
-    for idx, (name, filename) in enumerate(list_of_name_path[1:]):
+    for idx, (name, infile) in enumerate(list_of_name_path[1:]):
         # update from kwrgs_pp for variable {name}
         kwrgs = {}
         for key, value in kwrgs_pp.items():
@@ -59,7 +59,7 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
             else:
                 kwrgs[key] = value
 
-        outfile = check_pp_done(name, filename, kwrgs_load=kwrgs)
+        outfile = check_pp_done(name, infile, kwrgs_load=kwrgs)
         list_precur_pp.append( (name, outfile) )
         if os.path.isfile(outfile) == True:
             if verbosity == 1:
@@ -69,7 +69,7 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
             print('\nPerforming pre-processing {}'.format(name))
 
 
-            core_pp.detrend_anom_ncdf3D(filename, outfile, **kwrgs)
+            core_pp.detrend_anom_ncdf3D(infile, outfile, **kwrgs)
     return list_precur_pp
         # update the dates stored in var_class:
 #        var_class, ex = update_dates(var_class, ex)
@@ -77,7 +77,7 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
 #        ex[var] = var_class
 
 
-def check_pp_done(name, filename, kwrgs_load: dict=None, verbosity=1):
+def check_pp_done(name, infile, kwrgs_load: dict=None, verbosity=1):
     #%%
     '''
     Check if pre processed ncdf already exists
@@ -85,14 +85,14 @@ def check_pp_done(name, filename, kwrgs_load: dict=None, verbosity=1):
     # =============================================================================
     # load dataset lazy
     # =============================================================================
-#    filename = os.path.join(ex['path_raw'], cls.filename)
+#    infile = os.path.join(ex['path_raw'], cls.filename)
     # if kwrgs_load is None:
     #     kwrgs = {'loadleap':False, 'format_lon':None}
     # else:
     #     keep = ['loadleap', 'format_lon', 'selbox']
     #     kwrgs = {k: kwrgs_load[k] for k in keep}
-    # ds = core_pp.import_ds_lazy(filename, **kwrgs)
-    ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
+    # ds = core_pp.import_ds_lazy(infile, **kwrgs)
+    ds = xr.open_dataset(infile, decode_cf=True, decode_coords=True, decode_times=False)
     ds = core_pp.ds_num2date(ds)
     dates = pd.to_datetime(ds['time'].values)
     start_day = get_oneyr(dates)[0]
@@ -105,7 +105,7 @@ def check_pp_done(name, filename, kwrgs_load: dict=None, verbosity=1):
     # =============================================================================
     # give appropriate name to output file
     # =============================================================================
-    outfilename = filename.split('/')[-1];
+    outfilename = infile.split('/')[-1];
 #    outfilename = outfilename.replace('daily', 'dt-{}days'.format(1))
     months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
                          8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
@@ -130,7 +130,7 @@ def check_pp_done(name, filename, kwrgs_load: dict=None, verbosity=1):
     outfilename = outfilename.replace('_{}_'.format(1), selboxstr_startdate)
     outfilename = outfilename.replace('_{}_'.format(12), enddatestr)
 #    filename_pp = outfilename
-    path_raw = '/'.join(filename.split('/')[:-1])
+    path_raw = '/'.join(infile.split('/')[:-1])
     path_pp = os.path.join(path_raw, 'preprocessed')
     if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
     outfile = os.path.join(path_pp, outfilename)
