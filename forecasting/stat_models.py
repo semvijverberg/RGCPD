@@ -18,6 +18,7 @@ from numpy.random import default_rng
 from sklearn.inspection import partial_dependence
 from concurrent.futures import ProcessPoolExecutor
 from sklearn.feature_selection import RFECV
+from sklearn.linear_model._ridge import RidgeCV
 import multiprocessing
 max_cpu = multiprocessing.cpu_count()
 from matplotlib.lines import Line2D
@@ -73,7 +74,7 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
         feat_sel = kwrgs.pop('feat_sel')
     else:
         feat_sel = None
-        
+
     # Get training years
     x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = utils.get_masks(df_norm)
 
@@ -91,18 +92,18 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
     #     y_dates = RV_bin_fit[y_pred_mask.values].index
     # else:
     y_dates = RV_bin_fit.index
-    
+
     X = X_train
 
     # Create stratified random shuffle which keeps together years as blocks.
     kwrgs_cv = ['kfold', 'seed']
     kwrgs_cv = {k:i for k, i in kwrgs.items() if k in kwrgs_cv}
     [kwrgs.pop(k) for k in kwrgs_cv.keys()]
-   
+
     cv = utils.get_cv_accounting_for_years(y_train, **kwrgs_cv)
     model = LogisticRegressionCV(fit_intercept=True,
                                  cv=cv,
-                                 n_jobs=1, 
+                                 n_jobs=1,
                                  **kwrgs)
     if feat_sel is not None:
         if feat_sel['model'] is None:
@@ -194,9 +195,9 @@ def GBC(y_ts, df_norm, keys, kwrgs_GBM=None, verbosity=0):
         if 'kfold' in kwrgs.keys():
             kfold = kwrgs.pop('kfold')
         else:
-            kfold = 5 
+            kfold = 5
         cv = utils.get_cv_accounting_for_years(len(y_train), kfold, seed=1)
-        
+
         model = GridSearchCV(model,
                   param_grid=kwrgs_gridsearch,
                   scoring=scoring, cv=cv, refit=scoring,
@@ -329,10 +330,10 @@ def plot_importances(models_splits_lags, lag=0, keys=None, cutoff=6,
             if keys is not None:
                 # take show up to cutoff most important features
                 df_r = df_r[keys]
- 
-            g = sns.catplot(data=df_r, palette=sns.color_palette(["#e74c3c"]), 
+
+            g = sns.catplot(data=df_r, palette=sns.color_palette(["#e74c3c"]),
                             orient='h', kind='box', ax=None, height=7)
-            
+
             ax = g.ax
             # ax.set_facecolor('white')
             ax.grid(which='both')
@@ -385,14 +386,14 @@ def plot_importances(models_splits_lags, lag=0, keys=None, cutoff=6,
                 splits = df_all.loc[:,col].index.levels[1]
                 df_var = df_all.loc[:,col]
                 print(col)
-                for s in splits:                   
-                    ax.plot(lags_df.values, df_var.loc[:,s].values, 
+                for s in splits:
+                    ax.plot(lags_df.values, df_var.loc[:,s].values,
                              linestyle=style,
                              linewidth=1,
                              color=cm, alpha=.3,
                              label=None)
-                ax.plot(lags_df.values, 
-                        df_var.mean(axis=0, level=0).values, 
+                ax.plot(lags_df.values,
+                        df_var.mean(axis=0, level=0).values,
                         linestyle=style,
                         linewidth=lw,
                         color=cm,
@@ -422,7 +423,7 @@ def _get_importances(models_splits_lags, lag=0):
     models_splits = models_splits_lags[f'lag_{lag}']
     splits = np.arange(len(models_splits_lags[f'lag_{lag}']))
     feature_importances = {}
-    
+
 
     # if keys is None:
     keys = set()
@@ -438,10 +439,14 @@ def _get_importances(models_splits_lags, lag=0):
             if hasattr(regressor, 'feature_importances_'): # for GBR
                 name_values = 'Relative Feature Importance'
                 importances = regressor.feature_importances_
-            elif hasattr(regressor, 'coef_'): # for logit
-                name_values = 'Logistic Regression Coefficients'
-                importances = regressor.coef_.squeeze(0)
-            
+            elif hasattr(regressor, 'coef_'):
+                if regressor.__class__ == LogisticRegressionCV:
+                    name_values = 'Logistic Regression Coefficients'  # for logit
+                    importances = regressor.coef_.squeeze(0)
+                if regressor.__class__ == RidgeCV: # for Ridge
+                    name_values = 'Ridge Regression Coefficients'
+                    importances = regressor.coef_.squeeze()
+
             if k not in feature_importances.keys():
                 feature_importances[k] = []
             if k not in keys_s:
@@ -451,9 +456,9 @@ def _get_importances(models_splits_lags, lag=0):
                  idx = keys_s.index(k)
                  np_import[s] = importances[idx]
             tuples_multiindex.append((k, s))
-        
+
         feature_importances[k] = np_import
-        
+
             # for name, importance in zip(keys_s, importances):
             #     if name not in feature_importances:
             #         if name not in feature_importances.keys():
@@ -468,7 +473,7 @@ def _get_importances(models_splits_lags, lag=0):
     # for name, (importance, count) in feature_importances.items():
     #     names.append(name)
     #     importances.append(float(importance) / float(count))
-        
+
     df = pd.DataFrame(feature_importances)
     df_mean = df.apply(np.nanmean).apply(abs)
     columns = df_mean.sort_values(ascending=False).index
@@ -498,7 +503,7 @@ def _get_importances(models_splits_lags, lag=0):
     # df = pd.DataFrame(zz, index=names_order, columns=[lag])
     # # df = pd.DataFrame([sorted(importances, reverse=True)], columns=names_order,
     # #                   index=[lag])
-    
+
 
     #%%
     return df

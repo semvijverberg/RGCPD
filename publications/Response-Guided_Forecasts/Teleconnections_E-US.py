@@ -43,13 +43,16 @@ list_of_name_path = [(name_or_cluster_label, TVpath),
 
 list_for_MI   = [BivariateMI(name='sm2', func=BivariateMI.corr_map,
                              kwrgs_func={'alpha':.05, 'FDR_control':True},
-                             distance_eps=800, min_area_in_degrees2=5),
+                             distance_eps=800, min_area_in_degrees2=5,
+                             use_coef_wghts=True),
                  BivariateMI(name='sm3', func=BivariateMI.corr_map,
                               kwrgs_func={'alpha':.05, 'FDR_control':True},
-                              distance_eps=800, min_area_in_degrees2=7),
+                              distance_eps=800, min_area_in_degrees2=7,
+                              use_coef_wghts=True),
                    BivariateMI(name='sst', func=BivariateMI.corr_map,
                                 kwrgs_func={'alpha':1E-3, 'FDR_control':True},
-                                distance_eps=800, min_area_in_degrees2=5)]
+                                distance_eps=800, min_area_in_degrees2=5,
+                                use_coef_wghts=True)]
 
 
 
@@ -145,12 +148,12 @@ rg.list_import_ts = [('PDO_ENSO', '/Users/semvijverberg/surfdrive/output_RGCPD/R
 rg.get_ts_prec()
 
 #%% Ridge regression
-import df_ana; import sklearn, functions_pp, func_models
+import df_ana; import sklearn, functions_pp, func_models, stat_models
 
 # experiment = 'only C.D.'
-# experiment = 'all correlated'
+experiment = 'all correlated'
 # experiment = 'expert knowledge'
-experiment = 'climate indices + local sm'
+# experiment = 'climate indices + local sm'
 
 lag = 3
 transformer=func_models.standardize_on_train
@@ -167,7 +170,7 @@ elif experiment == 'expert knowledge':
             '-15..6..sst', '-15..8..sst']
     experiment += f' ({len(keys)})'
 elif experiment == 'climate indices + local sm':
-    keys = ['ENSO34', 'PDO', '-15..3..sm2', '-15..2..sm3']
+    keys = ['1ts', 'ENSO34', 'PDO', '-15..3..sm2', '-15..2..sm3']
 
 
 kwrgs_model = {'scoring':'neg_mean_squared_error',
@@ -178,12 +181,15 @@ target_mean = target_ts.mean().squeeze()
 target_std = target_ts.std().squeeze()
 # standardize :
 target_ts = (target_ts - target_mean) / target_std
-predict, coef, model = rg.fit_df_data_ridge(keys=keys, target=target_ts, tau_min=lag,
+predict, coef, models = rg.fit_df_data_ridge(keys=keys, target=target_ts, tau_min=lag,
                                             tau_max=lag,
                                             transformer=transformer,
                                             kwrgs_model=kwrgs_model)
-prediction = predict.rename({lag:'Prediction', 'RVz5000..0..z500_sp':'Rossby wave (z500)'}, axis=1)
+models['lag_30'] = models.pop('lag_3')
 
+
+prediction = predict.rename({lag:'Prediction', 'RVz5000..0..z500_sp':'Rossby wave (z500)'}, axis=1)
+stat_models.plot_importances(models, lag=30)
 # AR1
 AR1, c, m = rg.fit_df_data_ridge(keys=[rg.TV.name], target=target_ts,
                                  tau_min=lag,

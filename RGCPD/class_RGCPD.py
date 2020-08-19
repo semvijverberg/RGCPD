@@ -212,14 +212,15 @@ class RGCPD:
         self.df_clust, self.ds = f.nc_xr_ts_to_df(self.list_of_name_path[0][1],
                                                   name_ds=name_ds)
 
-    def apply_df_ana_plot(self, df=None, name_ds='ts', func=None, kwrgs_func={}):
+    def apply_df_ana_plot(self, df=None, name_ds='ts', func=None, kwrgs_func={},
+                          colwrap=2):
         if df is None:
             self.get_clust(name_ds=name_ds)
             df = self.df_clust
         if func is None:
             func = df_ana.plot_ac ; kwrgs_func = {'AUC_cutoff':(14,30),'s':60}
         return df_ana.loop_df(df, function=func, sharex=False,
-                             colwrap=2, hspace=.5, kwrgs=kwrgs_func)
+                             colwrap=colwrap, hspace=.5, kwrgs=kwrgs_func)
 
     def plot_df_clust(self, save=False):
         self.get_clust()
@@ -404,17 +405,22 @@ class RGCPD:
         self.df_data = pd.concat([self.df_data]*self.df_splits.index.levels[0].size,
                                  keys=self.df_splits.index.levels[0])
         if self.list_for_MI is not None:
-            print('\nGetting MI timeseries')
+            print('\nGetting MI timeseries') ; c = 0
             for i, precur in enumerate(self.list_for_MI):
                 if hasattr(precur, 'prec_labels'):
                     precur.get_prec_ts(precur_aggr=precur_aggr,
                                    kwrgs_load=self.kwrgs_load)
                 else:
                     print(f'{precur.name} not clustered yet')
-            df_data_MI = find_precursors.df_data_prec_regs(self.list_for_MI,
-                                                             TV,
-                                                             df_splits)
-            self.df_data = self.df_data.merge(df_data_MI, left_index=True, right_index=True)
+                    c += i
+            if c == len(self.list_for_MI):
+                print('No MI timeseries extracted')
+            else:
+                df_data_MI = find_precursors.df_data_prec_regs(self.list_for_MI,
+                                                                 TV,
+                                                                 df_splits)
+                self.df_data = self.df_data.merge(df_data_MI, left_index=True,
+                                                  right_index=True)
 
         # Append (or only load in) external timeseries
         if self.list_import_ts is not None:
@@ -812,29 +818,36 @@ class RGCPD:
         if target is None: # not changing
             target_ts = self.df_data.loc[0].iloc[:,[0]][RV_mask]
 
-        preds = np.zeros( (splits.size), dtype=object)
-        wghts = np.zeros( (splits.size) , dtype=object)
-        for isp, s in enumerate(splits):
-            fit_masks = self.df_data.loc[s][['RV_mask', 'TrainIsTrue']]
-            TrainIsTrue = self.df_data.loc[s]['TrainIsTrue']
 
-            df_s = self.df_data.loc[s]
-            ks = [k for k in keys if k in df_s.columns] # keys split
+        models_lags = dict()
 
-            if transformer is not None:
-                df_trans = df_s[ks].apply(transformer,
-                                        args=[TrainIsTrue],
-                                        result_type='broadcast')
-            else:
-                df_trans = df_s[ks] # no transformation
+        for il, lag in enumerate(lags):
+            preds = np.zeros( (splits.size), dtype=object)
+            wghts = np.zeros( (splits.size) , dtype=object)
+            models_splits_lags = dict()
+            for isp, s in enumerate(splits):
+                fit_masks = self.df_data.loc[s][['RV_mask', 'TrainIsTrue']]
+                TrainIsTrue = self.df_data.loc[s]['TrainIsTrue']
 
-            if type(target) is str:
-                target_ts = self.df_data.loc[s][target][RV_mask]
-            elif type(target) is pd.DataFrame:
-                target_ts = target
+                df_s = self.df_data.loc[s]
+                ks = [k for k in keys if k in df_s.columns] # keys split
 
-            # make prediction for each lag
-            for il, lag in enumerate(lags):
+                if transformer is not None:
+                    df_trans = df_s[ks].apply(transformer,
+                                            args=[TrainIsTrue],
+                                            result_type='broadcast')
+                else:
+                    df_trans = df_s[ks] # no transformation
+
+                if type(target) is str:
+                    target_ts = self.df_data.loc[s][target][RV_mask]
+                elif type(target) is pd.DataFrame:
+                    target_ts = target
+
+                # make prediction for each lag
+                # if len(lags) > 1:
+
+
                 df_train = df_trans.merge(apply_shift_lag(fit_masks, lag),
                                           left_index=True,
                                           right_index=True)
@@ -843,6 +856,11 @@ class RGCPD:
 
                 pred, model = sm.ridgeCV({'ts':target_ts},
                                                df_train, ks, kwrgs_model)
+
+                # if len(lags) > 1:
+                models_splits_lags[f'split_{s}'] = model
+
+
                 if il == 0:
                     # add truth
                     prediction = target_ts.copy()
@@ -860,15 +878,21 @@ class RGCPD:
                                                      columns=[lag]),
                                          left_index=True,
                                          right_index=True)
+                preds[isp] = prediction
+                wghts[isp] = coeff
+            # if len(lags) > 1:
+            models_lags[f'lag_{lag}'] = models_splits_lags
 
-            preds[isp] = prediction
-            wghts[isp] = coeff
+            # else:
+            #     models[f'split_{s}'] = model
+
+
 
         predict = pd.concat(list(preds), keys=splits)
         weights = pd.concat(list(wghts), keys=splits)
         weights_norm = weights.mean(axis=0, level=1)
-        weights_norm.div(weights_norm.max(axis=0)).T.plot()
-        return predict, weights, model
+        weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
+        return predict, weights, models_lags
 
 
 

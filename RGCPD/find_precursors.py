@@ -543,8 +543,7 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
     prec_labels     = precur.prec_labels
     n_spl           = corr_xr.split.size
     lags            = precur.corr_xr.lag.values
-
-
+    use_coef_wghts  = precur.use_coef_wghts
 
     if precur_aggr is None:
         # use precursor array with temporal aggregation that was used to create
@@ -582,6 +581,9 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
 
             regions_for_ts = list(np.unique(labels_lag[~np.isnan(labels_lag)]))
             a_wghts = precur.area_grid / precur.area_grid.mean()
+            if use_coef_wghts:
+                coef_wghts = abs(corr.isel(lag=l_idx)) / abs(corr.isel(lag=l_idx)).max()
+                a_wghts *= coef_wghts.values # area & corr. value weighted
 
             # this array will be the time series for each feature
             ts_regions_lag_i = np.zeros((actbox.shape[0], len(regions_for_ts)))

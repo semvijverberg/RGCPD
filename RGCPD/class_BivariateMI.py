@@ -26,7 +26,7 @@ class BivariateMI:
     def __init__(self, name, func=None, kwrgs_func={}, lags=np.array([1]),
                  distance_eps=400, min_area_in_degrees2=3, group_split='together',
                  calc_ts='region mean', selbox: tuple=None,
-                 use_sign_pattern: bool=False, verbosity=1):
+                 use_sign_pattern: bool=False, use_coef_wghts: bool=False, verbosity=1):
         '''
 
         Parameters
@@ -62,6 +62,13 @@ class BivariateMI:
             The default is 'region_mean'.
         selbox : tuple, optional
             has format of (lon_min, lon_max, lat_min, lat_max)
+        use_sign_pattern : bool, optional
+            When calculating spatial covariance, do not use original pattern
+            but focus on the sign of each region. Used for quantifying Rossby
+            waves.
+        use_coef_wghts : bool, optional
+            When True, using (corr) coefficient values as weights when calculating
+            spatial mean. (will always be area weighted).
         verbosity : int, optional
             Not used atm. The default is 1.
 
@@ -84,12 +91,14 @@ class BivariateMI:
 
         #get_prec_ts & spatial_mean_regions
         self.calc_ts = calc_ts
+        self.selbox = selbox
+        self.use_sign_pattern = use_sign_pattern
+        self.use_coef_wghts = use_coef_wghts
         # cluster_DBSCAN_regions
         self.distance_eps = distance_eps
         self.min_area_in_degrees2 = min_area_in_degrees2
         self.group_split = group_split
-        self.selbox = selbox
-        self.use_sign_pattern = use_sign_pattern
+
         self.verbosity = verbosity
 
         return

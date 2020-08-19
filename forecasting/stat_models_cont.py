@@ -92,6 +92,7 @@ def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
 
     prediction = pd.DataFrame(y_pred, index=y_dates, columns=[0])
     model.X_pred = X_pred
+    model.name = 'Ridge Regression'
     #%%
     return prediction, model
 
