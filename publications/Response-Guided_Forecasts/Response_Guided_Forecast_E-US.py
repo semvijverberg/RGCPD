@@ -24,7 +24,7 @@ from RGCPD import RGCPD
 from RGCPD import BivariateMI
 
 TVpath = os.path.join(curr_dir,'data/tf15_nc5_dendo_5e87d.nc')
-path_out_main = '/Users/semvijverberg/surfdrive/output_RGCPD/Response-Guided/'
+path_out_main = os.path.join(curr_dir, 'output')
 name_or_cluster_label = 1
 name_ds = 'ts'
 start_end_TVdate = ('07-01', '08-31')
