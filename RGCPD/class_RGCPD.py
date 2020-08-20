@@ -177,26 +177,28 @@ class RGCPD:
         return
 
     def pp_precursors(self, loadleap=False, seldates=None, selbox=None,
-                            format_lon='only_east',
+                            format_lon='only_east', auto_detect_mask=False,
                             detrend=True, anomaly=True):
         '''
         in format 'only_east':
         selbox assumes [lowest_east_lon, highest_east_lon, south_lat, north_lat]
         '''
         # loadleap=False;seldates=None;selbox=None;format_lon='only_east',
-        # detrend=True; anomaly=True
+        # detrend=True; anomaly=True; auto_detect_mask=False
         loadleap = loadleap
         seldates = seldates
         selbox = selbox
         format_lon = format_lon
         detrend = detrend
         anomaly = anomaly
+        auto_detect_mask = auto_detect_mask
 
 
         self.kwrgs_load = dict(loadleap=loadleap, seldates=seldates,
                                selbox=selbox, format_lon=format_lon)
         self.kwrgs_pp = self.kwrgs_load.copy()
-        self.kwrgs_pp.update(dict(detrend=detrend, anomaly=anomaly))
+        self.kwrgs_pp.update(dict(detrend=detrend, anomaly=anomaly,
+                                  auto_detect_mask=auto_detect_mask))
 
         self.kwrgs_load.update(dict(start_end_date=self.start_end_date,
                                     start_end_year=self.start_end_year,
@@ -740,8 +742,8 @@ class RGCPD:
                 fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
                 plt.savefig(fig_path, bbox_inches='tight')
 
-    def plot_maps_sum(self, var='all', map_proj=None, figpath=None,
-                      paramsstr=None, cols: List=['corr', 'C.D.'], kwrgs_plot={}):
+    def plot_maps_sum(self, var='all', figpath=None, paramsstr=None,
+                      cols: List=['corr', 'C.D.'], kwrgs_plot={}):
 
 #         if map_proj is None:
 #             central_lon_plots = 200
@@ -751,16 +753,18 @@ class RGCPD:
             figpath = self.path_outsub1
         if paramsstr is None:
             paramsstr = self.params_str
+        if cols != ['corr', 'C.D.']:
+            paramsstr = cols[0] +'_'+paramsstr
         if var == 'all':
             dict_ds = self.dict_ds
         else:
             dict_ds = {f'{var}':self.dict_ds[var]} # plot single var
-        plot_maps.plot_labels_vars_splits(dict_ds, self.df_links, map_proj,
+        plot_maps.plot_labels_vars_splits(dict_ds, self.df_links,
                                           figpath, paramsstr, self.TV.name,
                                           cols=cols, kwrgs_plot=kwrgs_plot)
 
 
-        plot_maps.plot_corr_vars_splits(dict_ds, self.df_links, map_proj,
+        plot_maps.plot_corr_vars_splits(dict_ds, self.df_links,
                                           figpath, paramsstr, self.TV.name,
                                           cols=cols, kwrgs_plot=kwrgs_plot)
 

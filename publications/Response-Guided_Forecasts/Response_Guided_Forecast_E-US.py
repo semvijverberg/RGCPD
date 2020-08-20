@@ -23,7 +23,7 @@ import cartopy.crs as ccrs
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
 
-TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/Response-Guided/tf15_nc5_dendo_5e87d.nc'
+TVpath = os.path.join(curr_dir,'data/tf15_nc5_dendo_5e87d.nc')
 path_out_main = '/Users/semvijverberg/surfdrive/output_RGCPD/Response-Guided/'
 name_or_cluster_label = 1
 name_ds = 'ts'
@@ -33,26 +33,36 @@ start_end_date = ('1-1', '12-31')
 tfreq = 15
 # In[5]:
 
+# Tried with adding soil moisture as precursor, but did not add skill at long-lead (30 days)
+
+# list_of_name_path = [(name_or_cluster_label, TVpath),
+#                       ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),
+#                       ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),
+#                        ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc')]
 
 list_of_name_path = [(name_or_cluster_label, TVpath),
-                      ('sm2', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm2_1979-2018_1_12_daily_1.0deg.nc'),
-                      ('sm3', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm3_1979-2018_1_12_daily_1.0deg.nc'),
-                      ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc')]
+                       ('sst', '/Users/semvijverberg/surfdrive/ERA5/input_raw/sst_1979-2018_1_12_daily_1.0deg.nc')]
 
 
 
-list_for_MI   = [BivariateMI(name='sm2', func=BivariateMI.corr_map,
-                             kwrgs_func={'alpha':.05, 'FDR_control':True},
-                             distance_eps=800, min_area_in_degrees2=5,
-                             use_coef_wghts=True),
-                 BivariateMI(name='sm3', func=BivariateMI.corr_map,
-                              kwrgs_func={'alpha':.05, 'FDR_control':True},
-                              distance_eps=800, min_area_in_degrees2=7,
-                              use_coef_wghts=True),
-                   BivariateMI(name='sst', func=BivariateMI.corr_map,
-                                kwrgs_func={'alpha':1E-3, 'FDR_control':True},
-                                distance_eps=800, min_area_in_degrees2=5,
-                                use_coef_wghts=True)]
+
+# list_for_MI   = [BivariateMI(name='sm2', func=BivariateMI.corr_map,
+#                              kwrgs_func={'alpha':.01, 'FDR_control':True},
+#                              distance_eps=800, min_area_in_degrees2=5,
+#                              use_coef_wghts=use_coef_wghts),
+#                  BivariateMI(name='sm3', func=BivariateMI.corr_map,
+#                               kwrgs_func={'alpha':.01, 'FDR_control':True},
+#                               distance_eps=800, min_area_in_degrees2=7,
+#                               use_coef_wghts=use_coef_wghts),
+#                     BivariateMI(name='sst', func=BivariateMI.corr_map,
+#                                  kwrgs_func={'alpha':1E-3, 'FDR_control':True},
+#                                  distance_eps=800, min_area_in_degrees2=5,
+#                                  use_coef_wghts=use_coef_wghts)]
+
+list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map,
+                    kwrgs_func={'alpha':1E-3, 'FDR_control':True},
+                    distance_eps=800, min_area_in_degrees2=5,
+                    use_coef_wghts=True, selbox=(0,360,-10,90))]
 
 
 
@@ -60,7 +70,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
                list_for_MI=list_for_MI,
                start_end_TVdate=start_end_TVdate,
                start_end_date=start_end_date,
-               tfreq=tfreq, lags_i=np.array([-1]),
+               tfreq=tfreq, lags_i=np.array([1]),
                path_outmain=path_out_main)
 
 rg.plot_df_clust()
@@ -84,7 +94,7 @@ plt.savefig(os.path.join(rg.path_outsub1, 'TV_cluster.pdf'),
             bbox_inches='tight') # dpi auto 600
 
 
-rg.pp_precursors(anomaly=[True, {'sm2':False, 'sm3':False}])
+rg.pp_precursors(auto_detect_mask=[False, {'sm2':True, 'sm3':True}])
 
 
 
@@ -96,7 +106,7 @@ rg.pp_precursors(anomaly=[True, {'sm2':False, 'sm3':False}])
 rg.calc_corr_maps()
 
 
-# In[167]:
+# In[167]: Clustering precursor regions
 
 
 rg.cluster_list_MI()
@@ -138,13 +148,16 @@ rg.PCMCI_get_links(alpha_level=.05)
 
 # rg.plot_maps_corr(var=['sm3'], mean=True, save=False, aspect=2, cbar_vert=-.1,
 #                   subtitles=np.array([['SM3 Correlated']]))
+kwrgs_plot= {'y_ticks':np.arange(-10, 91,20),
+             'cbar_vert':-.09,
+             'map_proj':ccrs.PlateCarree(central_longitude=220)}
+rg.plot_maps_sum(cols=['corr'], kwrgs_plot=kwrgs_plot)
 
-rg.plot_maps_sum(cols=['corr'])
+rg.plot_maps_sum(cols=['C.D.'], kwrgs_plot=kwrgs_plot)
 
-rg.plot_maps_sum(cols=['C.D.'])
 #%% Add PDO ENSO
 
-rg.list_import_ts = [('PDO_ENSO', '/Users/semvijverberg/surfdrive/output_RGCPD/Response-Guided/1ts_5e87d_1jun-31aug_lag0-0_random10s1/PDO_ENSO34_ERA5_1979_2018.h5')]
+rg.list_import_ts = [('PDO_ENSO', os.path.join(curr_dir,'data/PDO_ENSO34_ERA5_1979_2018.h5'))]
 rg.get_ts_prec()
 
 #%% Ridge regression
@@ -153,28 +166,29 @@ import df_ana; import sklearn, functions_pp, func_models, stat_models
 # experiment = 'only C.D.'
 experiment = 'all correlated'
 # experiment = 'expert knowledge'
-# experiment = 'climate indices + local sm'
+# experiment = 'climate indices (PDO,ENSO34)'
 
 lag = 3
 transformer=func_models.standardize_on_train
 # transformer=None
 
 if experiment == 'all correlated':
-    keys = np.array(rg.df_MCIa.loc[0].index)
-    experiment += f' ({len(keys)})'
+    keys = np.array([k for k in rg.df_data.columns if k not in ['ENSO34', 'PDO', 'TrainIsTrue', 'RV_mask']])
+    experiment += f' ({len(keys)-1}) regions'
 elif experiment == 'only C.D.':
     keys = rg.df_links.mean(0,level=1).index[(rg.df_links.mean(0,level=1) > .5).sum(axis=1) == 1]
-    experiment += f' ({len(keys)})'
+    experiment += f' ({len(keys)-1}) regions'
 elif experiment == 'expert knowledge':
-    keys = ['1ts', '-15..3..sm2', '-15..2..sm3', '-15..1..sst', '-15..2..sst',
-            '-15..6..sst', '-15..8..sst']
-    experiment += f' ({len(keys)})'
-elif experiment == 'climate indices + local sm':
-    keys = ['1ts', 'ENSO34', 'PDO', '-15..3..sm2', '-15..2..sm3']
+    keys = ['1ts', '15..1..sst', '15..2..sst', '15..3..sst', '15..5..sst'] # lag 1
+
+
+    experiment += f' ({len(keys)-1}) regions'
+elif experiment == 'climate indices (PDO,ENSO34)':
+    keys = ['1ts', 'ENSO34', 'PDO']
 
 
 kwrgs_model = {'scoring':'neg_mean_squared_error',
-               'alphas':np.logspace(0.3, 1.8, num=20)}
+               'alphas':np.logspace(.3, 2.5, num=25)}
 s = 1
 target_ts = rg.df_data.loc[s].iloc[:,[0]][rg.df_data.loc[s]['RV_mask']].copy()
 target_mean = target_ts.mean().squeeze()
@@ -186,10 +200,11 @@ predict, coef, models = rg.fit_df_data_ridge(keys=keys, target=target_ts, tau_mi
                                             transformer=transformer,
                                             kwrgs_model=kwrgs_model)
 models['lag_30'] = models.pop('lag_3')
+stat_models.plot_importances(models, lag=30, cutoff=len(keys))
+model_dict = models['lag_30']['split_0'].__dict__
 
+prediction = predict.rename({lag:'Prediction'}, axis=1)
 
-prediction = predict.rename({lag:'Prediction', 'RVz5000..0..z500_sp':'Rossby wave (z500)'}, axis=1)
-stat_models.plot_importances(models, lag=30)
 # AR1
 AR1, c, m = rg.fit_df_data_ridge(keys=[rg.TV.name], target=target_ts,
                                  tau_min=lag,
@@ -214,7 +229,7 @@ df_test = functions_pp.get_df_test(prediction.merge(df_splits,
 fig, ax = plt.subplots(1, 1, figsize = (15,5), facecolor='lightgrey')
 ax.set_facecolor('white')
 ax.grid(which='major', color='grey', alpha=.2)
-ax.plot(df_test[['Prediction']], label=f'{experiment} regions',
+ax.plot(df_test[['Prediction']], label=f'{experiment}',
         color='red',#ax.lines[0].get_color(),
         linewidth=1)
 
@@ -250,7 +265,8 @@ ax.hlines(y=0,xmin=pd.to_datetime('1979-06-03'),
           xmax=pd.to_datetime('2018-08-02'), color='grey')
 
 
-ax.legend(loc='upper right', fontsize=16, frameon=True)
+ax.legend(loc='upper right', fontsize=16, frameon=True, facecolor='grey',
+          framealpha=.5)
 ax.set_ylabel('Standardized temperature timeseries', fontsize=16)
 ax.set_ylim(-3,3)
 

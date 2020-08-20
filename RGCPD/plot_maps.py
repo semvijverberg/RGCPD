@@ -419,9 +419,9 @@ def causal_reg_to_xarray(df_links, list_MI):
     #%%
     return dict_ds
 
-def plot_labels_vars_splits(dict_ds, df_links, map_proj, figpath, paramsstr, RV_name,
+def plot_labels_vars_splits(dict_ds, df_links, figpath, paramsstr, RV_name,
                             filetype='.pdf', mean_splits=True,
-                        cols: List=['corr', 'C.D.'], kwrgs_plot={}):
+                            cols: List=['corr', 'C.D.'], kwrgs_plot={}):
 
     #%%
     # =============================================================================
@@ -442,12 +442,12 @@ def plot_labels_vars_splits(dict_ds, df_links, map_proj, figpath, paramsstr, RV_
                 f_name = '{}_{}_vs_{}_labels'.format(paramsstr, RV_name, var) + filetype
 
             filepath = os.path.join(figpath, f_name)
-            plot_labels_RGCPD(ds, var, lag, map_proj, filepath,
+            plot_labels_RGCPD(ds, var, lag, filepath,
                               mean_splits, cols, kwrgs_plot)
     #%%
     return
 
-def plot_labels_RGCPD(ds, var, lag, map_proj, filepath,
+def plot_labels_RGCPD(ds, var, lag, filepath,
                       mean_splits=True, cols: List=['corr', 'C.D.'],
                       kwrgs_plot={}):
     #%%
@@ -516,7 +516,7 @@ def plot_labels_RGCPD(ds, var, lag, map_proj, filepath,
     if np.isnan(prec_labels.values).all() == False:
 
         plot_corr_maps(prec_labels,
-                 map_proj, **kwrgs_labels)
+                       **kwrgs_labels)
         plt.savefig(filepath, bbox_inches='tight')
         plt.show() ; plt.close()
 
@@ -543,7 +543,7 @@ def plot_labels_RGCPD(ds, var, lag, map_proj, filepath,
             # robust.lag.values = subtitles_r[0]
             robust = robust.where(robust.values != 0.)
             plot_corr_maps(robust-1E-9,
-                 map_proj, **kwrgs_labels)
+                           **kwrgs_labels)
             f_name = f'robustness_{var}_lag{lag}.' + filepath.split('.')[-1]
             fig_path = '/'.join(filepath.split('/')[:-1])
             plt.savefig(os.path.join(fig_path, f_name), bbox_inches='tight')
@@ -556,7 +556,7 @@ def plot_labels_RGCPD(ds, var, lag, map_proj, filepath,
     #%%
     return
 
-def plot_corr_vars_splits(dict_ds, df_sum, map_proj, figpath, paramsstr, RV_name,
+def plot_corr_vars_splits(dict_ds, df_sum, figpath, paramsstr, RV_name,
                           filetype='.pdf', mean_splits=True,
                           cols: List=['corr', 'C.D.'], kwrgs_plot={}):
     #%%
@@ -590,7 +590,7 @@ def plot_corr_vars_splits(dict_ds, df_sum, map_proj, figpath, paramsstr, RV_name
             else:
                 f_name = '{}_{}_vs_{}_tigr_corr'.format(paramsstr, RV_name, var) + filetype
             filepath = os.path.join(figpath, f_name)
-            plot_corr_regions(ds, var, lag, map_proj, filepath,
+            plot_corr_regions(ds, var, lag, filepath,
                               mean_splits, cols, kwrgs_plot)
     #%%
     return
@@ -632,7 +632,7 @@ def plot_labels(prec_labels, cbar_vert=None, col_dim='lag', row_dim='split',
                    hspace=hspace, wspace=wspace, zoomregion=zoomregion,
                    **kwrgs_labels)
 
-def plot_corr_regions(ds, var, lag, map_proj, filepath,
+def plot_corr_regions(ds, var, lag, filepath,
                       mean_splits=True, cols: List=['corr','C.D.'],
                       kwrgs_plot={}):
     #%%
@@ -695,7 +695,7 @@ def plot_corr_regions(ds, var, lag, map_proj, filepath,
         kwrgs = {'cbar_vert':cbar_vert, 'subtitles':subtitles,
                  'units':'Corr Coefficient'}
         kwrgs.update(kwrgs_plot) # add and overwrite manual kwrgs
-        plot_corr_maps(corr_xr, mask_xr, map_proj, **kwrgs)
+        plot_corr_maps(corr_xr, mask_xr, **kwrgs)
 
         plt.savefig(filepath, bbox_inches='tight')
         plt.show() ; plt.close()

@@ -14,6 +14,7 @@ import xarray as xr
 from netCDF4 import num2date
 import itertools
 # from dateutil.relativedelta import relativedelta as date_dt
+from collections import Counter
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 from typing import Union
@@ -36,7 +37,7 @@ def get_oneyr(pddatetime, *args):
 def import_ds_lazy(filename, loadleap=False,
                    seldates: Union[tuple, pd.core.indexes.datetimes.DatetimeIndex]=None,
                    start_end_year: tuple=None, selbox: Union[list, tuple]=None,
-                   format_lon='only_east', var=None,
+                   format_lon='only_east', var=None, auto_detect_mask: bool=False,
                    verbosity=0):
 
     '''
@@ -69,10 +70,16 @@ def import_ds_lazy(filename, loadleap=False,
         # load whole dataset
         ds = ds
 
+
+
+
     if multi_dims:
         if 'latitude' and 'longitude' not in ds.dims:
             ds = ds.rename({'lat':'latitude',
                             'lon':'longitude'})
+
+        if auto_detect_mask:
+            ds = detect_mask(ds)
 
         if format_lon is not None:
             if test_periodic(ds)==False and 0 not in ds.longitude:
@@ -114,6 +121,25 @@ def import_ds_lazy(filename, loadleap=False,
         ds.attrs['is_DataArray'] = 0
     return ds
 
+def detect_mask(ds):
+    '''
+    Auto detect mask based on finding 20 percent of exactly equal values in
+    first timestep
+    '''
+    if 'time' in ds.dims:
+        field = ds[0]
+    else:
+        field = ds
+    fieldsize = field.size
+    if np.unique(field).size < .8 * fieldsize:
+        # more then 20% has exactly the same value
+        val = [k for k,v in Counter(list(field.values.flatten())).items() if v>.2*fieldsize]
+        mask = field.values == val
+        if 'time' in ds.dims:
+            ds = ds.where(np.repeat(mask[np.newaxis,:,:],ds.time.size,0)==False)
+        else:
+            ds = ds.where(mask)
+    return ds
 
 def remove_leapdays(datetime):
     mask_lpyrfeb = np.logical_and((datetime.month == 2), (datetime.day == 29))
@@ -195,18 +221,21 @@ def get_selbox(ds, selbox, verbosity=0):
 
 def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
                         seldates=None, selbox=None, format_lon='east_west',
-                        detrend=True, anomaly=True, apply_fft=True,
-                        n_harmonics=6, encoding=None):
+                        auto_detect_mask=False, detrend=True, anomaly=True,
+                        apply_fft=True, n_harmonics=6, encoding=None):
     '''
     Function for preprocessing
     - Calculate anomalies (by removing seasonal cycle based on first
       three harmonics)
     - linear long-term detrend
     '''
-
+    # loadleap=False; seldates=None; selbox=None; format_lon='east_west';
+    # auto_detect_mask=False; detrend=True; anomaly=True;
+    # apply_fft=True; n_harmonics=6; encoding=None
     #%%
     ds = import_ds_lazy(infile, loadleap=loadleap,
-                        seldates=seldates, selbox=selbox, format_lon=format_lon)
+                        seldates=seldates, selbox=selbox, format_lon=format_lon,
+                        auto_detect_mask=auto_detect_mask)
 
     # check if 3D data (lat, lat, lev) or 2D
     check_dim_level = any([level in ds.dims for level in ['lev', 'level']])
@@ -564,6 +593,7 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=True, n_harmonics=6):
         summer.name = f'std {summer.name}'
         (summer.mean(dim='time') / summer.std(dim='time')).plot(ax=ax)
         ax.set_title('summer composite mean [in std]')
+    print('\n')
 
 
     if detrend:

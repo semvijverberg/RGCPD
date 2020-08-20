@@ -197,7 +197,8 @@ class BivariateMI:
             dates_RV = RV_ts.index
             n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
             print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
-
+            # if s == 6:
+                # break
             ma_data = corr_single_split(RV_ts, precur_train, **self.kwrgs_func)
             np_data[s] = ma_data.data
             np_mask[s] = ma_data.mask

@@ -39,7 +39,7 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
 
     '''
     #%%
-    # precur = rg.list_for_MI[0] ; TV = rg.TV; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
+    # precur = rg.list_for_MI[1] ; TV = rg.TV; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
 
     name = precur.name
     filepath = precur.filepath
@@ -314,6 +314,7 @@ def cluster_DBSCAN_regions(pos_prec):
             # order based on mean corr_value:
             corr_vals = corr_xr.mean(dim='split').values
             prec_label_s = grouping_split[0].copy()
+            prec_label_s[mask_split.astype('bool').values] = 0
             reassign = reorder_strength(prec_label_s, corr_vals, area_grid,
                                         min_area_samples)
             for s in range(n_spl):
