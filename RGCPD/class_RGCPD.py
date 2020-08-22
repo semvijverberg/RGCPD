@@ -416,13 +416,18 @@ class RGCPD:
                     print(f'{precur.name} not clustered yet')
                     c += i
             if c == len(self.list_for_MI):
-                print('No MI timeseries extracted')
+                print('No precursors clustered')
             else:
-                df_data_MI = find_precursors.df_data_prec_regs(self.list_for_MI,
-                                                                 TV,
-                                                                 df_splits)
-                self.df_data = self.df_data.merge(df_data_MI, left_index=True,
-                                                  right_index=True)
+                check_ts = np.unique([MI.ts_corr.size for MI in self.list_for_MI])
+                any_MI_ts = np.equal(check_ts, np.array([0]))[0] == False
+                if any_MI_ts:
+                    df_data_MI = find_precursors.df_data_prec_regs(self.list_for_MI,
+                                                                     TV,
+                                                                     df_splits)
+                    self.df_data = self.df_data.merge(df_data_MI, left_index=True,
+                                                      right_index=True)
+                else:
+                    print('No precursor regions significant')
 
         # Append (or only load in) external timeseries
         if self.list_import_ts is not None:

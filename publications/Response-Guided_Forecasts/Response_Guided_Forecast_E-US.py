@@ -24,7 +24,8 @@ from RGCPD import RGCPD
 from RGCPD import BivariateMI
 
 TVpath = os.path.join(curr_dir,'data/tf15_nc5_dendo_5e87d.nc')
-path_out_main = os.path.join(curr_dir, 'output')
+path_out_main = os.path.join(curr_dir, 'output_rm')
+
 name_or_cluster_label = 1
 name_ds = 'ts'
 start_end_TVdate = ('07-01', '08-31')
@@ -60,7 +61,7 @@ list_of_name_path = [(name_or_cluster_label, TVpath),
 #                                  use_coef_wghts=use_coef_wghts)]
 
 list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map,
-                    kwrgs_func={'alpha':1E-3, 'FDR_control':True},
+                    kwrgs_func={'alpha':1E-20, 'FDR_control':True},
                     distance_eps=800, min_area_in_degrees2=5,
                     use_coef_wghts=True, selbox=(0,360,-10,90))]
 
