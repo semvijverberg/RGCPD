@@ -676,12 +676,11 @@ def df_data_prec_regs(list_MI, TV, df_splits): #, outdic_precur, df_splits, TV #
                           f'for {pos_prec.name}')
 
         # stack actor time-series together:
+
         fulldata = np.concatenate(tuple(pos_prec_list), axis = 1)
         n_regions_list.append(fulldata.shape[1])
-        # add the full 1D time series of interest as first entry:
-        # var_names_corr.insert(0, TV.name)
-        # fulldata = np.column_stack((TV.fullts, fulldata))
         df_data_s[s] = pd.DataFrame(fulldata, columns=flatten(cols), index=index_dates)
+
 
     print(f'There are {n_regions_list} regions in total (list of different splits)')
     df_data  = pd.concat(list(df_data_s), keys= range(splits.size), sort=False)
