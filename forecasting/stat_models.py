@@ -185,8 +185,8 @@ def GBC(y_ts, df_norm, keys, kwrgs_GBM=None, verbosity=0):
         model, new_features, rfecv = utils.feature_selection(X_train, y_train.values.ravel(), **feat_sel)
         X_pred = X_pred[new_features] # subset predictors
         X_train = X_train[new_features] # subset predictors
-    else:
-        model.fit(X_train, y_train.values.ravel())
+    # else:
+        # model.fit(X_train, y_train.values.ravel())
 
 
 

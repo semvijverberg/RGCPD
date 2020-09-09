@@ -27,7 +27,7 @@ from RGCPD import BivariateMI
 TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/q50_nc4_dendo_707fb.nc')
 cluster_label = 3
 name_ds='ts'
-start_end_TVdate = ('06-01', '09-30')
+
 start_end_date = None
 start_end_year = (1980, 2015)
 tfreq = 100
@@ -46,7 +46,6 @@ list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map,
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
                list_for_MI=list_for_MI,
-               start_end_TVdate=start_end_TVdate,
                start_end_date=start_end_date,
                start_end_year=start_end_year,
                tfreq=tfreq, lags_i=np.array([0,1]),
@@ -54,6 +53,19 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 
 rg.plot_df_clust()
 
+
+#%%
+prec_dates_dict = {'MJJA':('05-01', '08-31'),
+                   'JJAS':('06-01', '09-30'),
+                   'JASO':('06-01', '10-31')}
+
+for name_dates, prec_dates in prec_dates_dict.items():
+    print(name_dates)
+    rg.start_end_TVdate = prec_dates
+
+    rg.pp_precursors(selbox=[None,{'sst':(-180,360,-10,90)}], anomaly=[True, {'sm':False}])
+rg.path_outmain = curr_dir+f'/output/{name_dates}'
+if os.path.isdir(rg.path_outmain) != True : os.makedirs(rg.path_outmain)
 # Post-processing Target Variable
 rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=False)
 #%% Pre-processing precursors
@@ -63,12 +75,8 @@ rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=False)
 # plt.savefig(os.path.join(rg.path_outsub1, 'TV_cluster.pdf'),
 #             bbox_inches='tight') # dpi auto 600
 
-selbox = [None, {'sst':[-180,360,-10,90]}]
-# selbox = None
-#anomaly = [True, {'sm1':False, 'sm2':False, 'sm3':False}]
-anomaly = [True, {'sm1':False, 'sm2':False, 'sm3':False, 'st2':False}]
 
-rg.pp_precursors(selbox=selbox, anomaly=anomaly)
+
 
 
 
@@ -95,6 +103,29 @@ rg.quick_view_labels(save=True)
 #%%
 
 rg.get_ts_prec()
+
+#%%
+from sklearn import metrics
+import stat_models_cont as sm
+import functions_pp
+lag = 1
+target_ts = rg.TV.RV_ts
+target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+out = rg.fit_df_data_ridge(target=target_ts,
+                           keys=rg.df_data.columns[1:-2],
+                           tau_min=lag, tau_max=lag)
+predict, weights, models_lags = out
+prediction = predict.rename({'RV3ts':'Crop Yield [1/y]',lag:'Prediction'},axis=1)
+score_func_list = [metrics.mean_squared_error, np.corrcoef]
+df_train_m, df_test_s_m, df_test_m = sm.get_scores(prediction, rg.df_splits,
+                                            score_func_list)
+
+print(df_test_s_m.mean())
+df_test = functions_pp.get_df_test(prediction.merge(rg.df_splits,
+                                                    left_index=True,
+                                                    right_index=True)).iloc[:,:2]
+df_test.plot()
+#%%
 rg.get_ts_prec(precur_aggr=1)
 
 

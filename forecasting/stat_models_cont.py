@@ -9,6 +9,7 @@ Created on Wed Oct  2 15:03:31 2019
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import RidgeCV
+from sklearn import metrics
 import functions_pp
 
 
@@ -56,15 +57,18 @@ def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
     X_train = X[x_fit_mask.values]
     X_pred  = X[x_pred_mask.values]
 
-    RV_bin_fit = y_ts['ts']
-    # y_ts dates no longer align with x_fit  y_fit masks
+    RV_bin_fit = y_ts['ts'].loc[y_fit_mask.index] # y_fit may be shortened
+    # because X_test was used to predict y_train due to lag, hence train-test
+    # leakage.
+
+    # y_ts dates may no longer align with x_fit  y_fit masks
     y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
     y_train = RV_bin_fit[y_fit_mask].squeeze()
 
     # if y_pred_mask is not None:
     #     y_dates = RV_bin_fit[y_pred_mask.values].index
     # else:
-    y_dates = RV_bin_fit.index
+    # y_dates = RV_bin_fit.index
 
     X = X_train
 
@@ -90,18 +94,21 @@ def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
 
     y_pred = model.predict(X_pred)
 
-    prediction = pd.DataFrame(y_pred, index=y_dates, columns=[0])
+    prediction = pd.DataFrame(y_pred, index=y_pred_mask.index, columns=[0])
     model.X_pred = X_pred
     model.name = 'Ridge Regression'
     #%%
     return prediction, model
 
 
-def get_scores(prediction, df_splits, score_func_list=list):
+def get_scores(prediction, df_splits, score_func_list: list=None):
     #%%
     pred = prediction.merge(df_splits,
                             left_index=True,
                             right_index=True)
+
+    if score_func_list is None:
+        score_func_list = [metrics.mean_squared_error]
     splits = pred.index.levels[0]
     df_train = pd.DataFrame(np.zeros( (splits.size, len(score_func_list))),
                             columns=[f.__name__ for f in score_func_list])

@@ -20,7 +20,7 @@ fc_dir = os.path.join(main_dir, 'forecasting/')
 
 if fc_dir not in sys.path:
     sys.path.append(fc_dir)
-from class_fc import apply_shift_lag
+import func_models as fc_utils
 
 from typing import List, Tuple, Union
 
@@ -47,7 +47,6 @@ df_ana_dir = os.path.join(curr_dir, '..', 'df_analysis/df_analysis/') # add df_a
 fc_dir       = os.path.join(curr_dir, '..', 'forecasting/') # add df_ana path
 sys.path.append(df_ana_dir) ; sys.path.append(fc_dir)
 import df_ana
-import func_models
 import stat_models_cont as sm
 path_test = os.path.join(curr_dir, '..', 'data')
 
@@ -365,7 +364,10 @@ class RGCPD:
             var = [MI.name for MI in self.list_for_MI]
         for precur in self.list_for_MI:
             if precur.name in var:
-                precur = find_precursors.cluster_DBSCAN_regions(precur)
+                if hasattr(precur, 'corr_xr'):
+                    precur = find_precursors.cluster_DBSCAN_regions(precur)
+                else:
+                    print(f'No MI map available for {precur.name}')
 
 
     def get_EOFs(self):
@@ -418,7 +420,8 @@ class RGCPD:
             if c == len(self.list_for_MI):
                 print('No precursors clustered')
             else:
-                check_ts = np.unique([MI.ts_corr.size for MI in self.list_for_MI])
+                MI_ts_corr = [MI for MI in self.list_for_MI if hasattr(MI, 'ts_corr')]
+                check_ts = np.unique([MI.ts_corr.size for MI in MI_ts_corr])
                 any_MI_ts = np.equal(check_ts, np.array([0]))[0] == False
                 if any_MI_ts:
                     df_data_MI = find_precursors.df_data_prec_regs(self.list_for_MI,
@@ -660,6 +663,8 @@ class RGCPD:
             except IndexError as e:
                 print(e)
                 print('var not in list_for_MI')
+            if hasattr(precur, 'prec_labels')==False:
+                continue
             prec_labels = precur.prec_labels.copy()
             if median:
                 prec_labels = prec_labels.median(dim='split')
@@ -774,7 +779,7 @@ class RGCPD:
                                           cols=cols, kwrgs_plot=kwrgs_plot)
 
 
-    def _get_testyrs(self, df_splits):
+    def _get_testyrs(self, df_splits=None):
     #%%
         if df_splits is None:
             df_splits = self.df_splits
@@ -789,7 +794,7 @@ class RGCPD:
     def fit_df_data_ridge(self, keys: Union[list, np.ndarray]=None,
                              target: Union[str,pd.DataFrame]=None,
                              tau_min: int=1,
-                             tau_max: int=3,
+                             tau_max: int=1,
                              newname:str = None, transformer=None,
                              kwrgs_model: dict={'scoring':'neg_mean_squared_error'}):
         '''
@@ -813,9 +818,11 @@ class RGCPD:
 
         Returns
         -------
-        None.
+        predict (DataFrame), weights (DataFrame), models_lags (dict).
 
         '''
+        # keys=None;target=None;tau_min=1;tau_max=3;transformer=None
+        # kwrgs_model={'scoring':'neg_mean_squared_error'}
         # self.df_data_all = self.df_data.copy()
         lags = range(tau_min, tau_max+1)
         if keys is None:
@@ -853,18 +860,15 @@ class RGCPD:
                 elif type(target) is pd.DataFrame:
                     target_ts = target
 
-                # make prediction for each lag
-                # if len(lags) > 1:
 
-
-                df_train = df_trans.merge(apply_shift_lag(fit_masks, lag),
+                df_norm = df_trans.merge(fc_utils.apply_shift_lag(fit_masks, lag),
                                           left_index=True,
                                           right_index=True)
 
 
 
                 pred, model = sm.ridgeCV({'ts':target_ts},
-                                               df_train, ks, kwrgs_model)
+                                               df_norm, ks, kwrgs_model)
 
                 # if len(lags) > 1:
                 models_splits_lags[f'split_{s}'] = model
