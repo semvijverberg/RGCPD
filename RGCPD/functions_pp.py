@@ -301,46 +301,43 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
 #        start_end_date = ('01-01', '12-31')
 
     timestep_days = (dates[1] - dates[0]).days
-    if timestep_days == 1:
-        input_freq = 'daily'
-        same_freq = (dates[1] - dates[0]).days == tfreq
-    elif timestep_days >= 28 and timestep_days <= 31 and n_yrs != n_timesteps:
-        input_freq = 'monthly'
-        same_freq = (dates[1].month - dates[0].month) == tfreq
-    elif timestep_days == 365 or timestep_days == 366:
+    if type(tfreq) == int: # timemeanbins between start_end_date
+        if timestep_days == 1:
+            input_freq = 'daily'
+            same_freq = (dates[1] - dates[0]).days == tfreq #same_freq true/False
+        elif timestep_days >= 28 and timestep_days <= 31 and n_yrs != n_timesteps:
+            input_freq = 'monthly'
+            same_freq = (dates[1].month - dates[0].month) == tfreq #same_freq true/False
+        elif tfreq == timestep_days:
+            same_freq = True
+
+        # Going to make timemeanbins (multiple datapoints per year)
+        if same_freq == False:
+            if verbosity == 1:
+                print('original tfreq of imported response variable is converted to '
+                      'desired tfreq')
+            fullts, dates_tobin = time_mean_bins(fullts, tfreq,
+                                                    start_end_date,
+                                                    start_end_year,
+                                                    closed_on_date=start_end_TVdate[-1])
+        if same_freq == True and start_end_date is not None and input_freq == 'daily':
+            fullts, dates = timeseries_tofit_bins(fullts, tfreq, start_end_date,
+                                            start_end_year)
+            print('Selecting subset as defined by start_end_date')
+    elif type(tfreq) == str:
+        pass
+        ###!!! still need to code taking mean over string of months
+        # if tfreq is '123', target will become Jan Feb Mar mean.
+
+
+    if timestep_days == 365 or timestep_days == 366:
         input_freq = 'annual'
         same_freq = None # don't want to take n-day means
         if verbosity == 1:
-            print('Detected timeseries with annual mean values, will copy '
-                  'annual mean values to fit the precursor timeseries (this '
-                  'is a required format for the rest of the code)')
+            print('Detected timeseries with annual mean values')
         start_end_TVdate = ('01-01','12-31')
-        fullts, dates, start_end_TVdate = extend_annual_ts(fullts,
-                                                          tfreq=1,
-                                                          start_end_TVdate=start_end_TVdate,
-                                                          start_end_date=start_end_date)
+        dates = pd.to_datetime(fullts.time.values)
 
-    else:
-        same_freq = True
-
-
-    if same_freq == False:
-        if verbosity == 1:
-            print('original tfreq of imported response variable is converted to '
-                  'desired tfreq')
-        to_freq = tfreq
-
-        fullts, dates_tobin = time_mean_bins(fullts, to_freq,
-                                                start_end_date,
-                                                start_end_year,
-                                                closed_on_date=start_end_TVdate[-1])
-
-
-    # if same_freq == True and start_end_date is not None and input_freq == 'daily':
-    #     to_freq = tfreq
-    #     fullts, dates = timeseries_tofit_bins(fullts, to_freq, start_end_date,
-    #                                    start_end_year)
-    #     print('Selecting subset as defined by start_end_date')
 
     if RV_detrend == True:
         print('Detrending Respone Variable.')
@@ -365,6 +362,7 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
 
 def extend_annual_ts(fullts, tfreq: int, start_end_TVdate: tuple,
                      start_end_date: tuple=None):
+    # Deprecated 10-11-2020
 
     firstyear = pd.to_datetime(fullts.time.values)[0].year
     endyear   = pd.to_datetime(fullts.time.values)[-1].year
@@ -450,16 +448,18 @@ def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
                            loadleap=False,
                            to_xarr=True,
                            seldates=None,
+                           dailytomonths=False,
                            format_lon='only_east'):
 
     ds = core_pp.import_ds_lazy(filepath, loadleap=loadleap,
                                 seldates=seldates,
                                 start_end_year=start_end_year,
                                 selbox=selbox,
+                                dailytomonths=dailytomonths,
                                 format_lon=format_lon)
 
     to_freq = tfreq
-    if to_freq is not None and to_freq != 1:
+    if to_freq is not None and to_freq != 1 and dailytomonths==False:
         ds, dates_tobin = time_mean_bins(ds, to_freq,
                                         start_end_date,
                                         start_end_year,

@@ -175,9 +175,10 @@ class RGCPD:
         self.orig_stdout        = sys.stdout
         return
 
-    def pp_precursors(self, loadleap=False, seldates=None, selbox=None,
-                            format_lon='only_east', auto_detect_mask=False,
-                            detrend=True, anomaly=True):
+    def pp_precursors(self, loadleap=False, seldates=None,
+                      selbox=None, format_lon='only_east',
+                      auto_detect_mask=False,
+                      detrend=True, anomaly=True):
         '''
         in format 'only_east':
         selbox assumes [lowest_east_lon, highest_east_lon, south_lat, north_lat]
@@ -264,7 +265,7 @@ class RGCPD:
         # Creating a folder for the specific spatial mask, RV period and traintest set
         self.path_outsub0 = os.path.join(self.path_outmain, self.fulltso.name \
                                          +'_' +self.hash +'_'+RV_name_range \
-                                         +'_'+var+ self.append_pathsub)
+                                         +var+ self.append_pathsub)
 
         # # =============================================================================
         # # Test if you're not have a lag that will precede the start date of the year
@@ -488,6 +489,8 @@ class RGCPD:
 
         if keys is None:
             keys = self.df_data.columns
+        else:
+            keys.append('TrainIsTrue') ; keys.append('RV_mask')
 
         df_data = self.df_data.copy()
         if type(replace_RV_mask) is np.ndarray:

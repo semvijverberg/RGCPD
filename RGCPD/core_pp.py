@@ -38,7 +38,7 @@ def import_ds_lazy(filename, loadleap=False,
                    seldates: Union[tuple, pd.core.indexes.datetimes.DatetimeIndex]=None,
                    start_end_year: tuple=None, selbox: Union[list, tuple]=None,
                    format_lon='only_east', var=None, auto_detect_mask: bool=False,
-                   verbosity=0):
+                   dailytomonths: bool=False, verbosity=0):
 
     '''
     selbox has format of (lon_min, lon_max, lat_min, lat_max)
@@ -70,7 +70,22 @@ def import_ds_lazy(filename, loadleap=False,
         # load whole dataset
         ds = ds
 
+    # get dates
+    if 'time' in ds.squeeze().dims:
+        ds = ds_num2date(ds, loadleap=loadleap)
 
+        if type(seldates) is tuple or start_end_year is not None and seldates is None:
+            pddates = get_subdates(dates=pd.to_datetime(ds.time.values),
+                         start_end_date=seldates,
+                         start_end_year=start_end_year, lpyr=loadleap)
+            ds = ds.sel(time=pddates)
+        elif type(seldates) is pd.DatetimeIndex:
+            # seldates are pd.DatetimeIndex
+            ds = ds.sel(time=seldates)
+        if dailytomonths:
+            ds = ds.resample(time='1M', restore_coord_dims=True).mean()
+            dtfirst = [s+'-01' for s in ds["time"].dt.strftime('%Y-%m').values]
+            ds = ds.assign_coords({'time':pd.to_datetime(dtfirst)})
 
 
     if multi_dims:
@@ -99,20 +114,6 @@ def import_ds_lazy(filename, loadleap=False,
 
         if selbox is not None:
             ds = get_selbox(ds, selbox, verbosity)
-
-
-    # get dates
-    if 'time' in ds.squeeze().dims:
-        ds = ds_num2date(ds, loadleap=loadleap)
-
-        if type(seldates) is tuple or start_end_year is not None and seldates is None:
-            pddates = get_subdates(dates=pd.to_datetime(ds.time.values),
-                         start_end_date=seldates,
-                         start_end_year=start_end_year, lpyr=loadleap)
-            ds = ds.sel(time=pddates)
-        elif type(seldates) is pd.DatetimeIndex:
-            # seldates are pd.DatetimeIndex
-            ds = ds.sel(time=seldates)
 
 
     if type(ds) == type(xr.DataArray(data=[0])):

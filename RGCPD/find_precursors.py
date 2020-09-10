@@ -48,7 +48,7 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
         # =============================================================================
         # Unpack non-default arguments
         # =============================================================================
-    kwrgs = {'selbox':precur.selbox}
+    kwrgs = {'selbox':precur.selbox, 'dailytomonths':precur.dailytomonths}
     for key, value in kwrgs_load.items():
         if type(value) is list and name in value[1].keys():
             kwrgs[key] = value[1][name]
@@ -661,27 +661,27 @@ def df_data_prec_regs(list_MI, TV, df_splits): #, outdic_precur, df_splits, TV #
 
         # create list with all actors, these will be merged into the fulldata array
         # allvar = list(self.outdic_precur.keys())
-        var_names_corr = [] ; pos_prec_list = [] ; cols = []
+        var_names_corr = [] ; precur_list = [] ; cols = []
 
-        for var_idx, pos_prec in enumerate(list_MI):
-            if hasattr(pos_prec, 'ts_corr'):
-                if pos_prec.ts_corr[s].size != 0:
-                    ts_train = pos_prec.ts_corr[s].values
-                    pos_prec_list.append(ts_train)
+        for var_idx, precur in enumerate(list_MI):
+            if hasattr(precur, 'ts_corr'):
+                if precur.ts_corr[s].size != 0:
+                    ts_train = precur.ts_corr[s].values
+                    precur_list.append(ts_train)
                     # create array which numbers the regions
-                    n_regions = pos_prec.ts_corr[s].shape[1]
-                    pos_prec.var_info = [[i+1, pos_prec.ts_corr[s].columns[i], var_idx] for i in range(n_regions)]
+                    n_regions = precur.ts_corr[s].shape[1]
+                    precur.var_info = [[i+1, precur.ts_corr[s].columns[i], var_idx] for i in range(n_regions)]
                     # Array of corresponing regions with var_names_corr (first entry is RV)
-                    var_names_corr = var_names_corr + pos_prec.var_info
-                    cols.append(list(pos_prec.ts_corr[s].columns))
-                    index_dates = pos_prec.ts_corr[s].index
+                    var_names_corr = var_names_corr + precur.var_info
+                    cols.append(list(precur.ts_corr[s].columns))
+                    index_dates = precur.ts_corr[s].index
                 else:
                     print('Did not cluster BiVariateMI, no timeseries retrieved '
-                          f'for {pos_prec.name}')
+                          f'for {precur.name}')
 
         # stack actor time-series together:
 
-        fulldata = np.concatenate(tuple(pos_prec_list), axis = 1)
+        fulldata = np.concatenate(tuple(precur_list), axis = 1)
         n_regions_list.append(fulldata.shape[1])
         df_data_s[s] = pd.DataFrame(fulldata, columns=flatten(cols), index=index_dates)
 

@@ -103,7 +103,9 @@ class BivariateMI:
         self.use_coef_wghts = use_coef_wghts
         self.lags = lags
         if type(self.lags[0]) == np.str_:
-            self.tfreq = 1 # set tfreq to 1 so that a all days are loaded
+            self.dailytomonths=True
+        else:
+            self.dailytomonths=False
             # after which means over month(s) can be calculated
         # cluster_DBSCAN_regions
         self.distance_eps = distance_eps
@@ -168,12 +170,18 @@ class BivariateMI:
             z = np.zeros((lat.size*lon.size,len(lags) ) )
             Corr_Coeff = np.ma.array(z, mask=z)
 
-
             dates_RV = RV_ts.index
             for i, lag in enumerate(lags):
-
-                dates_lag = functions_pp.func_dates_min_lag(dates_RV, lag)[1]
-                prec_lag = precur_train.sel(time=dates_lag)
+                if type(lag) == int:
+                    dates_lag = functions_pp.func_dates_min_lag(dates_RV, lag)[1]
+                    prec_lag = precur_train.sel(time=dates_lag)
+                elif type(lag) == np.str_: # aggr. over list of months
+                    months = [int(lag[i]) for i in range(len(lag))]
+                    prec_lag = precur_train.sel(time=
+                                                np.in1d( precur_train['time.month'],
+                                                months))
+                    prec_lag = prec_lag.groupby('time.year',
+                                                restore_coord_dims=True).mean()
                 prec_lag = np.reshape(prec_lag.values, (prec_lag.shape[0],-1))
 
 
@@ -207,7 +215,12 @@ class BivariateMI:
             # =============================================================================
             RV_train_mask = np.logical_and(RV_mask, df_splits.loc[s]['TrainIsTrue'])
             RV_ts = RV.fullts[RV_train_mask.values]
-            precur_train = precur_arr[df_splits.loc[s]['TrainIsTrue'].values]
+            TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values
+            if type(self.lags[0]) == np.str_: # adapt df_splits to daily precur_arr
+                # convert annual to daily
+                TrainIsTrue = np.repeat(TrainIsTrue,
+                                        functions_pp.get_oneyr(precur_arr).size)
+            precur_train = precur_arr[TrainIsTrue]
 
         #        dates_RV  = pd.to_datetime(RV_ts.time.values)
             dates_RV = RV_ts.index
