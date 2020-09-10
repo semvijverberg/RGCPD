@@ -28,27 +28,29 @@ TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/q50_nc4_dend
 cluster_label = 3
 name_ds='ts'
 
-start_end_date = None
+start_end_date = ('01-01','12-31') # not working
+start_end_TVdate = start_end_date
 start_end_year = (1980, 2015)
-tfreq = 100
+tfreq = 360
 #%%
 list_of_name_path = [(cluster_label, TVpath),
-                      ('sst', os.path.join(path_raw, 'sst_1980-2015_1_12_daily_1.0deg.nc')),
-                      ('sm', os.path.join(path_raw, 'sm23add_1979-2018_1_12_daily_1.0deg.nc'))]
+                      ('sst', os.path.join(path_raw, 'sst_1980-2015_1_12_daily_1.0deg.nc'))]
+                      # ('sm', os.path.join(path_raw, 'sm23add_1979-2018_1_12_daily_1.0deg.nc'))]
 
 list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map,
                              kwrgs_func={'alpha':.05, 'FDR_control':True},
                              distance_eps=1000, min_area_in_degrees2=5,
-                             selbox=(-180,360,-10,90)),
-                 BivariateMI(name='sm', func=BivariateMI.corr_map,
-                             kwrgs_func={'alpha':.05, 'FDR_control':True},
-                             distance_eps=1000, min_area_in_degrees2=5)]
+                             selbox=(-180,360,-10,90),
+                             lags=np.array(['456']))]
+                 # BivariateMI(name='sm', func=BivariateMI.corr_map,
+                 #             kwrgs_func={'alpha':.05, 'FDR_control':True},
+                 #             distance_eps=1000, min_area_in_degrees2=5)]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
                list_for_MI=list_for_MI,
                start_end_date=start_end_date,
                start_end_year=start_end_year,
-               tfreq=tfreq, lags_i=np.array([0,1]),
+               tfreq=tfreq,
                path_outmain=curr_dir+'/output/')
 
 rg.plot_df_clust()
@@ -59,11 +61,15 @@ prec_dates_dict = {'MJJA':('05-01', '08-31'),
                    'JJAS':('06-01', '09-30'),
                    'JASO':('06-01', '10-31')}
 
-for name_dates, prec_dates in prec_dates_dict.items():
-    print(name_dates)
-    rg.start_end_TVdate = prec_dates
+# for name_dates, prec_dates in prec_dates_dict.items():
+#     print(name_dates)
+#     rg.start_end_TVdate = prec_dates
 
-    rg.pp_precursors(selbox=[None,{'sst':(-180,360,-10,90)}], anomaly=[True, {'sm':False}])
+#     rg.pp_precursors(selbox=[None,{'sst':(-180,360,-10,90)}], anomaly=[True, {'sm':False}])
+
+name_dates = 'JJAS'
+rg.start_end_TVdate = prec_dates_dict[name_dates]
+rg.pp_precursors(selbox=[None,{'sst':(-180,360,-10,90)}], anomaly=[True, {'sm':False}])
 rg.path_outmain = curr_dir+f'/output/{name_dates}'
 if os.path.isdir(rg.path_outmain) != True : os.makedirs(rg.path_outmain)
 # Post-processing Target Variable
@@ -85,7 +91,10 @@ rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=False)
 # In[165]:
 
 rg.traintest(method='leave_4', kwrgs_events=None)
-
+precur = rg.list_for_MI[0]
+kwrgs_load = rg.kwrgs_load
+TV = rg.TV
+df_splits = rg.df_splits
 rg.calc_corr_maps('sst')
 rg.plot_maps_corr('sst', save=True)
 
@@ -108,7 +117,7 @@ rg.get_ts_prec()
 from sklearn import metrics
 import stat_models_cont as sm
 import functions_pp
-lag = 1
+lag = 0
 target_ts = rg.TV.RV_ts
 target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 out = rg.fit_df_data_ridge(target=target_ts,

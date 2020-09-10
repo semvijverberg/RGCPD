@@ -61,7 +61,7 @@ class RGCPD:
                  tfreq: int=10,
                  start_end_date: Tuple[str, str]=None,
                  start_end_year: Tuple[int, int]=None,
-                 lags_i: np.ndarray=np.array([0]),
+                 # lags_i: np.ndarray=np.array([0]),
                  path_outmain: str=None,
                  append_pathsub='',
                  verbosity: int=1):
@@ -167,8 +167,8 @@ class RGCPD:
 
         self.verbosity          = verbosity
         self.tfreq              = tfreq
-        self.lags_i             = lags_i
-        self.lags               = np.array([l*self.tfreq for l in self.lags_i], dtype=int)
+        # self.lags_i             = lags_i
+        # self.lags               = np.array([l*self.tfreq for l in self.lags_i], dtype=int)
         self.path_outmain       = path_outmain
         self.append_pathsub     = append_pathsub
         self.figext             = '.pdf'
@@ -184,15 +184,6 @@ class RGCPD:
         '''
         # loadleap=False;seldates=None;selbox=None;format_lon='only_east',
         # detrend=True; anomaly=True; auto_detect_mask=False
-        loadleap = loadleap
-        seldates = seldates
-        selbox = selbox
-        format_lon = format_lon
-        detrend = detrend
-        anomaly = anomaly
-        auto_detect_mask = auto_detect_mask
-
-
         self.kwrgs_load = dict(loadleap=loadleap, seldates=seldates,
                                selbox=selbox, format_lon=format_lon)
         self.kwrgs_pp = self.kwrgs_load.copy()
@@ -268,29 +259,29 @@ class RGCPD:
                                          months[self.dates_TV.month[0]],
                                          self.dates_TV[-1].day,
                                          months[self.dates_TV.month[-1]] )
-        info_lags = 'lag{}-{}'.format(min(self.lags), max(self.lags))
+        var = '_'.join([np[0] for np in self.list_of_name_path[1:]])
+        # info_lags = 'lag{}-{}'.format(min(self.lags), max(self.lags))
         # Creating a folder for the specific spatial mask, RV period and traintest set
         self.path_outsub0 = os.path.join(self.path_outmain, self.fulltso.name \
                                          +'_' +self.hash +'_'+RV_name_range \
-                                         + info_lags + self.append_pathsub)
+                                         +'_'+var+ self.append_pathsub)
 
-
-        # =============================================================================
-        # Test if you're not have a lag that will precede the start date of the year
-        # =============================================================================
-        # first date of year to be analyzed:
-        if self.input_freq == 'daily' or self.input_freq == 'annual':
-            f = 'D'
-        elif self.input_freq != 'monthly':
-            f = 'M'
-        firstdoy = self.dates_TV.min() - np.timedelta64(int(max(self.lags)), f)
-        if firstdoy < self.dates_all[0] and (self.dates_all[0].month,self.dates_all[0].day) != (1,1):
-            tdelta = self.dates_all.min() - self.dates_all.min()
-            lag_max = int(tdelta / np.timedelta64(self.tfreq, 'D'))
-            self.lags = self.lags[self.lags < lag_max]
-            self.lags_i = self.lags_i[self.lags_i < lag_max]
-            print(('Changing maximum lag to {}, so that you not skip part of the '
-                  'year.'.format(max(self.lags)) ) )
+        # # =============================================================================
+        # # Test if you're not have a lag that will precede the start date of the year
+        # # =============================================================================
+        # # first date of year to be analyzed:
+        # if self.input_freq == 'daily' or self.input_freq == 'annual':
+        #     f = 'D'
+        # elif self.input_freq != 'monthly':
+        #     f = 'M'
+        # firstdoy = self.dates_TV.min() - np.timedelta64(int(max(self.lags)), f)
+        # if firstdoy < self.dates_all[0] and (self.dates_all[0].month,self.dates_all[0].day) != (1,1):
+        #     tdelta = self.dates_all.min() - self.dates_all.min()
+        #     lag_max = int(tdelta / np.timedelta64(self.tfreq, 'D'))
+        #     self.lags = self.lags[self.lags < lag_max]
+        #     self.lags_i = self.lags_i[self.lags_i < lag_max]
+        #     print(('Changing maximum lag to {}, so that you not skip part of the '
+        #           'year.'.format(max(self.lags)) ) )
 
 
     def traintest(self, method: str=None, seed=1,
@@ -347,7 +338,6 @@ class RGCPD:
         for precur in self.list_for_MI:
             if precur.name in var:
                 precur.filepath = [l for l in self.list_precur_pp if l[0]==precur.name][0][1]
-                precur.lags = self.lags
                 if hasattr(precur, 'selbox'):
                     kwrgs_load['selbox'] = precur.selbox
                 find_precursors.calculate_region_maps(precur,

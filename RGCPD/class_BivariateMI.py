@@ -24,9 +24,11 @@ flatten = lambda l: list(itertools.chain.from_iterable(l))
 class BivariateMI:
 
     def __init__(self, name, func=None, kwrgs_func={}, lags=np.array([1]),
-                 distance_eps=400, min_area_in_degrees2=3, group_split='together',
+                 lagasmonthint: bool=False, distance_eps: int=400,
+                 min_area_in_degrees2=3, group_split='together',
                  calc_ts='region mean', selbox: tuple=None,
-                 use_sign_pattern: bool=False, use_coef_wghts: bool=False, verbosity=1):
+                 use_sign_pattern: bool=False,
+                 use_coef_wghts: bool=False, verbosity=1):
         '''
 
         Parameters
@@ -38,9 +40,14 @@ class BivariateMI:
             The default is applying a correlation map.
         kwrgs_func : TYPE, optional
             DESCRIPTION. The default is {}.
-        lags : int, optional
+        lags : np.ndarray of int or str, optional
             lag w.r.t. the the target variable at which to calculate the MI.
             The default is np.array([1]).
+            If npdarray is filled with list of strings (of intergers), it is
+            decomposed into integers referring to the month, i.e.
+            np.array(['123']) is decomposed into month Jan, Feb, Mar of which
+            a mean will be calculated. Works only if your target has one
+            value per year.
         distance_eps : int, optional
             The maximum distance between two gridcells for one to be considered
             as in the neighborhood of the other, only gridcells with the same
@@ -50,7 +57,7 @@ class BivariateMI:
             The number of samples gridcells in a neighborhood for a
             region to be considered as a core point. The parameter is
             propotional to the average size of 1 by 1 degree gridcell.
-            The default is 3.
+            The default is 400.
         group_split : str, optional
             Choose 'together' or 'seperate'. If 'together', then region labels
             will be equal between different train test splits.
@@ -94,6 +101,10 @@ class BivariateMI:
         self.selbox = selbox
         self.use_sign_pattern = use_sign_pattern
         self.use_coef_wghts = use_coef_wghts
+        self.lags = lags
+        if type(self.lags[0]) == np.str_:
+            self.tfreq = 1 # set tfreq to 1 so that a all days are loaded
+            # after which means over month(s) can be calculated
         # cluster_DBSCAN_regions
         self.distance_eps = distance_eps
         self.min_area_in_degrees2 = min_area_in_degrees2
@@ -125,7 +136,12 @@ class BivariateMI:
 
         n_lags = len(self.lags)
         lags = self.lags
-        assert n_lags >= 0, ('Maximum lag is larger then minimum lag, not allowed')
+        targetstepsoneyr = functions_pp.get_oneyr(RV.RV_ts)
+        if type(self.lags[0]) == np.str_ and targetstepsoneyr.size>1:
+            raise ValueError('Precursor and Target do not align.\n'
+                             'One aggregated value taken for months '
+                             f'{self.lags[0]}, while target timeseries has '
+                             f'multiple timesteps per year:\n{targetstepsoneyr}')
 
         self.df_splits = df_splits # add df_splits to self
         n_spl = df_splits.index.levels[0].size

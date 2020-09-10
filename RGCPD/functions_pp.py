@@ -26,7 +26,14 @@ from dateutil.relativedelta import relativedelta as date_dt
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
-def get_oneyr(pddatetime, *args):
+def get_oneyr(dt_pdf_pds_xr, *args):
+    if type(dt_pdf_pds_xr) == pd.DatetimeIndex:
+        pddatetime = dt_pdf_pds_xr
+    if type(dt_pdf_pds_xr) == pd.DataFrame or type(dt_pdf_pds_xr) == pd.Series:
+        pddatetime = dt_pdf_pds_xr.index # assuming index of df is DatetimeIndex
+    if type(dt_pdf_pds_xr) == xr.DataArray:
+        pddatetime = pd.to_datetime(dt_pdf_pds_xr.time.values)
+
     dates = []
     pddatetime = pd.to_datetime(pddatetime)
     year = pddatetime.year[0]
@@ -307,17 +314,11 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
             print('Detected timeseries with annual mean values, will copy '
                   'annual mean values to fit the precursor timeseries (this '
                   'is a required format for the rest of the code)')
+        start_end_TVdate = ('01-01','12-31')
         fullts, dates, start_end_TVdate = extend_annual_ts(fullts,
-                                                          tfreq,
+                                                          tfreq=1,
                                                           start_end_TVdate=start_end_TVdate,
                                                           start_end_date=start_end_date)
-        if verbosity == 1:
-            sd = f'{startyear}-{start_end_TVdate[0]}'
-            ed = f'{dates[0].year}-{start_end_TVdate[1]}'
-            daterange = pd.date_range(sd,
-                                      ed)
-            print(f'Adapting start_endTV_date to {start_end_TVdate}, to fit '
-                  f'single datapoint per year, dt {daterange.size}')
 
     else:
         same_freq = True
@@ -335,11 +336,11 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                                                 closed_on_date=start_end_TVdate[-1])
 
 
-    if same_freq == True and start_end_date is not None and input_freq == 'daily':
-        to_freq = tfreq
-        fullts, dates = timeseries_tofit_bins(fullts, to_freq, start_end_date,
-                                       start_end_year)
-        print('Selecting subset as defined by start_end_date')
+    # if same_freq == True and start_end_date is not None and input_freq == 'daily':
+    #     to_freq = tfreq
+    #     fullts, dates = timeseries_tofit_bins(fullts, to_freq, start_end_date,
+    #                                    start_end_year)
+    #     print('Selecting subset as defined by start_end_date')
 
     if RV_detrend == True:
         print('Detrending Respone Variable.')

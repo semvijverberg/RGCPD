@@ -54,8 +54,12 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
             kwrgs[key] = value[1][name]
         elif type(value) is list and name not in value[1].keys():
             kwrgs[key] = value[0] # plugging in default value
+        elif hasattr(precur, key):
+            # Overwrite RGCPD parameters with MI specific parameters
+            kwrgs[key] = precur.__dict__[key]
         else:
             kwrgs[key] = value
+
     #===========================================
     # Precursor field
     #===========================================
