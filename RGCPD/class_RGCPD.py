@@ -814,7 +814,7 @@ class RGCPD:
         predict (DataFrame), weights (DataFrame), models_lags (dict).
 
         '''
-        # keys=None;target=None;tau_min=1;tau_max=3;transformer=None
+        # keys=None;target=None;tau_min=1;tau_max=1;transformer=None
         # kwrgs_model={'scoring':'neg_mean_squared_error'}
         # self.df_data_all = self.df_data.copy()
         lags = range(tau_min, tau_max+1)
@@ -849,7 +849,7 @@ class RGCPD:
                     df_trans = df_s[ks] # no transformation
 
                 if type(target) is str:
-                    target_ts = self.df_data.loc[s][target][RV_mask]
+                    target_ts = self.df_data.loc[s][[target]][RV_mask]
                 elif type(target) is pd.DataFrame:
                     target_ts = target
 

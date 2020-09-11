@@ -13,6 +13,7 @@ import xarray as xr
 import itertools
 import core_pp
 import datetime
+
 # user_dir = os.path.expanduser('~')
 # curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 # main_dir = '/'.join(curr_dir.split('/')[:-1])
@@ -310,6 +311,13 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
             same_freq = (dates[1].month - dates[0].month) == tfreq #same_freq true/False
         elif tfreq == timestep_days:
             same_freq = True
+        elif timestep_days == 365 or timestep_days == 366:
+            input_freq = 'annual' # temporary to work with lag as int
+            fullts, dates, startendTVdate = extend_annual_ts(fullts,
+                                            tfreq=1,
+                                            start_end_TVdate=start_end_TVdate,
+                                            start_end_date=start_end_date)
+            same_freq = False
 
         # Going to make timemeanbins (multiple datapoints per year)
         if same_freq == False:
@@ -330,7 +338,7 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
         # if tfreq is '123', target will become Jan Feb Mar mean.
 
 
-    if timestep_days == 365 or timestep_days == 366:
+    if timestep_days == 365 or timestep_days == 366 and type(tfreq) == str:
         input_freq = 'annual'
         same_freq = None # don't want to take n-day means
         if verbosity == 1:

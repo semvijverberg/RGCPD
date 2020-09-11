@@ -144,8 +144,13 @@ class BivariateMI:
                              'One aggregated value taken for months '
                              f'{self.lags[0]}, while target timeseries has '
                              f'multiple timesteps per year:\n{targetstepsoneyr}')
-
         self.df_splits = df_splits # add df_splits to self
+        oneyr = functions_pp.get_oneyr(self.df_splits.loc[0].index)
+        if oneyr.size == 1: # single val per year precursor, lag str or ==0.
+            self.tfreq = 365
+        else:
+            self.tfreq = (oneyr[1] - oneyr[0]).days
+
         n_spl = df_splits.index.levels[0].size
         # make new xarray to store results
         xrcorr = precur_arr.isel(time=0).drop('time').copy()
@@ -172,8 +177,8 @@ class BivariateMI:
 
             dates_RV = RV_ts.index
             for i, lag in enumerate(lags):
-                if type(lag) == int:
-                    dates_lag = functions_pp.func_dates_min_lag(dates_RV, lag)[1]
+                if type(lag) == np.int64:
+                    dates_lag = functions_pp.func_dates_min_lag(dates_RV, self.tfreq*lag)[1]
                     prec_lag = precur_train.sel(time=dates_lag)
                 elif type(lag) == np.str_: # aggr. over list of months
                     months = [int(lag[i]) for i in range(len(lag))]

@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy as sp
 import seaborn as sns
+import matplotlib.dates as mdates
 # import mtspec
 flatten = lambda l: [item for sublist in l for item in sublist]
 from typing import List, Tuple, Union
@@ -229,7 +230,7 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=False, ax=None):
 
 def plot_timeseries(y, timesteps: list=None,
                     selyears: Union[list, int]=None, title=None,
-                    legend: bool=True, ax=None):
+                    legend: bool=True, nth_xyear: int=10, ax=None):
     # ax=None
     #%%
 
@@ -280,10 +281,18 @@ def plot_timeseries(y, timesteps: list=None,
     else:
         ax.plot(datetimes, y.loc[datetimes])
 
-    every_nth = round(len(ax.xaxis.get_ticklabels())/3)
-    for n, label in enumerate(ax.xaxis.get_ticklabels()):
-        if n % every_nth != 0:
-            label.set_visible(False)
+    if nth_xyear is None:
+        nth_xtick = round(len(ax.xaxis.get_ticklabels())/5)
+        for n, label in enumerate(ax.xaxis.get_ticklabels()):
+            if n % nth_xtick != 0:
+                label.set_visible(False)
+    else:
+        ax.xaxis.set_major_locator(mdates.YearLocator(1)) # set tick every year
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y')) # format %Y
+        for n, label in enumerate(ax.xaxis.get_ticklabels()):
+            if n % nth_xyear != 0:
+                label.set_visible(False)
+
     ax.tick_params(axis='both', which='major', labelsize=8)
     if title is not None:
         ax.set_title(title, fontsize=10)

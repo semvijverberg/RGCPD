@@ -6,6 +6,7 @@ import numpy as np
 
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+curr_dir = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper_Raed'
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
@@ -18,9 +19,10 @@ if cluster_func not in sys.path:
 
 path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
-
+import cartopy.crs as ccrs
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
+
 # from RGCPD import EOF
 
 
@@ -29,11 +31,14 @@ cluster_label = 3
 name_ds='ts'
 
 start_end_date = ('01-01','12-31') # not working
-start_end_TVdate = start_end_date
 start_end_year = (1980, 2015)
-tfreq = 'annual'
-lags=np.array(['4', '5', '6', '7', '8'])
-lags=np.array(['45678'])
+# tfreq = 'annual'
+start_end_TVdate = start_end_date
+# lags=np.array(['4', '5', '6', '7', '8'])
+# lags=np.array(['3456'])
+tfreq = 100
+start_end_TVdate = ('06-01', '09-30')
+lags=np.array([0, 1])
 #%%
 list_of_name_path = [(cluster_label, TVpath),
                       ('sst', os.path.join(path_raw, 'sst_1980-2015_1_12_daily_1.0deg.nc'))]
@@ -60,8 +65,7 @@ rg.plot_df_clust()
 
 #%%
 # prec_dates_dict = {'MJJA':('05-01', '08-31'),
-#                    'JJAS':('06-01', '09-30'),
-#                    'JASO':('06-01', '10-31')}
+#                     'JJAS':('06-01', '09-30')}
 
 # for name_dates, prec_dates in prec_dates_dict.items():
 #     print(name_dates)
@@ -71,12 +75,16 @@ rg.plot_df_clust()
 
 # name_dates = 'JJAS'
 # rg.start_end_TVdate = prec_dates_dict[name_dates]
-rg.pp_precursors(selbox=[None,{'sst':(-180,360,-10,90)}], anomaly=[True, {'sm':False}])
+
 # rg.path_outmain = curr_dir+f'/output/{name_dates}'
 # if os.path.isdir(rg.path_outmain) != True : os.makedirs(rg.path_outmain)
 # Post-processing Target Variable
+#%%
+rg.start_end_TVdate = start_end_TVdate
 rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=False)
+
 #%% Pre-processing precursors
+rg.pp_precursors(selbox=[None,{'sst':(-180,360,-10,90)}], anomaly=[True, {'sm':False}])
 
 # plot_maps.plot_labels(rg.ds['xrclustered'], zoomregion=(235, 295, 25, 50),
 #                       kwrgs_plot={'aspect':2, 'map_proj':ccrs.PlateCarree(central_longitude=240)})
@@ -92,13 +100,22 @@ rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=False)
 
 # In[165]:
 
-rg.traintest(method='leave_2', kwrgs_events=None)
+rg.traintest(method='leave_4', kwrgs_events=None)
+rg.TV.RV_ts
+
+fullts = rg.fulltso
+start_end_TVdate = rg.start_end_TVdate
+
 precur = rg.list_for_MI[0]
 kwrgs_load = rg.kwrgs_load
 TV = rg.TV ; self = rg
 df_splits = rg.df_splits
 rg.calc_corr_maps('sst')
-rg.plot_maps_corr('sst', save=True)
+
+kwrgs_plot= {'y_ticks':np.arange(-10, 91,20),
+             'cbar_vert':-.09,
+             'map_proj':ccrs.PlateCarree(central_longitude=220)}
+rg.plot_maps_corr('sst', save=True, **kwrgs_plot)
 
 # In[167]:
 
@@ -122,7 +139,11 @@ import functions_pp
 import matplotlib.pyplot as plt
 kwrgs_model = {'scoring':'neg_mean_squared_error',
                'alphas':np.logspace(.4, 2.5, num=25)}
-lag = 1
+
+# subset = ['0..1..sst'] ; lag = 0
+# subset = ['45678..1..sst'] ; lag=0
+subset = [f'{precur.lags[0]}..1..sst'] ; lag=0
+
 for monthlag in precur.lags:
     keys = rg.df_data.columns[1:-2]
     if type(monthlag) == np.str_:
@@ -131,21 +152,25 @@ for monthlag in precur.lags:
         keys = [k for k in keys if k.split('..')[0]==monthlag]
     else:
         keys = [k for k in keys if int(k.split('..')[0])==monthlag]
-        exper = 'lag'+str(lag)
-    target_ts = rg.TV.RV_ts
+        exper = 'lag '+str(monthlag)
+    # keys = [k for k in keys if k in subset]
+    keys = [keys[0]]
+    target_ts = rg.df_data.iloc[:,[0]].loc[0][rg.df_data.iloc[:,-1].loc[0]]
     target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+
     out = rg.fit_df_data_ridge(target=target_ts,
                                keys=keys,
                                tau_min=lag, tau_max=lag,
                                kwrgs_model=kwrgs_model)
+
     predict, weights, models_lags = out
-    prediction = predict.rename({'RV3ts':'Crop Yield [1/y]',lag:'Prediction'},axis=1)
+    prediction = predict.rename({predict.columns[0]:'Crop Yield [1/y]',lag:'Prediction'},axis=1)
     score_func_list = [metrics.mean_squared_error, np.corrcoef]
-    df_train_m, df_test_s_m, df_test_m = sm.get_scores(prediction, rg.df_splits,
+    df_train_m, df_test_s_m, df_test_m = sm.get_scores(prediction, rg.df_data.iloc[:,-2:],
                                                 score_func_list)
 
     print(df_test_s_m.mean())
-    df_test = functions_pp.get_df_test(prediction.merge(rg.df_splits,
+    df_test = functions_pp.get_df_test(prediction.merge(rg.df_data.iloc[:,-2:],
                                                         left_index=True,
                                                         right_index=True)).iloc[:,:2]
 
@@ -179,7 +204,7 @@ for monthlag in precur.lags:
                                                               df_train_m['corrcoef'].mean())
     text2 = r'RMSE model   : {:.2f} ({:.2f}) $\sigma$'.format(float(df_test_m['mean_squared_error']**.5),
                                               (df_train_m['mean_squared_error']**.5).mean())
-    ax.set_title(exper)
+    ax.set_title(exper + f' precursor, lag {lag} ridge')
     ax.text(.02, .019, text1,
             transform=ax.transAxes, horizontalalignment='left',
             verticalalignment='bottom',
@@ -197,10 +222,29 @@ for monthlag in precur.lags:
     ax.set_ylabel('Standardized Crop Yield [1/y]', fontsize=16)
     ax.set_ylim(-3,3)
 
-    m = models_lags['lag_0']['split_0']
+    m = models_lags[f'lag_{lag}'][f'split_0']
     print(m.alpha_)
     figname = rg.path_outsub1 +f'/forecast_{exper}.pdf'
     plt.savefig(figname, bbox_inches='tight')
+
+#%%
+import df_ana; import matplotlib.dates as mdates
+import matplotlib.ticker as mticker
+# Plot
+fig = df_ana.loop_df(df=rg.df_data[keys], function=df_ana.plot_timeseries,
+               kwrgs={'selyears':list(range(1980,2016)),'nth_xyear':1}, colwrap=1, figsize=(15,4))
+[ax.set_ylim((-1,1)) for ax in fig.axes]
+fig.axes[0].hlines(y=0,xmin=df_test[['Prediction']].index[0],
+              xmax=df_test[['Prediction']].index[-1], color='grey')
+import df_ana
+fig = df_ana.loop_df(df=m.X_pred[keys], function=df_ana.plot_timeseries,
+               kwrgs={'selyears':list(range(1980,2016)), 'nth_xyear':1}, colwrap=1, figsize=(15,4))
+[ax.set_ylim((-1,1)) for ax in fig.axes]
+fig.axes[0].hlines(y=0,xmin=df_test[['Prediction']].index[0],
+              xmax=df_test[['Prediction']].index[-1], color='grey')
+#%%
+import class_RV
+class_RV.RV_class.aggr_to_daily_dates(m.X_pred.index, tfreq=tfreq)
 
 #%%
 # rg.get_ts_prec(precur_aggr=1)
