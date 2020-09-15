@@ -841,11 +841,11 @@ class RGCPD:
                 df_s = self.df_data.loc[s]
                 ks = [k for k in keys if k in df_s.columns] # keys split
 
-                if transformer is not None:
+                if transformer is not None and transformer != False:
                     df_trans = df_s[ks].apply(transformer,
                                             args=[TrainIsTrue],
                                             result_type='broadcast')
-                else:
+                elif transformer == False:
                     df_trans = df_s[ks] # no transformation
 
                 if type(target) is str:

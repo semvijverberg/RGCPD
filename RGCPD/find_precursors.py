@@ -549,29 +549,36 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
     n_spl           = corr_xr.split.size
     lags            = precur.corr_xr.lag.values
     use_coef_wghts  = precur.use_coef_wghts
+    tfreq           = precur.tfreq
 
-    if precur_aggr is None:
+    if precur_aggr is None and tfreq != 365 and len(lags)>1:
         # use precursor array with temporal aggregation that was used to create
-        # correlation map
+        # correlation map. When tfreq=365 and lag>1, reaggregate months precur_arr
         precur_arr = precur.precur_arr
     else:
         # =============================================================================
         # Unpack kwrgs for loading
         # =============================================================================
-        filepath = precur.filepath
-        kwrgs = {}
+        kwrgs = {'selbox':precur.selbox, 'dailytomonths':precur.dailytomonths}
         for key, value in kwrgs_load.items():
             if type(value) is list and name in value[1].keys():
                 kwrgs[key] = value[1][name]
             elif type(value) is list and name not in value[1].keys():
                 kwrgs[key] = value[0] # plugging in default value
+            elif hasattr(precur, key):
+                # Overwrite RGCPD parameters with MI specific parameters
+                kwrgs[key] = precur.__dict__[key]
             else:
                 kwrgs[key] = value
-        kwrgs['tfreq'] = precur_aggr
-        precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
+        if tfreq == 365:
+            # create seperate xarray with monthly means, of which grouped
+            # means will be calculated defined by lag, lag=[1,2,3]=JFM mean
+            precur_months = functions_pp.import_ds_timemeanbins(precur.filepath,
+                                                         **kwrgs)
+        else:
+            precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
+                                                         **kwrgs)
 
-    dates = pd.to_datetime(precur_arr.time.values)
-    actbox = precur_arr.values
 
     ts_corr = np.zeros( (n_spl), dtype=object)
 
@@ -584,6 +591,20 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
         for l_idx, lag in enumerate(lags):
             labels_lag = labels.isel(lag=l_idx).values
 
+            # if lag represents months to aggregate:
+            if type(lag) is np.str_: # aggr. over months
+                months = [int(l) for l in lag.split('.')[:-1]]
+                precur_arr = precur_months.sel(time=
+                                            np.in1d(precur_months['time.month'],
+                                            months))
+                precur_arr = precur_arr.groupby('time.year',
+                                            restore_coord_dims=True).mean()
+                d = pd.to_datetime([f'{Y}-01-01' for Y in precur_arr.year.values])
+                precur_arr = precur_arr.rename({'year':'time'}).assign_coords(
+                                                {'time':d})
+
+
+
             regions_for_ts = list(np.unique(labels_lag[~np.isnan(labels_lag)]))
             a_wghts = precur.area_grid / precur.area_grid.mean()
             if use_coef_wghts:
@@ -591,7 +612,7 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
                 a_wghts *= coef_wghts.values # area & corr. value weighted
 
             # this array will be the time series for each feature
-            ts_regions_lag_i = np.zeros((actbox.shape[0], len(regions_for_ts)))
+            ts_regions_lag_i = np.zeros((precur_arr.values.shape[0], len(regions_for_ts)))
             # ts_regions_lag_i = []
 
             # track sign of eacht region
@@ -610,7 +631,7 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
         #        wgts_ano = meanbox[B==1] / meanbox[B==1].max()
         #        ts_regions_lag_i[:,idx] = np.nanmean(actbox[:,B==1] * cos_box_array[:,B==1] * wgts_ano, axis =1)
                 # Calculates how values inside region vary over time
-                ts = np.nanmean(actbox[:,B==1] * a_wghts[B==1], axis =1)
+                ts = np.nanmean(precur_arr.values[:,B==1] * a_wghts[B==1], axis =1)
 
                 # check for nans
                 if ts[np.isnan(ts)].size !=0:
@@ -634,6 +655,7 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
 
             ts_list[l_idx] = ts_regions_lag_i
 
+        dates = pd.to_datetime(precur_arr.time.values)
         tsCorr = np.concatenate(tuple(ts_list), axis = 1)
         df_tscorr = pd.DataFrame(tsCorr, index=dates,
                                 columns=track_names)

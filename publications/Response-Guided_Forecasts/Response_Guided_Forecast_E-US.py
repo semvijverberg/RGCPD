@@ -63,7 +63,8 @@ list_of_name_path = [(name_or_cluster_label, TVpath),
 list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map,
                     kwrgs_func={'alpha':1E-20, 'FDR_control':True},
                     distance_eps=800, min_area_in_degrees2=5,
-                    use_coef_wghts=True, selbox=(0,360,-10,90))]
+                    use_coef_wghts=True, selbox=(0,360,-10,90),
+                    lags=np.array([1]) )]
 
 
 
@@ -71,7 +72,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
                list_for_MI=list_for_MI,
                start_end_TVdate=start_end_TVdate,
                start_end_date=start_end_date,
-               tfreq=tfreq, lags_i=np.array([1]),
+               tfreq=tfreq,
                path_outmain=path_out_main)
 
 rg.plot_df_clust()

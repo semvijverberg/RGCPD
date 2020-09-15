@@ -33,10 +33,10 @@ name_ds='ts'
 start_end_date = ('01-01','12-31') # not working
 start_end_year = (1980, 2015)
 # tfreq = 'annual'
-start_end_TVdate = start_end_date
-# lags=np.array(['4', '5', '6', '7', '8'])
-# lags=np.array(['3456'])
-tfreq = 100
+# start_end_TVdate = start_end_date
+# lags = np.array(['4.5.6.'])
+
+tfreq = 90
 start_end_TVdate = ('06-01', '09-30')
 lags=np.array([0, 1])
 #%%
@@ -46,7 +46,7 @@ list_of_name_path = [(cluster_label, TVpath),
 
 list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map,
                              kwrgs_func={'alpha':.05, 'FDR_control':True},
-                             distance_eps=1000, min_area_in_degrees2=5,
+                             distance_eps=600, min_area_in_degrees2=5,
                              selbox=(-180,360,-10,90),
                              lags=lags)]
                  # BivariateMI(name='sm', func=BivariateMI.corr_map,
@@ -83,9 +83,21 @@ rg.plot_df_clust()
 rg.start_end_TVdate = start_end_TVdate
 rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=False)
 
+
+rg.traintest(method='leave_4', kwrgs_events=None)
+rg.TV.RV_ts
+
+fullts = rg.fulltso
+start_end_TVdate = rg.start_end_TVdate
+
+precur = rg.list_for_MI[0]
+
+TV = rg.TV ; self = rg
+df_splits = rg.df_splits
+
 #%% Pre-processing precursors
 rg.pp_precursors(selbox=[None,{'sst':(-180,360,-10,90)}], anomaly=[True, {'sm':False}])
-
+kwrgs_load = rg.kwrgs_load
 # plot_maps.plot_labels(rg.ds['xrclustered'], zoomregion=(235, 295, 25, 50),
 #                       kwrgs_plot={'aspect':2, 'map_proj':ccrs.PlateCarree(central_longitude=240)})
 # plt.savefig(os.path.join(rg.path_outsub1, 'TV_cluster.pdf'),
@@ -100,16 +112,7 @@ rg.pp_precursors(selbox=[None,{'sst':(-180,360,-10,90)}], anomaly=[True, {'sm':F
 
 # In[165]:
 
-rg.traintest(method='leave_4', kwrgs_events=None)
-rg.TV.RV_ts
 
-fullts = rg.fulltso
-start_end_TVdate = rg.start_end_TVdate
-
-precur = rg.list_for_MI[0]
-kwrgs_load = rg.kwrgs_load
-TV = rg.TV ; self = rg
-df_splits = rg.df_splits
 rg.calc_corr_maps('sst')
 
 kwrgs_plot= {'y_ticks':np.arange(-10, 91,20),
@@ -144,24 +147,26 @@ kwrgs_model = {'scoring':'neg_mean_squared_error',
 # subset = ['45678..1..sst'] ; lag=0
 subset = [f'{precur.lags[0]}..1..sst'] ; lag=0
 
-for monthlag in precur.lags:
+for monthlag in precur.lags[:2]:
     keys = rg.df_data.columns[1:-2]
     if type(monthlag) == np.str_:
-        i_to_m = {'1':'J','2':'F','3':'M','4':'A','5':'M', '6':'J','7':'J','8':'A'}
+        i_to_m = {'1.':'J','2.':'F','3.':'M','4.':'A',
+                  '5.':'M', '6.':'J','7.':'J','8.':'A'}
         exper = ''.join([kv[1] for kv in i_to_m.items() if kv[0] in monthlag])
-        keys = [k for k in keys if k.split('..')[0]==monthlag]
+        keys = [k for k in keys if k.split('..')[0]==monthlag[:-1]]
     else:
         keys = [k for k in keys if int(k.split('..')[0])==monthlag]
         exper = 'lag '+str(monthlag)
     # keys = [k for k in keys if k in subset]
-    keys = [keys[0]]
+    keys = keys[:3]
     target_ts = rg.df_data.iloc[:,[0]].loc[0][rg.df_data.iloc[:,-1].loc[0]]
     target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 
     out = rg.fit_df_data_ridge(target=target_ts,
                                keys=keys,
                                tau_min=lag, tau_max=lag,
-                               kwrgs_model=kwrgs_model)
+                               kwrgs_model=kwrgs_model,
+                               transformer=False)
 
     predict, weights, models_lags = out
     prediction = predict.rename({predict.columns[0]:'Crop Yield [1/y]',lag:'Prediction'},axis=1)
@@ -250,14 +255,14 @@ class_RV.RV_class.aggr_to_daily_dates(m.X_pred.index, tfreq=tfreq)
 # rg.get_ts_prec(precur_aggr=1)
 
 
-rg.PCMCI_df_data(keys=keys,
+rg.PCMCI_df_data(
                  pc_alpha=None,
-                  tau_max=0,
+                  tau_max=2,
                   max_conds_dim=5,
                   max_combinations=5)
 rg.PCMCI_get_links(alpha_level=.05)
-# print(rg.df_MCIc.mean(0,level=1))
-# print(rg.df_links.mean(0,level=1))
+print(rg.df_MCIc.mean(0,level=1))
+print(rg.df_links.mean(0,level=1))
 #%%
 
 # rg.plot_maps_corr(var=['sm2'], mean=True, save=False, aspect=2, cbar_vert=-.1,

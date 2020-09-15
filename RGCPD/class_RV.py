@@ -38,7 +38,11 @@ class RV_class:
         self.dates_all = fullts.index
         self.dates_RV = RV_ts.index
         self.n_oneRVyr = self.dates_RV[self.dates_RV.year == self.dates_RV.year[0]].size
-        self.tfreq = (self.dates_all[1] - self.dates_all[0]).days
+        nonleap = self.dates_all[~self.dates_all.is_leap_year]
+        self.tfreq = (nonleap[1] - nonleap[0]).days
+        if self.tfreq != 365 or self.tfreq != 1:
+            self.dates_tobin = self.aggr_to_daily_dates(self.dates_RV,
+                                                        tfreq=self.tfreq)
 
         def handle_fit_model_dates(dates_RV, dates_all, RV_ts, fit_model_dates):
             if fit_model_dates is None:

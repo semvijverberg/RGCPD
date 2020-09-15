@@ -145,7 +145,9 @@ class BivariateMI:
                              f'{self.lags[0]}, while target timeseries has '
                              f'multiple timesteps per year:\n{targetstepsoneyr}')
         self.df_splits = df_splits # add df_splits to self
-        oneyr = functions_pp.get_oneyr(self.df_splits.loc[0].index)
+        dates = self.df_splits.loc[0].index
+        dates = dates[~dates.is_leap_year]
+        oneyr = functions_pp.get_oneyr(dates)
         if oneyr.size == 1: # single val per year precursor, lag str or ==0.
             self.tfreq = 365
         else:
@@ -181,7 +183,7 @@ class BivariateMI:
                     dates_lag = functions_pp.func_dates_min_lag(dates_RV, self.tfreq*lag)[1]
                     prec_lag = precur_train.sel(time=dates_lag)
                 elif type(lag) == np.str_: # aggr. over list of months
-                    months = [int(lag[i]) for i in range(len(lag))]
+                    months = [int(l) for l in lag.split('.')[:-1]]
                     prec_lag = precur_train.sel(time=
                                                 np.in1d( precur_train['time.month'],
                                                 months))
@@ -300,7 +302,7 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
     use_sign_pattern = precur.use_sign_pattern
 
 
-    if precur_aggr is None:
+    if precur_aggr is None and precur_aggr != 'annual':
         # use precursor array with temporal aggregation that was used to create
         # correlation map
         precur_arr = precur.precur_arr
@@ -308,17 +310,19 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
         # =============================================================================
         # Unpack kwrgs for loading
         # =============================================================================
-        filepath = precur.filepath
-        kwrgs = {}
+        kwrgs = {'selbox':precur.selbox, 'dailytomonths':precur.dailytomonths}
         for key, value in kwrgs_load.items():
             if type(value) is list and name in value[1].keys():
                 kwrgs[key] = value[1][name]
             elif type(value) is list and name not in value[1].keys():
                 kwrgs[key] = value[0] # plugging in default value
+            elif hasattr(precur, key):
+                # Overwrite RGCPD parameters with MI specific parameters
+                kwrgs[key] = precur.__dict__[key]
             else:
                 kwrgs[key] = value
-        kwrgs['tfreq'] = precur_aggr ; kwrgs['selbox'] = precur.selbox
-        precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
+        precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
+                                                         **kwrgs)
 
     full_timeserie = precur_arr
     dates = pd.to_datetime(precur_arr.time.values)

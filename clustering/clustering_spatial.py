@@ -29,7 +29,7 @@ def labels_to_latlon(time_space_3d, labels, output_space_time, indices_mask, mas
     xrspace = xrspace.where(mask2d==True)
     return xrspace
 
-def skclustering(time_space_3d, mask2d=None, clustermethodkey='AgglomerativeClustering', 
+def skclustering(time_space_3d, mask2d=None, clustermethodkey='AgglomerativeClustering',
                  kwrgs={'n_clusters':4}):
     '''
     Is build upon sklean clustering. Techniques available are listed in cluster.__dict__,
@@ -55,7 +55,7 @@ def create_vector(time_space_3d, mask2d):
     output_space_time = np.array(mask_space_time[:,0].copy(), dtype=int)
     indices_mask = np.argwhere(mask_space_time[:,0] == 1)[:,0]
     # convert all space_time_3d gridcells to time_space_2d_all
-    time_space_2d_all = np.reshape( time_space_3d.values, 
+    time_space_2d_all = np.reshape( time_space_3d.values,
                                    (time_space_3d.time.size, n_space) )
     space_time_2d_all = np.swapaxes(time_space_2d_all, 1,0)
     # # only keep the mask gridcells for clustering
@@ -71,19 +71,19 @@ def adjust_kwrgs(kwrgs_o, new_coords, v1, v2):
         kwrgs_o[new_coords[1]] = v2
     return kwrgs_o
 
-def correlation_clustering(var_filename, mask=None, kwrgs_load={}, 
-                           clustermethodkey='DBSCAN', 
+def correlation_clustering(var_filename, mask=None, kwrgs_load={},
+                           clustermethodkey='DBSCAN',
                            kwrgs_clust={'eps':600}):
-    
+
     if 'selbox' in kwrgs_load.keys():
         kwrgs_l = dict(selbox=kwrgs_load['selbox'])
     else:
         kwrgs_l = {}
-    xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l)  
+    xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l)
     npmask = get_spatial_ma(var_filename, mask)
     kwrgs_loop = {k:i for k, i in kwrgs_clust.items() if type(i) == list}
     [kwrgs_loop.update({k:i}) for k, i in kwrgs_load.items() if type(i) == list]
-    
+
     if len(kwrgs_loop) == 1:
         # insert fake axes
         kwrgs_loop['fake'] = [0]
@@ -95,7 +95,7 @@ def correlation_clustering(var_filename, mask=None, kwrgs_load={},
             dim_coords = {str(k):list_v}
             xrclustered = xrclustered.expand_dims(dim_coords).copy()
         new_coords = [d for d in xrclustered.dims if d not in ['latitude', 'longitude']]
-        results = [] 
+        results = []
         first_loop = kwrgs_loop[new_coords[0]]
         second_loop = kwrgs_loop[new_coords[1]]
         for i, v1 in enumerate(first_loop):
@@ -103,18 +103,18 @@ def correlation_clustering(var_filename, mask=None, kwrgs_load={},
                 kwrgs = adjust_kwrgs(kwrgs_clust.copy(), new_coords, v1, v2)
                 kwrgs_l = adjust_kwrgs(kwrgs_load.copy(), new_coords, v1, v2)
                 print(f"\rclustering {new_coords[0]}: {v1}, {new_coords[1]}: {v2} ", end="")
-                xarray = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_l)   
-                
+                xarray = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_l)
 
-                xrclustered[i,j], result = skclustering(xarray, npmask, 
-                                                   clustermethodkey=clustermethodkey, 
+
+                xrclustered[i,j], result = skclustering(xarray, npmask,
+                                                   clustermethodkey=clustermethodkey,
                                                    kwrgs=kwrgs)
-                results.append(result)    
+                results.append(result)
         if 'fake' in new_coords:
             xrclustered = xrclustered.squeeze().drop('fake').copy()
     else:
-        xrclustered, results = skclustering(xarray, npmask, 
-                                            clustermethodkey=clustermethodkey, 
+        xrclustered, results = skclustering(xarray, npmask,
+                                            clustermethodkey=clustermethodkey,
                                             kwrgs=kwrgs_clust)
     xrclustered.attrs['method'] = clustermethodkey
     xrclustered.attrs['kwrgs'] = str(kwrgs_clust)
@@ -123,23 +123,23 @@ def correlation_clustering(var_filename, mask=None, kwrgs_load={},
         xrclustered.attrs['hash']   = uuid.uuid4().hex[:5]
     return xrclustered, results
 
-def dendogram_clustering(var_filename, mask=None, kwrgs_load={}, 
-                         clustermethodkey='AgglomerativeClustering', 
+def dendogram_clustering(var_filename, mask=None, kwrgs_load={},
+                         clustermethodkey='AgglomerativeClustering',
                          kwrgs_clust={'q':70, 'n_clusters':3}):
     if 'selbox' in kwrgs_load.keys():
         kwrgs_l = dict(selbox=kwrgs_load['selbox'])
     else:
         kwrgs_l = {}
-    xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l)  
+    xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l)
     npmask = get_spatial_ma(var_filename, mask)
-    
+
     kwrgs_loop = {k:i for k, i in kwrgs_clust.items() if type(i) == list}
     kwrgs_loop_load = {k:i for k, i in kwrgs_load.items() if type(i) == list}
     [kwrgs_loop.update({k:i}) for k, i in kwrgs_loop_load.items()]
     q = kwrgs_clust['q']
     if len(kwrgs_loop_load) == 0:
         # xarray will always be the same
-        xarray_ts = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_load) 
+        xarray_ts = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_load)
         if type(q) is int:
             xarray = binary_occurences_quantile(xarray_ts, q=q)
 
@@ -154,7 +154,7 @@ def dendogram_clustering(var_filename, mask=None, kwrgs_load={},
             dim_coords = {str(k):list_v}
             xrclustered = xrclustered.expand_dims(dim_coords).copy()
         new_coords = [d for d in xrclustered.dims if d not in ['latitude', 'longitude']]
-        results = [] 
+        results = []
         first_loop = kwrgs_loop[new_coords[0]]
         second_loop = kwrgs_loop[new_coords[1]]
         for i, v1 in enumerate(first_loop):
@@ -164,23 +164,23 @@ def dendogram_clustering(var_filename, mask=None, kwrgs_load={},
                 kwrgs_l = adjust_kwrgs(kwrgs_load.copy(), new_coords, v1, v2)
                 print(f"\rclustering {new_coords[0]}: {v1}, {new_coords[1]}: {v2} ", end="")
                 if len(kwrgs_loop_load) != 0: # some param has been adjusted
-                    xarray_ts = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_l)      
+                    xarray_ts = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_l)
                     if type(q) is int:
                             xarray = binary_occurences_quantile(xarray_ts, q=q)
                 if type(q) is list:
                     xarray = binary_occurences_quantile(xarray_ts, q=v2)
 
                 del kwrgs['q']
-                xrclustered[i,j], result = skclustering(xarray, npmask, 
-                                                   clustermethodkey=clustermethodkey, 
+                xrclustered[i,j], result = skclustering(xarray, npmask,
+                                                   clustermethodkey=clustermethodkey,
                                                    kwrgs=kwrgs)
-                results.append(result)    
+                results.append(result)
         if 'fake' in new_coords:
             xrclustered = xrclustered.squeeze().drop('fake').copy()
     else:
         del kwrgs_clust['q']
-        xrclustered, results = skclustering(xarray, npmask, 
-                                            clustermethodkey=clustermethodkey, 
+        xrclustered, results = skclustering(xarray, npmask,
+                                            clustermethodkey=clustermethodkey,
                                             kwrgs=kwrgs_clust)
     print('\n')
     xrclustered.attrs['method'] = clustermethodkey
@@ -194,7 +194,7 @@ def binary_occurences_quantile(xarray, q=95):
     '''
     creates binary occuences of 'extreme' events defined as exceeding the qth percentile
     '''
-    
+
     import numpy as np
     np.warnings.filterwarnings('ignore')
     perc = xarray.reduce(np.percentile, dim='time', keep_attrs=True, q=q)
@@ -208,7 +208,7 @@ def get_spatial_ma(var_filename, mask=None):
     '''
     var_filename must be 3d netcdf file with only one variable
     mask can be nc file containing only a mask, or a latlon box in format
-    [west_lon, east_lon, south_lat, north_lat] in format in common west-east degrees 
+    [west_lon, east_lon, south_lat, north_lat] in format in common west-east degrees
     Is build upon sklean clustering. Techniques available are listed in sklearn.cluster.__dict__,
     e.g. KMeans, or AgglomerativeClustering, kwrgs are techinque dependend, see sklearn docs.
     '''
@@ -263,8 +263,11 @@ def store_netcdf(xarray, filepath=None, append_hash=None):
             name = 'no_name'
             filename = name + '.nc'
         filepath = os.path.join(path, filename)
-    else:
-        name = xarray['xrclustered'].name
+    elif type(xarray) == xr.Dataset:
+        if 'xrclustered' in list(xarray.variables.keys()):
+            name = xarray['xrclustered'].name
+    elif type(xarray) == xr.DataArray:
+        name = xarray.name
     if append_hash is not None:
         filepath = filepath.split('.')[0] +'_'+ append_hash + '.nc'
     # ensure mask
@@ -272,8 +275,8 @@ def store_netcdf(xarray, filepath=None, append_hash=None):
     encoding = ( {name : {'_FillValue': -9999}} )
     print(f'to file:\n{filepath}')
     # save netcdf
-    xarray.to_netcdf(filepath, mode='w', encoding=encoding)    
-    return 
+    xarray.to_netcdf(filepath, mode='w', encoding=encoding)
+    return
 
 
 def get_download_path():
@@ -287,7 +290,7 @@ def get_download_path():
         return location
     else:
         return os.path.join(os.path.expanduser('~'), 'Downloads')
-    
+
 def spatial_mean_clusters(var_filename, xrclust, selbox=None):
     #%%
     xarray = core_pp.import_ds_lazy(var_filename, selbox=selbox)
@@ -312,8 +315,8 @@ def spatial_mean_clusters(var_filename, xrclust, selbox=None):
         B[labels == r] = 1
         # Calculates how values inside region vary over time
         ts_clusters[:,idx] = np.nanmean(nparray[:,B==1] * a_wghts[B==1], axis =1)
-    xrts = xr.DataArray(ts_clusters.T, 
-                        coords={'cluster':track_names, 'time':xarray.time}, 
+    xrts = xr.DataArray(ts_clusters.T,
+                        coords={'cluster':track_names, 'time':xarray.time},
                         dims=['cluster', 'time'])
     ds = xr.Dataset({'xrclustered':xrclust, 'ts':xrts})
     #%%
@@ -327,7 +330,7 @@ def percentile_cluster(var_filename, xrclust, q=75, tailmean=True, selbox=None):
     track_names = []
     area_grid = find_precursors.get_area(xarray)
     regions_for_ts = list(np.unique(labels[~np.isnan(labels)]))
-    
+
     if tailmean:
         tmp_wgts = (area_grid / area_grid.mean())[:,:]
         a_wghts = np.tile(tmp_wgts[None,:], (n_t,1,1))
@@ -349,8 +352,8 @@ def percentile_cluster(var_filename, xrclust, q=75, tailmean=True, selbox=None):
             ts_clusters[:,idx] = np.nanpercentile(nparray[:,B==1] * a_wghts[B==1], q=q,
                                                   axis =1)
         elif tailmean:
-            # calc percentile of space for each timestep, not we will 
-            # have a timevarying spatial mask. 
+            # calc percentile of space for each timestep, not we will
+            # have a timevarying spatial mask.
             ts_clusters[:,idx] = np.nanpercentile(nparray[:,B==1], q=q,
                                                   axis =1)
             # take a mean over all gridpoints that pass the percentile instead
@@ -359,15 +362,15 @@ def percentile_cluster(var_filename, xrclust, q=75, tailmean=True, selbox=None):
             # if unlucky, the amount of gridcells that pass the percentile
             # value, were not always equal in each timestep. When this happens,
             # we can no longer reshape the array to (time, space) axis, and thus
-            # we cannot take the mean over time. 
+            # we cannot take the mean over time.
             # check if have same size over time
             cs_ = [int(mask_B_perc[t][mask_B_perc[t]].shape[0]) for t in range(n_t)]
             if np.unique(cs_).size != 1:
                 # what is the most common size:
                 common_shape = cs_[np.argmax([cs_.count(v) for v in np.unique(cs_)])]
-                
-    
-                # convert all masks to most common size by randomly 
+
+
+                # convert all masks to most common size by randomly
                 # adding/removing a True
                 for t in range(n_t):
                     while mask_B_perc[t][mask_B_perc[t]].shape[0] < common_shape:
@@ -381,16 +384,16 @@ def percentile_cluster(var_filename, xrclust, q=75, tailmean=True, selbox=None):
 
             y = np.nanmean(npuppertail.reshape(n_t,-1) * \
                             wghtsuppertail.reshape(n_t,-1), axis =1)
-                                              
+
             ts_clusters[:,idx] = y
-    xrts = xr.DataArray(ts_clusters.T, 
-                        coords={'cluster':track_names, 'time':xarray.time}, 
+    xrts = xr.DataArray(ts_clusters.T,
+                        coords={'cluster':track_names, 'time':xarray.time},
                         dims=['cluster', 'time'])
     return xrts
 
 def regrid_array(xr_or_filestr, to_grid, periodic=False):
     import functions_pp
-    
+
     if type(xr_or_filestr) == str:
         xarray = core_pp.import_ds_lazy(xr_or_filestr)
         plot_maps.plot_corr_maps(xarray[0])

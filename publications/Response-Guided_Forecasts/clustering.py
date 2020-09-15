@@ -163,8 +163,20 @@ print(f'{round(time()-t0, 2)}')
 # print(f'{round(time()-t0, 2)}')
 
 
-#%%
+#%% Load netcdf4
+raw_tempfile = rg.list_of_name_path[1][1]
+ds_t2mraw = core_pp.import_ds_lazy(raw_tempfile, selbox=selbox)
+clusteredfile = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/Response-Guided_Forecasts/data/tf15_nc5_dendo_5e87d.nc'
+ds = core_pp.import_ds_lazy(clusteredfile, var='xrclustered')
+cluster = 2
+ds_spatialcluster = ds_t2mraw.where(ds.values==cluster)
+filepath = clusteredfile[:-3] + f'_ForTheta_cl{cluster}.nc'
+ds_spatialcluster.attrs['origclusterfile'] = clusteredfile[:-3].split('/')[-1]
+ds_spatialcluster.attrs['hast'] = ds.attrs['hash']
 
+cl.store_netcdf(ds_spatialcluster, filepath=filepath)
+
+#%%
 
 t = 15 ; c=5
 xrclust = xrclustered.sel(tfreq=t, n_clusters=c)
