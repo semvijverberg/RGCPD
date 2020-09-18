@@ -339,8 +339,6 @@ class RGCPD:
         for precur in self.list_for_MI:
             if precur.name in var:
                 precur.filepath = [l for l in self.list_precur_pp if l[0]==precur.name][0][1]
-                if hasattr(precur, 'selbox'):
-                    kwrgs_load['selbox'] = precur.selbox
                 find_precursors.calculate_region_maps(precur,
                                                       self.TV,
                                                       self.df_splits,
@@ -433,7 +431,7 @@ class RGCPD:
                                                   self.start_end_year,
                                                   cols=keys_ext,
                                                   precur_aggr=self.precur_aggr,
-                                                  start_end_TVdate=self.start_end_TVdate)
+                                                  closed_on_date=self.start_end_TVdate[-1])
             self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
 
 

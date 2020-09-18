@@ -18,12 +18,16 @@ import find_precursors
 from typing import Union
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
-
+try:
+    from tigramite.independence_tests import ParCorr
+except:
+    pass
 
 
 class BivariateMI:
 
-    def __init__(self, name, func=None, kwrgs_func={}, lags=np.array([1]),
+    def __init__(self, name, func=None, kwrgs_func={}, alpha: float=0.05,
+                 FDR_control: bool=True, lags=np.array([1]),
                  lagasmonthint: bool=False, distance_eps: int=400,
                  min_area_in_degrees2=3, group_split='together',
                  calc_ts='region mean', selbox: tuple=None,
@@ -40,6 +44,10 @@ class BivariateMI:
             The default is applying a correlation map.
         kwrgs_func : TYPE, optional
             DESCRIPTION. The default is {}.
+        alpha : float, optional
+            significance threshold
+        FDR_control: bool, optional
+            Control for multiple hypothesis testing
         lags : np.ndarray of int or str, optional
             lag w.r.t. the the target variable at which to calculate the MI.
             The default is np.array([1]).
@@ -86,16 +94,15 @@ class BivariateMI:
         '''
         self.name = name
         if func is None:
-            self.func = self.corr_map
+            self.func = corr_map
 
         else:
-            self.func = self.corr_map
-        if kwrgs_func is None:
-            self.kwrgs_func = {'alpha':.05, 'FDR_control':True}
-        else:
-            self.kwrgs_func = kwrgs_func
+            self.func = func
 
+        self.kwrgs_func = kwrgs_func
 
+        self.alpha = alpha
+        self.FDR_control = FDR_control
         #get_prec_ts & spatial_mean_regions
         self.calc_ts = calc_ts
         self.selbox = selbox
@@ -117,7 +124,7 @@ class BivariateMI:
         return
 
 
-    def corr_map(self, precur_arr, df_splits, RV): #, lags=np.array([0]), alpha=0.05, FDR_control=True #TODO
+    def bivariateMI_map(self, precur_arr, df_splits, RV): #
         #%%
         #    v = ncdf ; V = array ; RV.RV_ts = ts of RV, time_range_all = index range of whole ts
         """
@@ -169,7 +176,7 @@ class BivariateMI:
         print('\n{} - calculating correlation maps'.format(precur_arr.name))
         np_data = np.zeros_like(xrcorr.values)
         np_mask = np.zeros_like(xrcorr.values)
-        def corr_single_split(RV_ts, precur_train, alpha, FDR_control): #, lags, alpha, FDR_control
+        def MI_single_split(RV_ts, precur_train, alpha=.05, FDR_control=True):
 
             lat = precur_train.latitude.values
             lon = precur_train.longitude.values
@@ -189,11 +196,12 @@ class BivariateMI:
                                                 months))
                     prec_lag = prec_lag.groupby('time.year',
                                                 restore_coord_dims=True).mean()
-                prec_lag = np.reshape(prec_lag.values, (prec_lag.shape[0],-1))
 
 
-                # correlation map and pvalue at each grid-point:
-                corr_val, pval = corr_new(prec_lag, RV_ts.values.squeeze())
+                corr_val, pval = self.func(prec_lag, RV_ts.values.squeeze(),
+                                           **self.kwrgs_func)
+
+
                 mask = np.ones(corr_val.size, dtype=bool)
                 if FDR_control == True:
                     # test for Field significance and mask unsignificant values
@@ -205,7 +213,6 @@ class BivariateMI:
 
                 else:
                     mask[pval <= alpha] = False
-
 
                 Corr_Coeff[:,i] = corr_val[:]
                 Corr_Coeff[:,i].mask = mask
@@ -233,9 +240,9 @@ class BivariateMI:
             dates_RV = RV_ts.index
             n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
             print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
-            # if s == 6:
-                # break
-            ma_data = corr_single_split(RV_ts, precur_train, **self.kwrgs_func)
+
+            ma_data = MI_single_split(RV_ts, precur_train, self.alpha,
+                                      self.FDR_control)
             np_data[s] = ma_data.data
             np_mask[s] = ma_data.mask
         print("\n")
@@ -260,6 +267,7 @@ class BivariateMI:
             if np.isnan(self.prec_labels.values).all():
                 self.ts_corr = np.array(splits.size*[[]])
             else:
+
                 if self.calc_ts == 'region mean':
                     self.ts_corr = find_precursors.spatial_mean_regions(self,
                                                   precur_aggr=precur_aggr,
@@ -268,16 +276,17 @@ class BivariateMI:
                     self.ts_corr = loop_get_spatcov(self,
                                                     precur_aggr=precur_aggr,
                                                     kwrgs_load=kwrgs_load)
-                # self.outdic_precur[var] = precur
+
                 n_tot_regs += max([self.ts_corr[s].shape[1] for s in range(splits.size)])
         return
 
-def corr_new(field, ts):
+def corr_map(field, ts):
     """
     This function calculates the correlation coefficent r and
     the pvalue p for each grid-point of field vs response-variable ts
 
     """
+    field = np.reshape(field.values, (field.shape[0],-1))
     x = np.ma.zeros(field.shape[1])
     corr_vals = np.array(x)
     pvals = np.array(x)
@@ -289,6 +298,55 @@ def corr_new(field, ts):
         corr_vals[i], pvals[i] = scipy.stats.pearsonr(ts,field[:,i])
     # restore original nans
     corr_vals[fieldnans] = np.nan
+    # correlation map and pvalue at each grid-point:
+
+    return corr_vals, pvals
+
+def parcorr_map_time(field, ts, lag=1, target=False, precur=True):
+    field = np.reshape(field.values, (field.shape[0],-1))
+    x = np.ma.zeros(field.shape[1])
+    corr_vals = np.array(x)
+    pvals = np.array(x)
+    fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
+    nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
+    if target:
+        z = np.expand_dims(ts[:-lag], axis=1)
+    ts = np.expand_dims(ts[lag:], axis=1)
+    for i in nonans_gc:
+        cond_ind_test = ParCorr()
+        if precur:
+            if target:
+                z2 = np.expand_dims(field[:-lag, i], axis=1)
+                z = np.concatenate((z,z2), axis=1)
+            else:
+                z = np.expand_dims(field[:-lag, i], axis=1)
+        field_i = np.expand_dims(field[lag:,i], axis=1)
+        a, b = cond_ind_test.run_test_raw(ts, field_i, z)
+        corr_vals[i] = a
+        pvals[i] = b
+    # restore original nans
+    corr_vals[fieldnans] = np.nan
+    return corr_vals, pvals
+
+def parcorr_z(field, ts, z=pd.DataFrame):
+    dates = pd.to_datetime(field.time.values)
+    field = np.reshape(field.values, (field.shape[0],-1))
+    x = np.ma.zeros(field.shape[1])
+    corr_vals = np.array(x)
+    pvals = np.array(x)
+    fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
+    nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
+
+    ts = np.expand_dims(ts[:], axis=1) # adjust to shape (samples, dimension)
+    z = np.expand_dims(z.loc[dates].values.squeeze(), axis=1)
+    for i in nonans_gc:
+        cond_ind_test = ParCorr()
+        x = np.expand_dims(field[:,i], axis=1)
+        a, b = cond_ind_test.run_test_raw(x, ts, z)
+        corr_vals[i] = a
+        pvals[i] = b
+    # restore original nans
+    corr_vals[fieldnans] = np.nan
     return corr_vals, pvals
 
 def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
@@ -296,15 +354,15 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
     name            = precur.name
     corr_xr         = precur.corr_xr
     prec_labels     = precur.prec_labels
-    df_splits = precur.df_splits
-    splits = df_splits.index.levels[0]
+    df_splits       = precur.df_splits
+    splits          = df_splits.index.levels[0]
     lags            = precur.corr_xr.lag.values
-    use_sign_pattern = precur.use_sign_pattern
+    use_sign_pattern= precur.use_sign_pattern
+    tfreq           = precur.tfreq
 
-
-    if precur_aggr is None and precur_aggr != 'annual':
+    if precur_aggr is None or (tfreq != 365 and len(lags)==1):
         # use precursor array with temporal aggregation that was used to create
-        # correlation map
+        # correlation map. When tfreq=365 and lag>1, reaggregate months precur_arr
         precur_arr = precur.precur_arr
     else:
         # =============================================================================
@@ -321,18 +379,35 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
                 kwrgs[key] = precur.__dict__[key]
             else:
                 kwrgs[key] = value
-        precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
+        kwrgs['tfreq'] = precur_aggr
+
+        if tfreq == 365:
+            # create seperate xarray with monthly means, of which grouped
+            # means will be calculated defined by lag, lag=[1,2,3]=JFM mean
+            precur_months = functions_pp.import_ds_timemeanbins(precur.filepath,
                                                          **kwrgs)
-
-    full_timeserie = precur_arr
-    dates = pd.to_datetime(precur_arr.time.values)
-
+        else:
+            print('aggregating precursors to {:.0f} days'.format(kwrgs['tfreq']))
+            precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
+                                                         **kwrgs)
 
     ts_sp = np.zeros( (splits.size), dtype=object)
     for s in splits:
         ts_list = np.zeros( (lags.size), dtype=list )
         track_names = []
         for il,lag in enumerate(lags):
+
+            # if lag represents months to aggregate:
+            if type(lag) is np.str_: # aggr. over months
+                months = [int(l) for l in lag.split('.')[:-1]]
+                precur_arr = precur_months.sel(time=
+                                            np.in1d(precur_months['time.month'],
+                                            months))
+                precur_arr = precur_arr.groupby('time.year',
+                                            restore_coord_dims=True).mean()
+                d = pd.to_datetime([f'{Y}-01-01' for Y in precur_arr.year.values])
+                precur_arr = precur_arr.rename({'year':'time'}).assign_coords(
+                                                {'time':d})
 
             corr_vals = corr_xr.sel(split=s).isel(lag=il)
             mask = prec_labels.sel(split=s).isel(lag=il)
@@ -341,7 +416,7 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
                 pattern = np.sign(pattern)
             if np.isnan(pattern.values).all():
                 # no regions of this variable and split
-                nants = np.zeros( (dates.size, 1) )
+                nants = np.zeros( (precur_arr.time.size, 1) )
                 nants[:] = np.nan
                 ts_list[il] = nants
                 pass
@@ -352,14 +427,14 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
                 #     std = spatcov_full.sel(time=dates_train).std(dim='time')
                 #     spatcov_test = ((spatcov_full - mean) / std)
                 # elif normalize == False:
-                xrts = find_precursors.calc_spatcov(full_timeserie, pattern)
+                xrts = find_precursors.calc_spatcov(precur_arr, pattern)
                 ts_list[il] = xrts.values[:,None]
             track_names.append(f'{lag}..0..{precur.name}' + '_sp')
 
         # concatenate timeseries all of lags
         tsCorr = np.concatenate(tuple(ts_list), axis = 1)
 
-
+        dates = pd.to_datetime(precur_arr.time.values)
         ts_sp[s] = pd.DataFrame(tsCorr,
                                 index=dates,
                                 columns=track_names)

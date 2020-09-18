@@ -27,14 +27,17 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
+from class_BivariateMI import corr_map
+from class_BivariateMI import parcorr_z
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
 path_out_main = os.path.join(main_dir, 'publications/paper2/output/east_forecast/')
+path_data = os.path.join(main_dir, 'publications/paper2/data/')
 cluster_label = 2
 name_ds='ts'
-start_end_TVdate = ('06-01', '08-31')
+start_end_TVdate = ('07-01', '08-31')
 start_end_date = ('1-1', '12-31')
-tfreq = 60
+tfreq = 15
 
 #%%
 list_of_name_path = [(cluster_label, TVpath),
@@ -47,11 +50,17 @@ list_import_ts = [('RW-sst 60d', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/p
 # list_import_ts = [('sstpattern', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_0ff31_10jun-24aug_lag0-0_0..0..z500_sp_random10s1/2020-07-02_11hr_52min_df_data_NorthPacAtl_dt1_0ff31.h5'),
                   # ('sstregions', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_0ff31_10jun-24aug_lag0-0_0..0..z500_sp_random10s1/2020-07-02_12hr_10min_df_data_NorthPacAtl_dt1_0ff31.h5')]
 
+z_filepath = os.path.join(path_data, 'PDO_ENSO34_ERA5_1979_2018.h5')
+keys_ext = ['PDO']
+
 selboxsst  = None#(170,255,11,60)
-list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map,
-                            kwrgs_func={'alpha':.05, 'FDR_control':True},
+list_for_MI   = [BivariateMI(name='sst', func=parcorr_z,
+                            alpha=.01, FDR_control=True,
+                            kwrgs_func={'filepath':z_filepath,
+                                        'keys_ext':keys_ext},
                             distance_eps=1000, min_area_in_degrees2=1,
-                            calc_ts='pattern cov', selbox=(120,260,-10,90))]
+                            calc_ts='pattern cov', selbox=(120,260,-10,90),
+                            lags=np.array([0,1,2,3]))]
 
 
 
@@ -61,7 +70,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             start_end_TVdate=start_end_TVdate,
             start_end_date=start_end_date,
             start_end_year=None,
-            tfreq=tfreq, lags_i=np.array([0,1]),
+            tfreq=tfreq,
             path_outmain=path_out_main,
             append_pathsub='_' + name_ds)
 
@@ -71,28 +80,30 @@ rg.pp_precursors()
 
 rg.traintest(method='random10')
 rg.calc_corr_maps()
-
+rg.plot_maps_corr()
 
 #%% Store data
-rg.cluster_list_MI()
-rg.quick_view_labels()
+# rg.cluster_list_MI()
+# rg.quick_view_labels()
 # rg.get_ts_prec(precur_aggr=1)
 # rg.store_df()
 
 
 #%% Ridge part 1 - load data
 precur_aggr = None
+lags = rg.list_for_MI[0].lags
 rg.cluster_list_MI()
 rg.list_for_MI[0].calc_ts = 'pattern cov'
 rg.quick_view_labels()
-rg.get_ts_prec(precur_aggr=None)
+rg.get_ts_prec(precur_aggr=precur_aggr)
 rename = {'0..0..sst_sp': 'mx2t-SST lag 0',
-          f'{rg.precur_aggr}..0..sst_sp': 'mx2t-SST lag 1',
-          f'{rg.precur_aggr}..1..sst': 'mx2t-SST r1 lag 1',
-          f'{rg.precur_aggr}..2..sst': 'mx2t-SST r2 lag 1',
+          f'{lags[1]}..0..sst_sp': 'mx2t-SST lag 1',
+          f'{lags[1]}..1..sst': 'mx2t-SST r1 lag 1',
+          f'{lags[1]}..2..sst': 'mx2t-SST r2 lag 1',
           '0..1..sst': 'mx2t-SST r1 lag 0',
           '0..2..sst': 'mx2t-SST r2 lag 0'}
 rg.df_data = rg.df_data.rename(rename, axis=1)
+
 #%% Ridge part 2 - fit
 
 import df_ana; import sklearn, functions_pp, func_models

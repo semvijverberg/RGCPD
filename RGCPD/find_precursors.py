@@ -65,15 +65,36 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
     #===========================================
     precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
     # =============================================================================
+    # Load external timeseries for partial_corr_z
+    # =============================================================================
+    if hasattr(precur, 'kwrgs_z') == False: # copy so info remains stored
+        precur.kwrgs_z = precur.kwrgs_func.copy() # first time copy
+    if precur.func.__name__ == 'parcorr_z':
+        print('Loading and aggregating {}'.format(precur.kwrgs_z['keys_ext']))
+        precur.df_z = import_precur_ts([('z', precur.kwrgs_z['filepath'])],
+                                       df_splits,
+                                       start_end_date=kwrgs['start_end_date'],
+                                       start_end_year=kwrgs['start_end_year'],
+                                       closed_on_date=kwrgs['closed_on_date'],
+                                       cols=precur.kwrgs_z['keys_ext'],
+                                       precur_aggr=kwrgs['tfreq'])
+        if hasattr(precur.df_z.index, 'levels'): # has train-test splits
+            f = functions_pp
+            precur.df_z = f.get_df_test(precur.df_z.merge(df_splits,
+                                                          left_index=True,
+                                                          right_index=True)).iloc[:,:1]
+        precur.kwrgs_func = {'z':precur.df_z} # overwrite kwrgs_func
+        equal_dates = all(np.equal(precur.df_z.index, pd.to_datetime(precur_arr.time.values)))
+        if equal_dates==False:
+            raise ValueError('Dates of timeseries z not equal to dates of field')
+    # =============================================================================
     # Calculate BivariateMI (correlation) map
     # =============================================================================
-    corr_xr = precur.func(precur_arr, df_splits, TV)
+    corr_xr = precur.bivariateMI_map(precur_arr, df_splits, TV)
     # =============================================================================
     # update class precur
     # =============================================================================
     add_info_precur(precur, corr_xr, precur_arr)
-
-
 
     return precur
 
@@ -551,7 +572,7 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
     use_coef_wghts  = precur.use_coef_wghts
     tfreq           = precur.tfreq
 
-    if precur_aggr is None and tfreq != 365 and len(lags)>1:
+    if precur_aggr is None and (tfreq != 365 and len(lags)==1):
         # use precursor array with temporal aggregation that was used to create
         # correlation map. When tfreq=365 and lag>1, reaggregate months precur_arr
         precur_arr = precur.precur_arr
@@ -570,12 +591,15 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
                 kwrgs[key] = precur.__dict__[key]
             else:
                 kwrgs[key] = value
+        kwrgs['tfreq'] = precur_aggr
+
         if tfreq == 365:
             # create seperate xarray with monthly means, of which grouped
             # means will be calculated defined by lag, lag=[1,2,3]=JFM mean
             precur_months = functions_pp.import_ds_timemeanbins(precur.filepath,
                                                          **kwrgs)
         else:
+            print('aggregating precursors to {:.0f} days'.format(kwrgs['tfreq']))
             precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
                                                          **kwrgs)
 
@@ -718,7 +742,7 @@ def import_precur_ts(list_import_ts : List[tuple],
                      df_splits: pd.DataFrame,
                      start_end_date: Tuple[str, str],
                      start_end_year: Tuple[int, int],
-                     start_end_TVdate: Tuple[str, str],
+                     closed_on_date: Tuple[str, str],
                      cols: list=None,
                      precur_aggr: int=1):
     '''
@@ -727,8 +751,6 @@ def import_precur_ts(list_import_ts : List[tuple],
     '''
     #%%
     # df_splits = rg.df_splits
-
-
 
     splits = df_splits.index.levels[0]
     orig_traintest = functions_pp.get_testyrs(df_splits)
@@ -740,6 +762,8 @@ def import_precur_ts(list_import_ts : List[tuple],
         df_data_e_all = functions_pp.load_hdf5(path_data)['df_data'].iloc[:,:]
         if cols is None:
             cols = list(df_data_e_all.columns[(df_data_e_all.dtypes != bool).values])
+        elif type(cols) is str:
+            cols = [cols]
 
         if hasattr(df_data_e_all.index, 'levels'):
             dates_subset = core_pp.get_subdates(df_data_e_all.loc[0].index, start_end_date,
@@ -757,37 +781,6 @@ def import_precur_ts(list_import_ts : List[tuple],
             assert _check_traintest, ('Train test years of df_splits are not the '
                                       'same as imported timeseries')
 
-        # cols_ext = list(df_data_e_all.columns[(df_data_e_all.dtypes != bool).values])
-        # # cols_ext must be of format '{lag_days}..{label_int}..{var_name}'
-        # # or '{lag_days}..{var_name}'.
-        # # If only var_name is in str (no seperation by {..}, then lag_days=0)
-        # # note label_int should be unique
-        # rename_cols = {}
-        # col_sep = [c.split('..') for c in cols_ext]
-        # label_int = 100
-        # for i, c in enumerate(col_sep):
-        #     # if no seperation, the col is simply the var_name
-        #     #c[-1]  is the var_name
-        #     var_name = c[-1]
-        #     if len(c) == 1:
-        #         lag = 0
-        #         new_col = f'{lag}..{label_int}..{var_name}'
-        #         label_int +=1
-        #     if len(c) == 2:
-        #         #c[0] is assumed the lag in days
-        #         lag = c[0]
-        #         # label int is assigned to confirm the PCMCI format
-        #         new_col = f'{lag}..{label_int}..{var_name}'
-        #         label_int +=1
-        #     if len(c) == 3:
-        #         #c[0] is assumed the lag in days
-        #         lag = c[0]
-        #         #c[1] is assumed a unique label
-        #         own_label = c[1]
-        #         new_col = f'{lag}..{int(own_label)}..{var_name}'
-        #     rename_cols[cols_ext[i]] = new_col
-        # df_data_e_all = df_data_e_all.rename(columns=rename_cols)
-
         for s in range(splits.size):
             if 'TrainIsTrue' in df_data_e_all.columns:
                 df_data_e = df_data_e_all.loc[s]
@@ -804,7 +797,7 @@ def import_precur_ts(list_import_ts : List[tuple],
                                                          precur_aggr,
                                                         start_end_date,
                                                         start_end_year,
-                                                        closed_on_date=start_end_TVdate[-1])[0]
+                                                        closed_on_date=closed_on_date)[0]
                 except KeyError as e:
                     print('KeyError captured, likely the requested dates '
                           'given by start_end_date and start_end_year are not'

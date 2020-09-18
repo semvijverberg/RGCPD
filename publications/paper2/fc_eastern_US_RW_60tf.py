@@ -37,12 +37,13 @@ start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
 
 tfreq = 60
+lags = np.array([0,1])
 #%%
 list_of_name_path = [(name_or_cluster_label, TVpathRW),
                       ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
                        ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
                        ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
-                       ('OLR', os.path.join(path_raw, 'OLRtrop_1979-2018_1_12_daily_2.5deg.nc'))]
+                       ('SLP', os.path.join(path_raw, 'SLP_1979-2018_1_12_daily_2.5deg.nc'))]
 
 
 
@@ -50,20 +51,21 @@ list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map,
                               kwrgs_func={'alpha':.05, 'FDR_control':True},
                               distance_eps=600, min_area_in_degrees2=1,
                               calc_ts='pattern cov', selbox=(0,360,-10,90),
-                              use_sign_pattern=True),
+                              use_sign_pattern=True, lags=lags),
                    BivariateMI(name='z500', func=BivariateMI.corr_map,
                                 kwrgs_func={'alpha':.05, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
                                 calc_ts='pattern cov', selbox=(0,360,-10,90),
-                                use_sign_pattern=True),
-                   BivariateMI(name='OLR', func=BivariateMI.corr_map,
+                                use_sign_pattern=True, lags=lags),
+                   BivariateMI(name='SLP', func=BivariateMI.corr_map,
                                 kwrgs_func={'alpha':.05, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
-                                calc_ts='pattern cov'),
+                                calc_ts='pattern cov', lags=lags),
                    BivariateMI(name='sst', func=BivariateMI.corr_map,
                                 kwrgs_func={'alpha':.05, 'FDR_control':True},
                                 distance_eps=600, min_area_in_degrees2=1,
-                                calc_ts='pattern cov', selbox=(120,260,-10,90))]
+                                calc_ts='pattern cov', selbox=(120,260,-10,90),
+                                lags=lags)]
 
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
@@ -71,7 +73,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             start_end_TVdate=start_end_TVdate,
             start_end_date=start_end_date,
             start_end_year=None,
-            tfreq=tfreq, lags_i=np.array([0,1]),
+            tfreq=tfreq,
             path_outmain=path_out_main,
             append_pathsub='_' + name_ds)
 
