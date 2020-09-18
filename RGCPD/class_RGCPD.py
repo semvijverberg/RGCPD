@@ -697,14 +697,8 @@ class RGCPD:
                 print(f'no {precur.name} regions that pass distance_eps and min_area_in_degrees2 citeria')
 
 
-    def plot_maps_corr(self, var=None, mean=True, mask_xr=None, map_proj=None,
-                       row_dim='split', col_dim='lag', clim='relaxed',
-                       hspace=-0.6, wspace=.02, size=2.5, cbar_vert=-0.01, units='units',
-                       cmap=None, clevels=None, cticks_center=None, drawbox=None,
-                       title=None, subtitles=None, zoomregion=None, lat_labels=True,
-                       aspect=None, n_xticks=5, n_yticks=3,
-                       x_ticks: np.ndarray=None, y_ticks: np.ndarray=None,
-                       save=False,
+    def plot_maps_corr(self, var=None, kwrgs_plot: dict={}, mean: bool=True,
+                       mask_xr=None, save: bool=False,
                        append_str: str=None):
 
         if type(var) is str:
@@ -724,16 +718,7 @@ class RGCPD:
                 xrvals = pclass.corr_xr
                 xrmask = pclass.corr_xr['mask']
             plot_maps.plot_corr_maps(xrvals,
-                                     mask_xr=xrmask, map_proj=map_proj,
-                                    row_dim=row_dim, col_dim=col_dim, clim=clim,
-                                    hspace=hspace, wspace=wspace, size=size, cbar_vert=cbar_vert,
-                                    units=units, cmap=cmap, clevels=clevels,
-                                    cticks_center=cticks_center, drawbox=drawbox,
-                                    title=None, subtitles=subtitles,
-                                    zoomregion=zoomregion,
-                                    lat_labels=lat_labels, aspect=aspect,
-                                    n_xticks=n_xticks, n_yticks=n_yticks,
-                                    x_ticks=x_ticks, y_ticks=y_ticks)
+                                     mask_xr=xrmask, **kwrgs_plot)
             if save == True:
                 if append_str is not None:
                     f_name = 'corr_map_{}'.format(precur_name)+'_'+append_str
@@ -845,6 +830,10 @@ class RGCPD:
                                             result_type='broadcast')
                 elif transformer == False:
                     df_trans = df_s[ks] # no transformation
+                else: # transform to standard normal
+                    df_trans = df_s[ks].apply(fc_utils.standardize_on_train,
+                                            args=[TrainIsTrue],
+                                            result_type='broadcast')
 
                 if type(target) is str:
                     target_ts = self.df_data.loc[s][[target]][RV_mask]
@@ -895,7 +884,7 @@ class RGCPD:
         predict = pd.concat(list(preds), keys=splits)
         weights = pd.concat(list(wghts), keys=splits)
         weights_norm = weights.mean(axis=0, level=1)
-        weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
+        # weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
         return predict, weights, models_lags
 
 

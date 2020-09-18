@@ -105,7 +105,7 @@ def loop_df(df: pd.DataFrame(), function=None, keys=None, colwrap=3, sharex='col
                 kwrgs['ax'] = ax
 
             function(y, **kwrgs)
-    return fig
+    return
     #%%
 
 def plot_df(df: pd.DataFrame(), function=None, keys=None, title: str=None,

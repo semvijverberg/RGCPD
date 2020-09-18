@@ -10,6 +10,8 @@ Created on Thu Jul  2 09:59:06 2020
 import os, inspect, sys
 import numpy as np
 from time import time
+import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
+
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-2])
@@ -28,45 +30,35 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
 from class_BivariateMI import corr_map
-from class_BivariateMI import parcorr_z
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
 path_out_main = os.path.join(main_dir, 'publications/paper2/output/east_forecast/')
 path_data = os.path.join(main_dir, 'publications/paper2/data/')
 cluster_label = 2
 name_ds='ts'
-start_end_TVdate = ('07-01', '08-31')
+
+
+
 start_end_date = ('1-1', '12-31')
 tfreq = 15
 
-#%%
+#%% run RGPD
+start_end_TVdate = ('06-01', '08-31')
 list_of_name_path = [(cluster_label, TVpath),
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
 
-
-list_import_ts = [('RW-sst 60d', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east_forecast/z5000..0..z500_sp_140-300-20-73_3jun-2aug_lag0-60_0..0..z500_sp_random10s1/2020-07-27_11hr_27min_df_data_sst_dt1_tf60_140-300-20-73.h5')]
-
-# list_import_ts = [('sstpattern', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_0ff31_10jun-24aug_lag0-0_0..0..z500_sp_random10s1/2020-07-02_11hr_52min_df_data_NorthPacAtl_dt1_0ff31.h5'),
-                  # ('sstregions', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_0ff31_10jun-24aug_lag0-0_0..0..z500_sp_random10s1/2020-07-02_12hr_10min_df_data_NorthPacAtl_dt1_0ff31.h5')]
-
-z_filepath = os.path.join(path_data, 'PDO_ENSO34_ERA5_1979_2018.h5')
-keys_ext = ['PDO']
-
-selboxsst  = None#(170,255,11,60)
-list_for_MI   = [BivariateMI(name='sst', func=parcorr_z,
+list_for_MI   = [BivariateMI(name='sst', func=corr_map,
                             alpha=.01, FDR_control=True,
-                            kwrgs_func={'filepath':z_filepath,
-                                        'keys_ext':keys_ext},
                             distance_eps=1000, min_area_in_degrees2=1,
-                            calc_ts='pattern cov', selbox=(120,260,-10,90),
-                            lags=np.array([0,1,2,3]))]
+                            calc_ts='region mean', selbox=(120,260,-10,90),
+                            lags=np.array([1]))]
 
 
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
-           list_import_ts=list_import_ts,
+           list_import_ts=None,
             start_end_TVdate=start_end_TVdate,
             start_end_date=start_end_date,
             start_end_year=None,
@@ -80,7 +72,109 @@ rg.pp_precursors()
 
 rg.traintest(method='random10')
 rg.calc_corr_maps()
-rg.plot_maps_corr()
+
+lags = rg.list_for_MI[0].lags
+SST_green_bb = (140,235,20,59)#(170,255,11,60)
+subtitles = np.array([[f'lag {l}: SST vs eastern U.S. mx2t' for l in lags]])
+kwrgs_plot = {'row_dim':'split', 'col_dim':'lag', 'aspect':2, 'hspace':-.47,
+              'wspace':-.18, 'size':3, 'cbar_vert':-.08, 'subtitles':subtitles,
+              'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
+              'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6,
+              'x_ticks':np.arange(130, 280, 25),
+              'clim':(-.6,.6)}
+rg.plot_maps_corr(var='sst', save=True, kwrgs_plot=kwrgs_plot)
+
+rg.cluster_list_MI()
+rg.get_ts_prec()
+#%%
+from sklearn import metrics
+import pandas as pd
+import stat_models_cont as sm
+import func_models as fc_utils
+import functions_pp; import df_ana
+
+list_of_name_path = [(cluster_label, TVpath)]
+list_import_ts = [('RW-sst 60d', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east_forecast/z5000..0..z500_sp_140-300-20-73_3jun-2aug_lag0-60_0..0..z500_sp_random10s1/2020-07-27_11hr_27min_df_data_sst_dt1_tf60_140-300-20-73.h5')]
+
+list_import_ts = [('sstpattern', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_0ff31_10jun-24aug_lag0-0_0..0..z500_sp_random10s1/2020-07-02_11hr_52min_df_data_NorthPacAtl_dt1_0ff31.h5'),
+                   ('sstregions', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_0ff31_10jun-24aug_lag0-0_0..0..z500_sp_random10s1/2020-07-02_12hr_10min_df_data_NorthPacAtl_dt1_0ff31.h5')]
+
+list_import_ts = [('mx2t-sst 15d', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east_forecast/2ts_0ff31_10jun-24aug_sst_ts_random10s1/2020-09-18_15hr_41min_df_data_sst_dt1_tf15_0ff31.h5')]
+
+
+months = {'May'         : ('05-01', '05-30'),
+          'June'        : ('06-01', '06-30'),
+          'July'        : ('07-01', '07-30'),
+          'August'      : ('08-01', '08-30'),
+          'september'   : ('09-01', '09-30')}
+
+list_test = []
+for month, start_end_TVdate in months.items():
+    rg = RGCPD(list_of_name_path=list_of_name_path,
+                list_import_ts=list_import_ts,
+                start_end_TVdate=start_end_TVdate,
+                start_end_date=start_end_date,
+                start_end_year=None,
+                tfreq=tfreq,
+                path_outmain=path_out_main,
+                append_pathsub='_' + name_ds)
+
+
+    rg.pp_TV(name_ds=name_ds, detrend=False)
+
+    rg.traintest(method='random10')
+    rg.get_ts_prec(precur_aggr=30)
+
+    kwrgs_model = {'scoring':'neg_mean_squared_error',
+                   'alphas':np.logspace(.1, 2, num=25)}
+    lag = 1
+    keys = rg.df_data.columns[1:3]
+    target_ts = rg.df_data.iloc[:,[0]].loc[0][rg.df_data.iloc[:,-1].loc[0]]
+    target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+
+    out = rg.fit_df_data_ridge(target=target_ts,
+                               keys=keys,
+                               tau_min=lag, tau_max=lag,
+                               kwrgs_model=kwrgs_model,
+                               transformer=fc_utils.standardize_on_train)
+
+    predict, weights, models_lags = out
+    prediction = predict.rename({predict.columns[0]:'temp',lag:'Prediction'},axis=1)
+    score_func_list = [metrics.mean_squared_error, np.corrcoef]
+    df_train_m, df_test_s_m, df_test_m = sm.get_scores(prediction, rg.df_data.iloc[:,-2:],
+                                                score_func_list)
+    print(df_test_m)
+    print(df_test_s_m.mean(0))
+    list_test.append(df_test_m)
+    m = models_lags[f'lag_{lag}']['split_0']
+    print(m.alpha_)
+    idx_alpha = np.argwhere(kwrgs_model['alphas']==m.alpha_)[0][0]
+    if idx_alpha in [0,25]:
+        print(f'adapt alphas, idx is {idx_alpha}')
+    df_test = functions_pp.get_df_test(prediction.merge(rg.df_data.iloc[:,-2:],
+                                                            left_index=True,
+                                                            right_index=True)).iloc[:,:2]
+    df_ana.loop_df(df=rg.df_data[keys], colwrap=1, sharex=False,
+                         function=df_ana.plot_timeseries,
+                         kwrgs={'timesteps':rg.dates_TV.size,
+                                     'nth_xyear':5})
+
+
+corrvals = [test.values[0,1] for test in list_test]
+MSE_SS_vals = [1-test.values[0,0] for test in list_test]
+monthkeys= list(months.keys())
+df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals,'Corr. Coef.':corrvals},
+                         index=monthkeys)
+
+ax = df_scores.plot.bar(rot=0)
+ax.set_ylabel('Skill score', fontsize=16)
+ax.set_xlabel('Month to predict temperature', fontsize=16)
+ax.tick_params(axis='both', labelsize=14)
+ax.legend(fontsize=16, frameon=True, facecolor='grey',
+              framealpha=.5)
+plt.savefig(os.path.join(rg.path_outsub1,
+                         f'skill_score_vs_months_{rg.tfreq}tf.pdf'))
+
 
 #%% Store data
 # rg.cluster_list_MI()

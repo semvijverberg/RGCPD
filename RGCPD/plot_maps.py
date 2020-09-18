@@ -36,13 +36,14 @@ def extend_longitude(data):
     return plottable
 
 def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
-                   col_dim='lag', clim='relaxed', hspace=-0.4, wspace=0.01,
+                   col_dim='lag', clim='relaxed', hspace=-0.6, wspace=0.02,
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
-                   clevels=None, cticks_center=None, title=None,
-                   drawbox=None, subtitles=None, zoomregion=None,
-                   lat_labels=True, aspect=None, n_xticks=5, n_yticks=3,
-                   x_ticks: np.ndarray=None, y_ticks: np.ndarray=None,
-                   add_cfeature: str=None):
+                   clevels=None, cticks_center=None, drawbox=None, title=None,
+                   title_fontdict: dict=None, subtitles: np.ndarray=None,
+                   subtitle_fontdict: dict=None, zoomregion=None, lat_labels=True,
+                   aspect=None, n_xticks=5, n_yticks=3, x_ticks: np.ndarray=None,
+                   y_ticks: np.ndarray=None, add_cfeature: str=None):
+
     '''
     zoomregion = tuple(east_lon, west_lon, south_lat, north_lat)
     '''
@@ -50,9 +51,10 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     # default parameters
     # mask_xr=None ; row_dim='split'; col_dim='lag'; clim='relaxed';
     # size=2.5; cbar_vert=-0.01; units='units'; cmap=None; hspace=-0.6;
-    # clevels=None; cticks_center=None; map_proj=None ; wspace=.0
+    # clevels=None; cticks_center=None; map_proj=None ; wspace=.0;
     # drawbox=None; subtitles=None; title=None; lat_labels=True; zoomregion=None
-    # aspect=None; n_xticks=5; n_yticks=3
+    # aspect=None; n_xticks=5; n_yticks=3; title_fontdict=None; x_ticks=None;
+    # y_ticks=None; add_cfeature=None
 
     if map_proj is None:
         cen_lon = int(corr_xr.longitude.mean().values)
@@ -230,9 +232,10 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             # Subtitles
             # =============================================================================
             if subtitles is not None:
-                fontdict = dict({'fontsize'     : 18,
-                             'fontweight'   : 'bold'})
-                g.axes[row,col].set_title(subtitles[row,col], fontdict=fontdict, loc='center')
+                if subtitle_fontdict is None:
+                    subtitle_fontdict = dict({'fontsize' : 16})
+                g.axes[row,col].set_title(subtitles[row,col], fontdict=subtitle_fontdict,
+                                          loc='center')
             # =============================================================================
             # Format coordinate ticks
             # =============================================================================
@@ -305,14 +308,17 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         # ax.set_xlim(zoomregion[:2])
         # ax.set_ylim(zoomregion[:2])
     if title is not None:
-        g.fig.suptitle(title)
+        if title_fontdict is None:
+            title_fontdict = dict({'fontsize'     : 18,
+                                   'fontweight'   : 'bold'})
+        g.fig.suptitle(title, **title_fontdict)
     # plt.tight_layout(pad=1.1-0.02*rows.size, h_pad=None, w_pad=None, rect=None)
 
     # print("\n")
 
 
     #%%
-    return
+    return g.fig
 
 def causal_reg_to_xarray(df_links, list_MI):
     #%%
