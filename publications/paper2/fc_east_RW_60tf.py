@@ -32,15 +32,16 @@ from RGCPD import BivariateMI
 from RGCPD import EOF
 from class_BivariateMI import corr_map
 from class_BivariateMI import parcorr_z
+from class_BivariateMI import parcorr_map_time
 import plot_maps
 
 
 west_east = 'west'
 if west_east == 'east':
-    TVpathRW = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/2ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_10min_df_data_v200_z500_dt1_0ff31_z500_140-300-20-73.h5'
+    TVpathRW = '/Users/semvijverberg/surfdrive/output_RGCPD/paper2_september/east/2ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_10min_df_data_v200_z500_dt1_0ff31_z500_140-300-20-73.h5'
 
 elif west_east == 'west':
-    TVpathRW = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_08min_df_data_v200_z500_dt1_0ff31_z500_145-325-20-62.h5'
+    TVpathRW = '/Users/semvijverberg/surfdrive/output_RGCPD/paper2_september/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_08min_df_data_v200_z500_dt1_0ff31_z500_145-325-20-62.h5'
 
 path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_forecast/')
 name_or_cluster_label = 'z500'
@@ -50,94 +51,29 @@ start_end_date = ('1-1', '12-31')
 
 tfreq = 60
 lags = np.array([0,1])
-#%%
-list_of_name_path = [(name_or_cluster_label, TVpathRW),
-                      ('v200', os.path.join(path_raw, 'v200hpa_1979-2018_1_12_daily_2.5deg.nc')),
-                       ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
-                       ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
-
-
-list_for_MI   = [BivariateMI(name='v200', func=BivariateMI.corr_map,
-                              kwrgs_func={'alpha':.05, 'FDR_control':True},
-                              distance_eps=600, min_area_in_degrees2=1,
-                              calc_ts='pattern cov', selbox=(0,360,-10,90),
-                              use_sign_pattern=True, lags=lags),
-                   BivariateMI(name='z500', func=BivariateMI.corr_map,
-                                kwrgs_func={'alpha':.05, 'FDR_control':True},
-                                distance_eps=600, min_area_in_degrees2=1,
-                                calc_ts='pattern cov', selbox=(0,360,-10,90),
-                                use_sign_pattern=True, lags=lags),
-                   BivariateMI(name='sst', func=BivariateMI.corr_map,
-                                kwrgs_func={'alpha':.05, 'FDR_control':True},
-                                distance_eps=600, min_area_in_degrees2=1,
-                                calc_ts='pattern cov', selbox=(120,260,-10,90),
-                                lags=lags)]
-
-
-rg = RGCPD(list_of_name_path=list_of_name_path,
-            list_for_MI=list_for_MI,
-            start_end_TVdate=start_end_TVdate,
-            start_end_date=start_end_date,
-            start_end_year=None,
-            tfreq=tfreq,
-            path_outmain=path_out_main,
-            append_pathsub='_' + name_ds)
-
-
-rg.pp_TV(name_ds=name_ds, detrend=False)
-
-rg.pp_precursors()
-
-rg.traintest('random10')
-#%%
-
-
-
-rg.calc_corr_maps()
-
-v200_green_bb = (170,359,23,73)
-units = 'Corr. Coeff. [-]'
-subtitles = np.array([[f'lag {l}: v-wind-200 hPa vs eastern U.S. RW'] for l in rg.list_for_MI[0].lags])
-rg.plot_maps_corr(var='v200', row_dim='lag', col_dim='split',
-                  aspect=2, size=5, hspace=-0.58, cbar_vert=.18, save=True,
-                  subtitles=subtitles, units=units, zoomregion=(-180,360,0,80),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  drawbox=[(0,0), v200_green_bb],
-                  clim=(-.6,.6))
-
-# z500_green_bb = (140,260,20,73) #: Pacific box
-# z500_green_bb = (140,300,20,73) #: RW box
-z500_green_bb = (140,300,20,65) #: testing forecasting skill
-subtitles = np.array([[f'lag {l}: z-500 hPa vs eastern U.S. RW'] for l in rg.list_for_MI[0].lags])
-rg.plot_maps_corr(var='z500', row_dim='lag', col_dim='split',
-                  aspect=2, size=5, hspace=-0.63, cbar_vert=.2, save=True,
-                  subtitles=subtitles, units=units, zoomregion=(-180,360,10,80),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  drawbox=[(0,0), z500_green_bb],
-                  clim=(-.6,.6),
-                  append_str=''.join(map(str, z500_green_bb)))
-
-
-
-
-
-
-#%% Only SST
+#%% Only SST (Parcorr on PDO)
 
 list_of_name_path = [(name_or_cluster_label, TVpathRW),
                        ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
-exper = 'corr'
+exper = 'parcorr'
+
 if exper == 'parcorr':
+    lowpass = '2y'
     func = parcorr_z
-    z_filepath = os.path.join(path_data, 'PDO_ENSO34_ERA5_1979_2018.h5')
+    # z_filepath = os.path.join(path_data, 'PDO_ENSO34_ERA5_1979_2018.h5')
+    z_filepath = os.path.join(path_data, f'PDO_{lowpass}_rm_25-09-20_15hr.h5')
     keys_ext = ['PDO']
     kwrgs_func = {'filepath':z_filepath,
                   'keys_ext':keys_ext}
 elif exper == 'corr':
     func = corr_map
     kwrgs_func = {}
+elif exper == 'parcorrtime':
+    func = parcorr_map_time
+    kwrgs_func = {}
+
 
 
 list_for_MI   = [BivariateMI(name='sst', func=func,
@@ -145,7 +81,7 @@ list_for_MI   = [BivariateMI(name='sst', func=func,
                             kwrgs_func=kwrgs_func,
                             distance_eps=1000, min_area_in_degrees2=1,
                             calc_ts='pattern cov', selbox=(120,260,-10,90),
-                            lags=np.array([0,1]))]
+                            lags=lags)]
 
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
@@ -166,12 +102,27 @@ rg.traintest('random10')
 
 rg.calc_corr_maps()
 
+#%%
+import matplotlib
+# Optionally set font to Computer Modern to avoid common missing font errors
+matplotlib.rc('font', family='serif', serif='cm10')
 
-if exper == 'parcorr':
-    title = f'parcorr(SST, {west_east.capitalize()[0]}-RW | PDO)'
-elif exper == 'corr':
-    title = f'corr(SST, {west_east.capitalize()[0]}-RW)'
+matplotlib.rc('text', usetex=True)
+matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
+
+save = True
 subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
+if exper == 'parcorr':
+    title = f'$parcorr(SST, {west_east.capitalize()[0]}$-$RW | PDO)$'
+    append_str=f'PDO_{lowpass}'
+elif exper == 'corr':
+    title = f'$corr(SST, {west_east.capitalize()[0]}$-$RW)$'
+    append_str=''
+elif exper == 'parcorrtime':
+    title = f'$parcorr(SST_t, {west_east.capitalize()[0]}$-$RW)\ |\ $'+r'$SST_{t-1},$'+f'${west_east.capitalize()[0]}$-'+r'$RW_{t-1})$'
+    append_str='parcorrtime'
+
+
 kwrgs_plot = {'row_dim':'lag', 'col_dim':'split',
               'aspect':2,  'hspace':.2, 'size':2.5, 'cbar_vert':.0,
               'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
@@ -180,15 +131,16 @@ kwrgs_plot = {'row_dim':'lag', 'col_dim':'split',
               'clim':(-.6,.6), 'title':title,
               'subtitles':subtitles, 'subtitle_fontdict':{'fontsize':14},
               'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
-rg.plot_maps_corr(var='sst', save=True, kwrgs_plot=kwrgs_plot)
-#%%
+rg.plot_maps_corr(var='sst', save=save,
+                  kwrgs_plot=kwrgs_plot,
+                  min_detect_gc=.9,
+                  append_str=append_str)
+#%% Store data
 rg.cluster_list_MI()
-
+rg.list_for_MI[0].calc_ts = 'region mean'
 rg.get_ts_prec()
 
 rename = {'z5000..0..z500_sp': 'Rossby wave (z500)',
-          '0..0..v200_sp':'Rossby wave (v300) lag 0',
-          '60..0..v200_sp': 'Rossby wave (v300) lag 1',
           '0..0..z500_sp': 'Rossby wave (z500) lag 0',
           '60..0..z500_sp':'Rossby wave (z500) lag 1',
           '0..0..sst_sp': 'SST lag 0',
@@ -198,6 +150,7 @@ rename = {'z5000..0..z500_sp': 'Rossby wave (z500)',
           '0..1..sst': 'SST r1 lag 0',
           '0..2..sst': 'SST r2 lag 0'}
 rg.df_data = rg.df_data.rename(rename, axis=1)
+rg.store_df()
 
 #%% Ridge
 import df_ana; import sklearn, functions_pp, func_models

@@ -95,9 +95,9 @@ class BivariateMI:
         self.name = name
         if func is None:
             self.func = corr_map
-
         else:
             self.func = func
+        self._name = name + '_'+ self.func.__name__
 
         self.kwrgs_func = kwrgs_func
 
@@ -302,7 +302,7 @@ def corr_map(field, ts):
 
     return corr_vals, pvals
 
-def parcorr_map_time(field, ts, lag=1, target=False, precur=True):
+def parcorr_map_time(field, ts, lag=1, target=True, precursor=True):
     field = np.reshape(field.values, (field.shape[0],-1))
     x = np.ma.zeros(field.shape[1])
     corr_vals = np.array(x)
@@ -310,18 +310,19 @@ def parcorr_map_time(field, ts, lag=1, target=False, precur=True):
     fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
     nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
     if target:
-        z = np.expand_dims(ts[:-lag], axis=1)
-    ts = np.expand_dims(ts[lag:], axis=1)
+        zy = np.expand_dims(ts[:-lag], axis=1)
+    y = np.expand_dims(ts[lag:], axis=1)
     for i in nonans_gc:
         cond_ind_test = ParCorr()
-        if precur:
-            if target:
-                z2 = np.expand_dims(field[:-lag, i], axis=1)
-                z = np.concatenate((z,z2), axis=1)
-            else:
-                z = np.expand_dims(field[:-lag, i], axis=1)
+        if precursor and target:
+            z2 = np.expand_dims(field[:-lag, i], axis=1)
+            z = np.concatenate((zy,z2), axis=1)
+        elif precursor and target==False:
+            z = np.expand_dims(field[:-lag, i], axis=1)
+        elif precursor==False and target:
+            z = zy
         field_i = np.expand_dims(field[lag:,i], axis=1)
-        a, b = cond_ind_test.run_test_raw(ts, field_i, z)
+        a, b = cond_ind_test.run_test_raw(y, field_i, z)
         corr_vals[i] = a
         pvals[i] = b
     # restore original nans

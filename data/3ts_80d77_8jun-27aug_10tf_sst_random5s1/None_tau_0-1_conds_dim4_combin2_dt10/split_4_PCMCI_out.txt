@@ -1,0 +1,2145 @@
+
+# Initialize conditional independence test
+
+Parameters:
+independence test = par_corr
+significance = analytic
+mask_type = y
+time 1120, samples 4
+
+##
+## Step 1: PC1 algorithm with lagged conditions
+##
+
+Parameters:
+independence test = par_corr
+tau_min = 1
+tau_max = 1
+pc_alpha = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]
+max_conds_dim = 4
+max_combinations = 2
+
+
+
+## Variable 3ts
+
+Iterating through pc_alpha = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]:
+
+# pc_alpha = 0.05 (1/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 3ts (1/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.292
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 3ts (2/4):
+    Subset 0: () gives pval = 0.00008 / val =  0.137
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 3ts (3/4):
+    Subset 0: () gives pval = 0.04819 / val = -0.069
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 3ts (4/4):
+    Subset 0: () gives pval = 0.45581 / val = -0.026
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 3ts has 3 parent(s):
+        (3ts -1): max_pval = 0.00000, min_val =  0.292
+        (1..1..sst -1): max_pval = 0.00008, min_val =  0.137
+        (1..2..sst -1): max_pval = 0.04819, min_val =  0.069
+
+Testing condition sets of dimension 1:
+
+    Link (3ts -1) --> 3ts (1/3):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00000 / val =  0.270
+    Subset 1: (1..2..sst -1)  gives pval = 0.00000 / val =  0.286
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 3ts (2/3):
+    Subset 0: (3ts -1)  gives pval = 0.03063 / val =  0.075
+    Subset 1: (1..2..sst -1)  gives pval = 0.00060 / val =  0.119
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 3ts (3/3):
+    Subset 0: (3ts -1)  gives pval = 0.44935 / val = -0.026
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 3ts has 2 parent(s):
+        (3ts -1): max_pval = 0.00000, min_val =  0.270
+        (1..1..sst -1): max_pval = 0.03063, min_val =  0.075
+
+Algorithm converged for variable 3ts
+
+# pc_alpha = 0.1 (2/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 3ts (1/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.292
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 3ts (2/4):
+    Subset 0: () gives pval = 0.00008 / val =  0.137
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 3ts (3/4):
+    Subset 0: () gives pval = 0.04819 / val = -0.069
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 3ts (4/4):
+    Subset 0: () gives pval = 0.45581 / val = -0.026
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 3ts has 3 parent(s):
+        (3ts -1): max_pval = 0.00000, min_val =  0.292
+        (1..1..sst -1): max_pval = 0.00008, min_val =  0.137
+        (1..2..sst -1): max_pval = 0.04819, min_val =  0.069
+
+Testing condition sets of dimension 1:
+
+    Link (3ts -1) --> 3ts (1/3):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00000 / val =  0.270
+    Subset 1: (1..2..sst -1)  gives pval = 0.00000 / val =  0.286
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 3ts (2/3):
+    Subset 0: (3ts -1)  gives pval = 0.03063 / val =  0.075
+    Subset 1: (1..2..sst -1)  gives pval = 0.00060 / val =  0.119
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 3ts (3/3):
+    Subset 0: (3ts -1)  gives pval = 0.44935 / val = -0.026
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 3ts has 2 parent(s):
+        (3ts -1): max_pval = 0.00000, min_val =  0.270
+        (1..1..sst -1): max_pval = 0.03063, min_val =  0.075
+
+Algorithm converged for variable 3ts
+
+# pc_alpha = 0.2 (3/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 3ts (1/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.292
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 3ts (2/4):
+    Subset 0: () gives pval = 0.00008 / val =  0.137
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 3ts (3/4):
+    Subset 0: () gives pval = 0.04819 / val = -0.069
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 3ts (4/4):
+    Subset 0: () gives pval = 0.45581 / val = -0.026
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 3ts has 3 parent(s):
+        (3ts -1): max_pval = 0.00000, min_val =  0.292
+        (1..1..sst -1): max_pval = 0.00008, min_val =  0.137
+        (1..2..sst -1): max_pval = 0.04819, min_val =  0.069
+
+Testing condition sets of dimension 1:
+
+    Link (3ts -1) --> 3ts (1/3):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00000 / val =  0.270
+    Subset 1: (1..2..sst -1)  gives pval = 0.00000 / val =  0.286
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 3ts (2/3):
+    Subset 0: (3ts -1)  gives pval = 0.03063 / val =  0.075
+    Subset 1: (1..2..sst -1)  gives pval = 0.00060 / val =  0.119
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 3ts (3/3):
+    Subset 0: (3ts -1)  gives pval = 0.44935 / val = -0.026
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 3ts has 2 parent(s):
+        (3ts -1): max_pval = 0.00000, min_val =  0.270
+        (1..1..sst -1): max_pval = 0.03063, min_val =  0.075
+
+Algorithm converged for variable 3ts
+
+# pc_alpha = 0.3 (4/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 3ts (1/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.292
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 3ts (2/4):
+    Subset 0: () gives pval = 0.00008 / val =  0.137
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 3ts (3/4):
+    Subset 0: () gives pval = 0.04819 / val = -0.069
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 3ts (4/4):
+    Subset 0: () gives pval = 0.45581 / val = -0.026
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 3ts has 3 parent(s):
+        (3ts -1): max_pval = 0.00000, min_val =  0.292
+        (1..1..sst -1): max_pval = 0.00008, min_val =  0.137
+        (1..2..sst -1): max_pval = 0.04819, min_val =  0.069
+
+Testing condition sets of dimension 1:
+
+    Link (3ts -1) --> 3ts (1/3):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00000 / val =  0.270
+    Subset 1: (1..2..sst -1)  gives pval = 0.00000 / val =  0.286
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 3ts (2/3):
+    Subset 0: (3ts -1)  gives pval = 0.03063 / val =  0.075
+    Subset 1: (1..2..sst -1)  gives pval = 0.00060 / val =  0.119
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 3ts (3/3):
+    Subset 0: (3ts -1)  gives pval = 0.44935 / val = -0.026
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 3ts has 2 parent(s):
+        (3ts -1): max_pval = 0.00000, min_val =  0.270
+        (1..1..sst -1): max_pval = 0.03063, min_val =  0.075
+
+Algorithm converged for variable 3ts
+
+# pc_alpha = 0.4 (5/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 3ts (1/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.292
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 3ts (2/4):
+    Subset 0: () gives pval = 0.00008 / val =  0.137
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 3ts (3/4):
+    Subset 0: () gives pval = 0.04819 / val = -0.069
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 3ts (4/4):
+    Subset 0: () gives pval = 0.45581 / val = -0.026
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 3ts has 3 parent(s):
+        (3ts -1): max_pval = 0.00000, min_val =  0.292
+        (1..1..sst -1): max_pval = 0.00008, min_val =  0.137
+        (1..2..sst -1): max_pval = 0.04819, min_val =  0.069
+
+Testing condition sets of dimension 1:
+
+    Link (3ts -1) --> 3ts (1/3):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00000 / val =  0.270
+    Subset 1: (1..2..sst -1)  gives pval = 0.00000 / val =  0.286
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 3ts (2/3):
+    Subset 0: (3ts -1)  gives pval = 0.03063 / val =  0.075
+    Subset 1: (1..2..sst -1)  gives pval = 0.00060 / val =  0.119
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 3ts (3/3):
+    Subset 0: (3ts -1)  gives pval = 0.44935 / val = -0.026
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 3ts has 2 parent(s):
+        (3ts -1): max_pval = 0.00000, min_val =  0.270
+        (1..1..sst -1): max_pval = 0.03063, min_val =  0.075
+
+Algorithm converged for variable 3ts
+
+# pc_alpha = 0.5 (6/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 3ts (1/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.292
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 3ts (2/4):
+    Subset 0: () gives pval = 0.00008 / val =  0.137
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 3ts (3/4):
+    Subset 0: () gives pval = 0.04819 / val = -0.069
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 3ts (4/4):
+    Subset 0: () gives pval = 0.45581 / val = -0.026
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 3ts has 4 parent(s):
+        (3ts -1): max_pval = 0.00000, min_val =  0.292
+        (1..1..sst -1): max_pval = 0.00008, min_val =  0.137
+        (1..2..sst -1): max_pval = 0.04819, min_val =  0.069
+        (1..3..sst -1): max_pval = 0.45581, min_val =  0.026
+
+Testing condition sets of dimension 1:
+
+    Link (3ts -1) --> 3ts (1/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00000 / val =  0.270
+    Subset 1: (1..2..sst -1)  gives pval = 0.00000 / val =  0.286
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 3ts (2/4):
+    Subset 0: (3ts -1)  gives pval = 0.03063 / val =  0.075
+    Subset 1: (1..2..sst -1)  gives pval = 0.00060 / val =  0.119
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 3ts (3/4):
+    Subset 0: (3ts -1)  gives pval = 0.44935 / val = -0.026
+    Subset 1: (1..1..sst -1)  gives pval = 0.87141 / val =  0.006
+    Non-significance detected.
+
+    Link (1..3..sst -1) --> 3ts (4/4):
+    Subset 0: (3ts -1)  gives pval = 0.66498 / val = -0.015
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 3ts has 2 parent(s):
+        (3ts -1): max_pval = 0.00000, min_val =  0.270
+        (1..1..sst -1): max_pval = 0.03063, min_val =  0.075
+
+Algorithm converged for variable 3ts
+
+# Condition selection results:
+    pc_alpha=0.05 got score 5506.0774 with parents [ (3ts -1) (1..1..sst -1) ]
+    pc_alpha=0.1 got score 5506.0774 with parents [ (3ts -1) (1..1..sst -1) ]
+    pc_alpha=0.2 got score 5506.0774 with parents [ (3ts -1) (1..1..sst -1) ]
+    pc_alpha=0.3 got score 5506.0774 with parents [ (3ts -1) (1..1..sst -1) ]
+    pc_alpha=0.4 got score 5506.0774 with parents [ (3ts -1) (1..1..sst -1) ]
+    pc_alpha=0.5 got score 5506.0774 with parents [ (3ts -1) (1..1..sst -1) ]
+
+--> optimal pc_alpha for variable 3ts is 0.05
+
+## Variable 1..1..sst
+
+Iterating through pc_alpha = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]:
+
+# pc_alpha = 0.05 (1/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..1..sst (1/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.217
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..1..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.873
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.517
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..1..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.198
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 4 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.873
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.517
+        (3ts -1): max_pval = 0.00000, min_val =  0.217
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.198
+
+Testing condition sets of dimension 1:
+
+    Link (1..1..sst -1) --> 1..1..sst (1/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00000 / val =  0.825
+    Subset 1: (3ts -1)  gives pval = 0.00000 / val =  0.867
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (2/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00045 / val = -0.122
+    Subset 1: (3ts -1)  gives pval = 0.00000 / val = -0.502
+    No conditions of dimension 1 left.
+
+    Link (3ts -1) --> 1..1..sst (3/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.30936 / val =  0.035
+    Non-significance detected.
+
+    Link (1..3..sst -1) --> 1..1..sst (4/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.71029 / val = -0.013
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 2 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.825
+        (1..2..sst -1): max_pval = 0.00045, min_val =  0.122
+
+Algorithm converged for variable 1..1..sst
+
+# pc_alpha = 0.1 (2/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..1..sst (1/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.217
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..1..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.873
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.517
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..1..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.198
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 4 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.873
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.517
+        (3ts -1): max_pval = 0.00000, min_val =  0.217
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.198
+
+Testing condition sets of dimension 1:
+
+    Link (1..1..sst -1) --> 1..1..sst (1/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00000 / val =  0.825
+    Subset 1: (3ts -1)  gives pval = 0.00000 / val =  0.867
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (2/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00045 / val = -0.122
+    Subset 1: (3ts -1)  gives pval = 0.00000 / val = -0.502
+    No conditions of dimension 1 left.
+
+    Link (3ts -1) --> 1..1..sst (3/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.30936 / val =  0.035
+    Non-significance detected.
+
+    Link (1..3..sst -1) --> 1..1..sst (4/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.71029 / val = -0.013
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 2 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.825
+        (1..2..sst -1): max_pval = 0.00045, min_val =  0.122
+
+Algorithm converged for variable 1..1..sst
+
+# pc_alpha = 0.2 (3/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..1..sst (1/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.217
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..1..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.873
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.517
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..1..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.198
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 4 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.873
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.517
+        (3ts -1): max_pval = 0.00000, min_val =  0.217
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.198
+
+Testing condition sets of dimension 1:
+
+    Link (1..1..sst -1) --> 1..1..sst (1/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00000 / val =  0.825
+    Subset 1: (3ts -1)  gives pval = 0.00000 / val =  0.867
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (2/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00045 / val = -0.122
+    Subset 1: (3ts -1)  gives pval = 0.00000 / val = -0.502
+    No conditions of dimension 1 left.
+
+    Link (3ts -1) --> 1..1..sst (3/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.30936 / val =  0.035
+    Non-significance detected.
+
+    Link (1..3..sst -1) --> 1..1..sst (4/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.71029 / val = -0.013
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 2 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.825
+        (1..2..sst -1): max_pval = 0.00045, min_val =  0.122
+
+Algorithm converged for variable 1..1..sst
+
+# pc_alpha = 0.3 (4/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..1..sst (1/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.217
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..1..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.873
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.517
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..1..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.198
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 4 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.873
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.517
+        (3ts -1): max_pval = 0.00000, min_val =  0.217
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.198
+
+Testing condition sets of dimension 1:
+
+    Link (1..1..sst -1) --> 1..1..sst (1/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00000 / val =  0.825
+    Subset 1: (3ts -1)  gives pval = 0.00000 / val =  0.867
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (2/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00045 / val = -0.122
+    Subset 1: (3ts -1)  gives pval = 0.00000 / val = -0.502
+    No conditions of dimension 1 left.
+
+    Link (3ts -1) --> 1..1..sst (3/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.30936 / val =  0.035
+    Non-significance detected.
+
+    Link (1..3..sst -1) --> 1..1..sst (4/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.71029 / val = -0.013
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 2 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.825
+        (1..2..sst -1): max_pval = 0.00045, min_val =  0.122
+
+Algorithm converged for variable 1..1..sst
+
+# pc_alpha = 0.4 (5/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..1..sst (1/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.217
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..1..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.873
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.517
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..1..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.198
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 4 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.873
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.517
+        (3ts -1): max_pval = 0.00000, min_val =  0.217
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.198
+
+Testing condition sets of dimension 1:
+
+    Link (1..1..sst -1) --> 1..1..sst (1/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00000 / val =  0.825
+    Subset 1: (3ts -1)  gives pval = 0.00000 / val =  0.867
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (2/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00045 / val = -0.122
+    Subset 1: (3ts -1)  gives pval = 0.00000 / val = -0.502
+    No conditions of dimension 1 left.
+
+    Link (3ts -1) --> 1..1..sst (3/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.30936 / val =  0.035
+    Subset 1: (1..2..sst -1)  gives pval = 0.00000 / val =  0.165
+    No conditions of dimension 1 left.
+
+    Link (1..3..sst -1) --> 1..1..sst (4/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.71029 / val = -0.013
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 3 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.825
+        (1..2..sst -1): max_pval = 0.00045, min_val =  0.122
+        (3ts -1): max_pval = 0.30936, min_val =  0.035
+
+Testing condition sets of dimension 2:
+
+    Link (1..1..sst -1) --> 1..1..sst (1/3):
+    Subset 0: (1..2..sst -1) (3ts -1)  gives pval = 0.00000 / val =  0.820
+    No conditions of dimension 2 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (2/3):
+    Subset 0: (1..1..sst -1) (3ts -1)  gives pval = 0.00051 / val = -0.121
+    No conditions of dimension 2 left.
+
+    Link (3ts -1) --> 1..1..sst (3/3):
+    Subset 0: (1..1..sst -1) (1..2..sst -1)  gives pval = 0.36313 / val =  0.032
+    No conditions of dimension 2 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 3 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.820
+        (1..2..sst -1): max_pval = 0.00051, min_val =  0.121
+        (3ts -1): max_pval = 0.36313, min_val =  0.032
+
+Algorithm converged for variable 1..1..sst
+
+# pc_alpha = 0.5 (6/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..1..sst (1/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.217
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..1..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.873
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.517
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..1..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.198
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 4 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.873
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.517
+        (3ts -1): max_pval = 0.00000, min_val =  0.217
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.198
+
+Testing condition sets of dimension 1:
+
+    Link (1..1..sst -1) --> 1..1..sst (1/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00000 / val =  0.825
+    Subset 1: (3ts -1)  gives pval = 0.00000 / val =  0.867
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (2/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00045 / val = -0.122
+    Subset 1: (3ts -1)  gives pval = 0.00000 / val = -0.502
+    No conditions of dimension 1 left.
+
+    Link (3ts -1) --> 1..1..sst (3/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.30936 / val =  0.035
+    Subset 1: (1..2..sst -1)  gives pval = 0.00000 / val =  0.165
+    No conditions of dimension 1 left.
+
+    Link (1..3..sst -1) --> 1..1..sst (4/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.71029 / val = -0.013
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 3 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.825
+        (1..2..sst -1): max_pval = 0.00045, min_val =  0.122
+        (3ts -1): max_pval = 0.30936, min_val =  0.035
+
+Testing condition sets of dimension 2:
+
+    Link (1..1..sst -1) --> 1..1..sst (1/3):
+    Subset 0: (1..2..sst -1) (3ts -1)  gives pval = 0.00000 / val =  0.820
+    No conditions of dimension 2 left.
+
+    Link (1..2..sst -1) --> 1..1..sst (2/3):
+    Subset 0: (1..1..sst -1) (3ts -1)  gives pval = 0.00051 / val = -0.121
+    No conditions of dimension 2 left.
+
+    Link (3ts -1) --> 1..1..sst (3/3):
+    Subset 0: (1..1..sst -1) (1..2..sst -1)  gives pval = 0.36313 / val =  0.032
+    No conditions of dimension 2 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..1..sst has 3 parent(s):
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.820
+        (1..2..sst -1): max_pval = 0.00051, min_val =  0.121
+        (3ts -1): max_pval = 0.36313, min_val =  0.032
+
+Algorithm converged for variable 1..1..sst
+
+# Condition selection results:
+    pc_alpha=0.05 got score 4377.9764 with parents [ (1..1..sst -1) (1..2..sst -1) ]
+    pc_alpha=0.1 got score 4377.9764 with parents [ (1..1..sst -1) (1..2..sst -1) ]
+    pc_alpha=0.2 got score 4377.9764 with parents [ (1..1..sst -1) (1..2..sst -1) ]
+    pc_alpha=0.3 got score 4377.9764 with parents [ (1..1..sst -1) (1..2..sst -1) ]
+    pc_alpha=0.4 got score 4379.1449 with parents [ (1..1..sst -1) (1..2..sst -1) (3ts -1) ]
+    pc_alpha=0.5 got score 4379.1449 with parents [ (1..1..sst -1) (1..2..sst -1) (3ts -1) ]
+
+--> optimal pc_alpha for variable 1..1..sst is 0.05
+
+## Variable 1..2..sst
+
+Iterating through pc_alpha = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]:
+
+# pc_alpha = 0.05 (1/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..2..sst (1/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.190
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.532
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..2..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.952
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..2..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.336
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 4 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.952
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.532
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.336
+        (3ts -1): max_pval = 0.00000, min_val =  0.190
+
+Testing condition sets of dimension 1:
+
+    Link (1..2..sst -1) --> 1..2..sst (1/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00000 / val =  0.933
+    Subset 1: (1..3..sst -1)  gives pval = 0.00000 / val =  0.946
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.01222 / val = -0.087
+    Subset 1: (1..3..sst -1)  gives pval = 0.00000 / val = -0.499
+    No conditions of dimension 1 left.
+
+    Link (1..3..sst -1) --> 1..2..sst (3/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.64930 / val =  0.016
+    Non-significance detected.
+
+    Link (3ts -1) --> 1..2..sst (4/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00001 / val = -0.157
+    Subset 1: (1..1..sst -1)  gives pval = 0.01790 / val = -0.082
+    No conditions of dimension 1 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 3 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.933
+        (1..1..sst -1): max_pval = 0.01222, min_val =  0.087
+        (3ts -1): max_pval = 0.01790, min_val =  0.082
+
+Testing condition sets of dimension 2:
+
+    Link (1..2..sst -1) --> 1..2..sst (1/3):
+    Subset 0: (1..1..sst -1) (3ts -1)  gives pval = 0.00000 / val =  0.934
+    No conditions of dimension 2 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/3):
+    Subset 0: (1..2..sst -1) (3ts -1)  gives pval = 0.08160 / val = -0.061
+    Non-significance detected.
+
+    Link (3ts -1) --> 1..2..sst (3/3):
+    Subset 0: (1..2..sst -1) (1..1..sst -1)  gives pval = 0.00003 / val = -0.144
+    No conditions of dimension 2 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 2 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.933
+        (3ts -1): max_pval = 0.01790, min_val =  0.082
+
+Algorithm converged for variable 1..2..sst
+
+# pc_alpha = 0.1 (2/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..2..sst (1/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.190
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.532
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..2..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.952
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..2..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.336
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 4 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.952
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.532
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.336
+        (3ts -1): max_pval = 0.00000, min_val =  0.190
+
+Testing condition sets of dimension 1:
+
+    Link (1..2..sst -1) --> 1..2..sst (1/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00000 / val =  0.933
+    Subset 1: (1..3..sst -1)  gives pval = 0.00000 / val =  0.946
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.01222 / val = -0.087
+    Subset 1: (1..3..sst -1)  gives pval = 0.00000 / val = -0.499
+    No conditions of dimension 1 left.
+
+    Link (1..3..sst -1) --> 1..2..sst (3/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.64930 / val =  0.016
+    Non-significance detected.
+
+    Link (3ts -1) --> 1..2..sst (4/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00001 / val = -0.157
+    Subset 1: (1..1..sst -1)  gives pval = 0.01790 / val = -0.082
+    No conditions of dimension 1 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 3 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.933
+        (1..1..sst -1): max_pval = 0.01222, min_val =  0.087
+        (3ts -1): max_pval = 0.01790, min_val =  0.082
+
+Testing condition sets of dimension 2:
+
+    Link (1..2..sst -1) --> 1..2..sst (1/3):
+    Subset 0: (1..1..sst -1) (3ts -1)  gives pval = 0.00000 / val =  0.934
+    No conditions of dimension 2 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/3):
+    Subset 0: (1..2..sst -1) (3ts -1)  gives pval = 0.08160 / val = -0.061
+    No conditions of dimension 2 left.
+
+    Link (3ts -1) --> 1..2..sst (3/3):
+    Subset 0: (1..2..sst -1) (1..1..sst -1)  gives pval = 0.00003 / val = -0.144
+    No conditions of dimension 2 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 3 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.933
+        (3ts -1): max_pval = 0.01790, min_val =  0.082
+        (1..1..sst -1): max_pval = 0.08160, min_val =  0.061
+
+Algorithm converged for variable 1..2..sst
+
+# pc_alpha = 0.2 (3/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..2..sst (1/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.190
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.532
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..2..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.952
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..2..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.336
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 4 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.952
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.532
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.336
+        (3ts -1): max_pval = 0.00000, min_val =  0.190
+
+Testing condition sets of dimension 1:
+
+    Link (1..2..sst -1) --> 1..2..sst (1/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00000 / val =  0.933
+    Subset 1: (1..3..sst -1)  gives pval = 0.00000 / val =  0.946
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.01222 / val = -0.087
+    Subset 1: (1..3..sst -1)  gives pval = 0.00000 / val = -0.499
+    No conditions of dimension 1 left.
+
+    Link (1..3..sst -1) --> 1..2..sst (3/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.64930 / val =  0.016
+    Non-significance detected.
+
+    Link (3ts -1) --> 1..2..sst (4/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00001 / val = -0.157
+    Subset 1: (1..1..sst -1)  gives pval = 0.01790 / val = -0.082
+    No conditions of dimension 1 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 3 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.933
+        (1..1..sst -1): max_pval = 0.01222, min_val =  0.087
+        (3ts -1): max_pval = 0.01790, min_val =  0.082
+
+Testing condition sets of dimension 2:
+
+    Link (1..2..sst -1) --> 1..2..sst (1/3):
+    Subset 0: (1..1..sst -1) (3ts -1)  gives pval = 0.00000 / val =  0.934
+    No conditions of dimension 2 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/3):
+    Subset 0: (1..2..sst -1) (3ts -1)  gives pval = 0.08160 / val = -0.061
+    No conditions of dimension 2 left.
+
+    Link (3ts -1) --> 1..2..sst (3/3):
+    Subset 0: (1..2..sst -1) (1..1..sst -1)  gives pval = 0.00003 / val = -0.144
+    No conditions of dimension 2 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 3 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.933
+        (3ts -1): max_pval = 0.01790, min_val =  0.082
+        (1..1..sst -1): max_pval = 0.08160, min_val =  0.061
+
+Algorithm converged for variable 1..2..sst
+
+# pc_alpha = 0.3 (4/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..2..sst (1/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.190
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.532
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..2..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.952
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..2..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.336
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 4 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.952
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.532
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.336
+        (3ts -1): max_pval = 0.00000, min_val =  0.190
+
+Testing condition sets of dimension 1:
+
+    Link (1..2..sst -1) --> 1..2..sst (1/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00000 / val =  0.933
+    Subset 1: (1..3..sst -1)  gives pval = 0.00000 / val =  0.946
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.01222 / val = -0.087
+    Subset 1: (1..3..sst -1)  gives pval = 0.00000 / val = -0.499
+    No conditions of dimension 1 left.
+
+    Link (1..3..sst -1) --> 1..2..sst (3/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.64930 / val =  0.016
+    Non-significance detected.
+
+    Link (3ts -1) --> 1..2..sst (4/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00001 / val = -0.157
+    Subset 1: (1..1..sst -1)  gives pval = 0.01790 / val = -0.082
+    No conditions of dimension 1 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 3 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.933
+        (1..1..sst -1): max_pval = 0.01222, min_val =  0.087
+        (3ts -1): max_pval = 0.01790, min_val =  0.082
+
+Testing condition sets of dimension 2:
+
+    Link (1..2..sst -1) --> 1..2..sst (1/3):
+    Subset 0: (1..1..sst -1) (3ts -1)  gives pval = 0.00000 / val =  0.934
+    No conditions of dimension 2 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/3):
+    Subset 0: (1..2..sst -1) (3ts -1)  gives pval = 0.08160 / val = -0.061
+    No conditions of dimension 2 left.
+
+    Link (3ts -1) --> 1..2..sst (3/3):
+    Subset 0: (1..2..sst -1) (1..1..sst -1)  gives pval = 0.00003 / val = -0.144
+    No conditions of dimension 2 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 3 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.933
+        (3ts -1): max_pval = 0.01790, min_val =  0.082
+        (1..1..sst -1): max_pval = 0.08160, min_val =  0.061
+
+Algorithm converged for variable 1..2..sst
+
+# pc_alpha = 0.4 (5/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..2..sst (1/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.190
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.532
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..2..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.952
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..2..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.336
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 4 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.952
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.532
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.336
+        (3ts -1): max_pval = 0.00000, min_val =  0.190
+
+Testing condition sets of dimension 1:
+
+    Link (1..2..sst -1) --> 1..2..sst (1/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00000 / val =  0.933
+    Subset 1: (1..3..sst -1)  gives pval = 0.00000 / val =  0.946
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.01222 / val = -0.087
+    Subset 1: (1..3..sst -1)  gives pval = 0.00000 / val = -0.499
+    No conditions of dimension 1 left.
+
+    Link (1..3..sst -1) --> 1..2..sst (3/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.64930 / val =  0.016
+    Non-significance detected.
+
+    Link (3ts -1) --> 1..2..sst (4/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00001 / val = -0.157
+    Subset 1: (1..1..sst -1)  gives pval = 0.01790 / val = -0.082
+    No conditions of dimension 1 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 3 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.933
+        (1..1..sst -1): max_pval = 0.01222, min_val =  0.087
+        (3ts -1): max_pval = 0.01790, min_val =  0.082
+
+Testing condition sets of dimension 2:
+
+    Link (1..2..sst -1) --> 1..2..sst (1/3):
+    Subset 0: (1..1..sst -1) (3ts -1)  gives pval = 0.00000 / val =  0.934
+    No conditions of dimension 2 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/3):
+    Subset 0: (1..2..sst -1) (3ts -1)  gives pval = 0.08160 / val = -0.061
+    No conditions of dimension 2 left.
+
+    Link (3ts -1) --> 1..2..sst (3/3):
+    Subset 0: (1..2..sst -1) (1..1..sst -1)  gives pval = 0.00003 / val = -0.144
+    No conditions of dimension 2 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 3 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.933
+        (3ts -1): max_pval = 0.01790, min_val =  0.082
+        (1..1..sst -1): max_pval = 0.08160, min_val =  0.061
+
+Algorithm converged for variable 1..2..sst
+
+# pc_alpha = 0.5 (6/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..2..sst (1/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.190
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.532
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..2..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.952
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..2..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.336
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 4 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.952
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.532
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.336
+        (3ts -1): max_pval = 0.00000, min_val =  0.190
+
+Testing condition sets of dimension 1:
+
+    Link (1..2..sst -1) --> 1..2..sst (1/4):
+    Subset 0: (1..1..sst -1)  gives pval = 0.00000 / val =  0.933
+    Subset 1: (1..3..sst -1)  gives pval = 0.00000 / val =  0.946
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.01222 / val = -0.087
+    Subset 1: (1..3..sst -1)  gives pval = 0.00000 / val = -0.499
+    No conditions of dimension 1 left.
+
+    Link (1..3..sst -1) --> 1..2..sst (3/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.64930 / val =  0.016
+    Non-significance detected.
+
+    Link (3ts -1) --> 1..2..sst (4/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00001 / val = -0.157
+    Subset 1: (1..1..sst -1)  gives pval = 0.01790 / val = -0.082
+    No conditions of dimension 1 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 3 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.933
+        (1..1..sst -1): max_pval = 0.01222, min_val =  0.087
+        (3ts -1): max_pval = 0.01790, min_val =  0.082
+
+Testing condition sets of dimension 2:
+
+    Link (1..2..sst -1) --> 1..2..sst (1/3):
+    Subset 0: (1..1..sst -1) (3ts -1)  gives pval = 0.00000 / val =  0.934
+    No conditions of dimension 2 left.
+
+    Link (1..1..sst -1) --> 1..2..sst (2/3):
+    Subset 0: (1..2..sst -1) (3ts -1)  gives pval = 0.08160 / val = -0.061
+    No conditions of dimension 2 left.
+
+    Link (3ts -1) --> 1..2..sst (3/3):
+    Subset 0: (1..2..sst -1) (1..1..sst -1)  gives pval = 0.00003 / val = -0.144
+    No conditions of dimension 2 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..2..sst has 3 parent(s):
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.933
+        (3ts -1): max_pval = 0.01790, min_val =  0.082
+        (1..1..sst -1): max_pval = 0.08160, min_val =  0.061
+
+Algorithm converged for variable 1..2..sst
+
+# Condition selection results:
+    pc_alpha=0.05 got score 3593.1470 with parents [ (1..2..sst -1) (3ts -1) ]
+    pc_alpha=0.1 got score 3592.0976 with parents [ (1..2..sst -1) (3ts -1) (1..1..sst -1) ]
+    pc_alpha=0.2 got score 3592.0976 with parents [ (1..2..sst -1) (3ts -1) (1..1..sst -1) ]
+    pc_alpha=0.3 got score 3592.0976 with parents [ (1..2..sst -1) (3ts -1) (1..1..sst -1) ]
+    pc_alpha=0.4 got score 3592.0976 with parents [ (1..2..sst -1) (3ts -1) (1..1..sst -1) ]
+    pc_alpha=0.5 got score 3592.0976 with parents [ (1..2..sst -1) (3ts -1) (1..1..sst -1) ]
+
+--> optimal pc_alpha for variable 1..2..sst is 0.1
+
+## Variable 1..3..sst
+
+Iterating through pc_alpha = [0.05, 0.1, 0.2, 0.3, 0.4, 0.5]:
+
+# pc_alpha = 0.05 (1/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..3..sst (1/4):
+    Subset 0: () gives pval = 0.01343 / val = -0.086
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.231
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.357
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..3..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.820
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 4 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.820
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.357
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.231
+        (3ts -1): max_pval = 0.01343, min_val =  0.086
+
+Testing condition sets of dimension 1:
+
+    Link (1..3..sst -1) --> 1..3..sst (1/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00000 / val =  0.795
+    Subset 1: (1..1..sst -1)  gives pval = 0.00000 / val =  0.811
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (2/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00010 / val =  0.135
+    Subset 1: (1..1..sst -1)  gives pval = 0.00000 / val =  0.285
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (3/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00854 / val = -0.091
+    Subset 1: (1..2..sst -1)  gives pval = 0.14891 / val = -0.050
+    Non-significance detected.
+
+    Link (3ts -1) --> 1..3..sst (4/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00708 / val = -0.093
+    Subset 1: (1..2..sst -1)  gives pval = 0.31481 / val = -0.035
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 2 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.795
+        (1..2..sst -1): max_pval = 0.00010, min_val =  0.135
+
+Algorithm converged for variable 1..3..sst
+
+# pc_alpha = 0.1 (2/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..3..sst (1/4):
+    Subset 0: () gives pval = 0.01343 / val = -0.086
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.231
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.357
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..3..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.820
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 4 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.820
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.357
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.231
+        (3ts -1): max_pval = 0.01343, min_val =  0.086
+
+Testing condition sets of dimension 1:
+
+    Link (1..3..sst -1) --> 1..3..sst (1/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00000 / val =  0.795
+    Subset 1: (1..1..sst -1)  gives pval = 0.00000 / val =  0.811
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (2/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00010 / val =  0.135
+    Subset 1: (1..1..sst -1)  gives pval = 0.00000 / val =  0.285
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (3/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00854 / val = -0.091
+    Subset 1: (1..2..sst -1)  gives pval = 0.14891 / val = -0.050
+    Non-significance detected.
+
+    Link (3ts -1) --> 1..3..sst (4/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00708 / val = -0.093
+    Subset 1: (1..2..sst -1)  gives pval = 0.31481 / val = -0.035
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 2 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.795
+        (1..2..sst -1): max_pval = 0.00010, min_val =  0.135
+
+Algorithm converged for variable 1..3..sst
+
+# pc_alpha = 0.2 (3/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..3..sst (1/4):
+    Subset 0: () gives pval = 0.01343 / val = -0.086
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.231
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.357
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..3..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.820
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 4 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.820
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.357
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.231
+        (3ts -1): max_pval = 0.01343, min_val =  0.086
+
+Testing condition sets of dimension 1:
+
+    Link (1..3..sst -1) --> 1..3..sst (1/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00000 / val =  0.795
+    Subset 1: (1..1..sst -1)  gives pval = 0.00000 / val =  0.811
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (2/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00010 / val =  0.135
+    Subset 1: (1..1..sst -1)  gives pval = 0.00000 / val =  0.285
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (3/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00854 / val = -0.091
+    Subset 1: (1..2..sst -1)  gives pval = 0.14891 / val = -0.050
+    No conditions of dimension 1 left.
+
+    Link (3ts -1) --> 1..3..sst (4/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00708 / val = -0.093
+    Subset 1: (1..2..sst -1)  gives pval = 0.31481 / val = -0.035
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 3 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.795
+        (1..2..sst -1): max_pval = 0.00010, min_val =  0.135
+        (1..1..sst -1): max_pval = 0.14891, min_val =  0.050
+
+Testing condition sets of dimension 2:
+
+    Link (1..3..sst -1) --> 1..3..sst (1/3):
+    Subset 0: (1..2..sst -1) (1..1..sst -1)  gives pval = 0.00000 / val =  0.794
+    No conditions of dimension 2 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (2/3):
+    Subset 0: (1..3..sst -1) (1..1..sst -1)  gives pval = 0.00297 / val =  0.103
+    No conditions of dimension 2 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (3/3):
+    Subset 0: (1..3..sst -1) (1..2..sst -1)  gives pval = 0.42590 / val = -0.028
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 2 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.794
+        (1..2..sst -1): max_pval = 0.00297, min_val =  0.103
+
+Algorithm converged for variable 1..3..sst
+
+# pc_alpha = 0.3 (4/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..3..sst (1/4):
+    Subset 0: () gives pval = 0.01343 / val = -0.086
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.231
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.357
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..3..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.820
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 4 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.820
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.357
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.231
+        (3ts -1): max_pval = 0.01343, min_val =  0.086
+
+Testing condition sets of dimension 1:
+
+    Link (1..3..sst -1) --> 1..3..sst (1/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00000 / val =  0.795
+    Subset 1: (1..1..sst -1)  gives pval = 0.00000 / val =  0.811
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (2/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00010 / val =  0.135
+    Subset 1: (1..1..sst -1)  gives pval = 0.00000 / val =  0.285
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (3/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00854 / val = -0.091
+    Subset 1: (1..2..sst -1)  gives pval = 0.14891 / val = -0.050
+    No conditions of dimension 1 left.
+
+    Link (3ts -1) --> 1..3..sst (4/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00708 / val = -0.093
+    Subset 1: (1..2..sst -1)  gives pval = 0.31481 / val = -0.035
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 3 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.795
+        (1..2..sst -1): max_pval = 0.00010, min_val =  0.135
+        (1..1..sst -1): max_pval = 0.14891, min_val =  0.050
+
+Testing condition sets of dimension 2:
+
+    Link (1..3..sst -1) --> 1..3..sst (1/3):
+    Subset 0: (1..2..sst -1) (1..1..sst -1)  gives pval = 0.00000 / val =  0.794
+    No conditions of dimension 2 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (2/3):
+    Subset 0: (1..3..sst -1) (1..1..sst -1)  gives pval = 0.00297 / val =  0.103
+    No conditions of dimension 2 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (3/3):
+    Subset 0: (1..3..sst -1) (1..2..sst -1)  gives pval = 0.42590 / val = -0.028
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 2 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.794
+        (1..2..sst -1): max_pval = 0.00297, min_val =  0.103
+
+Algorithm converged for variable 1..3..sst
+
+# pc_alpha = 0.4 (5/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..3..sst (1/4):
+    Subset 0: () gives pval = 0.01343 / val = -0.086
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.231
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.357
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..3..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.820
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 4 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.820
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.357
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.231
+        (3ts -1): max_pval = 0.01343, min_val =  0.086
+
+Testing condition sets of dimension 1:
+
+    Link (1..3..sst -1) --> 1..3..sst (1/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00000 / val =  0.795
+    Subset 1: (1..1..sst -1)  gives pval = 0.00000 / val =  0.811
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (2/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00010 / val =  0.135
+    Subset 1: (1..1..sst -1)  gives pval = 0.00000 / val =  0.285
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (3/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00854 / val = -0.091
+    Subset 1: (1..2..sst -1)  gives pval = 0.14891 / val = -0.050
+    No conditions of dimension 1 left.
+
+    Link (3ts -1) --> 1..3..sst (4/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00708 / val = -0.093
+    Subset 1: (1..2..sst -1)  gives pval = 0.31481 / val = -0.035
+    No conditions of dimension 1 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 4 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.795
+        (1..2..sst -1): max_pval = 0.00010, min_val =  0.135
+        (1..1..sst -1): max_pval = 0.14891, min_val =  0.050
+        (3ts -1): max_pval = 0.31481, min_val =  0.035
+
+Testing condition sets of dimension 2:
+
+    Link (1..3..sst -1) --> 1..3..sst (1/4):
+    Subset 0: (1..2..sst -1) (1..1..sst -1)  gives pval = 0.00000 / val =  0.794
+    Subset 1: (1..2..sst -1) (3ts -1)  gives pval = 0.00000 / val =  0.796
+    No conditions of dimension 2 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (2/4):
+    Subset 0: (1..3..sst -1) (1..1..sst -1)  gives pval = 0.00297 / val =  0.103
+    Subset 1: (1..3..sst -1) (3ts -1)  gives pval = 0.00039 / val =  0.123
+    No conditions of dimension 2 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (3/4):
+    Subset 0: (1..3..sst -1) (1..2..sst -1)  gives pval = 0.42590 / val = -0.028
+    Non-significance detected.
+
+    Link (3ts -1) --> 1..3..sst (4/4):
+    Subset 0: (1..3..sst -1) (1..2..sst -1)  gives pval = 0.03003 / val = -0.075
+    Subset 1: (1..3..sst -1) (1..1..sst -1)  gives pval = 0.03087 / val = -0.075
+    No conditions of dimension 2 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 3 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.794
+        (1..2..sst -1): max_pval = 0.00297, min_val =  0.103
+        (3ts -1): max_pval = 0.31481, min_val =  0.035
+
+Algorithm converged for variable 1..3..sst
+
+# pc_alpha = 0.5 (6/6):
+
+Testing condition sets of dimension 0:
+
+    Link (3ts -1) --> 1..3..sst (1/4):
+    Subset 0: () gives pval = 0.01343 / val = -0.086
+    No conditions of dimension 0 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (2/4):
+    Subset 0: () gives pval = 0.00000 / val = -0.231
+    No conditions of dimension 0 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (3/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.357
+    No conditions of dimension 0 left.
+
+    Link (1..3..sst -1) --> 1..3..sst (4/4):
+    Subset 0: () gives pval = 0.00000 / val =  0.820
+    No conditions of dimension 0 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 4 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.820
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.357
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.231
+        (3ts -1): max_pval = 0.01343, min_val =  0.086
+
+Testing condition sets of dimension 1:
+
+    Link (1..3..sst -1) --> 1..3..sst (1/4):
+    Subset 0: (1..2..sst -1)  gives pval = 0.00000 / val =  0.795
+    Subset 1: (1..1..sst -1)  gives pval = 0.00000 / val =  0.811
+    No conditions of dimension 1 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (2/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00010 / val =  0.135
+    Subset 1: (1..1..sst -1)  gives pval = 0.00000 / val =  0.285
+    No conditions of dimension 1 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (3/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00854 / val = -0.091
+    Subset 1: (1..2..sst -1)  gives pval = 0.14891 / val = -0.050
+    No conditions of dimension 1 left.
+
+    Link (3ts -1) --> 1..3..sst (4/4):
+    Subset 0: (1..3..sst -1)  gives pval = 0.00708 / val = -0.093
+    Subset 1: (1..2..sst -1)  gives pval = 0.31481 / val = -0.035
+    No conditions of dimension 1 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 4 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.795
+        (1..2..sst -1): max_pval = 0.00010, min_val =  0.135
+        (1..1..sst -1): max_pval = 0.14891, min_val =  0.050
+        (3ts -1): max_pval = 0.31481, min_val =  0.035
+
+Testing condition sets of dimension 2:
+
+    Link (1..3..sst -1) --> 1..3..sst (1/4):
+    Subset 0: (1..2..sst -1) (1..1..sst -1)  gives pval = 0.00000 / val =  0.794
+    Subset 1: (1..2..sst -1) (3ts -1)  gives pval = 0.00000 / val =  0.796
+    No conditions of dimension 2 left.
+
+    Link (1..2..sst -1) --> 1..3..sst (2/4):
+    Subset 0: (1..3..sst -1) (1..1..sst -1)  gives pval = 0.00297 / val =  0.103
+    Subset 1: (1..3..sst -1) (3ts -1)  gives pval = 0.00039 / val =  0.123
+    No conditions of dimension 2 left.
+
+    Link (1..1..sst -1) --> 1..3..sst (3/4):
+    Subset 0: (1..3..sst -1) (1..2..sst -1)  gives pval = 0.42590 / val = -0.028
+    Subset 1: (1..3..sst -1) (3ts -1)  gives pval = 0.03757 / val = -0.072
+    No conditions of dimension 2 left.
+
+    Link (3ts -1) --> 1..3..sst (4/4):
+    Subset 0: (1..3..sst -1) (1..2..sst -1)  gives pval = 0.03003 / val = -0.075
+    Subset 1: (1..3..sst -1) (1..1..sst -1)  gives pval = 0.03087 / val = -0.075
+    No conditions of dimension 2 left.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 4 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.794
+        (1..2..sst -1): max_pval = 0.00297, min_val =  0.103
+        (3ts -1): max_pval = 0.31481, min_val =  0.035
+        (1..1..sst -1): max_pval = 0.42590, min_val =  0.028
+
+Testing condition sets of dimension 3:
+
+    Link (1..3..sst -1) --> 1..3..sst (1/4):
+    Subset 0: (1..2..sst -1) (3ts -1) (1..1..sst -1)  gives pval = 0.00000 / val =  0.796
+    Still subsets of dimension 3 left, but q_max = 2 reached.
+
+    Link (1..2..sst -1) --> 1..3..sst (2/4):
+    Subset 0: (1..3..sst -1) (3ts -1) (1..1..sst -1)  gives pval = 0.00375 / val =  0.101
+    Still subsets of dimension 3 left, but q_max = 2 reached.
+
+    Link (3ts -1) --> 1..3..sst (3/4):
+    Subset 0: (1..3..sst -1) (1..2..sst -1) (1..1..sst -1)  gives pval = 0.03948 / val = -0.072
+    Still subsets of dimension 3 left, but q_max = 2 reached.
+
+    Link (1..1..sst -1) --> 1..3..sst (4/4):
+    Subset 0: (1..3..sst -1) (1..2..sst -1) (3ts -1)  gives pval = 0.67879 / val = -0.014
+    Non-significance detected.
+
+    Sorting parents in decreasing order with 
+    weight(i-tau->j) = min_{iterations} |val_{ij}(tau)| 
+
+Updating parents:
+
+    Variable 1..3..sst has 3 parent(s):
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.794
+        (1..2..sst -1): max_pval = 0.00375, min_val =  0.101
+        (3ts -1): max_pval = 0.31481, min_val =  0.035
+
+Algorithm converged for variable 1..3..sst
+
+# Condition selection results:
+    pc_alpha=0.05 got score 4641.8857 with parents [ (1..3..sst -1) (1..2..sst -1) ]
+    pc_alpha=0.1 got score 4641.8857 with parents [ (1..3..sst -1) (1..2..sst -1) ]
+    pc_alpha=0.2 got score 4641.8857 with parents [ (1..3..sst -1) (1..2..sst -1) ]
+    pc_alpha=0.3 got score 4641.8857 with parents [ (1..3..sst -1) (1..2..sst -1) ]
+    pc_alpha=0.4 got score 4639.1524 with parents [ (1..3..sst -1) (1..2..sst -1) (3ts -1) ]
+    pc_alpha=0.5 got score 4639.1524 with parents [ (1..3..sst -1) (1..2..sst -1) (3ts -1) ]
+
+--> optimal pc_alpha for variable 1..3..sst is 0.4
+
+## Resulting lagged parent (super)sets:
+
+    Variable 3ts has 2 parent(s):
+    [pc_alpha = 0.05]
+        (3ts -1): max_pval = 0.00000, min_val =  0.270
+        (1..1..sst -1): max_pval = 0.03063, min_val =  0.075
+
+    Variable 1..1..sst has 2 parent(s):
+    [pc_alpha = 0.05]
+        (1..1..sst -1): max_pval = 0.00000, min_val =  0.825
+        (1..2..sst -1): max_pval = 0.00045, min_val = -0.122
+
+    Variable 1..2..sst has 3 parent(s):
+    [pc_alpha = 0.1]
+        (1..2..sst -1): max_pval = 0.00000, min_val =  0.952
+        (3ts -1): max_pval = 0.01790, min_val = -0.082
+        (1..1..sst -1): max_pval = 0.08160, min_val = -0.061
+
+    Variable 1..3..sst has 3 parent(s):
+    [pc_alpha = 0.4]
+        (1..3..sst -1): max_pval = 0.00000, min_val =  0.794
+        (1..2..sst -1): max_pval = 0.00297, min_val =  0.103
+        (3ts -1): max_pval = 0.31481, min_val = -0.035
+
+##
+## Step 2: MCI algorithm
+##
+
+Parameters:
+
+independence test = par_corr
+tau_min = 0
+tau_max = 1
+max_conds_py = None
+max_conds_px = None
+
+        link (3ts -1) --> 3ts (1/7):
+        with conds_y = [ (1..1..sst -1) ]
+        with conds_x = [ (3ts -2) (1..1..sst -2) ]
+
+        link (1..1..sst  0) --> 3ts (2/7):
+        with conds_y = [ (3ts -1) (1..1..sst -1) ]
+        with conds_x = [ (1..1..sst -1) (1..2..sst -1) ]
+
+        link (1..1..sst -1) --> 3ts (3/7):
+        with conds_y = [ (3ts -1) ]
+        with conds_x = [ (1..1..sst -2) (1..2..sst -2) ]
+
+        link (1..2..sst  0) --> 3ts (4/7):
+        with conds_y = [ (3ts -1) (1..1..sst -1) ]
+        with conds_x = [ (1..2..sst -1) (3ts -1) (1..1..sst -1) ]
+
+        link (1..2..sst -1) --> 3ts (5/7):
+        with conds_y = [ (3ts -1) (1..1..sst -1) ]
+        with conds_x = [ (1..2..sst -2) (3ts -2) (1..1..sst -2) ]
+
+        link (1..3..sst  0) --> 3ts (6/7):
+        with conds_y = [ (3ts -1) (1..1..sst -1) ]
+        with conds_x = [ (1..3..sst -1) (1..2..sst -1) (3ts -1) ]
+
+        link (1..3..sst -1) --> 3ts (7/7):
+        with conds_y = [ (3ts -1) (1..1..sst -1) ]
+        with conds_x = [ (1..3..sst -2) (1..2..sst -2) (3ts -2) ]
+
+        link (3ts  0) --> 1..1..sst (1/7):
+        with conds_y = [ (1..1..sst -1) (1..2..sst -1) ]
+        with conds_x = [ (3ts -1) (1..1..sst -1) ]
+
+        link (3ts -1) --> 1..1..sst (2/7):
+        with conds_y = [ (1..1..sst -1) (1..2..sst -1) ]
+        with conds_x = [ (3ts -2) (1..1..sst -2) ]
+
+        link (1..1..sst -1) --> 1..1..sst (3/7):
+        with conds_y = [ (1..2..sst -1) ]
+        with conds_x = [ (1..1..sst -2) (1..2..sst -2) ]
+
+        link (1..2..sst  0) --> 1..1..sst (4/7):
+        with conds_y = [ (1..1..sst -1) (1..2..sst -1) ]
+        with conds_x = [ (1..2..sst -1) (3ts -1) (1..1..sst -1) ]
+
+        link (1..2..sst -1) --> 1..1..sst (5/7):
+        with conds_y = [ (1..1..sst -1) ]
+        with conds_x = [ (1..2..sst -2) (3ts -2) (1..1..sst -2) ]
+
+        link (1..3..sst  0) --> 1..1..sst (6/7):
+        with conds_y = [ (1..1..sst -1) (1..2..sst -1) ]
+        with conds_x = [ (1..3..sst -1) (1..2..sst -1) (3ts -1) ]
+
+        link (1..3..sst -1) --> 1..1..sst (7/7):
+        with conds_y = [ (1..1..sst -1) (1..2..sst -1) ]
+        with conds_x = [ (1..3..sst -2) (1..2..sst -2) (3ts -2) ]
+
+        link (3ts  0) --> 1..2..sst (1/7):
+        with conds_y = [ (1..2..sst -1) (3ts -1) (1..1..sst -1) ]
+        with conds_x = [ (3ts -1) (1..1..sst -1) ]
+
+        link (3ts -1) --> 1..2..sst (2/7):
+        with conds_y = [ (1..2..sst -1) (1..1..sst -1) ]
+        with conds_x = [ (3ts -2) (1..1..sst -2) ]
+
+        link (1..1..sst  0) --> 1..2..sst (3/7):
+        with conds_y = [ (1..2..sst -1) (3ts -1) (1..1..sst -1) ]
+        with conds_x = [ (1..1..sst -1) (1..2..sst -1) ]
+
+        link (1..1..sst -1) --> 1..2..sst (4/7):
+        with conds_y = [ (1..2..sst -1) (3ts -1) ]
+        with conds_x = [ (1..1..sst -2) (1..2..sst -2) ]
+
+        link (1..2..sst -1) --> 1..2..sst (5/7):
+        with conds_y = [ (3ts -1) (1..1..sst -1) ]
+        with conds_x = [ (1..2..sst -2) (3ts -2) (1..1..sst -2) ]
+
+        link (1..3..sst  0) --> 1..2..sst (6/7):
+        with conds_y = [ (1..2..sst -1) (3ts -1) (1..1..sst -1) ]
+        with conds_x = [ (1..3..sst -1) (1..2..sst -1) (3ts -1) ]
+
+        link (1..3..sst -1) --> 1..2..sst (7/7):
+        with conds_y = [ (1..2..sst -1) (3ts -1) (1..1..sst -1) ]
+        with conds_x = [ (1..3..sst -2) (1..2..sst -2) (3ts -2) ]
+
+        link (3ts  0) --> 1..3..sst (1/7):
+        with conds_y = [ (1..3..sst -1) (1..2..sst -1) (3ts -1) ]
+        with conds_x = [ (3ts -1) (1..1..sst -1) ]
+
+        link (3ts -1) --> 1..3..sst (2/7):
+        with conds_y = [ (1..3..sst -1) (1..2..sst -1) ]
+        with conds_x = [ (3ts -2) (1..1..sst -2) ]
+
+        link (1..1..sst  0) --> 1..3..sst (3/7):
+        with conds_y = [ (1..3..sst -1) (1..2..sst -1) (3ts -1) ]
+        with conds_x = [ (1..1..sst -1) (1..2..sst -1) ]
+
+        link (1..1..sst -1) --> 1..3..sst (4/7):
+        with conds_y = [ (1..3..sst -1) (1..2..sst -1) (3ts -1) ]
+        with conds_x = [ (1..1..sst -2) (1..2..sst -2) ]
+
+        link (1..2..sst  0) --> 1..3..sst (5/7):
+        with conds_y = [ (1..3..sst -1) (1..2..sst -1) (3ts -1) ]
+        with conds_x = [ (1..2..sst -1) (3ts -1) (1..1..sst -1) ]
+
+        link (1..2..sst -1) --> 1..3..sst (6/7):
+        with conds_y = [ (1..3..sst -1) (3ts -1) ]
+        with conds_x = [ (1..2..sst -2) (3ts -2) (1..1..sst -2) ]
+
+        link (1..3..sst -1) --> 1..3..sst (7/7):
+        with conds_y = [ (1..2..sst -1) (3ts -1) ]
+        with conds_x = [ (1..3..sst -2) (1..2..sst -2) (3ts -2) ]
+
+## Significant links at alpha = 0.05:
+
+    Variable 3ts has 4 link(s):
+        (1..2..sst  0): pval = 0.00000 | val = -0.275
+        (1..1..sst  0): pval = 0.00000 | val =  0.253
+        (3ts -1): pval = 0.00000 | val =  0.252
+        (1..2..sst -1): pval = 0.04689 | val =  0.069
+
+    Variable 1..1..sst has 3 link(s):
+        (1..1..sst -1): pval = 0.00000 | val =  0.638
+        (1..2..sst  0): pval = 0.00000 | val = -0.342
+        (3ts  0): pval = 0.00000 | val =  0.253
+
+    Variable 1..2..sst has 5 link(s):
+        (1..2..sst -1): pval = 0.00000 | val =  0.662
+        (1..1..sst  0): pval = 0.00000 | val = -0.342
+        (3ts  0): pval = 0.00000 | val = -0.275
+        (3ts -1): pval = 0.00009 | val = -0.136
+        (1..3..sst  0): pval = 0.01102 | val =  0.088
+
+    Variable 1..3..sst has 3 link(s):
+        (1..3..sst -1): pval = 0.00000 | val =  0.570
+        (1..2..sst  0): pval = 0.01102 | val =  0.088
+        (3ts -1): pval = 0.04043 | val = -0.071
+
+## Significant links at alpha = 0.1:
+
+    Variable 3ts has 3 link(s):
+        (1..2..sst  0): pval = 0.00000 | qval = 0.00000 | val = -0.275
+        (1..1..sst  0): pval = 0.00000 | qval = 0.00000 | val =  0.253
+        (3ts -1): pval = 0.00000 | qval = 0.00000 | val =  0.252
+
+    Variable 1..1..sst has 3 link(s):
+        (1..1..sst -1): pval = 0.00000 | qval = 0.00000 | val =  0.638
+        (1..2..sst  0): pval = 0.00000 | qval = 0.00000 | val = -0.342
+        (3ts  0): pval = 0.00000 | qval = 0.00000 | val =  0.253
+
+    Variable 1..2..sst has 5 link(s):
+        (1..2..sst -1): pval = 0.00000 | qval = 0.00000 | val =  0.662
+        (1..1..sst  0): pval = 0.00000 | qval = 0.00000 | val = -0.342
+        (3ts  0): pval = 0.00000 | qval = 0.00000 | val = -0.275
+        (3ts -1): pval = 0.00009 | qval = 0.00028 | val = -0.136
+        (1..3..sst  0): pval = 0.01102 | qval = 0.01102 | val =  0.088
+
+    Variable 1..3..sst has 2 link(s):
+        (1..3..sst -1): pval = 0.00000 | qval = 0.00000 | val =  0.570
+        (1..2..sst  0): pval = 0.01102 | qval = 0.01102 | val =  0.088
+
+## Significant links at alpha = 0.05:
+
+    Variable 3ts has 3 link(s):
+        (1..2..sst  0): pval = 0.00000 | qval = 0.00000 | val = -0.275
+        (1..1..sst  0): pval = 0.00000 | qval = 0.00000 | val =  0.253
+        (3ts -1): pval = 0.00000 | qval = 0.00000 | val =  0.252
+
+    Variable 1..1..sst has 3 link(s):
+        (1..1..sst -1): pval = 0.00000 | qval = 0.00000 | val =  0.638
+        (1..2..sst  0): pval = 0.00000 | qval = 0.00000 | val = -0.342
+        (3ts  0): pval = 0.00000 | qval = 0.00000 | val =  0.253
+
+    Variable 1..2..sst has 5 link(s):
+        (1..2..sst -1): pval = 0.00000 | qval = 0.00000 | val =  0.662
+        (1..1..sst  0): pval = 0.00000 | qval = 0.00000 | val = -0.342
+        (3ts  0): pval = 0.00000 | qval = 0.00000 | val = -0.275
+        (3ts -1): pval = 0.00009 | qval = 0.00028 | val = -0.136
+        (1..3..sst  0): pval = 0.01102 | qval = 0.01102 | val =  0.088
+
+    Variable 1..3..sst has 2 link(s):
+        (1..3..sst -1): pval = 0.00000 | qval = 0.00000 | val =  0.570
+        (1..2..sst  0): pval = 0.01102 | qval = 0.01102 | val =  0.088
+
+## Significant links at alpha = 0.01:
+
+    Variable 3ts has 3 link(s):
+        (1..2..sst  0): pval = 0.00000 | qval = 0.00000 | val = -0.275
+        (1..1..sst  0): pval = 0.00000 | qval = 0.00000 | val =  0.253
+        (3ts -1): pval = 0.00000 | qval = 0.00000 | val =  0.252
+
+    Variable 1..1..sst has 3 link(s):
+        (1..1..sst -1): pval = 0.00000 | qval = 0.00000 | val =  0.638
+        (1..2..sst  0): pval = 0.00000 | qval = 0.00000 | val = -0.342
+        (3ts  0): pval = 0.00000 | qval = 0.00000 | val =  0.253
+
+    Variable 1..2..sst has 4 link(s):
+        (1..2..sst -1): pval = 0.00000 | qval = 0.00000 | val =  0.662
+        (1..1..sst  0): pval = 0.00000 | qval = 0.00000 | val = -0.342
+        (3ts  0): pval = 0.00000 | qval = 0.00000 | val = -0.275
+        (3ts -1): pval = 0.00009 | qval = 0.00028 | val = -0.136
+
+    Variable 1..3..sst has 1 link(s):
+        (1..3..sst -1): pval = 0.00000 | qval = 0.00000 | val =  0.570

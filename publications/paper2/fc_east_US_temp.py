@@ -29,7 +29,8 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
-from class_BivariateMI import corr_map
+import class_BivariateMI
+import find_precursors
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
 path_out_main = os.path.join(main_dir, 'publications/paper2/output/east_forecast/')
@@ -48,11 +49,12 @@ list_of_name_path = [(cluster_label, TVpath),
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
 
-list_for_MI   = [BivariateMI(name='sst', func=corr_map,
-                            alpha=.01, FDR_control=True,
-                            distance_eps=1000, min_area_in_degrees2=1,
+list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.parcorr_map_time,
+                            alpha=.05, FDR_control=True,
+                            kwrgs_func={'precursor':True},
+                            distance_eps=800, min_area_in_degrees2=1,
                             calc_ts='region mean', selbox=(120,260,-10,90),
-                            lags=np.array([1]))]
+                            lags=np.array([0]))]
 
 
 
@@ -74,32 +76,68 @@ rg.traintest(method='random10')
 rg.calc_corr_maps()
 
 lags = rg.list_for_MI[0].lags
+
+#%%
+import matplotlib
+# Optionally set font to Computer Modern to avoid common missing font errors
+matplotlib.rc('font', family='serif', serif='cm10')
+
+matplotlib.rc('text', usetex=True)
+matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
+
+save = True
 SST_green_bb = (140,235,20,59)#(170,255,11,60)
-subtitles = np.array([[f'lag {l}: SST vs eastern U.S. mx2t' for l in lags]])
-kwrgs_plot = {'row_dim':'split', 'col_dim':'lag', 'aspect':2, 'hspace':-.47,
-              'wspace':-.18, 'size':3, 'cbar_vert':-.08, 'subtitles':subtitles,
+# subtitles = np.array([[f'lag {l}: SST vs E-U.S. mx2t' for l in rg.lags]])
+title = r'$parcorr(SST_t, mx2t_t\ |\ SST_{t-1},mx2t_{t-1})$'
+subtitles = np.array([['']]) #, f'lag 2 (15 day lead)']] )
+kwrgs_plot = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
+              'wspace':-.15, 'size':3, 'cbar_vert':-.08,
               'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
-              'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6,
-              'x_ticks':np.arange(130, 280, 25),
-              'clim':(-.6,.6)}
-rg.plot_maps_corr(var='sst', save=True, kwrgs_plot=kwrgs_plot)
+              'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
+              'n_yticks':6, 'x_ticks':np.arange(130, 280, 25),
+              'subtitles':subtitles, 'title':title,
+              'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+rg.plot_maps_corr(var='sst', save=save,
+                  kwrgs_plot=kwrgs_plot,
+                  min_detect_gc=1.0)
+
+#%%
+
 
 rg.cluster_list_MI()
-rg.get_ts_prec()
+rg.quick_view_labels(save=False)
+#%%
+precur = rg.list_for_MI[0]
+new_labels, label_num = find_precursors.split_region_by_lonlat(precur.prec_labels.copy(),
+                                                    label=3,
+                                                    kwrgs_mask_latlon={'latmax':10},
+                                                    trialplot=False)
+new_labels, label_num = find_precursors.split_region_by_lonlat(new_labels,
+                                                    label=1,
+                                                    plot_l=1,
+                                                    kwrgs_mask_latlon={'lonmin':150},
+                                                    trialplot=False)
+precur.prec_labels = new_labels
+rg.quick_view_labels(save=True)
+# rg.get_ts_prec()
 #%%
 from sklearn import metrics
 import pandas as pd
-import stat_models_cont as sm
 import func_models as fc_utils
 import functions_pp; import df_ana
 
 list_of_name_path = [(cluster_label, TVpath)]
-list_import_ts = [('RW-sst 60d', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east_forecast/z5000..0..z500_sp_140-300-20-73_3jun-2aug_lag0-60_0..0..z500_sp_random10s1/2020-07-27_11hr_27min_df_data_sst_dt1_tf60_140-300-20-73.h5')]
+# list_import_ts = [('RW-sst 60d', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east_forecast/z5000..0..z500_sp_140-300-20-73_3jun-2aug_lag0-60_0..0..z500_sp_random10s1/2020-07-27_11hr_27min_df_data_sst_dt1_tf60_140-300-20-73.h5')]
 
-list_import_ts = [('sstpattern', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_0ff31_10jun-24aug_lag0-0_0..0..z500_sp_random10s1/2020-07-02_11hr_52min_df_data_NorthPacAtl_dt1_0ff31.h5'),
-                   ('sstregions', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_0ff31_10jun-24aug_lag0-0_0..0..z500_sp_random10s1/2020-07-02_12hr_10min_df_data_NorthPacAtl_dt1_0ff31.h5')]
+# list_import_ts = [('sstpattern', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_0ff31_10jun-24aug_lag0-0_0..0..z500_sp_random10s1/2020-07-02_11hr_52min_df_data_NorthPacAtl_dt1_0ff31.h5'),
+                   # ('sstregions', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_0ff31_10jun-24aug_lag0-0_0..0..z500_sp_random10s1/2020-07-02_12hr_10min_df_data_NorthPacAtl_dt1_0ff31.h5')]
 
-list_import_ts = [('mx2t-sst 15d', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east_forecast/2ts_0ff31_10jun-24aug_sst_ts_random10s1/2020-09-18_15hr_41min_df_data_sst_dt1_tf15_0ff31.h5')]
+list_import_ts = [('mx2t-sst 15d', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east_forecast/2ts_0ff31_10jun-24aug_sst_ts_random10s1/2020-09-21_13hr_16min_df_data_sst_dt1_tf15_0ff31.h5')]
+# list_import_ts = [('mx2t-sst 15d', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east_forecast/2ts_0ff31_10jun-24aug_sst_ts_random10s1/2020-09-21_15hr_34min_df_data_sst_dt1_tf15_0ff31_a1E-3.h5')]
+list_import_ts = [('mx2t-sst 15d', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east_forecast/2ts_0ff31_10jun-24aug_sst_ts_random10s1/2020-09-21_17hr_48min_df_data_sst_dt1_tf15_0ff31_parcorr.h5')]
+# list_import_ts = [('mx2t-sst 60d', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east_forecast/2ts_0ff31_3jun-2aug_sst_ts_random10s1/2020-09-22_09hr_58min_df_data_sst_dt1_tf60_0ff31_parcorrtime.h5')]
+list_import_ts = [('RW-sst 60d', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east_forecast/z5000..0..z500_sp_140-300-20-73_3jun-2aug_60tf_sst_parcorrtime_random10s1/2020-09-28_14hr_13min_df_data_sst_dt1_tf60_140-300-20-73.h5')]
+
 
 
 months = {'May'         : ('05-01', '05-30'),
@@ -108,27 +146,54 @@ months = {'May'         : ('05-01', '05-30'),
           'August'      : ('08-01', '08-30'),
           'september'   : ('09-01', '09-30')}
 
+months = {'May-June'    : ('05-01', '06-30'),
+          'June-July'   : ('06-01', '07-30'),
+           'July-Aug'    : ('07-01', '08-31'),
+           'Aug-Sept'    : ('08-01', '09-30'),
+           'Sept-Okt'    : ('09-01', '10-31')}
+
+monthkeys= list(months.keys()) ; oneyrsize = 0
+
+n_boot = 1000
+blocksize=1
+lag = 1
+precur_aggr = 60
 list_test = []
+list_test_b = []
+# keys_ext = [f'{lag}..1..sst', f'{lag}..2..sst']
+keys_ext = [f'0..1..sst', f'0..2..sst']
+# keys_ext = [f'0..3..sst', f'0..8..sst']
+
+rg = RGCPD(list_of_name_path=list_of_name_path,
+            list_import_ts=list_import_ts,
+            start_end_TVdate=('06-01', '08-31'),
+            start_end_date=start_end_date,
+            start_end_year=None,
+            tfreq=tfreq,
+            path_outmain=path_out_main,
+            append_pathsub='_' + name_ds)
+
 for month, start_end_TVdate in months.items():
-    rg = RGCPD(list_of_name_path=list_of_name_path,
-                list_import_ts=list_import_ts,
-                start_end_TVdate=start_end_TVdate,
-                start_end_date=start_end_date,
-                start_end_year=None,
-                tfreq=tfreq,
-                path_outmain=path_out_main,
-                append_pathsub='_' + name_ds)
 
-
+    rg.start_end_TVdate = start_end_TVdate
     rg.pp_TV(name_ds=name_ds, detrend=False)
-
     rg.traintest(method='random10')
-    rg.get_ts_prec(precur_aggr=30)
+    rg.get_ts_prec(precur_aggr=precur_aggr, keys_ext=keys_ext)
+
+    if monthkeys.index(month) >= 1:
+        nextyr = functions_pp.get_oneyr(rg.df_data['RV_mask'].loc[0][rg.df_data['RV_mask'].loc[0]])
+        if nextyr.size != oneyrsize:
+            raise ValueError
+
+    oneyr = functions_pp.get_oneyr(rg.df_data['RV_mask'].loc[0][rg.df_data['RV_mask'].loc[0]])
+    oneyrsize = oneyr.size
+
 
     kwrgs_model = {'scoring':'neg_mean_squared_error',
-                   'alphas':np.logspace(.1, 2, num=25)}
-    lag = 1
-    keys = rg.df_data.columns[1:3]
+                   'alphas':np.logspace(.1, 2, num=25),
+                   'normalize':False}
+
+    keys = keys_ext
     target_ts = rg.df_data.iloc[:,[0]].loc[0][rg.df_data.iloc[:,-1].loc[0]]
     target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 
@@ -140,41 +205,85 @@ for month, start_end_TVdate in months.items():
 
     predict, weights, models_lags = out
     prediction = predict.rename({predict.columns[0]:'temp',lag:'Prediction'},axis=1)
-    score_func_list = [metrics.mean_squared_error, np.corrcoef]
-    df_train_m, df_test_s_m, df_test_m = sm.get_scores(prediction, rg.df_data.iloc[:,-2:],
-                                                score_func_list)
+    score_func_list = [metrics.mean_squared_error, fc_utils.corrcoef]
+    df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(prediction,
+                                                             rg.df_data.iloc[:,-2:],
+                                                             score_func_list,
+                                                             n_boot = n_boot,
+                                                             blocksize=blocksize,
+                                                             rng_seed=2)
     print(df_test_m)
-    print(df_test_s_m.mean(0))
+    df_boot['mean_squared_error'] = 1-df_boot['mean_squared_error']
+    list_test_b.append(df_boot)
     list_test.append(df_test_m)
     m = models_lags[f'lag_{lag}']['split_0']
     print(m.alpha_)
     idx_alpha = np.argwhere(kwrgs_model['alphas']==m.alpha_)[0][0]
-    if idx_alpha in [0,25]:
-        print(f'adapt alphas, idx is {idx_alpha}')
-    df_test = functions_pp.get_df_test(prediction.merge(rg.df_data.iloc[:,-2:],
-                                                            left_index=True,
-                                                            right_index=True)).iloc[:,:2]
-    df_ana.loop_df(df=rg.df_data[keys], colwrap=1, sharex=False,
-                         function=df_ana.plot_timeseries,
-                         kwrgs={'timesteps':rg.dates_TV.size,
-                                     'nth_xyear':5})
+    if idx_alpha in [0,24]:
+        print(f'\nadapt alphas, idx is {idx_alpha}\n')
 
+
+    # df_ana.loop_df(df=rg.df_data[keys], colwrap=1, sharex=False,
+    #                      function=df_ana.plot_timeseries,
+    #                      kwrgs={'timesteps':rg.dates_TV.size,
+    #                                  'nth_xyear':5})
+
+df_test = functions_pp.get_df_test(prediction.merge(rg.df_data.iloc[:,-2:],
+                                                        left_index=True,
+                                                        right_index=True)).iloc[:,:2]
 
 corrvals = [test.values[0,1] for test in list_test]
 MSE_SS_vals = [1-test.values[0,0] for test in list_test]
-monthkeys= list(months.keys())
-df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals,'Corr. Coef.':corrvals},
-                         index=monthkeys)
 
-ax = df_scores.plot.bar(rot=0)
-ax.set_ylabel('Skill score', fontsize=16)
-ax.set_xlabel('Month to predict temperature', fontsize=16)
+df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals, 'Corr. Coef.':corrvals},
+                         index=monthkeys)
+df_test_b = pd.concat(list_test_b, keys = monthkeys,axis=1)
+
+yerr = [] ; alpha = .05
+for i in range(df_test_b.columns.size):
+    Eh = 1 - alpha/2 ; El = alpha/2
+    tup = [df_test_b.iloc[:,i].quantile(El), df_test_b.iloc[:,i].quantile(Eh)]
+    mean = df_scores.values.flatten()[i]
+    tup = abs(mean-tup)
+    yerr.append(tup)
+ax = df_scores.plot.bar(rot=0, yerr=np.array(yerr).reshape(2,2,5),
+                        capsize=8, error_kw=dict(capthick=1))
+ax.set_ylabel('Skill Score', fontsize=16)
+ax.set_xlabel('Months to predict temperature', fontsize=16)
 ax.tick_params(axis='both', labelsize=14)
 ax.legend(fontsize=16, frameon=True, facecolor='grey',
               framealpha=.5)
+ax.set_ylim(-0.5, 1)
 plt.savefig(os.path.join(rg.path_outsub1,
-                         f'skill_score_vs_months_{rg.tfreq}tf.pdf'))
+             f'skill_score_vs_months_{precur_aggr}tf_lag{lag}_nb{n_boot}.pdf'))
 
+#%%
+
+df = df_test_b.stack().reset_index(level=1)
+dfx = df.groupby(['level_1'])
+axes = dfx.boxplot()
+axes[0].set_ylim(-0.5, 1)
+#%%
+import seaborn as sns
+df_ap = pd.concat(list_test_b, axis=0, ignore_index=True)
+df_ap['months'] = np.repeat(monthkeys, list_test_b[0].index.size)
+# df_ap.boxplot(by='months')
+ax = sns.boxplot(x=df_ap['months'], y=df_ap['mean_squared_error'])
+ax.set_ylim(-0.5, 1)
+plt.figure()
+ax = sns.boxplot(x=df_ap['months'], y=df_ap['corrcoef'])
+ax.set_ylim(-0.5, 1)
+
+#%%
+columns_my_order = monthkeys
+fig, ax = plt.subplots()
+for position, column in enumerate(columns_my_order):
+    ax.boxplot(df_test_b.loc[column], positions=[position,position+.25])
+
+ax.set_xticks(range(position+1))
+ax.set_xticklabels(columns_my_order)
+ax.set_xlim(xmin=-0.5)
+plt.show()
 
 #%% Store data
 # rg.cluster_list_MI()

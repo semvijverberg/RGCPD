@@ -27,6 +27,7 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
+import class_BivariateMI
 import functions_pp, core_pp
 
 
@@ -44,19 +45,19 @@ tfreq = 15
 #%%
 
 list_of_name_path = [(name_or_cluster_label, TVpathRV),
-                     ('Pacific SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
+                     ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
-list_for_MI   = [BivariateMI(name='Pacific SST', func=BivariateMI.corr_map,
-                              kwrgs_func={'alpha':.05, 'FDR_control':True},
+list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
+                                alpha=.05, FDR_control=True,
+                                distance_eps=600, min_area_in_degrees2=5,
+                                calc_ts='pattern cov', selbox=(-180,360,-10,90),
+                                use_sign_pattern=True, lags=np.array([0])),
+                 BivariateMI(name='N-Pac. SST', func=class_BivariateMI.parcorr_map_time,
+                              alpha=.05, FDR_control=True,
                               distance_eps=500, min_area_in_degrees2=5,
-                              calc_ts='pattern cov',
-                              selbox=(130,260,-10,90)),
-                 BivariateMI(name='z500', func=BivariateMI.corr_map,
-                                kwrgs_func={'alpha':.05, 'FDR_control':True},
-                                distance_eps=600, min_area_in_degrees2=1,
-                                calc_ts='pattern cov',
-                                selbox=(0,360,-10,90), use_sign_pattern=True)]
+                              calc_ts='pattern cov', selbox=(130,260,-10,90),
+                              lags=np.array([0]))]
 
 list_import_ts = None #[('versusmx2t', '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-09_09hr_48min_df_data_v200_z500_sst_dt1_0ff31.h5')]
 
@@ -65,7 +66,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            list_import_ts=list_import_ts,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           tfreq=tfreq, lags_i=np.array([0]),
+           tfreq=tfreq,
            path_outmain=path_out_main,
            append_pathsub='_' + name_ds)
 
@@ -84,17 +85,18 @@ rg.pp_precursors(selbox=None, anomaly=True)
 rg.traintest(method='random10')
 
 rg.calc_corr_maps()
-
+#%%
 SST_WestUS_bb = (140,235,20,59)
 subtitles = np.array([['SST vs western RW']])
 units = 'Corr. Coeff. [-]'
-rg.plot_maps_corr(var='Pacific SST', row_dim='split', col_dim='lag',
-                  aspect=2, hspace=-.57, wspace=-.22, size=2, cbar_vert=-.02, save=True,
-                  subtitles=subtitles, units=units, zoomregion=(130,260,-10,60),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  x_ticks=np.array([]), y_ticks=np.array([]),
-                  drawbox=[(0,0), SST_WestUS_bb],
-                  clim=(-.6,.6))
+kwrgs_plot = {'row_dim':'split', 'col_dim':'lag',
+              'aspect':2, 'hspace':-.57, 'wspace':-.22, 'size':2, 'cbar_vert':-.02,
+              'subtitles':subtitles, 'units':units, 'zoomregion':(130,260,-10,60),
+              'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6,
+              'x_ticks':np.array([]), 'y_ticks':np.array([]),
+              'drawbox':[(0,0), SST_WestUS_bb],
+              'clim':(-.6,.6)}
+rg.plot_maps_corr(var='N-Pac. SST', save=True, kwrgs_plot=kwrgs_plot)
 
 z500_boxPac = (140,260,20,62)
 subtitles = np.array([['z500 vs Rossby wave (z500)']])
@@ -106,11 +108,11 @@ rg.plot_maps_corr(var='z500',
                   append_str=''.join(map(str, z500_boxPac)))
 
 rg.tfreq = 60 ; rg.lags_i = np.array([0, 1]) ; rg.lags = np.array([0, 60])
-rg.calc_corr_maps('Pacific SST')
+rg.calc_corr_maps('N-Pac. SST')
 # RW when tfreq = 60
 SST_box = (140,235,20,59)
 subtitles = np.array([[f'lag {l}: SST vs western U.S. RW' for l in rg.lags]])
-rg.plot_maps_corr(var='Pacific SST', row_dim='split', col_dim='lag',
+rg.plot_maps_corr(var='N-Pac. SST', row_dim='split', col_dim='lag',
                   aspect=2, hspace=-.47, wspace=-.18, size=3, cbar_vert=-.08, save=True,
                   subtitles=subtitles, units=units, zoomregion=(130,260,-10,60),
                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
@@ -119,13 +121,13 @@ rg.plot_maps_corr(var='Pacific SST', row_dim='split', col_dim='lag',
                   append_str='60_daymean')
  #%%
 # rg.list_for_MI[0].selbox = greenrectangle_WestUS_bb
-rg.list_for_MI = [BivariateMI(name='Pacific SST', func=BivariateMI.corr_map,
+rg.list_for_MI = [BivariateMI(name='N-Pac. SST', func=BivariateMI.corr_map,
                               kwrgs_func={'alpha':.05, 'FDR_control':True},
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov', selbox=SST_WestUS_bb)]
 
-rg.calc_corr_maps('Pacific SST')
-rg.cluster_list_MI('Pacific SST')
+rg.calc_corr_maps('N-Pac. SST')
+rg.cluster_list_MI('N-Pac. SST')
 rg.quick_view_labels(median=True)
 rg.get_ts_prec(precur_aggr=1)
 rg.store_df(append_str='RW_and_SST_feedback')
@@ -136,7 +138,7 @@ freqs = [1, 5, 10, 15, 30, 60]
 for f in freqs:
     rg.get_ts_prec(precur_aggr=f)
     rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':'Rossby wave (z500)',
-                                    '0..0..Pacific SST_sp':'N-Pacific SST'}, axis=1)
+                                    '0..0..N-Pac. SST_sp':'N-Pacific SST'}, axis=1)
 
 
     keys = [['Rossby wave (z500)','N-Pacific SST']]

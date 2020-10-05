@@ -5,6 +5,7 @@ curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe(
 main_dir = '/'.join(curr_dir.split('/')[:-1])
 df_ana_dir = os.path.join(main_dir, 'df_analysis/')
 sys.path.append(df_ana_dir)
+sys.path.append(curr_dir)
 # sys.path.append('./forecasting')
 from class_RGCPD import RGCPD
 # from func_fc import fcev

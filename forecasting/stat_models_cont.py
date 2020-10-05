@@ -9,8 +9,7 @@ Created on Wed Oct  2 15:03:31 2019
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import RidgeCV
-from sklearn import metrics
-import functions_pp
+
 
 
 
@@ -101,40 +100,4 @@ def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
     return prediction, model
 
 
-def get_scores(prediction, df_splits, score_func_list: list=None):
-    #%%
-    pred = prediction.merge(df_splits,
-                            left_index=True,
-                            right_index=True)
 
-    if score_func_list is None:
-        score_func_list = [metrics.mean_squared_error]
-    splits = pred.index.levels[0]
-    df_train = pd.DataFrame(np.zeros( (splits.size, len(score_func_list))),
-                            columns=[f.__name__ for f in score_func_list])
-    df_test_s = pd.DataFrame(np.zeros( (splits.size, len(score_func_list))),
-                            columns=[f.__name__ for f in score_func_list])
-    for s in splits:
-        sp = pred.loc[s]
-        trainRV = np.logical_and(sp['TrainIsTrue'], sp['RV_mask'])
-        testRV  = np.logical_and(~sp['TrainIsTrue'], sp['RV_mask'])
-        for f in score_func_list:
-            name = f.__name__
-            train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].iloc[:,1])
-            test_score = f(sp[testRV].iloc[:,0], sp[testRV].iloc[:,1])
-            if name == 'corrcoef':
-                train_score = train_score[0][1]
-                test_score = test_score[0][1]
-            df_train.loc[s,name] = train_score
-            df_test_s.loc[s,name] = test_score
-
-    df_test = pd.DataFrame(np.zeros( (1,len(score_func_list))),
-                            columns=[f.__name__ for f in score_func_list])
-    pred_test = functions_pp.get_df_test(pred).iloc[:,:2]
-    for f in score_func_list:
-        name = f.__name__
-        test_score = f(pred_test.iloc[:,0], pred_test.iloc[:,1])
-        if name == 'corrcoef':
-            test_score = test_score[0][1]
-        df_test[name] = test_score
-    return df_train, df_test_s, df_test

@@ -170,9 +170,7 @@ rg.pp_precursors()
 rg.traintest('no_train_test_split')
 
 rg.calc_corr_maps()
-rg.get_EOFs()
-E = rg.list_for_EOFS[0]
-E.eofs[0][1]= E.eofs[0][1] * -1
+
 
 rg.get_EOFs()
 E = rg.list_for_EOFS[0]

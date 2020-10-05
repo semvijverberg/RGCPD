@@ -256,10 +256,11 @@ class RGCPD:
                                    self.dates_or.year[-1])
         months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',
                         7:'jul',8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
-        RV_name_range = '{}{}-{}{}_'.format(self.dates_TV[0].day,
+        RV_name_range = '{}{}-{}{}_{}tf_'.format(self.dates_TV[0].day,
                                          months[self.dates_TV.month[0]],
                                          self.dates_TV[-1].day,
-                                         months[self.dates_TV.month[-1]] )
+                                         months[self.dates_TV.month[-1]],
+                                         self.tfreq)
         var = '_'.join([np[0] for np in self.list_of_name_path[1:]])
         # info_lags = 'lag{}-{}'.format(min(self.lags), max(self.lags))
         # Creating a folder for the specific spatial mask, RV period and traintest set
@@ -625,8 +626,6 @@ class RGCPD:
     def quick_view_labels(self, var=None, map_proj=None, median=True,
                           save=False):
         '''
-
-
         Parameters
         ----------
         var : TYPE, optional
@@ -643,7 +642,6 @@ class RGCPD:
         None.
 
         '''
-
         if type(var) is str:
             var = [var]
         if var is None:
@@ -698,7 +696,7 @@ class RGCPD:
 
 
     def plot_maps_corr(self, var=None, kwrgs_plot: dict={}, mean: bool=True,
-                       mask_xr=None, save: bool=False,
+                       min_detect_gc: float=.5, mask_xr=None, save: bool=False,
                        append_str: str=None):
 
         if type(var) is str:
@@ -713,7 +711,12 @@ class RGCPD:
                 print('var not in list_for_MI')
             if mean:
                 xrvals = pclass.corr_xr.mean(dim='split')
-                xrmask = pclass.corr_xr['mask'].mean(dim='split')
+                if min_detect_gc<.1 or min_detect_gc>1.:
+                    raise ValueError( 'give value between .1 en 1.0')
+                n_splits = self.df_splits.index.levels[0].size
+                min_d = round(n_splits * (1- min_detect_gc),0)
+                # 1 == non-significant, 0 == significant
+                xrmask = pclass.corr_xr['mask'].sum(dim='split') > min_d
             else:
                 xrvals = pclass.corr_xr
                 xrmask = pclass.corr_xr['mask']
@@ -721,9 +724,13 @@ class RGCPD:
                                      mask_xr=xrmask, **kwrgs_plot)
             if save == True:
                 if append_str is not None:
-                    f_name = 'corr_map_{}'.format(precur_name)+'_'+append_str
+                    f_name = 'corr_map_{}_a{}'.format(precur_name,
+                                              pclass.alpha)+'_'+append_str
                 else:
-                    f_name = 'corr_map_{}'.format(precur_name)
+                    f_name = 'corr_map_{}_a{}'.format(precur_name,
+                                                      pclass.alpha)
+                if mean:
+                    f_name += f'_md{min_detect_gc}'
 
                 fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
                 plt.savefig(fig_path, bbox_inches='tight')

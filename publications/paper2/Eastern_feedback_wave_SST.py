@@ -28,6 +28,8 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
+import class_BivariateMI
+
 import functions_pp
 
 
@@ -54,16 +56,17 @@ list_of_name_path = [(name_or_cluster_label, TVpathRW),
                      ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
                      # ('Trop. Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
-selbox = (-180,360,-10,90)
-list_for_MI   = [BivariateMI(name='z500', func=BivariateMI.corr_map,
-                                kwrgs_func={'alpha':.05, 'FDR_control':True},
+
+list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
+                                alpha=.05, FDR_control=True,
                                 distance_eps=600, min_area_in_degrees2=5,
-                                calc_ts='pattern cov', selbox=selbox,
-                                use_sign_pattern=True),
-                 BivariateMI(name='N-Pac. SST', func=BivariateMI.corr_map,
-                              kwrgs_func={'alpha':.05, 'FDR_control':True},
+                                calc_ts='pattern cov', selbox=(-180,360,-10,90),
+                                use_sign_pattern=True, lags=np.array([0])),
+                 BivariateMI(name='N-Pac. SST', func=class_BivariateMI.parcorr_map_time,
+                              alpha=.05, FDR_control=True,
                               distance_eps=500, min_area_in_degrees2=5,
-                              calc_ts='pattern cov', selbox=(130,260,-10,90))]
+                              calc_ts='pattern cov', selbox=(130,260,-10,90),
+                              lags=np.array([0]))]
                  # BivariateMI(name='Trop. Pac. SST', func=BivariateMI.corr_map,
                  #              kwrgs_func={'alpha':.01, 'FDR_control':True},
                  #              distance_eps=500, min_area_in_degrees2=5,
@@ -78,7 +81,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            list_import_ts=None,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           tfreq=tfreq, lags_i=np.array([0]),
+           tfreq=tfreq,
            path_outmain=path_out_main,
            append_pathsub='_' + name_ds)
 
@@ -106,13 +109,14 @@ rg.calc_corr_maps()
 save = True
 units = 'Corr. Coeff. [-]'
 subtitles = np.array([['SST vs eastern RW']])
-rg.plot_maps_corr(var='N-Pac. SST', row_dim='split', col_dim='lag',
-                  aspect=2, hspace=-.57, wspace=-.22, size=2, cbar_vert=-.02, save=True,
-                  subtitles=subtitles, units=units, zoomregion=(130,260,-10,60),
-                  map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6,
-                  x_ticks=np.array([]), y_ticks=np.array([]),
-                  drawbox=[(0,0), sst_green_bb],
-                  clim=(-.6,.6))
+kwrgs_plot = {'row_dim':'split', 'col_dim':'lag',
+              'aspect':2, 'hspace':-.57, 'wspace':-.22, 'size':2, 'cbar_vert':-.02,
+              'subtitles':subtitles, 'units':units, 'zoomregion':(130,260,-10,60),
+              'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6,
+              'x_ticks':np.array([]), 'y_ticks':np.array([]),
+              'drawbox':[(0,0), sst_green_bb],
+              'clim':(-.6,.6)}
+rg.plot_maps_corr(var='N-Pac. SST', save=True, kwrgs_plot=kwrgs_plot)
 
 
 # sst_tropbox = (140, 250, 0, 30)
@@ -141,7 +145,7 @@ list_of_name_path = [(name_or_cluster_label, TVpathRW),
                      ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
 list_for_MI = [BivariateMI(name='N-Pac. SST', func=BivariateMI.corr_map,
-                              kwrgs_func={'alpha':.05, 'FDR_control':True},
+                              alpha=.05, FDR_control=True,
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov', selbox=sst_green_bb)]
 

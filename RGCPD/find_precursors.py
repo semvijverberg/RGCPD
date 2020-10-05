@@ -20,12 +20,11 @@ from typing import List, Tuple, Union
 
 #%%
 
-def add_info_precur(precur, corr_xr, precur_arr):
+def add_info_precur(precur, corr_xr):
     precur.corr_xr = corr_xr
-    precur.precur_arr = precur_arr
-    precur.lat_grid = precur_arr.latitude.values
-    precur.lon_grid = precur_arr.longitude.values
-    precur.area_grid = get_area(precur_arr)
+    precur.lat_grid = precur.precur_arr.latitude.values
+    precur.lon_grid = precur.precur_arr.longitude.values
+    precur.area_grid = get_area(precur.precur_arr)
     precur.grid_res = abs(precur.lon_grid[1] - precur.lon_grid[0])
 
 
@@ -63,7 +62,7 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
     #===========================================
     # Precursor field
     #===========================================
-    precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
+    precur.precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
     # =============================================================================
     # Load external timeseries for partial_corr_z
     # =============================================================================
@@ -84,17 +83,18 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
                                                           left_index=True,
                                                           right_index=True)).iloc[:,:1]
         precur.kwrgs_func = {'z':precur.df_z} # overwrite kwrgs_func
-        equal_dates = all(np.equal(precur.df_z.index, pd.to_datetime(precur_arr.time.values)))
+        equal_dates = all(np.equal(precur.df_z.index,
+                                   pd.to_datetime(precur.precur_arr.time.values)))
         if equal_dates==False:
             raise ValueError('Dates of timeseries z not equal to dates of field')
     # =============================================================================
     # Calculate BivariateMI (correlation) map
     # =============================================================================
-    corr_xr = precur.bivariateMI_map(precur_arr, df_splits, TV)
+    corr_xr = precur.bivariateMI_map(precur.precur_arr, df_splits, TV)
     # =============================================================================
     # update class precur
     # =============================================================================
-    add_info_precur(precur, corr_xr, precur_arr)
+    add_info_precur(precur, corr_xr)
 
     return precur
 
@@ -571,6 +571,8 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
     lags            = precur.corr_xr.lag.values
     use_coef_wghts  = precur.use_coef_wghts
     tfreq           = precur.tfreq
+    if precur_aggr is None:
+        precur_aggr = tfreq
 
     if precur_aggr is None and (tfreq != 365 and len(lags)==1):
         # use precursor array with temporal aggregation that was used to create
@@ -758,8 +760,11 @@ def import_precur_ts(list_import_ts : List[tuple],
     counter = 0
     for i, (name, path_data) in enumerate(list_import_ts):
 
+        df_data_e_all = functions_pp.load_hdf5(path_data)['df_data']
+        if type(df_data_e_all) is pd.Series:
+            df_data_e_all = pd.DataFrame(df_data_e_all)
 
-        df_data_e_all = functions_pp.load_hdf5(path_data)['df_data'].iloc[:,:]
+        df_data_e_all = df_data_e_all.iloc[:,:] # not sure why needed
         if cols is None:
             cols = list(df_data_e_all.columns[(df_data_e_all.dtypes != bool).values])
         elif type(cols) is str:

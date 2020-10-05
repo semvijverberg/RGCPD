@@ -11,10 +11,12 @@ import numpy as np
 from sklearn.model_selection import StratifiedKFold, PredefinedSplit
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.feature_selection import RFECV
+from typing import Union
 import multiprocessing
 max_cpu = multiprocessing.cpu_count()
 import itertools
 flatten = lambda l: list(itertools.chain.from_iterable(l))
+from sklearn import metrics
 import functions_pp
 
 def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
@@ -222,3 +224,77 @@ def robustscaling_on_train(c, TrainIsTrue):
 def minmaxscaler_on_train(c, TrainIsTrue):
     return (c - c[TrainIsTrue.values].min()) \
             / (c[TrainIsTrue.values].max() - c[TrainIsTrue.values].min())
+
+def corrcoef(y_true, y_pred):
+    return np.corrcoef(y_true, y_pred)[0][1]
+
+def get_scores(prediction, df_splits, score_func_list: list=None,
+               n_boot: int=1, blocksize: int=14, rng_seed=1):
+    #%%
+    pred = prediction.merge(df_splits,
+                            left_index=True,
+                            right_index=True)
+
+    # score on train and per test split
+    if score_func_list is None:
+        score_func_list = [metrics.mean_squared_error]
+    splits = pred.index.levels[0]
+    df_train = pd.DataFrame(np.zeros( (splits.size, len(score_func_list))),
+                            columns=[f.__name__ for f in score_func_list])
+    df_test_s = pd.DataFrame(np.zeros( (splits.size, len(score_func_list))),
+                            columns=[f.__name__ for f in score_func_list])
+    for s in splits:
+        sp = pred.loc[s]
+        trainRV = np.logical_and(sp['TrainIsTrue'], sp['RV_mask'])
+        testRV  = np.logical_and(~sp['TrainIsTrue'], sp['RV_mask'])
+        for f in score_func_list:
+            name = f.__name__
+            train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].iloc[:,1])
+            test_score = f(sp[testRV].iloc[:,0], sp[testRV].iloc[:,1])
+
+            df_train.loc[s,name] = train_score
+            df_test_s.loc[s,name] = test_score
+
+    # score on complete test
+    df_test = pd.DataFrame(np.zeros( (1,len(score_func_list))),
+                            columns=[f.__name__ for f in score_func_list])
+    pred_test = functions_pp.get_df_test(pred).iloc[:,:2]
+    for f in score_func_list:
+        name = f.__name__
+        y_true = pred_test.iloc[:,0]
+        y_pred = pred_test.iloc[:,1]
+        df_test[name] = f(y_true, y_pred)
+
+
+    # Bootstrapping with replacement
+    old_index = range(0,len(y_true),1)
+    n_bl = blocksize
+    chunks = [old_index[n_bl*i:n_bl*(i+1)] for i in range(int(len(old_index)/n_bl))]
+    score_list = _bootstrap(pred_test, n_boot, chunks, score_func_list,
+                            rng_seed=rng_seed)
+    df_boot = pd.DataFrame(score_list,
+                           columns=[f.__name__ for f in score_func_list])
+    out = (df_train, df_test_s, df_test, df_boot)
+
+#%%
+    return out
+
+def _bootstrap(pred_test, n_boot_sub, chunks, score_func_list, rng_seed: int=1):
+
+    y_true = pred_test.iloc[:,0]
+    y_pred = pred_test.iloc[:,1]
+    score_l = []
+    rng = np.random.RandomState(rng_seed)
+    for i in range(n_boot_sub):
+        # bootstrap by sampling with replacement on the prediction indices
+        ran_ind = rng.randint(0, len(chunks) - 1, len(chunks))
+        ran_blok = [chunks[i] for i in ran_ind] # random selection of blocks
+        indices = list(itertools.chain.from_iterable(ran_blok)) #blocks to list
+
+        if len(np.unique(y_true[indices])) < 2:
+            # We need at least one positive and one negative sample for ROC AUC
+            # to be defined: reject the sample
+            continue
+        score_l.append([f(y_true[indices], y_pred[indices]) for f in score_func_list])
+
+    return score_l
