@@ -45,9 +45,9 @@ name_ds='t2m-mean-anom'
 
 
 
-start_end_date = ('1-1', '08-31')
+start_end_date = ('3-1', '08-31')
 start_end_TVdate = ('06-01', '08-31')
-start_end_year = (1979, 2018)
+start_end_year = (1979, 2000)
 
 
 freqs = [10,30]
@@ -75,7 +75,7 @@ for i, tfreq in enumerate(freqs):
                                 kwrgs_func=kwrgs_func,
                                 distance_eps=800, min_area_in_degrees2=3,
                                 calc_ts='region mean', selbox=(-180,360,-65,90),
-                                lags=np.array([10]), lag_as_gap=True)]
+                                lags=np.array([5, 10]), lag_as_gap=True)]
 
 
 
@@ -97,6 +97,8 @@ for i, tfreq in enumerate(freqs):
     rg.calc_corr_maps()
 
     precur = rg.list_for_MI[0]
+    df[tfreq] = rg
+
     #%%
     import matplotlib
     # Optionally set font to Computer Modern to avoid common missing font errors
@@ -129,7 +131,6 @@ for i, tfreq in enumerate(freqs):
                       min_detect_gc=1.0,
                       append_str=f'{exper}_{tfreq}tf_gap{precur.lag_as_gap}')
 
-    df[tfreq] = rg
 
 #%%
 import plot_maps;

@@ -79,7 +79,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     plot_xr = corr_xr.rename(rename_dims)
     if mask_xr is not None:
         plot_mask = mask_xr.rename(rename_dims)
-    dim_coords = plot_xr.dims
+    dim_coords = plot_xr.squeeze().dims
     dim_coords = [d for d in dim_coords if d not in ['latitude', 'longitude']]
     rename_subs = {d:rename_dims_inv[d] for d in dim_coords}
 

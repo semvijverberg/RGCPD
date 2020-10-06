@@ -193,26 +193,34 @@ class BivariateMI:
             for i, lag in enumerate(lags):
                 if type(lag) == np.int64 and self.lag_as_gap==False:
                     dates_lag = functions_pp.func_dates_min_lag(dates_RV, self.tfreq*lag)[1]
-                    precur_train = precur_train.sel(time=dates_lag)
+                    corr_val, pval = self.func(precur_train.sel(time=dates_lag),
+                                               RV_ts.values.squeeze(),
+                                               **self.kwrgs_func)
                 elif type(lag) == np.int64 and self.lag_as_gap==True:
                     # if only shift tfreq, then gap=0
                     datesdaily = RV.aggr_to_daily_dates(dates_RV, tfreq=self.tfreq)
                     dates_lag = functions_pp.func_dates_min_lag(datesdaily,
                                                                 self.tfreq+lag)[1]
-                    precur_train = precur_train.sel(time=dates_lag)
-                    precur_train = functions_pp.time_mean_bins(precur_train,
-                                                           to_freq=self.tfreq)[0]
+                    # precur_train =
+                    # precur_train = functions_pp.time_mean_bins(precur_train,
+                    #                                        to_freq=self.tfreq)[0]
+                    tmb = functions_pp.time_mean_bins
+                    corr_val, pval = self.func(tmb(precur_train.sel(time=dates_lag),
+                                                           to_freq=self.tfreq)[0],
+                                               RV_ts.values.squeeze(),
+                                               **self.kwrgs_func)
+
                 elif type(lag) == np.str_: # aggr. over list of months
                     months = [int(l) for l in lag.split('.')[:-1]]
-                    precur_train = precur_train.sel(time=
+                    precur_lag = precur_train.sel(time=
                                                 np.in1d( precur_train['time.month'],
                                                 months))
-                    precur_train = precur_train.groupby('time.year',
+                    precur_lag = precur_train.groupby('time.year',
                                                 restore_coord_dims=True).mean()
+                    corr_val, pval = self.func(precur_lag,
+                                               RV_ts.values.squeeze(),
+                                               **self.kwrgs_func)
 
-
-                corr_val, pval = self.func(precur_train, RV_ts.values.squeeze(),
-                                           **self.kwrgs_func)
 
 
                 mask = np.ones(corr_val.size, dtype=bool)
@@ -258,7 +266,7 @@ class BivariateMI:
             n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
             print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
 
-            ma_data = MI_single_split(RV_ts, precur_train, self.alpha,
+            ma_data = MI_single_split(RV_ts, precur_train.copy(), self.alpha,
                                       self.FDR_control)
             np_data[s] = ma_data.data
             np_mask[s] = ma_data.mask

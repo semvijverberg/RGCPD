@@ -76,8 +76,9 @@ def import_ds_lazy(filename, loadleap=False,
 
         if type(seldates) is tuple or start_end_year is not None and seldates is None:
             pddates = get_subdates(dates=pd.to_datetime(ds.time.values),
-                         start_end_date=seldates,
-                         start_end_year=start_end_year, lpyr=loadleap)
+                                   start_end_date=seldates,
+                                   start_end_year=start_end_year,
+                                   lpyr=loadleap)
             ds = ds.sel(time=pddates)
         elif type(seldates) is pd.DatetimeIndex:
             # seldates are pd.DatetimeIndex
@@ -103,12 +104,16 @@ def import_ds_lazy(filename, loadleap=False,
                 ds = convert_longitude(ds, format_lon)
 
         # ensure longitude in increasing order
-        if np.where(ds.longitude == ds.longitude.min()) > np.where(ds.longitude == ds.longitude.max()):
+        minidx = np.where(ds.longitude==ds.longitude.min())[0]
+        maxidx = np.where(ds.longitude == ds.longitude.max())[0]
+        if bool(minidx > maxidx):
             print('sorting longitude')
             ds = ds.sortby('longitude')
 
         # ensure latitude is in increasing order
-        if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
+        minidx = np.where(ds.latitude == ds.latitude.min())[0]
+        maxidx = np.where(ds.latitude == ds.latitude.max())[0]
+        if bool(minidx > maxidx):
             print('sorting latitude')
             ds = ds.sortby('latitude')
 
@@ -205,7 +210,7 @@ def get_selbox(ds, selbox, verbosity=0):
     ds = ds.sel(latitude=slice_lat)
     east_lon = selbox[0]
     west_lon = selbox[1]
-    if (east_lon > west_lon and east_lon > 180) or east_lon < 0:
+    if (east_lon > west_lon and east_lon > 180) or (east_lon < 0 and east_lon!=-180):
         if verbosity > 0:
             print('east lon > 180 and cross GW meridional, converting to west '
                   'east longitude format because lons must be sorted by value')

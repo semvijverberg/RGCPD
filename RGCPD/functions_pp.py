@@ -350,9 +350,10 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
         dates = pd.to_datetime(fullts.time.values)
 
 
-    if RV_detrend == True:
-        print('Detrending Respone Variable.')
-        fullts = detrend1D(fullts, anomaly=RV_anomaly)
+    if RV_detrend:
+        fullts = core_pp.detrend_lin_longterm(fullts)
+    if RV_anomaly:
+        fullts = anom1D(fullts)
 
     if input_freq == 'daily' or input_freq == 'annual':
         dates_RV = core_pp.get_subdates(pd.to_datetime(fullts.time.values), start_end_TVdate,
@@ -462,9 +463,11 @@ def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
                            dailytomonths=False,
                            format_lon='only_east'):
 
+    if start_end_date is not None:
+        seldates = start_end_date # only load subset of year
+
     ds = core_pp.import_ds_lazy(filepath, loadleap=loadleap,
                                 seldates=seldates,
-                                start_end_year=start_end_year,
                                 selbox=selbox,
                                 dailytomonths=dailytomonths,
                                 format_lon=format_lon)
@@ -476,12 +479,12 @@ def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
                                         start_end_year,
                                         closed=closed,
                                         closed_on_date=closed_on_date)
-#    print('temporal frequency \'dt\' is: \n{}'.format(dates[1]- dates[0]))
-    if to_xarr:
-        if type(ds) == type(xr.DataArray(data=[0])):
-            ds = ds.squeeze()
-        else:
-            ds = ds.to_array().squeeze()
+    # if to_xarr:
+    #     if type(ds) == type(xr.DataArray(data=[0])):
+    #         ds = ds.squeeze()
+    #     else:
+    #         ds = ds.to_array().squeeze()
+    ds = ds.squeeze()
     # check if no axis has length 0:
     assert 0 not in ds.shape, ('loaded ds has a dimension of length 0'
                                f', shape {ds.shape}')
@@ -1051,9 +1054,8 @@ def selbox_to_1dts(cls, latlonbox):
 
 
 
-def detrend1D(da, anomaly=False):
-    import scipy.signal as sps
-    import xarray as xr
+def anom1D(da):
+
     if da.dims[0] == 'index':
         # rename axes to 'time'
         da = da.rename({'index':'time'})
@@ -1069,54 +1071,27 @@ def detrend1D(da, anomaly=False):
         print('using absolute anomalies w.r.t. climatology of '
               'smoothed concurrent day accross years')
         data_smooth =  rolling_mean_np(da.values, window_s)
-    output = np.empty( (da.time.size), dtype='float32' )
-    trend_dayofyear = np.zeros( (stepsyr.size))
+    output_clim = np.empty( (stepsyr.size), dtype='float32' )
     for i in range(stepsyr.size):
 
         sliceyr = np.arange(i, da.time.size, stepsyr.size)
-        arr_oneday = da.isel(time=sliceyr)
         arr_oneday_smooth = data_smooth[sliceyr]
+        output_clim[i] = arr_oneday_smooth.mean()
 
+    # Plotting
+    fig, ax = plt.subplots(figsize=(3,3))
+    ts = da
+    rawdayofyear = ts.groupby('time.dayofyear').mean('time').sel(dayofyear=np.arange(365)+1)
 
-        # sps.detrend fits least squares and an intercept, mean is always removed
-        detrended_sm = xr.DataArray(sps.detrend(arr_oneday_smooth),
-                            dims=arr_oneday.dims,
-                            coords=arr_oneday.coords)
-        # subtract trend smoothened signal of arr_oneday values
-        # add intercept of detrended array
-        trend = (arr_oneday_smooth - detrended_sm) - np.mean(arr_oneday_smooth, 0)
-        if anomaly == False:
-            # add intercept of detrended array
-            detrended = arr_oneday - trend
-            # trend = (arr_oneday_smooth - detrended_sm) + np.mean(arr_oneday_smooth, 0)
-        else:
-            # intercept is by default removed
-            detrended = arr_oneday - trend  - np.mean(arr_oneday_smooth, 0)
-            # trend = (arr_oneday_smooth - detrended_sm)
-        # detrended = arr_oneday - trend
-        output[i::stepsyr.size] = detrended
-        linregab = np.polyfit(np.arange(trend.size), trend, 1)
-        trend_dayofyear[i] = linregab[0]
-        # Plotting
-        if i == 0:
-            trend1d = (arr_oneday_smooth - detrended_sm)
-            fig, ax = plt.subplots(figsize=(3,3))
-            ax.set_title(str(stepsyr[0]))
-            ax.plot(arr_oneday.values, label='raw')
-            ax.plot(arr_oneday_smooth, label='smooth')
-            ax.plot(trend1d)
-            linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
-            trend_dayofyear[i] = linregab[0]
-            ax.text(.05, .05,
-                    'y = {:.2g}x + {:.2g}'.format(*linregab),
-                    transform=ax.transAxes)
-            ax.text(.05, .90,
-                    '{:.2g} sigma arr_oneday'.format(arr_oneday.std().values),
-                    transform=ax.transAxes)
-    plt.figure(figsize=(3,3))
-    plt.plot_date(stepsyr, trend_dayofyear)
-    plt.xticks(rotation=70)
-    plt.title('long-term trend as function year')
+    ax.set_title(f'Raw and est. clim')
+    for yr in np.unique(dates.year):
+        singleyeardates = get_oneyr(dates, yr)
+        ax.plot(ts.sel(time=singleyeardates), alpha=.1, color='purple')
+    ax.plot(output_clim, color='green', linewidth=2,
+         label=f'clim {window_s}-day rm')
+    ax.plot(rawdayofyear, color='black', alpha=.6,
+               label='clim mean dayofyear')
+    output = da - np.tile(output_clim, (int(dates.size/stepsyr.size)))
     dao = xr.DataArray(output,
                             dims=da.dims,
                             coords=da.coords)
