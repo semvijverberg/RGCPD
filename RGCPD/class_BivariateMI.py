@@ -28,6 +28,7 @@ class BivariateMI:
 
     def __init__(self, name, func=None, kwrgs_func={}, alpha: float=0.05,
                  FDR_control: bool=True, lags=np.array([1]),
+                 lag_as_gap: bool=False,
                  lagasmonthint: bool=False, distance_eps: int=400,
                  min_area_in_degrees2=3, group_split='together',
                  calc_ts='region mean', selbox: tuple=None,
@@ -56,6 +57,9 @@ class BivariateMI:
             np.array(['123']) is decomposed into month Jan, Feb, Mar of which
             a mean will be calculated. Works only if your target has one
             value per year.
+        lag_as_gap : bool, optional
+            Interpret the lag as days in between last day of precursor
+            aggregation window and first day of target window.
         distance_eps : int, optional
             The maximum distance between two gridcells for one to be considered
             as in the neighborhood of the other, only gridcells with the same
@@ -109,6 +113,7 @@ class BivariateMI:
         self.use_sign_pattern = use_sign_pattern
         self.use_coef_wghts = use_coef_wghts
         self.lags = lags
+        self.lag_as_gap = lag_as_gap
         if type(self.lags[0]) == np.str_:
             self.dailytomonths=True
         else:
@@ -186,19 +191,27 @@ class BivariateMI:
 
             dates_RV = RV_ts.index
             for i, lag in enumerate(lags):
-                if type(lag) == np.int64:
+                if type(lag) == np.int64 and self.lag_as_gap==False:
                     dates_lag = functions_pp.func_dates_min_lag(dates_RV, self.tfreq*lag)[1]
-                    prec_lag = precur_train.sel(time=dates_lag)
+                    precur_train = precur_train.sel(time=dates_lag)
+                elif type(lag) == np.int64 and self.lag_as_gap==True:
+                    # if only shift tfreq, then gap=0
+                    datesdaily = RV.aggr_to_daily_dates(dates_RV, tfreq=self.tfreq)
+                    dates_lag = functions_pp.func_dates_min_lag(datesdaily,
+                                                                self.tfreq+lag)[1]
+                    precur_train = precur_train.sel(time=dates_lag)
+                    precur_train = functions_pp.time_mean_bins(precur_train,
+                                                           to_freq=self.tfreq)[0]
                 elif type(lag) == np.str_: # aggr. over list of months
                     months = [int(l) for l in lag.split('.')[:-1]]
-                    prec_lag = precur_train.sel(time=
+                    precur_train = precur_train.sel(time=
                                                 np.in1d( precur_train['time.month'],
                                                 months))
-                    prec_lag = prec_lag.groupby('time.year',
+                    precur_train = precur_train.groupby('time.year',
                                                 restore_coord_dims=True).mean()
 
 
-                corr_val, pval = self.func(prec_lag, RV_ts.values.squeeze(),
+                corr_val, pval = self.func(precur_train, RV_ts.values.squeeze(),
                                            **self.kwrgs_func)
 
 
@@ -229,12 +242,16 @@ class BivariateMI:
             # =============================================================================
             RV_train_mask = np.logical_and(RV_mask, df_splits.loc[s]['TrainIsTrue'])
             RV_ts = RV.fullts[RV_train_mask.values]
-            TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values
+            TrainIsTrue = df_splits.loc[s]['TrainIsTrue']
             if type(self.lags[0]) == np.str_: # adapt df_splits to daily precur_arr
                 # convert annual to daily
-                TrainIsTrue = np.repeat(TrainIsTrue,
+                TrainIsTrue = np.repeat(TrainIsTrue.values,
                                         functions_pp.get_oneyr(precur_arr).size)
-            precur_train = precur_arr[TrainIsTrue]
+            if self.lag_as_gap:
+                precur_train = precur_arr.sel(time=functions_pp.get_oneyr(precur_arr,
+                                              *np.unique(TrainIsTrue.index.year)))
+            else:
+                precur_train = precur_arr[TrainIsTrue.values]
 
         #        dates_RV  = pd.to_datetime(RV_ts.time.values)
             dates_RV = RV_ts.index

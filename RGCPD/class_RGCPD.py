@@ -229,6 +229,7 @@ class RGCPD:
         f = functions_pp
         self.fulltso, self.hash = f.load_TV(self.list_of_name_path,
                                             loadleap=loadleap,
+                                            start_end_year=self.start_end_year,
                                             name_ds=self.name_TVds)
         out = f.process_TV(self.fulltso,
                             tfreq=self.tfreq,
@@ -254,13 +255,9 @@ class RGCPD:
         if self.start_end_year is None:
             self.start_end_year = (self.dates_or.year[0],
                                    self.dates_or.year[-1])
-        months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',
-                        7:'jul',8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
-        RV_name_range = '{}{}-{}{}_{}tf_'.format(self.dates_TV[0].day,
-                                         months[self.dates_TV.month[0]],
-                                         self.dates_TV[-1].day,
-                                         months[self.dates_TV.month[-1]],
-                                         self.tfreq)
+        # months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',
+        #                 7:'jul',8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
+        RV_name_range = '{}-{}_'.format(*list(self.start_end_TVdate))
         var = '_'.join([np[0] for np in self.list_of_name_path[1:]])
         # info_lags = 'lag{}-{}'.format(min(self.lags), max(self.lags))
         # Creating a folder for the specific spatial mask, RV period and traintest set

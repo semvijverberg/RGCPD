@@ -187,7 +187,7 @@ def update_dates(cls, ex):
     cls.temporal_freq = '{}days'.format(temporal_freq.days)
     return cls, ex
 
-def load_TV(list_of_name_path, loadleap=False, name_ds='ts'):
+def load_TV(list_of_name_path, loadleap=False, start_end_year=None, name_ds='ts'):
     '''
     function will load first item of list_of_name_path
     list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
@@ -207,11 +207,14 @@ def load_TV(list_of_name_path, loadleap=False, name_ds='ts'):
     if filename.split('.')[-1] == 'npy':
         fulltso = load_npy(filename, name=name)
     elif filename.split('.')[-1] == 'nc':
-        ds = core_pp.import_ds_lazy(filename)
+        ds = core_pp.import_ds_lazy(filename, start_end_year=start_end_year)
         if len(ds.dims.keys()) > 1:
             fulltso = ds[name_ds].sel(cluster=name)
         else:
-            fulltso = ds.squeeze()
+            if type(ds) is xr.Dataset:
+                fulltso = ds.to_array(name=name_ds)
+            fulltso = fulltso.squeeze()
+
     elif filename.split('.')[-1] == 'h5':
         dict_df = load_hdf5(filename)
         df = dict_df[list(dict_df.keys())[0]]
@@ -1486,6 +1489,7 @@ def get_testyrs(df_splits):
         test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
         traintest_yrs.append(test_yrs)
     return np.array(traintest_yrs)
+
 
 
 def get_download_path():

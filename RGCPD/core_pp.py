@@ -422,28 +422,41 @@ def detrend_lin_longterm(ds):
     detrended += np.repeat(offset_clim.expand_dims('time'), dates.size, 0 )
     detrended = detrended.assign_coords(
                 coords={'time':dates})
-    # plot single gridpoint for visual check
-    la = int(ds.shape[1]/2)
-    lo = int(ds.shape[2]/2)
-    tuples = [(la, lo), (la+1, lo), (la, lo+1)]
-    fig, ax = plt.subplots(3, figsize=(8,8))
-    for i, lalo in enumerate(tuples):
-        lat = int(ds.latitude[lalo[0]])
-        lon = int(ds.longitude[lalo[1]])
-        ax[i].set_title(f'latlon coord {lat} {lon}')
-        ax[i].plot(ds.values[:,lalo[0],lalo[1]])
-        ax[i].plot(detrended[:,lalo[0],lalo[1]])
-        trend1d = ds[:,lalo[0],lalo[1]] - detrended[:,lalo[0],lalo[1]]
+    if len(ds.dims) > 1:
+        # plot single gridpoint for visual check
+        la = int(ds.shape[1]/2)
+        lo = int(ds.shape[2]/2)
+        tuples = [(la, lo), (la+1, lo), (la, lo+1)]
+        fig, ax = plt.subplots(3, figsize=(8,8))
+        for i, lalo in enumerate(tuples):
+            lat = int(ds.latitude[lalo[0]])
+            lon = int(ds.longitude[lalo[1]])
+            ax[i].set_title(f'latlon coord {lat} {lon}')
+            ax[i].plot(ds.values[:,lalo[0],lalo[1]])
+            ax[i].plot(detrended[:,lalo[0],lalo[1]])
+            trend1d = ds[:,lalo[0],lalo[1]] - detrended[:,lalo[0],lalo[1]]
+            linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
+            linregab = np.insert(linregab, 2, float(trend1d[-1] - trend1d[0]))
+            ax[i].plot(trend1d+offset_clim[lalo[0],lalo[1]])
+            ax[i].text(.05, .05,
+            'y = {:.2g}x + {:.2g}, max diff: {:.2g}'.format(*linregab),
+            transform=ax[i].transAxes)
+        plt.subplots_adjust(hspace=.3)
+        ax[-1].text(.5,1.2, 'Visual analysis: trends of nearby gridcells should be similar',
+                    transform=ax[0].transAxes,
+                    ha='center', va='bottom')
+    else:
+        fig, ax = plt.subplots(1, figsize=(8,4))
+        ax.set_title(f'detrend 1D ts')
+        ax.plot(ds.values)
+        ax.plot(detrended)
+        trend1d = ds - detrended
         linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
         linregab = np.insert(linregab, 2, float(trend1d[-1] - trend1d[0]))
-        ax[i].plot(trend1d+offset_clim[lalo[0],lalo[1]])
-        ax[i].text(.05, .05,
+        ax.plot(trend1d+offset_clim)
+        ax.text(.05, .05,
         'y = {:.2g}x + {:.2g}, max diff: {:.2g}'.format(*linregab),
-        transform=ax[i].transAxes)
-    plt.subplots_adjust(hspace=.3)
-    ax[-1].text(.5,1.2, 'Visual analysis: trends of nearby gridcells should be similar',
-                transform=ax[0].transAxes,
-                ha='center', va='bottom')
+        transform=ax.transAxes)
     return detrended
 
 

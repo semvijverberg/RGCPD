@@ -26,6 +26,8 @@ def add_info_precur(precur, corr_xr):
     precur.lon_grid = precur.precur_arr.longitude.values
     precur.area_grid = get_area(precur.precur_arr)
     precur.grid_res = abs(precur.lon_grid[1] - precur.lon_grid[0])
+    if precur.lag_as_gap: # clear value, otherwise storing daily xarray
+        precur.precur_arr = None
 
 
 def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([1]), alpha=0.05, FDR_control=True #TODO
@@ -38,7 +40,7 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
 
     '''
     #%%
-    # precur = rg.list_for_MI[1] ; TV = rg.TV; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
+    # precur = rg.list_for_MI[0] ; TV = rg.TV; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
 
     name = precur.name
     filepath = precur.filepath
@@ -58,7 +60,7 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
             kwrgs[key] = precur.__dict__[key]
         else:
             kwrgs[key] = value
-
+    if precur.lag_as_gap: kwrgs['tfreq'] = 1
     #===========================================
     # Precursor field
     #===========================================
