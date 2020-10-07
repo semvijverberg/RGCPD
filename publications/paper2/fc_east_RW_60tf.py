@@ -36,7 +36,7 @@ from class_BivariateMI import parcorr_map_time
 import plot_maps
 
 
-west_east = 'west'
+west_east = 'east'
 if west_east == 'east':
     TVpathRW = '/Users/semvijverberg/surfdrive/output_RGCPD/paper2_september/east/2ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_10min_df_data_v200_z500_dt1_0ff31_z500_140-300-20-73.h5'
 
@@ -57,7 +57,7 @@ lags = np.array([0,1])
 list_of_name_path = [(name_or_cluster_label, TVpathRW),
                        ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
-exper = 'parcorr'
+exper = 'parcorrtime'
 
 if exper == 'parcorr':
     lowpass = '2y'

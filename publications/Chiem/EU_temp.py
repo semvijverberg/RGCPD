@@ -55,7 +55,7 @@ freqs = [2, 5, 10, 30]
 lags=np.array([0, 5, 10, 25])
 
 #%% run RGPD
-exper = 'corr'
+exper = 'parcorrtime'
 
 if exper == 'corr':
     func = class_BivariateMI.corr_map
