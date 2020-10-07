@@ -52,7 +52,7 @@ start_end_date = ('1-1', '12-31')
 tfreq = 60
 lags = np.array([0,1])
 
-#%% Only SST (Parcorr on PDO)
+#%% Only SST (Parcorrtime and parcorr on PDO)
 
 list_of_name_path = [(name_or_cluster_label, TVpathRW),
                        ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]

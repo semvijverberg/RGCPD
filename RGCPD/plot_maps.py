@@ -175,9 +175,12 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                 all_masked = (plotmask.values==False).all()
                 if all_masked == False:
                     if p_nans < 90:
-                        plotmask.plot.contour(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
-                                          subplot_kws={'projection': map_proj}, colors=['black'],
-                                          linewidths=np.round(zonal_width/150, 1)+0.3, levels=[float(vmin),float(vmax)],
+                        plotmask.plot.contour(ax=g.axes[row,col],
+                                              transform=ccrs.PlateCarree(),
+                                          subplot_kws={'projection': map_proj},
+                                          colors=['black'],
+                                          linewidths=np.round(zonal_width/150, 1)+0.3,
+                                          levels=[float(vmin),float(vmax)],
                                           add_colorbar=False)
         #                try:
         #                    im = plotdata.plot.contourf(ax=g.axes[row,col], transform=ccrs.PlateCarree(),

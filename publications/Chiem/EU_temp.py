@@ -48,7 +48,7 @@ name_ds='t2m-mean-anom'
 
 start_end_date = ('3-1', '08-31')
 start_end_TVdate = ('06-01', '08-31')
-start_end_year = (1979, 2000)
+start_end_year = (1979, 2018)
 
 
 freqs = [2, 5, 10, 30]
@@ -157,12 +157,12 @@ mask = (('timescale', 'lag', 'latitude', 'longitude'), np_mask )
 corr.coords['mask'] = mask
 
 kwrgs_plot = {'aspect':2, 'hspace':.3,
-                  'wspace':.02, 'size':2, 'cbar_vert':0,
-                  'units':'Corr. Coeff. [-]',
-                  'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=0),
-                  'y_ticks':np.arange(-90,91,20),
-                  'title':title,
-                  'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+              'wspace':-.3, 'size':3, 'cbar_vert':0,
+              'units':'Corr. Coeff. [-]',
+              'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=0),
+              'y_ticks':np.arange(-90,91,60),
+              'title':title,
+              'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
 
 if precur.lag_as_gap:
     corr = corr.rename({'lag':'gap'}) ; dim = 'gap'
