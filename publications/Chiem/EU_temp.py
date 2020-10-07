@@ -9,6 +9,9 @@ Created on Mon Oct  5 16:49:11 2020
 import os, inspect, sys
 import numpy as np
 from time import time
+if sys.platform == 'linux':
+    import matplotlib as mpl
+    mpl.use('Agg')
 import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
 
 user_dir = os.path.expanduser('~')
@@ -33,11 +36,9 @@ import class_BivariateMI
 import xarray as xr
 
 
-if sys.platform == 'linux':
-    import matplotlib as mpl
-    mpl.use('Agg')
 
-TVpath = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/Chiem/data/1D_series_daily_anom_NWeurope_mean.nc'
+
+TVpath = user_dir + '/surfdrive/Scripts/RGCPD/publications/Chiem/data/1D_series_daily_anom_NWeurope_mean.nc'
 path_out_main = os.path.join(main_dir, 'publications/Chiem/output/')
 path_data = os.path.join(main_dir, 'publications/Chiem/data/')
 cluster_label = ''
