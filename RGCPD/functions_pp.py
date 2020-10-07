@@ -294,6 +294,12 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=False, RV_anomaly=False,
                verbosity=1):
     #%%
+
+    if RV_detrend: # do detrending on all timesteps
+        fullts = core_pp.detrend_lin_longterm(fullts)
+    if RV_anomaly: # do anomaly on complete timeseries (rolling mean applied!)
+        fullts = anom1D(fullts)
+
     name = fullts.name
     dates = pd.to_datetime(fullts.time.values)
     startyear = dates.year[0]
@@ -301,8 +307,12 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
     n_timesteps = dates.size
     n_yrs       = (endyear - startyear) + 1
 
-#    if start_end_date is None:
-#        start_end_date = ('01-01', '12-31')
+
+
+    # align fullts with precursor import_ds_lazy()
+    fullts = fullts.sel(time=core_pp.get_subdates(dates=dates,
+                           start_end_date=start_end_date,
+                           start_end_year=start_end_year))
 
     timestep_days = (dates[1] - dates[0]).days
     if type(tfreq) == int: # timemeanbins between start_end_date
@@ -350,10 +360,8 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
         dates = pd.to_datetime(fullts.time.values)
 
 
-    if RV_detrend:
-        fullts = core_pp.detrend_lin_longterm(fullts)
-    if RV_anomaly:
-        fullts = anom1D(fullts)
+
+
 
     if input_freq == 'daily' or input_freq == 'annual':
         dates_RV = core_pp.get_subdates(pd.to_datetime(fullts.time.values), start_end_TVdate,
@@ -688,45 +696,6 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
     adjhrsenddate   = senddate + ' {:}:00:00'.format(datetime[0].hour)
 
     if input_freq == 'day' and tfreq != 1:
-        # Old
-        # dt = np.timedelta64(tfreq, 'D')
-        # end_day = seldays_pp.max()
-        # start_day = seldays_pp.min()
-        # # after time averaging over 'tfreq' number of days, you want that each year
-        # # consists of the same day. For this to be true, you need to make sure that
-        # # the selday_pp period exactly fits in a integer multiple of 'tfreq'
-        # fit_steps_yr = (end_day - start_day + np.timedelta64(1, 'D'))  / dt
-        # # line below: The +1 = include day 1 in counting
-        # start_day = (end_day - (dt * np.round(fit_steps_yr, decimals=0))) \
-        #             + np.timedelta64(1, 'D')
-
-        # if start_day.month==1 and start_day.day==1 and start_day.is_leap_year:
-        #     # if leap year, start_day is adjusted one day backward in time,
-        #     # however, if start_day is already first of januari, this can't be done
-        #     # thus removing one step_yr
-        #     start_day = (end_day - (dt * np.round(fit_steps_yr-1, decimals=0))) \
-        #             + np.timedelta64(1, 'D')
-
-        # # account for leap_year #1
-        # if start_day.is_leap_year and start_day.month <= 2 :
-        #     # add day in front to compensate for removing a leap day
-        #     start_day = start_day - np.timedelta64(1, 'D')
-
-        # if start_day.dayofyear < sdate.dayofyear or start_day.year < sdate.year:
-        #     # if startday is before the desired starting period then
-        #     # startday dayofyear < dayofyear of first data available )
-        #     # skip one bin forward in time
-        #     start_day = (end_day - (dt * np.round(fit_steps_yr-1, decimals=0))) \
-        #             + np.timedelta64(1, 'D')
-        #     # after this if statement, the 'account for leap_year' may again
-        #     # be an issue.
-
-        #     # account for leap_year #2
-        #     if start_day.is_leap_year and start_day.month <= 2 :
-        #         # add day in front to compensate for removing a leap day
-        #         start_day = start_day - np.timedelta64(1, 'D')
-
-
         fit_bins = int(365/tfreq)
         if closed == 'right':
             if closed_on_date is not None:
@@ -767,22 +736,20 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
                     dates_aggr = pd.date_range(start=dates_aggr[0], freq=f'{tfreq}d',
                                                 closed='left',
                                                 periods=fit_bins)
-
-
-
+            # if closed right, convert to daily date that fit bins
+            # also take into account leapday adjustement
             if dates_aggr.size == 1:
-                # if closed right, and one timestep per year convert to
-                # daily date that fit bins also take into
-                # account leapday adjustement
                 sd = dates_aggr[0] - pd.Timedelta(f'{tfreq}d')
             else:
-                sd = dates_aggr[0] # normal startdate non-leapyr
+                sd = dates_aggr[0]
+
             if dates_aggr.is_leap_year[0] and dates_aggr[0] < pd.to_datetime(f'{startyear}-03-01'):
-                start_yr = pd.date_range(start=sd - pd.Timedelta(f'{1}d'),
-                                     end=dates_aggr[-1])
-            else: # non-leap adjustment
                 start_yr = pd.date_range(start=sd,
-                     end=dates_aggr[-1])
+                                     end=dates_aggr[-1])
+            else:
+                start_yr = pd.date_range(start=sd + pd.Timedelta(f'{1}d'),
+                                     end=dates_aggr[-1])
+
 
         start_day = start_yr.min()
         end_day = start_yr.max()
@@ -926,42 +893,6 @@ def area_weighted(xarray):
 #   area_weights = area_weights / area_weights.mean()
    return xr.DataArray(xarray.values * area_weights, coords=xarray.coords,
                           dims=xarray.dims)
-
-def xarray_plot(data, path='default', name = 'default', saving=False):
-    # from plotting import save_figure
-    import matplotlib.pyplot as plt
-    import cartopy.crs as ccrs
-    import numpy as np
-    plt.figure()
-    data = data.squeeze()
-    if len(data.longitude[np.where(data.longitude > 180)[0]]) != 0:
-        data = convert_longitude(data)
-    else:
-        pass
-    if data.ndim != 2:
-        print("number of dimension is {}, printing first element of first dimension".format(np.squeeze(data).ndim))
-        data = data[0]
-    else:
-        pass
-    if 'mask' in list(data.coords.keys()):
-        cen_lon = data.where(data.mask==True, drop=True).longitude.mean()
-        data = data.where(data.mask==True, drop=True)
-    else:
-        cen_lon = data.longitude.mean().values
-    proj = ccrs.LambertCylindrical(central_longitude=cen_lon)
-#    proj = ccrs.Orthographic(central_longitude=cen_lon, central_latitude=data.latitude.mean())
-    ax = plt.axes(projection=proj)
-    ax.coastlines()
-    # ax.set_global()
-    if 'mask' in list(data.coords.keys()):
-        plot = data.where(data.mask==True).plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
-                             transform=ccrs.PlateCarree(), add_colorbar=True)
-    else:
-        plot = data.plot.pcolormesh(ax=ax, cmap=plt.cm.RdBu_r,
-                             transform=ccrs.PlateCarree(), add_colorbar=True)
-    if saving == True:
-        save_figure(data, path=path)
-    plt.show()
 
 
 def find_region(data, region='EU'):
