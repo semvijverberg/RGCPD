@@ -51,8 +51,8 @@ start_end_TVdate = ('06-01', '08-31')
 start_end_year = (1979, 2000)
 
 
-freqs = [10,30]
-
+freqs = [2, 5, 10, 30]
+lags=np.array([0, 5, 10, 25])
 
 #%% run RGPD
 exper = 'corr'
@@ -70,13 +70,13 @@ for i, tfreq in enumerate(freqs):
     list_of_name_path = [(cluster_label, TVpath),
                          ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
-
+    selbox=(0,360,-90,90)
     list_for_MI   = [BivariateMI(name='sst', func=func,
                                 alpha=.01, FDR_control=True,
                                 kwrgs_func=kwrgs_func,
                                 distance_eps=800, min_area_in_degrees2=3,
-                                calc_ts='region mean', selbox=(-180,360,-65,90),
-                                lags=np.array([5, 10]), lag_as_gap=True)]
+                                calc_ts='region mean', selbox=selbox,
+                                lags=lags, lag_as_gap=True)]
 
 
 
@@ -102,10 +102,10 @@ for i, tfreq in enumerate(freqs):
 
     #%%
     import matplotlib
-    # Optionally set font to Computer Modern to avoid common missing font errors
-    matplotlib.rc('font', family='serif', serif='cm10')
+    # # Optionally set font to Computer Modern to avoid common missing font errors
+    # matplotlib.rc('font', family='serif', serif='cm10')
 
-    matplotlib.rc('text', usetex=True)
+    # matplotlib.rc('text', usetex=True)
     matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
     save = True
@@ -117,6 +117,8 @@ for i, tfreq in enumerate(freqs):
         title = r'$parcorr(t2m_t, SST_{t-lag}\ |\ t2m_{t-1},SST_{t-lag-1})$'
     elif exper == 'parcorrtime' and precur.lag_as_gap:
         title = r'$parcorr(t2m_t, SST_{t_{gap}}\ |\ t2m_{t-1},SST_{t_{gap}-1})$'
+
+    # title='yo'
 
     lags = rg.list_for_MI[0].lags
     subtitles = np.array([[f'lag {l}' for l in lags]]) #, f'lag 2 (15 day lead)']] )
