@@ -114,13 +114,13 @@ save = True
 subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
 if exper == 'parcorr':
     title = f'$parcorr(SST, {west_east.capitalize()[0]}$-$RW | PDO)$'
-    append_str=f'PDO_{lowpass}'
+    append_str=f'PDO_{lowpass}' ; fontsize = 14
 elif exper == 'corr':
     title = f'$corr(SST, {west_east.capitalize()[0]}$-$RW)$'
-    append_str=''
+    append_str='' ; fontsize = 14
 elif exper == 'parcorrtime':
-    title = f'$parcorr(SST_t, {west_east.capitalize()[0]}$-$RW)\ |\ $'+r'$SST_{t-1},$'+f'${west_east.capitalize()[0]}$-'+r'$RW_{t-1})$'
-    append_str='parcorrtime'
+    title = f'$parcorr(SST_t, {west_east.capitalize()[0]}$-$RW\ |\ $'+r'$SST_{t-1},$'+f'${west_east.capitalize()[0]}$-'+r'$RW_{t-1})$'
+    append_str='parcorrtime' ; fontsize = 12
 
 
 kwrgs_plot = {'row_dim':'lag', 'col_dim':'split',
@@ -130,7 +130,7 @@ kwrgs_plot = {'row_dim':'lag', 'col_dim':'split',
               'x_ticks':np.arange(130, 280, 25),
               'clim':(-.6,.6), 'title':title,
               'subtitles':subtitles, 'subtitle_fontdict':{'fontsize':14},
-              'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+              'title_fontdict':{'fontsize':fontsize, 'fontweight':'bold'}}
 rg.plot_maps_corr(var='sst', save=save,
                   kwrgs_plot=kwrgs_plot,
                   min_detect_gc=.9,

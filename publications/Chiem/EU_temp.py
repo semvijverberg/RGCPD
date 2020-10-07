@@ -52,7 +52,11 @@ start_end_year = (1979, 2018)
 
 
 freqs = [2, 5, 10, 30]
-lags=np.array([0, 5, 10, 25])
+lag_as_gap=False
+if lag_as_gap:
+    lags=np.array([0, 5, 10, 25])
+else:
+    lags=np.array([0,1,2])
 
 #%% run RGPD
 exper = 'parcorrtime'
@@ -76,7 +80,7 @@ for i, tfreq in enumerate(freqs):
                                 kwrgs_func=kwrgs_func,
                                 distance_eps=800, min_area_in_degrees2=3,
                                 calc_ts='region mean', selbox=selbox,
-                                lags=lags, lag_as_gap=True)]
+                                lags=lags, lag_as_gap=lag_as_gap)]
 
 
 
