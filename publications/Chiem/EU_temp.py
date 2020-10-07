@@ -53,13 +53,14 @@ start_end_year = (1979, 2018)
 
 freqs = [2, 5, 10, 30]
 lag_as_gap=False
+exper = 'corr'
 if lag_as_gap:
     lags=np.array([0, 5, 10, 25])
 else:
     lags=np.array([0,1,2])
 
 #%% run RGPD
-exper = 'parcorrtime'
+
 
 if exper == 'corr':
     func = class_BivariateMI.corr_map
