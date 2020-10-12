@@ -113,8 +113,8 @@ new_labels, label_num = find_precursors.split_region_by_lonlat(precur.prec_label
                                                     kwrgs_mask_latlon={'latmax':10},
                                                     trialplot=False)
 new_labels, label_num = find_precursors.split_region_by_lonlat(new_labels,
-                                                    label=1,
-                                                    plot_l=1,
+                                                    label=2,
+                                                    plot_l=0,
                                                     kwrgs_mask_latlon={'lonmin':150},
                                                     trialplot=False)
 precur.prec_labels = new_labels
@@ -161,7 +161,7 @@ precur_aggr = 60
 list_test = []
 list_test_b = []
 # keys_ext = [f'{lag}..1..sst', f'{lag}..2..sst']
-keys_ext = [f'0..1..sst', f'0..2..sst']
+keys_ext = [f'0..3..sst', f'0..7..sst']
 # keys_ext = [f'0..3..sst', f'0..8..sst']
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
