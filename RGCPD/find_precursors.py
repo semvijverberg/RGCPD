@@ -602,7 +602,9 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
             precur_months = functions_pp.import_ds_timemeanbins(precur.filepath,
                                                          **kwrgs)
         else:
-            print('aggregating precursors to {:.0f} days'.format(kwrgs['tfreq']))
+            print('aggregating precursors to {} days '.format(kwrgs['tfreq']) + \
+                  'closed on right {}'.format(kwrgs['closed_on_date']))
+
             precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
                                                          **kwrgs)
 

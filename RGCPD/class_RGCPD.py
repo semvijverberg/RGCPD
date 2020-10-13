@@ -368,20 +368,26 @@ class RGCPD:
             print(f'Retrieving {e_class.neofs} EOF(s) for {e_class.name}')
             e_class.plot_eofs(mean=mean, kwrgs=kwrgs)
 
-    def get_ts_prec(self, precur_aggr=None, keys_ext=None):
+    def get_ts_prec(self, precur_aggr=None, keys_ext=None,
+                    start_end_TVdate=None):
         if precur_aggr is None:
             self.precur_aggr = self.tfreq
         else:
             self.precur_aggr = precur_aggr
 
-        if precur_aggr is not None:
+        if precur_aggr is not None or start_end_TVdate is not None:
+            if start_end_TVdate is None:
+                start_end_TVdate = self.start_end_TVdate
+                # for loading aggregated ncdf is aligned
+            else:
+                self.kwrgs_load['closed_on_date'] = start_end_TVdate[-1]
             # retrieving timeseries at different aggregation, TV and df_splits
             # need to redefined on new tfreq using the same arguments
             print(f'redefine target variable on {self.precur_aggr} day means')
             f = functions_pp
             self.fullts, self.TV_ts = f.process_TV(self.fulltso,
                                                 tfreq=self.precur_aggr,
-                                                start_end_TVdate=self.start_end_TVdate,
+                                                start_end_TVdate=start_end_TVdate,
                                                 start_end_date=self.start_end_date,
                                                 start_end_year=self.start_end_year,
                                                 RV_detrend=self.RV_detrend,
@@ -400,7 +406,7 @@ class RGCPD:
             for i, precur in enumerate(self.list_for_MI):
                 if hasattr(precur, 'prec_labels'):
                     precur.get_prec_ts(precur_aggr=precur_aggr,
-                                   kwrgs_load=self.kwrgs_load)
+                                       kwrgs_load=self.kwrgs_load)
                 else:
                     print(f'{precur.name} not clustered yet')
                     c += i
@@ -429,7 +435,7 @@ class RGCPD:
                                                   self.start_end_year,
                                                   cols=keys_ext,
                                                   precur_aggr=self.precur_aggr,
-                                                  closed_on_date=self.start_end_TVdate[-1])
+                                                  closed_on_date=start_end_TVdate[-1])
             self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
 
 
@@ -490,11 +496,9 @@ class RGCPD:
 
         df_data = self.df_data.copy()
         if type(replace_RV_mask) is np.ndarray:
-            print('replacing RV_mask')
-            new = pd.DataFrame(data=(np.array([replace_RV_mask]*10)).flatten(),
-                               index=df_data.index, columns=['RV_mask'])
-            df_data['RV_mask'] = new
-            df_data['RV_mask'].loc[0].astype(int).plot()
+            self._replace_RV_mask(df_data=df_data,
+                                  replace_RV_mask=replace_RV_mask,
+                                  plot=True)
 
         self.pcmci_dict = wPCMCI.init_pcmci(df_data[keys])
 
@@ -621,7 +625,7 @@ class RGCPD:
         self.path_df_data = filename
 
     def quick_view_labels(self, var=None, map_proj=None, median=True,
-                          save=False):
+                          save=False, append_str: str=None):
         '''
         Parameters
         ----------
@@ -685,7 +689,12 @@ class RGCPD:
                                  contour_mask,
                                  map_proj, **kwrgs)
                 if save == True:
-                    f_name = 'cluster_labels_{}'.format(precur_name)
+                    f_name = 'clusterlabels_{}_eps{}_mingc'.format(
+                                                        precur_name,
+                                                        precur.distance_eps,
+                                                        precur.min_area_in_degrees2)
+                    if append_str is not None:
+                        f_name += f'_{append_str}'
                     fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
                     plt.savefig(fig_path, bbox_inches='tight')
             else:
@@ -758,6 +767,23 @@ class RGCPD:
                                           figpath, paramsstr, self.TV.name,
                                           cols=cols, kwrgs_plot=kwrgs_plot)
 
+    def _replace_RV_mask(self, df_data=None, replace_RV_mask=False, plot=False):
+        if df_data is None:
+            df_data = self.df_data
+        if type(replace_RV_mask) is tuple:
+            print(f'replacing RV_mask for dates {replace_RV_mask}')
+            orig = pd.to_datetime(self.fullts.time.values)
+            newdates = functions_pp.core_pp.get_subdates(orig,
+                                                         replace_RV_mask)
+            replace_RV_mask = [True if d in newdates else False for d in orig]
+
+        n_splits = df_data.index.levels[0].size
+        new = pd.DataFrame(data=(np.array([replace_RV_mask]*n_splits)).flatten(),
+                           index=df_data.index, columns=['RV_mask'])
+        df_data['RV_mask'] = new
+        if plot:
+            df_data['RV_mask'].loc[0].astype(int).plot()
+        return df_data
 
     def _get_testyrs(self, df_splits=None):
     #%%
