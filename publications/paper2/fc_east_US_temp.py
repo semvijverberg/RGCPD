@@ -60,11 +60,11 @@ name_ds='ts'
 
 
 start_end_date = ('1-1', '10-31')
-tfreq = 60
+tfreq = 15
 precur_aggr = tfreq
 alpha_corr = .05
 experiment = 'fixed_corr'
-experiment = 'adapt_corr'
+# experiment = 'adapt_corr'
 method     = 'leave_2'
 n_boot = 2000
 #%% run RGPD
