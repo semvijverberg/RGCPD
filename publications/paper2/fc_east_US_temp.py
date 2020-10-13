@@ -76,8 +76,8 @@ freqs = np.array([15,60])
 expers = np.array(['fixed_corr', 'adapt_corr'])
 tfreq = 60
 precur_aggr = tfreq
-# experiment = 'fixed_corr'
-experiment = 'adapt_corr'
+experiment = 'fixed_corr'
+# experiment = 'adapt_corr'
 method     = 'leave_2'
 n_boot = 5000
 
