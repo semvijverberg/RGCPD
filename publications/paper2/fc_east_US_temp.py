@@ -74,7 +74,7 @@ start_end_date = ('1-1', '10-31')
 tfreq = 60
 precur_aggr = tfreq
 experiment = 'fixed_corr'
-# experiment = 'adapt_corr'
+experiment = 'adapt_corr'
 method     = 'leave_2'
 n_boot = 5000
 
@@ -300,11 +300,9 @@ if experiment == 'adapt_corr':
                   'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
                   'y_ticks':np.arange(-10,60,20),
                   'x_ticks':np.arange(150,281,50),
-                  'title':title,
-                  'title_fontdict':{'fontsize':16, 'fontweight':'bold'},
                   'subtitles':subtitles}
 
-    fig = plot_maps.plot_corr_maps(corr, mask_xr=corr.mask,
+    fig = plot_maps.plot_corr_maps(corr, mask_xr=corr.mask, col_dim='months',
                                    row_dim=corr.dims[1],
                                    **kwrgs_plot)
     precur = rg.list_for_MI[0]
