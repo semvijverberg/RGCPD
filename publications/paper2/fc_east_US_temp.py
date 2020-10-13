@@ -71,16 +71,21 @@ elif target[-2:] == 'RW':
 
 
 
-start_end_date = ('1-1', '10-31')
-tfreq = 15
+
+freqs = np.array([15,60])
+expers = np.array(['fixed_corr', 'adapt_corr'])
+tfreq = 60
 precur_aggr = tfreq
-experiment = 'fixed_corr'
-# experiment = 'adapt_corr'
+# experiment = 'fixed_corr'
+experiment = 'adapt_corr'
 method     = 'leave_2'
 n_boot = 5000
 
+# combinations = np.array(np.meshgrid(freqs, expers)).T.reshape(-1,2)
+
 #%% run RGPD
 start_end_TVdate = ('06-01', '08-31')
+start_end_date = ('1-1', '10-31')
 list_of_name_path = [(cluster_label, TVpath),
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
@@ -153,6 +158,7 @@ elif precur_aggr==60:
     blocksize=1
     lag = 1
 
+score_func_list = [metrics.mean_squared_error, fc_utils.corrcoef]
 list_test = []
 list_test_b = []
 dm = {} # dictionairy months
@@ -208,34 +214,69 @@ for month, start_end_TVdate in months.items():
                    'normalize':False}
 
     keys = [k for k in rg.df_data.columns[:-2] if k != rg.TV.name]
-    target_ts = rg.df_data.iloc[:,[0]].loc[0][rg.df_data.iloc[:,-1].loc[0]]
-    target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+    if len(keys) != 0:
+        target_ts = rg.df_data.iloc[:,[0]].loc[0][rg.df_data.iloc[:,-1].loc[0]]
+        target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 
-    out = rg.fit_df_data_ridge(target=target_ts,
-                               keys=keys,
-                               tau_min=lag, tau_max=lag,
-                               kwrgs_model=kwrgs_model,
-                               transformer=fc_utils.standardize_on_train)
+        out = rg.fit_df_data_ridge(target=target_ts,
+                                   keys=keys,
+                                   tau_min=lag, tau_max=lag,
+                                   kwrgs_model=kwrgs_model,
+                                   transformer=fc_utils.standardize_on_train)
 
-    predict, weights, models_lags = out
-    prediction = predict.rename({predict.columns[0]:'temp',lag:'Prediction'},
-                                axis=1)
-    score_func_list = [metrics.mean_squared_error, fc_utils.corrcoef]
-    df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(prediction,
-                                                             rg.df_data.iloc[:,-2:],
-                                                             score_func_list,
-                                                             n_boot = n_boot,
-                                                             blocksize=blocksize,
-                                                             rng_seed=1)
-    print(df_test_m)
-    df_boot['mean_squared_error'] = 1-df_boot['mean_squared_error']
+        predict, weights, models_lags = out
+
+        # Benchmark prediction
+        n_splits = rg.df_data.index.levels[0].size
+        target = pd.concat(n_splits*[target_ts], keys=range(n_splits))
+        benchpred = target.copy()
+        benchpred[:] = np.zeros_like(target) # fake pred
+        benchpred = pd.concat([target, benchpred], axis=1)
+
+        prediction = predict.rename({predict.columns[0]:'target',lag:'Prediction'},
+                                    axis=1)
+
+        df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(prediction,
+                                                                 rg.df_data.iloc[:,-2:],
+                                                                 score_func_list,
+                                                                 n_boot = n_boot,
+                                                                 blocksize=blocksize,
+                                                                 rng_seed=1)
+        bench_MSE = fc_utils.get_scores(benchpred,
+                                       rg.df_data.iloc[:,-2:],
+                                       [metrics.mean_squared_error],
+                                       n_boot = 0,
+                                       blocksize=blocksize,
+                                       rng_seed=1)[2]
+        bench_MSE = float(bench_MSE.values)
+
+
+        print(df_test_m)
+        df_boot['mean_squared_error'] = (bench_MSE-df_boot['mean_squared_error'])/ \
+                                                bench_MSE
+
+        df_test_m['mean_squared_error'] = (bench_MSE-df_test_m['mean_squared_error'])/ \
+                                                bench_MSE
+        m = models_lags[f'lag_{lag}']['split_0']
+        print(m.alpha_)
+        idx_alpha = np.argwhere(kwrgs_model['alphas']==m.alpha_)[0][0]
+        if idx_alpha in [0,24]:
+            print(f'\nadapt alphas, idx is {idx_alpha}\n')
+        df_test = functions_pp.get_df_test(prediction.merge(rg.df_data.iloc[:,-2:],
+                                                        left_index=True,
+                                                        right_index=True)).iloc[:,:2]
+    else:
+        print('no precursor timeseries found, scores all 0')
+        df_boot = pd.DataFrame(data=np.zeros((n_boot, len(score_func_list))),
+                            columns=['mean_squared_error', 'corrcoef'])
+        df_test_m = pd.DataFrame(np.zeros((1,len(score_func_list))),
+                                 columns=['mean_squared_error', 'corrcoef'])
+
+
     list_test_b.append(df_boot)
     list_test.append(df_test_m)
-    m = models_lags[f'lag_{lag}']['split_0']
-    print(m.alpha_)
-    idx_alpha = np.argwhere(kwrgs_model['alphas']==m.alpha_)[0][0]
-    if idx_alpha in [0,24]:
-        print(f'\nadapt alphas, idx is {idx_alpha}\n')
+
+
 
 
     # df_ana.loop_df(df=rg.df_data[keys], colwrap=1, sharex=False,
@@ -243,12 +284,10 @@ for month, start_end_TVdate in months.items():
     #                       kwrgs={'timesteps':rg.fullts.size,
     #                                   'nth_xyear':5})
 
-df_test = functions_pp.get_df_test(prediction.merge(rg.df_data.iloc[:,-2:],
-                                                        left_index=True,
-                                                        right_index=True)).iloc[:,:2]
+
 
 corrvals = [test.values[0,1] for test in list_test]
-MSE_SS_vals = [1-test.values[0,0] for test in list_test]
+MSE_SS_vals = [test.values[0,0] for test in list_test]
 
 df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals, 'Corr. Coef.':corrvals},
                          index=monthkeys)
@@ -265,7 +304,11 @@ ax = df_scores.plot.bar(rot=0, yerr=np.array(yerr).reshape(2,2,5),
                         capsize=8, error_kw=dict(capthick=1))
 ax.set_ylabel('Skill Score', fontsize=16)
 # ax.set_xlabel('Months', fontsize=16)
-ax.set_title(f'Seasonal dependence of {precur_aggr}-day mean temperature predictions',
+if target[-4:] == 'temp':
+    title = f'Seasonal dependence of {precur_aggr}-day mean temperature predictions'
+elif target[-2:] == 'RW':
+    f'Seasonal dependence of {precur_aggr}-day mean RW predictions'
+ax.set_title(title,
              fontsize=16)
 ax.tick_params(axis='both', labelsize=13)
 ax.legend(fontsize=16, frameon=True, facecolor='grey',

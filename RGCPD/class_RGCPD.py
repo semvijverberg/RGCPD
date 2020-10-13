@@ -895,7 +895,7 @@ class RGCPD:
 
         predict = pd.concat(list(preds), keys=splits)
         weights = pd.concat(list(wghts), keys=splits)
-        weights_norm = weights.mean(axis=0, level=1)
+        # weights_norm = weights.mean(axis=0, level=1)
         # weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
         return predict, weights, models_lags
 
