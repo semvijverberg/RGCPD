@@ -47,21 +47,34 @@ import functions_pp; import df_ana
 # matplotlib.rc('text', usetex=True)
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
-
-target = 'easterntemp'
-if target == 'easterntemp':
+targets = ['easterntemp', 'westerntemp', 'easternRW', 'westernRW']
+target = targets[0]
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}/')
+if target[-4:] == 'temp':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
-    path_out_main = os.path.join(main_dir, 'publications/paper2/output/east_forecast/')
-    alpha_corr = .05
+    alpha_corr = .01
     cluster_label = 2
     name_ds='ts'
+    if target == 'westerntemp':
+        cluster_label = 1
+    elif target == 'easterntemp':
+        cluster_label = 2
+elif target[-2:] == 'RW':
+    name_or_cluster_label = 'z500'
+    name_ds = f'0..0..{name_or_cluster_label}_sp'
+    if target == 'easternRW':
+        TVpathRW = '/Users/semvijverberg/surfdrive/output_RGCPD/paper2_september/east/2ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_10min_df_data_v200_z500_dt1_0ff31_z500_140-300-20-73.h5'
+    elif target == 'westernRW':
+        TVpathRW = '/Users/semvijverberg/surfdrive/output_RGCPD/paper2_september/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_08min_df_data_v200_z500_dt1_0ff31_z500_145-325-20-62.h5'
+
+
 
 
 start_end_date = ('1-1', '10-31')
 tfreq = 15
 precur_aggr = tfreq
 experiment = 'fixed_corr'
-# experiment = 'adapt_corr'
+experiment = 'adapt_corr'
 method     = 'leave_2'
 n_boot = 5000
 
@@ -73,7 +86,7 @@ list_of_name_path = [(cluster_label, TVpath),
 list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.parcorr_map_time,
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={'precursor':True},
-                            distance_eps=1000, min_area_in_degrees2=10,
+                            distance_eps=1200, min_area_in_degrees2=10,
                             calc_ts='region mean', selbox=(130,260,-10,60),
                             lags=np.array([0]))]
 
