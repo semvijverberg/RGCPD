@@ -71,7 +71,7 @@ elif target[-2:] == 'RW':
 
 
 start_end_date = ('1-1', '10-31')
-tfreq = 60
+tfreq = 15
 precur_aggr = tfreq
 experiment = 'fixed_corr'
 experiment = 'adapt_corr'
