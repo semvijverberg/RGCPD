@@ -51,7 +51,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     # default parameters
     # mask_xr=None ; row_dim='split'; col_dim='lag'; clim='relaxed';
     # size=2.5; cbar_vert=-0.01; units='units'; cmap=None; hspace=-0.6;
-    # clevels=None; cticks_center=None; map_proj=None ; wspace=.0;
+    # clevels=None; cticks_center=None; map_proj=None ; wspace=.03;
     # drawbox=None; subtitles=None; title=None; lat_labels=True; zoomregion=None
     # aspect=None; n_xticks=5; n_yticks=3; title_fontdict=None; x_ticks=None;
     # y_ticks=None; add_cfeature=None
@@ -200,9 +200,6 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                 g.axes[row,col].text(0.5, 0.5, 'No regions significant',
                       horizontalalignment='center', fontsize='x-large',
                       verticalalignment='center', transform=g.axes[row,col].transAxes)
-            g.axes[row,col].set_extent([lon[0], lon[-1],
-                                       lat[0], lat[-1]], ccrs.PlateCarree())
-
             # =============================================================================
             # Draw (rectangular) box
             # =============================================================================
@@ -275,6 +272,14 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                                             facecolor='grey', alpha=0.2)
 
 
+            if zoomregion is not None:
+                g.axes[row,col].set_extent(zoomregion, crs=ccrs.PlateCarree())
+            else:
+                g.axes[row,col].set_extent([lon[0], lon[-1],
+                                       lat[0], lat[-1]], crs=ccrs.PlateCarree())
+
+
+
 
     # =============================================================================
     # lay out settings FacetGrid and colorbar
@@ -306,8 +311,6 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         cbar.set_ticklabels(ticklabels, update_ticks=True)
         cbar.update_ticks()
 
-    if zoomregion is not None:
-        ax.set_extent(zoomregion, crs=ccrs.PlateCarree())
         # ax.set_xlim(zoomregion[:2])
         # ax.set_ylim(zoomregion[:2])
     if title is not None:

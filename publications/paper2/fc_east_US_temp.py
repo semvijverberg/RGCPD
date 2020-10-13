@@ -92,6 +92,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 #%%
 if experiment == 'fixed_corr':
     rg.pp_TV(name_ds=name_ds, detrend=False)
+    rg.pp_precursors()
     rg.traintest(method=method)
     rg.calc_corr_maps()
     rg.cluster_list_MI()
@@ -156,7 +157,7 @@ for month, start_end_TVdate in months.items():
                           min_detect_gc=1.0,
                           append_str=experiment+'_'+month)
         precur = rg.list_for_MI[0]
-        dm[month] = rg
+        dm[month] = precur
 
 
 
@@ -251,23 +252,25 @@ if experiment == 'adapt_corr':
     np_data = np.zeros_like(corr.values)
     np_mask = np.zeros_like(corr.values)
     for i, f in enumerate(monthkeys):
-        rg = dm[f]
-        vals = rg.list_for_MI[0].corr_xr.mean(dim='split').values
+        precur = dm[f]
+        vals = precur.corr_xr.mean(dim='split').values
         np_data[i] = vals
-        mask = rg.list_for_MI[0].corr_xr.mask.mean(dim='split')
+        mask = precur.corr_xr.mask.mean(dim='split')
         np_mask[i] = mask
 
     corr.values = np_data
     mask = (('months', 'lag', 'latitude', 'longitude'), np_mask )
     corr.coords['mask'] = mask
-
+    subtitles = np.array([monthkeys])
     kwrgs_plot = {'aspect':2, 'hspace':.3,
-                  'wspace':-.3, 'size':3, 'cbar_vert':0,
+                  'wspace':-.3, 'size':1.25, 'cbar_vert':-0.2,
                   'units':'Corr. Coeff. [-]',
-                  'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=0),
-                  'y_ticks':np.arange(-90,91,60),
+                  'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
+                  'y_ticks':np.arange(-10,60,20),
+                  'x_ticks':np.arange(140,281,50),
                   'title':title,
-                  'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+                  'title_fontdict':{'fontsize':16, 'fontweight':'bold'},
+                  'subtitles':subtitles}
 
     if precur.lag_as_gap:
         corr = corr.rename({'lag':'gap'}) ; dim = 'gap'
@@ -280,7 +283,7 @@ if experiment == 'adapt_corr':
                                       precur.alpha) + '_' + \
                                       f'{experiment}_gap{precur.lag_as_gap}'
     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
-
+#%%
     plt.savefig(fig_path, bbox_inches='tight')
 
 
