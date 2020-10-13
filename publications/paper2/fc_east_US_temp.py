@@ -60,8 +60,8 @@ if target == 'easterntemp':
 start_end_date = ('1-1', '10-31')
 tfreq = 15
 precur_aggr = tfreq
-# experiment = 'fixed_corr'
-experiment = 'adapt_corr'
+experiment = 'fixed_corr'
+# experiment = 'adapt_corr'
 method     = 'leave_2'
 n_boot = 5000
 
