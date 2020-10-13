@@ -47,8 +47,12 @@ matplotlib.rc('font', family='serif', serif='cm10')
 matplotlib.rc('text', usetex=True)
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
-TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
-path_out_main = os.path.join(main_dir, 'publications/paper2/output/east_forecast/')
+
+target = 'easterntemp'
+if target == 'easterntemp':
+    TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
+    path_out_main = os.path.join(main_dir, 'publications/paper2/output/east_forecast/')
+
 path_data = os.path.join(main_dir, 'publications/paper2/data/')
 cluster_label = 2
 name_ds='ts'
@@ -61,7 +65,7 @@ precur_aggr = tfreq
 alpha_corr = .05
 experiment = 'fixed_corr'
 experiment = 'adapt_corr'
-method     = 'random10'
+method     = 'leave_2'
 n_boot = 2000
 #%% run RGPD
 start_end_TVdate = ('06-01', '08-31')

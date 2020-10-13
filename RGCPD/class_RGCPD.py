@@ -299,7 +299,7 @@ class RGCPD:
         (1) random{int}   :   with the int(ex['method'][6:8]) determining the amount of folds
         (2) ran_strat{int}:   random stratified folds, stratified based upon events,
                               requires kwrgs_events.
-        (3) leave{int}    :   chronologically split train and test years.
+        (3) leave_{int}    :   chronologically split train and test years.
         (4) split{int}    :   split dataset into single train and test set
         (5) no_train_test_split
         # Extra: RV events settings are needed to make balanced traintest splits
