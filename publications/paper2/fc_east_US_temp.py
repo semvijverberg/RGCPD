@@ -53,18 +53,15 @@ if target == 'easterntemp':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
     path_out_main = os.path.join(main_dir, 'publications/paper2/output/east_forecast/')
     alpha_corr = .01
-
-path_data = os.path.join(main_dir, 'publications/paper2/data/')
-cluster_label = 2
-name_ds='ts'
-
+    cluster_label = 2
+    name_ds='ts'
 
 
 start_end_date = ('1-1', '10-31')
 tfreq = 15
 precur_aggr = tfreq
 experiment = 'fixed_corr'
-experiment = 'adapt_corr'
+# experiment = 'adapt_corr'
 method     = 'leave_2'
 n_boot = 5000
 
