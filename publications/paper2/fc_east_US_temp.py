@@ -48,7 +48,7 @@ import functions_pp; import df_ana
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
 targets = ['easterntemp', 'westerntemp', 'easternRW', 'westernRW']
-target = targets[1]
+target = targets[2]
 path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}/')
 if target[-4:] == 'temp':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
