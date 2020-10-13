@@ -42,9 +42,9 @@ import func_models as fc_utils
 import functions_pp; import df_ana
 
 # Optionally set font to Computer Modern to avoid common missing font errors
-matplotlib.rc('font', family='serif', serif='cm10')
+# matplotlib.rc('font', family='serif', serif='cm10')
 
-matplotlib.rc('text', usetex=True)
+# matplotlib.rc('text', usetex=True)
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
 
@@ -52,6 +52,7 @@ target = 'easterntemp'
 if target == 'easterntemp':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
     path_out_main = os.path.join(main_dir, 'publications/paper2/output/east_forecast/')
+    alpha_corr = .01
 
 path_data = os.path.join(main_dir, 'publications/paper2/data/')
 cluster_label = 2
@@ -62,11 +63,11 @@ name_ds='ts'
 start_end_date = ('1-1', '10-31')
 tfreq = 15
 precur_aggr = tfreq
-alpha_corr = .05
 experiment = 'fixed_corr'
-# experiment = 'adapt_corr'
+experiment = 'adapt_corr'
 method     = 'leave_2'
-n_boot = 2000
+n_boot = 5000
+
 #%% run RGPD
 start_end_TVdate = ('06-01', '08-31')
 list_of_name_path = [(cluster_label, TVpath),
@@ -89,11 +90,13 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=path_out_main,
            append_pathsub='_' + experiment)
 
+subfoldername = '_'.join([name_ds, rg.hash, experiment,
+                          str(precur_aggr), str(alpha_corr), method])
 #%%
 if experiment == 'fixed_corr':
     rg.pp_TV(name_ds=name_ds, detrend=False)
     rg.pp_precursors()
-    rg.traintest(method=method)
+    rg.traintest(method=method, subfoldername=subfoldername)
     rg.calc_corr_maps()
     rg.cluster_list_MI()
     rg.quick_view_labels(save=True, append_str=experiment)
@@ -133,12 +136,15 @@ for month, start_end_TVdate in months.items():
                        start_end_TVdate=start_end_TVdate)
     elif experiment == 'adapt_corr':
         rg.start_end_TVdate = start_end_TVdate
-        rg.pp_TV(name_ds=name_ds, detrend=False)
+        rg.pp_TV(name_ds=name_ds, detrend=False,
+                 subfoldername=subfoldername)
         rg.pp_precursors()
         rg.traintest(method=method)
+        finalfolder = rg.path_outsub1.split('/')[-1]
+
         rg.calc_corr_maps()
         rg.cluster_list_MI()
-        rg.quick_view_labels(save=True, append_str=experiment)
+        rg.quick_view_labels(save=True, append_str=experiment+'+'+month)
         rg.get_ts_prec(precur_aggr=precur_aggr)
 
         # plotting corr_map
@@ -267,7 +273,7 @@ if experiment == 'adapt_corr':
                   'units':'Corr. Coeff. [-]',
                   'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
                   'y_ticks':np.arange(-10,60,20),
-                  'x_ticks':np.arange(140,281,50),
+                  'x_ticks':np.arange(150,281,50),
                   'title':title,
                   'title_fontdict':{'fontsize':16, 'fontweight':'bold'},
                   'subtitles':subtitles}
@@ -279,9 +285,10 @@ if experiment == 'adapt_corr':
                                    row_dim=corr.dims[1],
                                    **kwrgs_plot)
 
-    f_name = 'corr_map_{}_a{}'.format(precur.name,
-                                      precur.alpha) + '_' + \
-                                      f'{experiment}_gap{precur.lag_as_gap}'
+    f_name = 'corr_{}_a{}'.format(precur.name,
+                                precur.alpha) + '_' + \
+                                f'{experiment}_lag{lag}_' + \
+                                f'tf{precur_aggr}_{method}'
     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
 #%%
     plt.savefig(fig_path, bbox_inches='tight')

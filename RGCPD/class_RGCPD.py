@@ -284,7 +284,7 @@ class RGCPD:
 
 
     def traintest(self, method: str=None, seed=1,
-                  kwrgs_events=None):
+                  kwrgs_events=None, subfoldername=None):
         ''' Splits the training and test dates, either via cross-validation or
         via a simple single split.
         agrs:
@@ -319,8 +319,10 @@ class RGCPD:
                                               verbosity=self.verbosity,
                                               **self.kwrgs_TV)
         self.TV = TV
-        self.path_outsub1 = self.path_outsub0 + '_'.join(['', self.TV.method \
+        if subfoldername is None:
+            subfoldername = '_'.join(['', self.TV.method \
                             + 's'+ str(self.TV.seed)])
+        self.path_outsub1 = self.path_outsub0 + subfoldername
         if os.path.isdir(self.path_outsub1) == False : os.makedirs(self.path_outsub1)
 
 
