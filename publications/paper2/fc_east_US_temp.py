@@ -164,21 +164,19 @@ for month, start_end_TVdate in months.items():
 
         # plotting corr_map
         SST_green_bb = (140,235,20,59)#(170,255,11,60)
-        title = r'$parcorr(SST_t, mx2t_t\ |\ SST_{t-1},mx2t_{t-1})$'
+
         subtitles = np.array([['']]) #, f'lag 2 (15 day lead)']] )
         kwrgs_plot = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
                       'wspace':-.15, 'size':3, 'cbar_vert':-.08,
                       'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
                       'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
                       'n_yticks':6, 'x_ticks':np.arange(130, 280, 25),
-                      'subtitles':subtitles, 'title':title,
-                      'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+                      'subtitles':subtitles}
         rg.plot_maps_corr(var='sst', save=True,
                           kwrgs_plot=kwrgs_plot,
                           min_detect_gc=1.0,
                           append_str=experiment+'_'+month)
-        precur = rg.list_for_MI[0]
-        dm[month] = precur
+        dm[month] = rg.list_for_MI[0].corr_xr.copy()
 
 
 
@@ -265,7 +263,7 @@ plt.savefig(os.path.join(rg.path_outsub1,
 if experiment == 'adapt_corr':
     import plot_maps;
 
-    corr = rg.list_for_MI[0].corr_xr.mean(dim='split').drop('time')
+    corr = dm[monthkeys[0]].mean(dim='split').drop('time')
     list_xr = [corr.expand_dims('months', axis=0) for i in range(len(monthkeys))]
     corr = xr.concat(list_xr, dim = 'months')
     corr['months'] = ('months', monthkeys)
@@ -273,10 +271,10 @@ if experiment == 'adapt_corr':
     np_data = np.zeros_like(corr.values)
     np_mask = np.zeros_like(corr.values)
     for i, f in enumerate(monthkeys):
-        precur = dm[f]
-        vals = precur.corr_xr.mean(dim='split').values
+        corr_xr = dm[f]
+        vals = corr_xr.mean(dim='split').values
         np_data[i] = vals
-        mask = precur.corr_xr.mask.mean(dim='split')
+        mask = corr_xr.mask.mean(dim='split')
         np_mask[i] = mask
 
     corr.values = np_data
@@ -293,13 +291,10 @@ if experiment == 'adapt_corr':
                   'title_fontdict':{'fontsize':16, 'fontweight':'bold'},
                   'subtitles':subtitles}
 
-    if precur.lag_as_gap:
-        corr = corr.rename({'lag':'gap'}) ; dim = 'gap'
-
-    fig = plot_maps.plot_corr_maps(corr, mask_xr=corr.mask, col_dim='months',
+    fig = plot_maps.plot_corr_maps(corr, mask_xr=corr.mask,
                                    row_dim=corr.dims[1],
                                    **kwrgs_plot)
-
+    precur = rg.list_for_MI[0]
     f_name = 'corr_{}_a{}'.format(precur.name,
                                 precur.alpha) + '_' + \
                                 f'{experiment}_lag{lag}_' + \
