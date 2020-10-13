@@ -90,16 +90,18 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=path_out_main,
            append_pathsub='_' + experiment)
 
-subfoldername = '_'.join([name_ds, rg.hash, experiment,
-                          str(precur_aggr), str(alpha_corr), method])
+
 #%%
 if experiment == 'fixed_corr':
     rg.pp_TV(name_ds=name_ds, detrend=False)
+    subfoldername = '_'.join([name_ds, rg.hash, experiment,
+                          str(precur_aggr), str(alpha_corr), method])
     rg.pp_precursors()
     rg.traintest(method=method, subfoldername=subfoldername)
     rg.calc_corr_maps()
     rg.cluster_list_MI()
     rg.quick_view_labels(save=True, append_str=experiment)
+
 
 # rg.get_ts_prec()
 #%%
@@ -136,10 +138,11 @@ for month, start_end_TVdate in months.items():
                        start_end_TVdate=start_end_TVdate)
     elif experiment == 'adapt_corr':
         rg.start_end_TVdate = start_end_TVdate
-        rg.pp_TV(name_ds=name_ds, detrend=False,
-                 subfoldername=subfoldername)
+        rg.pp_TV(name_ds=name_ds, detrend=False)
+        subfoldername = '_'.join([name_ds, rg.hash, experiment,
+                          str(precur_aggr), str(alpha_corr), method])
         rg.pp_precursors()
-        rg.traintest(method=method)
+        rg.traintest(method=method, subfoldername=subfoldername)
         finalfolder = rg.path_outsub1.split('/')[-1]
 
         rg.calc_corr_maps()

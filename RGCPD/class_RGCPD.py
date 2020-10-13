@@ -255,32 +255,6 @@ class RGCPD:
         if self.start_end_year is None:
             self.start_end_year = (self.dates_or.year[0],
                                    self.dates_or.year[-1])
-        # months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',
-        #                 7:'jul',8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
-        RV_name_range = '{}-{}_'.format(*list(self.start_end_TVdate))
-        var = '_'.join([np[0] for np in self.list_of_name_path[1:]])
-        # info_lags = 'lag{}-{}'.format(min(self.lags), max(self.lags))
-        # Creating a folder for the specific spatial mask, RV period and traintest set
-        self.path_outsub0 = os.path.join(self.path_outmain, self.fulltso.name \
-                                         +'_' +self.hash +'_'+RV_name_range \
-                                         +var+ self.append_pathsub)
-
-        # # =============================================================================
-        # # Test if you're not have a lag that will precede the start date of the year
-        # # =============================================================================
-        # # first date of year to be analyzed:
-        # if self.input_freq == 'daily' or self.input_freq == 'annual':
-        #     f = 'D'
-        # elif self.input_freq != 'monthly':
-        #     f = 'M'
-        # firstdoy = self.dates_TV.min() - np.timedelta64(int(max(self.lags)), f)
-        # if firstdoy < self.dates_all[0] and (self.dates_all[0].month,self.dates_all[0].day) != (1,1):
-        #     tdelta = self.dates_all.min() - self.dates_all.min()
-        #     lag_max = int(tdelta / np.timedelta64(self.tfreq, 'D'))
-        #     self.lags = self.lags[self.lags < lag_max]
-        #     self.lags_i = self.lags_i[self.lags_i < lag_max]
-        #     print(('Changing maximum lag to {}, so that you not skip part of the '
-        #           'year.'.format(max(self.lags)) ) )
 
 
     def traintest(self, method: str=None, seed=1,
@@ -314,15 +288,21 @@ class RGCPD:
                     kwrgs_events=kwrgs_events,
                     precursor_ts=self.list_import_ts)
 
-        TV, self.df_splits = RV_and_traintest(self.fullts,
+        self.TV, self.df_splits = RV_and_traintest(self.fullts,
                                               self.TV_ts,
                                               verbosity=self.verbosity,
                                               **self.kwrgs_TV)
-        self.TV = TV
         if subfoldername is None:
-            subfoldername = '_'.join(['', self.TV.method \
-                            + 's'+ str(self.TV.seed)])
-        self.path_outsub1 = self.path_outsub0 + subfoldername
+            RV_name_range = '{}-{}_'.format(*list(self.start_end_TVdate))
+            var = '_'.join([np[0] for np in self.list_of_name_path[1:]])
+            # Creating a folder for the specific target, RV period and traintest set
+            part1 = os.path.join(self.fulltso.name \
+                                 +'_' +self.hash +'_'+RV_name_range \
+                                 +var)
+            subfoldername = part1 + '_'.join(['', self.TV.method \
+                                  + 's'+ str(self.TV.seed),
+                                  self.append_pathsub])
+        self.path_outsub1 = self.path_outmain + subfoldername
         if os.path.isdir(self.path_outsub1) == False : os.makedirs(self.path_outsub1)
 
 
@@ -691,7 +671,7 @@ class RGCPD:
                                  contour_mask,
                                  map_proj, **kwrgs)
                 if save == True:
-                    f_name = 'clusterlabels_{}_eps{}_mingc'.format(
+                    f_name = 'clusterlabels_{}_eps{}_mingc{}'.format(
                                                         precur_name,
                                                         precur.distance_eps,
                                                         precur.min_area_in_degrees2)
