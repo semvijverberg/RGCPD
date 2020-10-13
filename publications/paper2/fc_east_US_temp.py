@@ -73,7 +73,7 @@ list_of_name_path = [(cluster_label, TVpath),
 list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.parcorr_map_time,
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={'precursor':True},
-                            distance_eps=800, min_area_in_degrees2=10,
+                            distance_eps=1000, min_area_in_degrees2=10,
                             calc_ts='region mean', selbox=(130,260,-10,60),
                             lags=np.array([0]))]
 
@@ -98,6 +98,21 @@ if experiment == 'fixed_corr':
     rg.calc_corr_maps()
     rg.cluster_list_MI()
     rg.quick_view_labels(save=True, append_str=experiment)
+    # plotting corr_map
+    SST_green_bb = (140,235,20,59)#(170,255,11,60)
+    title = r'$parcorr(SST_t, mx2t_t\ |\ SST_{t-1},mx2t_{t-1})$'
+    subtitles = np.array([['']]) #, f'lag 2 (15 day lead)']] )
+    kwrgs_plot = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
+                  'wspace':-.15, 'size':3, 'cbar_vert':-.08,
+                  'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
+                  'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
+                  'n_yticks':6, 'x_ticks':np.arange(130, 280, 25),
+                  'subtitles':subtitles, 'title':title,
+                  'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+    rg.plot_maps_corr(var='sst', save=True,
+                      kwrgs_plot=kwrgs_plot,
+                      min_detect_gc=1.0,
+                      append_str=experiment)
 
 
 # rg.get_ts_prec()
