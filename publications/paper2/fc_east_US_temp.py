@@ -88,7 +88,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            tfreq=tfreq,
            path_outmain=path_out_main,
            append_pathsub='_' + experiment)
-rg.pp_precursors()
+
 #%%
 if experiment == 'fixed_corr':
     rg.pp_TV(name_ds=name_ds, detrend=False)
@@ -133,6 +133,7 @@ for month, start_end_TVdate in months.items():
     elif experiment == 'adapt_corr':
         rg.start_end_TVdate = start_end_TVdate
         rg.pp_TV(name_ds=name_ds, detrend=False)
+        rg.pp_precursors()
         rg.traintest(method=method)
         rg.calc_corr_maps()
         rg.cluster_list_MI()
