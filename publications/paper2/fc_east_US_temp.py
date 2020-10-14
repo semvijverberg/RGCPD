@@ -48,7 +48,40 @@ import functions_pp; import df_ana
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
 targets = ['easterntemp', 'westerntemp', 'easternRW', 'westernRW']
-target = targets[2]
+
+
+
+freqs = np.array([15,60])
+expers = np.array(['fixed_corr', 'adapt_corr'])
+combinations = np.array(np.meshgrid(targets, freqs, expers)).T.reshape(-1,3)
+
+import argparse
+
+def parseArguments():
+    # Create argument parser
+    parser = argparse.ArgumentParser()
+
+    # Optional arguments
+    parser.add_argument("-i", "--intexper", help="intexper", type=int, default=0)
+    # Parse arguments
+    args = parser.parse_args()
+    return args
+
+
+if __name__ == '__main__':
+    args = parseArguments()
+    out = combinations[args.intexper]
+    target = out[0]
+    tfreq = int(out[1])
+    experiment = out[2]
+    print(f'arg {args.intexper} - Target {target}, Experiment {experiment}, tfreq {tfreq}')
+else:
+    target = targets[2]
+    tfreq = 60
+    experiment = 'fixed_corr'
+    experiment = 'adapt_corr'
+
+
 path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}/')
 if target[-4:] == 'temp':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
@@ -68,20 +101,11 @@ elif target[-2:] == 'RW':
     elif target == 'westernRW':
         TVpath =  user_dir + '/surfdrive/output_RGCPD/paper2_september/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_08min_df_data_v200_z500_dt1_0ff31_z500_145-325-20-62.h5'
 
-
-
-
-
-freqs = np.array([15,60])
-expers = np.array(['fixed_corr', 'adapt_corr'])
-tfreq = 60
 precur_aggr = tfreq
-experiment = 'fixed_corr'
-# experiment = 'adapt_corr'
 method     = 'leave_2'
 n_boot = 5000
 
-# combinations = np.array(np.meshgrid(freqs, expers)).T.reshape(-1,2)
+
 
 #%% run RGPD
 start_end_TVdate = ('06-01', '08-31')
@@ -147,6 +171,13 @@ months = {'May-June'    : ('05-01', '06-30'),
            'July-Aug'    : ('07-01', '08-31'),
            'Aug-Sept'    : ('08-01', '09-30'),
            'Sept-Okt'    : ('09-01', '10-31')}
+
+if precur_aggr == 60:
+    months = {'March-June'  : ('03-01', '06-30'),
+              'April-July'  : ('04-01', '07-30'),
+              'May-Aug'    : ('05-01', '08-31'),
+              'June-Sept'    : ('06-01', '09-30'),
+              'July-Okt'    : ('07-01', '10-31')}
 
 monthkeys= list(months.keys()) ; oneyrsize = 0
 
@@ -288,20 +319,26 @@ for month, start_end_TVdate in months.items():
 
 corrvals = [test.values[0,1] for test in list_test]
 MSE_SS_vals = [test.values[0,0] for test in list_test]
-
 df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals, 'Corr. Coef.':corrvals},
                          index=monthkeys)
 df_test_b = pd.concat(list_test_b, keys = monthkeys,axis=1)
 
-yerr = [] ; alpha = .10
+yerr = [] ; quan = [] ; alpha = .10
 for i in range(df_test_b.columns.size):
     Eh = 1 - alpha/2 ; El = alpha/2
     tup = [df_test_b.iloc[:,i].quantile(El), df_test_b.iloc[:,i].quantile(Eh)]
+    quan.append(tup)
     mean = df_scores.values.flatten()[i]
     tup = abs(mean-tup)
     yerr.append(tup)
-ax = df_scores.plot.bar(rot=0, yerr=np.array(yerr).reshape(2,2,5),
+_yerr = np.array(yerr).T.reshape(len(monthkeys)*2,2, order='A')
+# df_test_b = df_test_b.reorder_levels([1,0],1)
+_yerr = np.array(yerr).reshape(2,len(monthkeys)*2,
+                               order='F').reshape(2,2,len(monthkeys))
+ax = df_scores.plot.bar(rot=0, yerr=_yerr,
                         capsize=8, error_kw=dict(capthick=1))
+
+#%%
 ax.set_ylabel('Skill Score', fontsize=16)
 # ax.set_xlabel('Months', fontsize=16)
 if target[-4:] == 'temp':
