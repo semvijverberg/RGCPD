@@ -62,7 +62,7 @@ def parseArguments():
     parser = argparse.ArgumentParser()
 
     # Optional arguments
-    parser.add_argument("-i", "--intexper", help="intexper", type=int, default=5)
+    parser.add_argument("-i", "--intexper", help="intexper", type=int, default=11)
     # Parse arguments
     args = parser.parse_args()
     return args
@@ -102,8 +102,10 @@ elif target[-2:] == 'RW':
         TVpath =  user_dir + '/surfdrive/output_RGCPD/paper2_september/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_08min_df_data_v200_z500_dt1_0ff31_z500_145-325-20-62.h5'
 
 precur_aggr = tfreq
-method     = 'leave_2'
+method     = 'leave_8'
 n_boot = 5000
+
+alpha_corr = .0000005
 
 
 
@@ -159,7 +161,7 @@ if experiment == 'fixed_corr':
 
 
 # rg.get_ts_prec()
-#%%
+#%% (Adaptive) forecasting
 months = {'May-June'    : ('05-01', '06-30'),
           'June-July'   : ('06-01', '07-30'),
            'July-Aug'    : ('07-01', '08-31'),
@@ -224,22 +226,19 @@ for month, start_end_TVdate in months.items():
         dm[month] = rg.list_for_MI[0].corr_xr.copy()
 
 
-
-    if monthkeys.index(month) >= 1:
-        nextyr = functions_pp.get_oneyr(rg.df_data['RV_mask'].loc[0][rg.df_data['RV_mask'].loc[0]])
-        if nextyr.size != oneyrsize:
-            raise ValueError
-
-    oneyr = functions_pp.get_oneyr(rg.df_data['RV_mask'].loc[0][rg.df_data['RV_mask'].loc[0]])
-    oneyrsize = oneyr.size
-
-
     kwrgs_model = {'scoring':'neg_mean_squared_error',
                    'alphas':np.logspace(.1, 2, num=25),
                    'normalize':False}
 
     keys = [k for k in rg.df_data.columns[:-2] if k != rg.TV.name]
     if len(keys) != 0:
+        oneyr = functions_pp.get_oneyr(rg.df_data['RV_mask'].loc[0][rg.df_data['RV_mask'].loc[0]])
+        oneyrsize = oneyr.size
+        if monthkeys.index(month) >= 1:
+            nextyr = functions_pp.get_oneyr(rg.df_data['RV_mask'].loc[0][rg.df_data['RV_mask'].loc[0]])
+            if nextyr.size != oneyrsize:
+                raise ValueError
+
         target_ts = rg.df_data.iloc[:,[0]].loc[0][rg.df_data.iloc[:,-1].loc[0]]
         target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 
@@ -253,10 +252,10 @@ for month, start_end_TVdate in months.items():
 
         # Benchmark prediction
         n_splits = rg.df_data.index.levels[0].size
-        _target = pd.concat(n_splits*[target_ts], keys=range(n_splits))
-        benchpred = _target.copy()
-        benchpred[:] = np.zeros_like(_target) # fake pred
-        benchpred = pd.concat([_target, benchpred], axis=1)
+        observed = pd.concat(n_splits*[target_ts], keys=range(n_splits))
+        benchpred = observed.copy()
+        benchpred[:] = np.zeros_like(observed) # fake pred
+        benchpred = pd.concat([observed, benchpred], axis=1)
 
         prediction = predict.rename({predict.columns[0]:'target',lag:'Prediction'},
                                     axis=1)
@@ -297,13 +296,8 @@ for month, start_end_TVdate in months.items():
         df_test_m = pd.DataFrame(np.zeros((1,len(score_func_list))),
                                  columns=['mean_squared_error', 'corrcoef'])
 
-
     list_test_b.append(df_boot)
     list_test.append(df_test_m)
-
-
-
-
     # df_ana.loop_df(df=rg.df_data[keys], colwrap=1, sharex=False,
     #                       function=df_ana.plot_timeseries,
     #                       kwrgs={'timesteps':rg.fullts.size,
@@ -326,13 +320,12 @@ for i in range(df_test_b.columns.size):
     tup = abs(mean-tup)
     yerr.append(tup)
 _yerr = np.array(yerr).T.reshape(len(monthkeys)*2,2, order='A')
-# df_test_b = df_test_b.reorder_levels([1,0],1)
 _yerr = np.array(yerr).reshape(2,len(monthkeys)*2,
                                order='F').reshape(2,2,len(monthkeys))
 ax = df_scores.plot.bar(rot=0, yerr=_yerr,
                         capsize=8, error_kw=dict(capthick=1))
 
-#%%
+
 ax.set_ylabel('Skill Score', fontsize=16)
 # ax.set_xlabel('Months', fontsize=16)
 if target[-4:] == 'temp':

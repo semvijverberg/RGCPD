@@ -262,7 +262,7 @@ def get_df_MCI(pcmci_dict, pcmci_results_dict, lags, variable):
         coeffs = results_dict['val_matrix'][:,idx]
         # data = np.concatenate([coeffs, pvals],  1)
 
-        cols = [f'coeff l{l}' for l in lags]
+        cols = [f'coeff l{l}' for l in range(0,max(lags)+1)]
         # cols.append([f'pval l{l}' for l in lags])
         df_coeff = pd.DataFrame(coeffs, index=var_names,
                           columns=cols)
