@@ -62,7 +62,7 @@ def parseArguments():
     parser = argparse.ArgumentParser()
 
     # Optional arguments
-    parser.add_argument("-i", "--intexper", help="intexper", type=int, default=0)
+    parser.add_argument("-i", "--intexper", help="intexper", type=int, default=5)
     # Parse arguments
     args = parser.parse_args()
     return args
@@ -82,7 +82,7 @@ else:
     experiment = 'adapt_corr'
 
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}/')
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}_patterncov/')
 if target[-4:] == 'temp':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
     alpha_corr = .01
@@ -117,7 +117,7 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.parcorr_map_time
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={'precursor':True},
                             distance_eps=1200, min_area_in_degrees2=10,
-                            calc_ts='region mean', selbox=(130,260,-10,60),
+                            calc_ts='pattern cov', selbox=(130,260,-10,60),
                             lags=np.array([0]))]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
@@ -160,12 +160,6 @@ if experiment == 'fixed_corr':
 
 # rg.get_ts_prec()
 #%%
-months = {'May'         : ('05-01', '05-30'),
-          'June'        : ('06-01', '06-30'),
-          'July'        : ('07-01', '07-30'),
-          'August'      : ('08-01', '08-30'),
-          'september'   : ('09-01', '09-30')}
-
 months = {'May-June'    : ('05-01', '06-30'),
           'June-July'   : ('06-01', '07-30'),
            'July-Aug'    : ('07-01', '08-31'),
@@ -259,10 +253,10 @@ for month, start_end_TVdate in months.items():
 
         # Benchmark prediction
         n_splits = rg.df_data.index.levels[0].size
-        target = pd.concat(n_splits*[target_ts], keys=range(n_splits))
-        benchpred = target.copy()
-        benchpred[:] = np.zeros_like(target) # fake pred
-        benchpred = pd.concat([target, benchpred], axis=1)
+        _target = pd.concat(n_splits*[target_ts], keys=range(n_splits))
+        benchpred = _target.copy()
+        benchpred[:] = np.zeros_like(_target) # fake pred
+        benchpred = pd.concat([_target, benchpred], axis=1)
 
         prediction = predict.rename({predict.columns[0]:'target',lag:'Prediction'},
                                     axis=1)
