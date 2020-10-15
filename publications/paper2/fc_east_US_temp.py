@@ -110,7 +110,7 @@ precur_aggr = tfreq
 method     = 'leave_2' #ran_strat20
 n_boot = 5000
 
-append_main = '_kfold15'
+append_main = ''
 
 
 
@@ -227,11 +227,10 @@ for month, start_end_TVdate in months.items():
                           append_str=experiment+'_'+month)
         dm[month] = rg.list_for_MI[0].corr_xr.copy()
 
-    alphas = np.append(np.logspace(.1, 1.5, num=25), [1E50])
+    alphas = np.append(np.logspace(.1, 1.5, num=25), [1E3])
     kwrgs_model = {'scoring':'neg_mean_squared_error',
                    'alphas':alphas, # large a, strong regul.
-                   'normalize':False,
-                   'kfold':15}
+                   'normalize':False}
 
     keys = [k for k in rg.df_data.columns[:-2] if k != rg.TV.name]
     if len(keys) != 0:
@@ -289,7 +288,7 @@ for month, start_end_TVdate in months.items():
 
         df_test_m['mean_squared_error'] = (bench_MSE-df_test_m['mean_squared_error'])/ \
                                                 bench_MSE
-        # no more resolution then 5% of target
+
         m = models_lags[f'lag_{lag}']['split_0']
         print(m.alpha_)
         idx_alpha = np.argwhere(kwrgs_model['alphas']==m.alpha_)[0][0]
@@ -360,7 +359,7 @@ patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
 handles = [patch1, patch2]
 # manually define a new patch
 if len(no_info_fc) != 0:
-    patch = mpatches.Patch(color='red', label='Alpha=1E50')
+    patch = mpatches.Patch(color='red', label='Alpha=1E3')
     handles.append(patch)
 ax.legend(handles=handles,
           fontsize=16, frameon=True, facecolor='grey',
