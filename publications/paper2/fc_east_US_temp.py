@@ -360,7 +360,7 @@ patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
 handles = [patch1, patch2]
 # manually define a new patch
 if len(no_info_fc) != 0:
-    patch = mpatches.Patch(color='red', label='Alpha=1E3')
+    patch = mpatches.Patch(color='red', label=f'alpha={int(alphas[-1])}')
     handles.append(patch)
 ax.legend(handles=handles,
           fontsize=16, frameon=True, facecolor='grey',
