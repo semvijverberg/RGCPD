@@ -56,7 +56,7 @@ freqs = np.array([15,60])
 expers = np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(targets, freqs, expers)).T.reshape(-1,3)
 
-i_default = 7
+i_default = 9
 
 
 
@@ -227,7 +227,7 @@ for month, start_end_TVdate in months.items():
                           append_str=experiment+'_'+month)
         dm[month] = rg.list_for_MI[0].corr_xr.copy()
 
-    alphas = np.append(np.logspace(.1, 1.5, num=25), [1E3])
+    alphas = np.append(np.logspace(.1, 1.5, num=25), [500])
     kwrgs_model = {'scoring':'neg_mean_squared_error',
                    'alphas':alphas, # large a, strong regul.
                    'normalize':False}
@@ -289,11 +289,12 @@ for month, start_end_TVdate in months.items():
         df_test_m['mean_squared_error'] = (bench_MSE-df_test_m['mean_squared_error'])/ \
                                                 bench_MSE
 
-        m = models_lags[f'lag_{lag}']['split_0']
-        print(m.alpha_)
-        idx_alpha = np.argwhere(kwrgs_model['alphas']==m.alpha_)[0][0]
-        if idx_alpha in [25]:
-            print(f'\n{month} alpha {m.alpha_}, idx is {idx_alpha}\n')
+        cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_splits)]
+        print('mean alpha {:.0f}'.format(np.mean(cvfitalpha)))
+        maxalpha_c = list(cvfitalpha).count(alphas[-1])
+        if maxalpha_c > n_splits/3:
+            print(f'\n{month} alpha {int(np.mean(cvfitalpha))}')
+            print(f'{maxalpha_c} splits are max alpha\n')
             # maximum regularization selected. No information in timeseries
             df_test_m['corrcoef'][:] = 0
             df_boot['corrcoef'][:] = 0
