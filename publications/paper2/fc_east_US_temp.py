@@ -18,6 +18,7 @@ import matplotlib
 from sklearn import metrics
 import pandas as pd
 import xarray as xr
+import sklearn.linear_model as scikitlinear
 import argparse
 
 user_dir = os.path.expanduser('~')
@@ -55,7 +56,7 @@ freqs = np.array([15,60])
 expers = np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(targets, freqs, expers)).T.reshape(-1,3)
 
-i_default = 5
+i_default = 15
 
 
 
@@ -197,6 +198,7 @@ elif precur_aggr==60:
 score_func_list = [metrics.mean_squared_error, fc_utils.corrcoef]
 list_test = []
 list_test_b = []
+no_info_fc = []
 dm = {} # dictionairy months
 for month, start_end_TVdate in months.items():
 
@@ -227,9 +229,9 @@ for month, start_end_TVdate in months.items():
 
 
     kwrgs_model = {'scoring':'neg_mean_squared_error',
-                   'alphas':np.logspace(.1, 4, num=25), # large a, strong regul.
-                   'normalize':False,
-                   'kfold':18}
+                   'alphas':np.append(np.logspace(.1, 2, num=25), [1E100]), # large a, strong regul.
+                   'normalize':False}
+                   # 'kfold':15}
 
     keys = [k for k in rg.df_data.columns[:-2] if k != rg.TV.name]
     if len(keys) != 0:
@@ -243,6 +245,8 @@ for month, start_end_TVdate in months.items():
         target_ts = rg.df_data.iloc[:,[0]].loc[0][rg.df_data.iloc[:,-1].loc[0]]
         target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 
+        # ScikitModel = scikitlinear.LassoCV
+
         out = rg.fit_df_data_ridge(target=target_ts,
                                    keys=keys,
                                    tau_min=lag, tau_max=lag,
@@ -250,16 +254,12 @@ for month, start_end_TVdate in months.items():
                                    transformer=fc_utils.standardize_on_train)
 
         predict, weights, models_lags = out
-
-        # Benchmark prediction
-        n_splits = rg.df_data.index.levels[0].size
-        observed = pd.concat(n_splits*[target_ts], keys=range(n_splits))
-        benchpred = observed.copy()
-        benchpred[:] = np.zeros_like(observed) # fake pred
-        benchpred = pd.concat([observed, benchpred], axis=1)
-
         prediction = predict.rename({predict.columns[0]:'target',lag:'Prediction'},
                                     axis=1)
+
+        if monthkeys.index(month)==0:
+            weights_norm = weights.mean(axis=0, level=1)
+            weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
 
         df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(prediction,
                                                                  rg.df_data.iloc[:,-2:],
@@ -267,6 +267,13 @@ for month, start_end_TVdate in months.items():
                                                                  n_boot = n_boot,
                                                                  blocksize=blocksize,
                                                                  rng_seed=1)
+        # Benchmark prediction
+        n_splits = rg.df_data.index.levels[0].size
+        observed = pd.concat(n_splits*[target_ts], keys=range(n_splits))
+        benchpred = observed.copy()
+        benchpred[:] = np.zeros_like(observed) # fake pred
+        benchpred = pd.concat([observed, benchpred], axis=1)
+
         bench_MSE = fc_utils.get_scores(benchpred,
                                        rg.df_data.iloc[:,-2:],
                                        [metrics.mean_squared_error],
@@ -282,20 +289,27 @@ for month, start_end_TVdate in months.items():
 
         df_test_m['mean_squared_error'] = (bench_MSE-df_test_m['mean_squared_error'])/ \
                                                 bench_MSE
+        # no more resolution then 5% of target
         m = models_lags[f'lag_{lag}']['split_0']
         print(m.alpha_)
         idx_alpha = np.argwhere(kwrgs_model['alphas']==m.alpha_)[0][0]
-        if idx_alpha in [0,24]:
-            print(f'\nadapt alphas, idx is {idx_alpha}\n')
+        if idx_alpha in [25]:
+            print(f'\n{month} alpha {m.alpha_}, idx is {idx_alpha}\n')
+            # maximum regularization selected. No information in timeseries
+            df_test_m['corrcoef'][:] = 0
+            df_boot['corrcoef'][:] = 0
+            no_info_fc.append(month)
         df_test = functions_pp.get_df_test(prediction.merge(rg.df_data.iloc[:,-2:],
                                                         left_index=True,
                                                         right_index=True)).iloc[:,:2]
+
     else:
         print('no precursor timeseries found, scores all 0')
         df_boot = pd.DataFrame(data=np.zeros((n_boot, len(score_func_list))),
                             columns=['mean_squared_error', 'corrcoef'])
         df_test_m = pd.DataFrame(np.zeros((1,len(score_func_list))),
                                  columns=['mean_squared_error', 'corrcoef'])
+
 
     list_test_b.append(df_boot)
     list_test.append(df_test_m)
@@ -305,7 +319,7 @@ for month, start_end_TVdate in months.items():
     #                                   'nth_xyear':5})
 
 
-
+import matplotlib.patches as mpatches
 corrvals = [test.values[0,1] for test in list_test]
 MSE_SS_vals = [test.values[0,0] for test in list_test]
 df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals, 'Corr. Coef.':corrvals},
@@ -324,20 +338,33 @@ _yerr = np.array(yerr).T.reshape(len(monthkeys)*2,2, order='A')
 _yerr = np.array(yerr).reshape(2,len(monthkeys)*2,
                                order='F').reshape(2,2,len(monthkeys))
 ax = df_scores.plot.bar(rot=0, yerr=_yerr,
-                        capsize=8, error_kw=dict(capthick=1))
-
+                        capsize=8, error_kw=dict(capthick=1),
+                        color=['blue', 'green'])
+for noinfo in no_info_fc:
+    # first two childeren are not barplots
+    idx = monthkeys.index(noinfo) + 2
+    ax.get_children()[idx].set_color('r') # MSE
+    # ax.get_children()[idx+1].set_color('r') # Corr
 
 ax.set_ylabel('Skill Score', fontsize=16)
 # ax.set_xlabel('Months', fontsize=16)
 if target[-4:] == 'temp':
-    title = f'Seasonal dependence of {precur_aggr}-day mean temperature predictions'
+    title = f'Seasonal dependence of {precur_aggr}-day mean temp predictions'
 elif target[-2:] == 'RW':
     title = f'Seasonal dependence of {precur_aggr}-day mean RW predictions'
 ax.set_title(title,
              fontsize=16)
 ax.tick_params(axis='both', labelsize=13)
-ax.legend(fontsize=16, frameon=True, facecolor='grey',
-              framealpha=.5)
+patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
+patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
+handles = [patch1, patch2]
+# manually define a new patch
+if len(no_info_fc) != 0:
+    patch = mpatches.Patch(color='red', label='Alpha=1E100')
+    handles.append(patch)
+ax.legend(handles=handles,
+          fontsize=16, frameon=True, facecolor='grey',
+          framealpha=.5)
 ax.set_ylim(-0.5, 1)
 plt.savefig(os.path.join(rg.path_outsub1,
              f'skill_score_vs_months_{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_{alpha_corr}.pdf'))
