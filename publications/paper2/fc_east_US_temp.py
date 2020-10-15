@@ -56,7 +56,7 @@ freqs = np.array([15,60])
 expers = np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(targets, freqs, expers)).T.reshape(-1,3)
 
-i_default = 15
+i_default = 7
 
 
 
@@ -110,7 +110,7 @@ precur_aggr = tfreq
 method     = 'leave_2' #ran_strat20
 n_boot = 5000
 
-append_main = '_kfold18'
+append_main = ''
 
 
 
@@ -229,7 +229,7 @@ for month, start_end_TVdate in months.items():
 
 
     kwrgs_model = {'scoring':'neg_mean_squared_error',
-                   'alphas':np.append(np.logspace(.1, 2, num=25), [1E100]), # large a, strong regul.
+                   'alphas':np.append(np.logspace(.1, 1.5, num=25), [1E100]), # large a, strong regul.
                    'normalize':False}
                    # 'kfold':15}
 
