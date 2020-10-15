@@ -85,7 +85,8 @@ else:
     experiment = 'adapt_corr'
 
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}_patterncov/')
+calc_ts='pattern cov'
+
 if target[-4:] == 'temp':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
     alpha_corr = .01
@@ -106,9 +107,8 @@ elif target[-2:] == 'RW':
 
 precur_aggr = tfreq
 method     = 'leave_8'
-n_boot = 5000
+n_boot = 1000
 
-alpha_corr = .0000005
 
 
 
@@ -122,8 +122,10 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.parcorr_map_time
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={'precursor':True},
                             distance_eps=1200, min_area_in_degrees2=10,
-                            calc_ts='pattern cov', selbox=(130,260,-10,60),
+                            calc_ts=calc_ts, selbox=(130,260,-10,60),
                             lags=np.array([0]))]
+
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}_{calc_ts}/')
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
