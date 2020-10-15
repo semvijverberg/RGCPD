@@ -56,7 +56,7 @@ freqs = np.array([15,60])
 expers = np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(targets, freqs, expers)).T.reshape(-1,3)
 
-i_default = 9
+i_default = 8
 
 
 
