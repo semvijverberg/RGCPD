@@ -18,6 +18,7 @@ import matplotlib
 from sklearn import metrics
 import pandas as pd
 import xarray as xr
+import argparse
 
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
@@ -47,22 +48,24 @@ import functions_pp; import df_ana
 # matplotlib.rc('text', usetex=True)
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
+
+
 targets = ['easterntemp', 'westerntemp', 'easternRW', 'westernRW']
-
-
-
 freqs = np.array([15,60])
 expers = np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(targets, freqs, expers)).T.reshape(-1,3)
 
-import argparse
+i_default = 6
+
+
 
 def parseArguments():
     # Create argument parser
     parser = argparse.ArgumentParser()
 
     # Optional arguments
-    parser.add_argument("-i", "--intexper", help="intexper", type=int, default=11)
+    parser.add_argument("-i", "--intexper", help="intexper", type=int,
+                        default=i_default)
     # Parse arguments
     args = parser.parse_args()
     return args
@@ -331,7 +334,7 @@ ax.set_ylabel('Skill Score', fontsize=16)
 if target[-4:] == 'temp':
     title = f'Seasonal dependence of {precur_aggr}-day mean temperature predictions'
 elif target[-2:] == 'RW':
-    f'Seasonal dependence of {precur_aggr}-day mean RW predictions'
+    title = f'Seasonal dependence of {precur_aggr}-day mean RW predictions'
 ax.set_title(title,
              fontsize=16)
 ax.tick_params(axis='both', labelsize=13)

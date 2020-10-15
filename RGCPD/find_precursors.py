@@ -572,8 +572,7 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
     lags            = precur.corr_xr.lag.values
     use_coef_wghts  = precur.use_coef_wghts
     tfreq           = precur.tfreq
-    if precur_aggr is None:
-        precur_aggr = tfreq
+
 
     if precur_aggr is None and (tfreq != 365 and len(lags)==1):
         # use precursor array with temporal aggregation that was used to create
@@ -594,6 +593,8 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
                 kwrgs[key] = precur.__dict__[key]
             else:
                 kwrgs[key] = value
+        if precur_aggr is None:
+            precur_aggr = tfreq
         kwrgs['tfreq'] = precur_aggr
 
         if tfreq == 365:

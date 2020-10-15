@@ -386,7 +386,7 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
     use_sign_pattern= precur.use_sign_pattern
     tfreq           = precur.tfreq
 
-    if precur_aggr is None or (tfreq != 365 and len(lags)==1):
+    if precur_aggr is None and (tfreq != 365 and len(lags)==1):
         # use precursor array with temporal aggregation that was used to create
         # correlation map. When tfreq=365 and lag>1, reaggregate months precur_arr
         precur_arr = precur.precur_arr
@@ -405,6 +405,8 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
                 kwrgs[key] = precur.__dict__[key]
             else:
                 kwrgs[key] = value
+        if precur_aggr is None:
+            precur_aggr = tfreq
         kwrgs['tfreq'] = precur_aggr
 
         if tfreq == 365:
@@ -413,7 +415,9 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
             precur_months = functions_pp.import_ds_timemeanbins(precur.filepath,
                                                          **kwrgs)
         else:
-            print('aggregating precursors to {:.0f} days'.format(kwrgs['tfreq']))
+            print('aggregating precursors to {} days '.format(kwrgs['tfreq']) + \
+                  'closed on right {}'.format(kwrgs['closed_on_date']))
+
             precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
                                                          **kwrgs)
 
