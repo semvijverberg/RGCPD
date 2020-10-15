@@ -72,14 +72,16 @@ def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
     X = X_train
 
     # # Create stratified random shuffle which keeps together years as blocks.
-    # kwrgs_cv = ['kfold', 'seed']
-    # kwrgs_cv = {k:i for k, i in kwrgs.items() if k in kwrgs_cv}
-    # [kwrgs.pop(k) for k in kwrgs_cv.keys()]
-
-    # cv = utils.get_cv_accounting_for_years(y_train, **kwrgs_cv)
-    cv = None
+    kwrgs_cv = ['kfold', 'seed']
+    kwrgs_cv = {k:i for k, i in kwrgs.items() if k in kwrgs_cv}
+    [kwrgs.pop(k) for k in kwrgs_cv.keys()]
+    if len(kwrgs_cv) >= 1:
+        cv = utils.get_cv_accounting_for_years(y_train, **kwrgs_cv)
+        kwrgs['store_cv_values'] = False
+    else:
+        cv = None
+        kwrgs['store_cv_values'] = True
     model = RidgeCV(cv=cv,
-                    store_cv_values=True,
                     **kwrgs)
 
     if feat_sel is not None:
