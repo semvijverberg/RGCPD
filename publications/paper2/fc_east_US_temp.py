@@ -227,7 +227,7 @@ for month, start_end_TVdate in months.items():
                           append_str=experiment+'_'+month)
         dm[month] = rg.list_for_MI[0].corr_xr.copy()
 
-    alphas = np.append(np.logspace(.1, 1.5, num=25), [500])
+    alphas = np.append(np.logspace(.1, 1.5, num=25), [250])
     kwrgs_model = {'scoring':'neg_mean_squared_error',
                    'alphas':alphas, # large a, strong regul.
                    'normalize':False}
