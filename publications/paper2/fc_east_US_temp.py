@@ -226,7 +226,7 @@ for month, start_end_TVdate in months.items():
 
 
     kwrgs_model = {'scoring':'neg_mean_squared_error',
-                   'alphas':np.logspace(.1, 2, num=25),
+                   'alphas':np.logspace(.1, 4, num=25), # large a, strong regul.
                    'normalize':False}
 
     keys = [k for k in rg.df_data.columns[:-2] if k != rg.TV.name]
