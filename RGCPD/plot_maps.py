@@ -40,9 +40,9 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
                    clevels=None, cticks_center=None, drawbox=None, title=None,
                    title_fontdict: dict=None, subtitles: np.ndarray=None,
-                   subtitle_fontdict: dict=None, zoomregion=None, lat_labels=True,
-                   aspect=None, n_xticks=5, n_yticks=3, x_ticks: np.ndarray=None,
-                   y_ticks: np.ndarray=None, add_cfeature: str=None):
+                   subtitle_fontdict: dict=None, zoomregion=None,
+                   aspect=None, n_xticks=5, n_yticks=3, x_ticks: Union[bool, np.ndarray]=None,
+                   y_ticks: Union[bool, np.ndarray]=None, add_cfeature: str=None):
 
     '''
     zoomregion = tuple(east_lon, west_lon, south_lat, north_lat)
@@ -99,19 +99,18 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     # Coordinate labels
     # =============================================================================
     import cartopy.mpl.ticker as cticker
-    if x_ticks is None: # auto ticks
+    g.set_ticks(fontsize='large')
+    if x_ticks is None or x_ticks is False: #auto-ticks, if False, will be masked
         longitude_labels = np.linspace(np.min(lon), np.max(lon), n_xticks, dtype=int)
         longitude_labels = np.array(sorted(list(set(np.round(longitude_labels, -1)))))
     else:
-        longitude_labels = x_ticks
-    if y_ticks is None:  # auto ticks
+        longitude_labels = x_ticks # if x_ticks==False -> no ticklabels
+    if y_ticks is None or y_ticks is False: #auto-ticks, if False, will be masked
         latitude_labels = np.linspace(lat.min(), lat.max(), n_yticks, dtype=int)
         latitude_labels = sorted(list(set(np.round(latitude_labels, -1))))
     else:
-        latitude_labels = y_ticks
-    g.set_ticks(fontsize='large')
-    g.set_xlabels(label=[str(el) for el in longitude_labels])
-
+        latitude_labels = y_ticks # if y_ticks==False -> no ticklabels
+    # g.set_xlabels(label=[str(el) for el in longitude_labels])
 
     g.fig.subplots_adjust(hspace=hspace, wspace=wspace)
 
@@ -241,19 +240,25 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             # =============================================================================
             if map_proj.proj4_params['proj'] in ['merc', 'eqc', 'cea']:
                 ax = g.axes[row,col]
+                # x-ticks and labels
                 ax.set_xticks(longitude_labels[:], crs=ccrs.PlateCarree())
-                ax.set_xticklabels(longitude_labels[:], fontsize=12)
-                lon_formatter = cticker.LongitudeFormatter()
-                ax.xaxis.set_major_formatter(lon_formatter)
-
+                if x_ticks is not False:
+                    ax.set_xticklabels(longitude_labels[:], fontsize=12)
+                    lon_formatter = cticker.LongitudeFormatter()
+                    ax.xaxis.set_major_formatter(lon_formatter)
+                else:
+                    fake_labels = [' ' * len( str(l) ) for l in longitude_labels]
+                    g.axes[row,col].set_xticklabels(fake_labels, fontsize=12)
+                # y-ticks and labels
                 g.axes[row,col].set_yticks(latitude_labels, crs=ccrs.PlateCarree())
-                if lat_labels == True:
+                if y_ticks is not False:
                     g.axes[row,col].set_yticklabels(latitude_labels, fontsize=12)
                     lat_formatter = cticker.LatitudeFormatter()
                     g.axes[row,col].yaxis.set_major_formatter(lat_formatter)
                 else:
                     fake_labels = [' ' * len( str(l) ) for l in latitude_labels]
                     g.axes[row,col].set_yticklabels(fake_labels, fontsize=12)
+
                 g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3, linestyle='--')
                 g.axes[row,col].set_ylabel('')
                 g.axes[row,col].set_xlabel('')

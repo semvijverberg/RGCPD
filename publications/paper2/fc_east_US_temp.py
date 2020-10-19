@@ -18,7 +18,7 @@ import matplotlib
 from sklearn import metrics
 import pandas as pd
 import xarray as xr
-import sklearn.linear_model as scikitlinear
+# import sklearn.linear_model as scikitlinear
 import argparse
 
 user_dir = os.path.expanduser('~')
@@ -42,6 +42,7 @@ from RGCPD import BivariateMI
 import class_BivariateMI
 import func_models as fc_utils
 import functions_pp; import df_ana
+import plot_maps; import core_pp
 
 # Optionally set font to Computer Modern to avoid common missing font errors
 # matplotlib.rc('font', family='serif', serif='cm10')
@@ -56,7 +57,7 @@ freqs = np.array([15,60])
 expers = np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(targets, freqs, expers)).T.reshape(-1,3)
 
-i_default = 8
+i_default = 3
 
 
 
@@ -149,7 +150,7 @@ kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
               'wspace':-.15, 'size':3, 'cbar_vert':-.1,
               'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
               'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
-              'n_yticks':6, 'x_ticks':np.arange(130, 280, 25),
+              'y_ticks':np.arange(-10,61,20), 'x_ticks':np.arange(130, 280, 25),
               'subtitles':subtitles, 'title':title,
               'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
 
@@ -172,14 +173,16 @@ if experiment == 'fixed_corr':
 
 # rg.get_ts_prec()
 #%% (Adaptive) forecasting
-months = {'May-June'    : ('05-01', '06-30'),
+months = {'April-May'    : ('04-01', '05-31'),
+          'May-June'    : ('05-01', '06-30'),
           'June-July'   : ('06-01', '07-30'),
            'July-Aug'    : ('07-01', '08-31'),
            'Aug-Sept'    : ('08-01', '09-30'),
            'Sept-Okt'    : ('09-01', '10-31')}
 
 if precur_aggr == 60:
-    months = {'March-June'  : ('03-01', '06-30'),
+    months = {'Februari-May'  : ('02-01', '05-31'),
+              'March-June'  : ('03-01', '06-30'),
               'April-July'  : ('04-01', '07-30'),
               'May-Aug'    : ('05-01', '08-31'),
               'June-Sept'    : ('06-01', '09-30'),
@@ -341,10 +344,9 @@ ax = df_scores.plot.bar(rot=0, yerr=_yerr,
                         capsize=8, error_kw=dict(capthick=1),
                         color=['blue', 'green'])
 for noinfo in no_info_fc:
-    # first two childeren are not barplots
+    # first two children are not barplots
     idx = monthkeys.index(noinfo) + 2
-    ax.get_children()[idx].set_color('r') # MSE
-    # ax.get_children()[idx+1].set_color('r') # Corr
+    ax.get_children()[idx].set_color('r') # RMSE bar
 
 ax.set_ylabel('Skill Score', fontsize=16)
 # ax.set_xlabel('Months', fontsize=16)
@@ -370,7 +372,9 @@ plt.savefig(os.path.join(rg.path_outsub1,
              f'skill_score_vs_months_{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_{alpha_corr}.pdf'))
 #%%
 if experiment == 'adapt_corr':
-    import plot_maps;
+
+
+
 
     corr = dm[monthkeys[0]].mean(dim='split').drop('time')
     list_xr = [corr.expand_dims('months', axis=0) for i in range(len(monthkeys))]
@@ -389,23 +393,29 @@ if experiment == 'adapt_corr':
     corr.values = np_data
     mask = (('months', 'lag', 'latitude', 'longitude'), np_mask )
     corr.coords['mask'] = mask
-    subtitles = np.array([monthkeys])
-    kwrgs_plot = {'aspect':2, 'hspace':.3,
-                  'wspace':-.3, 'size':1.25, 'cbar_vert':-0.2,
-                  'units':'Corr. Coeff. [-]',
-                  'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
-                  'y_ticks':np.arange(-10,60,20),
-                  'x_ticks':np.arange(150,281,50),
-                  'subtitles':subtitles}
 
-    fig = plot_maps.plot_corr_maps(corr, mask_xr=corr.mask, col_dim='months',
-                                   row_dim=corr.dims[1],
-                                   **kwrgs_plot)
     precur = rg.list_for_MI[0]
     f_name = 'corr_{}_a{}'.format(precur.name,
                                 precur.alpha) + '_' + \
                                 f'{experiment}_lag{lag}_' + \
                                 f'tf{precur_aggr}_{method}'
+
+    corr.to_netcdf(os.path.join(rg.path_outsub1, f_name+'.nc'), mode='w')
+    import_ds = core_pp.import_ds_lazy
+    corr = import_ds(os.path.join(rg.path_outsub1, f_name+'.nc'))[precur.name]
+    subtitles = np.array([monthkeys])
+    kwrgs_plot = {'aspect':2, 'hspace':.3,
+                  'wspace':-.3, 'size':1.25, 'cbar_vert':-0.2,
+                  'units':'Corr. Coeff. [-]',
+                  'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
+                  'y_ticks':False,
+                  'x_ticks':False,
+                  'subtitles':subtitles}
+
+    fig = plot_maps.plot_corr_maps(corr, mask_xr=corr.mask, col_dim='months',
+                                   row_dim=corr.dims[1],
+                                   **kwrgs_plot)
+
     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
 #%%
     plt.savefig(fig_path, bbox_inches='tight')
