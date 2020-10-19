@@ -405,7 +405,7 @@ if experiment == 'adapt_corr':
     corr = import_ds(os.path.join(rg.path_outsub1, f_name+'.nc'))[precur.name]
     subtitles = np.array([monthkeys])
     kwrgs_plot = {'aspect':2, 'hspace':.3,
-                  'wspace':-.3, 'size':1.25, 'cbar_vert':-0.2,
+                  'wspace':-.4, 'size':1.25, 'cbar_vert':-0.1,
                   'units':'Corr. Coeff. [-]',
                   'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
                   'y_ticks':False,
