@@ -57,7 +57,7 @@ freqs = np.array([15,60])
 expers = np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(targets, freqs, expers)).T.reshape(-1,3)
 
-i_default = 3
+i_default = 5
 
 
 
@@ -181,7 +181,7 @@ months = {'April-May'    : ('04-01', '05-31'),
            'Sept-Okt'    : ('09-01', '10-31')}
 
 if precur_aggr == 60:
-    months = {'Februari-May'  : ('02-01', '05-31'),
+    months = {'Feb-May'  : ('02-01', '05-31'),
               'March-June'  : ('03-01', '06-30'),
               'April-July'  : ('04-01', '07-30'),
               'May-Aug'    : ('05-01', '08-31'),

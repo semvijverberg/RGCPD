@@ -663,7 +663,7 @@ class RGCPD:
 
                 kwrgs = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
                               'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
-                              'subtitles' : None, 'lat_labels':True,
+                              'subtitles' : None,
                               'cticks_center':True,
                               'cmap':cmap}
 
