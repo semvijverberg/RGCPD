@@ -108,7 +108,7 @@ elif target[-2:] == 'RW':
         TVpath =  user_dir + '/surfdrive/output_RGCPD/paper2_september/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_08min_df_data_v200_z500_dt1_0ff31_z500_145-325-20-62.h5'
 
 precur_aggr = tfreq
-method     = 'ran_strat10' #ran_strat20
+method     = 'random10' #ran_strat20
 n_boot = 5000
 
 append_main = ''
@@ -357,16 +357,18 @@ elif target[-2:] == 'RW':
 ax.set_title(title,
              fontsize=16)
 ax.tick_params(axis='both', labelsize=13)
-patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
-patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
-handles = [patch1, patch2]
-# manually define a new patch
-if len(no_info_fc) != 0:
-    patch = mpatches.Patch(color='red', label=f'alpha={int(alphas[-1])}')
-    handles.append(patch)
-ax.legend(handles=handles,
-          fontsize=16, frameon=True, facecolor='grey',
-          framealpha=.5)
+
+if tfreq==15 and experiment=='adapt_corr':
+    patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
+    patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
+    handles = [patch1, patch2]
+    # manually define a new patch
+    if len(no_info_fc) != 0:
+        patch = mpatches.Patch(color='red', label=f'alpha={int(alphas[-1])}')
+        handles.append(patch)
+    ax.legend(handles=handles,
+              fontsize=16, frameon=True, facecolor='grey',
+              framealpha=.5)
 ax.set_ylim(-0.5, 1)
 plt.savefig(os.path.join(rg.path_outsub1,
              f'skill_score_vs_months_{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_{alpha_corr}.pdf'))
