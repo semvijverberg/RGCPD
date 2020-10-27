@@ -115,7 +115,7 @@ elif target[-2:] == 'RW':
         TVpath =  user_dir + '/surfdrive/output_RGCPD/paper2_september/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_08min_df_data_v200_z500_dt1_0ff31_z500_145-325-20-62.h5'
 
 precur_aggr = tfreq
-method     = 'random10' #ran_strat20
+method     = 'random10' ; seed = 2
 n_boot = 5000
 
 append_main = ''
@@ -167,7 +167,7 @@ if experiment == 'fixed_corr':
     subfoldername = '_'.join([name_ds, rg.hash, experiment,
                           str(precur_aggr), str(alpha_corr), method])
     rg.pp_precursors()
-    rg.traintest(method=method, subfoldername=subfoldername)
+    rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
     rg.calc_corr_maps()
     rg.cluster_list_MI()
     rg.quick_view_labels(save=True, append_str=experiment)
@@ -222,7 +222,7 @@ for month, start_end_TVdate in months.items():
         subfoldername = '_'.join([name_ds, rg.hash, experiment,
                           str(precur_aggr), str(alpha_corr), method])
         rg.pp_precursors()
-        rg.traintest(method=method, subfoldername=subfoldername)
+        rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
         finalfolder = rg.path_outsub1.split('/')[-1]
 
         rg.calc_corr_maps()
@@ -349,7 +349,8 @@ _yerr = np.array(yerr).reshape(2,len(monthkeys)*2,
                                order='F').reshape(2,2,len(monthkeys))
 ax = df_scores.plot.bar(rot=0, yerr=_yerr,
                         capsize=8, error_kw=dict(capthick=1),
-                        color=['blue', 'green'])
+                        color=['blue', 'green'],
+                        legend=False)
 for noinfo in no_info_fc:
     # first two children are not barplots
     idx = monthkeys.index(noinfo) + 2
