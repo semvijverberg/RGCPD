@@ -201,9 +201,7 @@ class BivariateMI:
                     datesdaily = RV.aggr_to_daily_dates(dates_RV, tfreq=self.tfreq)
                     dates_lag = functions_pp.func_dates_min_lag(datesdaily,
                                                                 self.tfreq+lag)[1]
-                    # precur_train =
-                    # precur_train = functions_pp.time_mean_bins(precur_train,
-                    #                                        to_freq=self.tfreq)[0]
+
                     tmb = functions_pp.time_mean_bins
                     corr_val, pval = self.func(tmb(precur_train.sel(time=dates_lag),
                                                            to_freq=self.tfreq)[0],

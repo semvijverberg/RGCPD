@@ -36,28 +36,41 @@ from class_BivariateMI import parcorr_map_time
 import plot_maps
 
 
-west_east = 'west'
+west_east = 'east'
 if west_east == 'east':
     TVpathRW = '/Users/semvijverberg/surfdrive/output_RGCPD/paper2_september/east/2ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_10min_df_data_v200_z500_dt1_0ff31_z500_140-300-20-73.h5'
 
 elif west_east == 'west':
     TVpathRW = '/Users/semvijverberg/surfdrive/output_RGCPD/paper2_september/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_08min_df_data_v200_z500_dt1_0ff31_z500_145-325-20-62.h5'
 
+period = 'spring'
+if period == 'spring':
+    start_end_TVdate = ('03-01', '05-31')
+    lag = 2
+    tfreq = 90
+    lags = np.array([0])
+elif period == 'summer':
+    start_end_TVdate = ('06-01', '08-31')
+    lag = 1
+    tfreq = 90
+    lags = np.array([0,1])
+
+
+
 path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_forecast/')
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
-start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
 
-tfreq = 60
-lags = np.array([0,1])
+
+
 
 #%% Only SST (Parcorrtime and parcorr on PDO)
 
 list_of_name_path = [(name_or_cluster_label, TVpathRW),
                        ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
-exper = 'parcorr'
+exper = 'parcorrtime'
 
 if exper == 'parcorr':
     lowpass = '2y'
@@ -66,7 +79,8 @@ if exper == 'parcorr':
     z_filepath = os.path.join(path_data, f'PDO_{lowpass}_rm_25-09-20_15hr.h5')
     keys_ext = ['PDO']
     kwrgs_func = {'filepath':z_filepath,
-                  'keys_ext':keys_ext}
+                  'keys_ext':keys_ext,
+                  'lag':lag}
 elif exper == 'corr':
     func = corr_map
     kwrgs_func = {}
@@ -80,7 +94,7 @@ list_for_MI   = [BivariateMI(name='sst', func=func,
                             alpha=.05, FDR_control=True,
                             kwrgs_func=kwrgs_func,
                             distance_eps=1000, min_area_in_degrees2=1,
-                            calc_ts='pattern cov', selbox=(120,260,-10,90),
+                            calc_ts='pattern cov', selbox=(130,260,-10,60),
                             lags=lags)]
 
 
@@ -120,7 +134,7 @@ elif exper == 'corr':
     append_str='' ; fontsize = 14
 elif exper == 'parcorrtime':
     title = f'$parcorr(SST_t, {west_east.capitalize()[0]}$-$RW\ |\ $'+r'$SST_{t-1},$'+f'${west_east.capitalize()[0]}$-'+r'$RW_{t-1})$'
-    append_str='parcorrtime' ; fontsize = 12
+    append_str=f'parcorrtime_{period}' ; fontsize = 12
 
 
 kwrgs_plot = {'row_dim':'lag', 'col_dim':'split',

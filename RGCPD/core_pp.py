@@ -98,7 +98,7 @@ def import_ds_lazy(filename, loadleap=False,
             ds = detect_mask(ds)
 
         if format_lon is not None:
-            if test_periodic(ds)==False and 0 not in ds.longitude:
+            if test_periodic(ds)==False and crossing0lon(ds)==False:
                 format_lon = 'only_east'
             if _check_format(ds) != format_lon:
                 ds = convert_longitude(ds, format_lon)
@@ -656,6 +656,10 @@ def test_periodic(ds):
 def test_periodic_lat(ds):
     dlat = abs(ds.latitude[1] - ds.latitude[0])
     return ((180/dlat)+1 == ds.latitude.size).values
+
+def crossing0lon(ds):
+    dlon = ds.longitude[1] - ds.longitude[0]
+    return ds.sel(longitude=0, method='nearest').longitude < dlon
 
 def _check_format(ds):
     longitude = ds.longitude.values

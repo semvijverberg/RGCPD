@@ -83,7 +83,11 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
             precur.df_z = f.get_df_test(precur.df_z.merge(df_splits,
                                                           left_index=True,
                                                           right_index=True)).iloc[:,:1]
-        precur.kwrgs_func = {'z':precur.df_z} # overwrite kwrgs_func
+        k = list(precur.kwrgs_func.keys())
+        [precur.kwrgs_func.pop(k) for k in k if k in ['filepath','keys_ext']]
+        precur.kwrgs_func.update({'z':precur.df_z}) # overwrite kwrgs_func
+        k = [k for k in list(precur.kwrgs_z.keys()) if k not in ['filepath','keys_ext']]
+
         equal_dates = all(np.equal(precur.df_z.index,
                                    pd.to_datetime(precur.precur_arr.time.values)))
         if equal_dates==False:

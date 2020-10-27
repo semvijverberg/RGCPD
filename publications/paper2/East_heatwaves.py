@@ -296,7 +296,7 @@ for f in freqs:
 
 #%% EOFs
 if west_east == 'east':
-    subtitles = np.array([['Clustered simultaneous high temp. events']])
+    subtitles = np.array([['Clustered simultaneous warm temp. periods']])
     plot_maps.plot_labels(rg.ds['xrclustered'],
                           zoomregion=(230,300,25,60),
                           kwrgs_plot={'subtitles':subtitles,

@@ -50,14 +50,18 @@ import plot_maps; import core_pp
 # matplotlib.rc('text', usetex=True)
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
+region = 'eastern'
+
+if region == 'eastern':
+    targets = ['easterntemp', 'easternRW']
+elif region == 'western':
+    targets = ['westerntemp', 'westernRW']
 
 
-targets = ['easterntemp', 'westerntemp', 'easternRW', 'westernRW']
-freqs = np.array([15,60])
 expers = np.array(['fixed_corr', 'adapt_corr'])
-combinations = np.array(np.meshgrid(targets, freqs, expers)).T.reshape(-1,3)
+combinations = np.array(np.meshgrid(targets, expers)).T.reshape(-1,2)
 
-i_default = 5
+i_default = 0
 
 
 
@@ -77,8 +81,11 @@ if __name__ == '__main__':
     args = parseArguments()
     out = combinations[args.intexper]
     target = out[0]
-    tfreq = int(out[1])
-    experiment = out[2]
+    experiment = out[1]
+    if target[-4:]=='temp':
+        tfreq = 15
+    else:
+        tfreq = 60
     print(f'arg {args.intexper} - Target {target}, Experiment {experiment}, tfreq {tfreq}')
 else:
     target = targets[2]
