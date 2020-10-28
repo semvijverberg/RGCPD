@@ -59,7 +59,8 @@ elif region == 'western':
 
 
 expers = np.array(['fixed_corr', 'adapt_corr'])
-combinations = np.array(np.meshgrid(targets, expers)).T.reshape(-1,2)
+seeds = np.array([1,2,3])
+combinations = np.array(np.meshgrid(targets, expers, seeds)).T.reshape(-1,3)
 
 i_default = 2
 
@@ -82,6 +83,7 @@ if __name__ == '__main__':
     out = combinations[args.intexper]
     target = out[0]
     experiment = out[1]
+    seed = out[2]
     if target[-4:]=='temp':
         tfreq = 15
     else:
@@ -92,6 +94,7 @@ else:
     tfreq = 60
     experiment = 'fixed_corr'
     experiment = 'adapt_corr'
+    seed = 1
 
 
 calc_ts='region mean' # pattern cov
@@ -115,7 +118,7 @@ elif target[-2:] == 'RW':
         TVpath =  user_dir + '/surfdrive/output_RGCPD/paper2_september/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_08min_df_data_v200_z500_dt1_0ff31_z500_145-325-20-62.h5'
 
 precur_aggr = tfreq
-method     = 'leave_2' ; seed = 2
+method     = 'random10' ;
 n_boot = 5000
 
 append_main = ''
@@ -124,7 +127,7 @@ append_main = ''
 
 #%% run RGPD
 start_end_TVdate = ('06-01', '08-31')
-start_end_date = ('1-1', '10-31')
+start_end_date = ('1-1', '12-31')
 list_of_name_path = [(cluster_label, TVpath),
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
@@ -164,6 +167,7 @@ kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
 #%%
 if experiment == 'fixed_corr':
     rg.pp_TV(name_ds=name_ds, detrend=False)
+
     subfoldername = '_'.join([target,rg.hash, experiment.split('_')[0],
                           str(precur_aggr), str(alpha_corr), method,
                           str(seed)])
@@ -197,6 +201,12 @@ if precur_aggr == 60:
               'June-Sept'    : ('06-01', '09-30'),
               'July-Okt'    : ('07-01', '10-31')}
 
+    # months = {'March-June'  : ('03-01', '06-30'),
+    #           'April-July'  : ('04-01', '07-30'),
+    #           'May-Aug'    : ('05-01', '08-31'),
+    #           'June-Sept'    : ('06-01', '09-30'),
+    #           'July-Okt'    : ('07-01', '10-31')}
+
 monthkeys= list(months.keys()) ; oneyrsize = 0
 
 
@@ -213,7 +223,7 @@ list_test_b = []
 no_info_fc = []
 dm = {} # dictionairy months
 for month, start_end_TVdate in months.items():
-
+    # month, start_end_TVdate = list(months.items())[0]
     if experiment == 'fixed_corr':
         # overwrite RV_mask
         rg.get_ts_prec(precur_aggr=precur_aggr,
@@ -254,7 +264,9 @@ for month, start_end_TVdate in months.items():
             if nextyr.size != oneyrsize:
                 raise ValueError
 
-        target_ts = rg.df_data.iloc[:,[0]].loc[0][rg.df_data.iloc[:,-1].loc[0]]
+        fc_mask = rg.df_data.iloc[:,-1].loc[0]#.shift(lag, fill_value=False)
+        # rg.df_data = rg._replace_RV_mask(rg.df_data, replace_RV_mask=(fc_mask))
+        target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
         target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 
         # ScikitModel = scikitlinear.LassoCV

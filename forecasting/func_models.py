@@ -165,7 +165,10 @@ def apply_shift_lag(fit_masks, lag_i):
         x_fit[~x_fit.notna()] = False
 
     # cannot predict first values of y because there is no X
-    dates_no_X_info = RV_mask.index[:int(lag_i)]
+    if lag_i >= 0:
+        dates_no_X_info = RV_mask.index[:int(lag_i)]
+    elif lag_i < 0:
+        dates_no_X_info = RV_mask.index[int(lag_i):]
     y_pred = RV_mask.copy()
     y_pred.loc[dates_no_X_info] = False
     y_fit.loc[dates_no_X_info] = False
