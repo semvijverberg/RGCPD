@@ -166,7 +166,7 @@ if experiment == 'fixed_corr':
     rg.pp_TV(name_ds=name_ds, detrend=False)
     subfoldername = '_'.join([target,rg.hash, experiment.split('_')[0],
                           str(precur_aggr), str(alpha_corr), method,
-                          str(rg.TV.seed)])
+                          str(seed)])
 
     rg.pp_precursors()
     rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
@@ -221,8 +221,9 @@ for month, start_end_TVdate in months.items():
     elif experiment == 'adapt_corr':
         rg.start_end_TVdate = start_end_TVdate
         rg.pp_TV(name_ds=name_ds, detrend=False)
-        subfoldername = '_'.join([name_ds, rg.hash, experiment,
-                          str(precur_aggr), str(alpha_corr), method])
+        subfoldername = '_'.join([target,rg.hash, experiment.split('_')[0],
+                          str(precur_aggr), str(alpha_corr), method,
+                          str(seed)])
         rg.pp_precursors()
         rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
         finalfolder = rg.path_outsub1.split('/')[-1]
