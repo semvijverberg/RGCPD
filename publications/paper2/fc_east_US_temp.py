@@ -83,7 +83,7 @@ if __name__ == '__main__':
     out = combinations[args.intexper]
     target = out[0]
     experiment = out[1]
-    seed = out[2]
+    seed = int(out[2])
     if target[-4:]=='temp':
         tfreq = 15
     else:
