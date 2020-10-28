@@ -61,7 +61,7 @@ elif region == 'western':
 expers = np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(targets, expers)).T.reshape(-1,2)
 
-i_default = 0
+i_default = 2
 
 
 
@@ -164,8 +164,10 @@ kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
 #%%
 if experiment == 'fixed_corr':
     rg.pp_TV(name_ds=name_ds, detrend=False)
-    subfoldername = '_'.join([name_ds, rg.hash, experiment,
-                          str(precur_aggr), str(alpha_corr), method])
+    subfoldername = '_'.join([target,rg.hash, experiment.split('_')[0],
+                          str(precur_aggr), str(alpha_corr), method,
+                          str(rg.TV.seed)])
+
     rg.pp_precursors()
     rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
     rg.calc_corr_maps()
