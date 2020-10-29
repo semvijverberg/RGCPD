@@ -118,7 +118,7 @@ elif target[-2:] == 'RW':
         TVpath =  user_dir + '/surfdrive/output_RGCPD/paper2_september/west/1ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_08min_df_data_v200_z500_dt1_0ff31_z500_145-325-20-62.h5'
 
 precur_aggr = tfreq
-method     = 'leave_2' ;
+method     = 'ran_strat10' ;
 n_boot = 5000
 
 append_main = ''

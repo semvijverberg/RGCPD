@@ -914,7 +914,7 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
                             index=pd.to_datetime(TV_ts.time.values),
                             columns=['RV'+fullts.name])
 
-    if method[:9] == 'ran_strat' and kwrgs_events is None and precursor_ts is not None:
+    if method[:9] == 'ran_strat' and kwrgs_events is None and precursor_ts is None:
             # events need to be defined to enable stratified traintest.
             kwrgs_events = {'event_percentile': 66,
                             'min_dur' : 1,

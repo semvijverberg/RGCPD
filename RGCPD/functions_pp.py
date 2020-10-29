@@ -1240,9 +1240,7 @@ def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
         n_spl  = test_yrs.shape[0]
     if method[:6] == 'random' or method[:9] == 'ran_strat':
         if seed is None:
-            seed = 30 # control reproducibility train/test split
-        else:
-            seed = seed
+            seed = 1 # control reproducibility train/test split
         if method[:6] == 'random':
             n_spl = int(method[6:8])
         else:
