@@ -37,7 +37,7 @@ import class_BivariateMI
 import functions_pp
 
 targets = ['west', 'east']
-seeds = np.array([1,2,3])
+seeds = np.array([1,2,3,4,5])
 combinations = np.array(np.meshgrid(targets, seeds)).T.reshape(-1,2)
 
 i_default = 0
@@ -225,7 +225,7 @@ for f in freqs[:]:
                      max_combinations=10)
     rg.PCMCI_get_links(var=keys[0], alpha_level=.01)
     lags = range(rg.kwrgs_pcmci['tau_min'], rg.kwrgs_pcmci['tau_max'])
-    lags = np.array([l*f for l in lags])
+    lags = np.array([l*f for i, l in enumerate(lags) if i])
     SST_RW = rg.df_MCIc.mean(0,level=1).loc['SST'][:3].round(3).values
     SST_RW = '_'.join(SST_RW.astype(str))
     mlr=5
@@ -233,9 +233,9 @@ for f in freqs[:]:
                                              rg.parents_dict,
                                              rg.pcmci_results_dict,
                                              min_link_robustness=mlr)[0:3]
-    RW_to_SST = robustness[1,0,1:][links_plot[1,0,1:]]
-    SST_to_RW = robustness[0,1,1:][links_plot[0,1,1:]]
-    rb = np.concatenate([SST_to_RW, RW_to_SST]).astype(int)
+    SST_to_RW= robustness[1,0,1:][links_plot[1,0,1:]]
+    RW_to_SST = robustness[0,1,1:][links_plot[0,1,1:]]
+    rb = np.concatenate([RW_to_SST, SST_to_RW]).astype(int)
     rb = '_'.join(rb.astype(str))
     #%%
     rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(12,6),
@@ -253,7 +253,7 @@ for f in freqs[:]:
                                'arrowhead_size':1000,
                                'link_label_fontsize':30,
                                'label_fontsize':10,
-                               'weights_squared':1},
+                               'weights_squared':1.5},
                         append_figpath=f'_tf{rg.precur_aggr}_{SST_RW}_rb{mlr}_rb{rb}')
     #%%
     rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
