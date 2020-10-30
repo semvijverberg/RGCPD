@@ -208,6 +208,7 @@ rg.quick_view_labels(median=True)
 # rg.store_df(append_str=f'RW_and_SST_fb_tf{rg.tfreq}')
 
 #%%
+import wrapper_PCMCI as wPCMCI
 # rg.cluster_list_MI()
 # rg.list_for_MI[0].calc_ts = 'pattern cov'
 freqs = [1, 5, 10, 15, 30, 60]
@@ -226,8 +227,16 @@ for f in freqs[:]:
     lags = range(rg.kwrgs_pcmci['tau_min'], rg.kwrgs_pcmci['tau_max'])
     lags = np.array([l*f for l in lags])
     SST_RW = rg.df_MCIc.mean(0,level=1).loc['SST'][:3].round(3).values
-    SST_RW = '_'.join(np.array(SST_RW,dtype=str))
+    SST_RW = '_'.join(SST_RW.astype(str))
     mlr=5
+    links_plot, val_plot, robustness = wPCMCI.get_traintest_links(rg.pcmci_dict,
+                                             rg.parents_dict,
+                                             rg.pcmci_results_dict,
+                                             min_link_robustness=mlr)[0:3]
+    RW_to_SST = robustness[1,0,1:][links_plot[1,0,1:]]
+    SST_to_RW = robustness[0,1,1:][links_plot[0,1,1:]]
+    rb = np.concatenate([SST_to_RW, RW_to_SST]).astype(int)
+    rb = '_'.join(rb.astype(str))
     #%%
     rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(12,6),
                         kwrgs={'vmax_nodes':.9,
@@ -245,7 +254,7 @@ for f in freqs[:]:
                                'link_label_fontsize':30,
                                'label_fontsize':10,
                                'weights_squared':1},
-                        append_figpath=f'_tf{rg.precur_aggr}_{SST_RW}_rb{mlr}')
+                        append_figpath=f'_tf{rg.precur_aggr}_{SST_RW}_rb{mlr}_rb{rb}')
     #%%
     rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
     rg.df_links.astype(int).sum(0, level=1)
@@ -286,7 +295,10 @@ for f in freqs:
     m = np.array([True if y in sumyears else False for y in RV_mask.index.year])
     new_mask = np.logical_and(m, RV_mask)
     new_mask.astype(int).plot()
-    plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates_SST_and_RW.pdf'))
+    try:
+        plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates_SST_and_RW.pdf'))
+    except:
+        continue
     print(f'{new_mask[new_mask].size} datapoints')
 
     # when both SST is anomalous
@@ -302,7 +314,10 @@ for f in freqs:
     m = np.array([True if y in sumyears else False for y in RV_mask.index.year])
     new_mask = np.logical_and(m, RV_mask)
     new_mask.astype(int).plot()
-    plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates_SST_and_RW.pdf'))
+    try:
+        plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates_SST_and_RW.pdf'))
+    except:
+        continue
     print(f'{new_mask[new_mask].size} datapoints')
 
     rg.PCMCI_df_data(keys=keys,

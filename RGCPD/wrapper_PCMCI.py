@@ -505,7 +505,6 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
         df_robustness = df_robustness.reindex(index=fullindex)
         weights = df_robustness.values
         weights = weights.reshape(len(var_names), len(var_names), -1)
-        # df_links = pd.concat(links_s, keys=splits).max(axis=0, level=1)
         df_links = df_robustness >= min_link_robustness
         # ensure that missing links due to potential precursor step are not
         # appended to pandas df (auto behavior)
