@@ -157,7 +157,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
 
         for row, r_label in enumerate(rows):
-            print(f"\rPlotting Corr maps {var_n}, {row_dim} {r_label}, {col_dim} {c_label}", end="")
+            print(f"\rPlotting Corr maps {var_n}, {row_dim} {r_label}, {col_dim} {c_label}", end="\n")
             plotdata = xrdatavar.sel(row=r_label).rename(rename_subs).squeeze()
 
             if mask_xr is not None:
@@ -627,7 +627,7 @@ def _get_kwrgs_labels(prec_labels):
 
 
     kwrgs_labels = {'size':3, 'clevels':clevels,
-                  'lat_labels':True, 'cticks_center':True,
+                  'cticks_center':True,
                   'cmap':cmap,
                   'units': None}
 

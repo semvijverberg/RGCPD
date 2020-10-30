@@ -39,12 +39,51 @@ def import_ds_lazy(filename, loadleap=False,
                    start_end_year: tuple=None, selbox: Union[list, tuple]=None,
                    format_lon='only_east', var=None, auto_detect_mask: bool=False,
                    dailytomonths: bool=False, verbosity=0):
+    '''
+
+
+    Parameters
+    ----------
+    filename : TYPE
+        DESCRIPTION.
+    loadleap : TYPE, optional
+        DESCRIPTION. The default is False.
+    seldates : Union[tuple, pd.core.indexes.datetimes.DatetimeIndex], optional
+        DESCRIPTION. The default is None.
+    start_end_year : tuple, optional
+        DESCRIPTION. The default is None.
+    selbox : Union[list, tuple], optional
+        selbox assumes [lowest_east_lon, highest_east_lon, south_lat, north_lat].
+        The default is None.
+    format_lon : TYPE, optional
+        'only_east' or 'west_east. The default is 'only_east'.
+    var : str, optional
+        variable name. The default is None.
+    auto_detect_mask : bool, optional
+        Detect mask based on NaNs. The default is False.
+    dailytomonths : bool, optional
+        aggregate to monthly, tfreq is then considered {tfreq} monthly means.
+        The default is False.
+    verbosity : TYPE, optional
+        DESCRIPTION. The default is 0.
+
+    Returns
+    -------
+    ds : TYPE
+        DESCRIPTION.
 
     '''
-    selbox has format of (lon_min, lon_max, lat_min, lat_max)
-    # in format only_east
-    # selbox assumes [lowest_east_lon, highest_east_lon, south_lat, north_lat]
-    '''
+    # '''
+
+    # selbox has format of (lon_min, lon_max, lat_min, lat_max)
+    # # in format only_east
+    # #
+
+
+    # '''
+
+
+
 
     ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
 
@@ -84,7 +123,9 @@ def import_ds_lazy(filename, loadleap=False,
             # seldates are pd.DatetimeIndex
             ds = ds.sel(time=seldates)
         if dailytomonths:
-            ds = ds.resample(time='1M', restore_coord_dims=True).mean()
+            # resample annoying replaces datetimes between date gaps, dropna().
+            ds = ds.resample(time='1M', skipna=True,
+                             restore_coord_dims=False).mean().dropna(dim='time')
             dtfirst = [s+'-01' for s in ds["time"].dt.strftime('%Y-%m').values]
             ds = ds.assign_coords({'time':pd.to_datetime(dtfirst)})
 

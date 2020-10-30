@@ -527,6 +527,8 @@ class RGCPD:
                      'arrowhead_size':4000,
                      'arrow_linewidth':50,
                      'label_fontsize':14}
+        if 'weights_squared' in kwrgs.keys():
+            weights = weights**kwrgs.pop('weights_squared')
         fig = plt.figure(figsize=figshape, facecolor='white')
         ax = fig.add_subplot(111, facecolor='white')
         tp.plot_graph(val_matrix=val_plot,

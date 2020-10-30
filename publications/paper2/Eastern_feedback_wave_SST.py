@@ -9,7 +9,7 @@ Created on Mon May 25 15:33:52 2020
 import os, inspect, sys
 import numpy as np
 import cartopy.crs as ccrs
-
+import argparse
 
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
@@ -17,6 +17,7 @@ main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
+data_dir = os.path.join(main_dir,'publications/paper2/data')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -32,20 +33,55 @@ import class_BivariateMI
 
 import functions_pp
 
+west_east = 'west'
 
-TVpathPac = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/2ts_0ff31_10jun-24aug_lag0-0_ts_no_train_test_splits1/2020-07-07_18hr_48min_df_data_z500_v200_dt1_0ff31.h5'
-# TVpathRW = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/2ts_0ff31_10jun-24aug_lag0-0_ts_no_train_test_splits1/2020-07-01_17hr_04min_df_data_z500_dt1_0ff31.h5'
-TVpathall = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/2ts_0ff31_10jun-24aug_lag0-0_ts_no_train_test_splits1/2020-07-07_18hr_48min_df_data_z500_v200_dt1_0ff31.h5'
-TVpathRWvsRW = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/output/east/z5000..0..z500_sp_0ff31_10jun-24aug_lag0-15_0..0..z500_sp_random10s1/2020-07-09_11hr_42min_df_data_N-Pac. SST_Trop. Pac. SST_z500_dt1_0ff31.h5'
-TVpathRW = user_dir + '/surfdrive/output_RGCPD/paper2_september/east/2ts_0ff31_10jun-24aug_lag0-15_ts_random10s1/2020-07-14_15hr_10min_df_data_v200_z500_dt1_0ff31_z500_140-300-20-73.h5'
-path_out_main = os.path.join(main_dir, 'publications/paper2/output/east/')
+targets = ['west', 'east']
+seeds = np.array([1,2,3])
+combinations = np.array(np.meshgrid(targets, seeds)).T.reshape(-1,2)
+
+i_default = 1
+
+
+
+def parseArguments():
+    # Create argument parser
+    parser = argparse.ArgumentParser()
+
+    # Optional arguments
+    parser.add_argument("-i", "--intexper", help="intexper", type=int,
+                        default=i_default)
+    # Parse arguments
+    args = parser.parse_args()
+    return args
+
+
+if __name__ == '__main__':
+    args = parseArguments()
+    out = combinations[args.intexper]
+    west_east = out[0]
+    seed = int(out[1])
+    print(f'arg {args.intexper} - seed {seed}')
+else:
+    seed = 1
+
+
+
+if west_east == 'east':
+    TVpathRW = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
+elif west_east =='west':
+    TVpathRW = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
+
+
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}/')
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
 
-tfreq = 15
+tfreq         = 15
 min_detect_gc = 1.0
+method        = 'ran_strat10' ; seed=2
+
 
 if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
 if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
@@ -82,8 +118,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
            tfreq=tfreq,
-           path_outmain=path_out_main,
-           append_pathsub='_' + name_ds)
+           path_outmain=path_out_main)
 
 
 rg.pp_TV(name_ds=name_ds)
@@ -91,7 +126,7 @@ rg.pp_TV(name_ds=name_ds)
 rg.pp_precursors(anomaly=True)
 
 
-rg.traintest(method='random10')
+rg.traintest(method=method, seed=seed)
 
 rg.calc_corr_maps()
 
@@ -159,12 +194,11 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
            tfreq=tfreq,
-           path_outmain=path_out_main,
-           append_pathsub='_' + name_ds)
+           path_outmain=path_out_main)
 
 rg.pp_TV(name_ds=name_ds)
 rg.pp_precursors(anomaly=True)
-rg.traintest(method='random10')
+rg.traintest(method=method, seed=seed)
 
 rg.calc_corr_maps(var='N-Pac. SST')
 rg.cluster_list_MI(var='N-Pac. SST')
@@ -178,48 +212,53 @@ rg.quick_view_labels(median=True)
 freqs = [1, 5, 10, 15, 30, 60]
 for f in freqs[:]:
     rg.get_ts_prec(precur_aggr=f)
-    rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':'Rossby wave (z500)', '0..0..N-Pac. SST_sp':'N-Pacific SST',
-                                    '15..0..Trop. Pac. SST_sp':'Trop. Pac. SST',
-                                    '15..2..Trop. Pac. SST':'Nina'}, axis=1)
+    rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':f'{west_east[0].capitalize()}-RW',
+                                    '0..0..N-Pac. SST_sp':'SST'}, axis=1)
 
-    keys = [['Rossby wave (z500)','N-Pacific SST']]
-    k = keys[0]
-    name_k = ''.join(k[:2]).replace(' ','')
-    k.append('TrainIsTrue') ; k.append('RV_mask')
-
-    rg.PCMCI_df_data(keys=k,
+    keys = [f'{west_east[0].capitalize()}-RW','SST']
+    rg.PCMCI_df_data(keys=keys,
                      pc_alpha=None,
                      tau_max=5,
                      max_conds_dim=10,
                      max_combinations=10)
-    rg.PCMCI_get_links(var=k[0], alpha_level=.01)
-
-    rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(3,2),
-                        kwrgs={'vmax_nodes':1.0,
-                               'vmax_edges':.6,
-                               'vmin_edges':-.6,
+    rg.PCMCI_get_links(var=keys[0], alpha_level=.01)
+    lags = range(rg.kwrgs_pcmci['tau_min'], rg.kwrgs_pcmci['tau_max'])
+    lags = np.array([l*f for l in lags])
+    SST_RW = rg.df_MCIc.mean(0,level=1).loc['SST'][:3].round(3).values
+    SST_RW = '_'.join(np.array(SST_RW,dtype=str))
+    mlr=5
+    #%%
+    rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(12,6),
+                        kwrgs={'vmax_nodes':.9,
+                               'node_aspect':80,
+                               'node_size':.008,
                                'node_ticks':.3,
-                               'edge_ticks':.3,
+                               'node_label_size':40,
+                               'vmax_edges':.6,
+                               'vmin_edges':0,
+                               'cmap_edges':'plasma_r',
+                               'edge_ticks':.2,
+                               'lag_array':lags,
                                'curved_radius':.5,
                                'arrowhead_size':1000,
+                               'link_label_fontsize':30,
                                'label_fontsize':10,
-                               'link_label_fontsize':12,
-                               'node_label_size':16},
-                        append_figpath=f'_tf{rg.precur_aggr}_{name_k}')
-
-    rg.PCMCI_get_links(var=k[1], alpha_level=.01)
+                               'weights_squared':1},
+                        append_figpath=f'_tf{rg.precur_aggr}_{SST_RW}_rb{mlr}')
+    #%%
+    rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
     rg.df_links.astype(int).sum(0, level=1)
     MCI_ALL = rg.df_MCIc.mean(0, level=1)
 
 #%%
-import func_models
+# import func_models
 
-shift = 2
-mask_standardize = np.logical_and(rg.df_data.loc[0]['TrainIsTrue'], rg.df_data.loc[0]['RV_mask'])
-df = func_models.standardize_on_train(rg.df_data[k].loc[0], mask_standardize)
-RV_and_SST_mask = np.logical_and(rg.df_data.loc[0]['RV_mask'], df['N-Pacific SST'].shift(-shift) > .5)
-fig = df[RV_and_SST_mask][k[:-2]].hist(sharex=True)
-fig[0,0].set_xlim(-3,3)
+# shift = 2
+# mask_standardize = np.logical_and(rg.df_data.loc[0]['TrainIsTrue'], rg.df_data.loc[0]['RV_mask'])
+# df = func_models.standardize_on_train(rg.df_data.loc[0], mask_standardize)
+# RV_and_SST_mask = np.logical_and(rg.df_data.loc[0]['RV_mask'], df['N-Pacific SST'].shift(-shift) > .5)
+# fig = df[RV_and_SST_mask][keys].hist(sharex=True)
+# fig[0,0].set_xlim(-3,3)
 
 #%% Adapt RV_mask
 import matplotlib.pyplot as plt
@@ -228,10 +267,10 @@ import matplotlib.pyplot as plt
 freqs = [1, 15, 30, 60]
 for f in freqs:
     rg.get_ts_prec(precur_aggr=f)
+    rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':f'{west_east[0].capitalize()}-RW',
+                                    '0..0..N-Pac. SST_sp':'SST'}, axis=1)
 
-    keys = ['z5000..0..z500_sp',
-           '0..0..NorthPacAtl_sp', 'TrainIsTrue',
-           'RV_mask']
+    keys = [f'{west_east[0].capitalize()}-RW','SST']
 
     # when both SST and RW above threshold
     RW_ts = rg.df_data.loc[0].iloc[:,0]

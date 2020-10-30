@@ -561,13 +561,12 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
     xarray = xarray.sel(time=date_time)
     years = np.unique(date_time.year)
     one_yr = get_oneyr(date_time, years[1])
-
+    possible = []
+    for i in np.arange(1,20):
+        if one_yr.size%i == 0:
+            possible.append(i)
 
     if one_yr.size % tfreq != 0:
-        possible = []
-        for i in np.arange(1,20):
-            if one_yr.size%i == 0:
-                possible.append(i)
         if verbosity == 1:
             print('Note: stepsize {} does not fit in one year\n '
                             ' supply an integer that fits {}'.format(
@@ -594,7 +593,9 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
         dates_tobin = date_time
 
     n_years = np.unique(dates_tobin.year).size
-    if start_end_date == ('1-1', '12-31') or start_end_date is None:
+    wantfullyr = start_end_date == ('1-1', '12-31') or start_end_date is None
+    incomplete_close = tfreq not in possible
+    if wantfullyr and incomplete_close:
         firstyr = get_oneyr(dates_tobin)
         firstyr = firstyr[firstyr <= f'{firstyr.year[0]}-{closed_on_date}']
         bins = np.repeat(np.arange(0,firstyr.size/tfreq),tfreq)
@@ -605,8 +606,8 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
 
     else:
         # assumes no crossyr, consecutive bins fall in 1 yr
-        fit_steps_yr = (one_yr.size )  / tfreq
-        bins = list(np.repeat(np.arange(0, fit_steps_yr), tfreq))
+        fit_steps_yr = int((one_yr.size )  / tfreq)
+        bins = np.repeat(np.arange(0, fit_steps_yr), tfreq)
     if get_oneyr(dates_tobin, years[0]).size != get_oneyr(dates_tobin, years[1]).size:
         # crossyr timemeanbins,
         n_years -= 1
