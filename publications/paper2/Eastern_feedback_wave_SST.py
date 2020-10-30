@@ -225,7 +225,7 @@ for f in freqs[:]:
                      max_combinations=10)
     rg.PCMCI_get_links(var=keys[0], alpha_level=.01)
     lags = range(rg.kwrgs_pcmci['tau_min'], rg.kwrgs_pcmci['tau_max'])
-    lags = np.array([l*f for i, l in enumerate(lags) if i])
+    lags = np.array([l*f for i, l in enumerate(lags)])
     SST_RW = rg.df_MCIc.mean(0,level=1).loc['SST'][:3].round(3).values
     SST_RW = '_'.join(SST_RW.astype(str))
     mlr=5
