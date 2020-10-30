@@ -7,6 +7,9 @@ Created on Mon May 25 15:33:52 2020
 """
 
 import os, inspect, sys
+if sys.platform == 'linux':
+    import matplotlib as mpl
+    mpl.use('Agg')
 import numpy as np
 import cartopy.crs as ccrs
 import argparse
