@@ -261,7 +261,7 @@ for f in freqs[:]:
 #%% Adapt RV_mask
 import matplotlib.pyplot as plt
 
-
+quantilethreshold = .66
 freqs = [1, 15, 30, 60]
 for f in freqs:
     rg.get_ts_prec(precur_aggr=f)
@@ -272,10 +272,10 @@ for f in freqs:
 
     # when both SST and RW above threshold
     RW_ts = rg.df_data.loc[0].iloc[:,0]
-    RW_mask = RW_ts > float(rg.TV.RV_ts.quantile(q=.75))
+    RW_mask = RW_ts > float(rg.TV.RV_ts.quantile(q=quantilethreshold))
     new_mask = np.logical_and(rg.df_data.loc[0]['RV_mask'], RW_mask)
-    sst = functions_pp.get_df_test(rg.df_data, cols=['0..0..NorthPacAtl_sp'])
-    sst_mask = (sst > sst.quantile(q=.75).values).squeeze()
+    sst = functions_pp.get_df_test(rg.df_data, cols=['SST'])
+    sst_mask = (sst > sst.quantile(q=quantilethreshold).values).squeeze()
     new_mask = np.logical_and(sst_mask, new_mask)
     sumyears = new_mask.groupby(new_mask.index.year).sum()
     sumyears = list(sumyears.index[sumyears > 25])
@@ -288,10 +288,10 @@ for f in freqs:
 
     # when both SST is anomalous
     RW_ts = rg.df_data.loc[0].iloc[:,0]
-    RW_mask = RW_ts > float(rg.TV.RV_ts.quantile(q=.75))
+    RW_mask = RW_ts > float(rg.TV.RV_ts.quantile(q=quantilethreshold))
     new_mask = np.logical_and(rg.df_data.loc[0]['RV_mask'], RW_mask)
-    sst = functions_pp.get_df_test(rg.df_data, cols=['0..0..NorthPacAtl_sp'])
-    sst_mask = (sst > sst.quantile(q=.75).values).squeeze()
+    sst = functions_pp.get_df_test(rg.df_data, cols=['SST'])
+    sst_mask = (sst > sst.quantile(q=quantilethreshold).values).squeeze()
     new_mask = np.logical_and(sst_mask, new_mask)
     sumyears = new_mask.groupby(new_mask.index.year).sum()
     sumyears = list(sumyears.index[sumyears > 25])
