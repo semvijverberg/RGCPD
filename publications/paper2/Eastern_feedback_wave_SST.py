@@ -78,7 +78,13 @@ elif west_east =='west':
 path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_{period}/')
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
-start_end_TVdate = ('06-01', '08-31')
+if period == 'summer_center':
+    start_end_TVdate = ('06-01', '08-31')
+elif period == 'spring_center':
+    start_end_TVdate = ('02-01', '05-31')
+elif period == 'summer_shift':
+    start_end_TVdate = ('06-15', '08-15')
+
 start_end_date = ('1-1', '12-31')
 
 tfreq         = 15
