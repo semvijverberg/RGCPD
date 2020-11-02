@@ -13,6 +13,7 @@ if sys.platform == 'linux':
 import numpy as np
 import cartopy.crs as ccrs
 import argparse
+import csv
 
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
@@ -215,6 +216,47 @@ rg.quick_view_labels(median=True)
 # rg.get_ts_prec(precur_aggr=1)
 # rg.store_df(append_str=f'RW_and_SST_fb_tf{rg.tfreq}')
 
+def append_MCI(rg):
+    # create .csv if it does not exists
+    csvfilenameMCI = os.path.join(rg.path_outmain,'strength.csv')
+    csvfilenamerobust = os.path.join(rg.path_outmain,'robustness.csv')
+    for csvfilename in [csvfilenameMCI, csvfilenamerobust]:
+        if os.path.exists(csvfilename) == False:
+            with open(csvfilename, 'a', newline='') as csvfile:
+                fieldnames = ['Experiment', f'{tfreq}-d', f'{tfreq}-d_SSTtoRW', f'{tfreq}-d_RWtoSST']
+                writer = csv.DictWriter(csvfile, fieldnames)
+                writer.writerow({f:f for f in fieldnames})
+
+    # append row to .csv with link strength lag0, SST to RW and RW to SST
+    with open(csvfilenameMCI, 'a', newline='') as csvfile:
+        exper_name = 's{}_{}'.format(rg.kwrgs_TV['seed'], period)
+        rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
+        SSTtoRW = rg.df_MCIc.mean(0,level=1).loc['SST']['coeff l1'].round(2) # select SST
+        rg.PCMCI_get_links(var=keys[1], alpha_level=.01) # links toward SST
+        RWtoSST = rg.df_MCIc.mean(0,level=1).loc['W-RW']['coeff l1'].round(2) # select RW
+        lag0 = rg.df_MCIc.mean(0,level=1).loc['W-RW']['coeff l0'].round(2)
+        dict_v = {'Experiment':exper_name,
+                  'lag0':lag0,
+                  'SSTtoRW':SSTtoRW,
+                  'RWtoSST':RWtoSST }
+        writer = csv.DictWriter(csvfile, list(dict_v.keys()))
+        writer.writerows([dict_v])
+
+        # write robustness
+        with open(csvfilenamerobust, 'a', newline='') as csvfile:
+            robustness = wPCMCI.get_traintest_links(rg.pcmci_dict,
+                                             rg.parents_dict,
+                                             rg.pcmci_results_dict,
+                                             min_link_robustness=mlr)[2]
+        rblag0 = int(robustness[0][1][0])
+        rbSSTtoRW = int(max(robustness[1][0][1:])) # from i to j, SST to RW
+        rbRWtoSST = int(max(robustness[0][1][1:])) # from i to j, RW to SST
+        dict_v = {'Experiment':exper_name,
+                  'lag0':rblag0,
+                  'SSTtoRW':rbSSTtoRW,
+                  'RWtoSST':rbRWtoSST }
+    return SSTtoRW, rbRWtoSST, rbSSTtoRW
+
 #%%
 import wrapper_PCMCI as wPCMCI
 # rg.cluster_list_MI()
@@ -234,16 +276,9 @@ for f in freqs[:]:
     rg.PCMCI_get_links(var=keys[0], alpha_level=.01)
     lags = range(rg.kwrgs_pcmci['tau_min'], rg.kwrgs_pcmci['tau_max'])
     lags = np.array([l*f for i, l in enumerate(lags)])
-    SST_RW = rg.df_MCIc.mean(0,level=1).loc['SST'][:3].round(3).values
-    SST_RW = '_'.join(SST_RW.astype(str))
     mlr=5
-    links_plot, val_plot, robustness = wPCMCI.get_traintest_links(rg.pcmci_dict,
-                                             rg.parents_dict,
-                                             rg.pcmci_results_dict,
-                                             min_link_robustness=mlr)[0:3]
-    SST_to_RW= robustness[1,0,1:][links_plot[1,0,1:]]
-    RW_to_SST = robustness[0,1,1:][links_plot[0,1,1:]]
-    rb = np.concatenate([RW_to_SST, SST_to_RW]).astype(int)
+    SSTtoRW, rbRWtoSST, rbSSTtoRW = append_MCI(rg)
+    rb = np.concatenate([rbRWtoSST, rbSSTtoRW]).astype(int)
     rb = '_'.join(rb.astype(str))
     #%%
     rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(12,6),
@@ -262,12 +297,14 @@ for f in freqs[:]:
                                'link_label_fontsize':30,
                                'label_fontsize':10,
                                'weights_squared':1.5},
-                        append_figpath=f'_tf{rg.precur_aggr}_{SST_RW}_rb{mlr}_rb{rb}')
+                        append_figpath=f'_tf{rg.precur_aggr}_{SSTtoRW}_rb{mlr}_rb{rb}')
     #%%
     rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
     rg.df_links.astype(int).sum(0, level=1)
     MCI_ALL = rg.df_MCIc.mean(0, level=1)
+#%%
 
+    # writer.writerow({'This':'is', 'aNew':'Row'})
 #%%
 # import func_models
 
@@ -302,11 +339,11 @@ for f in freqs:
     RV_mask = rg.df_data.loc[0]['RV_mask']
     m = np.array([True if y in sumyears else False for y in RV_mask.index.year])
     new_mask = np.logical_and(m, RV_mask)
-    new_mask.astype(int).plot()
     try:
+        new_mask.astype(int).plot()
         plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates_SST_and_RW.pdf'))
     except:
-        continue
+        pass
     print(f'{new_mask[new_mask].size} datapoints')
 
     # when both SST is anomalous
@@ -321,11 +358,11 @@ for f in freqs:
     RV_mask = rg.df_data.loc[0]['RV_mask']
     m = np.array([True if y in sumyears else False for y in RV_mask.index.year])
     new_mask = np.logical_and(m, RV_mask)
-    new_mask.astype(int).plot()
     try:
+        new_mask.astype(int).plot()
         plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates_SST_and_RW.pdf'))
     except:
-        continue
+        pass
     print(f'{new_mask[new_mask].size} datapoints')
 
     rg.PCMCI_df_data(keys=keys,

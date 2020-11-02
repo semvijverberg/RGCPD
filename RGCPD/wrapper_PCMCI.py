@@ -520,7 +520,8 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
         # now we can safely reshape
         links_plot = df_link_matrix.values.reshape(len(var_names), len(var_names), -1)
         val_plot = df_MCIval_matrix.values.reshape(len(var_names), len(var_names), -1)
-        val_plot = pcmci_results_dict[s]['val_matrix']
+        # Commented error in val_plots, 02-11-2020
+        # val_plot = pcmci_results_dict[s]['val_matrix'] # was giving vals of split s
         var_names = fullvar_names
     elif type(s) is int:
         var_names = pcmci_dict[s].var_names

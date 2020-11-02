@@ -489,7 +489,22 @@ class RGCPD:
         self.pcmci_results_dict = out
 
     def PCMCI_get_links(self, var: str=None, alpha_level: float=.05):
+        '''
 
+
+        Parameters
+        ----------
+        var : str, optional
+            Specify variable you want to retrieve links for. If None, returns
+            links toward target variable
+        alpha_level : float, optional
+            significance threshold. The default is .05.
+
+        Returns
+        -------
+        DataFrame of MCI coefficients and alpha values _toward_ var.
+
+        '''
 
         if hasattr(self, 'pcmci_results_dict')==False:
             print('first perform PCMCI_df_data to get pcmci_results_dict')
