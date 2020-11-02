@@ -408,7 +408,7 @@ def extend_annual_ts(fullts, tfreq: int, start_end_TVdate: tuple,
     fakedates = pd.date_range(start=sd,
                               end=ed)
     fakedates = core_pp.remove_leapdays(fakedates)
-    fakedates = make_dates(fakedates, range(firstyear, endyear+1))
+    fakedates = core_pp.make_dates(fakedates, range(firstyear, endyear+1))
     if tfreq != 1:
         prec_dates = timeseries_tofit_bins(fakedates, tfreq=tfreq,
                                        start_end_date=start_end_date,
@@ -828,10 +828,10 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
 
 #    n_oneyr = start_yr.size
 #    end_year = endyear
-    datesdt = make_dates(start_yr, years)
+    datesdt = core_pp.make_dates(start_yr, years)
     if input_freq == 'day' and tfreq != 1 and start_end_date == ('1-1', '12-31'):
         # make cyclic around closed_end_date
-       datesdt = start_yr.append(make_dates(otheryrs, years[1:]))
+       datesdt = start_yr.append(core_pp.make_dates(otheryrs, years[1:]))
 
 
 #    n_yrs = datesdt.size / n_oneyr
@@ -871,24 +871,6 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
 #        if next_yr[-1].year == breakyr:
 #            break
 #    return start_yr
-
-def make_dates(datetime, years):
-    '''
-    Extend same date period to other years
-    datetime is start year
-    start_yr is date period to 'copy'
-    '''
-
-    start_yr = datetime
-    next_yr = start_yr
-    for yr in years:
-        delta_year = yr - start_yr[-1].year
-        if delta_year >= 1:
-            next_yr = pd.to_datetime([date + date_dt(years=delta_year) for date in next_yr])
-            start_yr = start_yr.append(next_yr)
-
-    return start_yr
-
 
 
 def TVmonthrange(fullts, start_end_TVdate):
@@ -1486,7 +1468,7 @@ def func_dates_min_lag(dates, lag):
     else:
         startyr = get_oneyr(pd.to_datetime(dates.values))
 
-    dates_min_lag = make_dates(startyr, np.unique(dates.year))
+    dates_min_lag = core_pp.make_dates(startyr, np.unique(dates.year))
 
 
     # to be able to select date in pandas dataframe

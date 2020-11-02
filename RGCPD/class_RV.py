@@ -168,7 +168,7 @@ class RV_class:
         yr_daily  = pd.date_range(start=start_date, end=end_date,
                                         freq=pd.Timedelta('1d'))
         years = np.unique(dates_precur_data.year)
-        ext_dates = functions_pp.make_dates(yr_daily, years)
+        ext_dates = core_pp.make_dates(yr_daily, years)
 
         return ext_dates
 

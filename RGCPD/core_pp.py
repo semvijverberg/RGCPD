@@ -12,6 +12,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import xarray as xr
 from netCDF4 import num2date
+from dateutil.relativedelta import relativedelta as date_dt
 import itertools
 # from dateutil.relativedelta import relativedelta as date_dt
 from collections import Counter
@@ -717,8 +718,22 @@ def convert_longitude(data, to_format='east_west'):
         data = data.assign_coords(longitude=((data.longitude + 360) % 360))
     return data
 
+def make_dates(datetime, years):
+    '''
+    Extend same date period to other years
+    datetime is start year
+    start_yr is date period to 'copy'
+    '''
 
+    start_yr = datetime
+    next_yr = start_yr
+    for yr in years:
+        delta_year = yr - start_yr[-1].year
+        if delta_year >= 1:
+            next_yr = pd.to_datetime([date + date_dt(years=delta_year) for date in next_yr])
+            start_yr = start_yr.append(next_yr)
 
+    return start_yr
 
 def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
     #%%
@@ -777,40 +792,43 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
 
     start_yr = pd.date_range(start=sstartdate, end=senddate,
                                 freq=(dates[1] - dates[0]))
-    if lpyr==True and calendar.isleap(startyr):
-        start_yr -= pd.Timedelta( '1 days')
-    elif lpyr==False and calendar.isleap(startyr):
-        start_yr = remove_leapdays(start_yr)
-    breakyr = endyr
-    datesstr = [str(date).split('.', 1)[0] for date in start_yr.values]
-    nyears = (endyr - startyr)+1
-    startday = start_yr[0].strftime('%Y-%m-%dT%H:%M:%S')
-    endday = start_yr[-1].strftime('%Y-%m-%dT%H:%M:%S')
-    firstyear = startday[:4]
-    def plusyearnoleap(curr_yr, startday, endday, incr):
-        startday = startday.replace(firstyear, str(curr_yr+incr))
-        endday = endday.replace(firstyear, str(curr_yr+incr))
 
-        next_yr = pd.date_range(start=startday, end=endday,
-                        freq=(dates[1] - dates[0]))
-        if lpyr==True and calendar.isleap(curr_yr+incr):
-            next_yr -= pd.Timedelta( '1 days')
-        elif lpyr == False:
-            # excluding leap year again
-            noleapdays = (((next_yr.month==2) & (next_yr.day==29))==False)
-            next_yr = next_yr[noleapdays].dropna(how='all')
-        return next_yr
+    # 02-11-2020, wrong subdates with leapyears error
+    # if lpyr==True and calendar.isleap(startyr):
+    #     start_yr -= pd.Timedelta( '1 days')
+    # elif lpyr==False and calendar.isleap(startyr):
+    #     start_yr = remove_leapdays(start_yr)
+    # breakyr = endyr
+    # datesstr = [str(date).split('.', 1)[0] for date in start_yr.values]
+    # nyears = (endyr - startyr)+1
+    # startday = start_yr[0].strftime('%Y-%m-%dT%H:%M:%S')
+    # endday = start_yr[-1].strftime('%Y-%m-%dT%H:%M:%S')
+    # firstyear = startday[:4]
+    # def plusyearnoleap(curr_yr, startday, endday, incr=1):
+    #     startday = startday.replace(firstyear, str(curr_yr+incr))
+    #     endday = endday.replace(firstyear, str(curr_yr+incr))
+
+    #     next_yr = pd.date_range(start=startday, end=endday,
+    #                     freq=(dates[1] - dates[0]))
+    #     if lpyr==True and calendar.isleap(curr_yr+incr):
+    #         next_yr -= pd.Timedelta( '1 days')
+    #     elif lpyr == False:
+    #         # excluding leap year again
+    #         noleapdays = (((next_yr.month==2) & (next_yr.day==29))==False)
+    #         next_yr = next_yr[noleapdays].dropna(how='all')
+    #     return next_yr
 
 
-    for yr in range(0,nyears):
-        curr_yr = yr+startyr
-        next_yr = plusyearnoleap(curr_yr, startday, endday, 1)
-        nextstr = [str(date).split('.', 1)[0] for date in next_yr.values]
-        datesstr = datesstr + nextstr
+    # for yr in range(0,nyears):
+    #     curr_yr = yr+startyr
+    #     next_yr = plusyearnoleap(curr_yr, startday, endday, 1)
+    #     nextstr = [str(date).split('.', 1)[0] for date in next_yr.values]
+    #     datesstr = datesstr + nextstr
 
-        if next_yr.year[0] == breakyr:
-            break
-    datessubset = pd.to_datetime(datesstr)
+    #     if next_yr.year[0] == breakyr:
+    #         break
+    # datessubset = pd.to_datetime(datesstr)
+    datessubset = make_dates(start_yr, np.unique(dates.year))
     #%%
     return datessubset
 
