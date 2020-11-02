@@ -36,9 +36,10 @@ import class_BivariateMI
 
 import functions_pp
 
+periods = ['summer_center', 'spring_center', 'summer_shift']
 targets = ['west', 'east']
-seeds = np.array([1,2,3,4,5])
-combinations = np.array(np.meshgrid(targets, seeds)).T.reshape(-1,2)
+seeds = np.array([1,2,3])
+combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
 i_default = 0
 
@@ -61,6 +62,7 @@ if __name__ == '__main__':
     out = combinations[args.intexper]
     west_east = out[0]
     seed = int(out[1])
+    period = out[2]
     print(f'arg {args.intexper} - seed {seed}')
 else:
     seed = 0
@@ -73,7 +75,7 @@ elif west_east =='west':
     TVpathRW = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
 
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}/')
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_{period}/')
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 start_end_TVdate = ('06-01', '08-31')
