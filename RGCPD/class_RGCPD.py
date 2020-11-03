@@ -607,18 +607,19 @@ class RGCPD:
                                path+'.h5')
         self.path_df_data = path+'.h5'
 
-    def store_df(self, append_str: str=None):
+    def store_df(self, filename: str=None, append_str: str=None):
         if self.list_for_MI is not None:
             varstr = '_'.join([p.name for p in self.list_for_MI])
         else:
             varstr = ''
         if hasattr(self, 'df_data_ext'):
             varstr = '_'.join([n[0] for n in self.list_import_ts]) + varstr
-        filename = os.path.join(self.path_outsub1,
+        if filename is None:
+            filename = os.path.join(self.path_outsub1,
                                 f'{get_timestr()}_df_data_{varstr}_'
                                 f'dt{self.precur_aggr}_tf{self.tfreq}_{self.hash}')
-        if append_str is not None:
-            filename += '_'+append_str
+            if append_str is not None:
+                filename += '_'+append_str
         functions_pp.store_hdf_df({'df_data':self.df_data}, filename+'.h5')
         print('Data stored in \n{}'.format(filename+'.h5'))
         self.path_df_data = filename

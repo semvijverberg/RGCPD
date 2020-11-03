@@ -72,16 +72,18 @@ else:
     seed = 0
 
 
-
+TVpathtemp = os.path.join(data_dir, 'tf15_nc3_dendo_0ff31.nc')
 if west_east == 'east':
-    TVpathRW = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
+    # TVpathRW = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
+    cluster_label = 2
+    z500_green_bb = (155,300,20,73) # bounding box for eastern RW
 elif west_east =='west':
-    TVpathRW = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
+    # TVpathRW = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
+    cluster_label = 1
+    z500_green_bb = (145,325,20,62) # bounding box for western RW
 
 
 path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}/')
-name_or_cluster_label = 'z500'
-name_ds = f'0..0..{name_or_cluster_label}_sp'
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
 elif period == 'summer_shiftleft':
@@ -106,26 +108,16 @@ name_rob_csv = 'robustness.csv'
 
 if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
 if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
-#%%
 
 #%% Circulation vs temperature
-list_of_name_path = [(cluster_label, TVpath),
+list_of_name_path = [(cluster_label, TVpathtemp),
                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
 
-lags = np.array([0])
-
-list_for_MI   = [BivariateMI(name='v300', func=class_BivariateMI.corr_map,
-                              alpha=.05, FDR_control=True, lags=lags,
-                              distance_eps=600, min_area_in_degrees2=5,
-                              calc_ts='pattern cov', selbox=(0,360,-10,90),
-                              use_sign_pattern=True),
-                   BivariateMI(name='z500', func=class_BivariateMI.corr_map,
-                                alpha=.05, FDR_control=True, lags=lags,
-                                distance_eps=600, min_area_in_degrees2=5,
-                                calc_ts='pattern cov', selbox=(0,360,-10,90),
-                                use_sign_pattern=True)]
-
-
+list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
+                            alpha=.05, FDR_control=True,
+                            distance_eps=600, min_area_in_degrees2=5,
+                            calc_ts='pattern cov', selbox=z500_green_bb,
+                            use_sign_pattern=True, lags = np.array([0]))]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
@@ -136,13 +128,18 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             path_outmain=path_out_main)
 
 
-rg.pp_TV(name_ds=name_ds, detrend=False)
-
+rg.pp_TV(detrend=False)
 rg.pp_precursors()
+rg.traintest(method=method, seed=seed)
+rg.calc_corr_maps()
+rg.cluster_list_MI(['z500'])
+rg.get_ts_prec(precur_aggr=1)
+TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
+rg.store_df(filename=TVpathRW)
 
 
 
-
+#%% SST vs RW
 # list_of_name_path = [(name_or_cluster_label, TVpathRW),
 #                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
 #                      ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
@@ -235,6 +232,8 @@ rg.pp_precursors()
 
 
 #%% Only SST
+name_or_cluster_label = 'z500'
+name_ds = f'0..0..{name_or_cluster_label}_sp'
 list_of_name_path = [(name_or_cluster_label, TVpathRW),
                      ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
