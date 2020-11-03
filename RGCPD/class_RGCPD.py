@@ -61,7 +61,7 @@ class RGCPD:
                  tfreq: int=10,
                  start_end_date: Tuple[str, str]=None,
                  start_end_year: Tuple[int, int]=None,
-                 # lags_i: np.ndarray=np.array([0]),
+                 write_outputfolder: bool=True,
                  path_outmain: str=None,
                  append_pathsub='',
                  verbosity: int=1):
@@ -120,11 +120,10 @@ class RGCPD:
             format ('mm-dd', 'mm-dd'). default is ('01-01' - '12-31')
         start_end_year : tuple, optional
             default is to load all years
-        lags_i : nparray, optional
-            The default is np.array([0]).
-        path_outmain : str, optional
-            Root folder for output. Default is your
-            '/users/{username}/Download'' path
+        path_outmain : [str, bool], optional
+            Root folder for output. If None, default is your
+            '/users/{username}/Download' path. If False, no auto-generated paths
+            are written to disk
         append_pathsub: str, optional
             The first subfolder will be created below path_outmain, to store
             output data & figures. The append_pathsub1 argument allows you to
@@ -148,12 +147,15 @@ class RGCPD:
         if start_end_TVdate is None:
             start_end_TVdate = ('06-01', '08-31')
 
-
-
         if path_outmain is None:
             user_download_path = get_download_path()
             path_outmain = user_download_path + '/output_RGCPD/'
-        if os.path.isdir(path_outmain) != True : os.makedirs(path_outmain)
+        if path_outmain == False:
+            self.write_outputfolder = False
+        else:
+            self.write_outputfolder = True
+            if os.path.isdir(path_outmain) != True : os.makedirs(path_outmain)
+
 
         self.list_of_name_path = list_of_name_path
         self.list_for_EOFS = list_for_EOFS
@@ -167,8 +169,6 @@ class RGCPD:
 
         self.verbosity          = verbosity
         self.tfreq              = tfreq
-        # self.lags_i             = lags_i
-        # self.lags               = np.array([l*self.tfreq for l in self.lags_i], dtype=int)
         self.path_outmain       = path_outmain
         self.append_pathsub     = append_pathsub
         self.figext             = '.pdf'
@@ -303,8 +303,8 @@ class RGCPD:
                                   + 's'+ str(self.TV.seed),
                                   self.append_pathsub])
         self.path_outsub1 = self.path_outmain + subfoldername
-        if os.path.isdir(self.path_outsub1) == False : os.makedirs(self.path_outsub1)
-
+        if self.write_outputfolder and os.path.isdir(self.path_outsub1)==False:
+            os.makedirs(self.path_outsub1)
 
 
 
@@ -468,8 +468,8 @@ class RGCPD:
             self.path_outsub2 = os.path.join(self.path_outsub1, self.params_str)
         else:
             self.path_outsub2 = path_txtoutput
-
-        if os.path.isdir(self.path_outsub2) == False : os.makedirs(self.path_outsub2)
+        if self.write_outputfolder and os.path.isdir(self.path_outsub2)==False:
+            os.makedirs(self.path_outsub2)
 
         if keys is None:
             keys = self.df_data.columns

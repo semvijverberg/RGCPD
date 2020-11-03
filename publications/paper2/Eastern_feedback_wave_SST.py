@@ -108,6 +108,41 @@ if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original war
 if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
 #%%
 
+#%% Circulation vs temperature
+list_of_name_path = [(cluster_label, TVpath),
+                     ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
+
+lags = np.array([0])
+
+list_for_MI   = [BivariateMI(name='v300', func=class_BivariateMI.corr_map,
+                              alpha=.05, FDR_control=True, lags=lags,
+                              distance_eps=600, min_area_in_degrees2=5,
+                              calc_ts='pattern cov', selbox=(0,360,-10,90),
+                              use_sign_pattern=True),
+                   BivariateMI(name='z500', func=class_BivariateMI.corr_map,
+                                alpha=.05, FDR_control=True, lags=lags,
+                                distance_eps=600, min_area_in_degrees2=5,
+                                calc_ts='pattern cov', selbox=(0,360,-10,90),
+                                use_sign_pattern=True)]
+
+
+
+rg = RGCPD(list_of_name_path=list_of_name_path,
+            list_for_MI=list_for_MI,
+            start_end_TVdate=start_end_TVdate,
+            start_end_date=start_end_date,
+            start_end_year=None,
+            tfreq=tfreq,
+            path_outmain=path_out_main)
+
+
+rg.pp_TV(name_ds=name_ds, detrend=False)
+
+rg.pp_precursors()
+
+
+
+
 # list_of_name_path = [(name_or_cluster_label, TVpathRW),
 #                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
 #                      ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
