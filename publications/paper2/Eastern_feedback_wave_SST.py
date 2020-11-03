@@ -42,7 +42,7 @@ targets = ['west', 'east']
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
-i_default = 7
+i_default = 3
 
 
 
@@ -64,7 +64,7 @@ if __name__ == '__main__':
     west_east = out[0]
     seed = int(out[1])
     period = out[2]
-    print(f'arg {args.intexper} - seed {seed}')
+    print(f'arg {args.intexper} - {out}')
 else:
     seed = 0
 
@@ -100,7 +100,6 @@ method        = 'ran_strat10' ;
 
 name_MCI_csv = 'strength.csv'
 name_rob_csv = 'robustness.csv'
-remove_old_csv = True
 
 if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
 if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
@@ -234,8 +233,8 @@ def append_MCI(rg, dict_v, dict_rb):
     rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
     SSTtoRW = rg.df_MCIc.mean(0,level=1).loc['SST'].iloc[1:].max().round(3) # select SST
     rg.PCMCI_get_links(var=keys[1], alpha_level=.01) # links toward SST
-    RWtoSST = rg.df_MCIc.mean(0,level=1).loc['W-RW'].iloc[1:].max().round(3) # select RW
-    lag0 = rg.df_MCIc.mean(0,level=1).loc['W-RW']['coeff l0'].round(3)
+    RWtoSST = rg.df_MCIc.mean(0,level=1).loc[f'{west_east[0].capitalize()}-RW'].iloc[1:].max().round(3) # select RW
+    lag0 = rg.df_MCIc.mean(0,level=1).loc[f'{west_east[0].capitalize()}-RW']['coeff l0'].round(3)
     append_dict = {dkeys[0]:lag0, dkeys[1]:SSTtoRW, dkeys[2]:RWtoSST}
     dict_v.update(append_dict)
 
@@ -302,8 +301,6 @@ csvfilenameMCI = os.path.join(rg.path_outmain, name_MCI_csv)
 csvfilenamerobust = os.path.join(rg.path_outmain, name_rob_csv)
 for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]:
     # create .csv if it does not exists
-    if os.path.exists(csvfilename) and remove_old_csv: # if file exists
-        os.remove(csvfilename) ;
     if os.path.exists(csvfilename) == False:
         with open(csvfilename, 'a', newline='') as csvfile:
 
