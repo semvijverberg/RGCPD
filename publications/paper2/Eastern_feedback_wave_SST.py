@@ -86,16 +86,22 @@ elif west_east =='west':
 path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}/')
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
+    start_end_TVdatet2mvsRW = start_end_TVdate
 elif period == 'summer_shiftleft':
     start_end_TVdate = ('05-25', '08-24')
+    start_end_TVdatet2mvsRW = start_end_TVdate
 elif period == 'summer_shiftright':
     start_end_TVdate = ('06-08', '09-06')
+    start_end_TVdatet2mvsRW = start_end_TVdate
 elif period == 'spring_center':
     start_end_TVdate = ('02-01', '05-31')
+    start_end_TVdatet2mvsRW = ('06-01', '08-31') # always focus on RW in summer
 elif period == 'spring_shiftleft':
     start_end_TVdate = ('01-25', '05-24')
+    start_end_TVdatet2mvsRW = ('05-25', '08-24')
 elif period == 'spring_shiftright':
     start_end_TVdate = ('02-08', '06-06')
+    start_end_TVdatet2mvsRW = ('06-08', '09-06')
 
 start_end_date = ('1-1', '12-31')
 
@@ -121,7 +127,7 @@ list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
-            start_end_TVdate=start_end_TVdate,
+            start_end_TVdate=start_end_TVdatet2mvsRW,
             start_end_date=start_end_date,
             start_end_year=None,
             tfreq=tfreq,
@@ -137,7 +143,28 @@ rg.get_ts_prec(precur_aggr=1)
 TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
 rg.store_df(filename=TVpathRW)
 
+import matplotlib
+# Optionally set font to Computer Modern to avoid common missing font errors
+matplotlib.rc('font', family='serif', serif='cm10')
 
+matplotlib.rc('text', usetex=True)
+matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
+
+
+
+
+title = f'$corr(z500, {west_east.capitalize()[0]}$-$US\ mx2t)$'
+subtitles = np.array([['']] )
+kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
+              'hspace':0.0, 'cbar_vert':-.08, 'units':'Corr. Coeff. [-]',
+              'zoomregion':(-180,360,0,80), 'drawbox':[(0,0), z500_green_bb],
+              'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6,
+              'clim':(-.6,.6), 'title':title, 'subtitles':subtitles}
+save = True
+rg.plot_maps_corr(var='z500', save=save,
+                  append_str=''.join(map(str, z500_green_bb)),
+                  min_detect_gc=min_detect_gc,
+                  kwrgs_plot=kwrgs_plot)
 
 #%% SST vs RW
 # list_of_name_path = [(name_or_cluster_label, TVpathRW),
