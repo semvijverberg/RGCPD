@@ -81,10 +81,16 @@ name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
+elif period == 'summer_shiftleft':
+    start_end_TVdate = ('06-25', '08-24')
+elif period == 'summer_shiftright':
+    start_end_TVdate = ('06-08', '09-06')
 elif period == 'spring_center':
     start_end_TVdate = ('02-01', '05-31')
-elif period == 'summer_shift':
-    start_end_TVdate = ('06-15', '08-15')
+elif period == 'spring_shiftleft':
+    start_end_TVdate = ('01-25', '05-24')
+elif period == 'spring_shiftright':
+    start_end_TVdate = ('02-08', '06-06')
 
 start_end_date = ('1-1', '12-31')
 
@@ -92,6 +98,8 @@ tfreq         = 15
 min_detect_gc = 1.0
 method        = 'ran_strat10' ;
 
+name_MCI_csv = 'strength.csv'
+name_rob_csv = 'robustness.csv'
 
 if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
 if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
@@ -216,51 +224,33 @@ rg.quick_view_labels(median=True)
 # rg.get_ts_prec(precur_aggr=1)
 # rg.store_df(append_str=f'RW_and_SST_fb_tf{rg.tfreq}')
 
-def append_MCI(rg):
-    # create .csv if it does not exists
-    csvfilenameMCI = os.path.join(rg.path_outmain,'strength.csv')
-    csvfilenamerobust = os.path.join(rg.path_outmain,'robustness.csv')
-    for csvfilename in [csvfilenameMCI, csvfilenamerobust]:
-        if os.path.exists(csvfilename) == False:
-            with open(csvfilename, 'a', newline='') as csvfile:
-                fieldnames = ['Experiment', f'{tfreq}-d', f'{tfreq}-d_SSTtoRW', f'{tfreq}-d_RWtoSST']
-                writer = csv.DictWriter(csvfile, fieldnames)
-                writer.writerow({f:f for f in fieldnames})
+def append_MCI(rg, dict_v, dict_rb):
+    dkeys = [f'{f}-d', f'{f}-d_SSTtoRW', f'{f}-d_RWtoSST']
 
-    # append row to .csv with link strength lag0, SST to RW and RW to SST
-    with open(csvfilenameMCI, 'a', newline='') as csvfile:
-        exper_name = 's{}_{}'.format(rg.kwrgs_TV['seed'], period)
-        rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
-        SSTtoRW = rg.df_MCIc.mean(0,level=1).loc['SST']['coeff l1'].round(2) # select SST
-        rg.PCMCI_get_links(var=keys[1], alpha_level=.01) # links toward SST
-        RWtoSST = rg.df_MCIc.mean(0,level=1).loc['W-RW']['coeff l1'].round(2) # select RW
-        lag0 = rg.df_MCIc.mean(0,level=1).loc['W-RW']['coeff l0'].round(2)
-        dict_v = {'Experiment':exper_name,
-                  'lag0':lag0,
-                  'SSTtoRW':SSTtoRW,
-                  'RWtoSST':RWtoSST }
-        writer = csv.DictWriter(csvfile, list(dict_v.keys()))
-        writer.writerows([dict_v])
+    rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
+    SSTtoRW = rg.df_MCIc.mean(0,level=1).loc['SST'].iloc[1:].max().round(3) # select SST
+    rg.PCMCI_get_links(var=keys[1], alpha_level=.01) # links toward SST
+    RWtoSST = rg.df_MCIc.mean(0,level=1).loc['W-RW'].iloc[1:].max().round(3) # select RW
+    lag0 = rg.df_MCIc.mean(0,level=1).loc['W-RW']['coeff l0'].round(3)
+    append_dict = {dkeys[0]:lag0, dkeys[1]:SSTtoRW, dkeys[2]:RWtoSST}
+    dict_v.update(append_dict)
 
-        # write robustness
-        with open(csvfilenamerobust, 'a', newline='') as csvfile:
-            robustness = wPCMCI.get_traintest_links(rg.pcmci_dict,
-                                             rg.parents_dict,
-                                             rg.pcmci_results_dict,
-                                             min_link_robustness=mlr)[2]
-        rblag0 = int(robustness[0][1][0])
-        rbSSTtoRW = int(max(robustness[1][0][1:])) # from i to j, SST to RW
-        rbRWtoSST = int(max(robustness[0][1][1:])) # from i to j, RW to SST
-        dict_v = {'Experiment':exper_name,
-                  'lag0':rblag0,
-                  'SSTtoRW':rbSSTtoRW,
-                  'RWtoSST':rbRWtoSST }
+    robustness = wPCMCI.get_traintest_links(rg.pcmci_dict,
+                                     rg.parents_dict,
+                                     rg.pcmci_results_dict,
+                                     min_link_robustness=mlr)[2]
+    rblag0 = int(robustness[0][1][0])
+    rbSSTtoRW = int(max(robustness[1][0][1:])) # from i to j, SST to RW
+    rbRWtoSST = int(max(robustness[0][1][1:])) # from i to j, RW to SST
+    append_dict = {dkeys[0]:rblag0, dkeys[1]:rbSSTtoRW, dkeys[2]:rbRWtoSST}
+    dict_rb.update(append_dict)
     return SSTtoRW, rbRWtoSST, rbSSTtoRW
 
 #%%
 import wrapper_PCMCI as wPCMCI
-# rg.cluster_list_MI()
-# rg.list_for_MI[0].calc_ts = 'pattern cov'
+
+dict_v = {'Experiment':'s{}_{}'.format(rg.kwrgs_TV['seed'], period)}
+dict_rb = dict_v.copy()
 freqs = [1, 5, 10, 15, 30, 60]
 for f in freqs[:]:
     rg.get_ts_prec(precur_aggr=f)
@@ -269,17 +259,16 @@ for f in freqs[:]:
 
     keys = [f'{west_east[0].capitalize()}-RW','SST']
     rg.PCMCI_df_data(keys=keys,
-                     pc_alpha=None,
-                     tau_max=5,
-                     max_conds_dim=10,
-                     max_combinations=10)
-    rg.PCMCI_get_links(var=keys[0], alpha_level=.01)
+                      pc_alpha=None,
+                      tau_max=5,
+                      max_conds_dim=10,
+                      max_combinations=10)
+
+
     lags = range(rg.kwrgs_pcmci['tau_min'], rg.kwrgs_pcmci['tau_max'])
     lags = np.array([l*f for i, l in enumerate(lags)])
     mlr=5
-    SSTtoRW, rbRWtoSST, rbSSTtoRW = append_MCI(rg)
-    rb = np.concatenate([rbRWtoSST, rbSSTtoRW]).astype(int)
-    rb = '_'.join(rb.astype(str))
+    SSTtoRW, rbRWtoSST, rbSSTtoRW = append_MCI(rg, dict_v, dict_rb)
     #%%
     rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(12,6),
                         kwrgs={'vmax_nodes':.9,
@@ -297,14 +286,33 @@ for f in freqs[:]:
                                'link_label_fontsize':30,
                                'label_fontsize':10,
                                'weights_squared':1.5},
-                        append_figpath=f'_tf{rg.precur_aggr}_{SSTtoRW}_rb{mlr}_rb{rb}')
+                        append_figpath=f'_tf{rg.precur_aggr}_{SSTtoRW}_rb{mlr}_rbRWSST{rbRWtoSST}_rbSSTRW{rbSSTtoRW}')
     #%%
     rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
     rg.df_links.astype(int).sum(0, level=1)
     MCI_ALL = rg.df_MCIc.mean(0, level=1)
 #%%
+# write MCI strength
+csvfilenameMCI = os.path.join(rg.path_outmain, name_MCI_csv)
+csvfilenamerobust = os.path.join(rg.path_outmain, name_rob_csv)
+for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]:
+    # create .csv if it does not exists
+    if os.path.exists(csvfilename) == False:
+        with open(csvfilename, 'a', newline='') as csvfile:
 
-    # writer.writerow({'This':'is', 'aNew':'Row'})
+            writer = csv.DictWriter(csvfile, list(dic.keys()))
+            writer.writerows([{f:f for f in list(dic.keys())}])
+
+    # write robustness
+    with open(csvfilename, 'a', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, list(dic.keys()))
+        writer.writerows([dic])
+
+    # # write robustness
+    # with open(csvfilenamerobust, 'a', newline='') as csvfile:
+
+    #     writer = csv.DictWriter(csvfile, list(dict_v.keys()))
+    #     writer.writerows([dict_v])
 #%%
 # import func_models
 
