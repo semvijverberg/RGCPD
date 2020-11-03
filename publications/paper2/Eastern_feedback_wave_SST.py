@@ -220,7 +220,7 @@ rg.pp_precursors(anomaly=True)
 RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
 subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range,
                                                   method, seed)
-rg.traintest(method=method, seed=seed)
+rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
 
 rg.calc_corr_maps(var='N-Pac. SST')
 rg.cluster_list_MI(var='N-Pac. SST')
