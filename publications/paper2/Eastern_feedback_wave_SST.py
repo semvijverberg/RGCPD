@@ -40,7 +40,7 @@ import functions_pp
 periods = ['summer_center', 'summer_shiftright', 'summer_shiftleft',
            'spring_center', 'spring_shiftleft', 'spring_shiftright']
 
-periods = ['summer_shiftleft']
+# periods = ['summer_shiftleft']
 targets = ['west', 'east']
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
