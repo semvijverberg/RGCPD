@@ -37,7 +37,8 @@ import class_BivariateMI
 
 import functions_pp
 
-periods = ['summer_center', 'spring_center', 'summer_shift']
+periods = ['summer_center', 'summer_shiftright', 'summer_shiftleft',
+           'spring_center', 'spring_shiftleft', 'spring_shiftright']
 targets = ['west', 'east']
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
@@ -228,7 +229,7 @@ rg.quick_view_labels(median=True)
 # rg.store_df(append_str=f'RW_and_SST_fb_tf{rg.tfreq}')
 
 def append_MCI(rg, dict_v, dict_rb):
-    dkeys = [f'{f}-d', f'{f}-d_SSTtoRW', f'{f}-d_RWtoSST']
+    dkeys = [f'{f}-d', f'{f}-d SST->RW', f'{f}-d RW->SST']
 
     rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
     SSTtoRW = rg.df_MCIc.mean(0,level=1).loc['SST'].iloc[1:].max().round(3) # select SST
