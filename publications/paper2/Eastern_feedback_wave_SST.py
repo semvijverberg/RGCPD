@@ -234,7 +234,7 @@ rg.store_df(filename=TVpathRW)
 #%% Only SST
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
-list_of_name_path = [(name_or_cluster_label, TVpathRW),
+list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
                      ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
 list_for_MI = [BivariateMI(name='N-Pac. SST', func=class_BivariateMI.corr_map,
