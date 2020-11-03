@@ -76,7 +76,7 @@ elif west_east =='west':
     TVpathRW = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
 
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_{period}/')
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}/')
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 if period == 'summer_center':
@@ -100,6 +100,7 @@ method        = 'ran_strat10' ;
 
 name_MCI_csv = 'strength.csv'
 name_rob_csv = 'robustness.csv'
+remove_old_csv = True
 
 if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
 if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
@@ -216,6 +217,9 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 
 rg.pp_TV(name_ds=name_ds)
 rg.pp_precursors(anomaly=True)
+RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
+subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range,
+                                                  method, seed)
 rg.traintest(method=method, seed=seed)
 
 rg.calc_corr_maps(var='N-Pac. SST')
@@ -249,7 +253,7 @@ def append_MCI(rg, dict_v, dict_rb):
 #%%
 import wrapper_PCMCI as wPCMCI
 
-dict_v = {'Experiment':'s{}_{}'.format(rg.kwrgs_TV['seed'], period)}
+dict_v = {'period':period.split('_')[0],'Experiment':'s{}_{}'.format(rg.kwrgs_TV['seed'], period)}
 dict_rb = dict_v.copy()
 freqs = [1, 5, 10, 15, 30, 60]
 for f in freqs[:]:
@@ -293,10 +297,13 @@ for f in freqs[:]:
     MCI_ALL = rg.df_MCIc.mean(0, level=1)
 #%%
 # write MCI strength
+
 csvfilenameMCI = os.path.join(rg.path_outmain, name_MCI_csv)
 csvfilenamerobust = os.path.join(rg.path_outmain, name_rob_csv)
 for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]:
     # create .csv if it does not exists
+    if os.path.exists(csvfilename) and remove_old_csv: # if file exists
+        os.remove(csvfilename) ;
     if os.path.exists(csvfilename) == False:
         with open(csvfilename, 'a', newline='') as csvfile:
 
