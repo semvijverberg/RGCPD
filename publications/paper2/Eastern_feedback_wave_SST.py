@@ -40,8 +40,7 @@ import functions_pp
 periods = ['summer_center', 'summer_shiftright', 'summer_shiftleft',
            'spring_center', 'spring_shiftleft', 'spring_shiftright']
 
-periods = ['summer_shiftright', 'summer_shiftleft',
-           'spring_shiftleft', 'spring_shiftright']
+periods = ['summer_shiftleft']
 targets = ['west', 'east']
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
@@ -86,7 +85,7 @@ name_ds = f'0..0..{name_or_cluster_label}_sp'
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
 elif period == 'summer_shiftleft':
-    start_end_TVdate = ('06-25', '08-24')
+    start_end_TVdate = ('05-25', '08-24')
 elif period == 'summer_shiftright':
     start_end_TVdate = ('06-08', '09-06')
 elif period == 'spring_center':
