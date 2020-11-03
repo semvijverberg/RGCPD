@@ -364,74 +364,74 @@ for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]
 # fig = df[RV_and_SST_mask][keys].hist(sharex=True)
 # fig[0,0].set_xlim(-3,3)
 
-#%% Adapt RV_mask
-import matplotlib.pyplot as plt
+# #%% Adapt RV_mask
+# import matplotlib.pyplot as plt
 
-quantilethreshold = .66
-freqs = [1, 15, 30, 60]
-for f in freqs:
-    rg.get_ts_prec(precur_aggr=f)
-    rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':f'{west_east[0].capitalize()}-RW',
-                                    '0..0..N-Pac. SST_sp':'SST'}, axis=1)
+# quantilethreshold = .66
+# freqs = [1, 15, 30, 60]
+# for f in freqs:
+#     rg.get_ts_prec(precur_aggr=f)
+#     rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':f'{west_east[0].capitalize()}-RW',
+#                                     '0..0..N-Pac. SST_sp':'SST'}, axis=1)
 
-    keys = [f'{west_east[0].capitalize()}-RW','SST']
+#     keys = [f'{west_east[0].capitalize()}-RW','SST']
 
-    # when both SST and RW above threshold
-    RW_ts = rg.df_data.loc[0].iloc[:,0]
-    RW_mask = RW_ts > float(rg.TV.RV_ts.quantile(q=quantilethreshold))
-    new_mask = np.logical_and(rg.df_data.loc[0]['RV_mask'], RW_mask)
-    sst = functions_pp.get_df_test(rg.df_data, cols=['SST'])
-    sst_mask = (sst > sst.quantile(q=quantilethreshold).values).squeeze()
-    new_mask = np.logical_and(sst_mask, new_mask)
-    sumyears = new_mask.groupby(new_mask.index.year).sum()
-    sumyears = list(sumyears.index[sumyears > 25])
-    RV_mask = rg.df_data.loc[0]['RV_mask']
-    m = np.array([True if y in sumyears else False for y in RV_mask.index.year])
-    new_mask = np.logical_and(m, RV_mask)
-    try:
-        new_mask.astype(int).plot()
-        plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates_SST_and_RW.pdf'))
-    except:
-        pass
-    print(f'{new_mask[new_mask].size} datapoints')
+#     # when both SST and RW above threshold
+#     RW_ts = rg.df_data.loc[0].iloc[:,0]
+#     RW_mask = RW_ts > float(rg.TV.RV_ts.quantile(q=quantilethreshold))
+#     new_mask = np.logical_and(rg.df_data.loc[0]['RV_mask'], RW_mask)
+#     sst = functions_pp.get_df_test(rg.df_data, cols=['SST'])
+#     sst_mask = (sst > sst.quantile(q=quantilethreshold).values).squeeze()
+#     new_mask = np.logical_and(sst_mask, new_mask)
+#     sumyears = new_mask.groupby(new_mask.index.year).sum()
+#     sumyears = list(sumyears.index[sumyears > 25])
+#     RV_mask = rg.df_data.loc[0]['RV_mask']
+#     m = np.array([True if y in sumyears else False for y in RV_mask.index.year])
+#     new_mask = np.logical_and(m, RV_mask)
+#     try:
+#         new_mask.astype(int).plot()
+#         plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates_SST_and_RW.pdf'))
+#     except:
+#         pass
+#     print(f'{new_mask[new_mask].size} datapoints')
 
-    # when both SST is anomalous
-    RW_ts = rg.df_data.loc[0].iloc[:,0]
-    RW_mask = RW_ts > float(rg.TV.RV_ts.quantile(q=quantilethreshold))
-    new_mask = np.logical_and(rg.df_data.loc[0]['RV_mask'], RW_mask)
-    sst = functions_pp.get_df_test(rg.df_data, cols=['SST'])
-    sst_mask = (sst > sst.quantile(q=quantilethreshold).values).squeeze()
-    new_mask = np.logical_and(sst_mask, new_mask)
-    sumyears = new_mask.groupby(new_mask.index.year).sum()
-    sumyears = list(sumyears.index[sumyears > 25])
-    RV_mask = rg.df_data.loc[0]['RV_mask']
-    m = np.array([True if y in sumyears else False for y in RV_mask.index.year])
-    new_mask = np.logical_and(m, RV_mask)
-    try:
-        new_mask.astype(int).plot()
-        plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates_SST_and_RW.pdf'))
-    except:
-        pass
-    print(f'{new_mask[new_mask].size} datapoints')
+#     # when both SST is anomalous
+#     RW_ts = rg.df_data.loc[0].iloc[:,0]
+#     RW_mask = RW_ts > float(rg.TV.RV_ts.quantile(q=quantilethreshold))
+#     new_mask = np.logical_and(rg.df_data.loc[0]['RV_mask'], RW_mask)
+#     sst = functions_pp.get_df_test(rg.df_data, cols=['SST'])
+#     sst_mask = (sst > sst.quantile(q=quantilethreshold).values).squeeze()
+#     new_mask = np.logical_and(sst_mask, new_mask)
+#     sumyears = new_mask.groupby(new_mask.index.year).sum()
+#     sumyears = list(sumyears.index[sumyears > 25])
+#     RV_mask = rg.df_data.loc[0]['RV_mask']
+#     m = np.array([True if y in sumyears else False for y in RV_mask.index.year])
+#     new_mask = np.logical_and(m, RV_mask)
+#     try:
+#         new_mask.astype(int).plot()
+#         plt.savefig(os.path.join(rg.path_outsub1, 'subset_dates_SST_and_RW.pdf'))
+#     except:
+#         pass
+#     print(f'{new_mask[new_mask].size} datapoints')
 
-    rg.PCMCI_df_data(keys=keys,
-                     replace_RV_mask=new_mask.values,
-                     pc_alpha=None,
-                     tau_max=5,
-                     max_conds_dim=10,
-                     max_combinations=10)
+#     rg.PCMCI_df_data(keys=keys,
+#                      replace_RV_mask=new_mask.values,
+#                      pc_alpha=None,
+#                      tau_max=5,
+#                      max_conds_dim=10,
+#                      max_combinations=10)
 
-    rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(8,2),
-                        kwrgs={'vmax_nodes':1.0,
-                               'vmax_edges':.6,
-                               'vmin_edges':-.6,
-                               'node_ticks':.2,
-                               'edge_ticks':.1},
-                        append_figpath=f'_subset_dates_tf{rg.precur_aggr}')
+#     rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(8,2),
+#                         kwrgs={'vmax_nodes':1.0,
+#                                'vmax_edges':.6,
+#                                'vmin_edges':-.6,
+#                                'node_ticks':.2,
+#                                'edge_ticks':.1},
+#                         append_figpath=f'_subset_dates_tf{rg.precur_aggr}')
 
-    rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
-    rg.df_links.mean(0, level=1)
-    MCI_subset = rg.df_MCIc.mean(0, level=1)
+#     rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
+#     rg.df_links.mean(0, level=1)
+#     MCI_subset = rg.df_MCIc.mean(0, level=1)
 
 
 
