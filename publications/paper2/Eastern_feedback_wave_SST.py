@@ -7,8 +7,8 @@ Created on Mon May 25 15:33:52 2020
 """
 
 import os, inspect, sys
+import matplotlib as mpl
 if sys.platform == 'linux':
-    import matplotlib as mpl
     mpl.use('Agg')
 import numpy as np
 import cartopy.crs as ccrs
@@ -45,7 +45,7 @@ targets = ['west', 'east']
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
-i_default = 3
+i_default = 24
 
 
 
@@ -331,7 +331,7 @@ for f in freqs[:]:
                       max_combinations=10)
 
 
-    lags = range(rg.kwrgs_pcmci['tau_min'], rg.kwrgs_pcmci['tau_max'])
+    lags = range(rg.kwrgs_pcmci['tau_min'], rg.kwrgs_pcmci['tau_max']+1)
     lags = np.array([l*f for i, l in enumerate(lags)])
     mlr=5
     SSTtoRW, rbRWtoSST, rbSSTtoRW = append_MCI(rg, dict_v, dict_rb)
