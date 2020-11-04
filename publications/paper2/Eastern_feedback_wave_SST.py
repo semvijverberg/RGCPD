@@ -216,7 +216,7 @@ rg.plot_maps_corr(var='N-Pac. SST', save=save, min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot)
 
 
-z500_green_bb = (155, 310, 10, 80)
+
 precur = rg.list_for_MI[0]
 subtitles = np.array([[f'lag {l}: z 500hpa vs Rossby wave ({name_or_cluster_label})'] for l in precur.lags])
 # row_dim='lag', col_dim='split',
