@@ -169,7 +169,7 @@ rg.plot_maps_corr(var='z500', save=save,
                   kwrgs_plot=kwrgs_plot)
 
 #%% SST vs RW
-list_of_name_path = [(name_or_cluster_label, TVpathRW),
+list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
                       ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
                       ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
                       # ('Trop. Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
@@ -214,15 +214,6 @@ rg.calc_corr_maps()
 
 
 
-# subtitles = np.array([['SST vs spat. covariance Rossby wave (z500)']])
-
-# rg.plot_maps_corr(var='Pacific SST',
-#                   aspect=2, size=5, cbar_vert=.19, save=True,
-#                   subtitles=subtitles, units=units, zoomregion=(-180,360,10,75),
-#                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=5,
-#                   drawbox=['all', sst_green_bb],
-#                   clim=(-.6,.6))
-
 save = True
 units = 'Corr. Coeff. [-]'
 subtitles = np.array([['SST vs eastern RW']])
@@ -250,24 +241,24 @@ rg.plot_maps_corr(var='z500', save=save, min_detect_gc=min_detect_gc,
 
 
 
-# #%% Only SST
+#%% Only SST
 
 # list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
-#                      ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
+#                       ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
 # list_for_MI = [BivariateMI(name='N-Pac. SST', func=class_BivariateMI.corr_map,
-#                            alpha=.05, FDR_control=True,
-#                            distance_eps=500, min_area_in_degrees2=5,
-#                            calc_ts='pattern cov', selbox=sst_green_bb,
-#                            lags=np.array([0]))]
+#                             alpha=.05, FDR_control=True,
+#                             distance_eps=500, min_area_in_degrees2=5,
+#                             calc_ts='pattern cov', selbox=sst_green_bb,
+#                             lags=np.array([0]))]
 
 # rg = RGCPD(list_of_name_path=list_of_name_path,
-#            list_for_MI=list_for_MI,
-#            list_import_ts=None,
-#            start_end_TVdate=start_end_TVdate,
-#            start_end_date=start_end_date,
-#            tfreq=tfreq,
-#            path_outmain=path_out_main)
+#             list_for_MI=list_for_MI,
+#             list_import_ts=None,
+#             start_end_TVdate=start_end_TVdate,
+#             start_end_date=start_end_date,
+#             tfreq=tfreq,
+#             path_outmain=path_out_main)
 
 # rg.pp_TV(name_ds=name_ds)
 # rg.pp_precursors(anomaly=True)
