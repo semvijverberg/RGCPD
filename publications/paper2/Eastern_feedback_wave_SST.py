@@ -185,14 +185,7 @@ list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov', selbox=(130,260,-10,90),
                               lags=np.array([0]))]
-                  # BivariateMI(name='Trop. Pac. SST', func=BivariateMI.corr_map,
-                  #              kwrgs_func={'alpha':.01, 'FDR_control':True},
-                  #              distance_eps=500, min_area_in_degrees2=5,
-                  #              calc_ts='pattern cov', selbox=selbox)]
 
-
-
-# list_import_ts = [('versusmx2t', TVpathall)]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
@@ -202,21 +195,16 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             tfreq=tfreq,
             path_outmain=path_out_main)
 
-
 rg.pp_TV(name_ds=name_ds)
-
 rg.pp_precursors(anomaly=True)
-
-
-rg.traintest(method=method, seed=seed)
-
+RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
+subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range, method, seed)
+rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
 rg.calc_corr_maps()
-
-
 
 save = True
 units = 'Corr. Coeff. [-]'
-subtitles = np.array([['SST vs eastern RW']])
+subtitles = np.array([[f'SST vs {west_east}ern RW']])
 kwrgs_plot = {'row_dim':'split', 'col_dim':'lag',
               'aspect':2, 'hspace':-.57, 'wspace':-.22, 'size':2, 'cbar_vert':-.02,
               'subtitles':subtitles, 'units':units, 'zoomregion':(130,260,-10,60),
