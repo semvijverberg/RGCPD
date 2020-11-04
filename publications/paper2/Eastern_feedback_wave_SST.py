@@ -315,7 +315,7 @@ def append_MCI(rg, dict_v, dict_rb):
 #%%
 import wrapper_PCMCI as wPCMCI
 
-dict_v = {'period':period.split('_')[0],'Experiment':'s{}_{}'.format(rg.kwrgs_TV['seed'], period)}
+dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
 freqs = [1, 5, 10, 15, 30, 60]
 for f in freqs[:]:
