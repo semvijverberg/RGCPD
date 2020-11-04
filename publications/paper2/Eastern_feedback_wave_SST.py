@@ -143,13 +143,12 @@ rg.get_ts_prec(precur_aggr=1)
 TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
 rg.store_df(filename=TVpathRW)
 
-import matplotlib
+
 # Optionally set font to Computer Modern to avoid common missing font errors
-matplotlib.rc('font', family='serif', serif='cm10')
+# mpl.rc('font', family='serif', serif='cm10')
 
-matplotlib.rc('text', usetex=True)
-matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
-
+# matplotlib.rc('text', usetex=True)
+mpl.rcParams['text.latex.preamble'] = [r'\boldmath']
 
 
 
@@ -157,7 +156,7 @@ title = f'$corr(z500, {west_east.capitalize()[0]}$-$US\ mx2t)$'
 subtitles = np.array([['']] )
 kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
               'hspace':0.0, 'cbar_vert':-.08, 'units':'Corr. Coeff. [-]',
-              'zoomregion':(-180,360,0,80), 'drawbox':[(0,0), z500_green_bb],
+              'zoomregion':(145,330,15,80), 'drawbox':[(0,0), z500_green_bb],
               'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6,
               'clim':(-.6,.6), 'title':title, 'subtitles':subtitles}
 save = True
