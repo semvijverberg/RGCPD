@@ -219,7 +219,6 @@ rg.plot_maps_corr(var='N-Pac. SST', save=save, min_detect_gc=min_detect_gc,
 
 precur = rg.list_for_MI[0]
 subtitles = np.array([[f'lag {l}: z 500hpa vs Rossby wave ({name_or_cluster_label})'] for l in precur.lags])
-# row_dim='lag', col_dim='split',
 kwrgs_plot.update({'size':5, 'cbar_vert':.175, 'subtitles':subtitles,
                     'zoomregion':(-180,360,10,80),
                     'drawbox':['all', z500_green_bb]})
@@ -231,104 +230,104 @@ rg.plot_maps_corr(var='z500', save=save, min_detect_gc=min_detect_gc,
 
 #%% Only SST
 
-# list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
-#                       ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
+list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
+                      ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
-# list_for_MI = [BivariateMI(name='N-Pac. SST', func=class_BivariateMI.corr_map,
-#                             alpha=.05, FDR_control=True,
-#                             distance_eps=500, min_area_in_degrees2=5,
-#                             calc_ts='pattern cov', selbox=sst_green_bb,
-#                             lags=np.array([0]))]
+list_for_MI = [BivariateMI(name='N-Pac. SST', func=class_BivariateMI.corr_map,
+                            alpha=.05, FDR_control=True,
+                            distance_eps=500, min_area_in_degrees2=5,
+                            calc_ts='pattern cov', selbox=sst_green_bb,
+                            lags=np.array([0]))]
 
-# rg = RGCPD(list_of_name_path=list_of_name_path,
-#             list_for_MI=list_for_MI,
-#             list_import_ts=None,
-#             start_end_TVdate=start_end_TVdate,
-#             start_end_date=start_end_date,
-#             tfreq=tfreq,
-#             path_outmain=path_out_main)
+rg = RGCPD(list_of_name_path=list_of_name_path,
+            list_for_MI=list_for_MI,
+            list_import_ts=None,
+            start_end_TVdate=start_end_TVdate,
+            start_end_date=start_end_date,
+            tfreq=tfreq,
+            path_outmain=path_out_main)
 
-# rg.pp_TV(name_ds=name_ds)
-# rg.pp_precursors(anomaly=True)
-# RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
-# subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range,
-#                                                   method, seed)
-# rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
+rg.pp_TV(name_ds=name_ds)
+rg.pp_precursors(anomaly=True)
+RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
+subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range,
+                                                  method, seed)
+rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
 
-# rg.calc_corr_maps(var='N-Pac. SST')
-# rg.cluster_list_MI(var='N-Pac. SST')
-# rg.quick_view_labels(median=True)
-# # rg.get_ts_prec(precur_aggr=1)
-# # rg.store_df(append_str=f'RW_and_SST_fb_tf{rg.tfreq}')
+rg.calc_corr_maps(var='N-Pac. SST')
+rg.cluster_list_MI(var='N-Pac. SST')
+rg.quick_view_labels(median=True)
+# rg.get_ts_prec(precur_aggr=1)
+# rg.store_df(append_str=f'RW_and_SST_fb_tf{rg.tfreq}')
 
-# def append_MCI(rg, dict_v, dict_rb):
-#     dkeys = [f'{f}-d', f'{f}-d SST->RW', f'{f}-d RW->SST']
+def append_MCI(rg, dict_v, dict_rb):
+    dkeys = [f'{f}-d', f'{f}-d SST->RW', f'{f}-d RW->SST']
 
-#     rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
-#     SSTtoRW = rg.df_MCIc.mean(0,level=1).loc['SST'].iloc[1:].max().round(3) # select SST
-#     rg.PCMCI_get_links(var=keys[1], alpha_level=.01) # links toward SST
-#     RWtoSST = rg.df_MCIc.mean(0,level=1).loc[f'{west_east[0].capitalize()}-RW'].iloc[1:].max().round(3) # select RW
-#     lag0 = rg.df_MCIc.mean(0,level=1).loc[f'{west_east[0].capitalize()}-RW']['coeff l0'].round(3)
-#     append_dict = {dkeys[0]:lag0, dkeys[1]:SSTtoRW, dkeys[2]:RWtoSST}
-#     dict_v.update(append_dict)
+    rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
+    SSTtoRW = rg.df_MCIc.mean(0,level=1).loc['SST'].iloc[1:].max().round(3) # select SST
+    rg.PCMCI_get_links(var=keys[1], alpha_level=.01) # links toward SST
+    RWtoSST = rg.df_MCIc.mean(0,level=1).loc[f'{west_east[0].capitalize()}-RW'].iloc[1:].max().round(3) # select RW
+    lag0 = rg.df_MCIc.mean(0,level=1).loc[f'{west_east[0].capitalize()}-RW']['coeff l0'].round(3)
+    append_dict = {dkeys[0]:lag0, dkeys[1]:SSTtoRW, dkeys[2]:RWtoSST}
+    dict_v.update(append_dict)
 
-#     robustness = wPCMCI.get_traintest_links(rg.pcmci_dict,
-#                                      rg.parents_dict,
-#                                      rg.pcmci_results_dict,
-#                                      min_link_robustness=mlr)[2]
-#     rblag0 = int(robustness[0][1][0])
-#     rbSSTtoRW = int(max(robustness[1][0][1:])) # from i to j, SST to RW
-#     rbRWtoSST = int(max(robustness[0][1][1:])) # from i to j, RW to SST
-#     append_dict = {dkeys[0]:rblag0, dkeys[1]:rbSSTtoRW, dkeys[2]:rbRWtoSST}
-#     dict_rb.update(append_dict)
-#     return SSTtoRW, rbRWtoSST, rbSSTtoRW
+    robustness = wPCMCI.get_traintest_links(rg.pcmci_dict,
+                                      rg.parents_dict,
+                                      rg.pcmci_results_dict,
+                                      min_link_robustness=mlr)[2]
+    rblag0 = int(robustness[0][1][0])
+    rbSSTtoRW = int(max(robustness[1][0][1:])) # from i to j, SST to RW
+    rbRWtoSST = int(max(robustness[0][1][1:])) # from i to j, RW to SST
+    append_dict = {dkeys[0]:rblag0, dkeys[1]:rbSSTtoRW, dkeys[2]:rbRWtoSST}
+    dict_rb.update(append_dict)
+    return SSTtoRW, rbRWtoSST, rbSSTtoRW
 
-# #%%
-# import wrapper_PCMCI as wPCMCI
+#%%
+import wrapper_PCMCI as wPCMCI
 
-# dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
-# dict_rb = dict_v.copy()
-# freqs = [1, 5, 10, 15, 30, 60]
-# for f in freqs[:]:
-#     rg.get_ts_prec(precur_aggr=f)
-#     rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':f'{west_east[0].capitalize()}-RW',
-#                                     '0..0..N-Pac. SST_sp':'SST'}, axis=1)
+dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
+dict_rb = dict_v.copy()
+freqs = [1, 5, 10, 15, 30, 60]
+for f in freqs[:]:
+    rg.get_ts_prec(precur_aggr=f)
+    rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':f'{west_east[0].capitalize()}-RW',
+                                    '0..0..N-Pac. SST_sp':'SST'}, axis=1)
 
-#     keys = [f'{west_east[0].capitalize()}-RW','SST']
-#     rg.PCMCI_df_data(keys=keys,
-#                       pc_alpha=None,
-#                       tau_max=5,
-#                       max_conds_dim=10,
-#                       max_combinations=10)
+    keys = [f'{west_east[0].capitalize()}-RW','SST']
+    rg.PCMCI_df_data(keys=keys,
+                      pc_alpha=None,
+                      tau_max=5,
+                      max_conds_dim=10,
+                      max_combinations=10)
 
 
-#     lags = range(rg.kwrgs_pcmci['tau_min'], rg.kwrgs_pcmci['tau_max']+1)
-#     lags = np.array([l*f for i, l in enumerate(lags)])
-#     mlr=5
-#     SSTtoRW, rbRWtoSST, rbSSTtoRW = append_MCI(rg, dict_v, dict_rb)
-#     #%%
-#     rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(12,6),
-#                         kwrgs={'vmax_nodes':.9,
-#                                'node_aspect':80,
-#                                'node_size':.008,
-#                                'node_ticks':.3,
-#                                'node_label_size':40,
-#                                'vmax_edges':.6,
-#                                'vmin_edges':0,
-#                                'cmap_edges':'plasma_r',
-#                                'edge_ticks':.2,
-#                                'lag_array':lags,
-#                                'curved_radius':.5,
-#                                'arrowhead_size':1000,
-#                                'link_label_fontsize':30,
-#                                'label_fontsize':10,
-#                                'weights_squared':1.5},
-#                         append_figpath=f'_tf{rg.precur_aggr}_{SSTtoRW}_rb{mlr}_rbRWSST{rbRWtoSST}_rbSSTRW{rbSSTtoRW}')
-#     #%%
-#     rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
-#     rg.df_links.astype(int).sum(0, level=1)
-#     MCI_ALL = rg.df_MCIc.mean(0, level=1)
-# #%%
+    lags = range(rg.kwrgs_pcmci['tau_min'], rg.kwrgs_pcmci['tau_max']+1)
+    lags = np.array([l*f for i, l in enumerate(lags)])
+    mlr=5
+    SSTtoRW, rbRWtoSST, rbSSTtoRW = append_MCI(rg, dict_v, dict_rb)
+    #%%
+    rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(12,6),
+                        kwrgs={'vmax_nodes':.9,
+                                'node_aspect':80,
+                                'node_size':.008,
+                                'node_ticks':.3,
+                                'node_label_size':40,
+                                'vmax_edges':.6,
+                                'vmin_edges':0,
+                                'cmap_edges':'plasma_r',
+                                'edge_ticks':.2,
+                                'lag_array':lags,
+                                'curved_radius':.5,
+                                'arrowhead_size':1000,
+                                'link_label_fontsize':30,
+                                'label_fontsize':12,
+                                'weights_squared':1.5},
+                        append_figpath=f'_tf{rg.precur_aggr}_{SSTtoRW}_rb{mlr}_rbRWSST{rbRWtoSST}_rbSSTRW{rbSSTtoRW}')
+    #%%
+    rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
+    rg.df_links.astype(int).sum(0, level=1)
+    MCI_ALL = rg.df_MCIc.mean(0, level=1)
+#%%
 # # write MCI strength
 
 # csvfilenameMCI = os.path.join(rg.path_outmain, name_MCI_csv)

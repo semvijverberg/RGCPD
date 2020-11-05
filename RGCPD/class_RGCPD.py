@@ -546,7 +546,7 @@ class RGCPD:
             weights = weights**kwrgs.pop('weights_squared')
         fig = plt.figure(figsize=figshape, facecolor='white')
         ax = fig.add_subplot(111, facecolor='white')
-        tp.plot_graph(val_matrix=val_plot,
+        fig, ax = tp.plot_graph(val_matrix=val_plot,
                       var_names=var_names,
                       link_width=weights,
                       link_matrix=links_plot,
