@@ -119,7 +119,7 @@ elif target[-2:] == 'RW':
     elif target == 'westernRW':
         TVpath = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
 elif target == 'SM':
-    tfreq = 90
+    tfreq = 60
     alpha=.05
     cluster_label = 'SM'
     name_ds = 'SM'
