@@ -54,7 +54,8 @@ matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 region = 'eastern'
 
 if region == 'eastern':
-    targets = ['easterntemp', 'easternRW']
+    targets = ['easterntemp', 'easternRW', 'SM']
+    targets = ['SM']
 elif region == 'western':
     targets = ['westerntemp', 'westernRW']
 
@@ -63,7 +64,7 @@ expers = np.array(['fixed_corr', 'adapt_corr'])
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, expers, seeds)).T.reshape(-1,3)
 
-i_default = 2
+i_default = 4
 
 
 
@@ -117,6 +118,12 @@ elif target[-2:] == 'RW':
         TVpath = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
     elif target == 'westernRW':
         TVpath = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
+elif target == 'SM':
+    tfreq = 90
+    alpha=.05
+    cluster_label = 'SM'
+    name_ds = 'SM'
+    TVpath = os.path.join(data_dir, 'SM2_09-11-20_14hr.h5')
 
 precur_aggr = tfreq
 method     = 'ran_strat10' ;
