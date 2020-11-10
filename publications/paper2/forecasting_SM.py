@@ -52,19 +52,14 @@ import plot_maps; import core_pp
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
 region = 'eastern'
-
-if region == 'eastern':
-    targets = ['easterntemp', 'easternRW']
-    targets = ['SM']
-elif region == 'western':
-    targets = ['westerntemp', 'westernRW']
+precursors = ['sst', 'z500']
 
 
 expers = np.array(['fixed_corr', 'adapt_corr'])
 seeds = np.array([1,2,3])
-combinations = np.array(np.meshgrid(targets, expers, seeds)).T.reshape(-1,3)
+combinations = np.array(np.meshgrid(precursors, expers, seeds)).T.reshape(-1,3)
 
-i_default = 4
+i_default = 2
 
 
 
@@ -83,16 +78,18 @@ def parseArguments():
 if __name__ == '__main__':
     args = parseArguments()
     out = combinations[args.intexper]
-    target = out[0]
+    precurname = out[0]
     experiment = out[1]
     seed = int(out[2])
-    if target[-4:]=='temp':
-        tfreq = 15
-    else:
+    if precurname =='sst':
         tfreq = 60
-    print(f'arg {args.intexper} - Target {target}, Experiment {experiment}, tfreq {tfreq}')
+    elif precurname =='z500':
+        tfreq = 15
+    print(f'arg {args.intexper} - Target {precurname}, Experiment {experiment}, tfreq {tfreq}')
 else:
-    target = targets[2]
+    precurname = precursors[0]
+
+
     tfreq = 60
     experiment = 'fixed_corr'
     experiment = 'adapt_corr'
@@ -101,23 +98,13 @@ else:
 
 calc_ts='region mean' # pattern cov
 
-if target[-4:] == 'temp':
-    TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
-    alpha_corr = .01
-    cluster_label = 2
-    name_ds='ts'
-    if target == 'westerntemp':
-        cluster_label = 1
-    elif target == 'easterntemp':
-        cluster_label = 2
-elif target[-2:] == 'RW':
-    cluster_label = 'z500'
-    name_ds = f'0..0..{cluster_label}_sp'
-    alpha_corr = .05
-    if target == 'easternRW':
-        TVpath = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
-    elif target == 'westernRW':
-        TVpath = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
+
+
+alpha_corr=.05
+cluster_label = 'SM'
+name_ds = 'SM'
+TVpath = os.path.join(data_dir, 'SM2_09-11-20_14hr.h5')
+
 
 precur_aggr = tfreq
 method     = 'ran_strat10' ;
@@ -125,26 +112,29 @@ n_boot = 5000
 
 append_main = ''
 
-
+if precurname == 'sst':
+    precursor = ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))
+elif precurname == 'z500':
+    precursor = ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))
 
 #%% run RGPD
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
 list_of_name_path = [(cluster_label, TVpath),
-                     ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
+                     precursor]
 
-list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.parcorr_map_time,
+list_for_MI   = [BivariateMI(name=precurname, func=class_BivariateMI.parcorr_map_time,
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={'precursor':True},
                             distance_eps=1200, min_area_in_degrees2=10,
-                            calc_ts=calc_ts, selbox=(130,260,-10,60),
+                            calc_ts=calc_ts, selbox=(130,320,-10,60),
                             lags=np.array([0]))]
 if calc_ts == 'region mean':
     s = ''
 else:
     s = '_' + calc_ts.replace(' ', '')
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}{s}{append_main}/')
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{precurname}{s}{append_main}/')
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
@@ -156,11 +146,15 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=path_out_main,
            append_pathsub='_' + experiment)
 
-title = r'$parcorr(SST_t, mx2t_t\ |\ SST_{t-1},mx2t_{t-1})$'
+if precurname == 'sst':
+    title = r'$parcorr(SST_t, SM_t\ |\ SST_{t-1},SM_{t-1})$'
+elif precurname == 'z500':
+    title = r'$parcorr(Z500_t, SM_t\ |\ Z500_{t-1},SM_{t-1})$'
+
 subtitles = np.array([['']]) #, f'lag 2 (15 day lead)']] )
 kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
               'wspace':-.15, 'size':3, 'cbar_vert':-.1,
-              'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
+              'units':'Corr. Coeff. [-]', #zoomregion':(130,320,-10,60),
               'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
               'y_ticks':np.arange(-10,61,20), 'x_ticks':np.arange(130, 280, 25),
               'subtitles':subtitles, 'title':title,
@@ -170,7 +164,7 @@ kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
 if experiment == 'fixed_corr':
     rg.pp_TV(name_ds=name_ds, detrend=False)
 
-    subfoldername = '_'.join([target,rg.hash, experiment.split('_')[0],
+    subfoldername = '_'.join([precurname,rg.hash, experiment.split('_')[0],
                           str(precur_aggr), str(alpha_corr), method,
                           str(seed)])
 
@@ -180,7 +174,7 @@ if experiment == 'fixed_corr':
     rg.cluster_list_MI()
     rg.quick_view_labels(save=True, append_str=experiment)
     # plotting corr_map
-    rg.plot_maps_corr(var='sst', save=True,
+    rg.plot_maps_corr(save=True,
                       kwrgs_plot=kwrgs_plotcorr,
                       min_detect_gc=1.0,
                       append_str=experiment)
@@ -233,7 +227,7 @@ for month, start_end_TVdate in months.items():
     elif experiment == 'adapt_corr':
         rg.start_end_TVdate = start_end_TVdate # adapt target period
         rg.pp_TV(name_ds=name_ds, detrend=False)
-        subfoldername = '_'.join([target,rg.hash, experiment.split('_')[0],
+        subfoldername = '_'.join([precurname,rg.hash, experiment.split('_')[0],
                           str(precur_aggr), str(alpha_corr), method,
                           str(seed)])
         rg.pp_precursors()
@@ -375,10 +369,8 @@ for noinfo in no_info_fc:
 
 ax.set_ylabel('Skill Score', fontsize=16)
 # ax.set_xlabel('Months', fontsize=16)
-if target[-4:] == 'temp':
-    title = f'Seasonal dependence of {precur_aggr}-day mean temp predictions'
-elif target[-2:] == 'RW':
-    title = f'Seasonal dependence of {precur_aggr}-day mean RW predictions'
+
+title = f'Seasonal dependence of SM-{precurname} [{precur_aggr}-day mean]'
 ax.set_title(title,
              fontsize=16)
 ax.tick_params(axis='both', labelsize=13)

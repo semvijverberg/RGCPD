@@ -51,70 +51,6 @@ import plot_maps; import core_pp
 # matplotlib.rc('text', usetex=True)
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
-# region = 'eastern'
-# targets = ['easternRW']
-
-
-
-# expers = np.array(['fixed_corr', 'adapt_corr'])
-# seeds = np.array([1,2,3])
-# combinations = np.array(np.meshgrid(targets, expers, seeds)).T.reshape(-1,3)
-
-# i_default = 2
-
-
-
-# def parseArguments():
-#     # Create argument parser
-#     parser = argparse.ArgumentParser()
-
-#     # Optional arguments
-#     parser.add_argument("-i", "--intexper", help="intexper", type=int,
-#                         default=i_default)
-#     # Parse arguments
-#     args = parser.parse_args()
-#     return args
-
-
-# if __name__ == '__main__':
-#     args = parseArguments()
-#     out = combinations[args.intexper]
-#     target = out[0]
-#     experiment = out[1]
-#     seed = int(out[2])
-#     if target[-4:]=='temp':
-#         tfreq = 15
-#     else:
-#         tfreq = 60
-#     print(f'arg {args.intexper} - Target {target}, Experiment {experiment}, tfreq {tfreq}')
-# else:
-#     target = targets[2]
-#     tfreq = 60
-#
-#     experiment = 'adapt_corr'
-#     seed = 1
-
-
-
-
-# if target[-4:] == 'temp':
-#     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
-#     alpha_corr = .01
-#     cluster_label = 2
-#     name_ds='ts'
-#     if target == 'westerntemp':
-#         cluster_label = 1
-#     elif target == 'easterntemp':
-#         cluster_label = 2
-# elif target[-2:] == 'RW':
-#     cluster_label = 'z500'
-#     name_ds = f'0..0..{cluster_label}_sp'
-#     alpha_corr = .05
-#     if target == 'easternRW':
-#
-#     elif target == 'westernRW':
-#         TVpath = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
-
 experiment = 'fixed_corr'
 calc_ts='pattern cov' #
 method     = 'ran_strat10' ; seed=1
@@ -137,7 +73,7 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.parcorr_map_time
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={'precursor':True},
                             distance_eps=1200, min_area_in_degrees2=10,
-                            calc_ts=calc_ts, selbox=(160,260,10,60),
+                            calc_ts=calc_ts, selbox=(0,360,-10,90),
                             lags=np.array([0]))]
 
 if calc_ts == 'region mean':
@@ -189,10 +125,11 @@ rgSST.get_ts_prec(1)
 df_SST = rgSST.df_data.rename({rgSST.TV.name:'E-RW',
                               f'0..0..{rgSST.list_for_MI[0].name}_sp':'SST pattern'},
                               axis=1)
+
 #%% Retrieve Soil Moisture regions connected to eastern U.S. temp
 # spring SST correlated with RW
 TVpathmx2t = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
-start_end_TVdate = ('06-01', '08-31')
+start_end_TVdate = ('07-01', '08-31')
 start_end_date = ('1-1', '12-31')
 calc_ts = 'region mean'
 cluster_label = 2
@@ -254,17 +191,55 @@ if experiment == 'fixed_corr':
                       append_str=experiment)
 rgT.get_ts_prec(precur_aggr=1)
 df_T = rgT.df_data.rename({rgT.TV.name:'E-temp',
-                              f'0..2..{rgT.list_for_MI[0].name}':'SM'},
+                              f'0..2..{rgT.list_for_MI[0].name}':'SM',
+                              f'0..0..{rgT.list_for_MI[0].name}_sp':'SM'},
                               axis=1)
 #%%
+import sklearn
+scaler = sklearn.preprocessing.StandardScaler()
 df_sm_sst = df_SST[['SST pattern']].merge(df_T.iloc[:,1:],
                                           left_index=True, right_index=True)
 df_sm_sst = df_sm_sst[['SST pattern', 'SM']].mean(axis=0, level=1)
+
+scaler.fit(df_sm_sst)
+df_sm_sst[:] = scaler.transform(df_sm_sst)
+
+# df_sm_sst.rolling(360).mean().plot()
+df_sm_sst.index.name = 'time' ; xr_sm_sst = df_sm_sst.to_xarray() ;
+xr_sm_sst = xr_sm_sst.to_array().resample(time='QS-DEC').mean()
+xr_sm_sst = xr_sm_sst.assign_coords(season=('time', xr_sm_sst.time.dt.season.values))
+
+fig = plt.figure(figsize=(10,7))
+for i, season in enumerate(('DJF', 'MAM', 'JJA', 'SON')):
+    ax = plt.subplot(2, 2, i+1)
+
+    xr_season = xr_sm_sst.where(xr_sm_sst.season==season).dropna('time')
+    # xr_season = xr_season.drop('season')
+    xr_season.sel(variable='SST pattern').drop('variable').plot(ax=ax,
+                                                                label='SST pattern')
+    xr_season.sel(variable='SM').drop('variable').plot(ax=ax, label='SM')
+    corr = np.corrcoef(xr_season.values)[0][1]
+    ax.text(.05,.05, 'corr {:.2f}'.format(corr), transform=ax.transAxes)
+    ax.set_title(season)
+    if i ==0:
+        ax.legend(loc='upper left')
+fig.subplots_adjust(hspace=.4)
+#%%
+import sklearn
+scaler = sklearn.preprocessing.StandardScaler()
+df_sm_sst = df_SST[['SST pattern']].merge(df_T.iloc[:,1:],
+                                          left_index=True, right_index=True)
+df_sm_sst = df_sm_sst[['SST pattern', 'SM']].mean(axis=0, level=1)
+
+scaler.fit(df_sm_sst)
+df_sm_sst[:] = scaler.transform(df_sm_sst)
+
 df_ = df_sm_sst.resample('1M').mean()
 df_['year'] = df_.index.year
 df_.index = df_.index.month
-quarters = {1: 'DJF', 2: 'DJF', 3: 'MAM', 4: 'MAM', 5: 'MAM', 6: 'JJA', 7: 'JJA', 8: 'JJA', 9: 'SON', 10: 'SON', 11: 'SON',
-    12: 'DJF'}
+quarters = {1: 'SON-DJF-MAM', 2: 'SON-DJF-MAM', 3: 'SON-DJF-MAM', 4: 'SON-DJF-MAM',
+            5: 'SON-DJF-MAM', 6: 'JJA', 7: 'JJA', 8: 'JJA', 9: 'SON-DJF-MAM', 10: 'SON-DJF-MAM', 11: 'SON-DJF-MAM',
+            12: 'SON-DJF-MAM'}
 # can be grouped by year and quarters
 df_ = df_.groupby(['year',quarters]).mean()
 
@@ -316,10 +291,11 @@ for i, yr in enumerate(np.unique(df_.index.year)):
 import matplotlib.dates as mdates
 fig, ax = plt.subplots(1,1, figsize=(8,4))
 
-var_winter = df_[['SST pattern']].reorder_levels((1,0), axis=0).loc[['DJF', 'MAM']]
+nice_colors = ['#EE6666', '#3388BB', '#9988DD', '#EECC55',
+                '#88BB44', '#FFBBBB']
+var_winter = df_[['SST pattern']].reorder_levels((1,0), axis=0).loc[['SON-DJF-MAM']]
 var_winter = var_winter.groupby(var_winter.index.get_level_values(1)).mean()
-
-dominant_yrs = var_winter[var_winter > var_winter.quantile(.8)].dropna().index#.levels[1]
+dominant_yrs = var_winter[var_winter > var_winter.quantile(.9)].dropna().index#.levels[1]
 
 allyrs = []
 for i, yr in enumerate(dominant_yrs):
@@ -332,13 +308,47 @@ for i, yr in enumerate(dominant_yrs):
     df_yr.index = pd.MultiIndex.from_tuples(tuples, names=['year', 'seaon'])
     print(yr)
     alpha = 1
-    # df_yr['SST pattern'].plot(ax=ax, color='blue', linestyle='--',
-    #                       legend=False, alpha=alpha)
-    df_yr['SM'].plot(ax=ax, color='red', legend=False, alpha=alpha)
-    ax.set_ylim(-.1,.1)
+    # df_yr['SM'].plot(ax=ax, color=nice_colors[i], legend=False, linestyle='solid',
+    #                  alpha=alpha, linewidth=3)
+
+    df_yr['SST pattern'].plot(ax=ax, color=nice_colors[i], linestyle='-.',
+                          legend=True, label=yr, alpha=alpha)
+    # ax.set_ylim(-.1,.1)
     ax.hlines(y=0.5, xmin=0.05, xmax=.95, transform=ax.transAxes)
     ax.set_xticks(range(df_yr.index.values.size))
     xticklabels = ['{} {}'.format(*list(item)) for item in df_yr.index.tolist()]
     ax.set_xticklabels(xticklabels, rotation=-45);
     allyrs.append(list(df_yr['SM'].values))
 
+#%%
+
+summerdays = core_pp.get_subdates(df_T.mean(0,level=1).index,
+                                  start_end_date=('08-01','08-31'),
+                                  start_end_year=(1980, 2018))
+df_sum = df_T.mean(0,level=1).loc[summerdays]
+summmerSM = df_sum['SM'].groupby(df_sum.index.year).mean()
+winterdays = core_pp.get_subdates(df_SST[['SST pattern']].mean(0,level=1).index,
+                                  start_end_date=('01-01','08-31'),
+                                  start_end_year=(1979, 2017))
+winterdays = functions_pp.func_dates_min_lag(winterdays, lag=92)[1]
+df_win = df_SST[['SST pattern']].mean(0,level=1).loc[winterdays]
+winterSST = df_win.groupby(df_win.index.year).mean().iloc[:-1]
+falldays = core_pp.get_subdates(df_SST[['SST pattern']].mean(0,level=1).index,
+                                  start_end_date=('09-01','12-31'),
+                                  start_end_year=(1980, 2018))
+df_fall = df_SST[['SST pattern']].mean(0,level=1).loc[falldays]
+fallSST = df_win.groupby(df_win.index.year).mean().iloc[1:]
+
+
+
+
+np.corrcoef(winterSST.values.squeeze(),
+            summmerSM.values.squeeze())
+
+winterSST *= -1
+summerSMbin = (summmerSM < summmerSM.std()).astype(int)
+sklearn.metrics.roc_auc_score(summerSMbin, winterSST)
+fpr, tpr, _ = sklearn.metrics.roc_curve(summerSMbin, winterSST)
+# plot the roc curve for the model
+ax = plt.plot(fpr, tpr, linestyle='--')
+plt.plot(np.arange(0,1.1,0.2), np.arange(0,1.1,0.2))
