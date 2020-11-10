@@ -73,7 +73,7 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.parcorr_map_time
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={'precursor':True},
                             distance_eps=1200, min_area_in_degrees2=10,
-                            calc_ts=calc_ts, selbox=(0,360,-10,90),
+                            calc_ts=calc_ts, selbox=(160,260,10,60),
                             lags=np.array([0]))]
 
 if calc_ts == 'region mean':

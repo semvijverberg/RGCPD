@@ -90,7 +90,7 @@ else:
     precurname = precursors[0]
 
 
-    tfreq = 60
+    tfreq = 15
     experiment = 'fixed_corr'
     experiment = 'adapt_corr'
     seed = 1
@@ -127,7 +127,7 @@ list_for_MI   = [BivariateMI(name=precurname, func=class_BivariateMI.parcorr_map
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={'precursor':True},
                             distance_eps=1200, min_area_in_degrees2=10,
-                            calc_ts=calc_ts, selbox=(130,320,-10,60),
+                            calc_ts=calc_ts, selbox=(0,360,-10,90),
                             lags=np.array([0]))]
 if calc_ts == 'region mean':
     s = ''
@@ -146,19 +146,31 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=path_out_main,
            append_pathsub='_' + experiment)
 
+
+
 if precurname == 'sst':
     title = r'$parcorr(SST_t, SM_t\ |\ SST_{t-1},SM_{t-1})$'
 elif precurname == 'z500':
     title = r'$parcorr(Z500_t, SM_t\ |\ Z500_{t-1},SM_{t-1})$'
 
 subtitles = np.array([['']]) #, f'lag 2 (15 day lead)']] )
-kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
-              'wspace':-.15, 'size':3, 'cbar_vert':-.1,
+kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag',
               'units':'Corr. Coeff. [-]', #zoomregion':(130,320,-10,60),
               'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
-              'y_ticks':np.arange(-10,61,20), 'x_ticks':np.arange(130, 280, 25),
               'subtitles':subtitles, 'title':title,
               'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+
+if precurname == 'sst':
+    kwrgs_plotcorr.update({'y_ticks':np.arange(-10,61,20),
+                           'x_ticks':np.arange(130, 280, 25),
+                           'aspect':2, 'hspace':-.47,
+                           'wspace':-.15, 'size':3, 'cbar_vert':-.1,})
+elif precurname == 'z500':
+    kwrgs_plotcorr.update({'aspect':3.8, 'size':2.5,
+                           'hspace':0.0, 'cbar_vert':-.08,
+                           'n_yticks':6})
+
+
 
 #%%
 if experiment == 'fixed_corr':
