@@ -240,7 +240,7 @@ for month, start_end_TVdate in months.items():
         rg.get_ts_prec(precur_aggr=precur_aggr)
 
         # plotting corr_map
-        rg.plot_maps_corr(var='sst', save=True,
+        rg.plot_maps_corr(save=True,
                           kwrgs_plot=kwrgs_plotcorr,
                           min_detect_gc=1.0,
                           append_str=experiment+'_'+month)
