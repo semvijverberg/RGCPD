@@ -51,7 +51,7 @@ import plot_maps; import core_pp
 # matplotlib.rc('text', usetex=True)
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
-region = 'eastern'
+region = 'western'
 
 if region == 'eastern':
     targets = ['easterntemp', 'easternRW']

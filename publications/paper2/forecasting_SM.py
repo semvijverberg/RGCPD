@@ -220,7 +220,7 @@ monthkeys= list(months.keys()) ; oneyrsize = 0
 
 if precur_aggr == 15:
     blocksize=2
-    lag = 2
+    lag = 1
 elif precur_aggr==60:
     blocksize=1
     lag = 1
