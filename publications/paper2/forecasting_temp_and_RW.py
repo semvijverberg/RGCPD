@@ -268,9 +268,10 @@ for month, start_end_TVdate in months.items():
                    'alphas':alphas, # large a, strong regul.
                    'normalize':False}
 
-    keys = [k for k in rg.df_data.columns[:-2] if k != rg.TV.name]
+    keys = [k for k in rg.df_data.columns[:-2] if k not in [rg.TV.name, 'PDO']]
     if remove_PDO:
-        rg.df_data[keys] = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=keys)
+        rg.df_data[keys] = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=keys,
+                                                   standardize=True)
     if len(keys) != 0:
         oneyr = functions_pp.get_oneyr(rg.df_data['RV_mask'].loc[0][rg.df_data['RV_mask'].loc[0]])
         oneyrsize = oneyr.size

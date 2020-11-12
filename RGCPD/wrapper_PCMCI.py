@@ -569,7 +569,10 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize=True):
 
         for s in df_data.index.levels[0]:
             dfxyz_s = dfxyz.loc[0]
-            npstore[i,s,:] = method._get_single_residuals(np.moveaxis(dfxyz_s.values, 0,1), 0,
+            if all(dfxyz_s[orig].isna().values):
+                npstore[i,s,:] = dfxyz_s[orig].values # fill in all nans
+            else:
+                npstore[i,s,:] = method._get_single_residuals(np.moveaxis(dfxyz_s.values, 0,1), 0,
                                                           standardize=standardize)
 
     df_new = pd.DataFrame(np.moveaxis(npstore, 0, 2).reshape(-1,len(keys)), index=df_data.index, columns=keys)
