@@ -936,7 +936,14 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
                             index=pd.to_datetime(TV_ts.time.values),
                             columns=['RV'+fullts.name])
 
-    if method[:9] == 'ran_strat' and kwrgs_events is None and precursor_ts is None:
+    if precursor_ts is not None:
+        path_data = ''.join(precursor_ts[0][1])
+        df_ext = functions_pp.load_hdf5(path_data)['df_data'].loc[:,:]
+        if 'TrainIsTrue' in df_ext.columns:
+            print('Retrieve same train test split as imported ts')
+            method = 'from_import' ; seed = ''
+
+    if method[:9] == 'ran_strat' and kwrgs_events is None and method != 'from_import':
             # events need to be defined to enable stratified traintest.
             kwrgs_events = {'event_percentile': 66,
                             'min_dur' : 1,
@@ -951,23 +958,18 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
     TV = RV_class(df_fullts, df_RV_ts, kwrgs_events)
 
 
-    if precursor_ts is not None:
-        path_data = ''.join(precursor_ts[0][1])
-        df_ext = functions_pp.load_hdf5(path_data)['df_data'].loc[:,:]
-        if 'TrainIsTrue' in df_ext.columns:
-            print('Retrieve same train test split as imported ts')
-            method = 'from_import' ; seed = ''
 
-            df_splits = functions_pp.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
-            test_yrs_imp  = functions_pp.get_testyrs(df_splits)
-            df_splits = functions_pp.rand_traintest_years(TV, test_yrs=test_yrs_imp,
-                                                            method=method,
-                                                            seed=seed,
-                                                            kwrgs_events=kwrgs_events,
-                                                            verb=verbosity)
+    if method == 'from_import':
+        df_splits = functions_pp.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
+        test_yrs_imp  = functions_pp.get_testyrs(df_splits)
+        df_splits = functions_pp.rand_traintest_years(TV, test_yrs=test_yrs_imp,
+                                                        method=method,
+                                                        seed=seed,
+                                                        kwrgs_events=kwrgs_events,
+                                                        verb=verbosity)
+        test_yrs_set  = functions_pp.get_testyrs(df_splits)
+        assert (np.equal(test_yrs_imp, test_yrs_set)).all(), "Train test split not equal"
 
-            test_yrs_set  = functions_pp.get_testyrs(df_splits)
-            assert (np.equal(test_yrs_imp, test_yrs_set)).all(), "Train test split not equal"
     if method != 'from_import':
         df_splits = functions_pp.rand_traintest_years(TV, method=method,
                                                         seed=seed,

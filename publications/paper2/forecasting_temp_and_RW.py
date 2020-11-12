@@ -65,7 +65,7 @@ remove_PDOyesno = np.array([0, 1])
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, expers, seeds, remove_PDOyesno)).T.reshape(-1,4)
 
-i_default = 0
+i_default = 7
 
 
 
