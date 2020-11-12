@@ -61,11 +61,11 @@ elif region == 'western':
 
 
 expers = np.array(['fixed_corr', 'adapt_corr'])
-remove_PDOyesno = np.array([False, True])
+remove_PDOyesno = np.array([0, 1])
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, expers, seeds, remove_PDOyesno)).T.reshape(-1,4)
 
-i_default = 4
+i_default = 0
 
 
 
@@ -87,12 +87,12 @@ if __name__ == '__main__':
     target = out[0]
     experiment = out[1]
     seed = int(out[2])
-    remove_PDO = bool(out[3])
+    remove_PDO = bool(int(out[3]))
     if target[-4:]=='temp':
         tfreq = 15
     else:
         tfreq = 60
-    print(f'arg {args.intexper} - Target {target}, Experiment {experiment}, tfreq {tfreq}')
+    print(f'arg {args.intexper} f{out}')
 else:
     target = targets[2]
     tfreq = 60
