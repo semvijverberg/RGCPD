@@ -177,6 +177,8 @@ if experiment == 'fixed_corr':
                           str(precur_aggr), str(alpha_corr), method,
                           str(seed)])
 
+    if remove_PDO:
+        subfoldername += '_rmPDO'
     rg.pp_precursors()
     rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
     rg.calc_corr_maps()
@@ -243,6 +245,8 @@ for month, start_end_TVdate in months.items():
         subfoldername = '_'.join([target,rg.hash, experiment.split('_')[0],
                           str(precur_aggr), str(alpha_corr), method,
                           str(seed)])
+        if remove_PDO:
+            subfoldername += '_rmPDO'
         rg.pp_precursors()
         rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
         finalfolder = rg.path_outsub1.split('/')[-1]
