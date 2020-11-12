@@ -89,9 +89,8 @@ def plot_lagged_dependences(pcmci, selected_links: dict=None, tau_max=5):
     pcmci.verbosity = origverbosity
     return
 
-def loop_train_test(pcmci_dict, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None,
-                    max_conds_dim=4, max_combinations=1,
-                    max_conds_py=None, max_conds_px=None, verbosity=4):
+def loop_train_test(pcmci_dict, path_txtoutput, tigr_function_call='run_pcmci',
+                    kwrgs_tigr={}):
     '''
     pc_alpha (float, optional (default: 0.05))
         Significance level in algorithm.
@@ -125,25 +124,20 @@ def loop_train_test(pcmci_dict, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=N
     for s in range(splits.size):
         progress = int(100 * (s+1) / splits.size)
         print(f"\rProgress causal inference - traintest set {progress}%", end="")
-        results = run_pcmci(pcmci_dict[s], path_txtoutput, s,
-                        tau_min, tau_max, pc_alpha, max_conds_dim,
-                        max_combinations, max_conds_py, max_conds_px,
-                        verbosity)
+        results = run_tigramite(pcmci_dict[s], path_txtoutput, s,
+                                tigr_function_call,
+                                kwrgs_tigr=kwrgs_tigr)
         pcmci_results_dict[s] = results
     #%%
     return pcmci_results_dict
 
     #%%
-def run_pcmci(pcmci, path_outsub2, s, tau_min=0, tau_max=1,
-              pc_alpha=None, max_conds_dim=4, max_combinations=1,
-              max_conds_py=None, max_conds_px=None, verbosity=4):
-
-
+def run_tigramite(pcmci, path_outsub2, s, tigr_function_call='run_pcmci',
+                  kwrgs_tigr={}):
 
     #%%
     if path_outsub2 is not False:
         txt_fname = os.path.join(path_outsub2, f'split_{s}_PCMCI_out.txt')
-#        from contextlib import redirect_stdout
         orig_stdout = sys.stdout
         # buffer print statement output to f
         sys.stdout = f = io.StringIO()
@@ -152,13 +146,11 @@ def run_pcmci(pcmci, path_outsub2, s, tau_min=0, tau_max=1,
     # tigramite 4
     # ======================================================================================================================
     pcmci.cond_ind_test.print_info()
+    print(f'run {tigr_function_call}')
+    tigr_func = getattr(pcmci, tigr_function_call)
     print(f'time {pcmci.T}, samples {pcmci.N}')
 
-    results = pcmci.run_pcmci(tau_max=tau_max, pc_alpha=pc_alpha, tau_min=tau_min,
-                              max_conds_dim=max_conds_dim,
-                              max_combinations=max_combinations,
-                              max_conds_px=max_conds_px,
-                              max_conds_py=max_conds_py)
+    results = tigr_func(**kwrgs_tigr)
 
     results['q_matrix'] = pcmci.get_corrected_pvalues(p_matrix=results['p_matrix'],
                                                       fdr_method='fdr_bh')
@@ -540,6 +532,48 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
             val_plot = val_matrix_s
     return links_plot, val_plot, weights, var_names
 
+def df_data_remove_z(df_data, z=[str, list], keys=None, standardize=True):
+    '''
+
+
+    Parameters
+    ----------
+    df_data : pd.DataFrame
+        DataFrame containing timeseries.
+    to_remove : str, optional
+        variable z, of which influence will be remove of columns in keys. The default is str.
+
+    Returns
+    -------
+    None.
+
+    '''
+    method = ParCorr()
+    if keys is None:
+        discard = ['TrainIsTrue', 'RV_mask'] + z
+        keys = [k for k in df_data.columns if k not in discard]
+
+    if type(z) is str:
+        z = [z]
+    npstore = np.zeros(shape=(len(keys),df_data.index.levels[0].size, df_data.index.levels[1].size))
+    for i, orig in enumerate(keys):
+        # i = 0
+        orig = keys[i]
+
+        # create fake X, Y format, needed for function _get_single_residuals
+        dfxy = df_data[[orig]].merge(df_data[[orig]].copy().rename({orig:'copy'},
+                                                                  axis=1),
+                                 left_index=True, right_index=True)
+        # Append Z timeseries
+        dfxyz = dfxy.merge(df_data[z], left_index=True, right_index=True)
+
+        for s in df_data.index.levels[0]:
+            dfxyz_s = dfxyz.loc[0]
+            npstore[i,s,:] = method._get_single_residuals(np.moveaxis(dfxyz_s.values, 0,1), 0,
+                                                          standardize=standardize)
+
+    df_new = pd.DataFrame(np.moveaxis(npstore, 0, 2).reshape(-1,len(keys)), index=df_data.index, columns=keys)
+    return df_new
 # def print_particular_region_new(links_RV, var_names, s, outdic_precur, map_proj, ex):
 
 #     #%%

@@ -612,7 +612,10 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
 
             precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
                                                          **kwrgs)
-
+    if precur_arr.shape[-2:] != corr_xr.shape[-2:]:
+        print('shape loaded precur_arr != corr map, matching coords')
+        corr_xr, prec_labels = functions_pp.match_coords_xarrays(precur_arr,
+                                          *[corr_xr, prec_labels])
 
     ts_corr = np.zeros( (n_spl), dtype=object)
 

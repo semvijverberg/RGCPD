@@ -51,18 +51,19 @@ import plot_maps; import core_pp
 # matplotlib.rc('text', usetex=True)
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
-region = 'western'
+region = 'eastern'
 
 if region == 'eastern':
     targets = ['easterntemp', 'easternRW']
-    targets = ['SM']
+    targets = ['easterntemp']
 elif region == 'western':
     targets = ['westerntemp', 'westernRW']
 
 
 expers = np.array(['fixed_corr', 'adapt_corr'])
+remove_PDOyesno = np.array([False, True])
 seeds = np.array([1,2,3])
-combinations = np.array(np.meshgrid(targets, expers, seeds)).T.reshape(-1,3)
+combinations = np.array(np.meshgrid(targets, expers, seeds, remove_PDOyesno)).T.reshape(-1,4)
 
 i_default = 4
 
@@ -86,6 +87,7 @@ if __name__ == '__main__':
     target = out[0]
     experiment = out[1]
     seed = int(out[2])
+    remove_PDO = bool(out[3])
     if target[-4:]=='temp':
         tfreq = 15
     else:
@@ -96,6 +98,7 @@ else:
     tfreq = 60
     experiment = 'fixed_corr'
     experiment = 'adapt_corr'
+    remove_PDO = False
     seed = 1
 
 
@@ -211,6 +214,10 @@ if precur_aggr == 60:
 
 monthkeys= list(months.keys()) ; oneyrsize = 0
 
+if remove_PDO:
+    import wrapper_PCMCI as wPCMCI
+    lowpass = '2y'
+    rg.list_import_ts = [('PDO', os.path.join(data_dir, f'PDO_{lowpass}_rm_25-09-20_15hr.h5'))]
 
 if precur_aggr == 15:
     blocksize=2
@@ -258,6 +265,8 @@ for month, start_end_TVdate in months.items():
                    'normalize':False}
 
     keys = [k for k in rg.df_data.columns[:-2] if k != rg.TV.name]
+    if remove_PDO:
+        rg.df_data[keys] = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=keys)
     if len(keys) != 0:
         oneyr = functions_pp.get_oneyr(rg.df_data['RV_mask'].loc[0][rg.df_data['RV_mask'].loc[0]])
         oneyrsize = oneyr.size

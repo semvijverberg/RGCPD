@@ -1006,8 +1006,6 @@ def selbox_to_1dts(cls, latlonbox):
     RV_fullts = (selboxmarray*weights_box).mean(dim=('latitude','longitude'))
     return RV_fullts
 
-
-
 def anom1D(da):
 
     if da.dims[0] == 'index':
@@ -1151,7 +1149,6 @@ def store_hdf_df(dict_of_dfs, file_path=None):
         hdf.close()
     return file_path
 
-
 def load_hdf5(path_data):
     '''
     Loading hdf5 can not be done simultaneously:
@@ -1172,31 +1169,6 @@ def load_hdf5(path_data):
             time.sleep(1)
         assert c!= 5, print('loading in hdf5 failed')
     return dict_of_dfs
-
-# def load_hdf5(path_data):
-#     '''
-#     Loading hdf5 can not be done simultaneously:
-#     '''
-#     import h5py
-#     import time
-#     for attempt in range(5):
-#         try:
-#             hdf = h5py.File(path_data,'r+')
-#         except:
-#             time.sleep(0.5) # wait 0.5 seconds, perhaps other process is trying
-#             # to load it simultaneously
-#             continue
-#         else:
-#             break
-#     dict_of_dfs = {}
-#     for k in hdf.keys():
-#         df = pd.read_hdf(path_data, k)
-#         if k in hdf.attrs.keys():
-#             str_attr_index = str(hdf.attrs[k])
-#             df.index.name = str_attr_index
-#         dict_of_dfs[k] = df
-#     hdf.close()
-#     return dict_of_dfs
 
 def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
                          kwrgs_events=None, verb=0):
@@ -1358,8 +1330,6 @@ def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
     #%%
     return df_splits
 
-
-
 def check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed, s, count, seed, verbosity=0):
     #%%
     tol_from_exp_events = 0.20
@@ -1406,7 +1376,6 @@ def check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed, s, count, se
     #%%
     return a_conditions_failed, count, seed
 
-
 def get_testyrs(df_splits):
     #%%
     traintest_yrs = []
@@ -1416,8 +1385,6 @@ def get_testyrs(df_splits):
         test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
         traintest_yrs.append(test_yrs)
     return np.array(traintest_yrs)
-
-
 
 def get_download_path():
     """Returns the default downloads path for linux or windows"""
@@ -1511,3 +1478,14 @@ def remove_duplicates_list(l):
             seen.add(x)
             indices.append(i)
     return uniq, indices
+
+def match_coords_xarrays(wanted_coords_arr, *to_match):
+    dlon = float(wanted_coords_arr.longitude[:2].diff('longitude'))
+    dlat = float(wanted_coords_arr.latitude[:2].diff('latitude'))
+    lonmin = wanted_coords_arr.longitude.min()
+    lonmax = wanted_coords_arr.longitude.max()
+    latmin = wanted_coords_arr.latitude.min()
+    latmax = wanted_coords_arr.latitude.max()
+    return [tomatch.sel(longitude=np.arange(lonmin, lonmax+dlon,dlon),
+                       latitude=np.arange(latmin, latmax+dlat,dlat),
+                       method='nearest') for tomatch in to_match]

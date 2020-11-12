@@ -303,6 +303,7 @@ class BivariateMI:
                 n_tot_regs += max([self.ts_corr[s].shape[1] for s in range(splits.size)])
         return
 
+
 def corr_map(field, ts):
     """
     This function calculates the correlation coefficent r and
@@ -419,6 +420,11 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
             precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
                                                          **kwrgs)
 
+    if precur_arr.shape[-2:] != corr_xr.shape[-2:]:
+        print('shape loaded precur_arr != corr map, matching coords')
+        corr_xr, prec_labels = functions_pp.match_coords_xarrays(precur_arr,
+                                          *[corr_xr, prec_labels])
+
     ts_sp = np.zeros( (splits.size), dtype=object)
     for s in splits:
         ts_list = np.zeros( (lags.size), dtype=list )
@@ -468,3 +474,4 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
                                 columns=track_names)
     # df_sp = pd.concat(list(ts_sp), keys=range(splits.size))
     return ts_sp
+

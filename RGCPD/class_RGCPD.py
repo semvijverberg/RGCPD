@@ -435,15 +435,16 @@ class RGCPD:
         self.df_data = self.df_data.merge(df_splits, left_index=True, right_index=True)
 
 
-    def PCMCI_init(self, keys: list=None):
+    def PCMCI_init(self, keys: list=None, verbosity=4):
         if keys is None:
             keys = self.df_data.columns
         else:
             keys.append('TrainIsTrue') ; keys.append('RV_mask')
-        self.pcmci_dict = wPCMCI.init_pcmci(self.df_data[keys])
+        self.pcmci_dict = wPCMCI.init_pcmci(self.df_data[keys],
+                                            verbosity=verbosity)
 
     def PCMCI_df_data(self, keys: list=None, path_txtoutput=None,
-                      tau_min=0, tau_max=1, pc_alpha=None,
+                      tigr_function_call='run_pcmci', tau_min=0, tau_max=1, pc_alpha=None,
                       max_conds_dim=None, max_combinations=2,
                       max_conds_py=None, max_conds_px=None,
                       replace_RV_mask: np.ndarray=None,
@@ -452,19 +453,21 @@ class RGCPD:
         if max_conds_dim is None:
             max_conds_dim = self.df_data.columns.size - 2 # -2 for bool masks
 
-        self.kwrgs_pcmci = dict(tau_min=tau_min,
-                           tau_max=tau_max,
-                           pc_alpha=pc_alpha,
-                           max_conds_dim=max_conds_dim,
-                           max_combinations=max_combinations,
-                           max_conds_py=max_conds_py,
-                           max_conds_px=max_conds_px,
-                           verbosity=4)
+        self.kwrgs_tigr = dict(tau_min=tau_min,
+                               tau_max=tau_max,
+                               pc_alpha=pc_alpha,
+                               max_conds_dim=max_conds_dim,
+                               max_combinations=max_combinations,
+                               max_conds_py=max_conds_py,
+                               max_conds_px=max_conds_px)
+        if tigr_function_call == 'run_pcmciplus':
+            self.kwrgs_tigr.pop('max_combinations')
 
         if path_txtoutput is None:
-            self.params_str = '{}_tau_{}-{}_conds_dim{}_combin{}_dt{}'.format(
-                          pc_alpha, tau_min, tau_max,
-                          max_conds_dim, max_combinations, self.precur_aggr)
+            self.params_str = '{}_{}_tau_{}-{}_conds_dim{}_combin{}_dt{}'.format(
+                          tigr_function_call.split('_')[1], pc_alpha, tau_min,
+                          tau_max, max_conds_dim, max_combinations,
+                          self.precur_aggr)
             self.path_outsub2 = os.path.join(self.path_outsub1, self.params_str)
         else:
             self.path_outsub2 = path_txtoutput
@@ -482,10 +485,11 @@ class RGCPD:
                                   replace_RV_mask=replace_RV_mask,
                                   plot=True)
 
-        self.pcmci_dict = wPCMCI.init_pcmci(df_data[keys])
+        self.pcmci_dict = wPCMCI.init_pcmci(df_data[keys], verbosity=verbosity)
 
         out = wPCMCI.loop_train_test(self.pcmci_dict, self.path_outsub2,
-                                                          **self.kwrgs_pcmci)
+                                     tigr_function_call=tigr_function_call,
+                                     kwrgs_tigr=self.kwrgs_tigr)
         self.pcmci_results_dict = out
 
     def PCMCI_get_links(self, var: str=None, alpha_level: float=.05):
@@ -515,7 +519,7 @@ class RGCPD:
                                                    self.pcmci_results_dict,
                                                    alpha_level)
         self.df_links = wPCMCI.get_df_links(self.parents_dict, variable=var)
-        lags = np.arange(0, self.kwrgs_pcmci['tau_max']+1)
+        lags = np.arange(0, self.kwrgs_tigr['tau_max']+1)
         self.df_MCIc, self.df_MCIa = wPCMCI.get_df_MCI(self.pcmci_dict,
                                                  self.pcmci_results_dict,
                                                  lags, variable=var)
@@ -565,7 +569,7 @@ class RGCPD:
         if variable is None:
             variable = self.TV.name
 
-        # lags = range(0, self..kwrgs_pcmci['tau_max']+1)
+        # lags = range(0, self..kwrgs_tigr['tau_max']+1)
         splits = self.df_splits.index.levels[0]
         df_ParCorr_s = np.zeros( (splits.size) , dtype=object)
         for s in splits:
