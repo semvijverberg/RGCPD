@@ -18,6 +18,7 @@ import matplotlib
 from sklearn import metrics
 import pandas as pd
 import xarray as xr
+import csv
 # import sklearn.linear_model as scikitlinear
 import argparse
 
@@ -127,7 +128,7 @@ method     = 'ran_strat10' ;
 n_boot = 5000
 
 append_main = ''
-
+name_csv = f'skill_scores_tf{tfreq}'
 
 
 #%% run RGPD
@@ -191,8 +192,18 @@ if experiment == 'fixed_corr':
                       append_str=experiment)
 
 
+
 # rg.get_ts_prec()
 #%% (Adaptive) forecasting
+
+
+def append_dict(month, df_test_m):
+    dkeys = [f'{month} RMSE-SS', f'{month} Corr.']
+    append_dict = {dkeys[0]:float(df_test_m.iloc[:,0].round(3)),
+                   dkeys[1]:float(df_test_m.iloc[:,0].round(3))}
+    dict_v.update(append_dict)
+    return
+
 months = {'April-May'    : ('04-01', '05-31'),
           'May-June'    : ('05-01', '06-30'),
           'June-July'   : ('06-01', '07-30'),
@@ -227,6 +238,10 @@ if precur_aggr == 15:
 elif precur_aggr==60:
     blocksize=1
     lag = 0
+
+
+dict_v = {'target':target, 'lag':lag,'rmPDO':str(remove_PDO), 'exper':experiment,
+          'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 
 score_func_list = [metrics.mean_squared_error, fc_utils.corrcoef]
 list_test = []
@@ -363,6 +378,9 @@ for month, start_end_TVdate in months.items():
     #                                   'nth_xyear':5})
 
 
+
+
+
 import matplotlib.patches as mpatches
 corrvals = [test.values[0,1] for test in list_test]
 MSE_SS_vals = [test.values[0,0] for test in list_test]
@@ -414,6 +432,20 @@ if tfreq==15 and experiment=='adapt_corr':
 ax.set_ylim(-0.5, 1)
 plt.savefig(os.path.join(rg.path_outsub1,
              f'skill_score_vs_months_{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_{alpha_corr}.pdf'))
+
+csvfilename = os.path.join(rg.path_outmain, name_csv)
+for csvfilename, dic in [(csvfilename, dict_v)]:
+    # create .csv if it does not exists
+    if os.path.exists(csvfilename) == False:
+        with open(csvfilename, 'a', newline='') as csvfile:
+
+            writer = csv.DictWriter(csvfile, list(dic.keys()))
+            writer.writerows([{f:f for f in list(dic.keys())}])
+
+    # write
+    with open(csvfilename, 'a', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, list(dic.keys()))
+        writer.writerows([dic])
 #%%
 if experiment == 'adapt_corr':
 
