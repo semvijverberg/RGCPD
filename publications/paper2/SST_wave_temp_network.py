@@ -156,7 +156,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             append_pathsub=append_pathsub)
 
 
-rg.pp_TV(detrend=True, anomaly=True)
+rg.pp_TV(detrend=False)
 
 rg.pp_precursors()
 rg.traintest(method=method, seed=seed)
@@ -241,7 +241,7 @@ if remove_PDO:
 
 
 
-dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
+dict_v = {'rmPDO':str(remove_PDO), 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
 freqs = [15, 30, 60]
 for f in freqs[:]:
