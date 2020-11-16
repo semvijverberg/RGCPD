@@ -128,7 +128,7 @@ method     = 'ran_strat10' ;
 n_boot = 5000
 
 append_main = ''
-name_csv = f'skill_scores_tf{tfreq}'
+name_csv = f'skill_scores_tf{tfreq}.csv'
 
 
 #%% run RGPD
@@ -372,6 +372,7 @@ for month, start_end_TVdate in months.items():
 
     list_test_b.append(df_boot)
     list_test.append(df_test_m)
+    append_dict(month, df_test_m)
     # df_ana.loop_df(df=rg.df_data[keys], colwrap=1, sharex=False,
     #                       function=df_ana.plot_timeseries,
     #                       kwrgs={'timesteps':rg.fullts.size,
