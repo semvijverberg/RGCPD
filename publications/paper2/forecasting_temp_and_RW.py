@@ -237,7 +237,7 @@ if precur_aggr == 15:
     lag = 2
 elif precur_aggr==60:
     blocksize=1
-    lag = 1
+    lag = 0
 
 
 dict_v = {'target':target, 'lag':lag,'rmPDO':str(remove_PDO), 'exper':experiment,
