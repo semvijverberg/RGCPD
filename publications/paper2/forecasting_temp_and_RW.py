@@ -200,7 +200,7 @@ if experiment == 'fixed_corr':
 def append_dict(month, df_test_m):
     dkeys = [f'{month} RMSE-SS', f'{month} Corr.']
     append_dict = {dkeys[0]:float(df_test_m.iloc[:,0].round(3)),
-                   dkeys[1]:float(df_test_m.iloc[:,0].round(3))}
+                   dkeys[1]:float(df_test_m.iloc[:,1].round(3))}
     dict_v.update(append_dict)
     return
 
