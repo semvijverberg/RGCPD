@@ -89,7 +89,7 @@ if __name__ == '__main__':
     seed = int(out[2])
     remove_PDO = bool(int(out[3]))
     if target[-4:]=='temp':
-        tfreq = 15
+        tfreq = 60
     else:
         tfreq = 60
     print(f'arg {args.intexper} f{out}')
