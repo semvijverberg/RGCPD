@@ -270,8 +270,10 @@ for month, start_end_TVdate in months.items():
 
     keys = [k for k in rg.df_data.columns[:-2] if k not in [rg.TV.name, 'PDO']]
     if remove_PDO:
-        rg.df_data[keys] = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=keys,
+        rg.df_data['SST'], fig = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=['SST'],
                                                    standardize=True)
+        fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_tf{month}')
+        fig.savefig(fig_path+rg.figext, bbox_inches='tight')
     if len(keys) != 0:
         oneyr = functions_pp.get_oneyr(rg.df_data['RV_mask'].loc[0][rg.df_data['RV_mask'].loc[0]])
         oneyrsize = oneyr.size
