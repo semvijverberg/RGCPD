@@ -580,7 +580,7 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
 
     df_new = pd.DataFrame(np.moveaxis(npstore, 0, 2).reshape(-1,len(keys)), index=df_data.index, columns=keys)
     if plot:
-        fig, axes = plt.subplots(1,len(keys), figsize=(10,5))
+        fig, axes = plt.subplots(len(keys),1, figsize=(10,5))
         if len(keys) == 1:
             axes = [axes]
         for i, k in enumerate(keys):
