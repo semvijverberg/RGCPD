@@ -253,8 +253,12 @@ for f in freqs[:]:
     keys = [f'{west_east[0].capitalize()}-T', f'{west_east[0].capitalize()}-RW',
             'SST']
     if remove_PDO:
-        rg.df_data['SST'] = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=['SST'],
-                                                   standardize=False)
+        rg.df_data['SST'], fig = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'],
+                                                         keys=['SST'],
+                                                         standardize=False,
+                                                         plot=True)
+        fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_tf{f}')
+        fig.savefig(fig_path+rg.figext, bbox_inches='tight')
 
     # interannualSST = rg.df_data[['SST']].rolling(int((365*2)/f), min_periods=1,center=True).mean()
     # interannualSST = interannualSST.rename({'SST':r'$SST_{lwp}$'}, axis=1)

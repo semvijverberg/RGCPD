@@ -2,6 +2,7 @@
 import os, io, sys
 from tigramite import data_processing as pp
 from tigramite.pcmci import PCMCI
+import matplotlib.pyplot as plt
 from tigramite.independence_tests import ParCorr #, GPDC, CMIknn, CMIsymb
 import numpy as np
 import pandas as pd
@@ -533,7 +534,8 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
             val_plot = val_matrix_s
     return links_plot, val_plot, weights, var_names
 
-def df_data_remove_z(df_data, z=[str, list], keys=None, standardize=True):
+def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
+                     plot: bool=True):
     '''
 
 
@@ -541,7 +543,7 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize=True):
     ----------
     df_data : pd.DataFrame
         DataFrame containing timeseries.
-    to_remove : str, optional
+    z : str, optional
         variable z, of which influence will be remove of columns in keys. The default is str.
 
     Returns
@@ -577,7 +579,20 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize=True):
                                                           standardize=standardize)
 
     df_new = pd.DataFrame(np.moveaxis(npstore, 0, 2).reshape(-1,len(keys)), index=df_data.index, columns=keys)
-    return df_new
+    if plot:
+        fig, axes = plt.subplots(1,len(keys), figsize=(10,5))
+        if len(keys) == 1:
+            axes = [axes]
+        for i, k in enumerate(keys):
+            df_data[k].loc[0].plot(ax=axes[i], label=f'{k} original',
+                                      legend=False)
+            df_new[k].loc[0].plot(ax=axes[i], label=f'{z} regressed out',
+                                     legend=False)
+            axes[i].legend()
+        out = (df_new, fig)
+    else:
+        out = (df_new)
+    return out
 # def print_particular_region_new(links_RV, var_names, s, outdic_precur, map_proj, ex):
 
 #     #%%
