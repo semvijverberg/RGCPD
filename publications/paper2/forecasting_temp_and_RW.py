@@ -241,7 +241,7 @@ elif precur_aggr==60:
 
 
 dict_v = {'target':target, 'lag':lag,'rmPDO':str(remove_PDO), 'exper':experiment,
-          'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
+          'Seed':f's{seed}'}
 
 score_func_list = [metrics.mean_squared_error, fc_utils.corrcoef]
 list_test = []
