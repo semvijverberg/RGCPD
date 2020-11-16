@@ -226,7 +226,7 @@ if precur_aggr == 15:
     lag = 2
 elif precur_aggr==60:
     blocksize=1
-    lag = 1
+    lag = 0
 
 score_func_list = [metrics.mean_squared_error, fc_utils.corrcoef]
 list_test = []
@@ -272,7 +272,7 @@ for month, start_end_TVdate in months.items():
     if remove_PDO:
         y_keys = [k for k in keys if 'sst' in k]
         rg.df_data[y_keys], fig = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=y_keys,
-                                                   standardize=True)
+                                                   standardize=False)
         fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_tf{month}')
         fig.savefig(fig_path+rg.figext, bbox_inches='tight')
     if len(keys) != 0:
@@ -416,9 +416,6 @@ plt.savefig(os.path.join(rg.path_outsub1,
              f'skill_score_vs_months_{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_{alpha_corr}.pdf'))
 #%%
 if experiment == 'adapt_corr':
-
-
-
 
     corr = dm[monthkeys[0]].mean(dim='split').drop('time')
     list_xr = [corr.expand_dims('months', axis=0) for i in range(len(monthkeys))]
