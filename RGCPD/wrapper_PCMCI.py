@@ -78,7 +78,8 @@ def plot_lagged_dependences(pcmci, selected_links: dict=None, tau_max=5):
     origverbosity= pcmci.verbosity ; pcmci.verbosity = 0
     correlations = pcmci.get_lagged_dependencies(selected_links=selected_links,
                                                  tau_max=tau_max)
-    df_lagged = pd.DataFrame(correlations[:,0,:-1], index=pcmci.var_names,
+    df_lagged = pd.DataFrame(correlations['val_matrix'][:,0,:-1],
+                             index=pcmci.var_names,
                              columns=range(tau_max))
 
     df_lagged.T.plot(figsize=(10,10))

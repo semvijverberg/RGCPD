@@ -42,8 +42,9 @@ periods = ['summer_center', 'summer_shiftright', 'summer_shiftleft',
 
 # periods = ['summer_shiftleft']
 targets = ['east'] # ['west', 'east']
+remove_PDOyesno = np.array([0, 1])
 seeds = np.array([1,2,3])
-combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
+combinations = np.array(np.meshgrid(targets, seeds, periods, remove_PDOyesno)).T.reshape(-1,4)
 
 i_default = 0
 
@@ -67,6 +68,7 @@ if __name__ == '__main__':
     west_east = out[0]
     seed = int(out[1])
     period = out[2]
+    remove_PDO = bool(int(out[3]))
     print(f'arg {args.intexper} - {out}')
 else:
     seed = 0
@@ -109,8 +111,13 @@ tfreq         = 15
 min_detect_gc = 1.0
 method        = 'ran_strat10' ;
 
-name_MCI_csv = 'strength.csv'
-name_rob_csv = 'robustness.csv'
+if remove_PDO:
+    append_pathsub = 'rmPDO'
+else:
+    append_pathsub = ''
+
+name_MCI_csv = 'strength_SST_RW_T.csv'
+name_rob_csv = 'robustness_SST_RW_T.csv'
 
 if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
 if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
@@ -121,7 +128,7 @@ name_ds = f'0..0..{name_or_cluster_label}_sp'
 #%% Circulation vs temperature
 list_of_name_path = [(cluster_label, TVpathtemp),
                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
-                     ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
+                     ('SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
                      ('sm', os.path.join(path_raw, 'sm1_1979-2018_1_12_daily_1.0deg.nc'))]
 
 list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.parcorr_map_time,
@@ -129,7 +136,7 @@ list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.parcorr_map_tim
                             distance_eps=600, min_area_in_degrees2=5,
                             calc_ts='pattern cov', selbox=z500_green_bb,
                             use_sign_pattern=True, lags = np.array([0])),
-                 BivariateMI(name='N-Pac. SST', func=class_BivariateMI.parcorr_map_time,
+                 BivariateMI(name='SST', func=class_BivariateMI.parcorr_map_time,
                               alpha=.05, FDR_control=True,
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov', selbox=sst_green_bb,#(130,340,-10,60),
@@ -146,7 +153,8 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             start_end_date=start_end_date,
             start_end_year=None,
             tfreq=tfreq,
-            path_outmain=path_out_main)
+            path_outmain=path_out_main,
+            append_pathsub=append_pathsub)
 
 
 rg.pp_TV(detrend=True, anomaly=True)
@@ -191,7 +199,7 @@ kwrgs_plot = {'row_dim':'split', 'col_dim':'lag',
               'x_ticks':np.array([]), 'y_ticks':np.array([]),
               'drawbox':[(0,0), sst_green_bb],
               'clim':(-.6,.6)}
-rg.plot_maps_corr(var='N-Pac. SST', save=save, min_detect_gc=min_detect_gc,
+rg.plot_maps_corr(var='SST', save=save, min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot)
 rg.list_for_MI[1].selbox = sst_green_bb
 
@@ -209,7 +217,7 @@ rg.plot_maps_corr(var='sm', save=save, min_detect_gc=min_detect_gc,
 # #%% SST and z500 vs RW
 # list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
 #                       ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
-#                       ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
+#                       ('SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 #                       # ('Trop. Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
 
@@ -218,7 +226,7 @@ rg.plot_maps_corr(var='sm', save=save, min_detect_gc=min_detect_gc,
 #                                 distance_eps=600, min_area_in_degrees2=5,
 #                                 calc_ts='pattern cov', selbox=(-180,360,-10,90),
 #                                 use_sign_pattern=True, lags=np.array([0])),
-#                   BivariateMI(name='N-Pac. SST', func=class_BivariateMI.parcorr_map_time,
+#                   BivariateMI(name='SST', func=class_BivariateMI.parcorr_map_time,
 #                               alpha=.05, FDR_control=True,
 #                               distance_eps=500, min_area_in_degrees2=5,
 #                               calc_ts='pattern cov', selbox=(130,260,-10,90),
@@ -250,7 +258,7 @@ rg.plot_maps_corr(var='sm', save=save, min_detect_gc=min_detect_gc,
 #               'x_ticks':np.array([]), 'y_ticks':np.array([]),
 #               'drawbox':[(0,0), sst_green_bb],
 #               'clim':(-.6,.6)}
-# rg.plot_maps_corr(var='N-Pac. SST', save=save, min_detect_gc=min_detect_gc,
+# rg.plot_maps_corr(var='SST', save=save, min_detect_gc=min_detect_gc,
 #                   kwrgs_plot=kwrgs_plot)
 
 
@@ -269,9 +277,9 @@ rg.plot_maps_corr(var='sm', save=save, min_detect_gc=min_detect_gc,
 # #%% Only RW vs SST,
 
 # list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
-#                       ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
+#                       ('SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
-# list_for_MI = [BivariateMI(name='N-Pac. SST', func=class_BivariateMI.corr_map,
+# list_for_MI = [BivariateMI(name='SST', func=class_BivariateMI.corr_map,
 #                             alpha=.05, FDR_control=True,
 #                             distance_eps=500, min_area_in_degrees2=5,
 #                             calc_ts='pattern cov', selbox=sst_green_bb,
@@ -292,51 +300,56 @@ rg.plot_maps_corr(var='sm', save=save, min_detect_gc=min_detect_gc,
 #                                                   method, seed)
 # rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
 
-# rg.calc_corr_maps(var='N-Pac. SST')
-# rg.cluster_list_MI(var='N-Pac. SST')
+# rg.calc_corr_maps(var='SST')
+# rg.cluster_list_MI(var='SST')
 # rg.quick_view_labels(median=True)
 # rg.get_ts_prec(precur_aggr=1)
 # rg.store_df(append_str=f'RW_and_SST_fb_tf{rg.tfreq}')
 
 def append_MCI(rg, dict_v, dict_rb):
-    dkeys = [f'{f}-d', f'{f}-d SST->RW', f'{f}-d RW->SST']
+    dkeys = [f'{f}-d RW--T', f'{f}-d RW--SST', f'{f}-d RW->SST']
 
 
-    SSTtoRW = rg.df_MCIc.mean(0,level=1).loc['SST'].iloc[1:].max().round(3) # select SST
-    rg.PCMCI_get_links(var=keys[1], alpha_level=.01) # links toward SST
-    RWtoSST = rg.df_MCIc.mean(0,level=1).loc[f'{west_east[0].capitalize()}-RW'].iloc[1:].max().round(3) # select RW
+    RWtoT = rg.df_MCIc.mean(0,level=1).loc[keys[1]].iloc[0].round(3) # links to temp
+    rg.PCMCI_get_links(var='SST', alpha_level=.01) # links toward SST
     lag0 = rg.df_MCIc.mean(0,level=1).loc[f'{west_east[0].capitalize()}-RW']['coeff l0'].round(3)
-    append_dict = {dkeys[0]:lag0, dkeys[1]:SSTtoRW, dkeys[2]:RWtoSST}
+    RWtoSST = rg.df_MCIc.mean(0,level=1).loc[f'{west_east[0].capitalize()}-RW'].iloc[1:].max().round(3) # select RW
+    append_dict = {dkeys[0]:RWtoT, dkeys[1]:lag0, dkeys[2]:RWtoSST}
     dict_v.update(append_dict)
 
     robustness = wPCMCI.get_traintest_links(rg.pcmci_dict,
                                       rg.parents_dict,
                                       rg.pcmci_results_dict,
                                       min_link_robustness=mlr)[2]
-    rblag0 = int(robustness[0][1][0])
-    rbSSTtoRW = int(max(robustness[1][0][1:])) # from i to j, SST to RW
-    rbRWtoSST = int(max(robustness[0][1][1:])) # from i to j, RW to SST
-    append_dict = {dkeys[0]:rblag0, dkeys[1]:rbSSTtoRW, dkeys[2]:rbRWtoSST}
+    rbRWTlag0 = int(robustness[0][1][0])
+    rbRWSSTlab0 = int(robustness[1][2][0]) # from i to j, RW to SST
+    rbRWtoSST = int(max(robustness[1][2][1:])) # from i to j, RW to SST
+    append_dict = {dkeys[0]:rbRWTlag0, dkeys[1]:rbRWSSTlab0, dkeys[2]:rbRWtoSST}
     dict_rb.update(append_dict)
-    return SSTtoRW, rbRWtoSST, rbSSTtoRW
+    return
 
 #%%
 import wrapper_PCMCI as wPCMCI
-lowpass = '2y'
-rg.list_import_ts = [('PDO', os.path.join(data_dir, f'PDO_{lowpass}_rm_25-09-20_15hr.h5'))]
+if remove_PDO:
+    lowpass = '2y'
+    rg.list_import_ts = [('PDO', os.path.join(data_dir, f'PDO_{lowpass}_rm_25-09-20_15hr.h5'))]
 
 
 
 dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
-freqs = [10, 15, 30, 60]
+freqs = [15, 30, 60]
 for f in freqs[:]:
     rg.get_ts_prec(precur_aggr=f)
-    rg.df_data[['PDO']] *= -1
     rg.df_data = rg.df_data.rename({'2ts':f'{west_east[0].capitalize()}-T',
                                     '0..0..z500_sp':f'{west_east[0].capitalize()}-RW',
-                                    '0..0..N-Pac. SST_sp':'SST',
+                                    '0..0..SST_sp':'SST',
                                     '0..2..sm':'SM'}, axis=1)
+    keys = [f'{west_east[0].capitalize()}-T', f'{west_east[0].capitalize()}-RW',
+            'SST']
+    if remove_PDO:
+        rg.df_data[keys] = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=keys)
+
     # interannualSST = rg.df_data[['SST']].rolling(int((365*2)/f), min_periods=1,center=True).mean()
     # interannualSST = interannualSST.rename({'SST':r'$SST_{lwp}$'}, axis=1)
     # diff = rg.df_data[['SST']].sub(interannualSST.values, level=1)
@@ -346,42 +359,39 @@ for f in freqs[:]:
     # rg.df_data = rg.df_data.merge(diff, left_index=True, right_index=True)
     # keys = [f'{west_east[0].capitalize()}-RW','SST']
     # rg.df_data[keys] = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=keys)
-    keys = [f'{west_east[0].capitalize()}-RW',
-            'SST']
+    tigr_function_call='run_pcmciplus'
     rg.PCMCI_df_data(keys=keys,
-                     tigr_function_call='run_pcmciplus',
-                      pc_alpha=None,
+                     tigr_function_call=tigr_function_call,
+                      pc_alpha=[.2,.05,.01,.001],
                       tau_min=0,
-                      tau_max=3,
+                      tau_max=5,
                       max_conds_dim=10,
-                      max_combinations=10)
+                      max_combinations=10,
+                      update_dict={'reset_lagged_links':True})
     rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
 
     lags = range(rg.kwrgs_tigr['tau_min'], rg.kwrgs_tigr['tau_max']+1)
     lags = np.array([l*f for i, l in enumerate(lags)])
-    mlr=1
-    SSTtoRW, rbRWtoSST, rbSSTtoRW = append_MCI(rg, dict_v, dict_rb)
-    #
-    rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(8,6),
+    mlr=5
+    append_MCI(rg, dict_v, dict_rb)
+
+    rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(8,8),
                         kwrgs={'vmax_nodes':.9,
                                 'node_size':.75,
                                 'node_ticks':.3,
                                 'node_label_size':40,
                                 'vmax_edges':.6,
-                                'vmin_edges':-.6,
-                                # 'cmap_edges':'plasma_r',
+                                'vmin_edges':0,
+                                'cmap_edges':'plasma_r',
                                 'edge_ticks':.2,
                                 'lag_array':lags,
                                 'curved_radius':.5,
                                 'arrowhead_size':1000,
                                 'link_label_fontsize':30,
-                                'label_fontsize':24,
-                                'weights_squared':1.5})#,
-                        # append_figpath=f'_tf{rg.precur_aggr}_{SSTtoRW}_rb{mlr}_rbRWSST{rbRWtoSST}_rbSSTRW{rbSSTtoRW}')
+                                'label_fontsize':20,
+                                'weights_squared':1.5},
+                        append_figpath=f'{tigr_function_call}_tf{rg.precur_aggr}_mlr{mlr}')
 
-    rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
-    rg.df_links.astype(int).sum(0, level=1)
-    MCI_ALL = rg.df_MCIc.mean(0, level=1)
 #%%
 # write MCI strength and robustness to csv
 
@@ -420,7 +430,7 @@ for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]
 # # for f in freqs:
 # #     rg.get_ts_prec(precur_aggr=f)
 # #     rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':f'{west_east[0].capitalize()}-RW',
-# #                                     '0..0..N-Pac. SST_sp':'SST'}, axis=1)
+# #                                     '0..0..SST_sp':'SST'}, axis=1)
 
 # #     keys = [f'{west_east[0].capitalize()}-RW','SST']
 

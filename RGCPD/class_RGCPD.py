@@ -447,6 +447,7 @@ class RGCPD:
                       tigr_function_call='run_pcmci', tau_min=0, tau_max=1, pc_alpha=None,
                       max_conds_dim=None, max_combinations=2,
                       max_conds_py=None, max_conds_px=None,
+                      update_dict={},
                       replace_RV_mask: np.ndarray=None,
                       verbosity=4):
 
@@ -460,6 +461,7 @@ class RGCPD:
                                max_combinations=max_combinations,
                                max_conds_py=max_conds_py,
                                max_conds_px=max_conds_px)
+        self.kwrgs_tigr.update(update_dict)
         if tigr_function_call == 'run_pcmciplus':
             self.kwrgs_tigr.pop('max_combinations')
 
