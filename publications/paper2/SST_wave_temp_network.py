@@ -128,8 +128,7 @@ name_ds = f'0..0..{name_or_cluster_label}_sp'
 #%% Circulation vs temperature
 list_of_name_path = [(cluster_label, TVpathtemp),
                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
-                     ('SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc')),
-                     ('sm', os.path.join(path_raw, 'sm1_1979-2018_1_12_daily_1.0deg.nc'))]
+                     ('SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
 list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.parcorr_map_time,
                             alpha=.05, FDR_control=True,
@@ -140,12 +139,12 @@ list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.parcorr_map_tim
                               alpha=.05, FDR_control=True,
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov', selbox=sst_green_bb,#(130,340,-10,60),
-                              lags=np.array([0])),
-                 BivariateMI(name='sm', func=class_BivariateMI.parcorr_map_time,
-                            alpha=.05, FDR_control=True,
-                            distance_eps=1200, min_area_in_degrees2=10,
-                            calc_ts='region mean', selbox=(200,300,20,73),
-                            lags=np.array([0]))]
+                              lags=np.array([0]))]
+                 # BivariateMI(name='sm', func=class_BivariateMI.parcorr_map_time,
+                 #            alpha=.05, FDR_control=True,
+                 #            distance_eps=1200, min_area_in_degrees2=10,
+                 #            calc_ts='region mean', selbox=(200,300,20,73),
+                 #            lags=np.array([0]))]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
@@ -163,10 +162,6 @@ rg.pp_precursors()
 rg.traintest(method=method, seed=seed)
 rg.calc_corr_maps()
 rg.cluster_list_MI()
-# rg.get_ts_prec(precur_aggr=1)
-# TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
-# rg.store_df(filename=TVpathRW)
-
 
 # Optionally set font to Computer Modern to avoid common missing font errors
 # mpl.rc('font', family='serif', serif='cm10')
@@ -203,108 +198,18 @@ rg.plot_maps_corr(var='SST', save=save, min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot)
 rg.list_for_MI[1].selbox = sst_green_bb
 
-subtitles = np.array([[r'$parcorr(SM_t, mx2t_t\ |\ SM_{t-1},mx2t_{t-1})$']]) #, f'lag 2 (15 day lead)']] )
-kwrgs_plot = {'row_dim':'split', 'col_dim':'lag','aspect':1.8, 'hspace':-.47,
-              'wspace':-.15, 'size':3, 'cbar_vert':-.1,
-              'units':'Corr. Coeff. [-]', #'zoomregion':(130,260,-10,60),
-              'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
-              'y_ticks':np.arange(20,81,20), 'x_ticks':np.arange(210, 300, 25),
-              'subtitles':subtitles,
-              'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
-rg.plot_maps_corr(var='sm', save=save, min_detect_gc=min_detect_gc,
-                  kwrgs_plot=kwrgs_plot)
-
-# #%% SST and z500 vs RW
-# list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
-#                       ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
-#                       ('SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
-#                       # ('Trop. Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
-
-
-# list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
-#                                 alpha=.05, FDR_control=True,
-#                                 distance_eps=600, min_area_in_degrees2=5,
-#                                 calc_ts='pattern cov', selbox=(-180,360,-10,90),
-#                                 use_sign_pattern=True, lags=np.array([0])),
-#                   BivariateMI(name='SST', func=class_BivariateMI.parcorr_map_time,
-#                               alpha=.05, FDR_control=True,
-#                               distance_eps=500, min_area_in_degrees2=5,
-#                               calc_ts='pattern cov', selbox=(130,260,-10,90),
-#                               lags=np.array([0]))]
-
-
-# rg = RGCPD(list_of_name_path=list_of_name_path,
-#             list_for_MI=list_for_MI,
-#             list_import_ts=None,
-#             start_end_TVdate=start_end_TVdate,
-#             start_end_date=start_end_date,
-#             tfreq=tfreq,
-#             path_outmain=path_out_main)
-
-# rg.pp_TV(name_ds=name_ds)
-# rg.pp_precursors(anomaly=True)
-# RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
-# subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range, method, seed)
-# rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
-# rg.calc_corr_maps()
-
-# save = True
-# units = 'Corr. Coeff. [-]'
-# subtitles = np.array([[f'SST vs {west_east}ern RW']])
-# kwrgs_plot = {'row_dim':'split', 'col_dim':'lag',
-#               'aspect':2, 'hspace':-.57, 'wspace':-.22, 'size':2, 'cbar_vert':-.02,
-#               'subtitles':subtitles, 'units':units, 'zoomregion':(130,260,-10,60),
-#               'map_proj':ccrs.PlateCarree(central_longitude=220),
-#               'x_ticks':np.array([]), 'y_ticks':np.array([]),
-#               'drawbox':[(0,0), sst_green_bb],
-#               'clim':(-.6,.6)}
-# rg.plot_maps_corr(var='SST', save=save, min_detect_gc=min_detect_gc,
+# subtitles = np.array([[r'$parcorr(SM_t, mx2t_t\ |\ SM_{t-1},mx2t_{t-1})$']]) #, f'lag 2 (15 day lead)']] )
+# kwrgs_plot = {'row_dim':'split', 'col_dim':'lag','aspect':1.8, 'hspace':-.47,
+#               'wspace':-.15, 'size':3, 'cbar_vert':-.1,
+#               'units':'Corr. Coeff. [-]', #'zoomregion':(130,260,-10,60),
+#               'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
+#               'y_ticks':np.arange(20,81,20), 'x_ticks':np.arange(210, 300, 25),
+#               'subtitles':subtitles,
+#               'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+# rg.plot_maps_corr(var='sm', save=save, min_detect_gc=min_detect_gc,
 #                   kwrgs_plot=kwrgs_plot)
 
 
-
-# precur = rg.list_for_MI[0]
-# subtitles = np.array([[f'lag {l}: z 500hpa vs Rossby wave ({name_or_cluster_label})'] for l in precur.lags])
-# kwrgs_plot.update({'size':5, 'cbar_vert':.175, 'subtitles':subtitles,
-#                     'zoomregion':(-180,360,10,80),
-#                     'drawbox':['all', z500_green_bb]})
-# rg.plot_maps_corr(var='z500', save=save, min_detect_gc=min_detect_gc,
-#                   append_str=''.join(map(str, z500_green_bb)),
-#                   kwrgs_plot=kwrgs_plot)
-
-
-
-# #%% Only RW vs SST,
-
-# list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
-#                       ('SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
-
-# list_for_MI = [BivariateMI(name='SST', func=class_BivariateMI.corr_map,
-#                             alpha=.05, FDR_control=True,
-#                             distance_eps=500, min_area_in_degrees2=5,
-#                             calc_ts='pattern cov', selbox=sst_green_bb,
-#                             lags=np.array([0]))]
-
-# rg = RGCPD(list_of_name_path=list_of_name_path,
-#             list_for_MI=list_for_MI,
-#             list_import_ts=None,
-#             start_end_TVdate=start_end_TVdate,
-#             start_end_date=start_end_date,
-#             tfreq=tfreq,
-#             path_outmain=path_out_main)
-
-# rg.pp_TV(name_ds=name_ds)
-# rg.pp_precursors(anomaly=True)
-# RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
-# subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range,
-#                                                   method, seed)
-# rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
-
-# rg.calc_corr_maps(var='SST')
-# rg.cluster_list_MI(var='SST')
-# rg.quick_view_labels(median=True)
-# rg.get_ts_prec(precur_aggr=1)
-# rg.store_df(append_str=f'RW_and_SST_fb_tf{rg.tfreq}')
 
 def append_MCI(rg, dict_v, dict_rb):
     dkeys = [f'{f}-d RW--T', f'{f}-d RW--SST', f'{f}-d RW->SST']

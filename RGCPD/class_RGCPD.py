@@ -300,8 +300,9 @@ class RGCPD:
                                  +'_' +self.hash +'_'+RV_name_range \
                                  +var)
             subfoldername = part1 + '_'.join(['', self.TV.method \
-                                  + 's'+ str(self.TV.seed),
-                                  self.append_pathsub])
+                                  + 's'+ str(self.TV.seed)])
+            if self.append_pathsub is not None:
+                subfoldername += '_' + self.append_pathsub
         self.path_outsub1 = self.path_outmain + subfoldername
         if self.write_outputfolder and os.path.isdir(self.path_outsub1)==False:
             os.makedirs(self.path_outsub1)
