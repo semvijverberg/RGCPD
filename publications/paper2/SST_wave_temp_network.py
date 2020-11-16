@@ -244,7 +244,7 @@ if remove_PDO:
 dict_v = {'rmPDO':str(remove_PDO), 'Period':period.split('_')[0], 'Shift':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
 freqs = [15, 30, 60]
-for f in freqs[1:2]:
+for f in freqs[:]:
     rg.get_ts_prec(precur_aggr=f)
     rg.df_data = rg.df_data.rename({'2ts':f'{west_east[0].capitalize()}-T',
                                     '0..0..z500_sp':f'{west_east[0].capitalize()}-RW',
