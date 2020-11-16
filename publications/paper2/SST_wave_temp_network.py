@@ -46,7 +46,7 @@ remove_PDOyesno = np.array([0, 1])
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, seeds, periods, remove_PDOyesno)).T.reshape(-1,4)
 
-i_default = 0
+i_default = 18
 
 
 
@@ -241,10 +241,10 @@ if remove_PDO:
 
 
 
-dict_v = {'rmPDO':str(remove_PDO), 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
+dict_v = {'rmPDO':str(remove_PDO), 'Period':period.split('_')[0], 'Shift':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
 freqs = [15, 30, 60]
-for f in freqs[:]:
+for f in freqs[1:2]:
     rg.get_ts_prec(precur_aggr=f)
     rg.df_data = rg.df_data.rename({'2ts':f'{west_east[0].capitalize()}-T',
                                     '0..0..z500_sp':f'{west_east[0].capitalize()}-RW',
@@ -253,7 +253,8 @@ for f in freqs[:]:
     keys = [f'{west_east[0].capitalize()}-T', f'{west_east[0].capitalize()}-RW',
             'SST']
     if remove_PDO:
-        rg.df_data[keys] = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=keys)
+        rg.df_data[keys] = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=keys,
+                                                   standardize=False)
 
     # interannualSST = rg.df_data[['SST']].rolling(int((365*2)/f), min_periods=1,center=True).mean()
     # interannualSST = interannualSST.rename({'SST':r'$SST_{lwp}$'}, axis=1)
@@ -267,12 +268,12 @@ for f in freqs[:]:
     tigr_function_call='run_pcmciplus'
     rg.PCMCI_df_data(keys=keys,
                      tigr_function_call=tigr_function_call,
-                      pc_alpha=[.2,.05,.01,.001],
+                      pc_alpha=[0.05, 0.1, 0.2, 0.3, 0.4, 0.5],
                       tau_min=0,
                       tau_max=5,
                       max_conds_dim=10,
                       max_combinations=10,
-                      update_dict={'reset_lagged_links':True})
+                      update_dict={'reset_lagged_links':False})
     rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
 
     lags = range(rg.kwrgs_tigr['tau_min'], rg.kwrgs_tigr['tau_max']+1)
