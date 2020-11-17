@@ -33,11 +33,7 @@ def ENSO_34(filepath, df_splits=None):
     See http://www.cgd.ucar.edu/staff/cdeser/docs/deser.sstvariability.annrevmarsci10.pdf
     selbox has format of (lon_min, lon_max, lat_min, lat_max)
     '''
-#    if df_splits is None:
-#        RV = ex[ex['RV_name']]
-#        df_splits, ex = functions_pp.rand_traintest_years(RV, ex)
-#        seldates = None
-#    else:
+
     seldates = df_splits.loc[0].index
 
 #    {'la_min':-5, # select domain in degrees east
@@ -71,7 +67,6 @@ def ENSO_34(filepath, df_splits=None):
 
     #%%
 
-
 def PDO_single_split(s, ds_monthly, ds, df_splits):
 
     splits = df_splits.index.levels[0]
@@ -88,17 +83,18 @@ def PDO_single_split(s, ds_monthly, ds, df_splits):
     dates_all_train = pd.to_datetime([d for d in dates_monthly if d.year in train_yrs])
 
     PDO_pattern, solver, adjust_sign = get_PDO(ds_monthly.sel(time=dates_all_train))
-    data_train = find_precursors.calc_spatcov(ds.sel(time=dates_train_origtime), PDO_pattern)
+    data_train = find_precursors.calc_spatcov(ds.sel(time=dates_train_origtime).load(),
+                                              PDO_pattern)
     df_train = pd.DataFrame(data=data_train.values, index=dates_train_origtime, columns=['PDO'])
-
-    data_test = find_precursors.calc_spatcov(ds.sel(time=dates_test_origtime), PDO_pattern)
-    df_test = pd.DataFrame(data=data_test.values, index=dates_test_origtime, columns=['PDO'])
-
-
-    df = pd.concat([df_test, df_train]).sort_index()
+    if splits.size > 1:
+        data_test = find_precursors.calc_spatcov(ds.sel(time=dates_test_origtime).load(), PDO_pattern)
+        df_test = pd.DataFrame(data=data_test.values, index=dates_test_origtime, columns=['PDO'])
+        df = pd.concat([df_test, df_train]).sort_index()
+    else:
+        df = df_train
     return (df, PDO_pattern)
 
-def PDO(filepath, df_splits):
+def PDO(filepath, df_splits=None, n_jobs=1):
     #%%
     '''
     PDO is calculated based upon all data points in the training years,
@@ -121,9 +117,14 @@ def PDO(filepath, df_splits):
                 'format_lon': 'only_east'}
 
     ds = core_pp.import_ds_lazy(filepath, **kwrgs_pp)
-
     ds_monthly = ds.resample(time='M',restore_coord_dims=False).mean(dim='time', skipna=True)
 
+    if df_splits is None:
+        print('No train-test split')
+        iterables = [np.array([0]),pd.to_datetime(ds.time.values)]
+        df_splits = pd.DataFrame(data=np.ones(ds.time.size),
+                                 index=pd.MultiIndex.from_product(iterables),
+                                 columns=['TrainIsTrue'], dtype=bool)
     splits = df_splits.index.levels[0]
     data = np.zeros( (splits.size, ds.latitude.size, ds.longitude.size) )
     PDO_patterns = xr.DataArray(data,
@@ -131,11 +132,11 @@ def PDO(filepath, df_splits):
                                 dims = ['split', 'latitude', 'longitude'])
 
 
-    try:
+    if n_jobs > 1:
         with ProcessPoolExecutor(max_workers=os.cpu_count()) as pool:
             futures = [pool.submit(PDO_single_split, s, ds_monthly, ds, df_splits) for s in range(splits.size)]
             results = [future.result() for future in futures]
-    except:
+    else:
         results = [PDO_single_split(s, ds_monthly, ds, df_splits) for s in range(splits.size)]
 
 
@@ -147,9 +148,9 @@ def PDO(filepath, df_splits):
     for s in splits:
         PDO_patterns[s] = results[s][1]
 
-
-
     df_PDO = pd.concat(list_PDO_ts, axis=0, keys=splits)
+    # merge df_splits
+    df_PDO = df_PDO.merge(df_splits, left_index=True, right_index=True)
     if splits.size > 1:
         # train test splits should not be equal
         assert float((df_PDO.loc[1] - df_PDO.loc[0]).mean()) != 0, ('something '

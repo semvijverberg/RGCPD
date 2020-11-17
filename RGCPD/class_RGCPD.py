@@ -275,13 +275,13 @@ class RGCPD:
                               requires kwrgs_events.
         (3) leave_{int}    :   chronologically split train and test years.
         (4) split{int}    :   split dataset into single train and test set
-        (5) no_train_test_split
+        (5) no_train_test_split or False
         # Extra: RV events settings are needed to make balanced traintest splits
         Returns panda dataframe with traintest mask and Target variable mask
         concomitant to each split.
         '''
 
-        if method is None:
+        if method is None or False:
             method = 'no_train_test_split'
         self.kwrgs_TV = dict(method=method,
                     seed=seed,

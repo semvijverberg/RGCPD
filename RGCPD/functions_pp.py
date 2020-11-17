@@ -1204,7 +1204,7 @@ def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
         n_spl = int(n_yrs / int(method.split('_')[1]) )
         iterate = np.arange(0, n_yrs+1E-9,
                             int(method.split('_')[1]), dtype=int )
-    elif method == 'no_train_test_split':
+    elif method == 'no_train_test_split' or method==False:
         n_spl = 1
 
 

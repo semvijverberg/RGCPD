@@ -17,6 +17,7 @@ max_cpu = multiprocessing.cpu_count()
 import itertools
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 from sklearn import metrics
+from sklearn import preprocessing
 import functions_pp
 
 def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
@@ -215,6 +216,10 @@ def get_masks(df_norm):
         y_pred_mask = None
     return x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask
 
+def _standardize_sklearn(c, TrainIsTrue):
+    standardize = preprocessing.StandardScaler()
+    standardize.fit(c[TrainIsTrue.values].values.reshape(-1,1))
+    return pd.DataFrame(standardize.transform(c[TrainIsTrue.values].values.reshape(-1,1), index=c.index, columns=c.columns))
 
 def standardize_on_train(c, TrainIsTrue):
     return (c - c[TrainIsTrue.values].mean()) \

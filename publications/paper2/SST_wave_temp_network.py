@@ -8,12 +8,14 @@ Created on Mon May 25 15:33:52 2020
 
 import os, inspect, sys
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 if sys.platform == 'linux':
     mpl.use('Agg')
 import numpy as np
 import cartopy.crs as ccrs
 import argparse
 import csv
+from sklearn import preprocessing
 
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
@@ -34,8 +36,8 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
 import class_BivariateMI
-
-import functions_pp
+import climate_indices
+import functions_pp, filters
 
 periods = ['summer_center', 'summer_shiftright', 'summer_shiftleft',
            'spring_center', 'spring_shiftleft', 'spring_shiftright']
@@ -197,19 +199,45 @@ kwrgs_plot = {'row_dim':'split', 'col_dim':'lag',
 rg.plot_maps_corr(var='SST', save=save, min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot)
 rg.list_for_MI[1].selbox = sst_green_bb
+#%% Get PDO
+df_PDO, PDO_patterns = climate_indices.PDO(rg.list_precur_pp[0][1],
+                                           None) #rg.df_splits)
 
-# subtitles = np.array([[r'$parcorr(SM_t, mx2t_t\ |\ SM_{t-1},mx2t_{t-1})$']]) #, f'lag 2 (15 day lead)']] )
-# kwrgs_plot = {'row_dim':'split', 'col_dim':'lag','aspect':1.8, 'hspace':-.47,
-#               'wspace':-.15, 'size':3, 'cbar_vert':-.1,
-#               'units':'Corr. Coeff. [-]', #'zoomregion':(130,260,-10,60),
-#               'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
-#               'y_ticks':np.arange(20,81,20), 'x_ticks':np.arange(210, 300, 25),
-#               'subtitles':subtitles,
-#               'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
-# rg.plot_maps_corr(var='sm', save=save, min_detect_gc=min_detect_gc,
-#                   kwrgs_plot=kwrgs_plot)
+from func_models import standardize_on_train
+# summerdates = core_pp.get_subdates(dates, start_end_TVdate)
+df_PDOsplit = df_PDO.loc[0]#.loc[summerdates]
+# standardize = preprocessing.StandardScaler()
+# standardize.fit(df_PDOsplit[df_PDOsplit['TrainIsTrue'].values].values.reshape(-1,1))
+# df_PDOsplit = pd.DataFrame(standardize.transform(df_PDOsplit['PDO'].values.reshape(-1,1)),
+#                 index=df_PDOsplit.index, columns=['PDO'])
+df_PDOsplit = df_PDOsplit[['PDO']].apply(standardize_on_train,
+                         args=[df_PDO.loc[0]['TrainIsTrue']],
+                         result_type='broadcast')
+
+# Butter Lowpass
+yr = 2
+dates = df_PDOsplit.index
+freqraw = (dates[1] - dates[0]).days
+window = int(yr*functions_pp.get_oneyr(dates).size) # 2 year
+fig, ax = plt.subplots(1,1)
+
+ax.plot_date(dates, df_PDOsplit.values, label=f'raw ({freqraw} daymeans)',
+              alpha=.2, linestyle='solid', marker=None)
+ax.plot_date(dates, filters.lowpass(df_PDOsplit, period=window), label='Butterworth',
+        linestyle='solid', linewidth=1, marker=None)
+df_PDOrm = df_PDOsplit.rolling(window=window, center=True, min_periods=1).mean()
+# ax.plot_date(dates, filters.lowpass(df_PDOrm, period=window), label='Butterworth on rolling mean',
+#         linestyle='solid', linewidth=1, marker=None)
+ax.plot_date(dates, df_PDOrm,
+             label='rolling mean', color='green', linestyle='solid', linewidth=1, marker=None)
+
+ax.legend()
 
 
+
+
+#%%
+import wrapper_PCMCI as wPCMCI
 
 def append_MCI(rg, dict_v, dict_rb):
     dkeys = [f'{f}-d RW--T', f'{f}-d RW--SST', f'{f}-d RW->SST']
@@ -233,8 +261,6 @@ def append_MCI(rg, dict_v, dict_rb):
     dict_rb.update(append_dict)
     return
 
-#%%
-import wrapper_PCMCI as wPCMCI
 if remove_PDO:
     lowpass = '2y'
     rg.list_import_ts = [('PDO', os.path.join(data_dir, f'PDO_{lowpass}_rm_25-09-20_15hr.h5'))]

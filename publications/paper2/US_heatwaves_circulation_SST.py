@@ -29,8 +29,8 @@ from RGCPD import RGCPD
 from RGCPD import BivariateMI
 from RGCPD import EOF
 import class_BivariateMI
-import plot_maps
-import core_pp
+import climate_indices
+import plot_maps, core_pp, df_ana
 
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
@@ -200,7 +200,6 @@ elif west_east == 'west':
     rg.list_for_EOFS[0].selbox = v300_green_bb
     rg.cluster_list_MI()
     rg.get_ts_prec(precur_aggr=None)
-    import df_ana
     rg.df_data.loc[0].columns
     df_sub = rg.df_data.loc[0][['1ts', '0..0..v300_sp', '0..0..z500_sp',
                                 '0..1..EOF_v300']][rg.df_data.loc[0]['RV_mask']]
@@ -242,12 +241,10 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 
 
 rg.pp_TV(name_ds=name_ds, detrend=False)
-
-rg.pp_precursors()
-
 rg.traintest(method, seed=seed)
-
+rg.pp_precursors()
 rg.calc_corr_maps()
+
 
 #%% Plot corr(SST, mx2t)
 import matplotlib
@@ -320,7 +317,6 @@ rg.plot_maps_corr(var='sst', save=save,
 
 #%% Compare E-RW with PNA index
 if west_east == 'east':
-    import climate_indices, core_pp, df_ana
     import pandas as pd
     list_of_name_path = [(cluster_label, TVpath),
                            ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
