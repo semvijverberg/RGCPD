@@ -234,7 +234,7 @@ if remove_PDO:
 
 if precur_aggr == 15:
     blocksize=2
-    lag = 2
+    lag = 4
 elif precur_aggr==60:
     blocksize=1
     lag = 0
