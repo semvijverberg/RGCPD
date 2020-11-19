@@ -571,7 +571,7 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
         dfxyz = dfxy.merge(df_data[z], left_index=True, right_index=True)
 
         for s in df_data.index.levels[0]:
-            dfxyz_s = dfxyz.loc[0]
+            dfxyz_s = dfxyz.loc[s]
             if all(dfxyz_s[orig].isna().values):
                 npstore[i,s,:] = dfxyz_s[orig].values # fill in all nans
             else:
@@ -580,7 +580,7 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
 
     df_new = pd.DataFrame(np.moveaxis(npstore, 0, 2).reshape(-1,len(keys)), index=df_data.index, columns=keys)
     if plot:
-        fig, axes = plt.subplots(len(keys),1, figsize=(10,5), sharex=True)
+        fig, axes = plt.subplots(len(keys),1, figsize=(10,2.5*len(keys)), sharex=True)
         if len(keys) == 1:
             axes = [axes]
         for i, k in enumerate(keys):

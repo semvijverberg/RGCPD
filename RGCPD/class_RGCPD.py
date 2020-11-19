@@ -869,9 +869,9 @@ class RGCPD:
                     while len([k for k in ks if k.split('..')[0] == str(l)])==0:
                         l -= 1 ;
                         print(f"\rNot found lag {lag}, using lag {l}", end="")
-                        if l < 0 :
-                            print('No regions corresponding to lag found')
-                            break
+                        assert l > 0, 'No regions corresponding to lag found'
+
+                    ks = [k for k in ks if k.split('..')[0] == str(l)]
 
 
                 if transformer is not None and transformer != False:

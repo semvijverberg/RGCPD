@@ -67,8 +67,6 @@ combinations = np.array(np.meshgrid(targets, periods, seeds)).T.reshape(-1,3)
 
 i_default = 0
 
-
-
 def parseArguments():
     # Create argument parser
     parser = argparse.ArgumentParser()
@@ -93,11 +91,6 @@ if __name__ == '__main__':
     else:
         tfreq = 60
     print(f'arg {args.intexper} f{out}')
-else:
-    target = targets[2]
-    tfreq = 15
-    period = ('07-01', '08-31')
-    seed = 1
 
 
 calc_ts='region mean' # pattern cov
@@ -145,7 +138,7 @@ list_of_name_path = [(cluster_label, TVpath),
 lowpass = '2y'
 list_import_ts = [('PDO', os.path.join(data_dir, f'PDO_{lowpass}_rm_25-09-20_15hr.h5'))]
 
-list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
+list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.parcorr_map_time,
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={}, group_split='together',
                             distance_eps=1200, min_area_in_degrees2=10,
@@ -205,7 +198,7 @@ rg.get_ts_prec()
 #%% forecasting
 
 
-def prediction_wrapper(df_data):
+def prediction_wrapper(df_data, keys=None):
 
     alphas = np.append(np.logspace(.1, 1.5, num=25), [250])
     kwrgs_model = {'scoring':'neg_mean_squared_error',
@@ -216,14 +209,13 @@ def prediction_wrapper(df_data):
     target_ts = df_data.iloc[:,[0]].loc[0][fc_mask]
     target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 
-
     out = rg.fit_df_data_ridge(df_data=df_data,
                                target=target_ts,
                                keys=keys,
                                tau_min=min(lags), tau_max=max(lags),
                                kwrgs_model=kwrgs_model,
                                match_lag_region_to_lag_fc=match_lag,
-                               transformer=fc_utils.standardize_on_train)
+                               transformer=False)#fc_utils.standardize_on_train)
 
     prediction, weights, models_lags = out
     # get skill scores
@@ -252,33 +244,41 @@ def prediction_wrapper(df_data):
 
 
 no_info_fc = []
-if precur_aggr == 15:
+if precur_aggr <= 15:
     blocksize=2
-elif precur_aggr==60:
+else:
     blocksize=1
 
 
 precur = rg.list_for_MI[0]
-for match_lag in [True, False]:
+for match_lag in [False, True]:
     print(f'match lag {match_lag}')
     lags = np.array([0,1,2,3,4,5]) ;
     RMSE_SS = fc_utils.RMSE_vs_constant_bench(RMSE_vs_constant_bench=0.0).RMSE
     score_func_list = [RMSE_SS, fc_utils.corrcoef]
 
     keys = [k for k in rg.df_data.columns[:-2] if k not in [rg.TV.name, 'PDO']]
-    if match_lag==False:
+    if match_lag==False: # only keep regions of lag=0
         keys = [k for k in keys if k.split('..')[0] == str(0)]
+
     y_keys = [k for k in keys if 'sst' in k]
     df_data_rPDO = rg.df_data.copy()
     df_data_rPDO[y_keys], fig = wPCMCI.df_data_remove_z(df_data_rPDO, z=['PDO'], keys=y_keys,
-                                               standardize=False)
-    if match_lag==False:
-        fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_{period}_tf{tfreq}')
-        fig.savefig(fig_path+rg.figext, bbox_inches='tight')
+                                                standardize=False)
 
-    out_regrPDO = prediction_wrapper(df_data_rPDO)
-    out = prediction_wrapper(rg.df_data)
-    #%%
+    fig_path = os.path.join(rg.path_outsub1,
+                            f'{precur._name}_rPDO_{period}_tf{tfreq}_match{match_lag}')
+    fig.savefig(fig_path+rg.figext, bbox_inches='tight')
+    plt.figure()
+    df_data_rPDO.loc[0][keys].corrwith(rg.df_data.loc[0][keys]).plot(kind='bar')
+    out_regrPDO = prediction_wrapper(df_data_rPDO.copy(), keys=keys)
+    out = prediction_wrapper(rg.df_data.copy(), keys=keys)
+
+    # [rg.df_data.copy().loc[s].loc[:,['0..1..sst', '1..1..sst', '2..1..sst', '3..1..sst']].corr() for s in range(10)]
+
+    # =============================================================================
+    # Plot
+    # =============================================================================
     alpha = .05
     scores_rPDO = out_regrPDO[2]
     scores_n = out[2]
@@ -312,6 +312,8 @@ for match_lag in [True, False]:
         ax[i].set_ylim(-.1,.6)
         ax[i].axhline(y=0, color='black', linewidth=1)
         ax[i].tick_params(labelsize=16)
+        if i == len(metrics_cols)-1:
+            ax[i].set_xlabel('Lead time defined as gap [days]', fontsize=18)
         if i == 0:
             ax[i].legend()
         if target == 'westerntemp':
