@@ -63,7 +63,7 @@ periods = ['JA_center', 'JA_shiftright', 'JA_shiftleft']
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, periods, seeds)).T.reshape(-1,3)
 
-i_default = 0
+i_default =9
 
 def parseArguments():
     # Create argument parser
@@ -168,6 +168,10 @@ kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
               'title_fontdict':{'fontsize':16, 'fontweight':'bold', 'y':1.07}}
 precur = rg.list_for_MI[0]
 
+append_str='{}d_{}'.format(tfreq, calc_ts.split(' ')[0])
+kwrgs_MI = [str(i)+str(k) for i,k in precur.kwrgs_func.items()]
+if len(kwrgs_MI) != 0:
+    append_str += '_' + '_'.join(kwrgs_MI)
 #%%
 
 
@@ -195,7 +199,8 @@ rg.plot_maps_corr(var='sst', save=True,
 rg.get_ts_prec()
 #%% forecasting
 
-append_str='{}d_{}'.format(tfreq, calc_ts.split(' ')[0])
+
+
 def prediction_wrapper(df_data, keys=None):
 
     alphas = np.append(np.logspace(.1, 1.5, num=25), [250])
@@ -213,7 +218,7 @@ def prediction_wrapper(df_data, keys=None):
                                tau_min=min(lags), tau_max=max(lags),
                                kwrgs_model=kwrgs_model,
                                match_lag_region_to_lag_fc=match_lag,
-                               transformer=False)#fc_utils.standardize_on_train)
+                               transformer=fc_utils.standardize_on_train)
 
     prediction, weights, models_lags = out
     # get skill scores
@@ -223,18 +228,18 @@ def prediction_wrapper(df_data, keys=None):
                                                              n_boot = n_boot,
                                                              blocksize=blocksize,
                                                              rng_seed=1)
-    # n_splits = df_data.index.levels[0].size # test for high alpha
-    # for col in df_test_m.columns.levels[0]:
-    #     cvfitalpha = [models_lags[f'lag_{col}'][f'split_{s}'].alpha_ for s in range(n_splits)]
-    #     # print('lag {} mean alpha {:.0f}'.format(col, np.mean(cvfitalpha)))
-    #     maxalpha_c = list(cvfitalpha).count(alphas[-1])
-    #     if maxalpha_c > n_splits/3:
-    #         print(f'\nlag {col} alpha {int(np.mean(cvfitalpha))}')
-    #         print(f'{maxalpha_c} splits are max alpha\n')
-    #         # maximum regularization selected. No information in timeseries
-    #         df_test_m.loc[:,pd.IndexSlice[col, 'corrcoef']][:] = 0
-    #         df_boot.loc[:,pd.IndexSlice[col, 'corrcoef']][:] = 0
-    #         no_info_fc.append(col)
+    n_splits = df_data.index.levels[0].size # test for high alpha
+    for col in df_test_m.columns.levels[0]:
+        cvfitalpha = [models_lags[f'lag_{col}'][f'split_{s}'].alpha_ for s in range(n_splits)]
+        print('lag {} mean alpha {:.0f}'.format(col, np.mean(cvfitalpha)))
+        maxalpha_c = list(cvfitalpha).count(alphas[-1])
+        if maxalpha_c > n_splits/3:
+            print(f'\nlag {col} alpha {int(np.mean(cvfitalpha))}')
+            print(f'{maxalpha_c} splits are max alpha\n')
+            # maximum regularization selected. No information in timeseries
+            df_test_m.loc[:,pd.IndexSlice[col, 'corrcoef']][:] = 0
+            df_boot.loc[:,pd.IndexSlice[col, 'corrcoef']][:] = 0
+            no_info_fc.append(col)
     df_test = functions_pp.get_df_test(prediction.merge(df_data.iloc[:,-2:],
                                                     left_index=True,
                                                     right_index=True)).iloc[:,:-2]
@@ -268,7 +273,7 @@ for match_lag in [False, True]:
                             f'{precur._name}_rPDO_{period}_match{match_lag}_{append_str}')
     fig.savefig(fig_path+rg.figext, bbox_inches='tight')
     plt.figure()
-    df_data_rPDO.loc[0][keys].corrwith(rg.df_data.loc[0][keys]).plot(kind='bar')
+    # df_data_rPDO.loc[0][keys].corrwith(rg.df_data.loc[0][keys]).plot(kind='bar')
     out_regrPDO = prediction_wrapper(df_data_rPDO.copy(), keys=keys)
     out = prediction_wrapper(rg.df_data.copy(), keys=keys)
 
