@@ -867,7 +867,8 @@ class RGCPD:
                 if match_lag_region_to_lag_fc:
                     l = lag
                     while len([k for k in ks if k.split('..')[0] == str(l)])==0:
-                        l -= 1 ; print(f"Not found lag {lag}, using lag {l}", end="")
+                        l -= 1 ;
+                        print(f"\rNot found lag {lag}, using lag {l}", end="")
                         if l < 0 :
                             print('No regions corresponding to lag found')
                             break

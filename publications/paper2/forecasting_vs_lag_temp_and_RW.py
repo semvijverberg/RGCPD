@@ -150,7 +150,7 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             kwrgs_func={}, group_split='together',
                             distance_eps=1200, min_area_in_degrees2=10,
                             calc_ts=calc_ts, selbox=(130,260,-10,60),
-                            lags=np.array([0,1,2]))]
+                            lags=np.array([0,1,2,3,4,5]))]
 if calc_ts == 'region mean':
     s = ''
 else:
@@ -170,14 +170,15 @@ if rg.list_for_MI[0]._name == 'sst_corr_map':
     title = r'$corr(SST_t, mx2t_t)$'
 else:
     title = r'$parcorr(SST_t, mx2t_t\ |\ SST_{t-1},mx2t_{t-1})$'
-subtitles = np.array([['']]) #, f'lag 2 (15 day lead)']] )
+subtitles = np.array([[f'gap = {(l-1)*tfreq} days' for l in rg.list_for_MI[0].lags]]) #, f'lag 2 (15 day lead)']] )
+subtitles[0][0] = 'No gap'
 kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
               'wspace':-.15, 'size':3, 'cbar_vert':-.1,
               'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
               'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
               'y_ticks':np.arange(-10,61,20), 'x_ticks':np.arange(130, 280, 25),
               'subtitles':subtitles, 'title':title,
-              'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+              'title_fontdict':{'fontsize':16, 'fontweight':'bold', 'y':1.07}}
 
 #%%
 
@@ -221,6 +222,7 @@ def prediction_wrapper(df_data):
                                keys=keys,
                                tau_min=min(lags), tau_max=max(lags),
                                kwrgs_model=kwrgs_model,
+                               match_lag_region_to_lag_fc=match_lag,
                                transformer=fc_utils.standardize_on_train)
 
     prediction, weights, models_lags = out
@@ -231,18 +233,18 @@ def prediction_wrapper(df_data):
                                                              n_boot = n_boot,
                                                              blocksize=blocksize,
                                                              rng_seed=1)
-    n_splits = df_data.index.levels[0].size
-    for col in df_test_m.columns.levels[0]:
-        cvfitalpha = [models_lags[f'lag_{col}'][f'split_{s}'].alpha_ for s in range(n_splits)]
-        print('lag {} mean alpha {:.0f}'.format(col, np.mean(cvfitalpha)))
-        maxalpha_c = list(cvfitalpha).count(alphas[-1])
-        if maxalpha_c > n_splits/3:
-            print(f'\nlag {col} alpha {int(np.mean(cvfitalpha))}')
-            print(f'{maxalpha_c} splits are max alpha\n')
-            # maximum regularization selected. No information in timeseries
-            df_test_m.loc[:,pd.IndexSlice[col, 'corrcoef']][:] = 0
-            df_boot.loc[:,pd.IndexSlice[col, 'corrcoef']][:] = 0
-            no_info_fc.append(col)
+    # n_splits = df_data.index.levels[0].size # test for high alpha
+    # for col in df_test_m.columns.levels[0]:
+    #     cvfitalpha = [models_lags[f'lag_{col}'][f'split_{s}'].alpha_ for s in range(n_splits)]
+    #     # print('lag {} mean alpha {:.0f}'.format(col, np.mean(cvfitalpha)))
+    #     maxalpha_c = list(cvfitalpha).count(alphas[-1])
+    #     if maxalpha_c > n_splits/3:
+    #         print(f'\nlag {col} alpha {int(np.mean(cvfitalpha))}')
+    #         print(f'{maxalpha_c} splits are max alpha\n')
+    #         # maximum regularization selected. No information in timeseries
+    #         df_test_m.loc[:,pd.IndexSlice[col, 'corrcoef']][:] = 0
+    #         df_boot.loc[:,pd.IndexSlice[col, 'corrcoef']][:] = 0
+    #         no_info_fc.append(col)
     df_test = functions_pp.get_df_test(prediction.merge(df_data.iloc[:,-2:],
                                                     left_index=True,
                                                     right_index=True)).iloc[:,:-2]
@@ -256,64 +258,72 @@ elif precur_aggr==60:
     blocksize=1
 
 
-lags = np.array([0,1,2,3,4,5]) ;
-RMSE_SS = fc_utils.RMSE_vs_constant_bench(RMSE_vs_constant_bench=0.0).RMSE
-score_func_list = [RMSE_SS, fc_utils.corrcoef]
+precur = rg.list_for_MI[0]
+for match_lag in [True, False]:
+    lags = np.array([0,1,2,3,4,5]) ;
+    RMSE_SS = fc_utils.RMSE_vs_constant_bench(RMSE_vs_constant_bench=0.0).RMSE
+    score_func_list = [RMSE_SS, fc_utils.corrcoef]
 
 
 
-keys = [k for k in rg.df_data.columns[:-2] if k not in [rg.TV.name, 'PDO']]
-y_keys = [k for k in keys if 'sst' in k]
-df_data_rPDO = rg.df_data.copy()
-df_data_rPDO[y_keys], fig = wPCMCI.df_data_remove_z(df_data_rPDO, z=['PDO'], keys=y_keys,
-                                           standardize=False)
-fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_{period}_tf{tfreq}')
-fig.savefig(fig_path+rg.figext, bbox_inches='tight')
-out_regrPDO = prediction_wrapper(df_data_rPDO)
-out = prediction_wrapper(rg.df_data)
-#%%
-alpha = .05
-scores_rPDO = out_regrPDO[2]
-scores_n = out[2]
-metrics_cols = ['corrcoef', 'RMSE']
-rename_m = {'corrcoef': 'Corr. coeff', 'RMSE':'RMSE-SS'}
-f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
-                     sharex=True) ;
-c1, c2 = '#3388BB', '#EE6666'
-for i, m in enumerate(metrics_cols):
-    labels = [str((l-1)*tfreq) if l != 0 else 'No gap' for l in lags]
-    ax[i].plot(labels, scores_n.reorder_levels((1,0), axis=1).loc[0][m].T,
-            label='SST',
-            color=c2,
-            linestyle='solid')
-    ax[i].fill_between(labels,
-                    out[3].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                    out[3].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-                    edgecolor=c2, facecolor=c2, alpha=0.3,
-                    linestyle='solid', linewidth=2)
-    # regressed out PDO
-    ax[i].plot(labels, scores_rPDO.reorder_levels((1,0), axis=1).loc[0][m].T,
-            label=r'SST | regr. out $PDO_{lwp}$',
-            color=c1,
-            linestyle='dashed') ;
+    keys = [k for k in rg.df_data.columns[:-2] if k not in [rg.TV.name, 'PDO']]
+    if match_lag==False:
+        keys = [k for k in keys if k.split('..')[0] == str(0)]
+    y_keys = [k for k in keys if 'sst' in k]
+    df_data_rPDO = rg.df_data.copy()
+    df_data_rPDO[y_keys], fig = wPCMCI.df_data_remove_z(df_data_rPDO, z=['PDO'], keys=y_keys,
+                                               standardize=False)
+    fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_{period}_tf{tfreq}')
+    fig.savefig(fig_path+rg.figext, bbox_inches='tight')
+    out_regrPDO = prediction_wrapper(df_data_rPDO)
+    out = prediction_wrapper(rg.df_data)
+    #%%
+    alpha = .05
+    scores_rPDO = out_regrPDO[2]
+    scores_n = out[2]
+    metrics_cols = ['corrcoef', 'RMSE']
+    rename_m = {'corrcoef': 'Corr. coeff', 'RMSE':'RMSE-SS'}
+    f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
+                         sharex=True) ;
+    c1, c2 = '#3388BB', '#EE6666'
+    for i, m in enumerate(metrics_cols):
+        labels = [str((l-1)*tfreq) if l != 0 else 'No gap' for l in lags]
+        ax[i].plot(labels, scores_n.reorder_levels((1,0), axis=1).loc[0][m].T,
+                label='SST',
+                color=c2,
+                linestyle='solid')
+        ax[i].fill_between(labels,
+                        out[3].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                        out[3].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                        edgecolor=c2, facecolor=c2, alpha=0.3,
+                        linestyle='solid', linewidth=2)
+        # regressed out PDO
+        ax[i].plot(labels, scores_rPDO.reorder_levels((1,0), axis=1).loc[0][m].T,
+                label=r'SST | regr. out $PDO_{lwp}$',
+                color=c1,
+                linestyle='dashed') ;
 
-    ax[i].fill_between(labels,
-                    out_regrPDO[3].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                    out_regrPDO[3].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-                    edgecolor=c1, facecolor=c1, alpha=0.3,
-                    linestyle='dashed', linewidth=2)
-    ax[i].set_ylim(-.1,.6)
-    ax[i].axhline(y=0, color='black', linewidth=1)
-    ax[i].tick_params(labelsize=16)
-    if i == 0:
-        ax[i].legend()
-    if target == 'westerntemp':
-        ax[i].set_ylabel(rename_m[m], fontsize=18)
+        ax[i].fill_between(labels,
+                        out_regrPDO[3].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                        out_regrPDO[3].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                        edgecolor=c1, facecolor=c1, alpha=0.3,
+                        linestyle='dashed', linewidth=2)
+        ax[i].set_ylim(-.1,.6)
+        ax[i].axhline(y=0, color='black', linewidth=1)
+        ax[i].tick_params(labelsize=16)
+        if i == 0:
+            ax[i].legend()
+        if target == 'westerntemp':
+            ax[i].set_ylabel(rename_m[m], fontsize=18)
 
-f.subplots_adjust(hspace=.1)
-title = f'{precur_aggr}-day mean {target[:7]} U.S. {target[7:]}. pred.'
-f.suptitle(title, y=.92, fontsize=18)
-
+    f.subplots_adjust(hspace=.1)
+    title = f'{precur_aggr}-day mean {target[:7]} U.S. {target[7:]}. pred.'
+    f.suptitle(title, y=.92, fontsize=18)
+    f_name = 'fc_{}_a{}'.format(precur._name,
+                                  precur.alpha) + '_' + \
+                                 f'matchlag{match_lag}_' + \
+                                 f'tf{precur_aggr}_{method}'
+    fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
 
 
 #%%
