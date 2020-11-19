@@ -176,7 +176,7 @@ kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
               'wspace':-.15, 'size':3, 'cbar_vert':-.1,
               'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
               'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
-              'y_ticks':np.arange(-10,61,20), 'x_ticks':np.arange(130, 280, 25),
+              'y_ticks':np.arange(-10,61,20), 'x_ticks':np.arange(140, 280, 25),
               'subtitles':subtitles, 'title':title,
               'title_fontdict':{'fontsize':16, 'fontweight':'bold', 'y':1.07}}
 
@@ -325,7 +325,7 @@ for match_lag in [True, False]:
                                  f'matchlag{match_lag}_' + \
                                  f'tf{precur_aggr}_{method}'
     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
-
+    f.savefig(fig_path, bbox_inches='tight')
 
 #%%
 # if experiment == 'adapt_corr':
