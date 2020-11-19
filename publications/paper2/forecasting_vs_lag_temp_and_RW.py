@@ -53,13 +53,11 @@ import wrapper_PCMCI as wPCMCI
 # matplotlib.rc('text', usetex=True)
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
-region = 'eastern'
+# targets = ['temp', 'RW']
 
-if region == 'eastern':
-    targets = ['easterntemp', 'easternRW']
-    targets = ['easterntemp']
-elif region == 'western':
-    targets = ['westerntemp', 'westernRW']
+
+# if region == 'eastern':
+targets = ['easterntemp', 'westerntemp']
 
 periods = ['JA_center', 'JA_shiftright', 'JA_shiftleft']
 seeds = np.array([1,2,3])
