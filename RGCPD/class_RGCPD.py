@@ -704,7 +704,7 @@ class RGCPD:
                                  map_proj, **kwrgs)
                 if save == True:
                     f_name = 'clusterlabels_{}_eps{}_mingc{}'.format(
-                                                        precur_name,
+                                                        pclass._name,
                                                         pclass.distance_eps,
                                                         pclass.min_area_in_degrees2)
                     if append_str is not None:
@@ -744,11 +744,11 @@ class RGCPD:
                                      mask_xr=xrmask, **kwrgs_plot)
             if save == True:
                 if append_str is not None:
-                    f_name = 'corr_map_{}_a{}'.format(pclass._name,
+                    f_name = '{}_a{}'.format(pclass._name,
                                               pclass.alpha)+'_'+append_str
                 else:
-                    f_name = 'corr_map_{}_a{}'.format(precur_name,
-                                                      pclass.alpha)
+                    f_name = '{}_a{}'.format(precur_name,
+                                             pclass.alpha)
                 if mean:
                     f_name += f'_md{min_detect_gc}'
 
