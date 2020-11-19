@@ -91,7 +91,7 @@ if __name__ == '__main__':
     print(f'arg {args.intexper} f{out}')
 
 
-calc_ts= 'pattern cov' # 'region mean'
+calc_ts= 'region mean'
 
 if target[-4:] == 'temp':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
