@@ -260,11 +260,10 @@ elif precur_aggr==60:
 
 precur = rg.list_for_MI[0]
 for match_lag in [True, False]:
+    print(f'match lag {match_lag}')
     lags = np.array([0,1,2,3,4,5]) ;
     RMSE_SS = fc_utils.RMSE_vs_constant_bench(RMSE_vs_constant_bench=0.0).RMSE
     score_func_list = [RMSE_SS, fc_utils.corrcoef]
-
-
 
     keys = [k for k in rg.df_data.columns[:-2] if k not in [rg.TV.name, 'PDO']]
     if match_lag==False:
@@ -273,8 +272,10 @@ for match_lag in [True, False]:
     df_data_rPDO = rg.df_data.copy()
     df_data_rPDO[y_keys], fig = wPCMCI.df_data_remove_z(df_data_rPDO, z=['PDO'], keys=y_keys,
                                                standardize=False)
-    fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_{period}_tf{tfreq}')
-    fig.savefig(fig_path+rg.figext, bbox_inches='tight')
+    if match_lag==False:
+        fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_{period}_tf{tfreq}')
+        fig.savefig(fig_path+rg.figext, bbox_inches='tight')
+
     out_regrPDO = prediction_wrapper(df_data_rPDO)
     out = prediction_wrapper(rg.df_data)
     #%%
