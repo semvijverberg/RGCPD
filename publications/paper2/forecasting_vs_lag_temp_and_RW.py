@@ -91,7 +91,7 @@ if __name__ == '__main__':
     print(f'arg {args.intexper} f{out}')
 
 
-calc_ts= 'region mean'
+calc_ts = 'region mean'
 
 if target[-4:] == 'temp':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
@@ -136,9 +136,9 @@ list_of_name_path = [(cluster_label, TVpath),
 lowpass = '2y'
 list_import_ts = [('PDO', os.path.join(data_dir, f'PDO_{lowpass}_rm_25-09-20_15hr.h5'))]
 
-list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
+list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.parcorr_map_time,
                             alpha=alpha_corr, FDR_control=True,
-                            kwrgs_func={}, group_split='together',
+                            kwrgs_func={'precursor':False}, group_split='together',
                             distance_eps=1200, min_area_in_degrees2=10,
                             calc_ts=calc_ts, selbox=(130,260,-10,60),
                             lags=np.array([0,1,2,3,4,5]))]
