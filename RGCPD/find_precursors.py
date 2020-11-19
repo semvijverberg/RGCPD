@@ -122,10 +122,12 @@ def get_area(ds):
     #    A_mean = np.mean(A_gridcell2D)
     return A_gridcell2D
 
+
 def mask_sig_to_cluster(mask_and_data_s, wght_area, distance_eps, min_area_samples):
     from sklearn import cluster
-    from sklearn import metrics
-    from haversine import haversine
+    from math import radians as _r
+    from sklearn.metrics.pairwise import haversine_distances
+
     mask_sig_1d = mask_and_data_s.mask.astype('bool').values == False
     data = mask_and_data_s.data
     lons = mask_and_data_s.longitude.values
@@ -151,7 +153,7 @@ def mask_sig_to_cluster(mask_and_data_s, wght_area, distance_eps, min_area_sampl
             labels_for_lag[l][count:count+n_sign_c_lag] = True
             count += n_sign_c_lag
             # shape sign_coords = [(lats, lons)]
-            sign_coords.append( [(sign_c[1][i], sign_c[0][i]-180) for i in range(sign_c[0].size)] )
+            sign_coords.append( [[_r(sign_c[1][i]), _r(sign_c[0][i]-180)] for i in range(sign_c[0].size)] )
             weights_core_samples.append(wght_area[mask_sig[l,:,:]].reshape(-1))
 
         sign_coords = flatten(sign_coords)
@@ -159,11 +161,10 @@ def mask_sig_to_cluster(mask_and_data_s, wght_area, distance_eps, min_area_sampl
             weights_core_samples = flatten(weights_core_samples)
             # calculate distance between sign coords accross all lags to keep labels
             # more consistent when clustering
-            distance = metrics.pairwise_distances(sign_coords, metric=haversine)
+            distance = haversine_distances(sign_coords) * 6371000/1000 # multiply by Earth radius to get kilometers
             dbresult = cluster.DBSCAN(eps=distance_eps, min_samples=min_area_samples,
-                                      metric='precomputed').fit(distance,
-                                      sample_weight=weights_core_samples,
-                                      n_jobs=-1)
+                                      metric='precomputed', n_jobs=-1).fit(distance,
+                                      sample_weight=weights_core_samples)
             labels = dbresult.labels_ + 1
             # all labels == -1 (now 0) are seen as noise:
             labels[labels==0] = -label_start
