@@ -379,6 +379,7 @@ class RGCPD:
                                              self.TV_ts, **self.kwrgs_TV)
         else:
             # use original TV timeseries
+            start_end_TVdate = self.start_end_TVdate
             TV = self.TV ; df_splits = self.df_splits
         self.df_data = pd.DataFrame(TV.fullts.values, columns=[TV.name],
                                     index=TV.dates_all)
@@ -388,7 +389,7 @@ class RGCPD:
             print('\nGetting MI timeseries') ; c = 0
             for i, precur in enumerate(self.list_for_MI):
                 if hasattr(precur, 'prec_labels'):
-                    precur.get_prec_ts(precur_aggr=precur_aggr,
+                    precur.get_prec_ts(precur_aggr=self.precur_aggr,
                                        kwrgs_load=self.kwrgs_load)
                 else:
                     print(f'{precur.name} not clustered yet')
@@ -737,7 +738,7 @@ class RGCPD:
                                      mask_xr=xrmask, **kwrgs_plot)
             if save == True:
                 if append_str is not None:
-                    f_name = 'corr_map_{}_a{}'.format(precur_name,
+                    f_name = 'corr_map_{}_a{}'.format(pclass._name,
                                               pclass.alpha)+'_'+append_str
                 else:
                     f_name = 'corr_map_{}_a{}'.format(precur_name,
@@ -804,12 +805,15 @@ class RGCPD:
             traintest_yrs.append(test_yrs)
         return traintest_yrs
 
-    def fit_df_data_ridge(self, keys: Union[list, np.ndarray]=None,
-                             target: Union[str,pd.DataFrame]=None,
-                             tau_min: int=1,
-                             tau_max: int=1,
-                             newname:str = None, transformer=None,
-                             kwrgs_model: dict={'scoring':'neg_mean_squared_error'}):
+    def fit_df_data_ridge(self,
+                          df_data: pd.DataFrame=None,
+                          keys: Union[list, np.ndarray]=None,
+                          target: Union[str,pd.DataFrame]=None,
+                          tau_min: int=1,
+                          tau_max: int=1,
+                          match_lag_region_to_lag_fc=False,
+                          transformer=None,
+                          kwrgs_model: dict={'scoring':'neg_mean_squared_error'}):
         '''
         Perform cross-validated Ridge regression to predict the target.
 
@@ -824,8 +828,6 @@ class RGCPD:
             signal stronger at a certain lag. Relationship is established for
             all lags in range(tau_min, tau_max+1) and the strongest is
             relationship is kept.
-        newname : str, optional
-            new column name of the predicted timeseries. The default is None.
         kwrgs_model : dict, optional
             DESCRIPTION. The default is None.
 
@@ -837,15 +839,17 @@ class RGCPD:
         # keys=None;target=None;tau_min=1;tau_max=1;transformer=None
         # kwrgs_model={'scoring':'neg_mean_squared_error'}
         # self.df_data_all = self.df_data.copy()
+        if df_data is None:
+            df_data = self.df_data.copy()
         lags = range(tau_min, tau_max+1)
         if keys is None:
-            keys = self.df_data.columns[self.df_data.dtypes != bool]
-        splits = self.df_data.index.levels[0]
+            keys = df_data.columns[df_data.dtypes != bool]
+        splits = df_data.index.levels[0]
         # data_new_s   = np.zeros( (splits.size) , dtype=object)
 
-        RV_mask = self.df_data.loc[0]['RV_mask'] # not changing
+        RV_mask = df_data.loc[0]['RV_mask'] # not changing
         if target is None: # not changing
-            target_ts = self.df_data.loc[0].iloc[:,[0]][RV_mask]
+            target_ts = df_data.loc[0].iloc[:,[0]][RV_mask]
 
 
         models_lags = dict()
@@ -855,11 +859,19 @@ class RGCPD:
             wghts = np.zeros( (splits.size) , dtype=object)
             models_splits_lags = dict()
             for isp, s in enumerate(splits):
-                fit_masks = self.df_data.loc[s][['RV_mask', 'TrainIsTrue']]
-                TrainIsTrue = self.df_data.loc[s]['TrainIsTrue']
+                fit_masks = df_data.loc[s][['RV_mask', 'TrainIsTrue']]
+                TrainIsTrue = df_data.loc[s]['TrainIsTrue']
 
-                df_s = self.df_data.loc[s]
+                df_s = df_data.loc[s]
                 ks = [k for k in keys if k in df_s.columns] # keys split
+                if match_lag_region_to_lag_fc:
+                    l = lag
+                    while len([k for k in ks if k.split('..')[0] == str(l)])==0:
+                        l -= 1 ; print(f"Not found lag {lag}, using lag {l}", end="")
+                        if l < 0 :
+                            print('No regions corresponding to lag found')
+                            break
+
 
                 if transformer is not None and transformer != False:
                     df_trans = df_s[ks].apply(transformer,
@@ -873,7 +885,7 @@ class RGCPD:
                                             result_type='broadcast')
 
                 if type(target) is str:
-                    target_ts = self.df_data.loc[s][[target]][RV_mask]
+                    target_ts = df_data.loc[s][[target]][RV_mask]
                 elif type(target) is pd.DataFrame:
                     target_ts = target
 
@@ -891,8 +903,8 @@ class RGCPD:
                 models_splits_lags[f'split_{s}'] = model
 
 
-                if il == 0:
-                    # add truth
+                if il == 0:#  and isp == 0:
+                # add truth
                     prediction = target_ts.copy()
                     prediction = prediction.merge(pred.rename(columns={0:lag}),
                                                   left_index=True,
@@ -900,26 +912,22 @@ class RGCPD:
                     coeff = pd.DataFrame(model.coef_, index=model.X_pred.columns,
                                          columns=[lag])
                 else:
-                    prediction = prediction.merge(pred.rename(columns={0:lag}),
-                                     left_index=True,
-                                     right_index=True)
-                    coeff = coeff.merge(pd.DataFrame(model.coef_,
-                                                     index=model.X_pred.columns,
-                                                     columns=[lag]),
-                                         left_index=True,
-                                         right_index=True)
+                    prediction = pred.rename(columns={0:lag})
+                    coeff = pd.DataFrame(model.coef_,
+                                         index=model.X_pred.columns,
+                                         columns=[lag])
                 preds[isp] = prediction
                 wghts[isp] = coeff
-            # if len(lags) > 1:
+            if il == 0:
+                predict = pd.concat(list(preds), keys=splits)
+                weights = pd.concat(list(wghts), keys=splits)
+            else:
+                predict = predict.merge(pd.concat(list(preds), keys=splits),
+                              left_index=True, right_index=True)
+                weights = weights.merge(pd.concat(list(wghts), keys=splits),
+                              left_index=True, right_index=True)
             models_lags[f'lag_{lag}'] = models_splits_lags
 
-            # else:
-            #     models[f'split_{s}'] = model
-
-
-
-        predict = pd.concat(list(preds), keys=splits)
-        weights = pd.concat(list(wghts), keys=splits)
         # weights_norm = weights.mean(axis=0, level=1)
         # weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
         return predict, weights, models_lags

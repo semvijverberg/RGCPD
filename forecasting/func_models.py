@@ -236,6 +236,39 @@ def minmaxscaler_on_train(c, TrainIsTrue):
 def corrcoef(y_true, y_pred):
     return np.corrcoef(y_true, y_pred)[0][1]
 
+class RMSE_vs_constant_bench:
+    def __init__(self, RMSE_vs_constant_bench: float=False, squared=False):
+        '''
+        Parameters
+        ----------
+        y_true : pd.DataFrame or pd.Series or np.ndarray
+        y_pred : pd.DataFrame or pd.Series or np.ndarray
+        benchmark : float, optional
+            DESCRIPTION. The default is None.
+        squared : boolean value, optional (default = True)
+            If True returns MSE value, if False returns RMSE value
+
+        Returns
+        -------
+        RMSE (Skill Score).
+
+        '''
+        self.benchmark = RMSE_vs_constant_bench
+        self.squared = squared
+        # if type(self.benchmark) is not None:
+
+        # return metrics.mean_squared_error(y_true, y_pred, squared=root
+    def RMSE(self, y_true, y_pred):
+        fc_score = metrics.mean_squared_error(y_true, y_pred,
+                                              squared=self.squared)
+        if self.benchmark is False:
+            return fc_score
+        elif type(self.benchmark) is float:
+            bench = metrics.mean_squared_error(y_true,
+                                               np.zeros_like(y_true),
+                                               squared=self.squared)
+            return (bench - fc_score) / bench
+
 def get_scores(prediction, df_splits, score_func_list: list=None,
                n_boot: int=1, blocksize: int=14, rng_seed=1):
     #%%
@@ -247,42 +280,60 @@ def get_scores(prediction, df_splits, score_func_list: list=None,
     if score_func_list is None:
         score_func_list = [metrics.mean_squared_error]
     splits = pred.index.levels[0]
-    df_train = pd.DataFrame(np.zeros( (splits.size, len(score_func_list))),
+    columns = prediction.columns[1:]
+    df_trains = np.zeros( (columns.size), dtype=object)
+    df_tests_s = np.zeros( (columns.size), dtype=object)
+    for c, col in enumerate(columns):
+        df_train = pd.DataFrame(np.zeros( (splits.size, len(score_func_list))),
                             columns=[f.__name__ for f in score_func_list])
-    df_test_s = pd.DataFrame(np.zeros( (splits.size, len(score_func_list))),
+        df_test_s = pd.DataFrame(np.zeros( (splits.size, len(score_func_list))),
                             columns=[f.__name__ for f in score_func_list])
-    for s in splits:
-        sp = pred.loc[s]
-        trainRV = np.logical_and(sp['TrainIsTrue'], sp['RV_mask'])
-        testRV  = np.logical_and(~sp['TrainIsTrue'], sp['RV_mask'])
-        for f in score_func_list:
-            name = f.__name__
-            train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].iloc[:,1])
-            test_score = f(sp[testRV].iloc[:,0], sp[testRV].iloc[:,1])
+        for s in splits:
+            sp = pred.loc[s]
+            trainRV = np.logical_and(sp['TrainIsTrue'], sp['RV_mask'])
+            testRV  = np.logical_and(~sp['TrainIsTrue'], sp['RV_mask'])
+            for f in score_func_list:
+                name = f.__name__
+                train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].loc[:,col])
+                test_score = f(sp[testRV].iloc[:,0], sp[testRV].loc[:,col])
 
-            df_train.loc[s,name] = train_score
-            df_test_s.loc[s,name] = test_score
+                df_train.loc[s,name] = train_score
+                df_test_s.loc[s,name] = test_score
+        df_trains[c] = df_train
+        df_tests_s[c]  = df_test_s
+    df_trains = pd.concat(df_trains, keys=columns, axis=1)
+    df_tests_s = pd.concat(df_tests_s, keys=columns, axis=1)
+
 
     # score on complete test
-    df_test = pd.DataFrame(np.zeros( (1,len(score_func_list))),
-                            columns=[f.__name__ for f in score_func_list])
-    pred_test = functions_pp.get_df_test(pred).iloc[:,:2]
-    for f in score_func_list:
-        name = f.__name__
-        y_true = pred_test.iloc[:,0]
-        y_pred = pred_test.iloc[:,1]
-        df_test[name] = f(y_true, y_pred)
+    df_tests = np.zeros( (columns.size), dtype=object)
+    for c, col in enumerate(columns):
+        df_test = pd.DataFrame(np.zeros( (1,len(score_func_list))),
+                                columns=[f.__name__ for f in score_func_list])
+        pred_test = functions_pp.get_df_test(pred).iloc[:,:-2]
+        for f in score_func_list:
+            name = f.__name__
+            y_true = pred_test.iloc[:,0]
+            y_pred = pred_test.loc[:,col]
+            df_test[name] = f(y_true, y_pred)
+        df_tests[c]  = df_test
+    df_tests = pd.concat(df_tests, keys=columns, axis=1)
 
 
     # Bootstrapping with replacement
-    old_index = range(0,len(y_true),1)
-    n_bl = blocksize
-    chunks = [old_index[n_bl*i:n_bl*(i+1)] for i in range(int(len(old_index)/n_bl))]
-    score_list = _bootstrap(pred_test, n_boot, chunks, score_func_list,
-                            rng_seed=rng_seed)
-    df_boot = pd.DataFrame(score_list,
-                           columns=[f.__name__ for f in score_func_list])
-    out = (df_train, df_test_s, df_test, df_boot)
+    df_boots = np.zeros( (columns.size), dtype=object)
+    for c, col in enumerate(columns):
+        old_index = range(0,len(y_true),1)
+        n_bl = blocksize
+        chunks = [old_index[n_bl*i:n_bl*(i+1)] for i in range(int(len(old_index)/n_bl))]
+        score_list = _bootstrap(pred_test.iloc[:,[0,c+1]], n_boot, chunks, score_func_list,
+                                rng_seed=rng_seed)
+        df_boot = pd.DataFrame(score_list,
+                               columns=[f.__name__ for f in score_func_list])
+        df_boots[c] = df_boot
+    df_boots = pd.concat(df_boots, keys=columns, axis=1)
+
+    out = (df_trains, df_tests_s, df_tests, df_boots)
 
 #%%
     return out

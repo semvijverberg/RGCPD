@@ -162,7 +162,8 @@ def mask_sig_to_cluster(mask_and_data_s, wght_area, distance_eps, min_area_sampl
             distance = metrics.pairwise_distances(sign_coords, metric=haversine)
             dbresult = cluster.DBSCAN(eps=distance_eps, min_samples=min_area_samples,
                                       metric='precomputed').fit(distance,
-                                      sample_weight=weights_core_samples)
+                                      sample_weight=weights_core_samples,
+                                      n_jobs=-1)
             labels = dbresult.labels_ + 1
             # all labels == -1 (now 0) are seen as noise:
             labels[labels==0] = -label_start
@@ -294,7 +295,7 @@ def cluster_DBSCAN_regions(pos_prec):
     # group regions per split (no information leak train test)
     if group_split == 'seperate':
         for s in range(n_spl):
-            progress = 100 * (s+1) / n_spl
+            progress = int(100 * (s+1) / n_spl)
             print(f"\rProgress traintest set {progress}%", end="")
             mask_and_data_s = corr_xr.sel(split=s)
             grouping_split = mask_sig_to_cluster(mask_and_data_s, wght_area,
