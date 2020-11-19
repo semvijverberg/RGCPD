@@ -142,12 +142,8 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.parcorr_map_time
                             distance_eps=1200, min_area_in_degrees2=10,
                             calc_ts=calc_ts, selbox=(130,260,-10,60),
                             lags=np.array([0,1,2,3,4,5]))]
-if calc_ts == 'region mean':
-    s = ''
-else:
-    s = '_' + calc_ts.replace(' ', '')
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}{s}{append_main}/')
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}{append_main}/')
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
@@ -173,9 +169,11 @@ kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
 
 #%%
 
+
+
 rg.pp_TV(name_ds=name_ds, detrend=False)
 
-subfoldername = '_'.join([target,'vs_lags',rg.hash, period,
+subfoldername = '_'.join(['vs_lags',rg.hash, period,
                       str(precur_aggr), str(alpha_corr), method,
                       str(seed)])
 
@@ -183,19 +181,20 @@ rg.pp_precursors()
 rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
 rg.calc_corr_maps()
 rg.cluster_list_MI()
-rg.quick_view_labels(save=True, append_str=f'{tfreq}')
+rg.quick_view_labels(save=True, append_str=f'{tfreq}d',
+                     min_detect_gc=.5)
 # plotting corr_map
 rg.plot_maps_corr(var='sst', save=True,
                   kwrgs_plot=kwrgs_plotcorr,
                   min_detect_gc=1.0,
-                  append_str=f'{tfreq}')
+                  append_str=f'{tfreq}d')
 
 
 
 rg.get_ts_prec()
 #%% forecasting
 
-
+append_str='{}d_{}'.format(tfreq, calc_ts.split(' ')[0])
 def prediction_wrapper(df_data, keys=None):
 
     alphas = np.append(np.logspace(.1, 1.5, num=25), [250])
@@ -265,7 +264,7 @@ for match_lag in [False, True]:
                                                 standardize=False)
 
     fig_path = os.path.join(rg.path_outsub1,
-                            f'{precur._name}_rPDO_{period}_tf{tfreq}_match{match_lag}')
+                            f'{precur._name}_rPDO_{period}_match{match_lag}_{append_str}')
     fig.savefig(fig_path+rg.figext, bbox_inches='tight')
     plt.figure()
     df_data_rPDO.loc[0][keys].corrwith(rg.df_data.loc[0][keys]).plot(kind='bar')
@@ -323,7 +322,7 @@ for match_lag in [False, True]:
     f_name = 'fc_{}_a{}'.format(precur._name,
                                   precur.alpha) + '_' + \
                                  f'matchlag{match_lag}_' + \
-                                 f'tf{precur_aggr}_{method}'
+                                 f'{method}_{append_str}'
     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
     f.savefig(fig_path, bbox_inches='tight')
 

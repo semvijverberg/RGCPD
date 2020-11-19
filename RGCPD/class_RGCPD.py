@@ -632,8 +632,8 @@ class RGCPD:
         print('Data stored in \n{}'.format(filename+'.h5'))
         self.path_df_data = filename
 
-    def quick_view_labels(self, var=None, map_proj=None, median=True,
-                          save=False, append_str: str=None):
+    def quick_view_labels(self, var=None, map_proj=None, mean=True,
+                          min_detect_gc: float=.5, save=False, append_str: str=None):
         '''
         Parameters
         ----------
@@ -657,35 +657,41 @@ class RGCPD:
             var = [p.name for p in self.list_for_MI]
         for precur_name in var:
             try:
-                precur = [p for p in self.list_for_MI if p.name == precur_name][0]
+                pclass = [p for p in self.list_for_MI if p.name == precur_name][0]
             except IndexError as e:
                 print(e)
                 print('var not in list_for_MI')
-            if hasattr(precur, 'prec_labels')==False:
+            if hasattr(pclass, 'prec_labels')==False:
                 continue
-            prec_labels = precur.prec_labels.copy()
-            if median:
-                prec_labels = prec_labels.median(dim='split')
+
+            if mean:
+                prec_labels = pclass.prec_labels.mean(dim='split')
+                if min_detect_gc<.1 or min_detect_gc>1.:
+                    raise ValueError( 'give value between .1 en 1.0')
+                n_splits = self.df_splits.index.levels[0].size
+                min_d = round(n_splits * (1- min_detect_gc),0)
+                # 1 == non-significant, 0 == significant
+                mask = pclass.corr_xr['mask'].sum(dim='split') > min_d
+                prec_labels = prec_labels.where(~mask)
+                cbar_vert = -0.1
+            else:
+                prec_labels = pclass.prec_labels.copy()
+                if prec_labels.split.size == 1:
+                    cbar_vert = -0.1
+                else:
+                    cbar_vert = -0.025
             if all(np.isnan(prec_labels.values.flatten()))==False:
                 # colors of cmap are dived over min to max in n_steps.
                 # We need to make sure that the maximum value in all dimensions will be
                 # used for each plot (otherwise it assign inconsistent colors)
                 max_N_regs = min(20, int(prec_labels.max() + 0.5))
                 label_weak = np.nan_to_num(prec_labels.values) >=  max_N_regs
-                contour_mask = None
+                xrmask = None
                 prec_labels.values[label_weak] = max_N_regs
                 steps = max_N_regs+1
                 cmap = plt.cm.tab20
                 prec_labels.values = prec_labels.values-0.5
                 clevels = np.linspace(0, max_N_regs,steps)
-
-                if median==False:
-                    if prec_labels.split.size == 1:
-                        cbar_vert = -0.1
-                    else:
-                        cbar_vert = -0.025
-                else:
-                    cbar_vert = -0.1
 
                 kwrgs = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
                               'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
@@ -694,19 +700,19 @@ class RGCPD:
                               'cmap':cmap}
 
                 plot_maps.plot_corr_maps(prec_labels,
-                                 contour_mask,
+                                 xrmask,
                                  map_proj, **kwrgs)
                 if save == True:
                     f_name = 'clusterlabels_{}_eps{}_mingc{}'.format(
                                                         precur_name,
-                                                        precur.distance_eps,
-                                                        precur.min_area_in_degrees2)
+                                                        pclass.distance_eps,
+                                                        pclass.min_area_in_degrees2)
                     if append_str is not None:
                         f_name += f'_{append_str}'
                     fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
                     plt.savefig(fig_path, bbox_inches='tight')
             else:
-                print(f'no {precur.name} regions that pass distance_eps and min_area_in_degrees2 citeria')
+                print(f'no {pclass.name} regions that pass distance_eps and min_area_in_degrees2 citeria')
 
 
     def plot_maps_corr(self, var=None, kwrgs_plot: dict={}, mean: bool=True,
