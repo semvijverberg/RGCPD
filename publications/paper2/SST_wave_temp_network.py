@@ -49,7 +49,7 @@ remove_PDOyesno = np.array([0, 1])
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, seeds, periods, remove_PDOyesno)).T.reshape(-1,4)
 
-i_default = 18
+i_default = 0#18
 
 
 
@@ -108,10 +108,11 @@ elif period == 'spring_shiftright':
     start_end_TVdate = ('02-08', '06-06')
     start_end_TVdatet2mvsRW = ('06-08', '09-06')
 
-if period.split('_')[0] == 'summer':
-    start_end_date = ('03-01', start_end_TVdatet2mvsRW[-1])
-elif period.split('_')[0] == 'spring':
-    start_end_date = ('01-01', start_end_TVdatet2mvsRW[-1])
+# if period.split('_')[0] == 'summer':
+#     start_end_date = ('03-01', start_end_TVdatet2mvsRW[-1])
+# elif period.split('_')[0] == 'spring':
+#     start_end_date = ('01-01', start_end_TVdatet2mvsRW[-1])
+start_end_date = ('01-01', '12-31')
 
 tfreq         = 15
 min_detect_gc = 1.0
@@ -136,7 +137,7 @@ list_of_name_path = [(cluster_label, TVpathtemp),
                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
                      ('SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
-list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
+list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.parcorr_map_time,
                             alpha=.05, FDR_control=True,
                             distance_eps=600, min_area_in_degrees2=5,
                             calc_ts='pattern cov', selbox=z500_green_bb,
@@ -283,7 +284,7 @@ for f in freqs[:]:
     keys = [f'{west_east[0].capitalize()}-T', f'{west_east[0].capitalize()}-RW',
             'SST']
     if remove_PDO:
-        rg.df_data['SST'], fig = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'],
+        rg.df_data['SST'], fig = wPCMCI.df_data_remove_z(rg.df_data.copy(), z=['PDO'],
                                                          keys=['SST'],
                                                          standardize=False,
                                                          plot=True)
@@ -304,10 +305,10 @@ for f in freqs[:]:
                      tigr_function_call=tigr_function_call,
                       pc_alpha=[0.05, 0.1, 0.2, 0.3, 0.4, 0.5],
                       tau_min=0,
-                      tau_max=5,
+                      tau_max=3,
                       max_conds_dim=10,
                       max_combinations=10,
-                      update_dict={})
+                      update_dict={'reset_lagged_links':False})
     rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
 
     lags = range(rg.kwrgs_tigr['tau_min'], rg.kwrgs_tigr['tau_max']+1)

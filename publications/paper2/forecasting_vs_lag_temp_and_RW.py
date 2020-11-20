@@ -63,7 +63,7 @@ periods = ['JA_center', 'JA_shiftright', 'JA_shiftleft', 'JJA_center']
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, periods, seeds)).T.reshape(-1,3)
 
-i_default =9
+i_default = 0
 
 def parseArguments():
     # Create argument parser
@@ -132,6 +132,11 @@ append_main = ''
 #%% run RGPD
 # start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('3-1', start_end_TVdate[-1]) # focus on spring/summer. Important for regressing out influence of PDO (might vary seasonally)
+# =============================================================================
+# change SED
+# =============================================================================
+start_end_date = ('01-01', '12-31')
+
 list_of_name_path = [(cluster_label, TVpath),
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 

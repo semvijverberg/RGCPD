@@ -41,11 +41,11 @@ periods = ['summer_center', 'summer_shiftright', 'summer_shiftleft',
            'spring_center', 'spring_shiftleft', 'spring_shiftright']
 
 # periods = ['summer_shiftleft']
-targets = ['west', 'east']
+targets = ['east', 'west']
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
-i_default = 24
+i_default = 0
 
 
 
@@ -104,6 +104,10 @@ elif period == 'spring_shiftright':
     start_end_TVdatet2mvsRW = ('06-08', '09-06')
 
 start_end_date = ('1-1', '12-31')
+# =============================================================================
+# CHANGE SED
+# =============================================================================
+start_end_date = ('03-01', start_end_TVdatet2mvsRW[-1])
 
 tfreq         = 15
 min_detect_gc = 1.0
@@ -256,7 +260,7 @@ rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
 
 rg.calc_corr_maps(var='N-Pac. SST')
 rg.cluster_list_MI(var='N-Pac. SST')
-rg.quick_view_labels(median=True)
+rg.quick_view_labels(min_detect_gc=min_detect_gc)
 # rg.get_ts_prec(precur_aggr=1)
 # rg.store_df(append_str=f'RW_and_SST_fb_tf{rg.tfreq}')
 
@@ -301,7 +305,7 @@ for f in freqs[:]:
                       max_combinations=10)
 
 
-    lags = range(rg.kwrgs_pcmci['tau_min'], rg.kwrgs_pcmci['tau_max']+1)
+    lags = range(rg.kwrgs_tigr['tau_min'], rg.kwrgs_tigr['tau_max']+1)
     lags = np.array([l*f for i, l in enumerate(lags)])
     mlr=5
     SSTtoRW, rbRWtoSST, rbSSTtoRW = append_MCI(rg, dict_v, dict_rb)
@@ -344,9 +348,28 @@ for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]
     with open(csvfilename, 'a', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, list(dic.keys()))
         writer.writerows([dic])
+#%%
+
+tig = rg.pcmci_dict[0]
+functions_pp.get_oneyr(rg.dates_all) # dp per yr
+df_s = rg.df_data.loc[0][rg.df_data.loc[0]['TrainIsTrue'].values]
+print(f'{tig.T} total datapoints \ndf_data has shape {df_s.shape}')
+RVf0 = rg.df_data.loc[0][np.logical_and(rg.df_data.loc[0]['RV_mask'], rg.df_data.loc[0]['TrainIsTrue']).values]
+RVf0.shape
+
+# equal RV mask and tig.dataframe.mask
+all(np.equal(tig.dataframe.mask[:,0], rg.df_data.loc[0]['RV_mask'][rg.df_data.loc[0]['TrainIsTrue'].values] ))
 
 
+array = tig.dataframe.construct_array([(1,0)], [(0,0)], [(2,0)], tau_max=5,
+                                      mask=tig.dataframe.mask,
+                                      mask_type=tig.cond_ind_test.mask_type,
+                                      verbosity=3)[0]
+print(f'full array is loaded. array shape {array.shape}, 2*taumax=5 = 10' )
 
+
+array = tig.cond_ind_test._get_array([(1,0)], [(0,0)], [(2,0)], tau_max=5)[0]
+array.shape
 # #%%
 # # import func_models
 

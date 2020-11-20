@@ -50,7 +50,8 @@ def init_pcmci(df_data, significance='analytic', mask_type='y',
         var_names = list(df_data_s.columns[(df_data_s.dtypes != np.bool)])
         df_data_s = df_data_s.loc[:,var_names]
         data = df_data_s.values
-        data_mask = RV_mask.loc[s][TrainIsTrue.values].values
+        data_mask = ~RV_mask.loc[s][TrainIsTrue.values].values
+        # indices with mask == False are used (with mask_type 'y')
         data_mask = np.repeat(data_mask, data.shape[1]).reshape(data.shape)
 
         # create dataframe in Tigramite format
