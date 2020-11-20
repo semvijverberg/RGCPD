@@ -263,9 +263,10 @@ class RMSE_vs_constant_bench:
                                               squared=self.squared)
         if self.benchmark is False:
             return fc_score
-        elif type(self.benchmark) is float:
+        elif type(self.benchmark) in [float, int]:
+            b_ = np.zeros_like(y_true) ; b_[:] = self.benchmark
             bench = metrics.mean_squared_error(y_true,
-                                               np.zeros_like(y_true),
+                                               b_,
                                                squared=self.squared)
             return (bench - fc_score) / bench
 

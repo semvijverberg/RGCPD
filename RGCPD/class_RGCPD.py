@@ -869,16 +869,20 @@ class RGCPD:
                 TrainIsTrue = df_data.loc[s]['TrainIsTrue']
 
                 df_s = df_data.loc[s]
-                ks = [k for k in keys if k in df_s.columns] # keys split
+                _ks = [k for k in keys if k in df_s.columns] # keys split
                 if match_lag_region_to_lag_fc:
-                    l = lag
-                    while len([k for k in ks if k.split('..')[0] == str(l)])==0:
-                        l -= 1 ;
+                    ks = [k for k in _ks if k.split('..')[0] == str(lag)]
+                    l = lag ; valid = len(ks) !=0 and ~df_s[ks].isna().values.all()
+                    while valid == False:
+                        ks = [k for k in _ks if k.split('..')[0] == str(l)]
+                        if len(ks) !=0 and ~df_s[ks].isna().values.all():
+                            valid = True
+                        else:
+                            l -= 1
                         print(f"\rNot found lag {lag}, using lag {l}", end="")
-                        assert l > 0, 'No regions corresponding to lag found'
-
-                    ks = [k for k in ks if k.split('..')[0] == str(l)]
-
+                        assert l > 0, 'ts @ lag not found or nans'
+                else:
+                    ks = _ks
 
                 if transformer is not None and transformer != False:
                     df_trans = df_s[ks].apply(transformer,

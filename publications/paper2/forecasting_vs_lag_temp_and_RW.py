@@ -201,7 +201,8 @@ rg.get_ts_prec()
 
 
 
-def prediction_wrapper(df_data, keys=None):
+def prediction_wrapper(df_data, keys: list=None, match_lag: bool=False,
+                       n_boot: int=1):
 
     alphas = np.append(np.logspace(.1, 1.5, num=25), [250])
     kwrgs_model = {'scoring':'neg_mean_squared_error',
@@ -222,6 +223,10 @@ def prediction_wrapper(df_data, keys=None):
 
     prediction, weights, models_lags = out
     # get skill scores
+    clim_mean_temp = float(target_ts.mean())
+    RMSE_SS = fc_utils.RMSE_vs_constant_bench(RMSE_vs_constant_bench=clim_mean_temp).RMSE
+    score_func_list = [RMSE_SS, fc_utils.corrcoef]
+
     df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(prediction,
                                                              df_data.iloc[:,-2:],
                                                              score_func_list,
@@ -237,8 +242,8 @@ def prediction_wrapper(df_data, keys=None):
             print(f'\nlag {col} alpha {int(np.mean(cvfitalpha))}')
             print(f'{maxalpha_c} splits are max alpha\n')
             # maximum regularization selected. No information in timeseries
-            df_test_m.loc[:,pd.IndexSlice[col, 'corrcoef']][:] = 0
-            df_boot.loc[:,pd.IndexSlice[col, 'corrcoef']][:] = 0
+            # df_test_m.loc[:,pd.IndexSlice[col, 'corrcoef']][:] = 0
+            # df_boot.loc[:,pd.IndexSlice[col, 'corrcoef']][:] = 0
             no_info_fc.append(col)
     df_test = functions_pp.get_df_test(prediction.merge(df_data.iloc[:,-2:],
                                                     left_index=True,
@@ -257,8 +262,7 @@ else:
 for match_lag in [False, True]:
     print(f'match lag {match_lag}')
     lags = np.array([0,1,2,3,4,5]) ;
-    RMSE_SS = fc_utils.RMSE_vs_constant_bench(RMSE_vs_constant_bench=0.0).RMSE
-    score_func_list = [RMSE_SS, fc_utils.corrcoef]
+
 
     keys = [k for k in rg.df_data.columns[:-2] if k not in [rg.TV.name, 'PDO']]
     if match_lag==False: # only keep regions of lag=0
@@ -274,8 +278,12 @@ for match_lag in [False, True]:
     fig.savefig(fig_path+rg.figext, bbox_inches='tight')
     plt.figure()
     # df_data_rPDO.loc[0][keys].corrwith(rg.df_data.loc[0][keys]).plot(kind='bar')
-    out_regrPDO = prediction_wrapper(df_data_rPDO.copy(), keys=keys)
-    out = prediction_wrapper(rg.df_data.copy(), keys=keys)
+    out_regrPDO = prediction_wrapper(df_data_rPDO.copy(), keys=keys,
+                                     match_lag=match_lag, n_boot=n_boot)
+    out = prediction_wrapper(rg.df_data.copy(), keys=keys,
+                             match_lag=match_lag, n_boot=n_boot)
+    outPDO = prediction_wrapper(rg.df_data.copy(), keys=['PDO'],
+                                match_lag=False, n_boot=0)
 
     # [rg.df_data.copy().loc[s].loc[:,['0..1..sst', '1..1..sst', '2..1..sst', '3..1..sst']].corr() for s in range(10)]
 
@@ -285,6 +293,7 @@ for match_lag in [False, True]:
     alpha = .05
     scores_rPDO = out_regrPDO[2]
     scores_n = out[2]
+    score_PDO = outPDO[2]
     metrics_cols = ['corrcoef', 'RMSE']
     rename_m = {'corrcoef': 'Corr. coeff', 'RMSE':'RMSE-SS'}
     f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
@@ -292,6 +301,7 @@ for match_lag in [False, True]:
     c1, c2 = '#3388BB', '#EE6666'
     for i, m in enumerate(metrics_cols):
         labels = [str((l-1)*tfreq) if l != 0 else 'No gap' for l in lags]
+        # normal SST
         ax[i].plot(labels, scores_n.reorder_levels((1,0), axis=1).loc[0][m].T,
                 label='SST',
                 color=c2,
@@ -306,13 +316,20 @@ for match_lag in [False, True]:
                 label=r'SST | regr. out $PDO_{lwp}$',
                 color=c1,
                 linestyle='dashed') ;
-
         ax[i].fill_between(labels,
                         out_regrPDO[3].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
                         out_regrPDO[3].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
                         edgecolor=c1, facecolor=c1, alpha=0.3,
                         linestyle='dashed', linewidth=2)
-        ax[i].set_ylim(-.1,.6)
+        # Only PDO
+        ax[i].plot(labels, score_PDO.reorder_levels((1,0), axis=1).loc[0][m].T,
+                label=r'$PDO_{lwp}$',
+                color='grey',
+                linestyle='-.') ;
+        if m == 'corrcoef':
+            ax[i].set_ylim(-.3,.6)
+        else:
+            ax[i].set_ylim(-.1,.5)
         ax[i].axhline(y=0, color='black', linewidth=1)
         ax[i].tick_params(labelsize=16)
         if i == len(metrics_cols)-1:
