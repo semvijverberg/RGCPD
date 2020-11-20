@@ -107,7 +107,10 @@ elif period == 'spring_shiftright':
     start_end_TVdate = ('02-08', '06-06')
     start_end_TVdatet2mvsRW = ('06-08', '09-06')
 
-start_end_date = ('1-1', '12-31')
+if period.split('_')[0] == 'summer':
+    start_end_date = ('03-01', start_end_TVdatet2mvsRW[-1])
+elif period.split('_')[0] == 'spring':
+    start_end_date = ('01-01', start_end_TVdatet2mvsRW[-1])
 
 tfreq         = 15
 min_detect_gc = 1.0
