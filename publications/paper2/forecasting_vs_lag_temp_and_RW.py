@@ -156,9 +156,10 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            tfreq=tfreq,
            path_outmain=path_out_main)
 if rg.list_for_MI[0]._name == 'sst_corr_map':
-    title = r'$corr(SST_t, mx2t_t)$'
+    t = f'{target.capitalize()[0]}$-$US\ mx2t'
+    title = r'$corr(SST_{t_{gap}}' + rf', {t}_t)$'
 else:
-    title = r'$parcorr(SST_t, mx2t_t\ |\ SST_{t-1},mx2t_{t-1})$'
+    title = r'$parcorr(SST_{t-lag}, mx2t_t\ |\ SST_{t-1},mx2t_{t-1})$'
 subtitles = np.array([[f'gap = {(l-1)*tfreq} days' for l in rg.list_for_MI[0].lags]]) #, f'lag 2 (15 day lead)']] )
 subtitles[0][0] = 'No gap'
 kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
