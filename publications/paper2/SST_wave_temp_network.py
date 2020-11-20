@@ -306,7 +306,7 @@ for f in freqs[:]:
                       tau_max=5,
                       max_conds_dim=10,
                       max_combinations=10,
-                      update_dict={'reset_lagged_links':False})
+                      update_dict={})
     rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
 
     lags = range(rg.kwrgs_tigr['tau_min'], rg.kwrgs_tigr['tau_max']+1)
