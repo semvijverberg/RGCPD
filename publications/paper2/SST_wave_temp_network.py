@@ -8,9 +8,10 @@ Created on Mon May 25 15:33:52 2020
 
 import os, inspect, sys
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 if sys.platform == 'linux':
     mpl.use('Agg')
+import matplotlib.pyplot as plt
+
 import numpy as np
 import cartopy.crs as ccrs
 import argparse
