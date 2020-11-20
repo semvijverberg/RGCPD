@@ -59,7 +59,7 @@ matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 # if region == 'eastern':
 targets = ['easterntemp', 'westerntemp']
 
-periods = ['JA_center', 'JA_shiftright', 'JA_shiftleft']
+periods = ['JA_center', 'JA_shiftright', 'JA_shiftleft', 'JJA_center']
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, periods, seeds)).T.reshape(-1,3)
 
@@ -118,6 +118,8 @@ elif period == 'JA_shiftleft':
     start_end_TVdate = ('06-25', '08-24')
 elif period == 'JA_shiftright':
     start_end_TVdate = ('07-08', '09-06')
+elif period == 'JJA_center':
+    start_end_TVdate = ('07-01', '08-31')
 
 precur_aggr = tfreq
 method     = 'ran_strat10' ;
@@ -129,7 +131,7 @@ append_main = ''
 
 #%% run RGPD
 # start_end_TVdate = ('06-01', '08-31')
-start_end_date = ('3-1', '08-31') # focus on spring/summer. Important for regressing out influence of PDO (might vary seasonally)
+start_end_date = ('3-1', start_end_TVdate[-1]) # focus on spring/summer. Important for regressing out influence of PDO (might vary seasonally)
 list_of_name_path = [(cluster_label, TVpath),
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
