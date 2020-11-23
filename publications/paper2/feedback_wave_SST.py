@@ -349,27 +349,28 @@ for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]
         writer = csv.DictWriter(csvfile, list(dic.keys()))
         writer.writerows([dic])
 #%%
+s = 0
+tig = rg.pcmci_dict[s]
+functions_pp.get_oneyr(rg.dates_all) # dp per yr
+df_s = rg.df_data.loc[s][rg.df_data.loc[s]['TrainIsTrue'].values]
+print(f'{tig.T} total datapoints \ndf_data has shape {df_s.shape}')
+RVfs = rg.df_data.loc[s][np.logical_and(rg.df_data.loc[s]['RV_mask'], rg.df_data.loc[s]['TrainIsTrue']).values]
 
-# tig = rg.pcmci_dict[0]
-# functions_pp.get_oneyr(rg.dates_all) # dp per yr
-# df_s = rg.df_data.loc[0][rg.df_data.loc[0]['TrainIsTrue'].values]
-# print(f'{tig.T} total datapoints \ndf_data has shape {df_s.shape}')
-# RVf0 = rg.df_data.loc[0][np.logical_and(rg.df_data.loc[0]['RV_mask'], rg.df_data.loc[0]['TrainIsTrue']).values]
-# RVf0.shape
-
-# # equal RV mask and tig.dataframe.mask
-# all(np.equal(tig.dataframe.mask[:,0], rg.df_data.loc[0]['RV_mask'][rg.df_data.loc[0]['TrainIsTrue'].values] ))
-
-
-# array = tig.dataframe.construct_array([(1,0)], [(0,0)], [(2,0)], tau_max=5,
-#                                       mask=tig.dataframe.mask,
-#                                       mask_type=tig.cond_ind_test.mask_type,
-#                                       verbosity=3)[0]
-# print(f'full array is loaded. array shape {array.shape}, 2*taumax=5 = 10' )
+print(f'df_data when datamask applied has shape {RVfs.shape}')
+# equal RV mask and tig.dataframe.mask
+all(np.equal(tig.dataframe.mask[:,s], ~rg.df_data.loc[s]['RV_mask'][rg.df_data.loc[s]['TrainIsTrue'].values] ))
 
 
-# array = tig.cond_ind_test._get_array([(1,0)], [(0,0)], [(2,0)], tau_max=5)[0]
-# array.shape
+array = tig.dataframe.construct_array([(1,0)], [(0,0)], [(1,-1)], tau_max=5,
+                                      cut_off='max_lag',
+                                      mask=tig.dataframe.mask,
+                                      mask_type=tig.cond_ind_test.mask_type,
+                                      verbosity=3)[0]
+print(f'full array is loaded. array shape {array.shape}, 2*taumax=5 = 10' )
+
+
+array = tig.cond_ind_test._get_array([(1,0)], [(0,0)], [(1,-1)], tau_max=5)[0]
+array.shape
 # #%%
 # # import func_models
 
