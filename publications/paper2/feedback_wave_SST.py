@@ -306,7 +306,7 @@ for f in freqs[:]:
         tau_max = 3
     elif f == 30:
         tau_max = 2
-    elif f == 30:
+    elif f == 60:
         tau_max = 1
 
     rg.PCMCI_df_data(keys=keys,
