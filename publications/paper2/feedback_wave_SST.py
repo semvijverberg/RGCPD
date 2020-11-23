@@ -298,9 +298,11 @@ for f in freqs[:]:
                                     '0..0..N-Pac. SST_sp':'SST'}, axis=1)
 
     keys = [f'{west_east[0].capitalize()}-RW','SST']
+    tau_max = min(5,60/f)
     rg.PCMCI_df_data(keys=keys,
                       pc_alpha=None,
-                      tau_max=5,
+                      tau_min=0,
+                      tau_max=tau_max,
                       max_conds_dim=10,
                       max_combinations=10)
 
@@ -326,7 +328,7 @@ for f in freqs[:]:
                                 'link_label_fontsize':30,
                                 'label_fontsize':12,
                                 'weights_squared':1.5},
-                        append_figpath=f'_tf{rg.precur_aggr}_{SSTtoRW}_rb{mlr}_rbRWSST{rbRWtoSST}_rbSSTRW{rbSSTtoRW}')
+                        append_figpath=f'_tf{rg.precur_aggr}_{SSTtoRW}_rb{mlr}_rbRWSST{rbRWtoSST}_taumax{tau_max}')
     #%%
     rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
     rg.df_links.astype(int).sum(0, level=1)
