@@ -291,7 +291,7 @@ import wrapper_PCMCI as wPCMCI
 
 dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
-freqs = [1, 5, 10, 15, 30, 60]
+freqs = [30, 60]
 for f in freqs[:]:
     rg.get_ts_prec(precur_aggr=f)
     rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':f'{west_east[0].capitalize()}-RW',
