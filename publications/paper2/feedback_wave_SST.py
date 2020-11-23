@@ -291,14 +291,24 @@ import wrapper_PCMCI as wPCMCI
 
 dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
-freqs = [15, 30, 60]
+freqs = [1, 5, 10, 15, 30, 60]
 for f in freqs[:]:
     rg.get_ts_prec(precur_aggr=f)
     rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':f'{west_east[0].capitalize()}-RW',
                                     '0..0..N-Pac. SST_sp':'SST'}, axis=1)
 
     keys = [f'{west_east[0].capitalize()}-RW','SST']
-    tau_max = min(5,int(60/f))
+    if f <= 5:
+        tau_max = 5
+    elif f == 10:
+        tau_max = 4
+    elif f == 15:
+        tau_max = 3
+    elif f == 30:
+        tau_max = 2
+    elif f == 30:
+        tau_max = 1
+
     rg.PCMCI_df_data(keys=keys,
                       pc_alpha=None,
                       tau_min=0,
@@ -351,28 +361,30 @@ for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]
         writer = csv.DictWriter(csvfile, list(dic.keys()))
         writer.writerows([dic])
 #%%
-s = 0
-tig = rg.pcmci_dict[s]
-functions_pp.get_oneyr(rg.dates_all) # dp per yr
-df_s = rg.df_data.loc[s][rg.df_data.loc[s]['TrainIsTrue'].values]
-print(f'{tig.T} total datapoints \ndf_data has shape {df_s.shape}')
-RVfs = rg.df_data.loc[s][np.logical_and(rg.df_data.loc[s]['RV_mask'], rg.df_data.loc[s]['TrainIsTrue']).values]
+# s = 0
+# tig = rg.pcmci_dict[s]
+# functions_pp.get_oneyr(rg.dates_all) # dp per yr
+# df_s = rg.df_data.loc[s][rg.df_data.loc[s]['TrainIsTrue'].values]
+# print(f'{tig.T} total datapoints \ndf_data has shape {df_s.shape}')
+# RVfs = rg.df_data.loc[s][np.logical_and(rg.df_data.loc[s]['RV_mask'], rg.df_data.loc[s]['TrainIsTrue']).values]
 
-print(f'df_data when datamask applied has shape {RVfs.shape}')
-# equal RV mask and tig.dataframe.mask
-all(np.equal(tig.dataframe.mask[:,s], ~rg.df_data.loc[s]['RV_mask'][rg.df_data.loc[s]['TrainIsTrue'].values] ))
-
-
-array = tig.dataframe.construct_array([(1,0)], [(0,0)], [(1,-1)], tau_max=5,
-                                      cut_off='max_lag',
-                                      mask=tig.dataframe.mask,
-                                      mask_type=tig.cond_ind_test.mask_type,
-                                      verbosity=3)[0]
-print(f'full array is loaded. array shape {array.shape}, 2*taumax=5 = 10' )
+# print(f'df_data when datamask applied has shape {RVfs.shape}')
+# # equal RV mask and tig.dataframe.mask
+# all(np.equal(tig.dataframe.mask[:,s], ~rg.df_data.loc[s]['RV_mask'][rg.df_data.loc[s]['TrainIsTrue'].values] ))
 
 
-array = tig.cond_ind_test._get_array([(1,0)], [(0,0)], [(1,-1)], tau_max=5)[0]
-array.shape
+# array = tig.dataframe.construct_array([(1,0)], [(0,0)], [(1,-1)], tau_max=5,
+#                                       cut_off='max_lag',
+#                                       mask=tig.dataframe.mask,
+#                                       mask_type=tig.cond_ind_test.mask_type,
+#                                       verbosity=3)[0]
+# print(f'full array is loaded. array shape {array.shape}, 2*taumax=5 = 10' )
+
+
+# array = tig.cond_ind_test._get_array([(1,0)], [(0,0)], [(1,-1)], tau_max=5)[0]
+# array.shape
+
+
 # #%%
 # # import func_models
 
