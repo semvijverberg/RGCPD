@@ -49,7 +49,7 @@ remove_PDOyesno = np.array([0, 1])
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, seeds, periods, remove_PDOyesno)).T.reshape(-1,4)
 
-i_default = 0#18
+i_default = 6#18
 
 
 
@@ -137,7 +137,7 @@ list_of_name_path = [(cluster_label, TVpathtemp),
                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
                      ('SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
-list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.parcorr_map_time,
+list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                             alpha=.05, FDR_control=True,
                             distance_eps=600, min_area_in_degrees2=5,
                             calc_ts='pattern cov', selbox=z500_green_bb,
@@ -177,14 +177,17 @@ rg.cluster_list_MI()
 mpl.rcParams['text.latex.preamble'] = [r'\boldmath']
 
 
+if rg.list_for_MI[0]._name == 'z500_corr_map':
+    t = f'{west_east.capitalize()[0]}$-$US\ mx2t'
+    subtitles = np.array([[r'$corr(z500_{t}' + rf', {t}_t)$']])
+else:
+    subtitles = np.array([[r'$parcorr(z500_{t-lag}, mx2t_t\ |\ SST_{t-1},mx2t_{t-1})$']])
 
-title = '' #f'$parcorr(z500_t, {west_east.capitalize()[0]}$-$mx2t_t\ |\ $'+r'$z500_{t-1},$'+f'${west_east.capitalize()[0]}$-'+r'$mx2t_{t-1})$'
-subtitles = np.array([[f'$parcorr(z500_t, {west_east.capitalize()[0]}$-$mx2t_t\ |\ $'+r'$z500_{t-1},$'+f'${west_east.capitalize()[0]}$-'+r'$mx2t_{t-1})$']] )
 kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':4, 'size':2.5,
               'hspace':0.0, 'cbar_vert':-.08, 'units':'Corr. Coeff. [-]',
               'zoomregion':z500_green_bb, #'drawbox':[(0,0), z500_green_bb],
               'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6,
-              'clim':(-.6,.6), 'title':title, 'subtitles':subtitles}
+              'clim':(-.6,.6), 'subtitles':subtitles}
 save = True
 rg.plot_maps_corr(var='z500', save=save,
                   append_str=''.join(map(str, z500_green_bb)),
@@ -192,7 +195,11 @@ rg.plot_maps_corr(var='z500', save=save,
                   kwrgs_plot=kwrgs_plot)
 
 
-subtitles = np.array([[f'$parcorr(SST_t, {west_east.capitalize()[0]}$-$mx2t_t\ |\ $'+r'$SST_{t-1},$'+f'${west_east.capitalize()[0]}$-'+r'$mx2t_{t-1})$']] )
+if rg.list_for_MI[1]._name == 'SST_corr_map':
+    t = f'{west_east.capitalize()[0]}$-$US\ mx2t'
+    subtitles = np.array([[r'$corr(SST_{t}' + rf', {t}_t)$']])
+else:
+    subtitles = np.array([[r'$parcorr(SST_{t-lag}, mx2t_t\ |\ SST_{t-1},mx2t_{t-1})$']])
 kwrgs_plot = {'row_dim':'split', 'col_dim':'lag',
               'aspect':2, 'hspace':-.57, 'wspace':-.22, 'size':4, 'cbar_vert':-.02,
               'subtitles':subtitles, 'units':'Corr. Coeff. [-]',
@@ -305,10 +312,10 @@ for f in freqs[:]:
                      tigr_function_call=tigr_function_call,
                       pc_alpha=[0.05, 0.1, 0.2, 0.3, 0.4, 0.5],
                       tau_min=0,
-                      tau_max=3,
+                      tau_max=5,
                       max_conds_dim=10,
                       max_combinations=10,
-                      update_dict={'reset_lagged_links':False})
+                      update_dict={'reset_lagged_links':True})
     rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
 
     lags = range(rg.kwrgs_tigr['tau_min'], rg.kwrgs_tigr['tau_max']+1)
