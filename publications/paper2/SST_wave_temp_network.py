@@ -108,11 +108,11 @@ elif period == 'spring_shiftright':
     start_end_TVdate = ('02-08', '06-06')
     start_end_TVdatet2mvsRW = ('06-08', '09-06')
 
-# if period.split('_')[0] == 'summer':
-#     start_end_date = ('03-01', start_end_TVdatet2mvsRW[-1])
-# elif period.split('_')[0] == 'spring':
-#     start_end_date = ('01-01', start_end_TVdatet2mvsRW[-1])
-start_end_date = ('01-01', '12-31')
+if period.split('_')[0] == 'summer':
+    start_end_date = ('03-01', start_end_TVdatet2mvsRW[-1])
+elif period.split('_')[0] == 'spring':
+    start_end_date = ('01-01', start_end_TVdatet2mvsRW[-1])
+# start_end_date = ('01-01', '12-31')
 
 tfreq         = 15
 min_detect_gc = 1.0
@@ -141,7 +141,7 @@ list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                             alpha=.05, FDR_control=True,
                             distance_eps=600, min_area_in_degrees2=5,
                             calc_ts='pattern cov', selbox=z500_green_bb,
-                            use_sign_pattern=True, lags = np.array([0])),
+                            use_sign_pattern=False, lags = np.array([0])),
                  BivariateMI(name='SST', func=class_BivariateMI.corr_map,
                               alpha=.05, FDR_control=True,
                               distance_eps=500, min_area_in_degrees2=5,
@@ -212,7 +212,7 @@ rg.plot_maps_corr(var='SST', save=save, min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot)
 rg.list_for_MI[1].selbox = sst_green_bb
 #%% Get PDO
-df_PDO, PDO_patterns = climate_indices.PDO(rg.list_precur_pp[0][1],
+df_PDO, PDO_patterns = climate_indices.PDO(rg.list_precur_pp[1][1],
                                            None) #rg.df_splits)
 
 from func_models import standardize_on_train
@@ -312,10 +312,10 @@ for f in freqs[:]:
                      tigr_function_call=tigr_function_call,
                       pc_alpha=[0.05, 0.1, 0.2, 0.3, 0.4, 0.5],
                       tau_min=0,
-                      tau_max=5,
+                      tau_max=1,
                       max_conds_dim=10,
                       max_combinations=10,
-                      update_dict={'reset_lagged_links':True})
+                      update_dict={'reset_lagged_links':False})
     rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
 
     lags = range(rg.kwrgs_tigr['tau_min'], rg.kwrgs_tigr['tau_max']+1)
