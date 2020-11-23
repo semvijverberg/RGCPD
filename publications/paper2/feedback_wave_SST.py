@@ -298,7 +298,7 @@ for f in freqs[:]:
                                     '0..0..N-Pac. SST_sp':'SST'}, axis=1)
 
     keys = [f'{west_east[0].capitalize()}-RW','SST']
-    tau_max = min(5,60/f)
+    tau_max = min(5,int(60/f))
     rg.PCMCI_df_data(keys=keys,
                       pc_alpha=None,
                       tau_min=0,
