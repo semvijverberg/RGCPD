@@ -41,8 +41,13 @@ periods = ['summer_center', 'summer_shiftright', 'summer_shiftleft',
            'spring_center', 'spring_shiftleft', 'spring_shiftright']
 
 # periods = ['summer_shiftleft']
-targets = ['east', 'west']
+remove_PDO = True
+if remove_PDO:
+    targets = ['east']
+else:
+    targets = ['east', 'west']
 seeds = np.array([1,2,3])
+
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
 i_default = 0
@@ -113,8 +118,8 @@ tfreq         = 15
 min_detect_gc = 1.0
 method        = 'ran_strat10' ;
 
-name_MCI_csv = 'strength.csv'
-name_rob_csv = 'robustness.csv'
+name_MCI_csv = f'strength_rPDO{remove_PDO}.csv'
+name_rob_csv = f'robustness_rPDO{remove_PDO}.csv'
 
 if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
 if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
@@ -289,6 +294,10 @@ def append_MCI(rg, dict_v, dict_rb):
 #%%
 import wrapper_PCMCI as wPCMCI
 
+if remove_PDO:
+    lowpass = '2y'
+    rg.list_import_ts = [('PDO', os.path.join(data_dir, f'PDO_{lowpass}_rm_25-09-20_15hr.h5'))]
+
 dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
 freqs = [1, 5, 10, 15, 30, 60]
@@ -297,7 +306,17 @@ for f in freqs[:]:
     rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':f'{west_east[0].capitalize()}-RW',
                                     '0..0..N-Pac. SST_sp':'SST'}, axis=1)
 
+
     keys = [f'{west_east[0].capitalize()}-RW','SST']
+
+    if remove_PDO:
+        rg.df_data[keys], fig = wPCMCI.df_data_remove_z(rg.df_data.copy(), z=['PDO'],
+                                                         keys=keys,
+                                                         standardize=False,
+                                                         plot=True)
+        fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_tf{f}')
+        fig.savefig(fig_path+rg.figext, bbox_inches='tight')
+
     if f <= 5:
         tau_max = 5
     elif f == 10:
@@ -321,6 +340,7 @@ for f in freqs[:]:
     lags = np.array([l*f for i, l in enumerate(lags)])
     mlr=5
     SSTtoRW, rbRWtoSST, rbSSTtoRW = append_MCI(rg, dict_v, dict_rb)
+    AR1SST = rg.df_MCIc.mean(0,level=1).loc['SST']['coeff l1'].round(2)
     #%%
     rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(12,6),
                         kwrgs={'vmax_nodes':.9,
@@ -338,28 +358,28 @@ for f in freqs[:]:
                                 'link_label_fontsize':30,
                                 'label_fontsize':12,
                                 'weights_squared':1.5},
-                        append_figpath=f'_tf{rg.precur_aggr}_{SSTtoRW}_rb{mlr}_rbRWSST{rbRWtoSST}_taumax{tau_max}')
+                        append_figpath=f'_tf{rg.precur_aggr}_{AR1SST}_rb{mlr}_taumax{tau_max}_rPDO{remove_PDO}')
     #%%
     rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
     rg.df_links.astype(int).sum(0, level=1)
     MCI_ALL = rg.df_MCIc.mean(0, level=1)
 #%%
 # write MCI strength and robustness to csv
+if remove_PDO == False:
+    csvfilenameMCI = os.path.join(rg.path_outmain, name_MCI_csv)
+    csvfilenamerobust = os.path.join(rg.path_outmain, name_rob_csv)
+    for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]:
+        # create .csv if it does not exists
+        if os.path.exists(csvfilename) == False:
+            with open(csvfilename, 'a', newline='') as csvfile:
 
-csvfilenameMCI = os.path.join(rg.path_outmain, name_MCI_csv)
-csvfilenamerobust = os.path.join(rg.path_outmain, name_rob_csv)
-for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]:
-    # create .csv if it does not exists
-    if os.path.exists(csvfilename) == False:
+                writer = csv.DictWriter(csvfile, list(dic.keys()))
+                writer.writerows([{f:f for f in list(dic.keys())}])
+
+        # write
         with open(csvfilename, 'a', newline='') as csvfile:
-
             writer = csv.DictWriter(csvfile, list(dic.keys()))
-            writer.writerows([{f:f for f in list(dic.keys())}])
-
-    # write
-    with open(csvfilename, 'a', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, list(dic.keys()))
-        writer.writerows([dic])
+            writer.writerows([dic])
 #%%
 # s = 0
 # tig = rg.pcmci_dict[s]

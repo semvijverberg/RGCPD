@@ -276,7 +276,7 @@ for match_lag in [False, True]:
     if match_lag==False: # only keep regions of lag=0
         keys = [k for k in keys if k.split('..')[0] == str(0)]
 
-    y_keys = [k for k in keys if 'sst' in k]
+    y_keys = [k for k in rg.df_data.columns[:-2] if k not in ['PDO']]
     df_data_rPDO = rg.df_data.copy()
     df_data_rPDO[y_keys], fig = wPCMCI.df_data_remove_z(df_data_rPDO, z=['PDO'], keys=y_keys,
                                                 standardize=False)
@@ -311,7 +311,7 @@ for match_lag in [False, True]:
         labels = [str((l-1)*tfreq) if l != 0 else 'No gap' for l in lags]
         # normal SST
         ax[i].plot(labels, scores_n.reorder_levels((1,0), axis=1).loc[0][m].T,
-                label='SST',
+                label='T: SST',
                 color=c2,
                 linestyle='solid')
         ax[i].fill_between(labels,
@@ -321,7 +321,7 @@ for match_lag in [False, True]:
                         linestyle='solid', linewidth=2)
         # regressed out PDO
         ax[i].plot(labels, scores_rPDO.reorder_levels((1,0), axis=1).loc[0][m].T,
-                label=r'SST | regr. out $PDO_{lwp}$',
+                label=r'T: SST | regr. out $PDO_{lwp}$',
                 color=c1,
                 linestyle='dashed') ;
         ax[i].fill_between(labels,

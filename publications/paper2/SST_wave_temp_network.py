@@ -307,12 +307,20 @@ for f in freqs[:]:
     # rg.df_data = rg.df_data.merge(diff, left_index=True, right_index=True)
     # keys = [f'{west_east[0].capitalize()}-RW','SST']
     # rg.df_data[keys] = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=keys)
+
+    if f == 15:
+        tau_max = 3
+    elif f == 30:
+        tau_max = 2
+    elif f == 60:
+        tau_max = 1
+
     tigr_function_call='run_pcmciplus'
     rg.PCMCI_df_data(keys=keys,
                      tigr_function_call=tigr_function_call,
                       pc_alpha=[0.05, 0.1, 0.2, 0.3, 0.4, 0.5],
                       tau_min=0,
-                      tau_max=1,
+                      tau_max=tau_max,
                       max_conds_dim=10,
                       max_combinations=10,
                       update_dict={'reset_lagged_links':False})
