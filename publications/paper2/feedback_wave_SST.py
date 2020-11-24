@@ -365,21 +365,21 @@ for f in freqs[:]:
     MCI_ALL = rg.df_MCIc.mean(0, level=1)
 #%%
 # write MCI strength and robustness to csv
-if remove_PDO == False:
-    csvfilenameMCI = os.path.join(rg.path_outmain, name_MCI_csv)
-    csvfilenamerobust = os.path.join(rg.path_outmain, name_rob_csv)
-    for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]:
-        # create .csv if it does not exists
-        if os.path.exists(csvfilename) == False:
-            with open(csvfilename, 'a', newline='') as csvfile:
 
-                writer = csv.DictWriter(csvfile, list(dic.keys()))
-                writer.writerows([{f:f for f in list(dic.keys())}])
-
-        # write
+csvfilenameMCI = os.path.join(rg.path_outmain, name_MCI_csv)
+csvfilenamerobust = os.path.join(rg.path_outmain, name_rob_csv)
+for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]:
+    # create .csv if it does not exists
+    if os.path.exists(csvfilename) == False:
         with open(csvfilename, 'a', newline='') as csvfile:
+
             writer = csv.DictWriter(csvfile, list(dic.keys()))
-            writer.writerows([dic])
+            writer.writerows([{f:f for f in list(dic.keys())}])
+
+    # write
+    with open(csvfilename, 'a', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, list(dic.keys()))
+        writer.writerows([dic])
 #%%
 # s = 0
 # tig = rg.pcmci_dict[s]
