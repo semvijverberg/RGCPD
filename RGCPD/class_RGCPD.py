@@ -281,7 +281,7 @@ class RGCPD:
         concomitant to each split.
         '''
 
-        if method is None or False:
+        if method is None or method is False:
             method = 'no_train_test_split'
         self.kwrgs_TV = dict(method=method,
                     seed=seed,
@@ -715,7 +715,7 @@ class RGCPD:
                 print(f'no {pclass.name} regions that pass distance_eps and min_area_in_degrees2 citeria')
 
 
-    def plot_maps_corr(self, var=None, kwrgs_plot: dict={}, mean: bool=True,
+    def plot_maps_corr(self, var=None, plotlags: list=None, kwrgs_plot: dict={}, mean: bool=True,
                        min_detect_gc: float=.5, mask_xr=None, save: bool=False,
                        append_str: str=None):
 
@@ -727,10 +727,11 @@ class RGCPD:
             try:
                 pclass = [p for p in self.list_for_MI if p.name == precur_name][0]
             except IndexError as e:
-                print(e)
-                print('var not in list_for_MI')
+                print(e, '\nvar not in list_for_MI')
+            if plotlags is None:
+                plotlags = pclass.corr_xr.lag.values
             if mean:
-                xrvals = pclass.corr_xr.mean(dim='split')
+                xrvals = pclass.corr_xr.mean(dim='split').sel(lag=plotlags)
                 if min_detect_gc<.1 or min_detect_gc>1.:
                     raise ValueError( 'give value between .1 en 1.0')
                 n_splits = self.df_splits.index.levels[0].size

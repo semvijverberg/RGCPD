@@ -41,7 +41,7 @@ periods = ['summer_center', 'summer_shiftright', 'summer_shiftleft',
            'spring_center', 'spring_shiftleft', 'spring_shiftright']
 
 # periods = ['summer_shiftleft']
-remove_PDO = True
+remove_PDO = False
 if remove_PDO:
     targets = ['east']
 else:
@@ -50,7 +50,7 @@ seeds = np.array([1,2,3])
 
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
-i_default = 0
+i_default = 3
 
 
 

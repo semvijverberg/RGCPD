@@ -315,78 +315,7 @@ rg.plot_maps_corr(var='sst', save=save,
 
 
 
-#%% Compare E-RW with PNA index
-if west_east == 'east':
-    import pandas as pd
-    list_of_name_path = [(cluster_label, TVpath),
-                           ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
-                           ('u', os.path.join(path_raw, 'u432_1979-2018_1_12_daily_1.0deg.nc'))]
 
-
-
-    list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
-                                    alpha=.05, FDR_control=True,
-                                    distance_eps=600, min_area_in_degrees2=1,
-                                    calc_ts='pattern cov', selbox=z500_green_bb,
-                                    use_sign_pattern=True,
-                                    lags=np.array([0]))]
-
-    # list_for_EOFS = [EOF(name='u', neofs=1, selbox=[120, 255, 0, 87.5],
-    #                      n_cpu=1, start_end_date=('01-12', '02-28'))]
-    list_for_EOFS = [EOF(name='u', neofs=1, selbox=[120, 255, 0, 87.5],
-                         n_cpu=1, start_end_date=start_end_TVdate)]
-
-    rg = RGCPD(list_of_name_path=list_of_name_path,
-                list_for_MI=list_for_MI,
-                list_for_EOFS=list_for_EOFS,
-                start_end_TVdate=start_end_TVdate,
-                start_end_date=start_end_date,
-                start_end_year=None,
-                tfreq=tfreq,
-                path_outmain=path_out_main,
-                append_pathsub='_' + name_ds)
-
-
-    rg.pp_TV(name_ds=name_ds, detrend=False)
-
-    rg.pp_precursors()
-
-    rg.traintest(method, seed=seed)
-
-    rg.calc_corr_maps()
-    rg.cluster_list_MI()
-
-    rg.get_EOFs()
-
-    rg.get_ts_prec(precur_aggr=1)
-
-
-    PNA = climate_indices.PNA_z500(rg.list_precur_pp[0][1])
-
-
-    df_c = rg.df_data.merge(pd.concat([PNA.loc[rg.df_data.loc[0].index]]*10,
-                            axis=0, keys=range(10)),
-                            left_index=True, right_index=True)
-
-
-    # From Climate Explorer
-    # https://climexp.knmi.nl/getindices.cgi?WMO=NCEPData/cpc_pna_daily&STATION=PNA&TYPE=i&id=someone@somewhere&NPERYEAR=366
-    # on 20-07-2020
-    PNA_cpc = core_pp.import_ds_lazy(main_dir+'/publications/paper2/data/icpc_pna_daily.nc',
-                                     start_end_year=(1979, 2018),
-                                     seldates=start_end_TVdate).to_dataframe('PNAcpc')
-    PNA_cpc.index.name = None
-    df_c = df_c.merge(pd.concat([PNA_cpc]*10, axis=0, keys=range(10)),
-                      left_index=True, right_index=True)
-
-    df_c = df_c.rename({'0..0..z500_sp':'RW (z500)',
-                        '0..1..EOF_u':'1st EOF u',
-                        'PNA':'PNAw'}, axis=1)
-    columns = [rg.TV.name, 'RW (z500)', '1st EOF u', 'PNAw', 'PNAcpc']
-
-    df_ana.plot_ts_matric(df_c, win=15, columns=columns)
-    filename = os.path.join(rg.path_outsub1, 'cross_corr_RWz500_PNA_15d.pdf')
-    plt.savefig(filename, bbox_inches='tight')
 
 #%%
 # #%% Determine Rossby wave within green rectangle, become target variable for HM

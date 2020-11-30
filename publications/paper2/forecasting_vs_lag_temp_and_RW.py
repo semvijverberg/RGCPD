@@ -140,8 +140,9 @@ start_end_date = ('01-01', '12-31')
 list_of_name_path = [(cluster_label, TVpath),
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
-lowpass = '2y'
-list_import_ts = [('PDO', os.path.join(data_dir, f'PDO_{lowpass}_rm_25-09-20_15hr.h5'))]
+
+list_import_ts = None #[('PDO', os.path.join(data_dir, f'PDO_2y_rm_25-09-20_15hr.h5')),
+#                   ('PDO1y', os.path.join(data_dir, 'PDO_1y_rm_25-11-20_17hr.h5'))]
 
 list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             alpha=alpha_corr, FDR_control=True,
@@ -203,7 +204,52 @@ rg.plot_maps_corr(var='sst', save=True,
                   append_str=f'{tfreq}d')
 
 
+#%% Get PDO and apply low-pass filter
+import climate_indices, filters
+from func_models import standardize_on_train
 
+
+
+
+if 'df_PDOsplit' not in globals():
+    df_PDO, PDO_patterns = climate_indices.PDO(rg.list_precur_pp[0][1],
+                                               None) #rg.df_splits)
+    # summerdates = core_pp.get_subdates(dates, start_end_TVdate)
+    df_PDOsplit = df_PDO.loc[0]#.loc[summerdates]
+    # standardize = preprocessing.StandardScaler()
+    # standardize.fit(df_PDOsplit[df_PDOsplit['TrainIsTrue'].values].values.reshape(-1,1))
+    # df_PDOsplit = pd.DataFrame(standardize.transform(df_PDOsplit['PDO'].values.reshape(-1,1)),
+    #                 index=df_PDOsplit.index, columns=['PDO'])
+df_PDOsplit = df_PDOsplit[['PDO']].apply(standardize_on_train,
+                     args=[df_PDO.loc[0]['TrainIsTrue']],
+                     result_type='broadcast')
+
+# Butter Lowpass
+dates = df_PDOsplit.index
+freqraw = (dates[1] - dates[0]).days
+ls = ['solid', 'dotted', 'dashdot']
+fig, ax = plt.subplots(1,1)
+list_dfPDO = []
+for i, yr in enumerate([.5, 1,2]):
+    window = int(yr*functions_pp.get_oneyr(dates).size) # 2 year
+    if i ==0:
+        ax.plot_date(dates, df_PDOsplit.values, label=f'raw ({freqraw} daymeans)',
+                  alpha=.3, linestyle='solid', marker=None)
+    df_PDObw = pd.Series(filters.lowpass(df_PDOsplit, period=window).squeeze(),
+                         index=dates, name=f'PDO{yr}bw')
+    ax.plot_date(dates, df_PDObw, label=f'Butterworth {yr} lwp',
+            color='red',linestyle=ls[i], linewidth=1, marker=None)
+    df_PDOrm = df_PDOsplit.rolling(window=window, center=True, min_periods=1).mean()
+    df_PDOrm = df_PDOrm.rename({'PDO':f'PDO{yr}rm'}, axis=1)
+    ax.plot_date(dates, df_PDOrm,
+                 label=f'rolling mean {yr} lwp', color='green',linestyle=ls[i],
+                 linewidth=1, marker=None)
+    list_dfPDO.append(df_PDObw) ; list_dfPDO.append(df_PDOrm)
+    ax.legend()
+df_PDOs = pd.concat(list_dfPDO,axis=1)
+functions_pp.store_hdf_df({'df_data':df_PDOs},
+                          file_path=os.path.join(data_dir, 'df_PDOs.h5'))
+rg.list_import_ts = [('PDO', os.path.join(data_dir, 'df_PDOs.h5'))]
 rg.get_ts_prec()
 #%% forecasting
 
@@ -265,47 +311,64 @@ if precur_aggr <= 15:
 else:
     blocksize=1
 
+lwp_method = 'bw'
 
-
-for match_lag in [False, True]:
+for match_lag in [True]:#[False, True]: #
     print(f'match lag {match_lag}')
     lags = np.array([0,1,2,3,4,5]) ;
 
-
-    keys = [k for k in rg.df_data.columns[:-2] if k not in [rg.TV.name, 'PDO']]
+    y_keys = [k for k in rg.df_data.columns[:-2] if k not in df_PDOs.columns]
+    y_keys = [k for k in y_keys if k not in [rg.TV.name]] # also remove LFV from target?
     if match_lag==False: # only keep regions of lag=0
-        keys = [k for k in keys if k.split('..')[0] == str(0)]
+        y_keys = [k for k in y_keys if k.split('..')[0] == str(0)]
+    keys = [k for k in y_keys if k not in [rg.TV.name]]
 
-    y_keys = [k for k in rg.df_data.columns[:-2] if k not in ['PDO']]
-    df_data_rPDO = rg.df_data.copy()
-    df_data_rPDO[y_keys], fig = wPCMCI.df_data_remove_z(df_data_rPDO, z=['PDO'], keys=y_keys,
-                                                standardize=False)
-
+    # 2 yr low-pass
+    df_data_r2PDO = rg.df_data.copy()
+    df_data_r2PDO[y_keys], fig = wPCMCI.df_data_remove_z(df_data_r2PDO,
+                                                       z=[f'PDO2{lwp_method}'],
+                                                       keys=y_keys,
+                                                       standardize=False)
     fig_path = os.path.join(rg.path_outsub1,
-                            f'{precur._name}_rPDO_{period}_match{match_lag}_{append_str}')
+                            f'{precur._name}_r2PDO_{period}_match{match_lag}_{append_str}')
     fig.savefig(fig_path+rg.figext, bbox_inches='tight')
-    plt.figure()
-    # df_data_rPDO.loc[0][keys].corrwith(rg.df_data.loc[0][keys]).plot(kind='bar')
-    out_regrPDO = prediction_wrapper(df_data_rPDO.copy(), keys=keys,
+    # 1 yr low-pass
+    df_data_r1PDO = rg.df_data.copy()
+    df_data_r1PDO[y_keys], fig = wPCMCI.df_data_remove_z(df_data_r1PDO,
+                                                       z=[f'PDO0.5{lwp_method}'],
+                                                       keys=y_keys,
+                                                       standardize=False)
+    fig_path = os.path.join(rg.path_outsub1,
+                            f'{precur._name}_r.5PDO_{period}_match{match_lag}_{append_str}')
+    fig.savefig(fig_path+rg.figext, bbox_inches='tight')
+
+
+    # df_data_r2PDO.loc[0][keys].corrwith(rg.df_data.loc[0][keys]).plot(kind='bar')
+    out_regr2PDO = prediction_wrapper(df_data_r2PDO.copy(), keys=keys,
                                      match_lag=match_lag, n_boot=n_boot)
     out = prediction_wrapper(rg.df_data.copy(), keys=keys,
                              match_lag=match_lag, n_boot=n_boot)
-    outPDO = prediction_wrapper(rg.df_data.copy(), keys=['PDO'],
-                                match_lag=False, n_boot=0)
+    out_regr1PDO = prediction_wrapper(df_data_r1PDO, keys=keys,
+                                match_lag=match_lag, n_boot=0)
 
     # [rg.df_data.copy().loc[s].loc[:,['0..1..sst', '1..1..sst', '2..1..sst', '3..1..sst']].corr() for s in range(10)]
 
     # =============================================================================
     # Plot
     # =============================================================================
+    orientation = 'horizontal'
     alpha = .05
-    scores_rPDO = out_regrPDO[2]
+    scores_rPDO = out_regr2PDO[2]
     scores_n = out[2]
-    score_PDO = outPDO[2]
+    score_PDO = out_regr1PDO[2]
     metrics_cols = ['corrcoef', 'RMSE']
     rename_m = {'corrcoef': 'Corr. coeff', 'RMSE':'RMSE-SS'}
-    f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
+    if orientation=='vertical':
+        f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
                          sharex=True) ;
+    else:
+        f, ax = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
+                         sharey=False) ;
     c1, c2 = '#3388BB', '#EE6666'
     for i, m in enumerate(metrics_cols):
         labels = [str((l-1)*tfreq) if l != 0 else 'No gap' for l in lags]
@@ -321,41 +384,49 @@ for match_lag in [False, True]:
                         linestyle='solid', linewidth=2)
         # regressed out PDO
         ax[i].plot(labels, scores_rPDO.reorder_levels((1,0), axis=1).loc[0][m].T,
-                label=r'T: SST | regr. out $PDO_{lwp}$',
+                label=r'T: SST | $PDO_{lwp}\ \left(2yr \right)$',
                 color=c1,
                 linestyle='dashed') ;
         ax[i].fill_between(labels,
-                        out_regrPDO[3].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                        out_regrPDO[3].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                        out_regr2PDO[3].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                        out_regr2PDO[3].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
                         edgecolor=c1, facecolor=c1, alpha=0.3,
                         linestyle='dashed', linewidth=2)
         # Only PDO
         ax[i].plot(labels, score_PDO.reorder_levels((1,0), axis=1).loc[0][m].T,
-                label=r'$PDO_{lwp}$',
+                label=r'T: SST | $PDO_{lwp}\ \left(\frac{1}{2}yr \right)$',
                 color='grey',
                 linestyle='-.') ;
         if m == 'corrcoef':
             ax[i].set_ylim(-.3,.6)
         else:
-            ax[i].set_ylim(-.1,.5)
+            ax[i].set_ylim(-.2,.4)
         ax[i].axhline(y=0, color='black', linewidth=1)
         ax[i].tick_params(labelsize=16)
         if i == len(metrics_cols)-1:
             ax[i].set_xlabel('Lead time defined as gap [days]', fontsize=18)
-        if i == 0:
+        if i == 1:
             ax[i].legend()
-        if target == 'westerntemp':
-            ax[i].set_ylabel(rename_m[m], fontsize=18)
+        if target == 'westerntemp' or orientation == 'horizontal':
+            ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-1)
+
 
     f.subplots_adjust(hspace=.1)
+    f.subplots_adjust(wspace=.2)
     title = f'{precur_aggr}-day mean {target[:7]} U.S. {target[7:]}. pred.'
-    f.suptitle(title, y=.92, fontsize=18)
+    if orientation == 'vertical':
+        f.suptitle(title, y=.92, fontsize=18)
+    else:
+        f.suptitle(title, y=.95, fontsize=18)
     f_name = 'fc_{}_a{}'.format(precur._name,
                                   precur.alpha) + '_' + \
                                  f'matchlag{match_lag}_' + \
-                                 f'{method}_{append_str}'
+                                 f'{method}_{append_str}_{lwp_method}'
     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
     f.savefig(fig_path, bbox_inches='tight')
+#%%
+# remove PDO df
+os.remove(os.path.join(data_dir, 'df_PDOs.h5'))
 
 #%%
 # if experiment == 'adapt_corr':
