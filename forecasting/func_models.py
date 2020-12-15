@@ -17,6 +17,7 @@ max_cpu = multiprocessing.cpu_count()
 import itertools
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 from sklearn import metrics
+import properscoring as ps
 from sklearn import preprocessing
 import functions_pp
 
@@ -236,8 +237,8 @@ def minmaxscaler_on_train(c, TrainIsTrue):
 def corrcoef(y_true, y_pred):
     return np.corrcoef(y_true, y_pred)[0][1]
 
-class RMSE_vs_constant_bench:
-    def __init__(self, RMSE_vs_constant_bench: float=False, squared=False):
+class ErrorSkillScore:
+    def __init__(self, constant_bench: float=False, squared=False):
         '''
         Parameters
         ----------
@@ -253,7 +254,7 @@ class RMSE_vs_constant_bench:
         RMSE (Skill Score).
 
         '''
-        self.benchmark = RMSE_vs_constant_bench
+        self.benchmark = constant_bench
         self.squared = squared
         # if type(self.benchmark) is not None:
 
@@ -269,6 +270,63 @@ class RMSE_vs_constant_bench:
                                                b_,
                                                squared=self.squared)
             return (bench - fc_score) / bench
+
+    def MAE(self, y_true, y_pred):
+        fc_score = metrics.mean_absolute_error(y_true, y_pred)
+        if self.benchmark is False:
+            return fc_score
+        elif type(self.benchmark) in [float, int]:
+            b_ = np.zeros_like(y_true) ; b_[:] = self.benchmark
+            bench = metrics.mean_absolute_error(y_true, b_)
+
+            return (bench - fc_score) / bench
+
+class CRPSS_vs_constant_bench:
+    def __init__(self, constant_bench: float=False, return_mean=True,
+                 weights: np.ndarray=None):
+        '''
+        Parameters
+        ----------
+        y_true : pd.DataFrame or pd.Series or np.ndarray
+        y_pred : pd.DataFrame or pd.Series or np.ndarray
+        benchmark : float, optional
+            DESCRIPTION. The default is None.
+        return_mean: boolean value, optional (default = True)
+            If True mean CRPSS instead of array of size len(y_true)
+        weights : array_like, optional
+            If provided, the CRPS is calculated exactly with the assigned
+            probability weights to each forecast. Weights should be positive, but
+            do not need to be normalized. By default, each forecast is weighted
+            equally.
+        Returns
+        -------
+        if return_mean == False (default):
+            mean CRPSS versus benchmark
+        if return_mean:
+            mean CRPSS versus benchmark and continuous evaluation of forecasts
+
+        '''
+        self.benchmark = constant_bench
+        self.return_mean = return_mean
+        self.weights = weights
+        # if type(self.benchmark) is not None:
+
+        # return metrics.mean_squared_error(y_true, y_pred, squared=root
+    def CRPSS(self, y_true, y_pred):
+        fc_score = ps.crps_ensemble(y_true, y_pred,
+                                    weights=self.weights)
+        if self.return_mean:
+            fc_score = fc_score.mean()
+        if self.benchmark is False:
+            return fc_score
+        elif type(self.benchmark) in [float, int]:
+            b_ = np.zeros_like(y_true) ; b_[:] = self.benchmark
+            bench = ps.crps_ensemble(y_true, b_,
+                                    weights=self.weights)
+            if self.return_mean:
+                bench = bench.mean()
+            return (bench - fc_score) / bench
+
 
 def get_scores(prediction, df_splits, score_func_list: list=None,
                n_boot: int=1, blocksize: int=14, rng_seed=1):

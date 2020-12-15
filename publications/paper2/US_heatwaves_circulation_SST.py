@@ -92,7 +92,8 @@ rg.pp_TV(name_ds=name_ds, detrend=False)
 
 rg.pp_precursors()
 
-rg.traintest(method=method, seed=seed)
+rg.traintest(method=method, seed=seed,
+             subfoldername='US_heatwave_circulation_v300_z500_SST')
 
 
 
@@ -111,7 +112,7 @@ matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
 
 
-title = f'$corr(z500, {west_east.capitalize()[0]}$-$US\ mx2t)$'
+title = f'$corr(z500, {west_east.capitalize()[0]}$-$T)$'
 subtitles = np.array([['']] )
 kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
               'hspace':0.0, 'cbar_vert':-.08, 'units':'Corr. Coeff. [-]',
@@ -127,7 +128,7 @@ rg.plot_maps_corr(var='z500', save=save,
 #%% Plot corr(v300, mx2t)
 
 
-kwrgs_plot['title'] = f'$corr(v300, {west_east.capitalize()[0]}$-$US\ mx2t)$'
+kwrgs_plot['title'] = f'$corr(v300, {west_east.capitalize()[0]}$-$T)$'
 kwrgs_plot['drawbox'] = [(0,0), v300_green_bb]
 rg.plot_maps_corr(var='v300', save=save,
                   kwrgs_plot=kwrgs_plot,
@@ -135,89 +136,21 @@ rg.plot_maps_corr(var='v300', save=save,
 
 #%% Determine Rossby wave within green rectangle, become target variable for feedback
 
-rg.list_for_MI = [BivariateMI(name='v300', func=class_BivariateMI.corr_map,
-                              alpha=.05, FDR_control=True,
-                              distance_eps=600, min_area_in_degrees2=5,
-                              calc_ts='pattern cov', selbox=v300_green_bb,
-                              use_sign_pattern=True, lags = np.array([0])),
-                   BivariateMI(name='z500', func=class_BivariateMI.corr_map,
-                                alpha=.05, FDR_control=True,
-                                distance_eps=600, min_area_in_degrees2=5,
-                                calc_ts='pattern cov', selbox=z500_green_bb,
-                                use_sign_pattern=True, lags = np.array([0]))]
-rg.list_for_EOFS = None
-rg.calc_corr_maps(['z500', 'v300'])
-rg.cluster_list_MI(['z500'])
-rg.get_ts_prec(precur_aggr=1)
-rg.store_df(append_str='z500_'+'-'.join(map(str, z500_green_bb)))
-
-#%% EOFs
-if west_east == 'east':
-    subtitles = np.array([['Clustered simultaneous warm temp. periods']])
-    rg.get_clust()
-    plot_maps.plot_labels(rg.ds['xrclustered'],
-                          zoomregion=(230,300,25,60),
-                          kwrgs_plot={'subtitles':subtitles,
-                                      'y_ticks':np.array([30, 40,50,60]),
-                                      'x_ticks':np.arange(230, 310, 10),
-                                      'cbar_vert':-.03,
-                                      'add_cfeature':'OCEAN'})
-    plt.savefig(os.path.join(rg.path_outsub1, 'clusters')+'.pdf', bbox_inches='tight')
-
-    # rg.list_for_EOFS = [EOF(name='z500', neofs=3, selbox=[140, 300, 10, 80],
-    #                      n_cpu=1, start_end_date=start_end_TVdate),
-    #                     EOF(name='v300', neofs=3, selbox=[140, 300, 10, 80],
-    #                      n_cpu=1, start_end_date=start_end_TVdate)]
-
-    # rg.get_EOFs()
-    # firstEOF = rg.list_for_EOFS[1].eofs.mean(dim='split')[0]
-    # subtitles = np.array([['z 500hpa 1st EOF pattern']])
-    # plot_maps.plot_corr_maps(firstEOF, aspect=2, size=5, cbar_vert=.07,
-    #                   subtitles=subtitles, units='-', #zoomregion=(-180,360,0,80),
-    #                   map_proj=ccrs.PlateCarree(central_longitude=220), n_yticks=6)
-    # plt.savefig(os.path.join(rg.path_outsub1, 'EOF_1_z500')+'.pdf')
-
-elif west_east == 'west':
-    # circumglobal for picture
-    rg.list_for_EOFS = [EOF(name='v300', neofs=2, selbox=[-180, 360, 0, 80],
-                        n_cpu=1, start_end_date=start_end_TVdate)]
-    rg.get_EOFs()
-    eofs = rg.list_for_EOFS[0].eofs.mean(dim='split') # mean over training sets
-    subtitles = 'v-wind 300 hPa - 1st EOF loading pattern'
-    kwrgs_plotEOF = kwrgs_plot.copy()
-    kwrgs_plotEOF.update({'clim':None, 'units':None, 'title':subtitles,
-                          'y_ticks':np.array([10,30,50,70]),
-                          'drawbox':None})
-    plot_maps.plot_corr_maps(eofs[0] , **kwrgs_plotEOF)
-    plt.savefig(os.path.join(rg.path_outsub1, 'EOF_1_v_wind')+'pdf')
-
-    subtitles = np.array([['v-wind 300 hPa - 2nd EOF loading pattern']])
-    plot_maps.plot_corr_maps(eofs[1] , **kwrgs_plotEOF)
-    plt.savefig(os.path.join(rg.path_outsub1, 'EOF_2_v_wind')+'pdf')
-
-    # spatial correlation eof and v300 in between v300 green bb
-    rg.list_for_EOFS[0].eofs = core_pp.get_selbox(rg.list_for_EOFS[0].eofs, selbox=v300_green_bb)
-    rg.list_for_EOFS[0].selbox = v300_green_bb
-    rg.cluster_list_MI()
-    rg.get_ts_prec(precur_aggr=None)
-    rg.df_data.loc[0].columns
-    df_sub = rg.df_data.loc[0][['1ts', '0..0..v300_sp', '0..0..z500_sp',
-                                '0..1..EOF_v300']][rg.df_data.loc[0]['RV_mask']]
-    df_sub = df_sub.rename({'1ts':'w-U.S. mx2t', '0..0..v300_sp':'RW (v300)',
-                   '0..0..z500_sp':'RW (z500)',
-                   '0..1..EOF_v300': '1st EOF (v300)',
-                   '0..2..EOF_v300':'2nd EOF (v300)'}, axis=1)
-    # df_sub['2nd EOF (v300)'] *= -1
-    df_ana.plot_ts_matric(df_sub)
-
-
-
-
-
-
-
-
-
+# rg.list_for_MI = [BivariateMI(name='v300', func=class_BivariateMI.corr_map,
+#                               alpha=.05, FDR_control=True,
+#                               distance_eps=600, min_area_in_degrees2=5,
+#                               calc_ts='pattern cov', selbox=v300_green_bb,
+#                               use_sign_pattern=True, lags = np.array([0])),
+#                    BivariateMI(name='z500', func=class_BivariateMI.corr_map,
+#                                 alpha=.05, FDR_control=True,
+#                                 distance_eps=600, min_area_in_degrees2=5,
+#                                 calc_ts='pattern cov', selbox=z500_green_bb,
+#                                 use_sign_pattern=True, lags = np.array([0]))]
+# rg.list_for_EOFS = None
+# rg.calc_corr_maps(['z500', 'v300'])
+# rg.cluster_list_MI(['z500'])
+# rg.get_ts_prec(precur_aggr=1)
+# rg.store_df(append_str='z500_'+'-'.join(map(str, z500_green_bb)))
 
 #%% SST vs mx2tm
 list_of_name_path = [(cluster_label, TVpath),
@@ -241,7 +174,8 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 
 
 rg.pp_TV(name_ds=name_ds, detrend=False)
-rg.traintest(method, seed=seed)
+rg.traintest(method, seed=seed,
+             subfoldername='US_heatwave_circulation_v300_z500_SST')
 rg.pp_precursors()
 rg.calc_corr_maps()
 
@@ -257,8 +191,8 @@ matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 save=True
 SST_green_bb = (140,235,20,59)#(170,255,11,60)
 # subtitles = np.array([[f'lag {l}: SST vs E-U.S. mx2t' for l in rg.lags]])
-title = f'$corr(SST, {west_east.capitalize()[0]}$-$US\ mx2t)$'
-subtitles = np.array([['lag 0', f'lag 2 (15 day lead)']] )
+title = f'$corr(SST, {west_east.capitalize()[0]}$-$T)$'
+subtitles = np.array([['lag 0', f'lag 2 (15-day gap)']] )
 kwrgs_plot = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
               'wspace':-.15, 'size':3, 'cbar_vert':-.08,
               'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),

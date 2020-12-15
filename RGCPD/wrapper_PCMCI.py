@@ -561,7 +561,6 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
         z = [z]
     npstore = np.zeros(shape=(len(keys),df_data.index.levels[0].size, df_data.index.levels[1].size))
     for i, orig in enumerate(keys):
-        # i = 0
         orig = keys[i]
 
         # create fake X, Y format, needed for function _get_single_residuals
@@ -586,9 +585,9 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
             axes = [axes]
         for i, k in enumerate(keys):
             df_data[k].loc[0].plot(ax=axes[i], label=f'{k} original',
-                                      legend=False)
+                                      legend=False, color='green', lw=1, alpha=.8)
             df_new[k].loc[0].plot(ax=axes[i], label=f'{z} regressed out',
-                                     legend=False)
+                                     legend=False, color='blue', lw=1)
             axes[i].legend()
         out = (df_new, fig)
     else:

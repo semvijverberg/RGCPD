@@ -26,15 +26,14 @@ if cluster_func not in sys.path:
 
 path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
-
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
-from RGCPD import EOF
 from class_BivariateMI import corr_map
 from class_BivariateMI import parcorr_z
 from class_BivariateMI import parcorr_map_time
-import plot_maps
-
+import climate_indices, filters, functions_pp
+from func_models import standardize_on_train
+import pandas as pd
 
 west_east = 'east'
 if west_east == 'east':
@@ -61,23 +60,67 @@ path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 start_end_date = ('1-1', '12-31')
+filepath_df_PDOs = os.path.join(path_data, 'df_PDOs.h5')
 
+#%% Get PDO and apply low-pass filter
 
+SST_pp_filepath = '/Users/semvijverberg/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2018_1jan_31dec_daily_1.0deg.nc'
 
+if 'df_PDOsplit' not in globals():
+    df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
+                                               None) #rg.df_splits)
+    # summerdates = core_pp.get_subdates(dates, start_end_TVdate)
+    df_PDOsplit = df_PDO.loc[0]#.loc[summerdates]
+    # standardize = preprocessing.StandardScaler()
+    # standardize.fit(df_PDOsplit[df_PDOsplit['TrainIsTrue'].values].values.reshape(-1,1))
+    # df_PDOsplit = pd.DataFrame(standardize.transform(df_PDOsplit['PDO'].values.reshape(-1,1)),
+    #                 index=df_PDOsplit.index, columns=['PDO'])
+df_PDOsplit = df_PDOsplit[['PDO']].apply(standardize_on_train,
+                     args=[df_PDO.loc[0]['TrainIsTrue']],
+                     result_type='broadcast')
+
+# Butter Lowpass
+dates = df_PDOsplit.index
+freqraw = (dates[1] - dates[0]).days
+ls = ['solid', 'dotted', 'dashdot']
+fig, ax = plt.subplots(1,1)
+list_dfPDO = []
+for i, yr in enumerate([2]):
+    window = int(yr*functions_pp.get_oneyr(dates).size) # 2 year
+    if i ==0:
+        ax.plot_date(dates, df_PDOsplit.values, label=f'Raw ({freqraw} day means)',
+                  alpha=.3, linestyle='solid', marker=None)
+    df_PDObw = pd.Series(filters.lowpass(df_PDOsplit, period=window).squeeze(),
+                         index=dates, name=f'PDO{yr}bw')
+    ax.plot_date(dates, df_PDObw, label=f'Butterworth {yr}-year low-pass',
+            color='red',linestyle=ls[i], linewidth=1, marker=None)
+    df_PDOrm = df_PDOsplit.rolling(window=window, center=True, min_periods=1).mean()
+    df_PDOrm = df_PDOrm.rename({'PDO':f'PDO{yr}rm'}, axis=1)
+    ax.plot_date(dates, df_PDOrm,
+                 label=f'Rolling mean {yr}-year low-pass', color='green',linestyle=ls[i],
+                 linewidth=1, marker=None)
+    list_dfPDO.append(df_PDObw) ; list_dfPDO.append(df_PDOrm)
+    ax.legend()
+filepath = os.path.join(path_out_main, 'Low-pass filter.pdf')
+plt.savefig(filepath, bbox_inches='tight')
+#%%
+df_PDOs = pd.concat(list_dfPDO,axis=1)
+functions_pp.store_hdf_df({'df_data':df_PDOs},
+                          file_path=filepath_df_PDOs)
 
 #%% Only SST (Parcorrtime and parcorr on PDO)
 
 list_of_name_path = [(name_or_cluster_label, TVpathRW),
                        ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
-exper = 'parcorrtime'
+exper = 'parcorr'
 
 if exper == 'parcorr':
     lowpass = '2y'
     func = parcorr_z
     # z_filepath = os.path.join(path_data, 'PDO_ENSO34_ERA5_1979_2018.h5')
-    z_filepath = os.path.join(path_data, f'PDO_{lowpass}_rm_25-09-20_15hr.h5')
-    keys_ext = ['PDO']
+    z_filepath = filepath_df_PDOs
+    keys_ext = ['PDO2bw']
     kwrgs_func = {'filepath':z_filepath,
                   'keys_ext':keys_ext}
 elif exper == 'corr':
@@ -122,23 +165,24 @@ matplotlib.rc('font', family='serif', serif='cm10')
 
 matplotlib.rc('text', usetex=True)
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
-
+min_detect_gc = 1
 save = True
 # Plot lag 0 and 1
 subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
-if exper == 'parcorr':
-    title = r'$parcorr(SST_{t-1}, '+f'{west_east.capitalize()[0]}$-$RW_t\ |\ $'+r'$\overline{PDO_t}$)'
+
+if exper == 'parcorr' and west_east == 'east':
+    title = r'$parcorr(SST_{t-1}, $'+r'$RW^E_t\ |\ \overline{PDO_t}$)'
     append_str=f'PDO_{lowpass}' ; fontsize = 14
-elif exper == 'corr':
-    title = '$corr(SST_{t-1}, $'+f'${west_east.capitalize()[0]}$'+r'-$RW_t)$'
+elif exper == 'corr' and west_east == 'east':
+    title = '$corr(SST_{t-1},\ RW^E_t)$'
     append_str='' ; fontsize = 14
-elif exper == 'parcorrtime':
+elif exper == 'parcorrtime' and west_east == 'east':
     if kwrgs_func['target'] == False and kwrgs_func['precursor'] == True:
-        title = r'$parcorr(SST_{t-lag}, $'+f'${west_east.capitalize()[0]}$-$RW_t\ |\ $'+r'$SST_{t-lag-1}$)'
+        title = r'$parcorr(SST_{t-lag}, $'+'$RW^E_t\ |\ $'+r'$SST_{t-lag-1}$)'
     elif kwrgs_func['target'] == True and kwrgs_func['precursor'] == False:
-        title = r'$parcorr(SST_{t-lag}, $'+f'${west_east.capitalize()[0]}$-$RW_t\ |\ $'+f'${west_east.capitalize()[0]}$-'+r'$RW_{t-1})$'
+        title = r'$parcorr(SST_{t-lag}, RW^E_t\ |\ $'+r'$RW^E_{t-1})$'
     else:
-        title = r'$parcorr(SST_{t-lag}, $'+f'${west_east.capitalize()[0]}$-$RW_t\ |\ $'+r'$SST_{t-lag-1},$'+f'${west_east.capitalize()[0]}$-'+r'$RW_{t-1})$'
+        title = r'$parcorr(SST_{t-lag}, $'+'$RW^E_t\ |\ $'+r'$SST_{t-lag-1},$'+'$RW^E_{t-1})$'
     kw = ''.join(list(kwrgs_func.keys())) + ''.join(np.array(list(kwrgs_func.values())).astype(str))
     append_str='parcorrtime_{}_'.format(period) + kw
     fontsize = 12
@@ -155,27 +199,32 @@ kwrgs_plot = {'row_dim':'lag', 'col_dim':'split',
               'title_fontdict':{'fontsize':fontsize, 'fontweight':'bold'}}
 rg.plot_maps_corr(var='sst', save=save,
                   kwrgs_plot=kwrgs_plot,
-                  min_detect_gc=.9,
+                  min_detect_gc=min_detect_gc,
                   append_str=append_str)
 #%% plot lag 1
-if exper == 'parcorrtime':
+if exper == 'parcorrtime' and west_east == 'east':
     if kwrgs_func['target'] == False and kwrgs_func['precursor'] == True:
-        title = r'$parcorr(SST_{t-1}, '+f'{west_east.capitalize()[0]}$-$RW_t\ |\ $'+r'$SST_{t-2})$'
+        title = r'$parcorr(SST_{t-1},\ RW^E_t\ |\ SST_{t-2})$'
     elif kwrgs_func['target'] == True and kwrgs_func['precursor'] == False:
-        title = r'$parcorr(SST_{t-1}, '+f'{west_east.capitalize()[0]}$-$RW_t\ |\ $'+f'${west_east.capitalize()[0]}$-'+r'$RW_{t-1})$'
+        title = r'$parcorr(SST_{t-1},\ RW^E_t\ |\ RW^E_{t-1})$'
     else:
-        title = r'$parcorr(SST_{t-1}, '+f'{west_east.capitalize()[0]}$-$RW_t\ |\ $'+r'$SST_{t-2},$'+f'${west_east.capitalize()[0]}$-'+r'$RW_{t-1})$'
+        title = r'$parcorr(SST_{t-1},\ RW^E_t\ |\ SST_{t-2}, RW^E_{t-1})$'
 
 kwrgs_plot['subtitles'] = np.array([['']])
 kwrgs_plot['cbar_vert'] = -.1
 kwrgs_plot['title'] = title
+kwrgs_plot['title_fontdict'] = {'y':1,'fontsize':fontsize, 'fontweight':'bold'}
 rg.plot_maps_corr(var='sst', plotlags=[1], save=save,
                   kwrgs_plot=kwrgs_plot,
-                  min_detect_gc=.9,
+                  min_detect_gc=min_detect_gc,
                   append_str=append_str)
 
 
+#%%
+# remove PDO df
+os.remove(os.path.join(path_data, 'df_PDOs.h5'))
 
+#%%
 # #%% Store data
 
 # rg.cluster_list_MI()

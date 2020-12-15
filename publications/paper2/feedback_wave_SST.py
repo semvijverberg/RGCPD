@@ -8,8 +8,15 @@ Created on Mon May 25 15:33:52 2020
 
 import os, inspect, sys
 import matplotlib as mpl
+from matplotlib.colors import ListedColormap
 if sys.platform == 'linux':
     mpl.use('Agg')
+else:
+    # Optionally set font to Computer Modern to avoid common missing font errors
+    mpl.rc('font', family='serif', serif='cm10')
+
+    mpl.rc('text', usetex=True)
+    mpl.rcParams['text.latex.preamble'] = [r'\boldmath']
 import numpy as np
 import cartopy.crs as ccrs
 import argparse
@@ -34,7 +41,7 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
 import class_BivariateMI
-
+import wrapper_PCMCI as wPCMCI
 import functions_pp
 
 periods = ['summer_center', 'summer_shiftright', 'summer_shiftleft',
@@ -50,7 +57,7 @@ seeds = np.array([1,2,3])
 
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
-i_default = 3
+i_default = 0#3
 
 
 
@@ -178,6 +185,7 @@ rg.plot_maps_corr(var='z500', save=save,
                   kwrgs_plot=kwrgs_plot)
 
 #%% SST vs RW
+TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
 list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
                       ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
                       ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
@@ -189,7 +197,7 @@ list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                                 distance_eps=600, min_area_in_degrees2=5,
                                 calc_ts='pattern cov', selbox=(-180,360,-10,90),
                                 use_sign_pattern=True, lags=np.array([0])),
-                  BivariateMI(name='N-Pac. SST', func=class_BivariateMI.parcorr_map_time,
+                  BivariateMI(name='N-Pac. SST', func=class_BivariateMI.corr_map,
                               alpha=.05, FDR_control=True,
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov', selbox=(130,260,-10,90),
@@ -213,17 +221,18 @@ rg.calc_corr_maps()
 
 save = True
 units = 'Corr. Coeff. [-]'
-subtitles = np.array([[f'SST vs {west_east}ern RW']])
+#%%
+subtitles = np.array([[f'$corr(SST_t,\ RW^{west_east[0].capitalize()}_t)$']])
 kwrgs_plot = {'row_dim':'split', 'col_dim':'lag',
-              'aspect':2, 'hspace':-.57, 'wspace':-.22, 'size':2, 'cbar_vert':-.02,
+              'aspect':2, 'hspace':-.57, 'wspace':-.22, 'size':2.5, 'cbar_vert':-.02,
               'subtitles':subtitles, 'units':units, 'zoomregion':(130,260,-10,60),
               'map_proj':ccrs.PlateCarree(central_longitude=220),
               'x_ticks':np.array([]), 'y_ticks':np.array([]),
               'drawbox':[(0,0), sst_green_bb],
               'clim':(-.6,.6)}
 rg.plot_maps_corr(var='N-Pac. SST', save=save, min_detect_gc=min_detect_gc,
-                  kwrgs_plot=kwrgs_plot)
-
+                  kwrgs_plot=kwrgs_plot, append_str='')
+#%%
 
 
 precur = rg.list_for_MI[0]
@@ -238,7 +247,7 @@ rg.plot_maps_corr(var='z500', save=save, min_detect_gc=min_detect_gc,
 
 
 #%% Only SST
-
+TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
 list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
                       ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
@@ -269,14 +278,16 @@ rg.quick_view_labels(min_detect_gc=min_detect_gc)
 # rg.get_ts_prec(precur_aggr=1)
 # rg.store_df(append_str=f'RW_and_SST_fb_tf{rg.tfreq}')
 
+
+#%%
 def append_MCI(rg, dict_v, dict_rb):
     dkeys = [f'{f}-d', f'{f}-d SST->RW', f'{f}-d RW->SST']
 
     rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
-    SSTtoRW = rg.df_MCIc.mean(0,level=1).loc['SST'].iloc[1:].max().round(3) # select SST
+    SSTtoRW = rg.df_MCIc.mean(0,level=1).loc[keys[1]].iloc[1:].max().round(3) # select SST
     rg.PCMCI_get_links(var=keys[1], alpha_level=.01) # links toward SST
-    RWtoSST = rg.df_MCIc.mean(0,level=1).loc[f'{west_east[0].capitalize()}-RW'].iloc[1:].max().round(3) # select RW
-    lag0 = rg.df_MCIc.mean(0,level=1).loc[f'{west_east[0].capitalize()}-RW']['coeff l0'].round(3)
+    RWtoSST = rg.df_MCIc.mean(0,level=1).loc[keys[0]].iloc[1:].max().round(3) # select RW
+    lag0 = rg.df_MCIc.mean(0,level=1).loc[keys[0]]['coeff l0'].round(3)
     append_dict = {dkeys[0]:lag0, dkeys[1]:SSTtoRW, dkeys[2]:RWtoSST}
     dict_v.update(append_dict)
 
@@ -291,23 +302,26 @@ def append_MCI(rg, dict_v, dict_rb):
     dict_rb.update(append_dict)
     return SSTtoRW, rbRWtoSST, rbSSTtoRW
 
-#%%
-import wrapper_PCMCI as wPCMCI
 
 if remove_PDO:
-    lowpass = '2y'
-    rg.list_import_ts = [('PDO', os.path.join(data_dir, f'PDO_{lowpass}_rm_25-09-20_15hr.h5'))]
+    lowpass = '2'
+    keys_ext=[f'PDO{lowpass}bw']
+    rg.list_import_ts = [('PDO', os.path.join(data_dir, 'df_PDOs.h5'))]
+else:
+    keys_ext = None
 
 dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
 freqs = [1, 5, 10, 15, 30, 60]
 for f in freqs[:]:
-    rg.get_ts_prec(precur_aggr=f)
-    rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':f'{west_east[0].capitalize()}-RW',
-                                    '0..0..N-Pac. SST_sp':'SST'}, axis=1)
+    rg.get_ts_prec(precur_aggr=f, keys_ext=keys_ext)
+    keys = [f'$RW^{west_east[0].capitalize()}$',
+            f'$SST^{west_east[0].capitalize()}$']
+    rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':keys[0],
+                                    '0..0..N-Pac. SST_sp':keys[1]}, axis=1)
 
 
-    keys = [f'{west_east[0].capitalize()}-RW','SST']
+
 
     if remove_PDO:
         rg.df_data[keys], fig = wPCMCI.df_data_remove_z(rg.df_data.copy(), z=['PDO'],
@@ -340,9 +354,16 @@ for f in freqs[:]:
     lags = np.array([l*f for i, l in enumerate(lags)])
     mlr=5
     SSTtoRW, rbRWtoSST, rbSSTtoRW = append_MCI(rg, dict_v, dict_rb)
-    AR1SST = rg.df_MCIc.mean(0,level=1).loc['SST']['coeff l1'].round(2)
-    #%%
-    rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(12,6),
+    AR1SST = rg.df_MCIc.mean(0,level=1).loc[keys[1]]['coeff l1'].round(2)
+
+    # my_cmap = matplotlib.colors.ListedColormap(
+    #     ["#f94144","#f3722c","#f8961e","#f9c74f","#90be6d","#43aa8b"][::-1])
+    cmap_edges = ListedColormap(
+        ["#8D0801","#bc4749", "#fb8500","#ffb703","#a7c957", "#b5dda4"][::-1])
+    cmap_nodes = ["#9d0208",
+                  "#dc2f02","#e85d04","#f48c06","#faa307", "#ffba08"][::-1]
+    cmap_nodes = ListedColormap(cmap_nodes)
+    rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(6,3),
                         kwrgs={'vmax_nodes':.9,
                                 'node_aspect':80,
                                 'node_size':.008,
@@ -350,13 +371,16 @@ for f in freqs[:]:
                                 'node_label_size':40,
                                 'vmax_edges':.6,
                                 'vmin_edges':0,
-                                'cmap_edges':'plasma_r',
+                                'cmap_edges':cmap_edges,
+                                'cmap_nodes':cmap_nodes,
                                 'edge_ticks':.2,
                                 'lag_array':lags,
                                 'curved_radius':.5,
                                 'arrowhead_size':1000,
                                 'link_label_fontsize':30,
-                                'label_fontsize':12,
+                                'link_colorbar_label':'Link strength',
+                                'node_colorbar_label':'Auto-strength',
+                                'label_fontsize':15,
                                 'weights_squared':1.5},
                         append_figpath=f'_tf{rg.precur_aggr}_{AR1SST}_rb{mlr}_taumax{tau_max}_rPDO{remove_PDO}')
     #%%

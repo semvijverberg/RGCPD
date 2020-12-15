@@ -440,8 +440,9 @@ class RGCPD:
     def PCMCI_init(self, keys: list=None, verbosity=4):
         if keys is None:
             keys = self.df_data.columns
-        else:
+        elif 'TrainIsTrue' not in keys and 'RV_mask' not in keys:
             keys.append('TrainIsTrue') ; keys.append('RV_mask')
+
         self.pcmci_dict = wPCMCI.init_pcmci(self.df_data[keys],
                                             verbosity=verbosity)
 
@@ -550,13 +551,17 @@ class RGCPD:
                      'arrowhead_size':4000,
                      'arrow_linewidth':50,
                      'label_fontsize':14}
+        if 'link_width' in kwrgs.keys():
+            link_width = kwrgs.pop('link_width')
+        else:
+            link_width = 1
         if 'weights_squared' in kwrgs.keys():
-            weights = weights**kwrgs.pop('weights_squared')
+            link_width = link_width+weights**kwrgs.pop('weights_squared')
         fig = plt.figure(figsize=figshape, facecolor='white')
         ax = fig.add_subplot(111, facecolor='white')
         fig, ax = tp.plot_graph(val_matrix=val_plot,
                       var_names=var_names,
-                      link_width=weights,
+                      link_width=link_width,
                       link_matrix=links_plot,
                       fig_ax=(fig, ax),
                       **kwrgs)
@@ -632,8 +637,9 @@ class RGCPD:
         print('Data stored in \n{}'.format(filename+'.h5'))
         self.path_df_data = filename
 
-    def quick_view_labels(self, var=None, map_proj=None, mean=True,
-                          min_detect_gc: float=.5, save=False, append_str: str=None):
+    def quick_view_labels(self, var=None, mean=True, save=False,
+                          kwrgs_plot: dict={}, min_detect_gc: float=.5,
+                          append_str: str=None):
         '''
         Parameters
         ----------
@@ -698,10 +704,11 @@ class RGCPD:
                               'subtitles' : None,
                               'cticks_center':True,
                               'cmap':cmap}
+                kwrgs.update(kwrgs_plot)
 
                 plot_maps.plot_corr_maps(prec_labels,
                                  xrmask,
-                                 map_proj, **kwrgs)
+                                 **kwrgs)
                 if save == True:
                     f_name = 'clusterlabels_{}_eps{}_mingc{}'.format(
                                                         pclass._name,

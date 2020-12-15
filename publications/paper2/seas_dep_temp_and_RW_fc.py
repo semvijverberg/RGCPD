@@ -15,7 +15,6 @@ import numpy as np
 from time import time
 import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
 import matplotlib
-from sklearn import metrics
 import pandas as pd
 import xarray as xr
 import csv
@@ -52,17 +51,19 @@ import plot_maps; import core_pp
 # matplotlib.rc('text', usetex=True)
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
-region = 'eastern'
+# target = 'temperature'
 
-if region == 'eastern':
-    targets = ['easterntemp', 'easternRW']
-    targets = ['easterntemp']
-elif region == 'western':
-    targets = ['westerntemp', 'westernRW']
+# if region == 'eastern':
+#     targets = ['easterntemp', 'easternRW']
+#     targets = ['easterntemp']
+# elif region == 'western':
+#     targets = ['westerntemp', 'westernRW']
+
+targets = ['westerntemp', 'easterntemp']
 
 
 expers = np.array(['fixed_corr', 'adapt_corr'])
-remove_PDOyesno = np.array([0, 1])
+remove_PDOyesno = np.array([0])
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, expers, seeds, remove_PDOyesno)).T.reshape(-1,4)
 
@@ -107,7 +108,7 @@ calc_ts='region mean' # pattern cov
 
 if target[-4:] == 'temp':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
-    alpha_corr = .01
+    alpha_corr = .05
     cluster_label = 2
     name_ds='ts'
     if target == 'westerntemp':
@@ -142,7 +143,7 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             kwrgs_func={},
                             distance_eps=1200, min_area_in_degrees2=10,
                             calc_ts=calc_ts, selbox=(130,260,-10,60),
-                            lags=np.array([0]))]
+                            lags=np.array([1]))]
 if calc_ts == 'region mean':
     s = ''
 else:
@@ -159,8 +160,12 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            tfreq=tfreq,
            path_outmain=path_out_main,
            append_pathsub='_' + experiment)
+precur = rg.list_for_MI[0] ; lag = precur.lags[0]
+if precur.func.__name__ == 'corr_map':
 
-title = r'$parcorr(SST_t, mx2t_t\ |\ SST_{t-1},mx2t_{t-1})$'
+    title = '$corr(SST_{t-1},\ $'+f'$T^{target[0].capitalize()}_t)$'
+else:
+    title = r'$parcorr(SST_t, mx2t_t\ |\ SST_{t-1},mx2t_{t-1})$'
 subtitles = np.array([['']]) #, f'lag 2 (15 day lead)']] )
 kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
               'wspace':-.15, 'size':3, 'cbar_vert':-.1,
@@ -189,7 +194,7 @@ if experiment == 'fixed_corr':
     rg.plot_maps_corr(var='sst', save=True,
                       kwrgs_plot=kwrgs_plotcorr,
                       min_detect_gc=1.0,
-                      append_str=experiment)
+                      append_str=experiment+f'lag{lag}')
 
 
 
@@ -234,7 +239,7 @@ if remove_PDO:
 
 if precur_aggr == 15:
     blocksize=2
-    lag = 4
+    lag = 2
 elif precur_aggr==60:
     blocksize=1
     lag = 0
@@ -243,7 +248,7 @@ elif precur_aggr==60:
 dict_v = {'target':target, 'lag':lag,'rmPDO':str(remove_PDO), 'exper':experiment,
           'Seed':f's{seed}'}
 
-score_func_list = [metrics.mean_squared_error, fc_utils.corrcoef]
+region_labels = [1,2]
 list_test = []
 list_test_b = []
 no_info_fc = []
@@ -284,6 +289,7 @@ for month, start_end_TVdate in months.items():
                    'normalize':False}
 
     keys = [k for k in rg.df_data.columns[:-2] if k not in [rg.TV.name, 'PDO']]
+    keys = [k for k in keys if int(k.split('..')[1]) in region_labels]
     if remove_PDO:
         y_keys = [k for k in keys if 'sst' in k]
         rg.df_data[y_keys], fig = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=y_keys,
@@ -319,35 +325,41 @@ for month, start_end_TVdate in months.items():
             weights_norm = weights.mean(axis=0, level=1)
             weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
 
+        clim_mean_temp = float(target_ts.mean())
+        RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=clim_mean_temp).RMSE
+        MAE_SS = fc_utils.ErrorSkillScore(constant_bench=clim_mean_temp).MAE
+        CRPSS = fc_utils.CRPSS_vs_constant_bench(constant_bench=clim_mean_temp).CRPSS
+        score_func_list = [RMSE_SS, fc_utils.corrcoef, CRPSS, MAE_SS]
+
         df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(prediction,
                                                                  rg.df_data.iloc[:,-2:],
                                                                  score_func_list,
                                                                  n_boot = n_boot,
                                                                  blocksize=blocksize,
                                                                  rng_seed=1)
-        # Benchmark prediction
+        # # Benchmark prediction
+
+        # observed = pd.concat(n_splits*[target_ts], keys=range(n_splits))
+        # benchpred = observed.copy()
+        # benchpred[:] = np.zeros_like(observed) # fake pred
+        # benchpred = pd.concat([observed, benchpred], axis=1)
+
+        # bench_MSE = fc_utils.get_scores(benchpred,
+        #                                rg.df_data.iloc[:,-2:][rg.df_data.iloc[:,-1:].values].dropna(),
+        #                                score_func_list,
+        #                                n_boot = 0,
+        #                                blocksize=blocksize,
+        #                                rng_seed=1)[2]
+        # bench_MSE = float(bench_MSE.values)
+
+
+        # print(df_test_m)
+        # df_boot['mean_squared_error'] = (bench_MSE-df_boot['mean_squared_error'])/ \
+        #                                         bench_MSE
+
+        # df_test_m['mean_squared_error'] = (bench_MSE-df_test_m['mean_squared_error'])/ \
+        #                                         bench_MSE
         n_splits = rg.df_data.index.levels[0].size
-        observed = pd.concat(n_splits*[target_ts], keys=range(n_splits))
-        benchpred = observed.copy()
-        benchpred[:] = np.zeros_like(observed) # fake pred
-        benchpred = pd.concat([observed, benchpred], axis=1)
-
-        bench_MSE = fc_utils.get_scores(benchpred,
-                                       rg.df_data.iloc[:,-2:],
-                                       [metrics.mean_squared_error],
-                                       n_boot = 0,
-                                       blocksize=blocksize,
-                                       rng_seed=1)[2]
-        bench_MSE = float(bench_MSE.values)
-
-
-        print(df_test_m)
-        df_boot['mean_squared_error'] = (bench_MSE-df_boot['mean_squared_error'])/ \
-                                                bench_MSE
-
-        df_test_m['mean_squared_error'] = (bench_MSE-df_test_m['mean_squared_error'])/ \
-                                                bench_MSE
-
         cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_splits)]
         print('mean alpha {:.0f}'.format(np.mean(cvfitalpha)))
         maxalpha_c = list(cvfitalpha).count(alphas[-1])
@@ -355,8 +367,8 @@ for month, start_end_TVdate in months.items():
             print(f'\n{month} alpha {int(np.mean(cvfitalpha))}')
             print(f'{maxalpha_c} splits are max alpha\n')
             # maximum regularization selected. No information in timeseries
-            df_test_m['corrcoef'][:] = 0
-            df_boot['corrcoef'][:] = 0
+            df_test_m['Prediction']['corrcoef'][:] = 0
+            df_boot['Prediction']['corrcoef'][:] = 0
             no_info_fc.append(month)
         df_test = functions_pp.get_df_test(prediction.merge(rg.df_data.iloc[:,-2:],
                                                         left_index=True,
@@ -380,39 +392,54 @@ for month, start_end_TVdate in months.items():
 
 
 
-
+#%%
 
 import matplotlib.patches as mpatches
 corrvals = [test.values[0,1] for test in list_test]
 MSE_SS_vals = [test.values[0,0] for test in list_test]
-df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals, 'Corr. Coef.':corrvals},
+MAE_SS_vals = [test.values[0,-1] for test in list_test]
+rename_metrics = {'RMSE-SS':'RMSE',
+                  'Corr. Coef.':'corrcoef',
+                  'MAE-SS':'MAE'}
+df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals,
+                          'Corr. Coef.':corrvals,
+                          'MAE-SS':MAE_SS_vals},
                          index=monthkeys)
 df_test_b = pd.concat(list_test_b, keys = monthkeys,axis=1)
 
 yerr = [] ; quan = [] ; alpha = .10
-for i in range(df_test_b.columns.size):
+# for i in range(len(monthkeys) * df_scores.columns.size):
+monmet = np.array(np.meshgrid(monthkeys,
+                              df_scores.columns)).T.reshape(-1,2) ;
+for i, (mon, met) in enumerate(monmet):
     Eh = 1 - alpha/2 ; El = alpha/2
-    tup = [df_test_b.iloc[:,i].quantile(El), df_test_b.iloc[:,i].quantile(Eh)]
+    met = rename_metrics[met]
+    _scores = df_test_b[mon]['Prediction'][met]
+    tup = [_scores.quantile(El), _scores.quantile(Eh)]
     quan.append(tup)
-    mean = df_scores.values.flatten()[i]
+    mean = df_scores.values.flatten()[i] ;
     tup = abs(mean-tup)
     yerr.append(tup)
-_yerr = np.array(yerr).T.reshape(len(monthkeys)*2,2, order='A')
-_yerr = np.array(yerr).reshape(2,len(monthkeys)*2,
-                               order='F').reshape(2,2,len(monthkeys))
+# _yerr = np.array(yerr).T.reshape(len(monthkeys)*2,2, order='A')
+_yerr = np.array(yerr).reshape(df_scores.columns.size,len(monthkeys)*2,
+                               order='F').reshape(df_scores.columns.size,2,len(monthkeys))
 ax = df_scores.plot.bar(rot=0, yerr=_yerr,
                         capsize=8, error_kw=dict(capthick=1),
-                        color=['blue', 'green'],
+                        color=['blue', 'green', 'purple'],
                         legend=False)
 for noinfo in no_info_fc:
     # first two children are not barplots
-    idx = monthkeys.index(noinfo) + 2
+    idx = monthkeys.index(noinfo) + 3
     ax.get_children()[idx].set_color('r') # RMSE bar
+    idx = monthkeys.index(noinfo) + 15
+    ax.get_children()[idx].set_color('r') # RMSE bar
+
+
 
 ax.set_ylabel('Skill Score', fontsize=16)
 # ax.set_xlabel('Months', fontsize=16)
 if target[-4:] == 'temp':
-    title = f'Seasonal dependence of {precur_aggr}-day mean temp predictions'
+    title = f'Seasonal dependence of $T^{target[0].capitalize()}$ predictions'
 elif target[-2:] == 'RW':
     title = f'Seasonal dependence of {precur_aggr}-day mean RW predictions'
 ax.set_title(title,
@@ -422,6 +449,7 @@ ax.tick_params(axis='both', labelsize=13)
 if tfreq==15 and experiment=='adapt_corr':
     patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
     patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
+    patch3 = mpatches.Patch(color='purple', label='MAE-SS')
     handles = [patch1, patch2]
     # manually define a new patch
     if len(no_info_fc) != 0:
@@ -430,9 +458,9 @@ if tfreq==15 and experiment=='adapt_corr':
     ax.legend(handles=handles,
               fontsize=16, frameon=True, facecolor='grey',
               framealpha=.5)
-ax.set_ylim(-0.5, 1)
+ax.set_ylim(-0.3, 0.6)
 plt.savefig(os.path.join(rg.path_outsub1,
-             f'skill_score_vs_months_{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_{alpha_corr}.pdf'))
+             f'skill_score_vs_months_{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_{alpha_corr}_corlag{precur.lags}.pdf'))
 
 csvfilename = os.path.join(rg.path_outmain, name_csv)
 for csvfilename, dic in [(csvfilename, dict_v)]:

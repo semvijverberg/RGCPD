@@ -48,7 +48,7 @@ def loop_df_ana(df, function, keys=None, to_np=False, kwrgs=None):
         # retrieve only float series
         type_check = np.logical_or(df.dtypes == 'float',df.dtypes == 'float32')
         keys = type_check[type_check].index
-
+    df = df.loc[:,keys]
     out_list = []
     for header in df:
         if to_np == False:
@@ -442,7 +442,7 @@ def corr_matrix_pval(df, alpha=0.05):
     return cross_corr, sig_mask, pval_matrix
 
 def plot_ts_matric(df_init, win: int=None, lag=0, columns: list=None, rename: dict=None,
-                   period='fullyear'):
+                   period='fullyear', plot_sign_stars=True, fontsizescaler=0):
     #%%
     '''
     period = ['fullyear', 'summer60days', 'pre60days']
@@ -514,23 +514,25 @@ def plot_ts_matric(df_init, win: int=None, lag=0, columns: list=None, rename: di
 
     ax = sns.heatmap(corr, ax=ax, mask=mask_tri, cmap=cmap, vmax=1E99, center=0,
                 square=True, linewidths=.5,
-                 annot=False, annot_kws={'size':30}, cbar=False)
+                 annot=False, annot_kws={'size':30+fontsizescaler}, cbar=False)
 
-
-    sig_bold_labels = sig_bold_annot(corr, mask_sig)
+    if plot_sign_stars:
+        sig_bold_labels = sig_bold_annot(corr, mask_sig)
+    else:
+        sig_bold_labels = corr.round(2).astype(str).values
     # Draw the heatmap with the mask and correct aspect ratio
     ax = sns.heatmap(corr, ax=ax, mask=mask_tri, cmap=cmap, vmax=1, center=0,
                 square=True, linewidths=.5, cbar_kws={"shrink": .8},
-                 annot=sig_bold_labels, annot_kws={'size':30}, cbar=False, fmt='s')
+                 annot=sig_bold_labels, annot_kws={'size':30+fontsizescaler}, cbar=False, fmt='s')
 
-    ax.tick_params(axis='both', labelsize=15,
+    ax.tick_params(axis='both', labelsize=15+fontsizescaler,
                    bottom=True, top=False, left=True, right=False,
                    labelbottom=True, labeltop=False, labelleft=True, labelright=False)
 
     ax.set_xticklabels(corr.columns, fontdict={'fontweight':'bold',
-                                               'fontsize':20})
+                                               'fontsize':20+fontsizescaler})
     ax.set_yticklabels(corr.index, fontdict={'fontweight':'bold',
-                                               'fontsize':20}, rotation=0)
+                                               'fontsize':20+fontsizescaler}, rotation=0)
     b, t = ax.get_ylim()
     b += 0.5 # Add 0.5 to the bottom
     t -= 0.5 # Subtract 0.5 from the top
