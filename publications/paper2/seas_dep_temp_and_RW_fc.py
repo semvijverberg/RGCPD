@@ -463,7 +463,7 @@ if tfreq==15 and experiment=='adapt_corr':
               framealpha=.5)
 ax.set_ylim(-0.3, 0.6)
 plt.savefig(os.path.join(rg.path_outsub1,
-             f'skill_score_vs_months_{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_{alpha_corr}_corlag{precur.lags}.pdf'))
+             f'skill_score_vs_months_a{alpha}+{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_ac{alpha_corr}_corlag{precur.lags}.pdf'))
 
 csvfilename = os.path.join(rg.path_outmain, name_csv)
 for csvfilename, dic in [(csvfilename, dict_v)]:
