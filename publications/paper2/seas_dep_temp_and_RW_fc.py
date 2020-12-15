@@ -62,7 +62,7 @@ matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 targets = ['westerntemp', 'easterntemp']
 
 
-expers = np.array(['fixed_corr', 'adapt_corr'])
+expers = np.array(['adapt_corr']) # np.array(['fixed_corr', 'adapt_corr'])
 remove_PDOyesno = np.array([0])
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, expers, seeds, remove_PDOyesno)).T.reshape(-1,4)
@@ -410,7 +410,7 @@ df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals,
                          index=monthkeys)
 df_test_b = pd.concat(list_test_b, keys = monthkeys,axis=1)
 
-yerr = [] ; quan = [] ; alpha = .10
+yerr = [] ; quan = [] ; alpha = .05
 # for i in range(len(monthkeys) * df_scores.columns.size):
 monmet = np.array(np.meshgrid(monthkeys,
                               df_scores.columns)).T.reshape(-1,2) ;
@@ -453,7 +453,7 @@ if tfreq==15 and experiment=='adapt_corr':
     patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
     patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
     patch3 = mpatches.Patch(color='purple', label='MAE-SS')
-    handles = [patch1, patch2]
+    handles = [patch1, patch2, patch3]
     # manually define a new patch
     if len(no_info_fc) != 0:
         patch = mpatches.Patch(color='red', label=f'alpha={int(alphas[-1])}')

@@ -38,6 +38,7 @@ dependencies:
   - xarray=0.13.0
   - xesmf=0.2.0
   - pip:
-    - haversine==2.1.2
+    - properscoring
+
 prefix: /Users/semvijverberg/miniconda3/envs/RGCPD
 
