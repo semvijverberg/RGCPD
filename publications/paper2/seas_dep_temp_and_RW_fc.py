@@ -113,7 +113,7 @@ if target[-4:] == 'temp':
     name_ds='ts'
     if target == 'westerntemp':
         cluster_label = 1
-        corlags = np.array([1])
+        corlags = np.array([0])
     elif target == 'easterntemp':
         cluster_label = 2
         corlags = np.array([2])
@@ -251,7 +251,7 @@ elif precur_aggr==60:
 dict_v = {'target':target, 'lag':lag,'rmPDO':str(remove_PDO), 'exper':experiment,
           'Seed':f's{seed}'}
 
-region_labels = [1,2]
+
 list_test = []
 list_test_b = []
 no_info_fc = []
@@ -292,7 +292,8 @@ for month, start_end_TVdate in months.items():
                    'normalize':False}
 
     keys = [k for k in rg.df_data.columns[:-2] if k not in [rg.TV.name, 'PDO']]
-    keys = [k for k in keys if int(k.split('..')[1]) in region_labels]
+    if target == 'easterntemp':
+        keys = [k for k in keys if int(k.split('..')[1]) in [1,2]]
     if remove_PDO:
         y_keys = [k for k in keys if 'sst' in k]
         rg.df_data[y_keys], fig = wPCMCI.df_data_remove_z(rg.df_data, z=['PDO'], keys=y_keys,
