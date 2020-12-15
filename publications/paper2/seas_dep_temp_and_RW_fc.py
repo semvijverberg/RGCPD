@@ -450,21 +450,27 @@ ax.set_title(title,
              fontsize=16)
 ax.tick_params(axis='both', labelsize=13)
 
-if tfreq==15 and experiment=='adapt_corr':
+if tfreq==15 and target=='westerntemp':
     patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
     patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
     patch3 = mpatches.Patch(color='purple', label='MAE-SS')
     handles = [patch1, patch2, patch3]
-    # manually define a new patch
-    if len(no_info_fc) != 0:
-        patch = mpatches.Patch(color='red', label=f'alpha={int(alphas[-1])}')
-        handles.append(patch)
-    ax.legend(handles=handles,
+    legend1 = ax.legend(handles=handles,
               fontsize=16, frameon=True, facecolor='grey',
               framealpha=.5)
+    ax.add_artist(legend1)
+
+    # manually define a new patch
+    if len(no_info_fc) != 0:
+        patch = mpatches.Patch(color='red', label=r'$\alpha=$'+f'{int(alphas[-1])}')
+        legend2 = ax.legend(loc='upper left', handles=[patch],
+              fontsize=16, frameon=True, facecolor='grey',
+              framealpha=.5)
+        ax.add_artist(legend2)
+
 ax.set_ylim(-0.3, 0.6)
 plt.savefig(os.path.join(rg.path_outsub1,
-             f'skill_score_vs_months_a{alpha}+{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_ac{alpha_corr}_corlag{precur.lags}.pdf'))
+              f'skill_score_vs_months_a{alpha}+{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_ac{alpha_corr}_corlag{precur.lags}.pdf'))
 
 csvfilename = os.path.join(rg.path_outmain, name_csv)
 for csvfilename, dic in [(csvfilename, dict_v)]:
