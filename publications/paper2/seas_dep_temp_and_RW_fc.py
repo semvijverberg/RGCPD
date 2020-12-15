@@ -113,8 +113,10 @@ if target[-4:] == 'temp':
     name_ds='ts'
     if target == 'westerntemp':
         cluster_label = 1
+        corlags = np.array([1])
     elif target == 'easterntemp':
         cluster_label = 2
+        corlags = np.array([2])
 elif target[-2:] == 'RW':
     cluster_label = 'z500'
     name_ds = f'0..0..{cluster_label}_sp'
@@ -143,7 +145,7 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             kwrgs_func={},
                             distance_eps=1200, min_area_in_degrees2=10,
                             calc_ts=calc_ts, selbox=(130,260,-10,60),
-                            lags=np.array([1]))]
+                            lags=corlags)]
 if calc_ts == 'region mean':
     s = ''
 else:
@@ -176,6 +178,7 @@ kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
               'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
 
 #%%
+append_str = experiment + f'lag{lag}'
 if experiment == 'fixed_corr':
     rg.pp_TV(name_ds=name_ds, detrend=False)
 
@@ -189,12 +192,12 @@ if experiment == 'fixed_corr':
     rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
     rg.calc_corr_maps()
     rg.cluster_list_MI()
-    rg.quick_view_labels(save=True, append_str=experiment)
+    rg.quick_view_labels(save=True, append_str=append_str)
     # plotting corr_map
     rg.plot_maps_corr(var='sst', save=True,
                       kwrgs_plot=kwrgs_plotcorr,
                       min_detect_gc=1.0,
-                      append_str=experiment+f'lag{lag}')
+                      append_str=append_str)
 
 
 
@@ -273,14 +276,14 @@ for month, start_end_TVdate in months.items():
 
         rg.calc_corr_maps()
         rg.cluster_list_MI()
-        rg.quick_view_labels(save=True, append_str=experiment+'+'+month)
+        rg.quick_view_labels(save=True, append_str=append_str+'+'+month)
         rg.get_ts_prec(precur_aggr=precur_aggr)
 
         # plotting corr_map
         rg.plot_maps_corr(var='sst', save=True,
                           kwrgs_plot=kwrgs_plotcorr,
                           min_detect_gc=1.0,
-                          append_str=experiment+'_'+month)
+                          append_str=append_str+'_'+month)
         dm[month] = rg.list_for_MI[0].corr_xr.copy()
 
     alphas = np.append(np.logspace(.1, 1.5, num=25), [250])
@@ -499,7 +502,7 @@ if experiment == 'adapt_corr':
     precur = rg.list_for_MI[0]
     f_name = 'corr_{}_a{}'.format(precur.name,
                                 precur.alpha) + '_' + \
-                                f'{experiment}_lag{lag}_' + \
+                                f'{experiment}_lag{corlags}_' + \
                                 f'tf{precur_aggr}_{method}'
 
     corr.to_netcdf(os.path.join(rg.path_outsub1, f_name+'.nc'), mode='w')
