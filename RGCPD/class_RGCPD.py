@@ -199,6 +199,8 @@ class RGCPD:
         self.list_precur_pp = functions_pp.perform_post_processing(self.list_of_name_path,
                                              kwrgs_pp=self.kwrgs_pp,
                                              verbosity=self.verbosity)
+        for precur in self.list_for_MI:
+            precur.filepath = [l for l in self.list_precur_pp if l[0]==precur.name][0][1]
 
     def get_clust(self, name_ds='ts'):
         f = functions_pp
@@ -240,6 +242,11 @@ class RGCPD:
                             RV_anomaly=self.RV_anomaly)
         self.fullts, self.TV_ts, inf, start_end_TVdate = out
 
+        if inf == 'annual' and self.tfreq != None:
+            self.tfreq = None ;
+            if hasattr(self, 'kwrgs_load'): self.kwrgs_load['tfreq'] = None
+            print('no common time aggregation possible when loading annual mean '
+                  f'data, tfreq set to {self.tfreq}')
         self.input_freq = inf
         self.dates_or  = pd.to_datetime(self.fulltso.time.values)
         self.dates_all = pd.to_datetime(self.fullts.time.values)
@@ -319,7 +326,6 @@ class RGCPD:
         # self.list_for_MI = []
         for precur in self.list_for_MI:
             if precur.name in var:
-                precur.filepath = [l for l in self.list_precur_pp if l[0]==precur.name][0][1]
                 find_precursors.calculate_region_maps(precur,
                                                       self.TV,
                                                       self.df_splits,
@@ -827,6 +833,7 @@ class RGCPD:
                           tau_max: int=1,
                           match_lag_region_to_lag_fc=False,
                           transformer=None,
+                          fcmodel=None,
                           kwrgs_model: dict={'scoring':'neg_mean_squared_error'}):
         '''
         Perform cross-validated Ridge regression to predict the target.
@@ -842,6 +849,9 @@ class RGCPD:
             signal stronger at a certain lag. Relationship is established for
             all lags in range(tau_min, tau_max+1) and the strongest is
             relationship is kept.
+        fcmodel : function of stat_models, None
+            Give function that satisfies stat_models format of I/O, default
+            Ridge regression
         kwrgs_model : dict, optional
             DESCRIPTION. The default is None.
 
@@ -850,9 +860,8 @@ class RGCPD:
         predict (DataFrame), weights (DataFrame), models_lags (dict).
 
         '''
-        # keys=None;target=None;tau_min=1;tau_max=1;transformer=None
+        # df_data=None;keys=None;target=None;tau_min=1;tau_max=1;transformer=None
         # kwrgs_model={'scoring':'neg_mean_squared_error'}
-        # self.df_data_all = self.df_data.copy()
         if df_data is None:
             df_data = self.df_data.copy()
         lags = range(tau_min, tau_max+1)
@@ -914,9 +923,10 @@ class RGCPD:
                                           right_index=True)
 
 
-
-                pred, model = sm.ridgeCV({'ts':target_ts},
-                                               df_norm, ks, kwrgs_model)
+                if fcmodel is None:
+                    fcmodel = sm.ridgeCV
+                pred, model = fcmodel({'ts':target_ts},
+                                      df_norm, ks, kwrgs_model)
 
                 # if len(lags) > 1:
                 models_splits_lags[f'split_{s}'] = model
@@ -928,11 +938,11 @@ class RGCPD:
                     prediction = prediction.merge(pred.rename(columns={0:lag}),
                                                   left_index=True,
                                                   right_index=True)
-                    coeff = pd.DataFrame(model.coef_, index=model.X_pred.columns,
+                    coeff = pd.DataFrame(model.coef_.reshape(-1), index=model.X_pred.columns,
                                          columns=[lag])
                 else:
                     prediction = pred.rename(columns={0:lag})
-                    coeff = pd.DataFrame(model.coef_,
+                    coeff = pd.DataFrame(model.coef_.reshape(-1),
                                          index=model.X_pred.columns,
                                          columns=[lag])
                 preds[isp] = prediction

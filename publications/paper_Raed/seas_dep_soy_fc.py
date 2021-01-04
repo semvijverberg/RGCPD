@@ -34,7 +34,7 @@ RGCPD_func = os.path.join(main_dir, 'RGCPD')
 assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-data_dir = os.path.join(main_dir,'publications/paper2/data')
+
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -57,21 +57,12 @@ import plot_maps; import core_pp
 # matplotlib.rc('text', usetex=True)
 matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
-# target = 'temperature'
-
-# if region == 'eastern':
-#     targets = ['easterntemp', 'easternRW']
-#     targets = ['easterntemp']
-# elif region == 'western':
-#     targets = ['westerntemp', 'westernRW']
-
-targets = ['westerntemp', 'easterntemp']
 
 
-expers = np.array(['adapt_corr']) # np.array(['fixed_corr', 'adapt_corr'])
-remove_PDOyesno = np.array([0])
+
+temp_aggregations = [60,90,150]
 seeds = np.array([1,2,3])
-combinations = np.array(np.meshgrid(targets, expers, seeds, remove_PDOyesno)).T.reshape(-1,4)
+combinations = np.array(np.meshgrid(seeds, temp_aggregations)).T.reshape(-1,2)
 
 i_default = 1
 
@@ -92,53 +83,24 @@ def parseArguments():
 if __name__ == '__main__':
     args = parseArguments()
     out = combinations[args.intexper]
-    target = out[0]
-    experiment = out[1]
-    seed = int(out[2])
-    remove_PDO = bool(int(out[3]))
-    if target[-4:]=='temp':
-        tfreq = 60
-    else:
-        tfreq = 60
-    print(f'arg {args.intexper} f{out}')
+    seed = int(out[0])
+    tfreq = int(out[1])
+    print(f'arg {args.intexper} {out}')
 else:
-    target = targets[2]
-    tfreq = 15
-    experiment = 'fixed_corr'
-    experiment = 'adapt_corr'
-    remove_PDO = False
+    tfreq = 90
     seed = 1
 
-
+TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/q50_nc4_dendo_707fb.nc')
+cluster_label = 3
+name_ds='ts'
 calc_ts='region mean' # pattern cov
-
-if target[-4:] == 'temp':
-    TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
-    alpha_corr = .05
-    cluster_label = 2
-    name_ds='ts'
-    if target == 'westerntemp':
-        cluster_label = 1
-        corlags = np.array([0])
-    elif target == 'easterntemp':
-        cluster_label = 2
-        corlags = np.array([2])
-        # corlags = np.array([0])
-elif target[-2:] == 'RW':
-    cluster_label = 'z500'
-    name_ds = f'0..0..{cluster_label}_sp'
-    alpha_corr = .05
-    if target == 'easternRW':
-        TVpath = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
-    elif target == 'westernRW':
-        TVpath = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
-
 precur_aggr = tfreq
-method     = 'ran_strat10' ;
+method     = 'ran_strat5' ;
 n_boot = 5000
-
+corlags = np.array([['12-01', '02-28'],
+                    ['02-01', '03-31']])
+start_end_year = (1980, 2015)
 append_main = ''
-name_csv = f'skill_scores_tf{tfreq}.csv'
 
 
 #%% run RGPD
@@ -148,7 +110,7 @@ list_of_name_path = [(cluster_label, TVpath),
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
 list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
-                            alpha=alpha_corr, FDR_control=True,
+                            alpha=0.05, FDR_control=True,
                             kwrgs_func={},
                             distance_eps=1200, min_area_in_degrees2=10,
                             calc_ts=calc_ts, selbox=(130,260,-10,60),
@@ -158,55 +120,31 @@ if calc_ts == 'region mean':
 else:
     s = '_' + calc_ts.replace(' ', '')
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}{s}{append_main}/')
+path_out_main = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/output'
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
            list_import_ts=None,
            start_end_TVdate=start_end_TVdate,
            start_end_date=start_end_date,
-           start_end_year=None,
+           start_end_year=start_end_year,
            tfreq=tfreq,
            path_outmain=path_out_main,
-           append_pathsub='_' + experiment)
+           append_pathsub=append_main)
 precur = rg.list_for_MI[0] ; lag = precur.lags[0]
-if precur.func.__name__ == 'corr_map':
 
-    title = '$corr(SST_{t-1},\ $'+f'$T^{target[0].capitalize()}_t)$'
-else:
-    title = r'$parcorr(SST_t, mx2t_t\ |\ SST_{t-1},mx2t_{t-1})$'
 subtitles = np.array([['']]) #, f'lag 2 (15 day lead)']] )
 kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
               'wspace':-.15, 'size':3, 'cbar_vert':-.1,
               'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
               'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
               'y_ticks':np.arange(-10,61,20), 'x_ticks':np.arange(130, 280, 25),
-              'subtitles':subtitles, 'title':title,
+              'subtitles':subtitles, 'title':'',
               'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
 
-#%%
-append_str = experiment + f'lag{lag}'
-if experiment == 'fixed_corr':
-    rg.pp_TV(name_ds=name_ds, detrend=False)
-
-    subfoldername = '_'.join([target,rg.hash, experiment.split('_')[0],
-                          str(precur_aggr), str(alpha_corr), method,
-                          str(seed)])
-
-    if remove_PDO:
-        subfoldername += '_rmPDO'
-    rg.pp_precursors()
-    rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
-    rg.calc_corr_maps()
-    rg.cluster_list_MI()
-    rg.quick_view_labels(save=True, append_str=append_str)
-    # plotting corr_map
-    rg.plot_maps_corr(var='sst', save=True,
-                      kwrgs_plot=kwrgs_plotcorr,
-                      min_detect_gc=1.0,
-                      append_str=append_str)
-
-
+rg.pp_precursors()
+rg.pp_TV()
+rg.traintest(method)
 
 # rg.get_ts_prec()
 #%% (Adaptive) forecasting
@@ -234,30 +172,24 @@ if precur_aggr == 60:
               'June-Sept'    : ('06-01', '09-30'),
               'July-Okt'    : ('07-01', '10-31')}
 
-    months = {'April-May'    : ('04-01', '05-31'),
-              'May-June'    : ('05-01', '06-30'),
-              'June-July'   : ('06-01', '07-30'),
-               'July-Aug'    : ('07-01', '08-31'),
-               'Aug-Sept'    : ('08-01', '09-30'),
-               'Sept-Okt'    : ('09-01', '10-31')}
+    # months = {'March-June'  : ('03-01', '06-30'),
+    #           'April-July'  : ('04-01', '07-30'),
+    #           'May-Aug'    : ('05-01', '08-31'),
+    #           'June-Sept'    : ('06-01', '09-30'),
+    #           'July-Okt'    : ('07-01', '10-31')}
 
 monthkeys= list(months.keys()) ; oneyrsize = 0
 
-if remove_PDO:
-    import wrapper_PCMCI as wPCMCI
-    lowpass = '2y'
-    rg.list_import_ts = [('PDO', os.path.join(data_dir, f'PDO_{lowpass}_rm_25-09-20_15hr.h5'))]
 
 if precur_aggr == 15:
     blocksize=2
     lag = 2
 elif precur_aggr==60:
     blocksize=1
-    lag = 1
+    lag = 0
 
 
-dict_v = {'target':target, 'lag':lag,'rmPDO':str(remove_PDO), 'exper':experiment,
-          'Seed':f's{seed}'}
+dict_v = {'lag':lag,'Seed':f's{seed}'}
 
 
 list_test = []
@@ -323,13 +255,13 @@ for month, start_end_TVdate in months.items():
 
         # ScikitModel = scikitlinear.LassoCV
 
-        out_fit = rg.fit_df_data_ridge(target=target_ts,
+        out = rg.fit_df_data_ridge(target=target_ts,
                                    keys=keys,
                                    tau_min=lag, tau_max=lag,
                                    kwrgs_model=kwrgs_model,
                                    transformer=fc_utils.standardize_on_train)
 
-        predict, weights, models_lags = out_fit
+        predict, weights, models_lags = out
         prediction = predict.rename({predict.columns[0]:'target',lag:'Prediction'},
                                     axis=1)
 
@@ -379,8 +311,8 @@ for month, start_end_TVdate in months.items():
             print(f'\n{month} alpha {int(np.mean(cvfitalpha))}')
             print(f'{maxalpha_c} splits are max alpha\n')
             # maximum regularization selected. No information in timeseries
-            # df_test_m['Prediction']['corrcoef'][:] = 0
-            # df_boot['Prediction']['corrcoef'][:] = 0
+            df_test_m['Prediction']['corrcoef'][:] = 0
+            df_boot['Prediction']['corrcoef'][:] = 0
             no_info_fc.append(month)
         df_test = functions_pp.get_df_test(prediction.merge(rg.df_data.iloc[:,-2:],
                                                         left_index=True,
@@ -414,8 +346,8 @@ rename_metrics = {'RMSE-SS':'RMSE',
                   'Corr. Coef.':'corrcoef',
                   'MAE-SS':'MAE'}
 df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals,
-                          'Corr. Coef.':corrvals},
-                          # 'MAE-SS':MAE_SS_vals},
+                          'Corr. Coef.':corrvals,
+                          'MAE-SS':MAE_SS_vals},
                          index=monthkeys)
 df_test_b = pd.concat(list_test_b, keys = monthkeys,axis=1)
 
@@ -439,13 +371,12 @@ ax = df_scores.plot.bar(rot=0, yerr=_yerr,
                         capsize=8, error_kw=dict(capthick=1),
                         color=['blue', 'green', 'purple'],
                         legend=False)
-
-# for noinfo in no_info_fc:
-#     # first two children are not barplots
-#     idx = monthkeys.index(noinfo) + 3
-#     ax.get_children()[idx].set_color('r') # RMSE bar
-#     idx = monthkeys.index(noinfo) + 15
-#     ax.get_children()[idx].set_color('r') # RMSE bar
+for noinfo in no_info_fc:
+    # first two children are not barplots
+    idx = monthkeys.index(noinfo) + 3
+    ax.get_children()[idx].set_color('r') # RMSE bar
+    idx = monthkeys.index(noinfo) + 15
+    ax.get_children()[idx].set_color('r') # RMSE bar
 
 
 
@@ -464,22 +395,22 @@ ax.tick_params(axis='x', labelsize=16)
 if tfreq==15 and target=='westerntemp':
     patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
     patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
-    # patch3 = mpatches.Patch(color='purple', label='MAE-SS')
-    handles = [patch1, patch2]
+    patch3 = mpatches.Patch(color='purple', label='MAE-SS')
+    handles = [patch1, patch2, patch3]
     legend1 = ax.legend(handles=handles,
               fontsize=16, frameon=True, facecolor='grey',
               framealpha=.5)
     ax.add_artist(legend1)
 
-    # # manually define a new patch
-    # if len(no_info_fc) != 0:
-    #     patch = mpatches.Patch(color='red', label=r'$\alpha=$'+f' ${int(alphas[-1])}$')
-    #     legend2 = ax.legend(loc='upper left', handles=[patch],
-    #           fontsize=16, frameon=True, facecolor='grey',
-    #           framealpha=.5)
-    #     ax.add_artist(legend2)
+    # manually define a new patch
+    if len(no_info_fc) != 0:
+        patch = mpatches.Patch(color='red', label=r'$\alpha=$'+f' ${int(alphas[-1])}$')
+        legend2 = ax.legend(loc='upper left', handles=[patch],
+              fontsize=16, frameon=True, facecolor='grey',
+              framealpha=.5)
+        ax.add_artist(legend2)
 
-ax.set_ylim(-0.1, 0.6)
+ax.set_ylim(-0.3, 0.6)
 plt.savefig(os.path.join(rg.path_outsub1,
               f'skill_score_vs_months_a{alpha}+{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_ac{alpha_corr}_corlag{precur.lags}.pdf'))
 
@@ -497,8 +428,6 @@ for csvfilename, dic in [(csvfilename, dict_v)]:
         writer = csv.DictWriter(csvfile, list(dic.keys()))
         writer.writerows([dic])
 #%%
-
-mpl.rcParams.update(mpl.rcParamsDefault)
 if experiment == 'adapt_corr':
 
     corr = dm[monthkeys[0]].mean(dim='split').drop('time')
@@ -525,13 +454,13 @@ if experiment == 'adapt_corr':
                                 f'{experiment}_lag{corlags}_' + \
                                 f'tf{precur_aggr}_{method}'
 
-    # corr.to_netcdf(os.path.join(rg.path_outsub1, f_name+'.nc'), mode='w')
+    corr.to_netcdf(os.path.join(rg.path_outsub1, f_name+'.nc'), mode='w')
     import_ds = core_pp.import_ds_lazy
     corr = import_ds(os.path.join(rg.path_outsub1, f_name+'.nc'))[precur.name]
     # Horizontal plot
     subtitles = np.array([monthkeys])
     if corlags[0] == 0:
-        title = r'$corr(SST_t, T^{}_t)$'.format('{'+f'{target[0].capitalize()}'+'}')
+        title = f'$corr(SST_t, T^{target[0].capitalize()}_t)$'
     else:
         title = r'$corr(SST_{}, T^{}_t)$'.format('{'+f't-{corlags[0]}'+'}', target[0].capitalize())
         # title = '$corr(SST_{'+f't-{corlags[0]}'+'}, T^{}_t)$'.format(target[0].capitalize())

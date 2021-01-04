@@ -735,7 +735,8 @@ def make_dates(datetime, years):
 
     return start_yr
 
-def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
+def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False,
+                 returngroups=False):
     #%%
     '''
     dates is type pandas.core.indexes.datetimes.DatetimeIndex
@@ -743,17 +744,14 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
     lpyr is boolean if you want load the leap days yes or no.
     '''
     #%%
-    import calendar
-
-    def oneyr(datetime):
-        return datetime.where(datetime.year==datetime.year[0]).dropna()
-
     if start_end_year is None:
         startyr = dates.year.min()
         endyr   = dates.year.max()
     else:
         startyr = start_end_year[0]
-        endyr   = start_end_year[1]
+        endyr   = start_end_year[-1]
+    n_yrs = np.arange(startyr, endyr+1).size
+    firstyr = get_oneyr(dates, startyr)
 
     if start_end_date is None:
         start_end_date = (('{:02d}-{:02d}'.format(dates[0].month,
@@ -763,7 +761,8 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
 
     sstartdate = pd.to_datetime(str(startyr) + '-' + start_end_date[0])
     senddate_   = pd.to_datetime(str(startyr) + '-' + start_end_date[1])
-
+    crossyr = sstartdate > senddate_
+    if crossyr: sstartdate-=pd.Timedelta('1y') ; startyr-=1
 
     tfreq = (dates[1] - dates[0]).days
     oneyr_dates = pd.date_range(start=sstartdate, end=senddate_,
@@ -772,65 +771,34 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False):
 
     # dont get following
 #    firstyr = oneyr(oneyr_dates)
-    firstyr = get_oneyr(dates, startyr)
+
     #find closest senddate
     closest_enddate_idx = np.argmin(abs(firstyr - senddate_))
     senddate = firstyr[closest_enddate_idx]
     if senddate > senddate_ :
         senddate = firstyr[closest_enddate_idx-1]
 
-    #update startdate of RV period to fit bins
-    if tfreq == 1:
-        sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd') + \
-                             np.timedelta64(1, 'D')
-    else:
+
+    sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
+    while sstartdate < pd.to_datetime(str(startyr) + '-' + start_end_date[0]):
+        daily_yr_fit -=1
         sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
-        while sstartdate < pd.to_datetime(str(startyr) + '-' + start_end_date[0]):
-            daily_yr_fit -=1
-            sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
 
 
-    start_yr = pd.date_range(start=sstartdate, end=senddate,
-                                freq=(dates[1] - dates[0]))
+    start_yr = remove_leapdays(pd.date_range(start=sstartdate, end=senddate,
+                                freq=(dates[1] - dates[0])))
 
-    # 02-11-2020, wrong subdates with leapyears error
-    # if lpyr==True and calendar.isleap(startyr):
-    #     start_yr -= pd.Timedelta( '1 days')
-    # elif lpyr==False and calendar.isleap(startyr):
-    #     start_yr = remove_leapdays(start_yr)
-    # breakyr = endyr
-    # datesstr = [str(date).split('.', 1)[0] for date in start_yr.values]
-    # nyears = (endyr - startyr)+1
-    # startday = start_yr[0].strftime('%Y-%m-%dT%H:%M:%S')
-    # endday = start_yr[-1].strftime('%Y-%m-%dT%H:%M:%S')
-    # firstyear = startday[:4]
-    # def plusyearnoleap(curr_yr, startday, endday, incr=1):
-    #     startday = startday.replace(firstyear, str(curr_yr+incr))
-    #     endday = endday.replace(firstyear, str(curr_yr+incr))
-
-    #     next_yr = pd.date_range(start=startday, end=endday,
-    #                     freq=(dates[1] - dates[0]))
-    #     if lpyr==True and calendar.isleap(curr_yr+incr):
-    #         next_yr -= pd.Timedelta( '1 days')
-    #     elif lpyr == False:
-    #         # excluding leap year again
-    #         noleapdays = (((next_yr.month==2) & (next_yr.day==29))==False)
-    #         next_yr = next_yr[noleapdays].dropna(how='all')
-    #     return next_yr
-
-
-    # for yr in range(0,nyears):
-    #     curr_yr = yr+startyr
-    #     next_yr = plusyearnoleap(curr_yr, startday, endday, 1)
-    #     nextstr = [str(date).split('.', 1)[0] for date in next_yr.values]
-    #     datesstr = datesstr + nextstr
-
-    #     if next_yr.year[0] == breakyr:
-    #         break
-    # datessubset = pd.to_datetime(datesstr)
-    datessubset = make_dates(start_yr, np.unique(dates.year))
+    datessubset = make_dates(start_yr, np.arange(startyr, endyr+1))
+    datessubset = pd.to_datetime([d for d in datessubset if d in dates])
+    if lpyr:
+        datessubset = remove_leapdays(datessubset)
+    if returngroups:
+        periodgroups = np.repeat(np.arange(1,n_yrs+1), start_yr.size)
+        out = (datessubset, periodgroups)
+    else:
+        out = datessubset
     #%%
-    return datessubset
+    return out
 
 #%%
 def ensmean(outfile, weights=list, name=None, *args):

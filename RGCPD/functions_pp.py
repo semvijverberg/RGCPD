@@ -294,13 +294,13 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=False, RV_anomaly=False,
                verbosity=1):
     #%%
+    # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1
 
     if RV_detrend: # do detrending on all timesteps
         fullts = core_pp.detrend_lin_longterm(fullts)
     if RV_anomaly: # do anomaly on complete timeseries (rolling mean applied!)
         fullts = anom1D(fullts)
 
-    name = fullts.name
     dates = pd.to_datetime(fullts.time.values)
     startyear = dates.year[0]
     endyear = dates.year[-1]
@@ -326,11 +326,13 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
             same_freq = True
         elif timestep_days == 365 or timestep_days == 366:
             input_freq = 'annual' # temporary to work with lag as int
-            fullts, dates, startendTVdate = extend_annual_ts(fullts,
-                                            tfreq=1,
-                                            start_end_TVdate=start_end_TVdate,
-                                            start_end_date=start_end_date)
-            same_freq = False
+            if verbosity == 1:
+                print('Detected timeseries with annual mean values')
+            # fullts, dates, startendTVdate = extend_annual_ts(fullts,
+            #                                 tfreq=1,
+            #                                 start_end_TVdate=start_end_TVdate,
+            #                                 start_end_date=start_end_date)
+            same_freq = None
 
         # Going to make timemeanbins (multiple datapoints per year)
         if same_freq == False:
@@ -350,33 +352,19 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
         ###!!! still need to code taking mean over string of months
         # if tfreq is '123', target will become Jan Feb Mar mean.
 
-
-    if timestep_days == 365 or timestep_days == 366 and type(tfreq) == str:
-        input_freq = 'annual'
-        same_freq = None # don't want to take n-day means
-        if verbosity == 1:
-            print('Detected timeseries with annual mean values')
-        start_end_TVdate = ('01-01','12-31')
-        dates = pd.to_datetime(fullts.time.values)
-
-
-
-
-
-    if input_freq == 'daily' or input_freq == 'annual':
-        dates_RV = core_pp.get_subdates(pd.to_datetime(fullts.time.values), start_end_TVdate,
-                                  start_end_year)
-    elif input_freq == 'monthly':
-        dates_RV = TVmonthrange(fullts, start_end_TVdate)
-
-
-    # get indices of RVdates
-    string_RV = list(dates_RV.strftime('%Y-%m-%d'))
-    string_full = list(pd.to_datetime(fullts.time.values).strftime('%Y-%m-%d'))
-    RV_period = [string_full.index(date) for date in string_full if date in string_RV]
-
-    fullts.name = name
-    TV_ts = fullts[RV_period] # extract specific months of MT index
+    if input_freq == 'annual':
+        TV_ts = fullts
+    else:
+        if input_freq == 'daily':
+            dates_RV = core_pp.get_subdates(pd.to_datetime(fullts.time.values), start_end_TVdate,
+                                      start_end_year)
+        elif input_freq == 'monthly':
+            dates_RV = TVmonthrange(fullts, start_end_TVdate)
+        # get indices of RVdates
+        string_RV = list(dates_RV.strftime('%Y-%m-%d'))
+        string_full = list(pd.to_datetime(fullts.time.values).strftime('%Y-%m-%d'))
+        RV_period = [string_full.index(date) for date in string_full if date in string_RV]
+        TV_ts = fullts[RV_period]
 
     return fullts, TV_ts, input_freq, start_end_TVdate
 
@@ -855,6 +843,65 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
     #%%
     return out
 
+def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
+                      start_end_year: tuple=None):
+
+    if np.array(start_end_periods).shape == (2,):
+        start_end_periods = np.array([start_end_periods])
+
+    types = [type(xr.Dataset()), type(xr.DataArray([0])), type(pd.DataFrame([0]))]
+
+    assert (type(xr_or_df) in types), ('{} given, should be in {}'.format(type(xr_or_df), types) )
+
+    if type(xr_or_df) == types[-1]:
+        return_df = True
+        xr_init = xr_or_df.to_xarray().to_array()
+        if len(xr_init.shape) > 2:
+            dims = xr_init.dims.items()
+            i_time = np.argmax([ z[1] for z in dims])
+            old_name = [ z[0] for z in dims][i_time]
+        else:
+            old_name = 'index'
+        xarray = xr_init.rename({old_name : 'time'})
+    else:
+        return_df = False
+        xarray = xr_or_df
+
+    date_time = pd.to_datetime(xarray['time'].values)
+    xrgr = np.zeros(start_end_periods.shape[0], dtype=object)
+    for i,p in enumerate(start_end_periods):
+        dperiod, groups = core_pp.get_subdates(date_time, p,
+                                   start_end_year=start_end_year,
+                                   lpyr=False,
+                                   returngroups=True)
+        xrgr[i] = xarray.sel(time=dperiod).groupby(
+                                            xr.DataArray(groups,
+                                                         coords={'time':dperiod},
+                                                         dims=['time'],
+                                                         name='time'),
+                                            restore_coord_dims=False).mean(dim='time')
+    xrgr = [x.expand_dims('lag', axis=1) for x in xrgr]
+    xarray = xr.concat(xrgr, dim='lag')
+    xarray['lag'] = ('lag', np.arange(start_end_periods.shape[0]))
+
+
+    if return_df:
+        if len(xr_init.shape) == 3:
+            iterables = [xarray.level_0.values, date_time]
+            index = pd.MultiIndex.from_product(iterables,
+                                              names=['split', 'time'])
+            xr_index = xarray.stack(index=['level_0', 'time'])
+            return_obj = pd.DataFrame(xr_index.values.T,
+                                      index=index,
+                                      columns=list(xr_init.coords['variable'].values))
+        elif len(xr_init.shape) == 2:
+            return_obj = pd.DataFrame(xarray.values.T,
+                                      index=date_time,
+                                      columns=list(xr_init.coords['variable'].values))
+            return_obj = return_obj.astype(xr_or_df.dtypes)
+    elif return_df == False:
+        return_obj = xarray
+    return return_obj
 
 #def make_dates(datetime, start_yr, endyear):
 #    '''

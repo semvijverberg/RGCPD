@@ -49,13 +49,13 @@ logitCV = ('logitCV',
 ERA_data = data_dir + '/CPPA_ERA5_14-05-20_08hr_lag_0_c378f.h5'
 
 
-kwrgs_events = {'event_percentile': 66}
+kwrgs_events = {'event_percentile': 85}
 
 kwrgs_events = kwrgs_events
-precur_aggr = 1
+precur_aggr = 15
 add_autocorr = False
 use_fold = None
-n_boot = 2000
+n_boot = 5
 lags_i = np.array([0, 10, 15, 20, 25, 30])
 start_end_TVdate = None # ('7-04', '8-22')
 
@@ -66,33 +66,36 @@ list_of_fc = [fcev(path_data=ERA_data, precur_aggr=precur_aggr,
                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
                     dataset=f'CPPA vs PEP',
                     keys_d='PEP',
-                    n_cpu=n_cpu),
-                fcev(path_data=ERA_data, precur_aggr=precur_aggr,
-                      use_fold=use_fold, start_end_TVdate=None,
-                      stat_model=logitCV,
-                      kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
-                      dataset=f'CPPA vs PEP',
-                      keys_d='CPPA',
-                      n_cpu=n_cpu),
-               fcev(path_data=ERA_data, precur_aggr=precur_aggr,
-                     use_fold=use_fold, start_end_TVdate=None,
-                     stat_model=logitCV,
-                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
-                     dataset=f'CPPA vs PDO+ENSO',
-                     keys_d='PDO+ENSO',
-                     n_cpu=n_cpu),
-               fcev(path_data=ERA_data, precur_aggr=precur_aggr,
-                     use_fold=use_fold, start_end_TVdate=None,
-                     stat_model=logitCV,
-                     kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
-                     dataset=f'CPPA vs PDO+ENSO',
-                     keys_d='CPPA',
                     n_cpu=n_cpu)]
+               #  fcev(path_data=ERA_data, precur_aggr=precur_aggr,
+               #        use_fold=use_fold, start_end_TVdate=None,
+               #        stat_model=logitCV,
+               #        kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
+               #        dataset=f'CPPA vs PEP',
+               #        keys_d='CPPA',
+               #        n_cpu=n_cpu),
+               # fcev(path_data=ERA_data, precur_aggr=precur_aggr,
+               #       use_fold=use_fold, start_end_TVdate=None,
+               #       stat_model=logitCV,
+               #       kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
+               #       dataset=f'CPPA vs PDO+ENSO',
+               #       keys_d='PDO+ENSO',
+               #       n_cpu=n_cpu),
+               # fcev(path_data=ERA_data, precur_aggr=precur_aggr,
+               #       use_fold=use_fold, start_end_TVdate=None,
+               #       stat_model=logitCV,
+               #       kwrgs_pp={'add_autocorr':add_autocorr, 'normalize':'datesRV'},
+               #       dataset=f'CPPA vs PDO+ENSO',
+               #       keys_d='CPPA',
+               #      n_cpu=n_cpu)]
 
 
 
 
 fc = list_of_fc[0]
+#%%
+
+
 #%%
 for i, fc in enumerate(list_of_fc):
 

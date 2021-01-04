@@ -35,7 +35,7 @@ import plot_maps, core_pp, df_ana
 
 TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
 
-west_east = 'east'
+west_east = 'west'
 if west_east == 'east':
     path_out_main = os.path.join(main_dir, 'publications/paper2/output/east/')
     cluster_label = 2
@@ -49,7 +49,7 @@ start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
 method='ran_strat10' ; seed = 1
 tfreq = 15
-min_detect_gc=1.
+min_detect_gc=.9
 
 # z500_green_bb = (140,260,20,73) #: Pacific box
 if west_east == 'east':
@@ -112,7 +112,7 @@ matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
 
 
-title = f'$corr(z500, {west_east.capitalize()[0]}$-$T)$'
+title = f'$corr(z500_t, T^{west_east.capitalize()[0]}_t)$'
 subtitles = np.array([['']] )
 kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
               'hspace':0.0, 'cbar_vert':-.08, 'units':'Corr. Coeff. [-]',
@@ -128,11 +128,12 @@ rg.plot_maps_corr(var='z500', save=save,
 #%% Plot corr(v300, mx2t)
 
 
-kwrgs_plot['title'] = f'$corr(v300, {west_east.capitalize()[0]}$-$T)$'
+kwrgs_plot['title'] = f'$corr(v300_t, T^{west_east.capitalize()[0]}_t)$'
 kwrgs_plot['drawbox'] = [(0,0), v300_green_bb]
 rg.plot_maps_corr(var='v300', save=save,
                   kwrgs_plot=kwrgs_plot,
                   min_detect_gc=min_detect_gc)
+
 
 #%% Determine Rossby wave within green rectangle, become target variable for feedback
 
@@ -152,7 +153,7 @@ rg.plot_maps_corr(var='v300', save=save,
 # rg.get_ts_prec(precur_aggr=1)
 # rg.store_df(append_str='z500_'+'-'.join(map(str, z500_green_bb)))
 
-#%% SST vs mx2tm
+#%% SST vs T
 list_of_name_path = [(cluster_label, TVpath),
                      ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
@@ -180,7 +181,7 @@ rg.pp_precursors()
 rg.calc_corr_maps()
 
 
-#%% Plot corr(SST, mx2t)
+#%% Plot corr(SST, T)
 import matplotlib
 # Optionally set font to Computer Modern to avoid common missing font errors
 matplotlib.rc('font', family='serif', serif='cm10')
@@ -191,7 +192,7 @@ matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 save=True
 SST_green_bb = (140,235,20,59)#(170,255,11,60)
 # subtitles = np.array([[f'lag {l}: SST vs E-U.S. mx2t' for l in rg.lags]])
-title = f'$corr(SST, {west_east.capitalize()[0]}$-$T)$'
+title = r'$corr(SST_{t-lag},$'+f'$T^{west_east.capitalize()[0]}_t)$'
 subtitles = np.array([['lag 0', f'lag 2 (15-day gap)']] )
 kwrgs_plot = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
               'wspace':-.15, 'size':3, 'cbar_vert':-.08,
@@ -203,98 +204,3 @@ rg.plot_maps_corr(var='sst', save=save,
                   min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot)
 
-# #%% RW vs SST feedback, SST based on SST vs mx2t # Deprecicated.
-# should re-establish direct relationship between RW and SST,
-# see feedback_wave_SST.py
-
-
-# freqs = [1, 5, 15, 30, 60]
-# for f in freqs:
-#     rg.get_ts_prec(precur_aggr=f)
-#     rg.df_data = rg.df_data.rename({'0..0..z500_sp':'Rossby wave (z500)',
-#                                '0..0..sst_sp':'Pacific SST',
-#                                '15..0..sst_sp':'Pacific SST (lag 15)',
-#                                '0..0..v300_sp':'Rossby wave (v300)'}, axis=1)
-
-#     keys = [['Rossby wave (z500)', 'Pacific SST'], ['Rossby wave (v300)', 'Pacific SST']]
-#     k = keys[0]
-#     name_k = ''.join(k[:2]).replace(' ','')
-#     k.append('TrainIsTrue') ; k.append('RV_mask')
-
-#     rg.PCMCI_df_data(keys=k,
-#                      pc_alpha=None,
-#                      tau_max=5,
-#                      max_conds_dim=10,
-#                      max_combinations=10)
-#     rg.PCMCI_get_links(var=k[0], alpha_level=.01)
-
-#     rg.PCMCI_plot_graph(min_link_robustness=5, figshape=(3,2),
-#                         kwrgs={'vmax_nodes':1.0,
-#                                'vmax_edges':.6,
-#                                'vmin_edges':-.6,
-#                                'node_ticks':.3,
-#                                'edge_ticks':.3,
-#                                'curved_radius':.5,
-#                                'arrowhead_size':1000,
-#                                'label_fontsize':10,
-#                                'link_label_fontsize':12,
-#                                'node_label_size':16},
-#                         append_figpath=f'_tf{rg.precur_aggr}_{name_k}')
-
-#     rg.PCMCI_get_links(var=k[1], alpha_level=.01)
-#     rg.df_links.astype(int).sum(0, level=1)
-#     MCI_ALL = rg.df_MCIc.mean(0, level=1)
-
-
-
-
-
-
-
-#%%
-# #%% Determine Rossby wave within green rectangle, become target variable for HM
-
-# list_of_name_path = [(cluster_label, TVpath),
-#                      ('z500',os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
-#                      ('v300', os.path.join(path_raw, 'v300hpa_1979-2018_1_12_daily_2.5deg.nc'))]
-
-# list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
-#                              alpha=.05, FDR_control=True,
-#                              distance_eps=500, min_area_in_degrees2=1,
-#                              calc_ts='pattern cov', selbox=z500_green_bb),
-#                  BivariateMI(name='v300', func=class_BivariateMI.corr_map,
-#                              alpha=.05, FDR_control=True,
-#                              distance_eps=500, min_area_in_degrees2=1,
-#                              calc_ts='pattern cov', selbox=v300_green_bb)]
-
-# rg = RGCPD(list_of_name_path=list_of_name_path,
-#            list_for_MI=list_for_MI,
-#            start_end_TVdate=start_end_TVdate,
-#            start_end_date=start_end_date,
-#            tfreq=tfreq, lags_i=np.array([0]),
-#            path_outmain=path_out_main,
-#            append_pathsub='_' + name_ds)
-
-
-# rg.pp_precursors(anomaly=True)
-# rg.pp_TV(name_ds=name_ds)
-
-# rg.traintest(method='no_train_test_split')
-
-# rg.calc_corr_maps()
-# subtitles = np.array([['E-U.S. Temp. correlation map Z 500hpa green box']])
-# rg.plot_maps_corr(var='z500', cbar_vert=-.05, subtitles=subtitles, save=False)
-# subtitles = np.array([['E-U.S. Temp. correlation map v300 green box']])
-# rg.plot_maps_corr(var='v300', cbar_vert=-.05, subtitles=subtitles, save=False)
-# rg.cluster_list_MI()
-# # rg.get_ts_prec(precur_aggr=None)
-# rg.get_ts_prec(precur_aggr=1)
-# rg.store_df(append_str='z500_'+'-'.join(map(str, z500_green_bb)))
-
-
-# #%% interannual variability events?
-# import class_RV
-# RV_ts = rg.fulltso.sel(time=rg.TV.aggr_to_daily_dates(rg.dates_TV))
-# threshold = class_RV.Ev_threshold(RV_ts, event_percentile=85)
-# RV_bin, np_dur = class_RV.Ev_timeseries(RV_ts, threshold=threshold, grouped=True)
-# plt.hist(np_dur[np_dur!=0])

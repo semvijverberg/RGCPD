@@ -40,7 +40,7 @@ logit = ('logit', None)
 
 
 
-def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
+def logit_skl(y_ts, df_norm, keys=None, kwrgs_model=None):
 
     #%%
     '''
@@ -57,18 +57,18 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
     warnings.filterwarnings("ignore", category=DeprecationWarning)
 #    warnings.filterwarnings("ignore", category=FutureWarning)
 
-    if kwrgs_logit == None:
+    if kwrgs_model == None:
         # use Bram settings
-        kwrgs_logit = { 'class_weight':{ 0:1, 1:1},
+        kwrgs_model = { 'class_weight':{ 0:1, 1:1},
                 'scoring':'neg_brier_score',
                 'penalty':'l2',
                 'solver':'lbfgs'}
 
 
     # find parameters for gridsearch optimization
-    kwrgs_gridsearch = {k:i for k, i in kwrgs_logit.items() if type(i) == list}
+    kwrgs_gridsearch = {k:i for k, i in kwrgs_model.items() if type(i) == list}
     # only the constant parameters are kept
-    kwrgs = kwrgs_logit.copy()
+    kwrgs = kwrgs_model.copy()
     [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
     if 'feat_sel' in kwrgs:
         feat_sel = kwrgs.pop('feat_sel')

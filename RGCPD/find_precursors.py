@@ -64,6 +64,12 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
     # Precursor field
     #===========================================
     precur.precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
+
+    if type(precur.lags[0]) == np.ndarray:
+        start_end_year=(TV.dates_RV[0].year, TV.dates_RV[-1].year)
+        tmp = functions_pp.time_mean_periods
+        precur.precur_arr = tmp(precur.precur_arr, precur.lags,
+                                start_end_year)
     # =============================================================================
     # Load external timeseries for partial_corr_z
     # =============================================================================

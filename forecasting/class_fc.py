@@ -560,8 +560,10 @@ class fcev():
         new_RVmask.loc[dates_RV] = True
         self.df_data['RV_mask'] = pd.concat([new_RVmask] * self.splits.size,
                                             keys=self.splits)
-    def _get_start_end_TVdate(self):
-        RV_mask_orig   = self.df_data['RV_mask'].loc[0].copy()
+    def _get_start_end_TVdate(self, df_data:pd.DataFrame=None):
+        if df_data is None:
+            df_data = self.df_data.copy()
+        RV_mask_orig   = df_data['RV_mask'].loc[0].copy()
         dates_RV = RV_mask_orig[RV_mask_orig].index
         return (f'{dates_RV[0].month}-{dates_RV[0].day}',
                                  f'{dates_RV[-1].month}-{dates_RV[-1].day}')
@@ -931,7 +933,7 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
         df_prec, dates_tobin_p = _daily_to_aggr(df_prec.loc[dates_bin_shift], precur_aggr)
         fit_masks = df_prec[df_prec.columns[df_prec.dtypes==bool]]
         # check y_fit mask
-        fit_masks = util._check_y_fitm(fit_masks, lag_i, base_lag)
+        fit_masks = util._check_y_fitmask(fit_masks, lag_i, base_lag)
         lag_v = (last_centerdate - df_prec[df_prec['x_fit']].index[-1]).days
         if tfreq_TV == precur_aggr:
             assert lag_v == lag_i+base_lag, (
@@ -1021,14 +1023,14 @@ def _daily_to_aggr(df_data, daily_to_aggr=int):
         for s in splits:
             df_data_s[s], dates_tobin = functions_pp.time_mean_bins(
                                                         df_data.loc[s],
-                                                        to_freq=daily_to_aggr,
+                                                        tfreq=daily_to_aggr,
                                                         start_end_date=None,
                                                         start_end_year=None,
                                                         verbosity=0)
         df_data_resample  = pd.concat(list(df_data_s), keys= range(splits.size))
     else:
         df_data_resample, dates_tobin = functions_pp.time_mean_bins(df_data,
-                                                       to_freq=daily_to_aggr,
+                                                       tfreq=daily_to_aggr,
                                                        start_end_date=None,
                                                        start_end_year=None,
                                                        verbosity=0)

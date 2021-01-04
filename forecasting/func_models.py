@@ -260,26 +260,41 @@ class ErrorSkillScore:
 
         # return metrics.mean_squared_error(y_true, y_pred, squared=root
     def RMSE(self, y_true, y_pred):
-        fc_score = metrics.mean_squared_error(y_true, y_pred,
+        self.RMSE_score = metrics.mean_squared_error(y_true, y_pred,
                                               squared=self.squared)
         if self.benchmark is False:
-            return fc_score
+            return self.RMSE_score
         elif type(self.benchmark) in [float, int]:
-            b_ = np.zeros_like(y_true) ; b_[:] = self.benchmark
-            bench = metrics.mean_squared_error(y_true,
+            b_ = np.zeros(y_true.size) ; b_[:] = self.benchmark
+            self.RMSE_bench = metrics.mean_squared_error(y_true,
                                                b_,
                                                squared=self.squared)
-            return (bench - fc_score) / bench
+            return (self.RMSE_bench - self.RMSE_score) / self.RMSE_bench
 
     def MAE(self, y_true, y_pred):
         fc_score = metrics.mean_absolute_error(y_true, y_pred)
         if self.benchmark is False:
             return fc_score
         elif type(self.benchmark) in [float, int]:
-            b_ = np.zeros_like(y_true) ; b_[:] = self.benchmark
-            bench = metrics.mean_absolute_error(y_true, b_)
+            b_ = np.zeros(y_true.size) ; b_[:] = self.benchmark
+            self.MAE_bench = metrics.mean_absolute_error(y_true, b_)
 
-            return (bench - fc_score) / bench
+            return (self.MAE_bench - fc_score) / self.MAE_bench
+
+    def BSS(self, y_true, y_pred):
+        self.brier_score = metrics.brier_score_loss(y_true, y_pred)
+        if self.benchmark is False:
+            return self.brier_score
+        elif type(self.benchmark) in [float, int]:
+            b_ = np.zeros(y_true.size) ; b_[:] = self.benchmark
+            self.BS_bench = metrics.brier_score_loss(y_true, b_)
+            return (self.BS_bench - self.brier_score) / self.BS_bench
+
+    def AUC_SS(self, y_true, y_pred):
+        # from http://bibliotheek.knmi.nl/knmipubIR/IR2018-01.pdf eq. 1
+        self.auc_score = metrics.roc_auc_score(y_true, y_pred)
+        auc_bench = .5
+        return (self.auc_score - auc_bench) / (1-auc_bench)
 
 class CRPSS_vs_constant_bench:
     def __init__(self, constant_bench: float=False, return_mean=True,
@@ -329,6 +344,7 @@ class CRPSS_vs_constant_bench:
 
 
 def get_scores(prediction, df_splits, score_func_list: list=None,
+               score_per_test=True,
                n_boot: int=1, blocksize: int=14, rng_seed=1):
     #%%
     pred = prediction.merge(df_splits,
@@ -354,7 +370,10 @@ def get_scores(prediction, df_splits, score_func_list: list=None,
             for f in score_func_list:
                 name = f.__name__
                 train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].loc[:,col])
-                test_score = f(sp[testRV].iloc[:,0], sp[testRV].loc[:,col])
+                if score_per_test:
+                    test_score = f(sp[testRV].iloc[:,0], sp[testRV].loc[:,col])
+                else:
+                    test_score = np.nan
 
                 df_train.loc[s,name] = train_score
                 df_test_s.loc[s,name] = test_score

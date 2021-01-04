@@ -151,7 +151,7 @@ class BivariateMI:
         n_lags = len(self.lags)
         lags = self.lags
         targetstepsoneyr = functions_pp.get_oneyr(RV.RV_ts)
-        if type(self.lags[0]) == np.str_ and targetstepsoneyr.size>1:
+        if type(self.lags[0]) == np.ndarray and targetstepsoneyr.size>1:
             raise ValueError('Precursor and Target do not align.\n'
                              'One aggregated value taken for months '
                              f'{self.lags[0]}, while target timeseries has '
@@ -161,18 +161,19 @@ class BivariateMI:
         dates = dates[~dates.is_leap_year]
         oneyr = functions_pp.get_oneyr(dates)
         if oneyr.size == 1: # single val per year precursor, lag str or ==0.
-            self.tfreq = 365
+            self._tfreq = 365
         else:
-            self.tfreq = (oneyr[1] - oneyr[0]).days
+            self._tfreq = (oneyr[1] - oneyr[0]).days
 
         n_spl = df_splits.index.levels[0].size
         # make new xarray to store results
         xrcorr = precur_arr.isel(time=0).drop('time').copy()
         orig_mask = np.isnan(precur_arr[0])
-        # add lags
-        list_xr = [xrcorr.expand_dims('lag', axis=0) for i in range(n_lags)]
-        xrcorr = xr.concat(list_xr, dim = 'lag')
-        xrcorr['lag'] = ('lag', lags)
+        if 'lag' not in xrcorr.dims:
+            # add lags
+            list_xr = [xrcorr.expand_dims('lag', axis=0) for i in range(n_lags)]
+            xrcorr = xr.concat(list_xr, dim = 'lag')
+            xrcorr['lag'] = ('lag', lags)
         # add train test split
         list_xr = [xrcorr.expand_dims('split', axis=0) for i in range(n_spl)]
         xrcorr = xr.concat(list_xr, dim = 'split')
@@ -192,19 +193,19 @@ class BivariateMI:
             dates_RV = RV_ts.index
             for i, lag in enumerate(lags):
                 if type(lag) == np.int64 and self.lag_as_gap==False:
-                    dates_lag = functions_pp.func_dates_min_lag(dates_RV, self.tfreq*lag)[1]
+                    dates_lag = functions_pp.func_dates_min_lag(dates_RV, self._tfreq*lag)[1]
                     corr_val, pval = self.func(precur_train.sel(time=dates_lag),
                                                RV_ts.values.squeeze(),
                                                **self.kwrgs_func)
                 elif type(lag) == np.int64 and self.lag_as_gap==True:
                     # if only shift tfreq, then gap=0
-                    datesdaily = RV.aggr_to_daily_dates(dates_RV, tfreq=self.tfreq)
+                    datesdaily = RV.aggr_to_daily_dates(dates_RV, tfreq=self._tfreq)
                     dates_lag = functions_pp.func_dates_min_lag(datesdaily,
-                                                                self.tfreq+lag)[1]
+                                                                self._tfreq+lag)[1]
 
                     tmb = functions_pp.time_mean_bins
                     corr_val, pval = self.func(tmb(precur_train.sel(time=dates_lag),
-                                                           to_freq=self.tfreq)[0],
+                                                           to_freq=self._tfreq)[0],
                                                RV_ts.values.squeeze(),
                                                **self.kwrgs_func)
 
@@ -216,6 +217,10 @@ class BivariateMI:
                     precur_lag = precur_train.groupby('time.year',
                                                 restore_coord_dims=True).mean()
                     corr_val, pval = self.func(precur_lag,
+                                               RV_ts.values.squeeze(),
+                                               **self.kwrgs_func)
+                elif type(lag) == np.ndarray:
+                    corr_val, pval = self.func(precur_train.sel(lag=i),
                                                RV_ts.values.squeeze(),
                                                **self.kwrgs_func)
 
@@ -248,16 +253,16 @@ class BivariateMI:
             # =============================================================================
             RV_train_mask = np.logical_and(RV_mask, df_splits.loc[s]['TrainIsTrue'])
             RV_ts = RV.fullts[RV_train_mask.values]
-            TrainIsTrue = df_splits.loc[s]['TrainIsTrue']
+            TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values
             if type(self.lags[0]) == np.str_: # adapt df_splits to daily precur_arr
                 # convert annual to daily
-                TrainIsTrue = np.repeat(TrainIsTrue.values,
+                TrainIsTrue = np.repeat(TrainIsTrue,
                                         functions_pp.get_oneyr(precur_arr).size)
             if self.lag_as_gap:
                 precur_train = precur_arr.sel(time=functions_pp.get_oneyr(precur_arr,
-                                              *np.unique(TrainIsTrue.index.year)))
+                                              *np.unique(df_splits.loc[s].index.year)))
             else:
-                precur_train = precur_arr[TrainIsTrue.values]
+                precur_train = precur_arr[TrainIsTrue]
 
         #        dates_RV  = pd.to_datetime(RV_ts.time.values)
             dates_RV = RV_ts.index
