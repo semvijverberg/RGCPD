@@ -33,10 +33,10 @@ else:
 
 path_outmain = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/clustering'
 
-import plot_maps; import core_pp
+import plot_maps, core_pp, functions_pp
 import clustering_spatial as cl
-# In[2]:
 
+#%% Soy bean GDHY
 
 raw_filename = os.path.join(root_data, 'soybean_us_sem.nc')
 
@@ -161,3 +161,40 @@ ds = cl.spatial_mean_clusters(var_filename,
 f_name = 'q{}_nc{}'.format(int(ds['ts'].q), int(ds['n_clusters'].n_clusters))
 filepath = os.path.join(path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
+
+#%% Soy bean USDA
+
+raw_filename = os.path.join('/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/usda_soy.nc')
+
+ds = core_pp.import_ds_lazy(raw_filename)['variable'].rename({'z':'time'})
+ds.name = 'Soy_Yield'
+
+ds['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds.time.values])
+ds.attrs['dataset'] = 'USDA'
+ds.attrs['planting_months'] = 'May/June'
+ds.attrs['harvest_months'] = 'October'
+
+ts = functions_pp.area_weighted(ds).mean(dim=('latitude', 'longitude'))
+cl.store_netcdf(ts, filepath=
+                os.path.join('/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/usda_soy_spatial_mean_ts.nc'))
+#%% Maize yield USDA
+
+raw_filename = os.path.join('/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/usda_maize.nc')
+
+ds = core_pp.import_ds_lazy(raw_filename)['variable'].rename({'z':'time'})
+ds.name = 'Maize_Yield'
+
+ds['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds.time.values])
+ds.attrs['dataset'] = 'USDA'
+ds.attrs['planting_months'] = 'May/June'
+ds.attrs['harvest_months'] = 'October'
+
+ts = functions_pp.area_weighted(ds).mean(dim=('latitude', 'longitude'))
+cl.store_netcdf(ts, filepath=
+                os.path.join('/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/usda_maize_spatial_mean_ts.nc'))
+
+#%%
+ano = ds - ds.mean(dim='time')
+plot_maps.plot_corr_maps(ano.isel(time=range(0,40,5)), row_dim='time', cbar_vert=.09)
+
+

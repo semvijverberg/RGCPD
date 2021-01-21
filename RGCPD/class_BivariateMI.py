@@ -131,15 +131,10 @@ class BivariateMI:
 
     def bivariateMI_map(self, precur_arr, df_splits, RV): #
         #%%
-        #    v = ncdf ; V = array ; RV.RV_ts = ts of RV, time_range_all = index range of whole ts
+        # precur_arr = self.precur_arr ; df_splits = rg.df_splits ; RV = rg.TV
         """
         This function calculates the correlation maps for precur_arr for different lags.
         Field significance is applied to test for correltion.
-        This function uses the following variables (in the ex dictionary)
-        prec_arr: array
-        time_range_all: a list containing the start and the end index, e.g. [0, time_cycle*n_years]
-        lag_steps: number of lags
-        time_cycle: time cycyle of dataset, =12 for monthly data...
         RV_period: indices that matches the response variable time series
         alpha: significance level
 
@@ -178,10 +173,9 @@ class BivariateMI:
         list_xr = [xrcorr.expand_dims('split', axis=0) for i in range(n_spl)]
         xrcorr = xr.concat(list_xr, dim = 'split')
         xrcorr['split'] = ('split', range(n_spl))
+        xrpvals = xrcorr.copy()
 
-        print('\n{} - calculating correlation maps'.format(precur_arr.name))
-        np_data = np.zeros_like(xrcorr.values)
-        np_mask = np.zeros_like(xrcorr.values)
+
         def MI_single_split(RV_ts, precur_train, alpha=.05, FDR_control=True):
 
             lat = precur_train.latitude.values
@@ -189,6 +183,7 @@ class BivariateMI:
 
             z = np.zeros((lat.size*lon.size,len(lags) ) )
             Corr_Coeff = np.ma.array(z, mask=z)
+            pvals = np.ones((lat.size*lon.size,len(lags) ) )
 
             dates_RV = RV_ts.index
             for i, lag in enumerate(lags):
@@ -232,10 +227,11 @@ class BivariateMI:
                     # FDR control:
                     adjusted_pvalues = multicomp.multipletests(pval, method='fdr_bh')
                     ad_p = adjusted_pvalues[1]
-
+                    pvals[:,i] = ad_p
                     mask[ad_p <= alpha] = False
 
                 else:
+                    pvals[:,i] = pval
                     mask[pval <= alpha] = False
 
                 Corr_Coeff[:,i] = corr_val[:]
@@ -243,8 +239,13 @@ class BivariateMI:
 
             Corr_Coeff = np.ma.array(data = Corr_Coeff[:,:], mask = Corr_Coeff.mask[:,:])
             Corr_Coeff = Corr_Coeff.reshape(lat.size,lon.size,len(lags)).swapaxes(2,1).swapaxes(1,0)
-            return Corr_Coeff
+            pvals = pvals.reshape(lat.size,lon.size,len(lags)).swapaxes(2,1).swapaxes(1,0)
+            return Corr_Coeff, pvals
 
+        print('\n{} - calculating correlation maps'.format(precur_arr.name))
+        np_data = np.zeros_like(xrcorr.values)
+        np_mask = np.zeros_like(xrcorr.values)
+        np_pvals = np.zeros_like(xrcorr.values)
         RV_mask = df_splits.loc[0]['RV_mask']
         for s in xrcorr.split.values:
             progress = int(100 * (s+1) / n_spl)
@@ -264,24 +265,28 @@ class BivariateMI:
             else:
                 precur_train = precur_arr[TrainIsTrue]
 
-        #        dates_RV  = pd.to_datetime(RV_ts.time.values)
             dates_RV = RV_ts.index
             n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
             print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
 
-            ma_data = MI_single_split(RV_ts, precur_train.copy(), self.alpha,
+            ma_data, pvals = MI_single_split(RV_ts, precur_train.copy(), self.alpha,
                                       self.FDR_control)
             np_data[s] = ma_data.data
             np_mask[s] = ma_data.mask
+            np_pvals[s]= pvals
         print("\n")
         xrcorr.values = np_data
+        xrpvals.values = np_pvals
         mask = (('split', 'lag', 'latitude', 'longitude'), np_mask )
         xrcorr.coords['mask'] = mask
         # fill nans with mask = True
-        xrcorr['mask'] = xrcorr['mask'].where(orig_mask==False, other=orig_mask)
+        xrcorr['mask'] = xrcorr['mask'].where(orig_mask==False, other=orig_mask).drop('time')
         #%%
-        return xrcorr
+        return xrcorr, xrpvals
 
+    def adjust_significance_threshold(self, alpha):
+        self.alpha = alpha
+        self.corr_xr.mask.values = (self.pval_xr > self.alpha).values
 
     def get_prec_ts(self, precur_aggr=None, kwrgs_load=None): #, outdic_precur #TODO
         # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
@@ -308,19 +313,72 @@ class BivariateMI:
                 n_tot_regs += max([self.ts_corr[s].shape[1] for s in range(splits.size)])
         return
 
+    def store_netcdf(self, filename=str):
+        if hasattr(self, 'corr_xr') == False:
+            print('No MI map calculated')
+        else:
+
+            if hasattr('prec_labels'):
+                ds = xr.Dataset({'corr_xr':self.corr_xr,
+                                 'prec_labels':self.prec_labels})
+            else:
+                ds = xr.Dataset({'corr_xr':self.corr_xr})
+            ds = ds.where(ds.values != 0.).fillna(-9999)
+            encoding = ( {ds.name : {'_FillValue': -9999}} )
+            mask =  (('latitude', 'longitude'), (ds.values[0] != -9999) )
+            ds.coords['mask'] = mask
+            ds.to_netcdf(filename, mode='w', encoding=encoding)
+
+
+def check_NaNs(field, ts):
+    '''
+    Return shortened timeseries of both field and ts if a few NaNs are detected
+    at boundary due to large lag. At boundary time-axis, large negative lags
+    often result in NaNs due to missing data.
+    Removing timesteps from timeseries if
+    1. Entire field is filled with NaNs
+    2. Number of timesteps are less than a single year
+       of datapoints.
+    '''
+    t = functions_pp.get_oneyr(field).size # threshold NaNs allowed.
+    field = np.reshape(field.values, (field.shape[0],-1))
+    # for i in range(t):
+    i = 0 ; # check NaNs in first year
+    if bool(np.isnan(field[i]).all()):
+        i+=1
+        while bool(np.isnan(field[i]).all()):
+            i+=1
+            if i > t:
+                raise ValueError('More NaNs detected then # of datapoints in '
+                                 'single year')
+    j = -1 ; # check NaNs in first year
+    if bool(np.isnan(field[j]).all()):
+        j-=1
+        while bool(np.isnan(field[j]).all()):
+            j-=1
+            if j < t:
+                raise ValueError('More NaNs detected then # of datapoints in '
+                                 'single year')
+    else:
+        j = field.shape[0]
+    return field[i:j], ts[i:j]
+
 
 def corr_map(field, ts):
     """
     This function calculates the correlation coefficent r and
     the pvalue p for each grid-point of field vs response-variable ts
+    If more then a single year of NaNs is detected, a NaN will
+    be returned, otherwise corr is calculated over non-NaN values.
 
     """
-    field = np.reshape(field.values, (field.shape[0],-1))
+    # if more then one year is filled with NaNs -> no corr value calculated.
+    field, ts = check_NaNs(field, ts)
     x = np.ma.zeros(field.shape[1])
     corr_vals = np.array(x)
     pvals = np.array(x)
-    fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
 
+    fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
     nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
 
     for i in nonans_gc:
@@ -332,10 +390,14 @@ def corr_map(field, ts):
     return corr_vals, pvals
 
 def parcorr_map_time(field, ts, lag=1, target=True, precursor=True):
+
+    # if more then one year is filled with NaNs -> no corr value calculated.
+    field, ts = check_NaNs(field, ts)
     field = np.reshape(field.values, (field.shape[0],-1))
     x = np.ma.zeros(field.shape[1])
     corr_vals = np.array(x)
     pvals = np.array(x)
+
     fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
     nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
     if target:
@@ -359,6 +421,8 @@ def parcorr_map_time(field, ts, lag=1, target=True, precursor=True):
     return corr_vals, pvals
 
 def parcorr_z(field, ts, z=pd.DataFrame):
+    # if more then one year is filled with NaNs -> no corr value calculated.
+    field, ts = check_NaNs(field, ts)
     dates = pd.to_datetime(field.time.values)
     field = np.reshape(field.values, (field.shape[0],-1))
     x = np.ma.zeros(field.shape[1])

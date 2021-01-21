@@ -553,12 +553,13 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
 
     '''
     method = ParCorr()
+
+    if type(z) is str:
+        z = [z]
     if keys is None:
         discard = ['TrainIsTrue', 'RV_mask'] + z
         keys = [k for k in df_data.columns if k not in discard]
 
-    if type(z) is str:
-        z = [z]
     npstore = np.zeros(shape=(len(keys),df_data.index.levels[0].size, df_data.index.levels[1].size))
     for i, orig in enumerate(keys):
         orig = keys[i]
@@ -593,68 +594,84 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
     else:
         out = (df_new)
     return out
-# def print_particular_region_new(links_RV, var_names, s, outdic_precur, map_proj, ex):
 
-#     #%%
-#     n_parents = len(links_RV)
+def df_data_Parcorr(df_data, z_keys=[str, list], keys: list=None, target: str=None,
+                    x_lag: int=0, z_lag: int=0):
+    '''
+    Wrapper function to test bivariate partial correlation between x and y
+    conditioning on z (parcorr(x,y,z)). Only univariate x or z supported.
 
-#     for i in range(n_parents):
-#         tigr_lag = links_RV[i][1] #-1 There was a minus, but is it really correct?
-#         index_in_fulldata = links_RV[i][0]
-#         print("\n\nunique_label_format: \n\'lag\'_\'regionlabel\'_\'var\'")
-#         if index_in_fulldata>0 and index_in_fulldata < len(var_names):
-#             uniq_label = var_names[index_in_fulldata][1]
-#             var_name = uniq_label.split('_')[-1]
-#             according_varname = uniq_label
-#             according_number = int(float(uniq_label.split('_')[1]))
-# #            according_var_idx = ex['vars'][0].index(var_name)
-#             corr_lag = int(uniq_label.split('_')[0])
-#             print('index in fulldata {}: region: {} at lag {}'.format(
-#                     index_in_fulldata, uniq_label, tigr_lag))
-#             # *********************************************************
-#             # print and save only significant regions
-#             # *********************************************************
-#             according_fullname = '{} at lag {} - ts_index_{}'.format(according_varname,
-#                                   tigr_lag, index_in_fulldata)
+    Parameters
+    ----------
+    df_data : TYPE
+        MultiIndex Dataframe (with index levels (splits, time) and columns
+        indicated precursors. DataFrame should contain TrainIsTrue and RV_mask
+        columns.
+    z : list or str
+        key(s) you want to iteratively condition on. The default is [str, list].
+    keys : list, optional
+        keys of which you want to iteratively test link with target.
+        The default will test all x_keysin df.
+    target : str, optional
+        target key (should be in df_data). The default is df_data's first column.
+    x_lag : int, optional
+        lag shift to apply to x keys. The default is 0.
+    z_lag : int, optional
+        lag shift to apply to z keys. The default is 0.
+
+    Returns
+    -------
+    vals : pd.DataFrame
+        corr. vals pd.DataFrame with index as keys and columns as splits.
+    pvals : pd.DataFrame
+        corr. vals pd.DataFrame with index as keys and columns as splits.
+
+    '''
+
+    if type(z_keys) is str:
+        z_keys = [z_keys]
+    if keys is None:
+        discard = ['TrainIsTrue', 'RV_mask'] + z_keys
+        keys = [k for k in df_data.columns if k not in discard]
+    if target is None:
+        target = df_data.columns[0]
+
+    splits = df_data.index.levels[0]
+    valnp = np.zeros(shape=(len(keys), len(z_keys)-1, splits.size))
+    pvalnp = np.zeros(shape=(len(keys), len(z_keys)-1, splits.size))
+    index = []
+    for ix, x_key in enumerate(keys):
+        subz_keys = [k for k in z_keys if k != x_key]
+        for iz, z in enumerate(subz_keys):
+            index.append((x_key, z))
 
 
+            # create X, Y, Z format
+            dfxyz = df_data[[target, x_key, z]]
+            dfxyz = df_data[[x_key, target, z] +['TrainIsTrue', 'RV_mask']]
+            pcmci_dict = init_pcmci(dfxyz, significance='analytic', mask_type='y',
+                                    selected_variables=None, verbosity=4)
 
-#             actor = outdic_precur[var_name]
-#             prec_labels = actor.prec_labels.sel(split=s)
+            for s in df_data.index.levels[0]:
+                pcmci = pcmci_dict[s]
 
-#             for_plt = prec_labels.where(prec_labels.values==according_number).sel(lag=corr_lag)
+                if x_key not in pcmci.var_names or z not in pcmci.var_names:
+                    val, pval = np.nan, np.nan
+                else:
+                    X, Y, Z = [(0, x_lag)],[(1, 0)], [(2, z_lag)]
 
-#             map_proj = map_proj
-#             plt.figure(figsize=(6, 4))
-#             ax = plt.axes(projection=map_proj)
-#             im = for_plt.plot.pcolormesh(ax=ax, cmap=plt.cm.BuPu,
-#                              transform=ccrs.PlateCarree(), add_colorbar=False)
-#             plt.colorbar(im, ax=ax , orientation='horizontal')
-#             ax.coastlines(color='grey', alpha=0.3)
-#             ax.set_title(according_fullname)
-#             fig_file = 's{}_{}{}'.format(s, according_fullname, ex['file_type2'])
+                    runtest = pcmci.cond_ind_test.run_test
+                    val, pval = runtest(X, Y, Z,
+                                       tau_max=max(x_lag, z_lag),
+                                       cut_off='max_lag')
+                valnp[ix,iz,s] = val
+                pvalnp[ix,iz,s] = pval
 
-#             plt.savefig(os.path.join(ex['fig_subpath'], fig_file), dpi=100)
-# #            plt.show()
-#             plt.close()
-#             # =============================================================================
-#             # Print to text file
-#             # =============================================================================
-#             print('                                        ')
-#             # *********************************************************
-#             # save data
-#             # *********************************************************
-#             according_fullname = str(according_number) + according_varname
-#             name = ''.join([str(index_in_fulldata),'_',uniq_label])
-
-# #            print((fulldata[:,index_in_fulldata].size))
-#             print(name)
-#         else :
-#             print('Index itself is also causal parent -> skipped')
-#             print('*******************              ***************************')
-
-# #%%
-#     return
-
+    MultiIndex = pd.MultiIndex.from_tuples(index, names=['x', 'z'])
+    vals = pd.DataFrame(valnp.reshape(-1,splits.size), columns=splits,
+                        index=MultiIndex)
+    pvals = pd.DataFrame(pvalnp.reshape(-1,splits.size), columns=splits,
+                        index=MultiIndex)
+    return vals, pvals
 
 

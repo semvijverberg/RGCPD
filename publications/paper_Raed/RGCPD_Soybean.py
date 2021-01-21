@@ -1,16 +1,32 @@
-#!/usr/bin/env python
-# coding: utf-8
-
 import os, inspect, sys
-import numpy as np
+import matplotlib as mpl
+if sys.platform == 'linux':
+    mpl.use('Agg')
+# else:
+#     # Optionally set font to Computer Modern to avoid common missing font errors
+#     mpl.rc('font', family='serif', serif='cm10')
 
+#     mpl.rc('text', usetex=True)
+#     mpl.rcParams['text.latex.preamble'] = [r'\boldmath']
+import numpy as np
+from time import time
+import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
+import matplotlib
+import pandas as pd
+import xarray as xr
+import csv
+# import sklearn.linear_model as scikitlinear
+import argparse
+
+os.chdir('/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper_Raed/')
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-curr_dir = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper_Raed'
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
+assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
+
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -19,66 +35,127 @@ if cluster_func not in sys.path:
 
 path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
-import cartopy.crs as ccrs
+
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
+import class_BivariateMI
+import func_models as fc_utils
+import functions_pp, df_ana, climate_indices, find_precursors
+import plot_maps; import core_pp
 
-# from RGCPD import EOF
+
+temporal_aggregations = [3]
+target_datasets = ['USDA_Soy', 'USDA_Maize', 'GDHY_Soy']
+combinations = np.array(np.meshgrid(target_datasets, temporal_aggregations)).T.reshape(-1,2)
+i_default = 0
 
 
-TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/q50_nc4_dendo_707fb.nc')
-cluster_label = 3
-name_ds='ts'
+def parseArguments():
+    # Create argument parser
+    parser = argparse.ArgumentParser()
 
-start_end_date = ('01-01','12-31') # not working
-start_end_year = (1980, 2015)
-# tfreq = 'annual'
-# start_end_TVdate = start_end_date
-# lags = np.array(['4.5.6.'])
+    # Optional arguments
+    parser.add_argument("-i", "--intexper", help="intexper", type=int,
+                        default=i_default)
+    # Parse arguments
+    args = parser.parse_args()
+    return args
 
-tfreq = 90
-start_end_TVdate = ('06-01', '09-30')
-lags=np.array([0, 1])
-#%%
+
+if __name__ == '__main__':
+    args = parseArguments()
+    out = combinations[args.intexper]
+    target_dataset = out[0]
+    tfreq = out[1]
+    print(f'arg {args.intexper} {out}')
+else:
+    out = combinations[i_default]
+    target_dataset = out[0]
+    tfreq = out[1]
+
+
+if target_dataset == 'GDHY_Soy':
+    # GDHY dataset 1980 - 2015, harvest month is October
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/q50_nc4_dendo_707fb.nc')
+    cluster_label = 3
+    name_ds='ts'
+    start_end_year = (1980, 2015)
+elif target_dataset == 'USDA_Soy':
+    # USDA dataset 1950 - 2019, harvest month is October
+    TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts.nc')
+    name_ds='Soy_Yield' ; cluster_label = None
+    start_end_year = (1950, 2019)
+elif target_dataset == 'USDA_Maize':
+    # USDA dataset 1950 - 2019, harvest month is October
+    TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_maize_spatial_mean_ts.nc')
+    name_ds='Maize_Yield' ; cluster_label = None
+    start_end_year = (1950, 2019)
+
+
+
+calc_ts='region mean' # pattern cov
+alpha_corr = .01
+method     = 'leave_4' ; seed = 1
+n_boot = 2000
+start_end_date = ('1-1', '12-31')
+start_end_TVdate = ('10-01', '12-01')
+corlags = np.array([0,1,2,3])
+append_main = target_dataset
+path_out_main = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/output'
+PacificBox = (130,265,-10,60)
+GlobalBox  = (-180,360,-10,60)
+
+#%% run RGPD
+
+
 list_of_name_path = [(cluster_label, TVpath),
-                      ('sst', os.path.join(path_raw, 'sst_1980-2015_1_12_daily_1.0deg.nc'))]
-                      # ('sm', os.path.join(path_raw, 'sm23add_1979-2018_1_12_daily_1.0deg.nc'))]
+                      ('sst', os.path.join(path_raw, 'sst_1950-2019_1_12_monthly_1.0deg.nc')),
+                      ('z500', os.path.join(path_raw, 'z500_1950-2019_1_12_monthly_1.0deg.nc'))]
 
-list_for_MI   = [BivariateMI(name='sst', func=BivariateMI.corr_map,
-                             kwrgs_func={'alpha':.05, 'FDR_control':True},
-                             distance_eps=600, min_area_in_degrees2=5,
-                             selbox=(-180,360,-10,90),
-                             lags=lags)]
-                 # BivariateMI(name='sm', func=BivariateMI.corr_map,
-                 #             kwrgs_func={'alpha':.05, 'FDR_control':True},
-                 #             distance_eps=1000, min_area_in_degrees2=5)]
+list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
+                            alpha=alpha_corr, FDR_control=True,
+                            kwrgs_func={},
+                            distance_eps=350, min_area_in_degrees2=4,
+                            calc_ts=calc_ts, selbox=GlobalBox,
+                            lags=corlags)]
+                 # BivariateMI(name='z500', func=class_BivariateMI.corr_map,
+                 #            alpha=alpha_corr, FDR_control=True,
+                 #            kwrgs_func={},
+                 #            distance_eps=350, min_area_in_degrees2=4,
+                 #            calc_ts=calc_ts, selbox=GlobalBox,
+                 #            lags=corlags)]
+
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
-               list_for_MI=list_for_MI,
-               start_end_date=start_end_date,
-               start_end_year=start_end_year,
-               tfreq=tfreq,
-               path_outmain=curr_dir+'/output/')
+           list_for_MI=list_for_MI,
+           list_import_ts=None,
+           start_end_TVdate=start_end_TVdate,
+           start_end_date=start_end_date,
+           start_end_year=start_end_year,
+           tfreq=tfreq,
+           path_outmain=path_out_main)
+precur = rg.list_for_MI[0] ; lag = precur.lags[0]
 
-rg.plot_df_clust()
+subfoldername = target_dataset+'_'.join(['', str(method), 's'+ str(seed)])
+
+
+rg.pp_precursors()
+rg.pp_TV(detrend=True)
+rg.traintest(method, subfoldername=subfoldername)
+
+ds = core_pp.import_ds_lazy(rg.list_precur_pp[0][1])
 
 
 #%%
-# prec_dates_dict = {'MJJA':('05-01', '08-31'),
-#                     'JJAS':('06-01', '09-30')}
-
-# for name_dates, prec_dates in prec_dates_dict.items():
-#     print(name_dates)
-#     rg.start_end_TVdate = prec_dates
-
-#     rg.pp_precursors(selbox=[None,{'sst':(-180,360,-10,90)}], anomaly=[True, {'sm':False}])
-
-# name_dates = 'JJAS'
-# rg.start_end_TVdate = prec_dates_dict[name_dates]
-
-# rg.path_outmain = curr_dir+f'/output/{name_dates}'
-# if os.path.isdir(rg.path_outmain) != True : os.makedirs(rg.path_outmain)
-# Post-processing Target Variable
+rg.calc_corr_maps()
+save = True
+kwrgs_plotcorr = {'row_dim':'lag', 'col_dim':'split','aspect':4, 'hspace':0,
+                  'wspace':-.15, 'size':3, 'cbar_vert':0.05,
+                  'map_proj':ccrs.PlateCarree(central_longitude=220),
+                  # 'y_ticks':np.arange(-10,61,20), 'x_ticks':np.arange(130, 280, 25),
+                  'title':'',
+                  'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+rg.plot_maps_corr(kwrgs_plot=kwrgs_plotcorr, save=save)
 #%%
 rg.start_end_TVdate = start_end_TVdate
 rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=False)

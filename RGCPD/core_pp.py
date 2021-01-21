@@ -74,16 +74,6 @@ def import_ds_lazy(filename, loadleap=False,
         DESCRIPTION.
 
     '''
-    # '''
-
-    # selbox has format of (lon_min, lon_max, lat_min, lat_max)
-    # # in format only_east
-    # #
-
-
-    # '''
-
-
 
 
     ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
@@ -135,6 +125,10 @@ def import_ds_lazy(filename, loadleap=False,
         if 'latitude' and 'longitude' not in ds.dims:
             ds = ds.rename({'lat':'latitude',
                             'lon':'longitude'})
+            if 'time' in ds.squeeze().dims and len(ds.squeeze().dims) == 3:
+                ds = ds.transpose('time', 'latitude', 'longitude')
+
+
 
         if auto_detect_mask:
             ds = detect_mask(ds)
@@ -146,7 +140,7 @@ def import_ds_lazy(filename, loadleap=False,
                 ds = convert_longitude(ds, format_lon)
 
         # ensure longitude in increasing order
-        minidx = np.where(ds.longitude==ds.longitude.min())[0]
+        minidx = np.where(ds.longitude == ds.longitude.min())[0]
         maxidx = np.where(ds.longitude == ds.longitude.max())[0]
         if bool(minidx > maxidx):
             print('sorting longitude')
@@ -410,30 +404,30 @@ def deseasonalizefft_detrend_2D(ds, detrend: bool=True, anomaly: bool=True,
     ds = ds - ds.mean(dim='time')
     # plot gridpoints for visual check
 
-    # try to find location above EU
-    ts = ds.sel(longitude=30, method='nearest').sel(latitude=40, method='nearest')
-    la1 = np.argwhere(ts.latitude.values ==ds.latitude.values)[0][0]
-    lo1 = np.argwhere(ts.longitude.values ==ds.longitude.values)[0][0]
-    ts = ds[:,la1,lo1]
-
-    la2 = int(ds.shape[1]/3)
-    lo2 = int(ds.shape[2]/3)
-
+    options = np.array(np.meshgrid(ds.latitude[1:-1], ds.longitude[1:-1])).T.reshape(-1,2)
+    la1, lo1 = options[int(options.shape[0]/3)]
+    la2, lo2 = options[int(2*options.shape[0]/3)]
     tuples = [(la1, lo1), (la1+1, lo1), (la1, lo1+1),
               (la2, lo2), (la2+1, lo2), (la2, lo2+1)]
     fig, ax = plt.subplots(3,2, figsize=(16,8))
-    ax = ax.flatten()
+    ax = ax.flatten() ;
     for i, lalo in enumerate(tuples):
+        lalo = (np.where(ds.latitude==lalo[0])[0][0], np.where(ds.longitude==lalo[1])[0][0])
+        ts = ds[:,lalo[0],lalo[1]]
+        while bool(np.isnan(ts).all()):
+            lalo[1] += 5
+            ts = ds[:,lalo[0],lalo[1]]
         lat = int(ds.latitude[lalo[0]])
         lon = int(ds.longitude[lalo[1]])
         print(f"\rVisual test latlon {lat} {lon}", end="")
-        ts = ds[:,lalo[0],lalo[1]]
+
+
         ax[i].set_title(f'latlon coord {lat} {lon}')
         for yr in np.unique(dates.year):
             singleyeardates = get_oneyr(dates, yr)
             ax[i].plot(ts.sel(time=singleyeardates), alpha=.1, color='purple')
         if anomaly:
-            ax[i].plot(reconstructed_signal[:365, lalo[0],lalo[1]].real,
+            ax[i].plot(reconstructed_signal[:singleyeardates.size, lalo[0],lalo[1]].real,
                        label=f'FFT with {n_harmonics}h')
         ax[i].legend()
     plt.subplots_adjust(hspace=.3)
@@ -476,12 +470,18 @@ def detrend_lin_longterm(ds):
         tuples = [(la, lo), (la+1, lo), (la, lo+1)]
         fig, ax = plt.subplots(3, figsize=(8,8))
         for i, lalo in enumerate(tuples):
+            ts = ds[:,lalo[0],lalo[1]]
+            while bool(np.isnan(ts).all()):
+                lalo[1] += 5
+                ts = ds[:,lalo[0],lalo[1]]
             lat = int(ds.latitude[lalo[0]])
             lon = int(ds.longitude[lalo[1]])
+            print(f"\rVisual test latlon {lat} {lon}", end="")
+
             ax[i].set_title(f'latlon coord {lat} {lon}')
-            ax[i].plot(ds.values[:,lalo[0],lalo[1]])
+            ax[i].plot(ts)
             ax[i].plot(detrended[:,lalo[0],lalo[1]])
-            trend1d = ds[:,lalo[0],lalo[1]] - detrended[:,lalo[0],lalo[1]]
+            trend1d = ts - detrended[:,lalo[0],lalo[1]]
             linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
             linregab = np.insert(linregab, 2, float(trend1d[-1] - trend1d[0]))
             ax[i].plot(trend1d+offset_clim[lalo[0],lalo[1]])
@@ -547,6 +547,8 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=True, n_harmonics=6):
         if (stepsyr.day== 1).all() == True or int(ds.time.size / 365) >= 120:
             print('\nHandling time series longer then 120 day or monthly data, no smoothening applied')
             data_smooth = ds.values
+            if (stepsyr[1] - stepsyr[0]).days in [28,29,30,31]:
+                window_s = False
 
         elif (stepsyr.day== 1).all() == False and int(ds.time.size / 365) < 120:
             window_s = max(min(25,int(stepsyr.size / 12)), 1)
@@ -609,32 +611,41 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=True, n_harmonics=6):
         la2 = int(ds.shape[1]/3)
         lo2 = int(ds.shape[2]/3)
 
-        tuples = [(la1, lo1), (la1+1, lo1),
-                  (la2, lo2), (la2+1, lo2)]
+        tuples = [[la1, lo1], [la1+1, lo1],
+                  [la2, lo2], [la2+1, lo2]]
         if apply_fft:
             fig, ax = plt.subplots(4,2, figsize=(16,8))
         else:
             fig, ax = plt.subplots(2,2, figsize=(16,8))
         ax = ax.flatten()
         for i, lalo in enumerate(tuples):
+            ts = ds[:,lalo[0],lalo[1]]
+            while bool(np.isnan(ts).all()):
+                lalo[1] += 5
+                ts = ds[:,lalo[0],lalo[1]]
             lat = int(ds.latitude[lalo[0]])
             lon = int(ds.longitude[lalo[1]])
             print(f"\rVisual test latlon {lat} {lon}", end="")
-            ts = ds[:,lalo[0],lalo[1]]
-            rawdayofyear = ts.groupby('time.dayofyear').mean('time').sel(dayofyear=np.arange(365)+1)
+
+            if window_s == False: # no daily data
+                rawdayofyear = ts.groupby('time.month').mean('time')
+            else:
+                rawdayofyear = ts.groupby('time.dayofyear').mean('time')
 
             ax[i].set_title(f'latlon coord {lat} {lon}')
             for yr in np.unique(dates.year):
                 singleyeardates = get_oneyr(dates, yr)
                 ax[i].plot(ts.sel(time=singleyeardates), alpha=.1, color='purple')
-            ax[i].plot(output_clim3d[:,lalo[0],lalo[1]], color='green', linewidth=2,
-                 label=f'clim {window_s}-day rm')
+
+            if window_s is not None:
+                ax[i].plot(output_clim3d[:,lalo[0],lalo[1]], color='green', linewidth=2,
+                     label=f'clim {window_s}-day rm')
             ax[i].plot(rawdayofyear, color='black', alpha=.6,
                        label='clim mean dayofyear')
             if apply_fft:
                 ax[i].plot(clim_rec[:,lalo[0],lalo[1]][:365], 'r-',
-                           label=f'fft {n_harmonics}h on clim {window_s}-day rm')
-                diff = clim_rec[:,lalo[0],lalo[1]][:365] - output_clim3d[:,lalo[0],lalo[1]]
+                           label=f'fft {n_harmonics}h on (smoothened) data')
+                diff = clim_rec[:,lalo[0],lalo[1]][:singleyeardates.size] - output_clim3d[:,lalo[0],lalo[1]]
                 diff = diff / ts.std(dim='time').values
                 ax[i+len(tuples)].plot(diff)
                 ax[i+len(tuples)].set_title(f'latlon coord {lat} {lon} diff/std(alldata)')
@@ -652,7 +663,9 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=True, n_harmonics=6):
         fig, ax = plt.subplots(1, figsize=(5,3))
         summer = output.sel(time=get_subdates(dates, start_end_date=('06-01', '08-31')))
         summer.name = f'std {summer.name}'
-        (summer.mean(dim='time') / summer.std(dim='time')).plot(ax=ax)
+        (summer.mean(dim='time') / summer.std(dim='time')).plot(ax=ax,
+                                                                vmin=-3,vmax=3,
+                                                                cmap=plt.cm.bwr)
         ax.set_title('summer composite mean [in std]')
     print('\n')
 
@@ -747,10 +760,11 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False,
     if start_end_year is None:
         startyr = dates.year.min()
         endyr   = dates.year.max()
+        start_end_year = (startyr, endyr)
     else:
         startyr = start_end_year[0]
         endyr   = start_end_year[-1]
-    n_yrs = np.arange(startyr, endyr+1).size
+    # n_yrs = np.arange(startyr, endyr+1).size
     firstyr = get_oneyr(dates, startyr)
 
     if start_end_date is None:
@@ -762,15 +776,7 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False,
     sstartdate = pd.to_datetime(str(startyr) + '-' + start_end_date[0])
     senddate_   = pd.to_datetime(str(startyr) + '-' + start_end_date[1])
     crossyr = sstartdate > senddate_
-    if crossyr: sstartdate-=pd.Timedelta('1y') ; startyr-=1
-
-    tfreq = (dates[1] - dates[0]).days
-    oneyr_dates = pd.date_range(start=sstartdate, end=senddate_,
-                            freq=pd.Timedelta(1, 'd'))
-    daily_yr_fit = np.round(oneyr_dates.size / tfreq, 0)
-
-    # dont get following
-#    firstyr = oneyr(oneyr_dates)
+    if crossyr: sstartdate-=date_dt(years=1) ; startyr-=1
 
     #find closest senddate
     closest_enddate_idx = np.argmin(abs(firstyr - senddate_))
@@ -779,21 +785,37 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False,
         senddate = firstyr[closest_enddate_idx-1]
 
 
-    sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
-    while sstartdate < pd.to_datetime(str(startyr) + '-' + start_end_date[0]):
-        daily_yr_fit -=1
+    tfreq = (dates[1] - dates[0]).days
+    oneyr_dates = pd.date_range(start=sstartdate, end=senddate_,
+                                    freq=pd.Timedelta(1, 'd'))
+    if tfreq == 1 or tfreq in [365, 366]: # daily or annual
+        daily_yr_fit = np.round(oneyr_dates.size / tfreq, 0)
+
         sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
+        while sstartdate < pd.to_datetime(str(startyr) + '-' + start_end_date[0]):
+            daily_yr_fit -=1
+            sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
 
 
-    start_yr = remove_leapdays(pd.date_range(start=sstartdate, end=senddate,
-                                freq=(dates[1] - dates[0])))
+        start_yr = remove_leapdays(pd.date_range(start=sstartdate, end=senddate,
+                                    freq=(dates[1] - dates[0])))
+    elif tfreq in [28,29,30,31]: # monthly timeseries
+        yr_mon = np.unique(np.stack([oneyr_dates.year.values,
+                                     oneyr_dates.month.values]).T,
+                                     axis=0)
+        start_yr = pd.to_datetime([f'{ym[0]}-{ym[1]}-01' for ym in yr_mon])
+
 
     datessubset = make_dates(start_yr, np.arange(startyr, endyr+1))
-    datessubset = pd.to_datetime([d for d in datessubset if d in dates])
+    if tfreq == 1: # only check for daily data
+        datessubset = pd.to_datetime([d for d in datessubset if d in dates])
     if lpyr:
         datessubset = remove_leapdays(datessubset)
+    periodgroups = np.repeat(np.arange(start_end_year[0], endyr+1), start_yr.size)
+    if crossyr: # crossyr such as DJF, not possible for 1st yr
+        datessubset = datessubset[periodgroups!=periodgroups[0]] # Del group 1st yr
+        periodgroups = periodgroups[periodgroups!=periodgroups[0]]
     if returngroups:
-        periodgroups = np.repeat(np.arange(1,n_yrs+1), start_yr.size)
         out = (datessubset, periodgroups)
     else:
         out = datessubset

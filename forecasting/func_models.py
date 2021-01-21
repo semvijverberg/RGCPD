@@ -435,3 +435,33 @@ def _bootstrap(pred_test, n_boot_sub, chunks, score_func_list, rng_seed: int=1):
         score_l.append([f(y_true[indices], y_pred[indices]) for f in score_func_list])
 
     return score_l
+
+def SciKitModel_coeff(model, lag):
+    '''
+    Wrapper function to cast feature_importance or regression coeff. of any
+    SciKitModel into pandas DataFrame
+
+    Parameters
+    ----------
+    model : TYPE
+        A fitted SciKitModel instance.
+    lag : int
+
+    Returns
+    -------
+    pd.DataFrame
+
+    '''
+    if hasattr(model, 'best_estimator_'): # GridSearchCV instance
+        model = model.best_estimator_
+    if hasattr(model, 'feature_importances_'): # for GBR
+        name = 'Relative Feature Importance'
+        importances = model.feature_importances_
+    elif hasattr(model, 'coef_'):
+        name = 'Coefficients'
+        importances = model.coef_
+    df = pd.DataFrame(importances.reshape(-1),
+                        index=model.X_pred.columns,
+                        columns=[lag])
+    return df.rename_axis(name, axis=1)
+

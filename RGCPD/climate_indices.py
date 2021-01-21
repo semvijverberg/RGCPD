@@ -26,7 +26,7 @@ kwrgs_ENSO = {'tfreq' : 30,
               'method' : 'no_train_test_split'
               }
 # get indices
-def ENSO_34(filepath, df_splits=None):
+def ENSO_34(filepath, df_splits=None, get_ENSO_states: bool=True):
     #%%
 #    file_path = '/Users/semvijverberg/surfdrive/Data_era5/input_raw/sst_1979-2018_1_12_daily_2.5deg.nc'
     '''
@@ -34,36 +34,102 @@ def ENSO_34(filepath, df_splits=None):
     selbox has format of (lon_min, lon_max, lat_min, lat_max)
     '''
 
-    seldates = df_splits.loc[0].index
+    # if df_splits is None:
+    #     seldates = None
+    # else:
+    #     seldates = df_splits.loc[0].index
 
 #    {'la_min':-5, # select domain in degrees east
 #     'la_max':5,
 #     'lo_min':-170,
 #     'lo_max':-120},
+
     kwrgs_pp = {'selbox' :  (190, 240, -5, 5),
                 'format_lon': 'only_east',
-                'seldates': seldates}
+                'seldates': None}
+
 
     ds = core_pp.import_ds_lazy(filepath, **kwrgs_pp)
-
     dates = pd.to_datetime(ds.time.values)
-    splits = df_splits.index.levels[0]
+    data = functions_pp.area_weighted(ds).mean(dim=('latitude', 'longitude'))
+    df_ENSO = pd.DataFrame(data=data.values,
+                           index=dates, columns=['ENSO34'])
+    if df_splits is not None:
+        splits = df_splits.index.levels[0]
+        df_ENSO = pd.concat([df_ENSO]*splits.size, axis=0, keys=splits)
 
-    list_splits = []
-    for s in splits:
+    if get_ENSO_states:
+        '''
+        From Anderson 2017 - Life cycles of agriculturally relevant ENSO
+        teleconnections in North and South America.
+        http://doi.wiley.com/10.1002/joc.4916
+        mean boreal wintertime (October, November, December) SST anomaly amplitude
+        in the Niño 3.4 region exceeded 1 of 2 standard deviation.
+        '''
+        if hasattr(df_ENSO.index, 'levels'):
+            df_ENSO_s = df_ENSO.loc[0]
+        else:
+            df_ENSO_s = df_ENSO
+        dates = df_ENSO_s.index
+        df_3monthmean = df_ENSO_s.rolling(3, center=True, min_periods=1).mean()
+        std_ENSO = df_3monthmean.std()
+        OND, groups = core_pp.get_subdates(dates,
+                                           start_end_date=('10-01', '12-31'),
+                                           returngroups=True)
+        OND_ENSO = df_3monthmean.loc[OND].groupby(groups).mean()
+        nino_yrs = OND_ENSO[OND_ENSO>df_3monthmean.mean()+std_ENSO][:].dropna().index #+ 1
+        nina_yrs = OND_ENSO[OND_ENSO<df_3monthmean.mean()-std_ENSO][:].dropna().index #+ 1
+        neutral = [y for y in OND_ENSO.index if y not in core_pp.flatten([nina_yrs, nino_yrs])]
+        states = {}
+        for i, d in enumerate(dates):
+            if d.year in nina_yrs:
+                states[d.year] = -1
+            if d.year in neutral:
+                states[d.year] = 0
+            if d.year in nino_yrs:
+                states[d.year] = 1
 
-        progress = 100 * (s+1) / splits.size
-        print(f"\rProgress ENSO traintest set {progress}%)", end="")
+        cycle_list = []
+        for s,v in [('EN', 1), ('LN',-1)]:
+            ENSO_cycle = {d.year:0 for d in dates}
+            for i, year in enumerate(np.unique(dates.year)):
+                # d = dates[1]
+                # if states[year] == v:
+                #     s = 'EN'
+                # elif states[year] == -1:
+                #     s = 'LN'
+                if states[year] == v:
+                    ENSO_cycle[year] = f'{s}0'
+                    if year-1 in dates.year and states[year-1] != v:
+                        ENSO_cycle[year-1] = f'{s}-1'
+                    if year+1 in dates.year and states[year+1] != v:
+                        ENSO_cycle[year+1] = f'{s}+1'
+            cycle_list.append(ENSO_cycle)
 
+        time_index = pd.to_datetime([f'{y}-01-01' for y in states.keys()])
+        df_state = pd.concat([pd.Series(states), pd.Series(cycle_list[0]),
+                              pd.Series(cycle_list[1])],
+                       axis=1, keys=['state', 'EN_cycle', 'LN_cycle'])
+        df_state.index = time_index
 
-        data = functions_pp.area_weighted(ds).mean(dim=('latitude', 'longitude'))
+        if hasattr(df_ENSO.index, 'levels'): # copy to other traintest splits
+            df_state = pd.concat([df_state]*splits.size, keys=splits)
 
-        list_splits.append(pd.DataFrame(data=data.values,
-                                     index=dates, columns=['ENSO34']))
+        composites = np.zeros(3, dtype=object)
+        for i, yrs in enumerate([nina_yrs, neutral, nino_yrs]):
+            composite = [d for d in dates if d.year in yrs]
+            composites[i] = ds.sel(time=composite).mean(dim='time')
+        composites = xr.concat(composites, dim='state')
+        composites['state'] = ['Nina', 'Neutral', 'Nino']
 
-    df_ENSO = pd.concat(list_splits, axis=0, keys=splits)
+        plot_maps.plot_corr_maps(composites, row_dim='state', hspace=0.5)
+        out = df_ENSO, [np.array(nina_yrs),
+                         np.array(neutral),
+                         np.array(nino_yrs)], df_state
+    else:
+        out = df_ENSO
     #%%
-    return df_ENSO
+    return out
 
     #%%
 

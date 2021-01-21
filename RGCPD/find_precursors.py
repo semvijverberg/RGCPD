@@ -20,8 +20,9 @@ from typing import List, Tuple, Union
 
 #%%
 
-def add_info_precur(precur, corr_xr):
+def add_info_precur(precur, corr_xr, pval_xr):
     precur.corr_xr = corr_xr
+    precur.pval_xr = pval_xr
     precur.lat_grid = precur.precur_arr.latitude.values
     precur.lon_grid = precur.precur_arr.longitude.values
     precur.area_grid = get_area(precur.precur_arr)
@@ -101,11 +102,11 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load): #, lags=np.array([
     # =============================================================================
     # Calculate BivariateMI (correlation) map
     # =============================================================================
-    corr_xr = precur.bivariateMI_map(precur.precur_arr, df_splits, TV)
+    corr_xr, pval_xr = precur.bivariateMI_map(precur.precur_arr, df_splits, TV)
     # =============================================================================
     # update class precur
     # =============================================================================
-    add_info_precur(precur, corr_xr)
+    add_info_precur(precur, corr_xr, pval_xr)
 
     return precur
 
@@ -506,7 +507,7 @@ def xrmask_by_latlon(xarray,
         xarray = xarray.where(npmask)
     return xarray
 
-def split_region_by_lonlat(prec_labels, label=int, trialplot=False, plot_s=0,
+def split_region_by_lonlat(prec_labels, label=int, plot_s=0,
                            plot_l=0, kwrgs_mask_latlon={} ):
 
     # before:
@@ -532,9 +533,6 @@ def split_region_by_lonlat(prec_labels, label=int, trialplot=False, plot_s=0,
         mask_label = np.logical_and(~np.isnan(mask_label), mask_label!=0)
         # assign new label
         single.values[mask_label.values] = max(orig_labels) + 1
-        if trialplot:
-            plot_maps.plot_labels(single)
-            break
         np_labels[i_s, i_l] = single.values
     copy_labels.values = np_labels
     # after
@@ -574,6 +572,43 @@ def manual_relabel(prec_labels, replace_label: int=None, with_label: int=None):
 
     return copy_labels
 
+def view_or_replace_labels(xarr: xr.DataArray, regions: Union[int,list],
+           replacement_labels: Union[int,list]=None):
+    '''
+    View or replace a subset of labels.
+
+    Parameters
+    ----------
+    xarr : xr.DataArray
+        xarray with precursor region labels.
+    regions : Union[int,list]
+        region labels to select (for replacement).
+    replacement_labels : Union[int,list], optional
+        If replacement_labels given, should be same length as regions.
+        The default is that no labels are replaced.
+
+    Returns
+    -------
+    xarr : xr.DataArray
+        xarray with precursor labels defined by argument regions, if
+        replacement_labels are given; region labels are replaced by values
+        in replacement_labels.
+
+    '''
+    if replacement_labels is None:
+        replacement_labels = regions
+    if type(regions) is int:
+        regions = [regions]
+    if type(replacement_labels) is int:
+        replacement_labels = [replacement_labels]
+    xarr = xarr.copy() # avoid replacement of init prec_labels xarray
+    shape = xarr.shape
+    df = pd.Series(xarr.values.flatten(), dtype=float)
+    d = dict(zip(regions, replacement_labels))
+    out = df.map(d).values
+    xarr.values = out.reshape(shape)
+    return xarr
+
 def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
     #%%
 
@@ -583,13 +618,17 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
     n_spl           = corr_xr.split.size
     lags            = precur.corr_xr.lag.values
     use_coef_wghts  = precur.use_coef_wghts
-    tfreq           = precur.tfreq
+    tfreq           = precur._tfreq
 
 
-    if precur_aggr is None and (tfreq != 365 and len(lags)==1):
-        # use precursor array with temporal aggregation that was used to create
-        # correlation map. When tfreq=365 and lag>1, reaggregate months precur_arr
+    if precur_aggr is None:
         precur_arr = precur.precur_arr
+        if tfreq==365:
+            precur_arr = precur.precur_arr
+        # use precursor array with temporal aggregation that was used to create
+        # correlation map. When tfreq=365, aggregation (one-value-per-year)
+        # is already done. period used to aggregate was defined by the lag
+
     else:
         # =============================================================================
         # Unpack kwrgs for loading
@@ -609,17 +648,12 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
             precur_aggr = tfreq
         kwrgs['tfreq'] = precur_aggr
 
-        if tfreq == 365:
-            # create seperate xarray with monthly means, of which grouped
-            # means will be calculated defined by lag, lag=[1,2,3]=JFM mean
-            precur_months = functions_pp.import_ds_timemeanbins(precur.filepath,
-                                                         **kwrgs)
-        else:
-            print('aggregating precursors to {} days '.format(kwrgs['tfreq']) + \
-                  'closed on right {}'.format(kwrgs['closed_on_date']))
+        print('aggregating precursors to {} days '.format(kwrgs['tfreq']) + \
+              'closed on right {}'.format(kwrgs['closed_on_date']))
 
-            precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
-                                                         **kwrgs)
+        precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
+                                                     **kwrgs)
+
     if precur_arr.shape[-2:] != corr_xr.shape[-2:]:
         print('shape loaded precur_arr != corr map, matching coords')
         corr_xr, prec_labels = functions_pp.match_coords_xarrays(precur_arr,
@@ -636,17 +670,9 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
         for l_idx, lag in enumerate(lags):
             labels_lag = labels.isel(lag=l_idx).values
 
-            # if lag represents months to aggregate:
-            if type(lag) is np.str_: # aggr. over months
-                months = [int(l) for l in lag.split('.')[:-1]]
-                precur_arr = precur_months.sel(time=
-                                            np.in1d(precur_months['time.month'],
-                                            months))
-                precur_arr = precur_arr.groupby('time.year',
-                                            restore_coord_dims=True).mean()
-                d = pd.to_datetime([f'{Y}-01-01' for Y in precur_arr.year.values])
-                precur_arr = precur_arr.rename({'year':'time'}).assign_coords(
-                                                {'time':d})
+            # if lag represents aggregation period:
+            if type(lag) is np.ndarray or type(lag) is np.str_ and precur_aggr is None:
+                precur_arr = precur.precur_arr.sel(lag=l_idx)
 
 
 
@@ -743,8 +769,8 @@ def df_data_prec_regs(list_MI, TV, df_splits): #, outdic_precur, df_splits, TV #
                     cols.append(list(precur.ts_corr[s].columns))
                     index_dates = precur.ts_corr[s].index
                 else:
-                    print('Did not cluster BiVariateMI, no timeseries retrieved '
-                          f'for {precur.name}')
+                    print(f'No timeseries retrieved for {precur.name} on split {s}')
+
 
         # stack actor time-series together:
 

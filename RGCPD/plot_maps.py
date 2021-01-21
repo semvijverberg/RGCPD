@@ -62,11 +62,11 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
     if row_dim not in corr_xr.dims:
         corr_xr = corr_xr.expand_dims(row_dim, 0)
-        if mask_xr is not None:
+        if mask_xr is not None and row_dim not in mask_xr.dims:
             mask_xr = mask_xr.expand_dims(row_dim, 0)
     if col_dim not in corr_xr.dims:
         corr_xr = corr_xr.expand_dims(col_dim, 0)
-        if mask_xr is not None:
+        if mask_xr is not None and col_dim not in mask_xr.dims:
             mask_xr = mask_xr.expand_dims(col_dim, 0)
 
     var_n   = corr_xr.name
@@ -636,18 +636,13 @@ def _get_kwrgs_labels(prec_labels):
 
     return kwrgs_labels
 
-def plot_labels(prec_labels, cbar_vert=None, col_dim='lag', row_dim='split',
-                wspace=0.1, hspace=-.2, zoomregion=None, kwrgs_plot={}):
+def plot_labels(prec_labels,
+                kwrgs_plot={}):
     xrlabels = prec_labels.copy()
     xrlabels.values = prec_labels.values - 0.5
     kwrgs_labels = _get_kwrgs_labels(xrlabels)
-    if cbar_vert is not None:
-        kwrgs_labels['cbar_vert'] = cbar_vert
-    for k, item in kwrgs_plot.items():
-        kwrgs_labels[k] = item
-    plot_corr_maps(xrlabels, col_dim=col_dim, row_dim=row_dim,
-                   hspace=hspace, wspace=wspace, zoomregion=zoomregion,
-                   **kwrgs_labels)
+    kwrgs_labels.update(kwrgs_plot)
+    plot_corr_maps(xrlabels, **kwrgs_labels)
 
 def plot_corr_regions(ds, var, lag, filepath,
                       mean_splits=True, cols: List=['corr','C.D.'],

@@ -8,8 +8,9 @@ Created on Wed Oct  2 15:03:31 2019
 
 import pandas as pd
 import numpy as np
-import sklearn.linear_model as scikitlinear
+# import sklearn.linear_model as scikitlinear
 from sklearn.linear_model import RidgeCV
+from sklearn.model_selection import GridSearchCV
 
 
 
@@ -105,12 +106,13 @@ def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
 
 class ScikitModel:
 
-    def __init__(self, scikitmodel=None):
+    def __init__(self, scikitmodel=None, verbosity=1):
         if scikitmodel is None:
             scikitmodel = RidgeCV
         self.scikitmodel = scikitmodel
+        self.verbosity = verbosity
 
-    def fit(self, y_ts, df_norm, keys=None, kwrgs_model=None):
+    def fit_wrapper(self, y_ts, df_norm, keys=None, kwrgs_model=None):
         '''
         X contains all precursor data, incl train and test
         X_train, y_train are split up by TrainIsTrue
@@ -139,11 +141,10 @@ class ScikitModel:
         # only the constant parameters are kept
         kwrgs = kwrgs_model.copy()
         [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
-        if 'feat_sel' in kwrgs:
-            feat_sel = kwrgs.pop('feat_sel')
+        if 'scoringCV' in kwrgs.keys():
+            scoring = kwrgs.pop('scoringCV')
         else:
-            feat_sel = None
-
+            scoring = None
         # Get training years
         x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = utils.get_masks(df_norm)
 
@@ -176,16 +177,36 @@ class ScikitModel:
             cv = utils.get_cv_accounting_for_years(y_train, **kwrgs_cv)
         else:
             cv = None
-        model = scikitmodel(cv=cv,
-                            **kwrgs)
+        try:
+            model = scikitmodel(cv=cv, **kwrgs)
+        except:
+            model = scikitmodel(**kwrgs)
 
-        if feat_sel is not None:
-            if feat_sel['model'] is None:
-                feat_sel['model'] = model
-            model, new_features, rfecv = utils.feature_selection(X_train, y_train.values, **feat_sel)
-            X_pred = X_pred[new_features]
+        if len(kwrgs_gridsearch) != 0:
+            # get cross-validation splitter
+            # if 'kfold' in kwrgs.keys():
+            #     kfold = kwrgs.pop('kfold')
+            # else:
+            #     kfold = 5
+            # cv = utils.get_cv_accounting_for_years(y_train, kfold, seed=1)
+
+            model = GridSearchCV(model,
+                      param_grid=kwrgs_gridsearch,
+                      scoring=scoring, cv=cv, refit=True,
+                      return_train_score=True, verbose=self.verbosity)
+            model.fit(X_train, y_train.values.ravel())
+            model.best_estimator_.X_pred = X_pred # add X_pred to model
+            # if self.verbosity == 1:
+            #     results = model.cv_results_
+            #     scores = results['mean_test_score']
+            #     greaterisbetter = model.scorer_._sign
+            #     improv = int(100* greaterisbetter*(max(scores)- min(scores)) / max(scores))
+            #     print("Hyperparam tuning led to {:}% improvement, best {:.2f}, "
+            #           "best params {}".format(
+            #             improv, model.best_score_, model.best_params_))
         else:
-            model.fit(X_train, y_train)
+            model.fit(X_train, y_train.values.ravel())
+            model.X_pred = X_pred # add X_pred to model
 
         if np.unique(y_train).size < 5:
             y_pred = model.predict_proba(X_pred)[:,1] # prob. event prediction
@@ -193,7 +214,5 @@ class ScikitModel:
             y_pred = model.predict(X_pred)
 
         prediction = pd.DataFrame(y_pred, index=y_pred_mask.index, columns=[0])
-        model.X_pred = X_pred
-        model.name = 'Ridge Regression'
         #%%
         return prediction, model

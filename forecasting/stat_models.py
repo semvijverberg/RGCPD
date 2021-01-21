@@ -440,11 +440,10 @@ def _get_importances(models_splits_lags, lag=0):
                 name_values = 'Relative Feature Importance'
                 importances = regressor.feature_importances_
             elif hasattr(regressor, 'coef_'):
+                name_values = 'Coefficients'
                 if regressor.__class__ == LogisticRegressionCV:
-                    name_values = 'Logistic Regression Coefficients'  # for logit
                     importances = regressor.coef_.squeeze(0)
                 if regressor.__class__ == RidgeCV: # for Ridge
-                    name_values = 'Ridge Regression Coefficients'
                     importances = regressor.coef_.squeeze()
 
             if k not in feature_importances.keys():
@@ -459,20 +458,6 @@ def _get_importances(models_splits_lags, lag=0):
 
         feature_importances[k] = np_import
 
-            # for name, importance in zip(keys_s, importances):
-            #     if name not in feature_importances:
-            #         if name not in feature_importances.keys():
-            #             feature_importances[name] = []
-            #     feature_importances[name].append( importance )
-                # feature_importances[name][1] += 1
-
-    # remnant from Bram, importance by amount of time precursor was in model.
-    # robust precursors get divided by 10, while other precursors are divided
-    # by 1. == silly
-    # names, importances = [], []
-    # for name, (importance, count) in feature_importances.items():
-    #     names.append(name)
-    #     importances.append(float(importance) / float(count))
 
     df = pd.DataFrame(feature_importances)
     df_mean = df.apply(np.nanmean).apply(abs)
@@ -481,29 +466,6 @@ def _get_importances(models_splits_lags, lag=0):
     # add info lags
     df = pd.concat([df], keys=[lag])
     df = df.rename_axis(name_values, axis=1)
-    # names, importances = [], []
-
-    # for name, importances_splits in feature_importances.items():
-    #     names.append(name)
-    #     importances.append(np.mean(importances_splits))
-    # if hasattr(regressor, 'feature_importances_'):
-    #     importances = np.array(importances) / np.sum(importances)
-    # elif hasattr(regressor, 'coef_'): # for logit
-    #     importances = np.array(importances)
-    # order = np.argsort(importances)
-    # names_order = [names[index] for index in order] ; names_order.reverse()
-    # zz = np.zeros( (len(names_order)), dtype=object)
-    # for i, k in enumerate(names_order):
-    #     zz[i] = feature_importances[k]
-    # # freq = (regressor.X_pred.index[1] - regressor.X_pred.index[0]).days
-    # # lags_tf = [l*freq for l in [lag]]
-    # # if freq != 1:
-    # #     # the last day of the time mean bin is tfreq/2 later then the centerered day
-    # #     lags_tf = [l_tf- int(freq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
-    # df = pd.DataFrame(zz, index=names_order, columns=[lag])
-    # # df = pd.DataFrame([sorted(importances, reverse=True)], columns=names_order,
-    # #                   index=[lag])
-
 
     #%%
     return df

@@ -199,8 +199,9 @@ class RGCPD:
         self.list_precur_pp = functions_pp.perform_post_processing(self.list_of_name_path,
                                              kwrgs_pp=self.kwrgs_pp,
                                              verbosity=self.verbosity)
-        for precur in self.list_for_MI:
-            precur.filepath = [l for l in self.list_precur_pp if l[0]==precur.name][0][1]
+        if self.list_for_MI is not None:
+            for precur in self.list_for_MI:
+                precur.filepath = [l for l in self.list_precur_pp if l[0]==precur.name][0][1]
 
     def get_clust(self, name_ds='ts'):
         f = functions_pp
@@ -310,7 +311,7 @@ class RGCPD:
                                   + 's'+ str(self.TV.seed)])
             if self.append_pathsub is not None:
                 subfoldername += '_' + self.append_pathsub
-        self.path_outsub1 = self.path_outmain + subfoldername
+        self.path_outsub1 = os.path.join(self.path_outmain, subfoldername)
         if self.write_outputfolder and os.path.isdir(self.path_outsub1)==False:
             os.makedirs(self.path_outsub1)
 
@@ -357,8 +358,29 @@ class RGCPD:
             print(f'Retrieving {e_class.neofs} EOF(s) for {e_class.name}')
             e_class.plot_eofs(mean=mean, kwrgs=kwrgs)
 
-    def get_ts_prec(self, precur_aggr=None, keys_ext=None,
-                    start_end_TVdate=None):
+    def get_ts_prec(self, precur_aggr: int=None, keys_ext: list=None,
+                    start_end_TVdate: tuple=None):
+        '''
+        Aggregate target and precursors to binned means.
+
+        Parameters
+        ----------
+        precur_aggr : int, optional
+            bin window size to calculate time mean bins. If None, self.tfreq
+            value is choosen.
+        keys_ext : list, optional
+            list with column names to load and aggregate a subset of the
+            .h5 pandas dataframe. The default is None.
+        start_end_TVdate : tuple, optional
+            Allows to change the target start end period. Using format
+            format ('mm-dd', 'mm-dd'). The default is None.
+
+
+        Returns
+        -------
+        None.
+
+        '''
         if precur_aggr is None:
             self.precur_aggr = self.tfreq
         else:
@@ -405,7 +427,7 @@ class RGCPD:
             else:
                 MI_ts_corr = [MI for MI in self.list_for_MI if hasattr(MI, 'ts_corr')]
                 check_ts = np.unique([MI.ts_corr.size for MI in MI_ts_corr])
-                any_MI_ts = np.equal(check_ts, np.array([0]))[0] == False
+                any_MI_ts = (~np.equal(check_ts, 0)).any() # ts_corr.size != 0?
                 if any_MI_ts:
                     df_data_MI = find_precursors.df_data_prec_regs(self.list_for_MI,
                                                                      TV,
@@ -441,6 +463,34 @@ class RGCPD:
 
         # Append Traintest and RV_mask as last columns
         self.df_data = self.df_data.merge(df_splits, left_index=True, right_index=True)
+
+
+    def merge_df_on_df_data(self, df, columns: list=None):
+        '''
+        Merges self.df_data with given df[columns]. Ensure that first column
+        remains target var and last (two) column(s) are TrainIsTrue, (RV_mask).
+        self.df_data and df must be on same time axis.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+        columns : list, optional
+
+        Returns
+        -------
+        df_data_merged.
+
+        '''
+
+        if columns is None:
+            columns = list(df.columns)
+        if hasattr(df.index, 'levels') == False:
+            print('No traintest split in df, copying to traintest splits')
+            splits = self.df_data.index.levels[0]
+            df = pd.concat([df]*splits.size, keys=splits)
+        df_mrg = pd.merge(df, self.df_data, left_index=True, right_index=True)
+        order = list(self.df_data.columns) ; order[1:1] = columns
+        return df_mrg[order]
 
 
     def PCMCI_init(self, keys: list=None, verbosity=4):
@@ -488,6 +538,7 @@ class RGCPD:
         if keys is None:
             keys = self.df_data.columns
         else:
+            keys = keys.copy()
             keys.append('TrainIsTrue') ; keys.append('RV_mask')
 
         df_data = self.df_data.copy()
@@ -645,7 +696,8 @@ class RGCPD:
 
     def quick_view_labels(self, var=None, mean=True, save=False,
                           kwrgs_plot: dict={}, min_detect_gc: float=.5,
-                          append_str: str=None):
+                          append_str: str=None, region_labels=None,
+                          replacement_labels=None):
         '''
         Parameters
         ----------
@@ -675,9 +727,16 @@ class RGCPD:
                 print('var not in list_for_MI')
             if hasattr(pclass, 'prec_labels')==False:
                 continue
+            if region_labels is not None:
+                f = find_precursors.view_or_replace_labels
+                prec_labels = f(pclass.prec_labels.copy(),
+                   region_labels,
+                   replacement_labels)
+            else:
+                prec_labels = pclass.prec_labels.copy()
 
             if mean:
-                prec_labels = pclass.prec_labels.mean(dim='split')
+                prec_labels = prec_labels.mean(dim='split')
                 if min_detect_gc<.1 or min_detect_gc>1.:
                     raise ValueError( 'give value between .1 en 1.0')
                 n_splits = self.df_splits.index.levels[0].size
@@ -687,7 +746,7 @@ class RGCPD:
                 prec_labels = prec_labels.where(~mask)
                 cbar_vert = -0.1
             else:
-                prec_labels = pclass.prec_labels.copy()
+                prec_labels = prec_labels
                 if prec_labels.split.size == 1:
                     cbar_vert = -0.1
                 else:
@@ -716,7 +775,11 @@ class RGCPD:
                                  xrmask,
                                  **kwrgs)
                 if save == True:
-                    f_name = 'clusterlabels_{}_eps{}_mingc{}'.format(
+                    if replacement_labels is not None:
+                        r = ''.join(np.array(replacement_labels, dtype=str))
+                    else:
+                        r = ''
+                    f_name = 'clusterlabels{}_{}_eps{}_mingc{}'.format(r,
                                                         pclass._name,
                                                         pclass.distance_eps,
                                                         pclass.min_area_in_degrees2)
@@ -728,9 +791,10 @@ class RGCPD:
                 print(f'no {pclass.name} regions that pass distance_eps and min_area_in_degrees2 citeria')
 
 
-    def plot_maps_corr(self, var=None, plotlags: list=None, kwrgs_plot: dict={}, mean: bool=True,
-                       min_detect_gc: float=.5, mask_xr=None, save: bool=False,
-                       append_str: str=None):
+    def plot_maps_corr(self, var=None, plotlags: list=None, kwrgs_plot: dict={},
+                       mean: bool=True, min_detect_gc: float=.5,
+                       mask_xr=None, region_labels: Union[int,list]=None,
+                       save: bool=False, append_str: str=None):
 
         if type(var) is str:
             var = [var]
@@ -743,17 +807,26 @@ class RGCPD:
                 print(e, '\nvar not in list_for_MI')
             if plotlags is None:
                 plotlags = pclass.corr_xr.lag.values
-            if mean:
+            if region_labels is not None and mask_xr is None:
+                f = find_precursors.view_or_replace_labels
+                mask_xr = np.isnan(f(pclass.prec_labels.copy(), region_labels))
+            if mask_xr is not None:
+                xrmask = (pclass.corr_xr['mask'] + mask_xr).astype(bool)
+            else:
+                xrmask = pclass.corr_xr['mask']
+            if mean==False:
+                xrvals = pclass.corr_xr.sel(lag=plotlags)
+                xrmask = xrmask.sel(lag=plotlags)
+            else:
                 xrvals = pclass.corr_xr.mean(dim='split').sel(lag=plotlags)
                 if min_detect_gc<.1 or min_detect_gc>1.:
                     raise ValueError( 'give value between .1 en 1.0')
                 n_splits = self.df_splits.index.levels[0].size
                 min_d = round(n_splits * (1- min_detect_gc),0)
                 # 1 == non-significant, 0 == significant
-                xrmask = pclass.corr_xr['mask'].sum(dim='split') > min_d
-            else:
-                xrvals = pclass.corr_xr
-                xrmask = pclass.corr_xr['mask']
+                xrmask = xrmask.sel(lag=plotlags).sum(dim='split') > min_d
+
+
             plot_maps.plot_corr_maps(xrvals,
                                      mask_xr=xrmask, **kwrgs_plot)
             if save == True:
@@ -886,7 +959,12 @@ class RGCPD:
                 TrainIsTrue = df_data.loc[s]['TrainIsTrue']
 
                 df_s = df_data.loc[s]
-                _ks = [k for k in keys if k in df_s.columns] # keys split
+                if type(keys) is dict:
+                    _ks = keys[s]
+                    _ks = [k for k in _ks if k in df_s.columns] # keys split
+                else:
+                    _ks = [k for k in keys if k in df_s.columns] # keys split
+
                 if match_lag_region_to_lag_fc:
                     ks = [k for k in _ks if k.split('..')[0] == str(lag)]
                     l = lag ; valid = len(ks) !=0 and ~df_s[ks].isna().values.all()
@@ -924,9 +1002,9 @@ class RGCPD:
 
 
                 if fcmodel is None:
-                    fcmodel = sm.ridgeCV
-                pred, model = fcmodel({'ts':target_ts},
-                                      df_norm, ks, kwrgs_model)
+                    fcmodel = sm.ScikitModel()
+                pred, model = fcmodel.fit_wrapper({'ts':target_ts},
+                                                  df_norm, ks, kwrgs_model)
 
                 # if len(lags) > 1:
                 models_splits_lags[f'split_{s}'] = model
@@ -938,13 +1016,11 @@ class RGCPD:
                     prediction = prediction.merge(pred.rename(columns={0:lag}),
                                                   left_index=True,
                                                   right_index=True)
-                    coeff = pd.DataFrame(model.coef_.reshape(-1), index=model.X_pred.columns,
-                                         columns=[lag])
                 else:
                     prediction = pred.rename(columns={0:lag})
-                    coeff = pd.DataFrame(model.coef_.reshape(-1),
-                                         index=model.X_pred.columns,
-                                         columns=[lag])
+
+                coeff = fc_utils.SciKitModel_coeff(model, lag)
+
                 preds[isp] = prediction
                 wghts[isp] = coeff
             if il == 0:

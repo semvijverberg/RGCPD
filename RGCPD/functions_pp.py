@@ -208,11 +208,13 @@ def load_TV(list_of_name_path, loadleap=False, start_end_year=None, name_ds='ts'
         fulltso = load_npy(filename, name=name)
     elif filename.split('.')[-1] == 'nc':
         ds = core_pp.import_ds_lazy(filename, start_end_year=start_end_year)
-        if len(ds.dims.keys()) > 1:
+        if len(ds.dims) > 1:
             fulltso = ds[name_ds].sel(cluster=name)
         else:
             if type(ds) is xr.Dataset:
                 fulltso = ds.to_array(name=name_ds)
+            else:
+                fulltso = ds
             fulltso = fulltso.squeeze()
 
     elif filename.split('.')[-1] == 'h5':
@@ -239,22 +241,28 @@ def load_TV(list_of_name_path, loadleap=False, start_end_year=None, name_ds='ts'
         fulltso = fulltso.sel(time=dates)
     return fulltso, hashh
 
-def get_df_test(df, cols: list=None):
+def get_df_test(df, cols: list=None, df_splits: pd.DataFrame=None):
     '''
     Parameters
     ----------
     df : pd.DataFrame
-        DESCRIPTION.
+        df with train-test splits on the multi-index.
     cols : list, optional
         return sub df based on columns. The default is None.
+    df_splits : pd.DataFrame
+        seperate df with TrainIsTrue column specifying the train-test data
 
     Returns
     -------
     Returns only the data at which TrainIsTrue==False.
 
     '''
-    splits = df.index.levels[0]
-    TrainIsTrue = df['TrainIsTrue']
+    if df_splits is None:
+        splits = df.index.levels[0]
+        TrainIsTrue = df['TrainIsTrue']
+    else:
+        splits = df_splits.index.levels[0]
+        TrainIsTrue = df_splits['TrainIsTrue']
     list_test = []
     for s in range(splits.size):
         TestIsTrue = TrainIsTrue[s]==False
@@ -292,8 +300,7 @@ def xrts_to_df(xarray):
 
 def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=False, RV_anomaly=False,
-               verbosity=1):
-    #%%
+               verbosity=1):    #%%
     # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1
 
     if RV_detrend: # do detrending on all timesteps
@@ -315,42 +322,39 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                            start_end_year=start_end_year))
 
     timestep_days = (dates[1] - dates[0]).days
-    if type(tfreq) == int: # timemeanbins between start_end_date
-        if timestep_days == 1:
-            input_freq = 'daily'
-            same_freq = (dates[1] - dates[0]).days == tfreq #same_freq true/False
-        elif timestep_days >= 28 and timestep_days <= 31 and n_yrs != n_timesteps:
-            input_freq = 'monthly'
-            same_freq = (dates[1].month - dates[0].month) == tfreq #same_freq true/False
-        elif tfreq == timestep_days:
-            same_freq = True
-        elif timestep_days == 365 or timestep_days == 366:
-            input_freq = 'annual' # temporary to work with lag as int
-            if verbosity == 1:
-                print('Detected timeseries with annual mean values')
-            # fullts, dates, startendTVdate = extend_annual_ts(fullts,
-            #                                 tfreq=1,
-            #                                 start_end_TVdate=start_end_TVdate,
-            #                                 start_end_date=start_end_date)
-            same_freq = None
+    # if type(tfreq) == int: # timemeanbins between start_end_date
+    if timestep_days == 1:
+        input_freq = 'daily'
+        same_freq = (dates[1] - dates[0]).days == tfreq #same_freq true/False
+    elif timestep_days >= 28 and timestep_days <= 31 and n_yrs != n_timesteps:
+        input_freq = 'monthly'
+        same_freq = (dates[1].month - dates[0].month) == tfreq #same_freq true/False
+    elif tfreq == timestep_days:
+        same_freq = True
+    elif timestep_days == 365 or timestep_days == 366:
+        input_freq = 'annual' # temporary to work with lag as int
+        if verbosity == 1:
+            print('Detected timeseries with annual mean values')
+        # fullts, dates, startendTVdate = extend_annual_ts(fullts,
+        #                                 tfreq=1,
+        #                                 start_end_TVdate=start_end_TVdate,
+        #                                 start_end_date=start_end_date)
+        same_freq = None
 
-        # Going to make timemeanbins (multiple datapoints per year)
-        if same_freq == False:
-            if verbosity == 1:
-                print('original tfreq of imported response variable is converted to '
-                      'desired tfreq')
-            fullts, dates_tobin = time_mean_bins(fullts, tfreq,
-                                                 start_end_date,
-                                                 start_end_year,
-                                                 closed_on_date=start_end_TVdate[-1])
-        if same_freq == True and start_end_date is not None and input_freq == 'daily':
-            fullts, dates = timeseries_tofit_bins(fullts, tfreq, start_end_date,
-                                            start_end_year)
-            print('Selecting subset as defined by start_end_date')
-    elif type(tfreq) == str:
-        pass
-        ###!!! still need to code taking mean over string of months
-        # if tfreq is '123', target will become Jan Feb Mar mean.
+    # Going to make timemeanbins (multiple datapoints per year)
+    if same_freq == False:
+        if verbosity == 1:
+            print('original tfreq of imported response variable is converted to '
+                  'desired tfreq')
+        fullts, dates_tobin = time_mean_bins(fullts, tfreq,
+                                             start_end_date,
+                                             start_end_year,
+                                             closed_on_date=start_end_TVdate[-1])
+    if same_freq == True and start_end_date is not None and input_freq == 'daily':
+        fullts, dates = timeseries_tofit_bins(fullts, tfreq, start_end_date,
+                                        start_end_year)
+        print('Selecting subset as defined by start_end_date')
+
 
     if input_freq == 'annual':
         TV_ts = fullts
@@ -485,41 +489,6 @@ def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
                                f', shape {ds.shape}')
     return ds
 
-
-
-def csv_to_df(path:str, sep=','):
-   '''
-   convert csv timeseries to hdf5 (.h5) format. Assumes column order:
-    year, month, day, ts1, ts2, ..., ...,
-
-    Parameters
-    ----------
-    path : str
-        path to .csv file.
-    sep : str, optional
-        seperator to seperate columns. The default is ','.
-
-    Returns
-    -------
-    df_data with datetime as index
-        DESCRIPTION.
-
-    '''
-    #%%
-
-   # load data from csv file and save to .h5
-
-   path = '/Users/semvijverberg/Downloads/OMI.csv'
-   data = pd.read_csv(path, sep=sep, parse_dates=[[0,1,2]],
-                       index_col='year_month_day')
-   data.index.name='date'
-
-   store_hdf_df(dict_of_dfs={'df_data':data},
-                file_path=path.replace('.csv', '.h5'))
-   return data
-
-
-
 def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None,
                    closed: str='right', closed_on_date: str=None,
                    verbosity=0):
@@ -546,6 +515,7 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
     date_time = pd.to_datetime(xarray['time'].values)
     # ensure to remove leapdays
     date_time = core_pp.remove_leapdays(date_time)
+    # input_freq = (date_time[1] - date_time[0]).days
     xarray = xarray.sel(time=date_time)
     years = np.unique(date_time.year)
     one_yr = get_oneyr(date_time, years[1])
@@ -562,9 +532,6 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
             print('\n Stepsize that do fit are {}'.format(possible))
             print('\n Will shorten the \'subyear\', so that the temporal'
                  ' frequency fits in one year')
-        date_time = pd.to_datetime(np.array(xarray['time'].values,
-                                          dtype='datetime64[D]'))
-
 
         dates_tobin = timeseries_tofit_bins(date_time, tfreq,
                                             start_end_date=start_end_date,
@@ -572,8 +539,10 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
                                             closed=closed,
                                             closed_on_date=closed_on_date,
                                             verbosity=verbosity)
-        dates_notpresent = [d for d in dates_tobin if d not in date_time]
-        assert len(dates_notpresent)==0, f'dates not present in xr_or_df\n{dates_notpresent}'
+
+        dates_notpresent = pd.to_datetime([d for d in dates_tobin if d not in date_time])
+        assert len(dates_notpresent)==0, ('dates not present in xr_or_df\n'
+        f' {dates_notpresent[:10]} \n...\n {dates_notpresent[-10:]}')
         xarray = xarray.sel(time=dates_tobin)
         one_yr = dates_tobin.where(dates_tobin.year == dates_tobin.year[0]).dropna(how='any')
 
@@ -665,7 +634,10 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         datetime = xr_or_dt.copy()
 
     datetime = core_pp.remove_leapdays(datetime)
-    input_freq = datetime.resolution
+    if (datetime[1] - datetime[0]).days == 1:
+        input_freq = 'day'
+    elif (datetime[1] - datetime[0]).days in [28,29,30,31]:
+        input_freq = 'month'
     # =============================================================================
     #   # select dates
     # =============================================================================
@@ -845,6 +817,26 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
 
 def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
                       start_end_year: tuple=None):
+    '''
+
+
+    Parameters
+    ----------
+    xr_or_df : xr.DataArray or xr.Dataset, or pd.DataFrame
+        input timeseries with dimension 'time'.
+    start_end_periods : tuple or np.ndarray
+        tuple of start- and enddate for target variable in
+        format ('mm-dd', 'mm-dd'). If start_end_periods[0] date is after
+        start_end_periods[1], then ('startyear-mm-dd', 'startyear+1-mm-dd').
+    start_end_year : tuple, optional
+
+
+    Returns
+    -------
+    return_obj : xr.DataArray or pd.DataFrame
+        Time aggregated data
+
+    '''
 
     if np.array(start_end_periods).shape == (2,):
         start_end_periods = np.array([start_end_periods])
@@ -862,7 +854,7 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
             old_name = [ z[0] for z in dims][i_time]
         else:
             old_name = 'index'
-        xarray = xr_init.rename({old_name : 'time'})
+        xarray = xr_init.rename({old_name : 'time'}).squeeze()
     else:
         return_df = False
         xarray = xr_or_df
@@ -874,16 +866,24 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
                                    start_end_year=start_end_year,
                                    lpyr=False,
                                    returngroups=True)
-        xrgr[i] = xarray.sel(time=dperiod).groupby(
+        if dperiod.size != np.unique(groups).size:
+            xrgr[i] = xarray.sel(time=dperiod).groupby(
                                             xr.DataArray(groups,
                                                          coords={'time':dperiod},
                                                          dims=['time'],
                                                          name='time'),
-                                            restore_coord_dims=False).mean(dim='time')
+                                            restore_coord_dims=True).mean(dim='time')
+        else:
+            xrgr[i] = xarray.sel(time=dperiod) # No groupby mean needed
+            xrgr[i]['time'] = ('time', groups)
+
     xrgr = [x.expand_dims('lag', axis=1) for x in xrgr]
     xarray = xr.concat(xrgr, dim='lag')
     xarray['lag'] = ('lag', np.arange(start_end_periods.shape[0]))
-
+    time_index = ('time', pd.to_datetime([f'{y}-01-01' for y in xrgr[i]['time'].values]))
+    xarray['time'] = time_index
+    xarray = xarray.transpose('time', 'lag', 'latitude', 'longitude', # ensure order dims
+                              transpose_coords=True)
 
     if return_df:
         if len(xr_init.shape) == 3:
@@ -895,8 +895,8 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
                                       index=index,
                                       columns=list(xr_init.coords['variable'].values))
         elif len(xr_init.shape) == 2:
-            return_obj = pd.DataFrame(xarray.values.T,
-                                      index=date_time,
+            return_obj = pd.DataFrame(xarray.values,
+                                      index=time_index[1],
                                       columns=list(xr_init.coords['variable'].values))
             return_obj = return_obj.astype(xr_or_df.dtypes)
     elif return_df == False:
@@ -968,90 +968,8 @@ def area_weighted(xarray):
    area_weights = np.tile(coslat[..., np.newaxis],(1,xarray.longitude.size))
 #   area_weights = area_weights / area_weights.mean()
    return xr.DataArray(xarray.values * area_weights, coords=xarray.coords,
-                          dims=xarray.dims)
+                          dims=xarray.dims, name=xarray.name, attrs=xarray.attrs)
 
-
-def find_region(data, region='EU'):
-    import numpy as np
-
-    def find_nearest(array, value):
-        idx = (np.abs(array - value)).argmin()
-        return int(idx)
-
-    def find_nearest_coords(array, region_coords):
-        for lon_value in region_coords[:2]:
-            region_idx = region_coords.index(lon_value)
-            idx = find_nearest(data['longitude'], lon_value)
-            if region_coords[region_idx] != float(data['longitude'][idx].values):
-                print('longitude value of latlonbox did not match, '
-                      'updating to nearest value')
-            region_coords[region_idx] = float(data['longitude'][idx].values)
-        for lat_value in region_coords[2:]:
-            region_idx = region_coords.index(lat_value)
-            idx = find_nearest(data['latitude'], lat_value)
-            if region_coords[region_idx] != float(data['latitude'][idx].values):
-                print('latitude value of latlonbox did not match, '
-                      'updating to nearest value')
-            region_coords[region_idx] = float(data['latitude'][idx].values)
-        return region_coords
-
-    if region == 'EU':
-        west_lon = -30; east_lon = 40; south_lat = 35; north_lat = 65
-
-    elif region ==  'U.S.':
-        west_lon = -120; east_lon = -70; south_lat = 20; north_lat = 50
-
-    if type(region) == list:
-        west_lon = region[0]; east_lon = region[1];
-        south_lat = region[2]; north_lat = region[3]
-    region_coords = [west_lon, east_lon, south_lat, north_lat]
-
-    # Update regions coords in case they do not exactly match
-    region_coords = find_nearest_coords(data, region_coords)
-    west_lon = region_coords[0]; east_lon = region_coords[1];
-    south_lat = region_coords[2]; north_lat = region_coords[3]
-
-
-    lonstep = abs(data.longitude[1] - data.longitude[0])
-    latstep = abs(data.latitude[1] - data.latitude[0])
-    # abs() enforces that all values are positve, if not the case, it will not meet
-    # the conditions
-    lons = abs(np.arange(data.longitude[0], data.longitude[-1]+lonstep, lonstep))
-
-
-
-    if (lons == np.array(data.longitude.values)).all():
-
-        lons = list(np.arange(west_lon, east_lon+lonstep, lonstep))
-        lats = list(np.arange(south_lat, north_lat+latstep, latstep))
-
-        all_values = data.sel(latitude=lats, longitude=lons)
-    if west_lon <0 and east_lon > 0:
-        # left_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(0, east_lon)))
-        # right_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360)))
-        # all_values = np.concatenate((np.reshape(left_of_meridional, (np.size(left_of_meridional))), np.reshape(right_of_meridional, np.size(right_of_meridional))))
-        lon_idx = np.concatenate(( np.arange(find_nearest(data['longitude'], 360 + west_lon), len(data['longitude'])),
-                              np.arange(0,find_nearest(data['longitude'], east_lon), 1) ))
-        lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
-        all_values = data.sel(latitude=slice(north_lat, south_lat),
-                              longitude=(data.longitude > 360 + west_lon) | (data.longitude < east_lon))
-    if west_lon < 0 and east_lon < 0:
-        all_values = data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360+east_lon))
-        lon_idx = np.arange(find_nearest(data['longitude'], 360 + west_lon), find_nearest(data['longitude'], 360+east_lon))
-        lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
-
-    return all_values, region_coords
-
-def selbox_to_1dts(cls, latlonbox):
-    marray, var_class = import_array(cls, path='pp')
-    selboxmarray, region_coords = find_region(marray, latlonbox)
-    print('spatial mean over latlonbox {}'.format(region_coords))
-    lats = selboxmarray.latitude.values
-    cos_box = np.cos(np.deg2rad(lats))
-    cos_box_array = np.tile(cos_box, (selboxmarray.longitude.size,1) )
-    weights_box = np.swapaxes(cos_box_array, 1,0)
-    RV_fullts = (selboxmarray*weights_box).mean(dim=('latitude','longitude'))
-    return RV_fullts
 
 def anom1D(da):
 
@@ -1445,6 +1363,37 @@ def get_download_path():
     else:
         return os.path.join(os.path.expanduser('~'), 'Downloads')
 
+def csv_to_df(path:str, sep=','):
+   '''
+   convert csv timeseries to hdf5 (.h5) format. Assumes column order:
+    year, month, day, ts1, ts2, ..., ...,
+
+    Parameters
+    ----------
+    path : str
+        path to .csv file.
+    sep : str, optional
+        seperator to seperate columns. The default is ','.
+
+    Returns
+    -------
+    df_data with datetime as index
+        DESCRIPTION.
+
+    '''
+    #%%
+
+   # load data from csv file and save to .h5
+
+   path = '/Users/semvijverberg/Downloads/OMI.csv'
+   data = pd.read_csv(path, sep=sep, parse_dates=[[0,1,2]],
+                       index_col='year_month_day')
+   data.index.name='date'
+
+   store_hdf_df(dict_of_dfs={'df_data':data},
+                file_path=path.replace('.csv', '.h5'))
+   return data
+
 def dfsplits_to_dates(df_splits, s):
     dates_train = df_splits.loc[s]['TrainIsTrue'][df_splits.loc[s]['TrainIsTrue']].index
     dates_test  = df_splits.loc[s]['TrainIsTrue'][~df_splits.loc[s]['TrainIsTrue']].index
@@ -1536,3 +1485,86 @@ def match_coords_xarrays(wanted_coords_arr, *to_match):
     return [tomatch.sel(longitude=np.arange(lonmin, lonmax+dlon,dlon),
                        latitude=np.arange(latmin, latmax+dlat,dlat),
                        method='nearest') for tomatch in to_match]
+
+
+# def find_region(data, region='EU'):
+#     import numpy as np
+
+#     def find_nearest(array, value):
+#         idx = (np.abs(array - value)).argmin()
+#         return int(idx)
+
+#     def find_nearest_coords(array, region_coords):
+#         for lon_value in region_coords[:2]:
+#             region_idx = region_coords.index(lon_value)
+#             idx = find_nearest(data['longitude'], lon_value)
+#             if region_coords[region_idx] != float(data['longitude'][idx].values):
+#                 print('longitude value of latlonbox did not match, '
+#                       'updating to nearest value')
+#             region_coords[region_idx] = float(data['longitude'][idx].values)
+#         for lat_value in region_coords[2:]:
+#             region_idx = region_coords.index(lat_value)
+#             idx = find_nearest(data['latitude'], lat_value)
+#             if region_coords[region_idx] != float(data['latitude'][idx].values):
+#                 print('latitude value of latlonbox did not match, '
+#                       'updating to nearest value')
+#             region_coords[region_idx] = float(data['latitude'][idx].values)
+#         return region_coords
+
+#     if region == 'EU':
+#         west_lon = -30; east_lon = 40; south_lat = 35; north_lat = 65
+
+#     elif region ==  'U.S.':
+#         west_lon = -120; east_lon = -70; south_lat = 20; north_lat = 50
+
+#     if type(region) == list:
+#         west_lon = region[0]; east_lon = region[1];
+#         south_lat = region[2]; north_lat = region[3]
+#     region_coords = [west_lon, east_lon, south_lat, north_lat]
+
+#     # Update regions coords in case they do not exactly match
+#     region_coords = find_nearest_coords(data, region_coords)
+#     west_lon = region_coords[0]; east_lon = region_coords[1];
+#     south_lat = region_coords[2]; north_lat = region_coords[3]
+
+
+#     lonstep = abs(data.longitude[1] - data.longitude[0])
+#     latstep = abs(data.latitude[1] - data.latitude[0])
+#     # abs() enforces that all values are positve, if not the case, it will not meet
+#     # the conditions
+#     lons = abs(np.arange(data.longitude[0], data.longitude[-1]+lonstep, lonstep))
+
+
+
+#     if (lons == np.array(data.longitude.values)).all():
+
+#         lons = list(np.arange(west_lon, east_lon+lonstep, lonstep))
+#         lats = list(np.arange(south_lat, north_lat+latstep, latstep))
+
+#         all_values = data.sel(latitude=lats, longitude=lons)
+#     if west_lon <0 and east_lon > 0:
+#         # left_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(0, east_lon)))
+#         # right_of_meridional = np.array(data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360)))
+#         # all_values = np.concatenate((np.reshape(left_of_meridional, (np.size(left_of_meridional))), np.reshape(right_of_meridional, np.size(right_of_meridional))))
+#         lon_idx = np.concatenate(( np.arange(find_nearest(data['longitude'], 360 + west_lon), len(data['longitude'])),
+#                               np.arange(0,find_nearest(data['longitude'], east_lon), 1) ))
+#         lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
+#         all_values = data.sel(latitude=slice(north_lat, south_lat),
+#                               longitude=(data.longitude > 360 + west_lon) | (data.longitude < east_lon))
+#     if west_lon < 0 and east_lon < 0:
+#         all_values = data.sel(latitude=slice(north_lat, south_lat), longitude=slice(360+west_lon, 360+east_lon))
+#         lon_idx = np.arange(find_nearest(data['longitude'], 360 + west_lon), find_nearest(data['longitude'], 360+east_lon))
+#         lat_idx = np.arange(find_nearest(data['latitude'],north_lat),find_nearest(data['latitude'],south_lat),1)
+
+#     return all_values, region_coords
+
+# def selbox_to_1dts(cls, latlonbox):
+#     marray, var_class = core_pp.import (cls, path='pp')
+#     selboxmarray, region_coords = find_region(marray, latlonbox)
+#     print('spatial mean over latlonbox {}'.format(region_coords))
+#     lats = selboxmarray.latitude.values
+#     cos_box = np.cos(np.deg2rad(lats))
+#     cos_box_array = np.tile(cos_box, (selboxmarray.longitude.size,1) )
+#     weights_box = np.swapaxes(cos_box_array, 1,0)
+#     RV_fullts = (selboxmarray*weights_box).mean(dim=('latitude','longitude'))
+#     return RV_fullts
