@@ -655,15 +655,18 @@ def df_data_Parcorr(df_data, z_keys=[str, list], keys: list=None, target: str=No
             for s in df_data.index.levels[0]:
                 pcmci = pcmci_dict[s]
 
-                if x_key not in pcmci.var_names or z not in pcmci.var_names:
+                if np.isnan(pcmci.dataframe.values).any(): #NaNs in array
+                    val, pval = np.nan, np.nan
+                elif x_key not in pcmci.var_names or z not in pcmci.var_names:
                     val, pval = np.nan, np.nan
                 else:
                     X, Y, Z = [(0, x_lag)],[(1, 0)], [(2, z_lag)]
 
                     runtest = pcmci.cond_ind_test.run_test
                     val, pval = runtest(X, Y, Z,
-                                       tau_max=max(x_lag, z_lag),
-                                       cut_off='max_lag')
+                                        tau_max=max(x_lag, z_lag),
+                                        cut_off='max_lag')
+
                 valnp[ix,iz,s] = val
                 pvalnp[ix,iz,s] = pval
 

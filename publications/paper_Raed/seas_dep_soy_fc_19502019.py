@@ -82,14 +82,14 @@ if __name__ == '__main__':
     out = combinations[args.intexper]
     target_dataset = out[0]
     experiment = out[1]
-    seed = out[2]
+    seed = int(out[2])
     start_end_year = (int(out[3][:4]), int(out[3][-4:]))
     print(f'arg {args.intexper} {out}')
 else:
     out = combinations[i_default]
     target_dataset = out[0]
     experiment = out[1]
-    seed = out[2]
+    seed = int(out[2])
     start_end_year = (int(out[3][:4]), int(out[3][-4:]))
 
 
@@ -162,7 +162,7 @@ list_of_name_path = [(cluster_label, TVpath),
 list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={},
-                            distance_eps=350, min_area_in_degrees2=4,
+                            distance_eps=300, min_area_in_degrees2=3,
                             calc_ts=calc_ts, selbox=GlobalBox,
                             lags=corlags),
                  BivariateMI(name='smi3', func=class_BivariateMI.corr_map,
@@ -214,34 +214,37 @@ for p in rg.list_for_MI:
     p.corr_xr['lag'] = ('lag', periodnames)
 
 #%%
-save = True
-kwrgs_plotcorr = {'row_dim':'lag', 'col_dim':'split','aspect':4, 'hspace':0,
+save = False
+kwrgs_plotcorr_sst = {'row_dim':'lag', 'col_dim':'split','aspect':4, 'hspace':0,
                   'wspace':-.15, 'size':3, 'cbar_vert':0.05,
                   'map_proj':ccrs.PlateCarree(central_longitude=220),
-                  # 'y_ticks':np.arange(-10,61,20), 'x_ticks':np.arange(130, 280, 25),
+                   'y_ticks':np.arange(-10,61,20), #'x_ticks':np.arange(130, 280, 25),
                   'title':'',
                   'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
-rg.plot_maps_corr(plotlags=periodnames[:4], kwrgs_plot=kwrgs_plotcorr, save=save)
+rg.plot_maps_corr('sst', kwrgs_plot=kwrgs_plotcorr_sst, save=save)
+#%%
+kwrgs_plotcorr_SM = {'row_dim':'lag', 'col_dim':'split','aspect':2, 'hspace':0.2,
+                      'wspace':0, 'size':3, 'cbar_vert':0.04,
+                      'map_proj':ccrs.PlateCarree(central_longitude=220),
+                       'y_ticks':np.arange(25,56,10), 'x_ticks':np.arange(230, 295, 15),
+                      'title':'',
+                      'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+rg.plot_maps_corr('smi3', kwrgs_plot=kwrgs_plotcorr_SM, save=save)
+
 
 #%%
 
-kwrgs_plotlabels = {'row_dim':'lag', 'col_dim':'split','aspect':4, 'hspace':0,
-              'wspace':-.15, 'size':3, 'cbar_vert':0.05,
-              'units':'Corr. Coeff. [-]',
-              'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
-              # 'y_ticks':np.arange(-10,61,20), 'x_ticks':np.arange(130, 280, 25),
-              'title':'',
-              'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
-# precur.distance_eps = 350 ; precur.min_area_in_degrees2 = 4
-rg.cluster_list_MI()
-rg.quick_view_labels(kwrgs_plot=kwrgs_plotlabels)
+precur.distance_eps = 200 ; precur.min_area_in_degrees2 = 3
+rg.cluster_list_MI('sst')
+# rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst)
 # prec_labels, _ = find_precursors.split_region_by_lonlat(precur.prec_labels.copy(),
 #                                                      label=3, plot_l=2,
 #                                                      kwrgs_mask_latlon={'latmax':32})
 # prec_labels, _ = find_precursors.split_region_by_lonlat(prec_labels.copy(), label=3,
 #                                        plot_l=2, kwrgs_mask_latlon={'lonmax':190})
 # precur.prec_labels = prec_labels
-rg.quick_view_labels(kwrgs_plot=kwrgs_plotlabels, save=save)
+rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst, save=save)
+rg.quick_view_labels('smi3', kwrgs_plot=kwrgs_plotcorr_SM, save=save)
 
 #%%
 rg.get_ts_prec()
@@ -267,7 +270,7 @@ from stat_models_cont import ScikitModel
 #             'n_jobs':1}
 fcmodel = ScikitModel(RidgeCV, verbosity=0)
 kwrgs_model = {'scoring':'neg_mean_absolute_error',
-                'alphas':np.logspace(.1, 2.5, num=25), # large a, strong regul.
+                'alphas':np.logspace(-2, 2.5, num=30), # large a, strong regul.
                 'normalize':False,
                 'fit_intercept':False}
 
@@ -348,6 +351,7 @@ no_info_fc = []
 
 CondDepKeys = {} ; CondDepKeysDict = {}
 for i, months in enumerate(periodnames[:]):
+    print(f'forecast using precursors of {months}')
     # months, start_end_TVdate = periodnames[2], corlags[2]
     # i = 0; months = periodnames[0]
 
@@ -419,9 +423,9 @@ for i, months in enumerate(periodnames[:]):
         assert kwrgs_model['alphas'].max() not in cvfitalpha, 'increase max a'
         assert kwrgs_model['alphas'].min() not in cvfitalpha, 'decrease min a'
 
-        df_test = functions_pp.get_df_test(prediction.merge(rg.df_data.iloc[:,-2:],
-                                                        left_index=True,
-                                                        right_index=True)).iloc[:,:2]
+        df_test = functions_pp.get_df_test(predict.rename({0:months}, axis=1),
+                                            cols=[months],
+                                            df_splits=rg.df_splits)
 
     else:
         print('no precursor timeseries found, scores all 0')
@@ -434,9 +438,8 @@ for i, months in enumerate(periodnames[:]):
         df_train_m = pd.DataFrame(np.zeros((1,len(score_func_list))),
                                   columns=index)
 
-    list_pred_test.append(functions_pp.get_df_test(predict.rename({0:months}, axis=1),
-                                                 cols=[months],
-                                                 df_splits=rg.df_splits))
+    # appending results
+    list_pred_test.append(df_test)
     df_test_m.index = [months] ;
     columns = pd.MultiIndex.from_product([np.array([months]),
                                         df_train_m.columns.levels[1]])
@@ -530,25 +533,32 @@ boxplot_scores(list_test, list_test_b, alpha=.1)
 #%%
 if feature_selection:
     append_str = '-'.join(periodnames)
-    CDlabels = precur.prec_labels.copy() ; CDl = np.zeros_like(CDlabels)
-    CDcorr = precur.corr_xr.copy()
-    for i, month in enumerate(CondDepKeys):
-        CDkeys = CondDepKeys[month]
-        region_labels = [int(l.split('..')[1]) for l in CDkeys]
-        f = find_precursors.view_or_replace_labels
-        CDlabels[:,i] = f(CDlabels[:,i].copy(), region_labels)
-    mask = (np.isnan(CDlabels)).astype(bool)
-    plot_maps.plot_labels(CDlabels.mean(dim='split'), kwrgs_plot=kwrgs_plotlabels)
-    if save:
-        plt.savefig(os.path.join(rg.path_outsub1,
-                             f'CondDep_labels_{append_str}_ac{alpha_corr}_eps{precur.distance_eps}'
-                             f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}'+rg.figext))
+    for ip, precur in enumerate(rg.list_for_MI):
+        CDlabels = precur.prec_labels.copy() ; CDl = np.zeros_like(CDlabels)
+        CDcorr = precur.corr_xr.copy()
+        for i, month in enumerate(CondDepKeys):
+            CDkeys = CondDepKeys[month]
+            region_labels = [int(l.split('..')[1]) for l in CDkeys]
+            f = find_precursors.view_or_replace_labels
+            CDlabels[:,i] = f(CDlabels[:,i].copy(), region_labels)
+        mask = (np.isnan(CDlabels)).astype(bool)
+        if ip == 0:
+            kwrgs_plot = kwrgs_plotcorr_sst
+        elif ip == 1:
+            kwrgs_plot = kwrgs_plotcorr_SM
 
-    fig = plot_maps.plot_corr_maps(CDcorr.mean(dim='split'),
-                             mask_xr=mask, **kwrgs_plotcorr)
-    if save:
-        fig.savefig(os.path.join(rg.path_outsub1,
-                             f'CondDep_{append_str}_ac{alpha_corr}_aCI{alpha_CI}'+rg.figext))
+        plot_maps.plot_labels(CDlabels.mean(dim='split'), kwrgs_plot=kwrgs_plot)
+        if save:
+            plt.savefig(os.path.join(rg.path_outsub1,
+                                 f'CondDep_labels_{precur.name}_{append_str}_ac{alpha_corr}_eps{precur.distance_eps}'
+                                 f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}'+rg.figext))
+
+        fig = plot_maps.plot_corr_maps(CDcorr.mean(dim='split'),
+                                 mask_xr=mask, **kwrgs_plot)
+        if save:
+            fig.savefig(os.path.join(rg.path_outsub1,
+                                 f'CondDep_{precur.name}_{append_str}_ac{alpha_corr}_aCI{alpha_CI}'+rg.figext))
+
 
 #%%
 if __name__ == '__main__':
