@@ -162,7 +162,7 @@ list_of_name_path = [(cluster_label, TVpath),
 list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={},
-                            distance_eps=300, min_area_in_degrees2=3,
+                            distance_eps=200, min_area_in_degrees2=3,
                             calc_ts=calc_ts, selbox=GlobalBox,
                             lags=corlags),
                  BivariateMI(name='smi3', func=class_BivariateMI.corr_map,
@@ -235,7 +235,7 @@ rg.plot_maps_corr('smi3', kwrgs_plot=kwrgs_plotcorr_SM, save=save)
 #%%
 
 precur.distance_eps = 200 ; precur.min_area_in_degrees2 = 3
-rg.cluster_list_MI('sst')
+rg.cluster_list_MI()
 # rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst)
 # prec_labels, _ = find_precursors.split_region_by_lonlat(precur.prec_labels.copy(),
 #                                                      label=3, plot_l=2,
