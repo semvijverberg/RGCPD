@@ -30,7 +30,7 @@ import argparse
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
                       'surfdrive/Scripts/RGCPD/publications/paper_Raed/'))
-curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+curr_dir = os.path.join(user_dir, 'surfdrive/Scripts/RGCPD/RGCPD/')
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
