@@ -270,9 +270,10 @@ from stat_models_cont import ScikitModel
 #             'n_jobs':1}
 fcmodel = ScikitModel(RidgeCV, verbosity=0)
 kwrgs_model = {'scoring':'neg_mean_absolute_error',
-                'alphas':np.logspace(-2, 2.5, num=30), # large a, strong regul.
+                'alphas':np.concatenate([np.logspace(-5,0, 6),np.logspace(.01, 2.5, num=25)]), # large a, strong regul.
                 'normalize':False,
-                'fit_intercept':False}
+                'fit_intercept':False,
+                'kfold':5}
 
 def append_dict(month, df_test_m, df_train_m):
     dkeys = [f'{month} RMSE test', 'train',
@@ -393,7 +394,6 @@ for i, months in enumerate(periodnames[:]):
         # print(months, keys_dict)
 
 
-
     if len(keys) != 0:
         out = rg.fit_df_data_ridge(target=target_ts,
                                    keys=keys_dict,
@@ -421,7 +421,7 @@ for i, months in enumerate(periodnames[:]):
 
         cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_spl)]
         assert kwrgs_model['alphas'].max() not in cvfitalpha, 'increase max a'
-        assert kwrgs_model['alphas'].min() not in cvfitalpha, 'decrease min a'
+        # assert kwrgs_model['alphas'].min() not in cvfitalpha, 'decrease min a'
 
         df_test = functions_pp.get_df_test(predict.rename({0:months}, axis=1),
                                             cols=[months],

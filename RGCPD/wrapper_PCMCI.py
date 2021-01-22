@@ -45,7 +45,8 @@ def init_pcmci(df_data, significance='analytic', mask_type='y',
         df_data_s = df_data.loc[s][TrainIsTrue.values]
         df_data_s = df_data_s.dropna(axis=1, how='all')
         if any(df_data_s.isna().values.flatten()):
-            print('Warnning: nans detected')
+            if verbosity > 0:
+                print('Warnning: nans detected')
 #        print(np.unique(df_data_s.isna().values))
         var_names = list(df_data_s.columns[(df_data_s.dtypes != np.bool)])
         df_data_s = df_data_s.loc[:,var_names]
@@ -645,17 +646,17 @@ def df_data_Parcorr(df_data, z_keys=[str, list], keys: list=None, target: str=No
         for iz, z in enumerate(subz_keys):
             index.append((x_key, z))
 
-
             # create X, Y, Z format
             dfxyz = df_data[[target, x_key, z]]
             dfxyz = df_data[[x_key, target, z] +['TrainIsTrue', 'RV_mask']]
             pcmci_dict = init_pcmci(dfxyz, significance='analytic', mask_type='y',
-                                    selected_variables=None, verbosity=4)
+                                    selected_variables=None, verbosity=0)
 
             for s in df_data.index.levels[0]:
                 pcmci = pcmci_dict[s]
 
                 if np.isnan(pcmci.dataframe.values).any(): #NaNs in array
+                    # break
                     val, pval = np.nan, np.nan
                 elif x_key not in pcmci.var_names or z not in pcmci.var_names:
                     val, pval = np.nan, np.nan
