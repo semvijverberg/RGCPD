@@ -438,8 +438,8 @@ for i, months in enumerate(periodnames[:]):
         df_train_m = pd.DataFrame(np.zeros((1,len(score_func_list))),
                                   columns=index)
 
-    # appending results
-    list_pred_test.append(df_test)
+        # appending results
+        list_pred_test.append(df_test)
     df_test_m.index = [months] ;
     columns = pd.MultiIndex.from_product([np.array([months]),
                                         df_train_m.columns.levels[1]])
