@@ -27,8 +27,9 @@ import csv
 # import sklearn.linear_model as scikitlinear
 import argparse
 
-os.chdir('/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper_Raed/')
 user_dir = os.path.expanduser('~')
+os.chdir(os.path.join(user_dir,
+                      'surfdrive/Scripts/RGCPD/publications/paper_Raed/'))
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
