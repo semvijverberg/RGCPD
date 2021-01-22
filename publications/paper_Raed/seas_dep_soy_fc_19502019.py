@@ -55,7 +55,12 @@ import plot_maps; import core_pp
 
 experiments = ['seasons', 'bimonthly', 'semestral']
 target_datasets = ['USDA_Soy', 'USDA_Maize', 'GDHY_Soy']
-combinations = np.array(np.meshgrid(target_datasets, experiments)).T.reshape(-1,2)
+seeds = [1,2,3,4,5]
+yrs = ['1950, 2019', '1960, 2019', '1950, 2009']
+combinations = np.array(np.meshgrid(target_datasets,
+                                    experiments,
+                                    seeds,
+                                    yrs)).T.reshape(-1,4)
 i_default = 1
 
 
@@ -76,11 +81,15 @@ if __name__ == '__main__':
     out = combinations[args.intexper]
     target_dataset = out[0]
     experiment = out[1]
+    seed = out[2]
+    start_end_year = (int(out[3][:4]), int(out[3][-4:]))
     print(f'arg {args.intexper} {out}')
 else:
     out = combinations[i_default]
     target_dataset = out[0]
     experiment = out[1]
+    seed = out[2]
+    start_end_year = (int(out[3][:4]), int(out[3][-4:]))
 
 
 if target_dataset == 'GDHY_Soy':
@@ -88,20 +97,20 @@ if target_dataset == 'GDHY_Soy':
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/q50_nc4_dendo_707fb.nc')
     cluster_label = 3
     name_ds='ts'
-    start_end_year = (1980, 2015)
+    # start_end_year = (1980, 2015)
 elif target_dataset == 'USDA_Soy':
     # USDA dataset 1950 - 2019
     TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts.nc')
     name_ds='Soy_Yield' ; cluster_label = None
-    start_end_year = (1950, 2019)
+    # start_end_year = (1950, 2019)
 elif target_dataset == 'USDA_Maize':
     # USDA dataset 1950 - 2019
     TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_maize_spatial_mean_ts.nc')
     name_ds='Maize_Yield' ; cluster_label = None
-    start_end_year = (1950, 2019)
+    # start_end_year = (1950, 2019)
 
 
-tfreq = 90 if experiment == 'seasons' else None
+
 calc_ts='region mean' # pattern cov
 alpha_corr = .05
 method     = 'ran_strat10' ; seed = 1
@@ -121,7 +130,7 @@ elif experiment == 'bimonthly':
                         ['07-01', '08-31'], # JA
                         ['09-01', '10-31']  # SO
                         ])
-    periodnames = ['March-April','May-June','July-August','Sept-Oct']
+    periodnames = ['MA','MJ','JA','SO']
 elif experiment == 'semestral':
     corlags = np.array([
                         ['12-01', '05-31'], # DJFMAM
@@ -132,16 +141,16 @@ elif experiment == 'semestral':
     periodnames = ['DJFMAM', 'MAMJJA', 'JJASON', 'annual']
 
 append_main = target_dataset
-path_out_main = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/output'
+# path_out_main = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/output'
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
 PacificBox = (130,265,-10,60)
 GlobalBox  = (-180,360,-10,60)
 USBox = (225, 300, 20, 60)
 
-start_end_year = (1960, 2019) #!!!
+
 
 #%% run RGPD
-start_end_TVdate = ('06-01', '08-31')
-start_end_date = ('1-1', '12-31')
+
 list_of_name_path = [(cluster_label, TVpath),
                        ('sst', os.path.join(path_raw, 'sst_1950-2019_1_12_monthly_1.0deg.nc')),
                       # ('z500', os.path.join(path_raw, 'z500_1950-2019_1_12_monthly_1.0deg.nc')),
@@ -169,14 +178,16 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
            list_import_ts=None,
-           start_end_TVdate=start_end_TVdate,
-           start_end_date=start_end_date,
+           start_end_TVdate=None,
+           start_end_date=None,
            start_end_year=start_end_year,
-           tfreq=tfreq,
+           tfreq=None,
            path_outmain=path_out_main)
 precur = rg.list_for_MI[0] ; lag = precur.lags[0]
 
-subfoldername = target_dataset+'_'.join(['', experiment, str(method), 's'+ str(seed)])
+subfoldername = target_dataset+'_'.join(['', experiment, str(method),
+                                         's'+ str(seed)] +
+                                        list(np.array(start_end_year, str)))
 
 
 rg.pp_precursors(detrend=[True, {'tp':False, 'smi3':False, 'swvl1':False, 'swvl3':False}],
@@ -234,19 +245,7 @@ rg.quick_view_labels(kwrgs_plot=kwrgs_plotlabels, save=save)
 #%%
 rg.get_ts_prec()
 rg.df_data = rg.df_data.rename({'Nonets':target_dataset},axis=1)
-#%% get PDO
-# SST_pp_filepath = rg.list_precur_pp[0][1]
 
-# if 'df_PDOsplit' not in globals():
-#     df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
-#                                                None) #rg.df_splits)
-#     # summerdates = core_pp.get_subdates(dates, start_end_TVdate)
-#     df_PDOsplit = df_PDO.loc[0]#.loc[summerdates]
-#     plot_maps.plot_corr_maps(PDO_patterns)
-
-# df_PDOsplit = df_PDOsplit[['PDO']].apply(fc_utils.standardize_on_train,
-#                      args=[df_PDO.loc[0]['TrainIsTrue']],
-#                      result_type='broadcast')
 
 
 #%% forecasting
@@ -265,37 +264,72 @@ from stat_models_cont import ScikitModel
 #             'random_state':0,
 #             'max_samples':.6,
 #             'n_jobs':1}
-
 fcmodel = ScikitModel(RidgeCV, verbosity=0)
 kwrgs_model = {'scoring':'neg_mean_absolute_error',
-                'alphas':np.logspace(.1, 1.5, num=25), # large a, strong regul.
-                'normalize':False}
+                'alphas':np.logspace(.1, 2.5, num=25), # large a, strong regul.
+                'normalize':False,
+                'fit_intercept':False}
 
-
-def append_dict(month, df_test_m):
-    dkeys = [f'{month} RMSE-SS', f'{month} Corr.']
+def append_dict(month, df_test_m, df_train_m):
+    dkeys = [f'{month} RMSE test', 'train',
+             f'{month} Corr. test', 'train',
+             f'{month} MAE test', 'train']
     append_dict = {dkeys[0]:float(df_test_m.iloc[:,0].round(3)),
-                   dkeys[1]:float(df_test_m.iloc[:,1].round(3))}
+                   dkeys[1]:float(df_train_m.mean().iloc[0].round(3)),
+                   dkeys[2]:float(df_test_m.iloc[:,1].round(3)),
+                   dkeys[3]:float(df_train_m.mean().iloc[1].round(3)),
+                   dkeys[4]:float(df_test_m.iloc[:,2].round(3)),
+                   dkeys[5]:float(df_train_m.mean().iloc[2].round(3))}
     dict_v.update(append_dict)
     return
 
+def feature_selection_CondDep(df_data, keys, alpha_CI=.05):
+    # Feature selection Cond. Dependence
+    keys = list(keys) # must be list
+    corr, pvals = wrapper_PCMCI.df_data_Parcorr(df_data.copy(), z_keys=keys,
+                                                keys=keys)
+    # removing all keys that are Cond. Indep. in each trainingset
+    keys_dict = dict(zip(range(n_spl), [keys]*n_spl)) # all vars
+    for s in rg.df_splits.index.levels[0]:
+        for k_i in keys:
+            if (np.nan_to_num(pvals.loc[k_i][s],nan=alpha_CI) > alpha_CI).mean()>0:
+                k_ = keys_dict[s].copy() ; k_.pop(k_.index(k_i))
+                keys_dict[s] = k_
+    return corr, pvals, keys_dict.copy()
 
 
 blocksize=1
 lag = 0
-alpha_CI = .05
+alpha_CI = .1
 variables = ['sst', 'smi3']
+
+feature_selection = True
 add_previous_periods = False
+
 add_PDO = False
-PDO_aggr_periods = np.array([
-                            ['03-01', '02-28'],
-                            ['06-01', '05-31'],
-                            ['09-01', '08-31'],
-                            ['12-01', '11-30']
-                            ])
+if add_PDO:
+    # get PDO
+    SST_pp_filepath = rg.list_precur_pp[0][1]
+    if 'df_PDOsplit' not in globals():
+        df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
+                                                    None)
+        df_PDOsplit = df_PDO.loc[0]
+        plot_maps.plot_corr_maps(PDO_patterns)
+
+    df_PDOsplit = df_PDOsplit[['PDO']].apply(fc_utils.standardize_on_train,
+                          args=[df_PDO.loc[0]['TrainIsTrue']],
+                          result_type='broadcast')
+    PDO_aggr_periods = np.array([
+                                ['03-01', '02-28'],
+                                ['06-01', '05-31'],
+                                ['09-01', '08-31'],
+                                ['12-01', '11-30']
+                                ])
 
 
-dict_v = {'lag':lag,'Seed':f's{seed}'}
+dict_v = {'exp':experiment,'method':method,'S':f's{seed}',
+          'yrs':start_end_year, 'fs':str(feature_selection),
+          'addprev':add_previous_periods}
 
 fc_mask = rg.df_data.iloc[:,-1].loc[0]#.shift(lag, fill_value=False)
 target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
@@ -306,8 +340,11 @@ MAE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).MAE
 score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS]
 
 list_test = []
+list_train = []
 list_test_b = []
+list_pred_test = []
 no_info_fc = []
+
 CondDepKeys = {} ; CondDepKeysDict = {}
 for i, months in enumerate(periodnames[:]):
     # months, start_end_TVdate = periodnames[2], corlags[2]
@@ -326,25 +363,30 @@ for i, months in enumerate(periodnames[:]):
         rg.df_data = rg.merge_df_on_df_data(df_PDOagr)
         keys.append('PDO')
 
-    keys_dict = dict(zip(range(n_spl), [keys]*n_spl)) # all vars
-    if len(keys) != 0 and 'PDO' not in keys:
-        corr, pvals = wrapper_PCMCI.df_data_Parcorr(rg.df_data.copy(), z_keys=keys, keys=keys)
-        # removing all keys that are Cond. Indep. in each trainingset
 
-        for s in rg.df_splits.index.levels[0]:
-            for k in keys:
-                if (np.nan_to_num(pvals.loc[k][s],nan=alpha_CI) > alpha_CI).mean()>0:
-                    k_ = keys_dict[s].copy() ; k_.pop(k_.index(k))
-                    keys_dict[s] = k_
-                    # keys_dict[s] = k
+    if len(keys) != 0 and 'PDO' not in keys and feature_selection:
+        corr, pvals, keys_dict = feature_selection_CondDep(rg.df_data.copy(),
+                                                           keys, alpha_CI)
         # always C.D. (every split)
         keys = [k for k in keys if (np.nan_to_num(pvals.loc[k],nan=alpha_CI) <= alpha_CI).mean()== 1]
+    else:
+        keys_dict = dict(zip(range(n_spl), [keys]*n_spl)) # all vars
+
     CondDepKeys[months] = keys
     CondDepKeysDict[months] = keys_dict
 
     if add_previous_periods:
-        keys = functions_pp.flatten([d for d in CondDepKeys.values()])
-        print(months, keys)
+        # merging CD keys that were found for each split seperately to keep
+        # clean train-test split
+        keys_dict = {}
+        for s in range(n_spl):
+            concat_list = []
+            for k, i in CondDepKeysDict.items():
+                concat_list.append(i[s])
+            keys_dict[s] = functions_pp.flatten(concat_list)
+        CondDepKeysDict[months] = keys_dict # update precursors
+        # print(months, keys_dict)
+
 
 
     if len(keys) != 0:
@@ -371,17 +413,11 @@ for i, months in enumerate(periodnames[:]):
                                                                  blocksize=1,
                                                                  rng_seed=1)
 
-        # n_splits = rg.df_data.index.levels[0].size
-        # cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_splits)]
-        # print('mean alpha {:.0f}'.format(np.mean(cvfitalpha)))
-        # maxalpha_c = list(cvfitalpha).count(alphas[-1])
-        # if maxalpha_c > n_splits/3:
-        #     print(f'\nalpha {int(np.mean(cvfitalpha))}')
-        #     print(f'{maxalpha_c} splits are max alpha\n')
-        #     # maximum regularization selected. No information in timeseries
-        #     df_test_m['Prediction']['corrcoef'][:] = 0
-        #     df_boot['Prediction']['corrcoef'][:] = 0
-        #     no_info_fc.append(months)
+
+        cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_spl)]
+        assert kwrgs_model['alphas'].max() not in cvfitalpha, 'increase max a'
+        assert kwrgs_model['alphas'].min() not in cvfitalpha, 'decrease min a'
+
         df_test = functions_pp.get_df_test(prediction.merge(rg.df_data.iloc[:,-2:],
                                                         left_index=True,
                                                         right_index=True)).iloc[:,:2]
@@ -394,11 +430,22 @@ for i, months in enumerate(periodnames[:]):
                             columns=index)
         df_test_m = pd.DataFrame(np.zeros((1,len(score_func_list))),
                                   columns=index)
+        df_train_m = pd.DataFrame(np.zeros((1,len(score_func_list))),
+                                  columns=index)
 
+    list_pred_test.append(functions_pp.get_df_test(predict.rename({0:months}, axis=1),
+                                                 cols=[months],
+                                                 df_splits=rg.df_splits))
+    df_test_m.index = [months] ;
+    columns = pd.MultiIndex.from_product([np.array([months]),
+                                        df_train_m.columns.levels[1]])
+    df_train_m.columns = columns
+    df_boot.columns = columns
 
     list_test_b.append(df_boot)
     list_test.append(df_test_m)
-    # append_dict(month, df_test_m)
+    list_train.append(df_train_m)
+    append_dict(months, df_test_m, df_train_m)
     # df_ana.loop_df(df=rg.df_data[keys], colwrap=1, sharex=False,
     #                       function=df_ana.plot_timeseries,
     #                       kwrgs={'timesteps':rg.fullts.size,
@@ -408,118 +455,125 @@ for i, months in enumerate(periodnames[:]):
 #%%
 
 import matplotlib.patches as mpatches
-corrvals = [test.values[0,1] for test in list_test]
-MSE_SS_vals = [test.values[0,0] for test in list_test]
-MAE_SS_vals = [test.values[0,-1] for test in list_test]
-rename_metrics = {'RMSE-SS':'RMSE',
-                  'Corr. Coef.':'corrcoef',
-                  'MAE-SS':'MAE'}
-df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals,
-                          'Corr. Coef.':corrvals,
-                          'MAE-SS':MAE_SS_vals},
-                         index=list(CondDepKeys.keys()))
-df_test_b = pd.concat(list_test_b, keys = list(CondDepKeys.keys()),axis=1)
 
-yerr = [] ; quan = [] ; alpha = .1
-# for i in range(len(periodnames) * df_scores.columns.size):
-monmet = np.array(np.meshgrid(list(CondDepKeys.keys()),
-                              df_scores.columns)).T.reshape(-1,2) ;
-for i, (mon, met) in enumerate(monmet):
-    Eh = 1 - alpha/2 ; El = alpha/2
-    met = rename_metrics[met]
-    _scores = df_test_b[mon]['Prediction'][met]
-    tup = [_scores.quantile(El), _scores.quantile(Eh)]
-    quan.append(tup)
-    mean = df_scores.values.flatten()[i] ;
-    tup = abs(mean-tup)
-    yerr.append(tup)
 
-_yerr = np.array(yerr).reshape(df_scores.columns.size,len(list(CondDepKeys.keys()))*2,
-                               order='F').reshape(df_scores.columns.size,2,len(list(CondDepKeys.keys())))
-ax = df_scores.plot.bar(rot=0, yerr=_yerr,
-                        capsize=8, error_kw=dict(capthick=1),
-                        color=['blue', 'green', 'purple'],
-                        legend=False,
-                        figsize=(10,8))
-for noinfo in no_info_fc:
-    # first two children are not barplots
-    idx = list(CondDepKeys.keys()).index(noinfo) + 3
-    ax.get_children()[idx].set_color('r') # RMSE bar
-    idx = list(CondDepKeys.keys()).index(noinfo) + 15
-    ax.get_children()[idx].set_color('r') # RMSE bar
+def boxplot_scores(list_scores, list_test_b, alpha=.1):
+
+    df_scores = pd.concat(list_test)
+    df_test_b = pd.concat(list_test_b,axis=1)
+
+    yerr = [] ; quan = [] ;
+    monmet = np.array(np.meshgrid(list(CondDepKeys.keys()),
+                                  df_scores.columns.levels[1])).T.reshape(-1,2)
+    for i, (mon, met) in enumerate(monmet):
+        Eh = 1 - alpha/2 ; El = alpha/2
+        # met = rename_metrics_cont[met]
+        _scores = df_test_b[mon][met]
+        tup = [_scores.quantile(El), _scores.quantile(Eh)]
+        quan.append(tup)
+        mean = df_scores.values.flatten()[i] ;
+        tup = abs(mean-tup)
+        yerr.append(tup)
+
+    _yerr = np.array(yerr).reshape(df_scores.columns.size,len(list(CondDepKeys.keys()))*2,
+                                   order='F').reshape(df_scores.columns.size,2,len(list(CondDepKeys.keys())))
+    ax = df_scores.plot.bar(rot=0, yerr=_yerr,
+                            capsize=8, error_kw=dict(capthick=1),
+                            color=['blue', 'green', 'purple'],
+                            legend=False,
+                            figsize=(10,8))
+    for noinfo in no_info_fc:
+        # first two children are not barplots
+        idx = list(CondDepKeys.keys()).index(noinfo) + 3
+        ax.get_children()[idx].set_color('r') # RMSE bar
+        idx = list(CondDepKeys.keys()).index(noinfo) + 15
+        ax.get_children()[idx].set_color('r') # RMSE bar
 
 
 
-ax.set_ylabel('Skill Score', fontsize=16, labelpad=-5)
-# ax.tick_params(labelsize=16)
-# ax.set_xticklabels(months, fontdict={'fontsize':20})
-title = 'U.S. {} forecast {}\n'.format(target_dataset.split('_')[-1],
-                                       str(start_end_year))
-if experiment == 'semestral':
-    title += 'from half-year mean '
-elif experiment == 'seasons':
-    title += 'from seasonal mean '
-title += '{}'.format(' and '.join([v.upper() for v in variables]))
+    ax.set_ylabel('Skill Score', fontsize=16, labelpad=-5)
+    # ax.tick_params(labelsize=16)
+    # ax.set_xticklabels(months, fontdict={'fontsize':20})
+    title = 'U.S. {} forecast {}\n'.format(target_dataset.split('_')[-1],
+                                           str(start_end_year))
+    if experiment == 'semestral':
+        title += 'from half-year mean '
+    elif experiment == 'seasons':
+        title += 'from seasonal mean '
+    title += '{}'.format(' and '.join([v.upper() for v in variables]))
 
-ax.set_title(title,
-             fontsize=16)
-ax.tick_params(axis='y', labelsize=13)
-ax.tick_params(axis='x', labelsize=16)
+    ax.set_title(title,
+                 fontsize=18)
+    ax.tick_params(axis='y', labelsize=13)
+    ax.tick_params(axis='x', labelsize=16)
 
 
-patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
-patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
-patch3 = mpatches.Patch(color='purple', label='MAE-SS')
-handles = [patch1, patch2, patch3]
-legend1 = ax.legend(handles=handles,
-          fontsize=16, frameon=True, facecolor='grey',
-          framealpha=.5)
-ax.add_artist(legend1)
+    patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
+    patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
+    patch3 = mpatches.Patch(color='purple', label='MAE-SS')
+    handles = [patch1, patch2, patch3]
+    legend1 = ax.legend(handles=handles,
+              fontsize=16, frameon=True, facecolor='grey',
+              framealpha=.5)
+    ax.add_artist(legend1)
 
-# # manually define a new patch
-# if len(no_info_fc) != 0:
-#     patch = mpatches.Patch(color='red', label=r'$\alpha=$'+f' ${int(alphas[-1])}$')
-#     legend2 = ax.legend(loc='upper left', handles=[patch],
-#           fontsize=16, frameon=True, facecolor='grey',
-#           framealpha=.5)
-#     ax.add_artist(legend2)
+    ax.set_ylim(-0.3, 1)
 
-ax.set_ylim(-0.3, 1)
-
-append_str +'_'+'_'.join(np.array(start_end_year, str))
-plt.savefig(os.path.join(rg.path_outsub1,
-              f'skill_score_vs_months_a{alpha}_nb{n_boot}_blsz{blocksize}_ac{alpha_corr}_{append_str}.pdf'))
-
-#%%
-CDlabels = precur.prec_labels.copy() ; CDl = np.zeros_like(CDlabels)
-CDcorr = precur.corr_xr.copy()
-for i, month in enumerate(CondDepKeys):
-    CDkeys = CondDepKeys[month]
-    region_labels = [int(l.split('..')[1]) for l in CDkeys]
-    f = find_precursors.view_or_replace_labels
-    CDlabels[:,i] = f(CDlabels[:,i].copy(), region_labels)
-mask = (np.isnan(CDlabels)).astype(bool)
-plot_maps.plot_labels(CDlabels.mean(dim='split'), kwrgs_plot=kwrgs_plotlabels)
-if save:
+    append_str = '-'.join(periodnames) #+'_'+'_'.join(np.array(start_end_year, str))
     plt.savefig(os.path.join(rg.path_outsub1,
-                         f'CondDep_labels_{append_str}_ac{alpha_corr}_eps{precur.distance_eps}'
-                         f'minarea{precur.min_area_in_degrees2}'+rg.figext))
+              f'skill_fs{feature_selection}_addprev{add_previous_periods}_'
+              f'ab{alpha}_ac{alpha_corr}_afs{alpha_CI}_nb{n_boot}_blsz{blocksize}_{append_str}.pdf'))
 
-fig = plot_maps.plot_corr_maps(CDcorr.mean(dim='split'),
-                         mask_xr=mask, **kwrgs_plotcorr)
-if save:
-    fig.savefig(os.path.join(rg.path_outsub1,
-                         f'CondDep_{append_str}_ac{alpha_corr}'+rg.figext))
+
+boxplot_scores(list_test, list_test_b, alpha=.1)
+#%%
+if feature_selection:
+    append_str = '-'.join(periodnames)
+    CDlabels = precur.prec_labels.copy() ; CDl = np.zeros_like(CDlabels)
+    CDcorr = precur.corr_xr.copy()
+    for i, month in enumerate(CondDepKeys):
+        CDkeys = CondDepKeys[month]
+        region_labels = [int(l.split('..')[1]) for l in CDkeys]
+        f = find_precursors.view_or_replace_labels
+        CDlabels[:,i] = f(CDlabels[:,i].copy(), region_labels)
+    mask = (np.isnan(CDlabels)).astype(bool)
+    plot_maps.plot_labels(CDlabels.mean(dim='split'), kwrgs_plot=kwrgs_plotlabels)
+    if save:
+        plt.savefig(os.path.join(rg.path_outsub1,
+                             f'CondDep_labels_{append_str}_ac{alpha_corr}_eps{precur.distance_eps}'
+                             f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}'+rg.figext))
+
+    fig = plot_maps.plot_corr_maps(CDcorr.mean(dim='split'),
+                             mask_xr=mask, **kwrgs_plotcorr)
+    if save:
+        fig.savefig(os.path.join(rg.path_outsub1,
+                             f'CondDep_{append_str}_ac{alpha_corr}_aCI{alpha_CI}'+rg.figext))
 
 #%%
+if __name__ == '__main__':
+    # code run with or without -i
+    if sys.flags.inspect:
+        name_csv = 'output_regression_sensivity.csv'
+        name_csv = os.path.join(rg.path_outmain, name_csv)
+        for csvfilename, dic in [(name_csv, dict_v)]:
+            # create .csv if it does not exists
+            if os.path.exists(csvfilename) == False:
+                with open(csvfilename, 'a', newline='') as csvfile:
 
-# rg.cluster_list_MI()
-# zz1 = precur.prec_labels.copy()
-# zz2 = find_precursors.view_or_replace_labels(zz1, [1,2])
+                    writer = csv.DictWriter(csvfile, list(dic.keys()))
+                    writer.writerows([{f:f for f in list(dic.keys())}])
 
-#%%
-# rg.plot_maps_corr(plotlags=month, region_labels=region_labels,
-#                       kwrgs_plot=kwrgs_plotcorr)
+            # write
+            with open(csvfilename, 'a', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, list(dic.keys()))
+                writer.writerows([dic])
+
+        sys.exit()
+
+
+
+
+
 #%% Re-aggregated SST data of regions with time_mean_bins
 
 def reaggregated_regions(precur, rg, start_end_date1, precur_aggr):
@@ -555,7 +609,7 @@ def reaggregated_regions(precur, rg, start_end_date1, precur_aggr):
 df_data_yrs_sst1 = reaggregated_regions(rg.list_for_MI[0], rg, ('01-01', '08-01'), 2)
 df_data_yrs_sst2 = reaggregated_regions(rg.list_for_MI[0], rg, ('01-01', '09-01'), 2)
 
-df_data_yrs_smi = reaggregated_regions(rg.list_for_MI[1], rg, ('02-01', '09-01'), 1)
+df_data_yrs_smi = reaggregated_regions(rg.list_for_MI[1], rg, ('03-01', '09-01'), 1)
 df_data_yrs = pd.concat([df_data_yrs_sst1.iloc[:,:-2],
                          df_data_yrs_sst2.iloc[:,:-2],
                          df_data_yrs_smi], axis=1)
@@ -569,20 +623,25 @@ target_ts = (target_ts > target_ts.mean()).astype(int)
 
 #%% forecast Yield as function of months
 
-assert all([CondDepKeysDict['JJA'][s]==CondDepKeys['JJA'] for s in range(n_spl)]), 'Yo'
+use_mon_keys = 'July-August'
+if all([CondDepKeysDict[use_mon_keys][s]==CondDepKeys[use_mon_keys] for s in range(n_spl)]):
+    print('Yo', 'keys not C.D. in every split')
 
 prediction = 'continuous' ; q = None
-prediction = 'events' ; q = .4
+prediction = 'events' ; q = .6
+feature_selection = True
 
 if prediction == 'continuous':
     model = ScikitModel(verbosity=0)
     kwrgs_model = {'scoring':'neg_mean_squared_error',
-                    'alphas':np.logspace(.01, 1, num=25), # large a, strong regul.
+                    'alphas':np.logspace(.01, 1.5, num=25), # large a, strong regul.
                     'normalize':False}
 elif prediction == 'events':
     model = ScikitModel(LogisticRegressionCV, verbosity=0)
     kwrgs_model = {'kfold':5,
                    'scoring':'neg_brier_score'}
+
+
 target_ts = rg.TV.RV_ts ; target_ts.columns = [target_dataset]
 target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 if prediction == 'events':
@@ -595,10 +654,22 @@ if prediction == 'events':
 rg.df_data = df_data_yrs.copy() ;
 tau_min=0 ; tau_max=0
 list_df_test = [] ; list_df_train = [] ; list_df_boot = [] ; list_pred_test = []
-for mon in range(5,10):
+for i, mon in enumerate(range(5,10)):
+    print(f'forecast at month {mon}')
 # mon = 10
-    keys = [str(mon)+k for k in CondDepKeys['JJA']]
-    keys = [k for k in keys if k in rg.df_data.columns]
+    keys = {}
+    for s in range(n_spl):
+        k_ = [str(mon)+k for k in CondDepKeysDict[use_mon_keys][s]]
+        keys[s] = [k for k in k_ if k in rg.df_data.columns]
+
+    if feature_selection:
+        if i == 0:
+            rg.df_data = pd.merge(pd.concat([rg.TV.RV_ts]*n_spl, keys=range(n_spl)),
+                                  rg.df_data, left_index=True, right_index=True)
+        keys = np.unique(core_pp.flatten(list(keys.values())))
+        corr, pvals, keys = feature_selection_CondDep(rg.df_data.copy(),
+                                                           keys)
+
 
     out = rg.fit_df_data_ridge(target=target_ts,
                                 keys=keys,
@@ -662,8 +733,13 @@ df_pred_test = pd.concat(list_pred_test, axis=1)
 
 plot_vs_lags(df_scores, target_ts, df_boots, alpha=.1)
 
-#%% Cascaded forecast
 
+
+
+#%%
+# =============================================================================
+# Cascaded forecast
+# =============================================================================
 
 # part 1
 include_obs = True ; max_multistep = 2
@@ -872,12 +948,17 @@ df_pred_test_c = pd.concat(list_pred_test_c, axis=1)
 plot_vs_lags(df_scores_c, target_ts, df_boots_c)
 
 #%%
-df_scores_dict = {'forecast':[df_scores,df_boots],
-                 'cascaded forecast': [df_scores_c,df_boots_c]}
 
 
-def plot_vs_lags(df_scores_dict, target_ts, df_boots_dict=None, rename_m: dict=None, orientation='vertical',
+def plot_vs_lags(df_scores_dict, target_ts, df_boots_dict=None, rename_m: dict=None,
+                 orientation='vertical',
                  colorlist: list=['#3388BB', '#EE6666', '#9988DD'], alpha=.05):
+
+    cropname = target_dataset.split('_')[1]
+    if (np.sum(target_ts).squeeze() / target_ts.size) < .45:
+        title = f'Skill predicting lower {cropname} yield years'
+    elif (np.sum(target_ts).squeeze() / target_ts.size) > .55:
+        title = f'Skill predicting higher {cropname} yield years'
 
     if rename_m is None:
         rename_m = {i:i for i in df_scores.index}
@@ -923,8 +1004,12 @@ def plot_vs_lags(df_scores_dict, target_ts, df_boots_dict=None, rename_m: dict=N
                 ax.set_ylim(0,1)
             else:
                 ax.set_ylim(-.2,.8)
-
+    f.suptitle(title, x=.5, y=1.01, fontsize=18)
     f.tight_layout()
+
+#%%
+df_scores_dict = {'forecast':[df_scores,df_boots],
+                 'cascaded forecast': [df_scores_c,df_boots_c]}
 
 plot_vs_lags(df_scores_dict, target_ts, alpha=.1)
 
