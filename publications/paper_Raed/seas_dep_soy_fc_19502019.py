@@ -426,6 +426,8 @@ for i, months in enumerate(periodnames[:]):
         df_test = functions_pp.get_df_test(predict.rename({0:months}, axis=1),
                                             cols=[months],
                                             df_splits=rg.df_splits)
+        # appending results
+        list_pred_test.append(df_test)
 
     else:
         print('no precursor timeseries found, scores all 0')
@@ -438,8 +440,7 @@ for i, months in enumerate(periodnames[:]):
         df_train_m = pd.DataFrame(np.zeros((1,len(score_func_list))),
                                   columns=index)
 
-        # appending results
-        list_pred_test.append(df_test)
+
     df_test_m.index = [months] ;
     columns = pd.MultiIndex.from_product([np.array([months]),
                                         df_train_m.columns.levels[1]])
