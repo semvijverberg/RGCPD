@@ -56,8 +56,8 @@ import plot_maps; import core_pp
 
 experiments = ['seasons', 'bimonthly', 'semestral']
 target_datasets = ['USDA_Soy', 'USDA_Maize']#, 'GDHY_Soy']
-seeds = seeds = [1,2] # [1,2,3,4,5]
-yrs = ['1950, 2019'] # yrs = ['1950, 2019', '1960, 2019', '1950, 2009']
+seeds = seeds = [1,2,3,4,5]
+yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 add_prev = [True, False]
 feature_sel = [True, False]
 combinations = np.array(np.meshgrid(target_datasets,
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     seed = int(out[2])
     start_end_year = (int(out[3][:4]), int(out[3][-4:]))
     feature_selection = out[4] == 'True'
-    add_previous_periods = out[4] == 'True'
+    add_previous_periods = out[5] == 'True'
     print(f'arg {args.intexper} {out}')
 else:
     out = combinations[i_default]
@@ -432,7 +432,8 @@ for i, months in enumerate(periodnames[:]):
 
 
         cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_spl)]
-        # assert kwrgs_model['alphas'].max() not in cvfitalpha, 'increase max a'
+        if kwrgs_model['alphas'].max() not in cvfitalpha: print('Max a reached')
+        if kwrgs_model['alphas'].min() not in cvfitalpha: print('Min a reached')
         # assert kwrgs_model['alphas'].min() not in cvfitalpha, 'decrease min a'
 
         df_test = functions_pp.get_df_test(predict.rename({0:months}, axis=1),
