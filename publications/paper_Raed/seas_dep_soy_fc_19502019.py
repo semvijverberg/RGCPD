@@ -66,7 +66,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     add_prev,
                                     feature_sel)).T.reshape(-1,6)
-i_default = -1
+i_default = 1
 
 
 def parseArguments():
@@ -88,8 +88,8 @@ if __name__ == '__main__':
     experiment = out[1]
     seed = int(out[2])
     start_end_year = (int(out[3][:4]), int(out[3][-4:]))
-    feature_selection = bool(out[4])
-    add_previous_periods = bool(out[5])
+    feature_selection = out[4] == 'True'
+    add_previous_periods = out[4] == 'True'
     print(f'arg {args.intexper} {out}')
 else:
     out = combinations[i_default]
