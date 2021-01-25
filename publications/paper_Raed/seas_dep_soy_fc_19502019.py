@@ -58,11 +58,15 @@ experiments = ['seasons', 'bimonthly', 'semestral']
 target_datasets = ['USDA_Soy', 'USDA_Maize']#, 'GDHY_Soy']
 seeds = seeds = [1,2] # [1,2,3,4,5]
 yrs = ['1950, 2019'] # yrs = ['1950, 2019', '1960, 2019', '1950, 2009']
+add_prev = [True, False]
+feature_sel = [True, False]
 combinations = np.array(np.meshgrid(target_datasets,
                                     experiments,
                                     seeds,
-                                    yrs)).T.reshape(-1,4)
-i_default = 1
+                                    yrs,
+                                    add_prev,
+                                    feature_sel)).T.reshape(-1,6)
+i_default = -1
 
 
 def parseArguments():
@@ -84,6 +88,8 @@ if __name__ == '__main__':
     experiment = out[1]
     seed = int(out[2])
     start_end_year = (int(out[3][:4]), int(out[3][-4:]))
+    feature_selection = bool(out[4])
+    add_previous_periods = bool(out[5])
     print(f'arg {args.intexper} {out}')
 else:
     out = combinations[i_default]
@@ -91,6 +97,7 @@ else:
     experiment = out[1]
     seed = int(out[2])
     start_end_year = (int(out[3][:4]), int(out[3][-4:]))
+
 
 
 if target_dataset == 'GDHY_Soy':
@@ -114,8 +121,9 @@ elif target_dataset == 'USDA_Maize':
 
 calc_ts='region mean' # pattern cov
 alpha_corr = .05
-method     = 'ran_strat10' ; seed = 1
+method     = 'ran_strat10' ;
 n_boot = 2000
+
 if experiment == 'seasons':
     corlags = np.array([
                         ['12-01', '02-28'], # DJF
@@ -124,6 +132,7 @@ if experiment == 'seasons':
                         ['09-01', '11-30'] # SON
                         ])
     periodnames = ['DJF','MAM','JJA','SON']
+    SM_lags = np.array([[l[0].replace(l[0][:2],l[1][:2]),l[1]] for l in corlags])
 elif experiment == 'bimonthly':
     corlags = np.array([
                         ['03-01', '04-30'], # MA
@@ -132,6 +141,7 @@ elif experiment == 'bimonthly':
                         ['09-01', '10-31']  # SO
                         ])
     periodnames = ['MA','MJ','JA','SO']
+    SM_lags = np.array([[l[0].replace(l[0][:2],l[1][:2]),l[1]] for l in corlags])
 elif experiment == 'semestral':
     corlags = np.array([
                         ['12-01', '05-31'], # DJFMAM
@@ -139,10 +149,14 @@ elif experiment == 'semestral':
                         ['06-01', '11-30'], # JJASON
                         ['01-01', '12-31']  # annual
                         ])
+    # SM contains already 3 months aggregated value (aligned right), so below
+    # calculates mean over 3 datapoints, encompassing 6 months of SMI.
+    SM_lags = np.array([[l[0].replace(l[0][:2],str(int(l[1][:2])-2)),l[1]] for l in corlags])
+
+
     periodnames = ['DJFMAM', 'MAMJJA', 'JJASON', 'annual']
 
 append_main = target_dataset
-# path_out_main = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/output'
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
 PacificBox = (130,265,-10,60)
 GlobalBox  = (-180,360,-10,60)
@@ -170,10 +184,8 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                              kwrgs_func={},
                              distance_eps=290, min_area_in_degrees2=4,
                              calc_ts=calc_ts, selbox=USBox,
-                             lags=np.array(
-                                 [[l[0].replace(l[0][:2],l[1][:2]),l[1]] for l in corlags]
-                                         )
-                             )]
+                             lags=SM_lags)
+                 ]
 
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
@@ -214,7 +226,7 @@ for p in rg.list_for_MI:
     p.corr_xr['lag'] = ('lag', periodnames)
 
 #%%
-save = False
+save = True
 kwrgs_plotcorr_sst = {'row_dim':'lag', 'col_dim':'split','aspect':4, 'hspace':0,
                   'wspace':-.15, 'size':3, 'cbar_vert':0.05,
                   'map_proj':ccrs.PlateCarree(central_longitude=220),
@@ -308,8 +320,8 @@ lag = 0
 alpha_CI = .1
 variables = ['sst', 'smi3']
 
-feature_selection = True
-add_previous_periods = False
+# feature_selection = True
+# add_previous_periods = False
 
 add_PDO = False
 if add_PDO:
@@ -416,7 +428,7 @@ for i, months in enumerate(periodnames[:]):
                                                                  score_func_list,
                                                                  n_boot = n_boot,
                                                                  blocksize=1,
-                                                                 rng_seed=1)
+                                                                 rng_seed=seed)
 
 
         cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_spl)]
@@ -539,7 +551,7 @@ if feature_selection:
         CDcorr = precur.corr_xr.copy()
         for i, month in enumerate(CondDepKeys):
             CDkeys = CondDepKeys[month]
-            region_labels = [int(l.split('..')[1]) for l in CDkeys]
+            region_labels = [int(l.split('..')[1]) for l in CDkeys if l.split('..')[-1] == precur.name]
             f = find_precursors.view_or_replace_labels
             CDlabels[:,i] = f(CDlabels[:,i].copy(), region_labels)
         mask = (np.isnan(CDlabels)).astype(bool)

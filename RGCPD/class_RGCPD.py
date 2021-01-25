@@ -981,14 +981,13 @@ class RGCPD:
 
                 if transformer is not None and transformer != False:
                     df_trans = df_s[ks].apply(transformer,
-                                            args=[TrainIsTrue],
-                                            result_type='broadcast')
+                                            args=[TrainIsTrue])
                 elif transformer == False:
                     df_trans = df_s[ks] # no transformation
                 else: # transform to standard normal
                     df_trans = df_s[ks].apply(fc_utils.standardize_on_train,
-                                            args=[TrainIsTrue],
-                                            result_type='broadcast')
+                                            args=[TrainIsTrue])
+                                            # result_type='broadcast')
 
                 if type(target) is str:
                     target_ts = df_data.loc[s][[target]][RV_mask]

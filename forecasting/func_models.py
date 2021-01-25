@@ -220,11 +220,14 @@ def get_masks(df_norm):
 def _standardize_sklearn(c, TrainIsTrue):
     standardize = preprocessing.StandardScaler()
     standardize.fit(c[TrainIsTrue.values].values.reshape(-1,1))
-    return pd.DataFrame(standardize.transform(c[TrainIsTrue.values].values.reshape(-1,1), index=c.index, columns=c.columns))
+    return pd.Series(standardize.transform(c.values.reshape(-1,1)).squeeze(),
+                     name=c.columns[0], index=c.index)
+# pd.Series(standardize.transform(c.values.reshape(-1,1)).squeeze(),
+#                      index=c.index, name=c.columns[0])
 
 def standardize_on_train(c, TrainIsTrue):
-    return (c - c[TrainIsTrue.values].mean()) \
-            / c[TrainIsTrue.values].std()
+    return ((c - c[TrainIsTrue.values].mean()) \
+            / c[TrainIsTrue.values].std()).squeeze()
 
 def robustscaling_on_train(c, TrainIsTrue):
     return (c - c[TrainIsTrue.values].quantile(q=.25)) \
