@@ -55,9 +55,9 @@ import plot_maps; import core_pp
 
 
 experiments = ['seasons', 'bimonthly', 'semestral']
-target_datasets = ['USDA_Soy', 'USDA_Maize', 'GDHY_Soy']
-seeds = [1,2,3,4,5]
-yrs = ['1950, 2019', '1960, 2019', '1950, 2009']
+target_datasets = ['USDA_Soy', 'USDA_Maize']#, 'GDHY_Soy']
+seeds = seeds = [1,2] # [1,2,3,4,5]
+yrs = ['1950, 2019'] # yrs = ['1950, 2019', '1960, 2019', '1950, 2009']
 combinations = np.array(np.meshgrid(target_datasets,
                                     experiments,
                                     seeds,
@@ -172,7 +172,7 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                              calc_ts=calc_ts, selbox=USBox,
                              lags=np.array(
                                  [[l[0].replace(l[0][:2],l[1][:2]),l[1]] for l in corlags]
-                                 )
+                                         )
                              )]
 
 
@@ -332,7 +332,7 @@ if add_PDO:
                                 ])
 
 
-dict_v = {'exp':experiment,'method':method,'S':f's{seed}',
+dict_v = {'target':target_dataset, 'method':method,'S':f's{seed}',
           'yrs':start_end_year, 'fs':str(feature_selection),
           'addprev':add_previous_periods}
 
@@ -565,7 +565,7 @@ if feature_selection:
 if __name__ == '__main__':
     # code run with or without -i
     if sys.flags.inspect:
-        name_csv = 'output_regression_sensivity.csv'
+        name_csv = f'output_regression_{experiment}_sensivity.csv'
         name_csv = os.path.join(rg.path_outmain, name_csv)
         for csvfilename, dic in [(name_csv, dict_v)]:
             # create .csv if it does not exists
