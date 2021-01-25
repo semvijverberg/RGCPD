@@ -333,7 +333,7 @@ class BivariateMI:
 def check_NaNs(field, ts):
     '''
     Return shortened timeseries of both field and ts if a few NaNs are detected
-    at boundary due to large lag. At boundary time-axis, large negative lags
+    at boundary due to large lag. At boundary time-axis, large lags
     often result in NaNs due to missing data.
     Removing timesteps from timeseries if
     1. Entire field is filled with NaNs

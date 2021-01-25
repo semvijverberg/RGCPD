@@ -176,7 +176,7 @@ list_of_name_path = [(cluster_label, TVpath),
 list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={},
-                            distance_eps=200, min_area_in_degrees2=3,
+                            distance_eps=425, min_area_in_degrees2=7,
                             calc_ts=calc_ts, selbox=GlobalBox,
                             lags=corlags),
                  BivariateMI(name='smi3', func=class_BivariateMI.corr_map,
@@ -225,6 +225,7 @@ rg.calc_corr_maps()
 for p in rg.list_for_MI:
     p.corr_xr['lag'] = ('lag', periodnames)
 
+
 #%%
 save = True
 kwrgs_plotcorr_sst = {'row_dim':'lag', 'col_dim':'split','aspect':4, 'hspace':0,
@@ -245,17 +246,39 @@ rg.plot_maps_corr('smi3', kwrgs_plot=kwrgs_plotcorr_SM, save=save)
 
 
 #%%
-
-precur.distance_eps = 200 ; precur.min_area_in_degrees2 = 3
+# precur = rg.list_for_MI[1]
+# precur.distance_eps = 290 ; precur.min_area_in_degrees2 = 4
 rg.cluster_list_MI()
 # rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst)
-# prec_labels, _ = find_precursors.split_region_by_lonlat(precur.prec_labels.copy(),
-#                                                      label=3, plot_l=2,
-#                                                      kwrgs_mask_latlon={'latmax':32})
-# prec_labels, _ = find_precursors.split_region_by_lonlat(prec_labels.copy(), label=3,
-#                                        plot_l=2, kwrgs_mask_latlon={'lonmax':190})
-# precur.prec_labels = prec_labels
+
+# Ensure that Caribean is alway splitted from Pacific
+sst = rg.list_for_MI[0]
+copy_labels = sst.prec_labels.copy()
+all_labels = copy_labels.values[~np.isnan(copy_labels.values)]
+uniq_labels = np.unique(all_labels)
+prevail = {l:list(all_labels).count(l) for l in uniq_labels}
+prevail = functions_pp.sort_d_by_vals(prevail, reverse=True)
+label = list(prevail.keys())[0]
+sst.prec_labels, _ = find_precursors.split_region_by_lonlat(sst.prec_labels.copy(),
+                                                      label=int(label), plot_l=3,
+                                                      kwrgs_mask_latlon={'bottom_left':(95,15)})
+
+
+SM = rg.list_for_MI[1]
+copy_labels = SM.prec_labels.copy()
+all_labels = copy_labels.values[~np.isnan(copy_labels.values)]
+uniq_labels = np.unique(all_labels)
+prevail = {l:list(all_labels).count(l) for l in uniq_labels}
+prevail = functions_pp.sort_d_by_vals(prevail, reverse=True)
+two_largest = list(prevail.keys())[:2]
+df_coords = find_precursors.labels_to_df(SM.prec_labels.copy())
+label = df_coords.loc[two_largest].longitude.idxmax()
+SM.prec_labels, _ = find_precursors.split_region_by_lonlat(SM.prec_labels.copy(),
+                                                      label=int(label), plot_l=2,
+                                                      kwrgs_mask_latlon={'lonmin':282})
+
 rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst, save=save)
+
 rg.quick_view_labels('smi3', kwrgs_plot=kwrgs_plotcorr_SM, save=save)
 
 #%%
@@ -288,11 +311,11 @@ kwrgs_model = {'scoring':'neg_mean_absolute_error',
                 'kfold':5}
 
 def append_dict(month, df_test_m, df_train_m):
-    dkeys = [f'{month} RMSE test', 'train',
-             f'{month} Corr. test', 'train',
-             f'{month} MAE test', 'train']
+    dkeys = [f'{month} RMSE', f'{month} RMSE tr',
+             f'{month} Corr.', f'{month} Corr. tr',
+             f'{month} MAE test', f'{month} MAE tr']
     append_dict = {dkeys[0]:float(df_test_m.iloc[:,0].round(3)),
-                   dkeys[1]:float(df_train_m.mean().iloc[0].round(3)),
+                   dkeys[1]:df_train_m.mean().iloc[0].round(3),
                    dkeys[2]:float(df_test_m.iloc[:,1].round(3)),
                    dkeys[3]:float(df_train_m.mean().iloc[1].round(3)),
                    dkeys[4]:float(df_test_m.iloc[:,2].round(3)),
@@ -317,7 +340,7 @@ def feature_selection_CondDep(df_data, keys, alpha_CI=.05):
 
 blocksize=1
 lag = 0
-alpha_CI = .1
+alpha_CI = .05
 variables = ['sst', 'smi3']
 
 # feature_selection = True
@@ -393,17 +416,13 @@ for i, months in enumerate(periodnames[:]):
     CondDepKeys[months] = keys
     CondDepKeysDict[months] = keys_dict
 
-    if add_previous_periods:
+    if add_previous_periods and periodnames.index(months) != 0:
         # merging CD keys that were found for each split seperately to keep
         # clean train-test split
-        keys_dict = {}
         for s in range(n_spl):
-            concat_list = []
-            for k, i in CondDepKeysDict.items():
-                concat_list.append(i[s])
-            keys_dict[s] = functions_pp.flatten(concat_list)
-        CondDepKeysDict[months] = keys_dict # update precursors
-        # print(months, keys_dict)
+            pm = periodnames[periodnames.index(months) - 1 ]
+            pmk = [k for k in CondDepKeysDict[pm][s] if k.split('..')[0]==pm]
+            keys_dict[s] = keys_dict[s] + pmk
 
 
     if len(keys) != 0:
@@ -432,8 +451,8 @@ for i, months in enumerate(periodnames[:]):
 
 
         cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_spl)]
-        if kwrgs_model['alphas'].max() not in cvfitalpha: print('Max a reached')
-        if kwrgs_model['alphas'].min() not in cvfitalpha: print('Min a reached')
+        if kwrgs_model['alphas'].max() in cvfitalpha: print('Max a reached')
+        if kwrgs_model['alphas'].min() in cvfitalpha: print('Min a reached')
         # assert kwrgs_model['alphas'].min() not in cvfitalpha, 'decrease min a'
 
         df_test = functions_pp.get_df_test(predict.rename({0:months}, axis=1),
@@ -575,7 +594,11 @@ if feature_selection:
 
 
 #%%
+keys  = core_pp.flatten(list(CondDepKeys.values()))
+corrf, pvalf, keys_dictf = feature_selection_CondDep(rg.df_data.copy(), keys)
+final_keys = [k for k in keys if (np.nan_to_num(pvalf.loc[k],nan=alpha_CI) <= alpha_CI).mean()== 1]
 
+#%%
 # # code run with or without -i
 # if sys.flags.inspect:
 name_csv = f'output_regression_{experiment}_sensivity.csv'
@@ -651,19 +674,21 @@ target_ts = (target_ts > target_ts.mean()).astype(int)
 
 #%% forecast Yield as function of months
 
-use_mon_keys = 'July-August'
-if all([CondDepKeysDict[use_mon_keys][s]==CondDepKeys[use_mon_keys] for s in range(n_spl)]):
-    print('Yo', 'keys not C.D. in every split')
+use_mon_keys = 'JA'
+# if all([CondDepKeysDict[use_mon_keys][s]==CondDepKeys[use_mon_keys] for s in range(n_spl)]):
+#     print('Yo', 'keys not C.D. in every split')
 
 prediction = 'continuous' ; q = None
-prediction = 'events' ; q = .6
+# prediction = 'events' ; q = .4
 feature_selection = True
 
 if prediction == 'continuous':
-    model = ScikitModel(verbosity=0)
-    kwrgs_model = {'scoring':'neg_mean_squared_error',
-                    'alphas':np.logspace(.01, 1.5, num=25), # large a, strong regul.
-                    'normalize':False}
+    model = ScikitModel(RidgeCV, verbosity=0)
+    kwrgs_model = {'scoring':'neg_mean_absolute_error',
+                    'alphas':np.concatenate([np.logspace(-5,0, 6),np.logspace(.01, 2.5, num=25)]), # large a, strong regul.
+                    'normalize':False,
+                    'fit_intercept':False,
+                    'kfold':5}
 elif prediction == 'events':
     model = ScikitModel(LogisticRegressionCV, verbosity=0)
     kwrgs_model = {'kfold':5,
@@ -707,8 +732,8 @@ for i, mon in enumerate(range(5,10)):
                                 tau_min=tau_min, tau_max=tau_max)
     predict, weights, model_lags = out
 
-    weights_norm = weights.mean(axis=0, level=1)
-    weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
+    # weights_norm = weights.mean(axis=0, level=1)
+    # weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
 
     if prediction == 'continuous':
         score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS]
@@ -776,28 +801,30 @@ list_df_train_c = [] ; list_pred_test_c = []
 fc_month = {} ;
 for forecast_month in range(5,8):
     print(f'Forecast month {forecast_month}')
-    target_month = 8
+    target_month = forecast_month + 1
 
     rg.df_data = df_data_yrs.copy()
-    lag_max = 2 ;
+    lag_max = 1 ;
     precur_keys = {}
     for i, mon in enumerate(range(forecast_month, target_month)):
-        model = ScikitModel(verbosity=0)
+        model = ScikitModel(RidgeCV, verbosity=0)
         kwrgs_model = {'scoring':'neg_mean_absolute_error',
-                        'alphas':np.logspace(-1, 1, num=20), # large a, strong regul.
-                        'normalize':False}
+                        'alphas':np.concatenate([np.logspace(-5,0, 6),np.logspace(.01, 2.5, num=25)]), # large a, strong regul.
+                        'normalize':False,
+                        'fit_intercept':False,
+                        'kfold':5}
         print(f'predicting precursors month {mon+1}')
         if (mon - forecast_month) == max_multistep: # if max lag, stop multi-step forecasting
             continue
 
         predict_precursors = []
-        precur_target_keys = [str(mon+1)+k for k in CondDepKeys['JJA']]
+        precur_target_keys = [str(mon+1)+k for k in CondDepKeys[use_mon_keys]]
         for j, k in enumerate(precur_target_keys):
 
             # if i == 0:
-            keys = [str(mon)+k for k in CondDepKeys['JJA']] #+ ['PDO']
-            for l in range(1, lag_max):
-                keys += [str(mon-l*2)+k for k in CondDepKeys['JJA']]
+            keys = [str(mon)+k for k in CondDepKeys[use_mon_keys]] #+ ['PDO']
+            for l in range(1, lag_max, 2):
+                keys += [str(mon-l)+k for k in CondDepKeys[use_mon_keys]]
             keys = [k for k in keys if k in rg.df_data.columns] # check if present
             if i > 0:
                 # add precursor timeseries of month? not yet implemented
@@ -815,9 +842,6 @@ for forecast_month in range(5,8):
                     if (np.nan_to_num(pvals.loc[k_i][s],nan=alpha_CI) > alpha_CI).mean()>0:
                         k_ = keys_dict[s].copy() ; k_.pop(k_.index(k_i))
                         keys_dict[s] = k_
-                if include_obs:
-                    k_ = keys_dict[s].copy() ;
-                    keys_dict[s] = k_
 
             precur_keys[k] = keys_dict
             keys = keys_dict
@@ -826,7 +850,7 @@ for forecast_month in range(5,8):
             if len([True for k,v in keys_dict.items() if len(keys_dict[k])==0])!=0:
                 print('No keys left')
                 # k_ += [str(forecast_month)+k for k in CondDepKeys['JJA']]
-                keys = [str(forecast_month)+k for k in CondDepKeys['JJA']]
+                keys = [str(forecast_month)+k for k in CondDepKeys[use_mon_keys]]
                 rg.df_data = pd.merge(df_data_yrs[[k]],
                                       df_data_yrs[keys + ['TrainIsTrue', 'RV_mask']],
                                       left_index=True, right_index=True)
@@ -870,10 +894,12 @@ for forecast_month in range(5,8):
 # =============================================================================
 
     if prediction == 'continuous':
-        model = ScikitModel(verbosity=0)
-        kwrgs_model = {'scoring':'neg_mean_squared_error',
-                        'alphas':np.logspace(-1, .5, num=25), # large a, strong regul.
-                        'normalize':False}
+        model = ScikitModel(RidgeCV, verbosity=0)
+        kwrgs_model = {'scoring':'neg_mean_absolute_error',
+                        'alphas':np.concatenate([np.logspace(-5,0, 6),np.logspace(.01, 2.5, num=25)]), # large a, strong regul.
+                        'normalize':False,
+                        'fit_intercept':False,
+                        'kfold':5}
     elif prediction == 'events':
         model = ScikitModel(LogisticRegressionCV, verbosity=0)
         kwrgs_model = {'kfold':5,
@@ -892,8 +918,15 @@ for forecast_month in range(5,8):
 
     rg.df_data = pd.merge(cascade_fc.iloc[:,:],
                                rg.df_splits, left_index=True, right_index=True)
+    if include_obs:
+        keys_obs = [str(mon)+k for k in CondDepKeys[use_mon_keys]] #+ ['PDO']
+        rg.df_data = pd.merge(df_data_yrs[keys_obs],
+                              rg.df_data, left_index=True, right_index=True)
     rg.df_data = pd.merge(pd.concat([rg.TV.RV_ts]*n_spl, keys=range(n_spl)),
                           rg.df_data, left_index=True, right_index=True)
+
+
+
 
     keys = list(rg.df_data.columns[1:-2])
     corr, pvals = wrapper_PCMCI.df_data_Parcorr(rg.df_data.copy(), z_keys=keys,
@@ -905,6 +938,8 @@ for forecast_month in range(5,8):
         for k_i in keys:
             if (np.nan_to_num(pvals.loc[k_i][s],nan=alpha_CI) > alpha_CI).mean()>0:
                 k_ = keys_dict[s].copy() ; k_.pop(k_.index(k_i))
+                if len(k_) == 0:
+                    k_ = [str(mon)+k for k in CondDepKeys[use_mon_keys]] #+ ['PDO']
                 keys_dict[s] = k_
 
     fc_month[mon] = keys_dict
@@ -918,8 +953,8 @@ for forecast_month in range(5,8):
                                 tau_min=0, tau_max=0)
     predict, weights, model_lags = out
 
-    weights_norm = weights.mean(axis=0, level=1)
-    weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
+    # weights_norm = weights.mean(axis=0, level=1)
+    # weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
 
 
     if prediction == 'continuous':
@@ -984,9 +1019,9 @@ def plot_vs_lags(df_scores_dict, target_ts, df_boots_dict=None, rename_m: dict=N
 
     cropname = target_dataset.split('_')[1]
     if (np.sum(target_ts).squeeze() / target_ts.size) < .45:
-        title = f'Skill predicting lower {cropname} yield years'
-    elif (np.sum(target_ts).squeeze() / target_ts.size) > .55:
         title = f'Skill predicting higher {cropname} yield years'
+    elif (np.sum(target_ts).squeeze() / target_ts.size) > .55:
+        title = f'Skill predicting lower {cropname} yield years'
 
     if rename_m is None:
         rename_m = {i:i for i in df_scores.index}

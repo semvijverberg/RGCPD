@@ -335,7 +335,7 @@ def cluster_DBSCAN_regions(pos_prec):
     if np.nansum(prec_labels_np) == 0. and mask_and_data.mask.all()==False:
         print('\nSome significantly correlating gridcells found, but too randomly located and '
             'interpreted as noise by DBSCAN, make distance_eps lower '
-            'to relax contrain.\n')
+            'to relax constrain.\n')
         prec_labels_ord = prec_labels_np
     if mask_and_data.mask.all()==True:
         print(f'\nNo significantly correlating gridcells found for {var}.\n')
@@ -608,6 +608,19 @@ def view_or_replace_labels(xarr: xr.DataArray, regions: Union[int,list],
     out = df.map(d).values
     xarr.values = out.reshape(shape)
     return xarr
+
+def labels_to_df(prec_labels, return_mean_latlon=True):
+    df = prec_labels.mean(dim=('split', 'lag')).to_dataframe().dropna()
+    if return_mean_latlon:
+        labels = np.unique(prec_labels)[~np.isnan(np.unique(prec_labels))]
+        mean_coords = np.zeros( (len(labels), 2))
+        for i,l in enumerate(labels):
+            latlon = np.array(df[(df==l).values].index)
+            latlon = np.array([list(l) for l in latlon])
+            mean_coords[i][:] = latlon.mean(0)
+        df = pd.DataFrame(mean_coords, index=labels,
+                     columns=['latitude', 'longitude'])
+    return df
 
 def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
     #%%

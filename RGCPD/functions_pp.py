@@ -1461,8 +1461,8 @@ def apply_lsm(var_filepath, lsm_filepath, threshold_lsm=.8):
     # save netcdf
     xarray.to_netcdf(outfile, mode='w', encoding=encoding)
 
-def sort_d_by_vals(d):
-    return {k: v for k, v in sorted(d.items(), key=lambda item: item[1])}
+def sort_d_by_vals(d, reverse=False):
+    return {k: v for k, v in sorted(d.items(), key=lambda item: item[1], reverse=reverse)}
 
 def remove_duplicates_list(l):
     seen = set()
