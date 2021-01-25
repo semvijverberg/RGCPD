@@ -432,7 +432,7 @@ for i, months in enumerate(periodnames[:]):
 
 
         cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_spl)]
-        assert kwrgs_model['alphas'].max() not in cvfitalpha, 'increase max a'
+        # assert kwrgs_model['alphas'].max() not in cvfitalpha, 'increase max a'
         # assert kwrgs_model['alphas'].min() not in cvfitalpha, 'decrease min a'
 
         df_test = functions_pp.get_df_test(predict.rename({0:months}, axis=1),
