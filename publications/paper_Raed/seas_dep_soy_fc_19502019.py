@@ -575,24 +575,24 @@ if feature_selection:
 
 #%%
 if __name__ == '__main__':
-    # code run with or without -i
-    if sys.flags.inspect:
-        name_csv = f'output_regression_{experiment}_sensivity.csv'
-        name_csv = os.path.join(rg.path_outmain, name_csv)
-        for csvfilename, dic in [(name_csv, dict_v)]:
-            # create .csv if it does not exists
-            if os.path.exists(csvfilename) == False:
-                with open(csvfilename, 'a', newline='') as csvfile:
-
-                    writer = csv.DictWriter(csvfile, list(dic.keys()))
-                    writer.writerows([{f:f for f in list(dic.keys())}])
-
-            # write
+    # # code run with or without -i
+    # if sys.flags.inspect:
+    name_csv = f'output_regression_{experiment}_sensivity.csv'
+    name_csv = os.path.join(rg.path_outmain, name_csv)
+    for csvfilename, dic in [(name_csv, dict_v)]:
+        # create .csv if it does not exists
+        if os.path.exists(csvfilename) == False:
             with open(csvfilename, 'a', newline='') as csvfile:
-                writer = csv.DictWriter(csvfile, list(dic.keys()))
-                writer.writerows([dic])
 
-        sys.exit()
+                writer = csv.DictWriter(csvfile, list(dic.keys()))
+                writer.writerows([{f:f for f in list(dic.keys())}])
+
+        # write
+        with open(csvfilename, 'a', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, list(dic.keys()))
+            writer.writerows([dic])
+
+    sys.exit()
 
 
 
