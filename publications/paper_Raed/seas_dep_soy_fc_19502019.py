@@ -54,9 +54,9 @@ import functions_pp, df_ana, climate_indices, find_precursors
 import plot_maps; import core_pp
 
 
-experiments = ['seasons', 'bimonthly', 'semestral']
+experiments = ['bimonthly'] #['seasons', 'bimonthly', 'semestral']
 target_datasets = ['USDA_Soy', 'USDA_Maize']#, 'GDHY_Soy']
-seeds = seeds = [1,2,3,4,5]
+seeds = seeds = [1] # [1,2,3,4,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 add_prev = [True, False]
 feature_sel = [True, False]
@@ -66,7 +66,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     add_prev,
                                     feature_sel)).T.reshape(-1,6)
-i_default = 1
+i_default = 4
 
 
 def parseArguments():
@@ -182,7 +182,7 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                  BivariateMI(name='smi3', func=class_BivariateMI.corr_map,
                              alpha=.05, FDR_control=True,
                              kwrgs_func={},
-                             distance_eps=290, min_area_in_degrees2=4,
+                             distance_eps=300, min_area_in_degrees2=4,
                              calc_ts=calc_ts, selbox=USBox,
                              lags=SM_lags)
                  ]
@@ -247,7 +247,7 @@ rg.plot_maps_corr('smi3', kwrgs_plot=kwrgs_plotcorr_SM, save=save)
 
 #%%
 # precur = rg.list_for_MI[1]
-# precur.distance_eps = 290 ; precur.min_area_in_degrees2 = 4
+# precur.distance_eps = 300 ; precur.min_area_in_degrees2 = 4
 rg.cluster_list_MI()
 # rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst)
 
@@ -275,7 +275,7 @@ df_coords = find_precursors.labels_to_df(SM.prec_labels.copy())
 label = df_coords.loc[two_largest].longitude.idxmax()
 SM.prec_labels, _ = find_precursors.split_region_by_lonlat(SM.prec_labels.copy(),
                                                       label=int(label), plot_l=2,
-                                                      kwrgs_mask_latlon={'lonmin':282})
+                                                      kwrgs_mask_latlon={'bottom_left':(285,45)})
 
 rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst, save=save)
 
@@ -305,7 +305,8 @@ from stat_models_cont import ScikitModel
 #             'n_jobs':1}
 fcmodel = ScikitModel(RidgeCV, verbosity=0)
 kwrgs_model = {'scoring':'neg_mean_absolute_error',
-                'alphas':np.concatenate([np.logspace(-5,0, 6),np.logspace(.01, 2.5, num=25)]), # large a, strong regul.
+                'alphas':np.concatenate([[0],np.logspace(-5,0, 6),
+                                         np.logspace(.01, 2.5, num=25)]), # large a, strong regul.
                 'normalize':False,
                 'fit_intercept':False,
                 'kfold':5}
@@ -340,7 +341,7 @@ def feature_selection_CondDep(df_data, keys, alpha_CI=.05):
 
 blocksize=1
 lag = 0
-alpha_CI = .05
+alpha_CI = .1
 variables = ['sst', 'smi3']
 
 # feature_selection = True
@@ -563,6 +564,7 @@ def boxplot_scores(list_scores, list_test_b, alpha=.1):
 
 
 boxplot_scores(list_test, list_test_b, alpha=.1)
+
 #%%
 if feature_selection:
     append_str = '-'.join(periodnames)
@@ -795,7 +797,7 @@ plot_vs_lags(df_scores, target_ts, df_boots, alpha=.1)
 # =============================================================================
 
 # part 1
-include_obs = True ; max_multistep = 2
+include_obs = False ; max_multistep = 2
 list_df_test_c = [] ; list_df_boot_c = [] ;
 list_df_train_c = [] ; list_pred_test_c = []
 fc_month = {} ;
@@ -809,7 +811,8 @@ for forecast_month in range(5,8):
     for i, mon in enumerate(range(forecast_month, target_month)):
         model = ScikitModel(RidgeCV, verbosity=0)
         kwrgs_model = {'scoring':'neg_mean_absolute_error',
-                        'alphas':np.concatenate([np.logspace(-5,0, 6),np.logspace(.01, 2.5, num=25)]), # large a, strong regul.
+                        'alphas':np.concatenate([[0],np.logspace(-5,0, 6),
+                                                 np.logspace(.01, 2.5, num=25)]), # large a, strong regul.
                         'normalize':False,
                         'fit_intercept':False,
                         'kfold':5}
@@ -874,6 +877,10 @@ for forecast_month in range(5,8):
                                                                              score_per_test=False,
                                                                              blocksize=1,
                                                                              rng_seed=1)
+
+            cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_spl)]
+            if kwrgs_model['alphas'].max() in cvfitalpha: print('Max a reached')
+            if kwrgs_model['alphas'].min() in cvfitalpha: print('Min a reached')
             print(model.scikitmodel.__name__+' '+k, '\t', 'Test score: ',
                   # 'RMSE {:.2f}\n'.format(df_test_m.loc[0][0]['RMSE']),
                   'MAE {:.2f}\t'.format(df_test_m.loc[0][0]['MAE']),
@@ -883,7 +890,7 @@ for forecast_month in range(5,8):
                   'MAE {:.2f}\t'.format(df_train_m.mean(0).loc[0]['MAE']))
                   # 'corrcoef {:.2f}'.format(df_train_m.mean(0).loc[0]['corrcoef']))
 
-            [model_lags['lag_0'][f'split_{i}'].alpha_ for i in range(n_spl)]
+
             predict_precursors.append(predict.iloc[:,1:].rename({0:k},axis=1))
         cascade_fc = pd.concat(predict_precursors, axis=1)
         rg.df_data = pd.merge(cascade_fc.iloc[:,:],
@@ -896,7 +903,9 @@ for forecast_month in range(5,8):
     if prediction == 'continuous':
         model = ScikitModel(RidgeCV, verbosity=0)
         kwrgs_model = {'scoring':'neg_mean_absolute_error',
-                        'alphas':np.concatenate([np.logspace(-5,0, 6),np.logspace(.01, 2.5, num=25)]), # large a, strong regul.
+                        'alphas':np.concatenate([[0],
+                                                 np.logspace(-5,0, 6),
+                                                 np.logspace(.01, 2.5, num=25)]), # large a, strong regul.
                         'normalize':False,
                         'fit_intercept':False,
                         'kfold':5}
@@ -970,7 +979,9 @@ for forecast_month in range(5,8):
                                                                      blocksize=1,
                                                                      rng_seed=1)
     if prediction == 'continuous':
-        [model_lags['lag_0'][f'split_{i}'].alpha_ for i in range(n_spl)]
+        cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_spl)]
+        if kwrgs_model['alphas'].max() in cvfitalpha: print('Max a reached')
+        if kwrgs_model['alphas'].min() in cvfitalpha: print('Min a reached')
         print(model.scikitmodel.__name__, '\n', 'Test score\n',
               'RMSE {:.2f}\n'.format(df_test_m.loc[0][0]['RMSE']),
               'MAE {:.2f}\n'.format(df_test_m.loc[0][0]['MAE']),
