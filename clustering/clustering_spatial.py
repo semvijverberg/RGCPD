@@ -276,7 +276,7 @@ def store_netcdf(xarray, filepath=None, append_hash=None):
     print(f'to file:\n{filepath}')
     # save netcdf
     xarray.to_netcdf(filepath, mode='w', encoding=encoding)
-    return
+    return filepath
 
 
 def get_download_path():

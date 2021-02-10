@@ -208,7 +208,7 @@ def ds_num2date(ds, loadleap=False):
     timestep_days = (dates[1] - dates[0]).days
     if timestep_days == 1:
         input_freq = 'daily'
-    elif timestep_days == 30 or timestep_days == 31:
+    elif timestep_days in [28,29,30,31]:
         input_freq = 'monthly'
     elif timestep_days == 365 or timestep_days == 366:
         input_freq = 'annual'

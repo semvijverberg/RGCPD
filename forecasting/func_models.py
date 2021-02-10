@@ -275,7 +275,7 @@ class ErrorSkillScore:
                                               squared=self.squared)
         if self.benchmark is False:
             return self.RMSE_score
-        elif type(self.benchmark) in [float, int]:
+        elif type(self.benchmark) in [float, int, np.float_]:
             b_ = np.zeros(y_true.size) ; b_[:] = self.benchmark
             self.RMSE_bench = metrics.mean_squared_error(y_true,
                                                b_,
@@ -356,7 +356,7 @@ class CRPSS_vs_constant_bench:
 
 def get_scores(prediction, df_splits, score_func_list: list=None,
                score_per_test=True,
-               n_boot: int=1, blocksize: int=14, rng_seed=1):
+               n_boot: int=1, blocksize: int=1, rng_seed=1):
     #%%
     pred = prediction.merge(df_splits,
                             left_index=True,
@@ -396,31 +396,33 @@ def get_scores(prediction, df_splits, score_func_list: list=None,
 
     # score on complete test
     df_tests = np.zeros( (columns.size), dtype=object)
-    for c, col in enumerate(columns):
-        df_test = pd.DataFrame(np.zeros( (1,len(score_func_list))),
-                                columns=[f.__name__ for f in score_func_list])
-        pred_test = functions_pp.get_df_test(pred).iloc[:,:-2]
-        for f in score_func_list:
-            name = f.__name__
-            y_true = pred_test.iloc[:,0]
-            y_pred = pred_test.loc[:,col]
-            df_test[name] = f(y_true, y_pred)
-        df_tests[c]  = df_test
-    df_tests = pd.concat(df_tests, keys=columns, axis=1)
+    if testRV.all(): # ensure test data is available
+        for c, col in enumerate(columns):
+            df_test = pd.DataFrame(np.zeros( (1,len(score_func_list))),
+                                    columns=[f.__name__ for f in score_func_list])
+            pred_test = functions_pp.get_df_test(pred).iloc[:,:-2]
+            for f in score_func_list:
+                name = f.__name__
+                y_true = pred_test.iloc[:,0]
+                y_pred = pred_test.loc[:,col]
+                df_test[name] = f(y_true, y_pred)
+            df_tests[c]  = df_test
+        df_tests = pd.concat(df_tests, keys=columns, axis=1)
 
 
     # Bootstrapping with replacement
     df_boots = np.zeros( (columns.size), dtype=object)
-    for c, col in enumerate(columns):
-        old_index = range(0,len(y_true),1)
-        n_bl = blocksize
-        chunks = [old_index[n_bl*i:n_bl*(i+1)] for i in range(int(len(old_index)/n_bl))]
-        score_list = _bootstrap(pred_test.iloc[:,[0,c+1]], n_boot, chunks, score_func_list,
-                                rng_seed=rng_seed)
-        df_boot = pd.DataFrame(score_list,
-                               columns=[f.__name__ for f in score_func_list])
-        df_boots[c] = df_boot
-    df_boots = pd.concat(df_boots, keys=columns, axis=1)
+    if testRV.all(): # ensure test data is available
+        for c, col in enumerate(columns):
+            old_index = range(0,len(y_true),1)
+            n_bl = blocksize
+            chunks = [old_index[n_bl*i:n_bl*(i+1)] for i in range(int(len(old_index)/n_bl))]
+            score_list = _bootstrap(pred_test.iloc[:,[0,c+1]], n_boot, chunks, score_func_list,
+                                    rng_seed=rng_seed)
+            df_boot = pd.DataFrame(score_list,
+                                   columns=[f.__name__ for f in score_func_list])
+            df_boots[c] = df_boot
+        df_boots = pd.concat(df_boots, keys=columns, axis=1)
 
     out = (df_trains, df_tests_s, df_tests, df_boots)
 

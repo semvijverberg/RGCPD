@@ -600,8 +600,8 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
     if start_end_date is None:
         d_s = datetime[0]
         d_e = datetime[-1]
-        sstartdate = '{}-{}'.format(d_s.month, d_s.day)
-        senddate   = '{}-{}'.format(d_e.month, d_e.day)
+        sstartdate = '{:02d}-{:02d}'.format(d_s.month, d_s.day)
+        senddate   = '{:02d}-{:02d}'.format(d_e.month, d_e.day)
     else:
         sstartdate, senddate = start_end_date
 
@@ -615,8 +615,8 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
     else:
         senddate   = '{}-{}'.format(startyear, senddate)
 
-    adjhrsstartdate = sstartdate + ' {:}:00:00'.format(datetime[0].hour)
-    adjhrsenddate   = senddate + ' {:}:00:00'.format(datetime[0].hour)
+    adjhrsstartdate = sstartdate + ' {:02d}:00:00'.format(datetime[0].hour)
+    adjhrsenddate   = senddate + ' {:02d}:00:00'.format(datetime[0].hour)
 
 
     def getdaily_firstyear(adjhrsstartdate, adjhrsenddate, closed_on_date, tfreq):
