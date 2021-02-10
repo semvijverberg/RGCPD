@@ -176,7 +176,7 @@ list_of_name_path = [(cluster_label, TVpath),
 list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={},
-                            distance_eps=425, min_area_in_degrees2=7,
+                            distance_eps=400, min_area_in_degrees2=7,
                             calc_ts=calc_ts, selbox=GlobalBox,
                             lags=corlags),
                  BivariateMI(name='smi3', func=class_BivariateMI.corr_map,
@@ -206,7 +206,7 @@ subfoldername = target_dataset+'_'.join(['', experiment, str(method),
 rg.pp_precursors(detrend=[True, {'tp':False, 'smi3':False, 'swvl1':False, 'swvl3':False}],
                  anomaly=[True, {'tp':False, 'smi3':False, 'swvl1':False, 'swvl3':False}],
                  auto_detect_mask=[False, {'swvl1':True, 'swvl2':True}])
-rg.pp_TV(detrend=True)
+rg.pp_TV(detrend=True, ext_annual_to_mon=False)
 rg.traintest(method, seed=seed, subfoldername=subfoldername)
 n_spl = rg.df_splits.index.levels[0].size
 
@@ -227,7 +227,7 @@ for p in rg.list_for_MI:
 
 
 #%%
-save = True
+save = False
 kwrgs_plotcorr_sst = {'row_dim':'lag', 'col_dim':'split','aspect':4, 'hspace':0,
                   'wspace':-.15, 'size':3, 'cbar_vert':0.05,
                   'map_proj':ccrs.PlateCarree(central_longitude=220),
@@ -235,6 +235,7 @@ kwrgs_plotcorr_sst = {'row_dim':'lag', 'col_dim':'split','aspect':4, 'hspace':0,
                   'title':'',
                   'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
 rg.plot_maps_corr('sst', kwrgs_plot=kwrgs_plotcorr_sst, save=save)
+
 #%%
 kwrgs_plotcorr_SM = {'row_dim':'lag', 'col_dim':'split','aspect':2, 'hspace':0.2,
                       'wspace':0, 'size':3, 'cbar_vert':0.04,
@@ -251,37 +252,39 @@ rg.plot_maps_corr('smi3', kwrgs_plot=kwrgs_plotcorr_SM, save=save)
 rg.cluster_list_MI()
 # rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst)
 
-# Ensure that Caribean is alway splitted from Pacific
-sst = rg.list_for_MI[0]
-copy_labels = sst.prec_labels.copy()
-all_labels = copy_labels.values[~np.isnan(copy_labels.values)]
-uniq_labels = np.unique(all_labels)
-prevail = {l:list(all_labels).count(l) for l in uniq_labels}
-prevail = functions_pp.sort_d_by_vals(prevail, reverse=True)
-label = list(prevail.keys())[0]
-sst.prec_labels, _ = find_precursors.split_region_by_lonlat(sst.prec_labels.copy(),
-                                                      label=int(label), plot_l=3,
-                                                      kwrgs_mask_latlon={'bottom_left':(95,15)})
+# # Ensure that Caribean is alway splitted from Pacific
+# sst = rg.list_for_MI[0]
+# copy_labels = sst.prec_labels.copy()
+# all_labels = copy_labels.values[~np.isnan(copy_labels.values)]
+# uniq_labels = np.unique(all_labels)
+# prevail = {l:list(all_labels).count(l) for l in uniq_labels}
+# prevail = functions_pp.sort_d_by_vals(prevail, reverse=True)
+# label = list(prevail.keys())[0]
+# sst.prec_labels, _ = find_precursors.split_region_by_lonlat(sst.prec_labels.copy(),
+#                                                       label=int(label), plot_l=3,
+#                                                       kwrgs_mask_latlon={'bottom_left':(95,15)})
 
 
-SM = rg.list_for_MI[1]
-copy_labels = SM.prec_labels.copy()
-all_labels = copy_labels.values[~np.isnan(copy_labels.values)]
-uniq_labels = np.unique(all_labels)
-prevail = {l:list(all_labels).count(l) for l in uniq_labels}
-prevail = functions_pp.sort_d_by_vals(prevail, reverse=True)
-two_largest = list(prevail.keys())[:2]
-df_coords = find_precursors.labels_to_df(SM.prec_labels.copy())
-label = df_coords.loc[two_largest].longitude.idxmax()
-SM.prec_labels, _ = find_precursors.split_region_by_lonlat(SM.prec_labels.copy(),
-                                                      label=int(label), plot_l=2,
-                                                      kwrgs_mask_latlon={'bottom_left':(285,45)})
+# SM = rg.list_for_MI[1]
+# copy_labels = SM.prec_labels.copy()
+# all_labels = copy_labels.values[~np.isnan(copy_labels.values)]
+# uniq_labels = np.unique(all_labels)
+# prevail = {l:list(all_labels).count(l) for l in uniq_labels}
+# prevail = functions_pp.sort_d_by_vals(prevail, reverse=True)
+# two_largest = list(prevail.keys())[:2]
+# df_coords = find_precursors.labels_to_df(SM.prec_labels.copy())
+# label = df_coords.loc[two_largest].longitude.idxmax()
+# SM.prec_labels, _ = find_precursors.split_region_by_lonlat(SM.prec_labels.copy(),
+#                                                       label=int(label), plot_l=2,
+#                                                       kwrgs_mask_latlon={'bottom_left':(285,45)})
 
 rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst, save=save)
 
 rg.quick_view_labels('smi3', kwrgs_plot=kwrgs_plotcorr_SM, save=save)
 
 #%%
+for p in rg.list_for_MI:
+    p.prec_labels['lag'] = ('lag', periodnames)
 rg.get_ts_prec()
 rg.df_data = rg.df_data.rename({'Nonets':target_dataset},axis=1)
 
@@ -289,7 +292,7 @@ rg.df_data = rg.df_data.rename({'Nonets':target_dataset},axis=1)
 
 #%% forecasting
 import wrapper_PCMCI
-from sklearn.linear_model import RidgeCV
+from sklearn.linear_model import RidgeCV, Ridge
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegressionCV
 from stat_models_cont import ScikitModel
@@ -305,8 +308,17 @@ from stat_models_cont import ScikitModel
 #             'n_jobs':1}
 fcmodel = ScikitModel(RidgeCV, verbosity=0)
 kwrgs_model = {'scoring':'neg_mean_absolute_error',
-                'alphas':np.concatenate([[0],np.logspace(-5,0, 6),
+                'alphas':np.concatenate([[1E-20],np.logspace(-5,0, 6),
                                          np.logspace(.01, 2.5, num=25)]), # large a, strong regul.
+                'normalize':False,
+                'fit_intercept':False,
+                # 'store_cv_values':True}
+                'kfold':5}
+
+fcmodel = ScikitModel(Ridge, verbosity=0)
+kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
+                'alpha':list(np.concatenate([[1E-20],np.logspace(-5,0, 6),
+                                         np.logspace(.01, 2.5, num=25)])), # large a, strong regul.
                 'normalize':False,
                 'fit_intercept':False,
                 'kfold':5}
@@ -324,27 +336,24 @@ def append_dict(month, df_test_m, df_train_m):
     dict_v.update(append_dict)
     return
 
-def feature_selection_CondDep(df_data, keys, alpha_CI=.05):
-    # Feature selection Cond. Dependence
-    keys = list(keys) # must be list
-    corr, pvals = wrapper_PCMCI.df_data_Parcorr(df_data.copy(), z_keys=keys,
-                                                keys=keys)
+def feature_selection_CondDep(pvals, alpha_CI=.05):
     # removing all keys that are Cond. Indep. in each trainingset
+    keys = list(np.unique(pvals.index.levels[0]))
     keys_dict = dict(zip(range(n_spl), [keys]*n_spl)) # all vars
     for s in rg.df_splits.index.levels[0]:
         for k_i in keys:
             if (np.nan_to_num(pvals.loc[k_i][s],nan=alpha_CI) > alpha_CI).mean()>0:
                 k_ = keys_dict[s].copy() ; k_.pop(k_.index(k_i))
                 keys_dict[s] = k_
-    return corr, pvals, keys_dict.copy()
+    return keys_dict.copy()
 
 
-blocksize=1
-lag = 0
-alpha_CI = .1
-variables = ['sst', 'smi3']
 
-# feature_selection = True
+alpha_CI = [.01, .05, .1, .2]
+variables = ['sst', 'smi']
+
+
+feature_selection = True
 # add_previous_periods = False
 
 add_PDO = False
@@ -386,11 +395,10 @@ list_test_b = []
 list_pred_test = []
 no_info_fc = []
 
-CondDepKeys = {} ; CondDepKeysDict = {}
+CondDepKeys = {} ; CondDepKeysDict = {} ; CV_test = {}
 for i, months in enumerate(periodnames[:]):
     print(f'forecast using precursors of {months}')
-    # months, start_end_TVdate = periodnames[2], corlags[2]
-    # i = 0; months = periodnames[0]
+    # i=2; months, start_end_TVdate = periodnames[i], corlags[i]
 
     keys = [k for k in rg.df_data.columns[:-2] if k.split('..')[-1] in variables]
     keys = [k for k in keys if months == k.split('..')[0]]
@@ -407,15 +415,19 @@ for i, months in enumerate(periodnames[:]):
 
 
     if len(keys) != 0 and 'PDO' not in keys and feature_selection:
-        corr, pvals, keys_dict = feature_selection_CondDep(rg.df_data.copy(),
-                                                           keys, alpha_CI)
+        # Feature selection Cond. Dependence
+        keys = list(keys) # must be list
+        corr, pvals = wrapper_PCMCI.df_data_Parcorr(rg.df_data.copy(), z_keys=keys,
+                                                    keys=keys)
+        alpha_CI_ = alpha_CI[-1] if type(alpha_CI) is list else alpha_CI
+        keys_dict = feature_selection_CondDep(pvals, alpha_CI_)
+
         # always C.D. (every split)
-        keys = [k for k in keys if (np.nan_to_num(pvals.loc[k],nan=alpha_CI) <= alpha_CI).mean()== 1]
+        keys = [k for k in keys if (np.nan_to_num(pvals.loc[k],nan=alpha_CI_) <= alpha_CI_).mean()== 1]
     else:
         keys_dict = dict(zip(range(n_spl), [keys]*n_spl)) # all vars
 
-    CondDepKeys[months] = keys
-    CondDepKeysDict[months] = keys_dict
+
 
     if add_previous_periods and periodnames.index(months) != 0:
         # merging CD keys that were found for each split seperately to keep
@@ -425,23 +437,46 @@ for i, months in enumerate(periodnames[:]):
             pmk = [k for k in CondDepKeysDict[pm][s] if k.split('..')[0]==pm]
             keys_dict[s] = keys_dict[s] + pmk
 
-
-    if len(keys) != 0:
-        out = rg.fit_df_data_ridge(target=target_ts,
+    lag_ = 0
+    def model_fit(target_ts, keys_dict, kwrgs_model, fcmodel, lag_):
+        return rg.fit_df_data_ridge(target=target_ts,
                                    keys=keys_dict,
-                                   tau_min=0, tau_max=0,
+                                   tau_min=lag_, tau_max=lag_,
                                    kwrgs_model=kwrgs_model,
                                    fcmodel=fcmodel,
-                                   transformer=fc_utils.standardize_on_train)
+                                   transformer=None)
+
+    if len(keys) != 0:
+        if feature_selection and type(alpha_CI) is list:
+            models_CV = {}
+            for a in alpha_CI:
+                print(f'tuning alpha_CI {a}')
+                new = feature_selection_CondDep(pvals, a)
+                if new != keys_dict:
+                    keys_dict = new
+                    # print(keys_dict[0])
+                    models_CV[a] = model_fit(target_ts, keys_dict, kwrgs_model, fcmodel, lag_)
+
+            best_scores = {}
+            for a, out in models_CV.items():
+                best_scores[a] = [out[-1][f'lag_{lag_}'][f'split_{s}'].best_score_ for s in range(n_spl)]
+            df_CV = pd.DataFrame(best_scores).mean(0) ; df_CV.columns = [months]
+            CV_test[months] = df_CV
+            best_alphaCI = df_CV.round(2).idxmax()
+            keys_dict = feature_selection_CondDep(pvals, best_alphaCI)
+            out = models_CV[best_alphaCI]
+        else:
+            out = model_fit(target_ts, keys_dict, kwrgs_model, fcmodel, lag_)
+
 
         predict, weights, models_lags = out
-        prediction = predict.rename({predict.columns[0]:'target',lag:'Prediction'},
+
+
+        prediction = predict.rename({predict.columns[0]:'target',lag_:'Prediction'},
                                     axis=1)
-
-        if i==0:
-            weights_norm = weights.mean(axis=0, level=1)
-            weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
-
+        # if i==0:
+            # weights_norm = weights.mean(axis=0, level=1)
+            # weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
 
         df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(prediction,
                                                                  rg.df_data.iloc[:,-2:],
@@ -450,10 +485,17 @@ for i, months in enumerate(periodnames[:]):
                                                                  blocksize=1,
                                                                  rng_seed=seed)
 
-
-        cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_spl)]
-        if kwrgs_model['alphas'].max() in cvfitalpha: print('Max a reached')
-        if kwrgs_model['alphas'].min() in cvfitalpha: print('Min a reached')
+        m = models_lags[f'lag_{lag_}'][f'split_{0}']
+        # if months == 'JA':
+            # print(models_lags[f'lag_{lag_}'][f'split_{0}'].X_pred.iloc[0])
+            # print(df_test_m)
+        models = [models_lags[f'lag_{lag_}'][f'split_{s}'] for s in range(n_spl)]
+        # a_idx = [int(np.argwhere(m.alphas==m.alpha_).squeeze()) for m in models]
+        # cvvalues = [m.cv_values_[:,a_idx[i]] for i, m in enumerate(models)]
+        # plt.plot(np.array(cvvalues).T.mean(0))
+        # cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_spl)]
+        # if kwrgs_model['alphas'].max() in cvfitalpha: print('Max a reached')
+        # if kwrgs_model['alphas'].min() in cvfitalpha: print('Min a reached')
         # assert kwrgs_model['alphas'].min() not in cvfitalpha, 'decrease min a'
 
         df_test = functions_pp.get_df_test(predict.rename({0:months}, axis=1),
@@ -473,6 +515,8 @@ for i, months in enumerate(periodnames[:]):
         df_train_m = pd.DataFrame(np.zeros((1,len(score_func_list))),
                                   columns=index)
 
+    CondDepKeys[months] = keys
+    CondDepKeysDict[months] = keys_dict
 
     df_test_m.index = [months] ;
     columns = pd.MultiIndex.from_product([np.array([months]),
@@ -501,8 +545,7 @@ def boxplot_scores(list_scores, list_test_b, alpha=.1):
     df_test_b = pd.concat(list_test_b,axis=1)
 
     yerr = [] ; quan = [] ;
-    monmet = np.array(np.meshgrid(list(CondDepKeys.keys()),
-                                  df_scores.columns.levels[1])).T.reshape(-1,2)
+    monmet = np.array(df_test_b.columns)
     for i, (mon, met) in enumerate(monmet):
         Eh = 1 - alpha/2 ; El = alpha/2
         # met = rename_metrics_cont[met]
@@ -560,10 +603,11 @@ def boxplot_scores(list_scores, list_test_b, alpha=.1):
     append_str = '-'.join(periodnames) #+'_'+'_'.join(np.array(start_end_year, str))
     plt.savefig(os.path.join(rg.path_outsub1,
               f'skill_fs{feature_selection}_addprev{add_previous_periods}_'
-              f'ab{alpha}_ac{alpha_corr}_afs{alpha_CI}_nb{n_boot}_blsz{blocksize}_{append_str}.pdf'))
+              f'ab{alpha}_ac{alpha_corr}_afs{alpha_CI}_nb{n_boot}_{append_str}.pdf'))
 
 
 boxplot_scores(list_test, list_test_b, alpha=.1)
+
 
 #%%
 if feature_selection:

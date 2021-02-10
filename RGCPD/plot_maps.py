@@ -42,7 +42,8 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    title_fontdict: dict=None, subtitles: np.ndarray=None,
                    subtitle_fontdict: dict=None, zoomregion=None,
                    aspect=None, n_xticks=5, n_yticks=3, x_ticks: Union[bool, np.ndarray]=None,
-                   y_ticks: Union[bool, np.ndarray]=None, add_cfeature: str=None):
+                   y_ticks: Union[bool, np.ndarray]=None, add_cfeature: str=None,
+                   textinmap: list=None):
 
     '''
     zoomregion = tuple(east_lon, west_lon, south_lat, north_lat)
@@ -54,7 +55,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     # clevels=None; cticks_center=None; map_proj=None ; wspace=.03;
     # drawbox=None; subtitles=None; title=None; lat_labels=True; zoomregion=None
     # aspect=None; n_xticks=5; n_yticks=3; title_fontdict=None; x_ticks=None;
-    # y_ticks=None; add_cfeature=None
+    # y_ticks=None; add_cfeature=None; textinmap=None
 
     if map_proj is None:
         cen_lon = int(corr_xr.longitude.mean().values)
@@ -173,7 +174,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                 # field not completely masked?
                 all_masked = (plotmask.values==False).all()
                 if all_masked == False:
-                    if p_nans < 90:
+                    if p_nans != 100:
                         plotmask.plot.contour(ax=g.axes[row,col],
                                               transform=ccrs.PlateCarree(),
                                           subplot_kws={'projection': map_proj},
@@ -226,6 +227,24 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                         g.axes[row,col].add_geometries(ring, ccrs.PlateCarree(),
                                                        facecolor='none', edgecolor='green',
                                                        linewidth=2, linestyle='dashed')
+            # =============================================================================
+            # Add text in plot - list([location, list(tuple(lon,lat,text,kwrgs))])
+            # =============================================================================
+            if textinmap is not None:
+                for list_t in textinmap:
+                    if list_t[0] == g.axes.size or list_t[0] == 'all':
+                        row_text, col_text = row, col
+                    if type(list_t[0]) is tuple:
+                        row_text, col_text = list_t[0]
+                    if type(list_t[1]) is not list:
+                        list_t[1] = [list_t[1]]
+                    for t in list_t[1]:
+                        lontext, lattext, text, kwrgs = t # lon in degrees west-east
+                        kwrgs.update(dict(horizontalalignment='center',
+                                         transform=ccrs.Geodetic())) # standard settings
+                        g.axes[row_text,col_text].text(int(lontext), int(lattext),
+                                                       text, **kwrgs)
+
 
             # =============================================================================
             # Subtitles
@@ -267,7 +286,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                                           facecolor='grey',
                                           linewidth=2)
             # black outline subplot
-            g.axes[row,col].outline_patch.set_edgecolor('black')
+            g.axes[row,col].spines['geo'].set_edgecolor('black')
 
             if corr_xr.name is not None:
                 if corr_xr.name[:3] == 'sst':
@@ -437,7 +456,7 @@ def causal_reg_to_xarray(df_links, list_MI):
     return dict_ds
 
 def plot_labels_vars_splits(dict_ds, df_links, figpath, paramsstr, RV_name,
-                            filetype='.pdf', mean_splits=True,
+                            save: bool=False, filetype='.pdf', mean_splits=True,
                             cols: List=['corr', 'C.D.'], kwrgs_plot={}):
 
     #%%
@@ -457,8 +476,10 @@ def plot_labels_vars_splits(dict_ds, df_links, figpath, paramsstr, RV_name,
                 f_name = '{}_{}_vs_{}_labels_mean'.format(paramsstr, RV_name, var) + filetype
             else:
                 f_name = '{}_{}_vs_{}_labels'.format(paramsstr, RV_name, var) + filetype
-
-            filepath = os.path.join(figpath, f_name)
+            if save:
+                filepath = os.path.join(figpath, f_name)
+            else:
+                filepath  = False
             plot_labels_RGCPD(ds, var, lag, filepath,
                               mean_splits, cols, kwrgs_plot)
     #%%
@@ -574,7 +595,7 @@ def plot_labels_RGCPD(ds, var, lag, filepath,
     return
 
 def plot_corr_vars_splits(dict_ds, df_sum, figpath, paramsstr, RV_name,
-                          filetype='.pdf', mean_splits=True,
+                          save: bool=False, filetype='.pdf', mean_splits=True,
                           cols: List=['corr', 'C.D.'], kwrgs_plot={}):
     #%%
     # =============================================================================

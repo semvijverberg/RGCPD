@@ -61,9 +61,8 @@ class RGCPD:
                  tfreq: int=10,
                  start_end_date: Tuple[str, str]=None,
                  start_end_year: Tuple[int, int]=None,
-                 write_outputfolder: bool=True,
                  path_outmain: str=None,
-                 append_pathsub='',
+                 append_pathsub='', save: bool=True,
                  verbosity: int=1):
         '''
         Class to study teleconnections of a Response Variable* of interest.
@@ -122,12 +121,13 @@ class RGCPD:
             default is to load all years
         path_outmain : [str, bool], optional
             Root folder for output. If None, default is your
-            '/users/{username}/Download' path. If False, no auto-generated paths
-            are written to disk
+            '/users/{username}/Download' path.
         append_pathsub: str, optional
             The first subfolder will be created below path_outmain, to store
             output data & figures. The append_pathsub1 argument allows you to
             manually add some hash or string refering to some experiment.
+        save : bool, optional
+            If you want to save figures, data and text output automatically.
         verbosity : int, optional
             Regulate the amount of feedback given by the code.
             The default is 1.
@@ -142,7 +142,7 @@ class RGCPD:
             list_of_name_path = [(3,
                                   os.path.join(path_test, 'tf5_nc5_dendo_80d77.nc')),
                                  ('sst_test',
-                                  os.path.join(path_test, 'sst_1979-2018_2.5deg_Pacific.nc'))]
+                                  os.path.join(path_test, 'sst_daily_1979-2018_5deg_Pacific_175_240E_25_50N.nc'))]
 
         if start_end_TVdate is None:
             start_end_TVdate = ('06-01', '08-31')
@@ -150,11 +150,7 @@ class RGCPD:
         if path_outmain is None:
             user_download_path = get_download_path()
             path_outmain = user_download_path + '/output_RGCPD/'
-        if path_outmain == False:
-            self.write_outputfolder = False
-        else:
-            self.write_outputfolder = True
-            if os.path.isdir(path_outmain) != True : os.makedirs(path_outmain)
+
 
 
         self.list_of_name_path = list_of_name_path
@@ -172,7 +168,10 @@ class RGCPD:
         self.path_outmain       = path_outmain
         self.append_pathsub     = append_pathsub
         self.figext             = '.pdf'
+        self.save               = save
         self.orig_stdout        = sys.stdout
+        if self.save == True and os.path.isdir(path_outmain) != True:
+            os.makedirs(path_outmain)
         return
 
     def pp_precursors(self, loadleap=False, seldates=None,
@@ -225,7 +224,33 @@ class RGCPD:
             fig_path = os.path.join(self.path_outsub1, 'RV_clusters')
             plt.savefig(fig_path+self.figext, bbox_inches='tight')
 
-    def pp_TV(self, name_ds='ts', loadleap=False, detrend=False, anomaly=False):
+    def pp_TV(self, name_ds='ts', loadleap=False, detrend=False, anomaly=False,
+              ext_annual_to_mon: bool=True):
+        '''
+        Load and pre-process target variable/response variable.
+
+        Parameters
+        ----------
+        name_ds : str, optional
+            name of 1-d timeseries in .nc file. The default is 'ts'.
+        loadleap : bool, optional
+            The default is False.
+        detrend : bool, optional
+            linear detrend. The default is False.
+        anomaly : bool, optional
+            calculate anomaly verus climatology. The default is False.
+        ext_annual_to_mon : bool, optional
+            if tfreq is None and target variable contain one-value-per-year,
+            the target is extended to match the percursor time-axis.
+            If precursors are monthly means, then the the target is also extended
+            to monthly values, else daily values. Both are then aggregated to
+            {tfreq} day/monthly means.  The default is True.
+
+        Returns
+        -------
+        1-d xarray and other stuff.
+
+        '''
         self.name_TVds = name_ds
         self.RV_anomaly = anomaly
         self.RV_detrend = detrend
@@ -240,14 +265,15 @@ class RGCPD:
                             start_end_date=self.start_end_date,
                             start_end_year=self.start_end_year,
                             RV_detrend=self.RV_detrend,
-                            RV_anomaly=self.RV_anomaly)
+                            RV_anomaly=self.RV_anomaly,
+                            ext_annual_to_mon=ext_annual_to_mon)
         self.fullts, self.TV_ts, inf, start_end_TVdate = out
 
-        if inf == 'annual' and self.tfreq != None:
-            self.tfreq = None ;
-            if hasattr(self, 'kwrgs_load'): self.kwrgs_load['tfreq'] = None
-            print('no common time aggregation possible when loading annual mean '
-                  f'data, tfreq set to {self.tfreq}')
+        # if inf == 'annual' and self.tfreq != None:
+        #     self.tfreq = None ;
+        #     if hasattr(self, 'kwrgs_load'): self.kwrgs_load['tfreq'] = None
+        #     print('no common time aggregation possible when loading annual mean '
+        #           f'data, tfreq set to {self.tfreq}')
         self.input_freq = inf
         self.dates_or  = pd.to_datetime(self.fulltso.time.values)
         self.dates_all = pd.to_datetime(self.fullts.time.values)
@@ -300,6 +326,7 @@ class RGCPD:
                                               self.TV_ts,
                                               verbosity=self.verbosity,
                                               **self.kwrgs_TV)
+        self.n_spl = self.df_splits.index.levels[0].size
         if subfoldername is None:
             RV_name_range = '{}-{}_'.format(*list(self.start_end_TVdate))
             var = '_'.join([np[0] for np in self.list_of_name_path[1:]])
@@ -312,7 +339,7 @@ class RGCPD:
             if self.append_pathsub is not None:
                 subfoldername += '_' + self.append_pathsub
         self.path_outsub1 = os.path.join(self.path_outmain, subfoldername)
-        if self.write_outputfolder and os.path.isdir(self.path_outsub1)==False:
+        if self.save and os.path.isdir(self.path_outsub1)==False:
             os.makedirs(self.path_outsub1)
 
 
@@ -463,7 +490,23 @@ class RGCPD:
 
         # Append Traintest and RV_mask as last columns
         self.df_data = self.df_data.merge(df_splits, left_index=True, right_index=True)
+        allkeys = [list(self.df_data.loc[s].dropna(axis=1).columns[1:-2]) for s in range(self.n_spl)]
+        allkeys = functions_pp.flatten(allkeys)
+        {k:allkeys.count(k) for k in allkeys}
+        self._df_count = pd.Series({k:allkeys.count(k) for k in allkeys})
 
+    def get_subdates_df(self, df_data: pd.DataFrame=None,
+                        start_end_date: tuple=None,
+                        years: Union[list, tuple]=None):
+        if df_data is None:
+            df_data = self.df_data.copy()
+        dates = df_data.loc[0].index
+        if type(years) is tuple or start_end_date is None:
+            seldates = functions_pp.core_pp.get_subdates(dates, start_end_date,
+                                            years)
+        elif type(years) in [np.ndarray, list]:
+            seldates = functions_pp.get_oneyr(dates, years)
+        return df_data.loc[pd.MultiIndex.from_product([range(self.n_spl), seldates])]
 
     def merge_df_on_df_data(self, df, columns: list=None):
         '''
@@ -493,63 +536,73 @@ class RGCPD:
         return df_mrg[order]
 
 
-    def PCMCI_init(self, keys: list=None, verbosity=4):
+    def PCMCI_init(self, df_data: pd.DataFrame=None, keys: list=None, verbosity=4):
+        if df_data is None:
+            df_data = self.df_data.copy()
         if keys is None:
-            keys = self.df_data.columns
+            keys = df_data.columns
         elif 'TrainIsTrue' not in keys and 'RV_mask' not in keys:
+            keys = keys.copy()
             keys.append('TrainIsTrue') ; keys.append('RV_mask')
 
         self.pcmci_dict = wPCMCI.init_pcmci(self.df_data[keys],
                                             verbosity=verbosity)
 
-    def PCMCI_df_data(self, keys: list=None, path_txtoutput=None,
-                      tigr_function_call='run_pcmci', tau_min=0, tau_max=1, pc_alpha=None,
-                      max_conds_dim=None, max_combinations=2,
-                      max_conds_py=None, max_conds_px=None,
-                      update_dict={},
+    def PCMCI_df_data(self, df_data: pd.DataFrame=None, keys: list=None,
+                      path_txtoutput=None, tigr_function_call='run_pcmci',
+                      kwrgs_tigr: dict=None,
                       replace_RV_mask: np.ndarray=None,
                       verbosity=4):
 
-        if max_conds_dim is None:
-            max_conds_dim = self.df_data.columns.size - 2 # -2 for bool masks
+        if df_data is None:
+            df_data = self.df_data.copy()
+        if keys is None:
+            keys = df_data.columns
 
-        self.kwrgs_tigr = dict(tau_min=tau_min,
-                               tau_max=tau_max,
-                               pc_alpha=pc_alpha,
-                               max_conds_dim=max_conds_dim,
-                               max_combinations=max_combinations,
-                               max_conds_py=max_conds_py,
-                               max_conds_px=max_conds_px)
-        self.kwrgs_tigr.update(update_dict)
-        if tigr_function_call == 'run_pcmciplus':
-            self.kwrgs_tigr.pop('max_combinations')
+        if kwrgs_tigr is None: # Some reasonable defaults
+            self.kwrgs_tigr = dict(tau_min=0,
+                                   tau_max=1,
+                                   pc_alpha=[.01,.05,.1,.2],
+                                   max_conds_dim=len(keys)-4,
+                                   max_combinations=2,
+                                   max_conds_py=2,
+                                   max_conds_px=2)
+        else:
+            self.kwrgs_tigr = kwrgs_tigr
+        if tigr_function_call == 'run_pcmciplus' and kwrgs_tigr is None:
+            self.kwrgs_tigr = self.kwrgs_tigr.pop('max_combinations')
 
         if path_txtoutput is None:
-            self.params_str = '{}_{}_tau_{}-{}_conds_dim{}_combin{}_dt{}'.format(
-                          tigr_function_call.split('_')[1], pc_alpha, tau_min,
-                          tau_max, max_conds_dim, max_combinations,
-                          self.precur_aggr)
+            kwrgs_tigr = self.kwrgs_tigr.copy() ;
+            if 'selected_links' in kwrgs_tigr.keys():
+                kwrgs_tigr['selected_links'] = True
+            kd = sorted(kwrgs_tigr.items()) ;
+            d = [list(d) for d in kd if type(d[1]) not in [np.ndarray,list]]
+            dl = [[d[0],str(d[1]).replace(' ','')] for d in kd if type(d[1]) in [np.ndarray,list]]
+            p =''.join(''.join(np.array(d+dl,str).flatten()))
+            self.params_str = '{}_{}_dt{}'.format(tigr_function_call.split('_')[1],
+                                               p, self.precur_aggr)
+
             self.path_outsub2 = os.path.join(self.path_outsub1, self.params_str)
         else:
             self.path_outsub2 = path_txtoutput
-        if self.write_outputfolder and os.path.isdir(self.path_outsub2)==False:
-            os.makedirs(self.path_outsub2)
-
-        if keys is None:
-            keys = self.df_data.columns
+        if self.save:
+            if os.path.isdir(self.path_outsub2)==False:
+                os.makedirs(self.path_outsub2)
+            path_outsub2 = self.path_outsub2
         else:
-            keys = keys.copy()
-            keys.append('TrainIsTrue') ; keys.append('RV_mask')
+            path_outsub2 = False # not textfile written
 
-        df_data = self.df_data.copy()
+
+
         if type(replace_RV_mask) is np.ndarray:
             self._replace_RV_mask(df_data=df_data,
                                   replace_RV_mask=replace_RV_mask,
                                   plot=True)
 
-        self.pcmci_dict = wPCMCI.init_pcmci(df_data[keys], verbosity=verbosity)
+        self.PCMCI_init(df_data, keys, verbosity=verbosity)
 
-        out = wPCMCI.loop_train_test(self.pcmci_dict, self.path_outsub2,
+        out = wPCMCI.loop_train_test(self.pcmci_dict, path_outsub2,
                                      tigr_function_call=tigr_function_call,
                                      kwrgs_tigr=self.kwrgs_tigr)
         self.pcmci_results_dict = out
@@ -627,7 +680,8 @@ class RGCPD:
             fig_path = os.path.join(self.path_outsub1, f_name+append_figpath)
         else:
             fig_path = os.path.join(self.path_outsub1, f_name)
-        fig.savefig(fig_path+self.figext, bbox_inches='tight')
+        if self.save:
+            fig.savefig(fig_path+self.figext, bbox_inches='tight')
         plt.show()
 
     def PCMCI_get_ParCorr_from_txt(self, variable=None, pc_alpha='auto'):
@@ -736,14 +790,14 @@ class RGCPD:
                 prec_labels = pclass.prec_labels.copy()
 
             if mean:
-                prec_labels = prec_labels.mean(dim='split')
-                if min_detect_gc<.1 or min_detect_gc>1.:
-                    raise ValueError( 'give value between .1 en 1.0')
                 n_splits = self.df_splits.index.levels[0].size
                 min_d = round(n_splits * (1- min_detect_gc),0)
                 # 1 == non-significant, 0 == significant
-                mask = pclass.corr_xr['mask'].sum(dim='split') > min_d
-                prec_labels = prec_labels.where(~mask)
+                mask = (~np.isnan(pclass.prec_labels)).sum(dim='split') > min_d
+                prec_labels = prec_labels.mean(dim='split')
+                if min_detect_gc<.1 or min_detect_gc>1.:
+                    raise ValueError( 'give value between .1 en 1.0')
+                prec_labels = prec_labels.where(mask)
                 cbar_vert = -0.1
             else:
                 prec_labels = prec_labels
@@ -843,7 +897,8 @@ class RGCPD:
                 plt.savefig(fig_path, bbox_inches='tight')
 
     def plot_maps_sum(self, var='all', figpath=None, paramsstr=None,
-                      cols: List=['corr', 'C.D.'], kwrgs_plot={}):
+                      cols: List=['corr', 'C.D.'], save: bool=False,
+                      kwrgs_plot={}):
 
 #         if map_proj is None:
 #             central_lon_plots = 200
@@ -861,12 +916,14 @@ class RGCPD:
             dict_ds = {f'{var}':self.dict_ds[var]} # plot single var
         plot_maps.plot_labels_vars_splits(dict_ds, self.df_links,
                                           figpath, paramsstr, self.TV.name,
-                                          cols=cols, kwrgs_plot=kwrgs_plot)
+                                          save=self.save, cols=cols,
+                                          kwrgs_plot=kwrgs_plot)
 
 
         plot_maps.plot_corr_vars_splits(dict_ds, self.df_links,
                                           figpath, paramsstr, self.TV.name,
-                                          cols=cols, kwrgs_plot=kwrgs_plot)
+                                          save=self.save, cols=cols,
+                                          kwrgs_plot=kwrgs_plot)
 
     def _replace_RV_mask(self, df_data=None, replace_RV_mask=False, plot=False):
         if df_data is None:
@@ -985,8 +1042,8 @@ class RGCPD:
                 elif transformer == False:
                     df_trans = df_s[ks] # no transformation
                 else: # transform to standard normal
-                    df_trans = df_s[ks].apply(fc_utils.standardize_on_train,
-                                            args=[TrainIsTrue])
+                    df_trans = df_s[ks].apply(fc_utils.standardize_on_train_and_RV,
+                                              args=[fit_masks, lag])
                                             # result_type='broadcast')
 
                 if type(target) is str:

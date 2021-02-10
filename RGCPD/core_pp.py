@@ -20,7 +20,14 @@ flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 from typing import Union
 
-def get_oneyr(pddatetime, *args):
+def get_oneyr(dt_pdf_pds_xr, *args):
+    if type(dt_pdf_pds_xr) == pd.DatetimeIndex:
+        pddatetime = dt_pdf_pds_xr
+    if type(dt_pdf_pds_xr) == pd.DataFrame or type(dt_pdf_pds_xr) == pd.Series:
+        pddatetime = dt_pdf_pds_xr.index # assuming index of df is DatetimeIndex
+    if type(dt_pdf_pds_xr) == xr.DataArray:
+        pddatetime = pd.to_datetime(dt_pdf_pds_xr.time.values)
+
     dates = []
     pddatetime = pd.to_datetime(pddatetime)
     year = pddatetime.year[0]
@@ -36,7 +43,7 @@ def get_oneyr(pddatetime, *args):
 
 
 def import_ds_lazy(filename, loadleap=False,
-                   seldates: Union[tuple, pd.core.indexes.datetimes.DatetimeIndex]=None,
+                   seldates: Union[tuple, pd.DatetimeIndex]=None,
                    start_end_year: tuple=None, selbox: Union[list, tuple]=None,
                    format_lon='only_east', var=None, auto_detect_mask: bool=False,
                    dailytomonths: bool=False, verbosity=0):
@@ -169,13 +176,18 @@ def detect_mask(ds):
     first timestep
     '''
     if 'time' in ds.dims:
-        field = ds[0]
+        firstyear = get_oneyr(ds).year[-1]
+        secondyear = get_oneyr(ds, firstyear+1)[0]
+        idx = list(ds.time.values).index(secondyear)
+        field = ds[idx] # timestep 1, because of potential time-boundary affects,
+        # e.g. when calculating SPI2
     else:
         field = ds
     fieldsize = field.size
     if np.unique(field).size < .8 * fieldsize:
         # more then 20% has exactly the same value
         val = [k for k,v in Counter(list(field.values.flatten())).items() if v>.2*fieldsize]
+        assert len(val)!=0, f'No constant value found in field at timestep {idx}'
         mask = field.values == val
         if 'time' in ds.dims:
             ds = ds.where(np.repeat(mask[np.newaxis,:,:],ds.time.size,0)==False)
@@ -748,7 +760,7 @@ def make_dates(datetime, years):
 
     return start_yr
 
-def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False,
+def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
                  returngroups=False):
     #%%
     '''
@@ -788,7 +800,17 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False,
     tfreq = (dates[1] - dates[0]).days
     oneyr_dates = pd.date_range(start=sstartdate, end=senddate_,
                                     freq=pd.Timedelta(1, 'd'))
-    if tfreq == 1 or tfreq in [365, 366]: # daily or annual
+    # if tfreq == 1 or tfreq in [365, 366]: # daily or annual
+
+
+
+
+    if tfreq in [28,29,30,31]: # monthly timeseries
+        yr_mon = np.unique(np.stack([oneyr_dates.year.values,
+                                     oneyr_dates.month.values]).T,
+                                     axis=0)
+        start_yr = pd.to_datetime([f'{ym[0]}-{ym[1]}-01' for ym in yr_mon])
+    else:
         daily_yr_fit = np.round(oneyr_dates.size / tfreq, 0)
 
         sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
@@ -796,15 +818,8 @@ def get_subdates(dates, start_end_date, start_end_year=None, lpyr=False,
             daily_yr_fit -=1
             sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
 
-
         start_yr = remove_leapdays(pd.date_range(start=sstartdate, end=senddate,
                                     freq=(dates[1] - dates[0])))
-    elif tfreq in [28,29,30,31]: # monthly timeseries
-        yr_mon = np.unique(np.stack([oneyr_dates.year.values,
-                                     oneyr_dates.month.values]).T,
-                                     axis=0)
-        start_yr = pd.to_datetime([f'{ym[0]}-{ym[1]}-01' for ym in yr_mon])
-
 
     datessubset = make_dates(start_yr, np.arange(startyr, endyr+1))
     if tfreq == 1: # only check for daily data

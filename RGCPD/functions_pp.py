@@ -47,7 +47,6 @@ def get_oneyr(dt_pdf_pds_xr, *args):
         dates = pddatetime.where(pddatetime.year==year).dropna()
     return dates
 
-
 def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
     '''
     if argument of kwrgs_pp is list, then the first item is assumed to be the
@@ -79,113 +78,6 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
 
             core_pp.detrend_anom_ncdf3D(infile, outfile, **kwrgs)
     return list_precur_pp
-        # update the dates stored in var_class:
-#        var_class, ex = update_dates(var_class, ex)
-        # store updates
-#        ex[var] = var_class
-
-
-def check_pp_done(name, infile, kwrgs_load: dict=None, verbosity=1):
-    #%%
-    '''
-    Check if pre processed ncdf already exists
-    '''
-    # =============================================================================
-    # load dataset lazy
-    # =============================================================================
-#    infile = os.path.join(ex['path_raw'], cls.filename)
-    # if kwrgs_load is None:
-    #     kwrgs = {'loadleap':False, 'format_lon':None}
-    # else:
-    #     keep = ['loadleap', 'format_lon', 'selbox']
-    #     kwrgs = {k: kwrgs_load[k] for k in keep}
-    # ds = core_pp.import_ds_lazy(infile, **kwrgs)
-    ds = xr.open_dataset(infile, decode_cf=True, decode_coords=True, decode_times=False)
-    ds = core_pp.ds_num2date(ds)
-    dates = pd.to_datetime(ds['time'].values)
-    start_day = get_oneyr(dates)[0]
-    end_day   = get_oneyr(dates)[-1]
-    # degree = int(ds.longitude[1] - ds.longitude[0])
-    # selbox = [int(ds.longitude.min()), int(ds.longitude.max()),
-    #            int(ds.latitude.min()), int(ds.latitude.max())]
-    selbox = kwrgs_load['selbox']
-
-    # =============================================================================
-    # give appropriate name to output file
-    # =============================================================================
-    outfilename = infile.split('/')[-1];
-#    outfilename = outfilename.replace('daily', 'dt-{}days'.format(1))
-    months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
-                         8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
-
-    input_freq = (dates[1] - dates[0]).days
-    if input_freq == 1: # daily data
-        startdatestr = '_{}{}_'.format(start_day.day, months[start_day.month])
-        enddatestr   = '_{}{}_'.format(end_day.day, months[end_day.month])
-    elif input_freq > 27 and input_freq < 32: # monthly data
-        startdatestr = '_{}_'.format(months[start_day.month])
-        enddatestr   = '_{}_'.format(months[end_day.month])
-
-    if selbox is not None:
-        selboxstr = '_'+'_'.join(map(str, selbox))
-    else:
-        selboxstr = ''
-    # if core_pp.test_periodic(ds) and core_pp.test_periodic_lat(ds):
-    #     selboxstr = '' # if global, no selbox str
-    selboxstr_startdate = selboxstr+startdatestr
-
-
-    outfilename = outfilename.replace('_{}_'.format(1), selboxstr_startdate)
-    outfilename = outfilename.replace('_{}_'.format(12), enddatestr)
-#    filename_pp = outfilename
-    path_raw = '/'.join(infile.split('/')[:-1])
-    path_pp = os.path.join(path_raw, 'preprocessed')
-    if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
-    outfile = os.path.join(path_pp, outfilename)
-#    dates_fit_tfreq = dates
-    #%%
-    return outfile
-
-
-def kornshell_with_input(args, cls):
-#    stopped working for cdo commands
-    '''some kornshell with input '''
-#    args = [anom]
-    import os
-    import subprocess
-    cwd = os.getcwd()
-    # Writing the bash script:
-    new_bash_script = os.path.join(cwd,'bash_scripts', "bash_script.sh")
-#    arg_5d_mean = 'cdo timselmean,5 {} {}'.format(infile, outfile)
-    #arg1 = 'ncea -d latitude,59.0,84.0 -d longitude,-95,-10 {} {}'.format(infile, outfile)
-
-    bash_and_args = [new_bash_script]
-    [bash_and_args.append(arg) for arg in args]
-    with open(new_bash_script, "w") as file:
-        file.write("#!/bin/sh\n")
-        file.write("echo bash script output\n")
-        for cmd in range(len(args)):
-
-            print(args[cmd].replace(cls.base_path, 'base_path/')[:300])
-            file.write("${}\n".format(cmd+1))
-    p = subprocess.Popen(bash_and_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                         stderr=subprocess.STDOUT)
-
-    out = p.communicate()
-    print(out[0].decode())
-    return
-
-def update_dates(cls, ex):
-    import os
-    file_path = os.path.join(cls.path_pp, cls.filename_pp)
-    kwrgs_pp = {'selbox':ex['selbox'],
-                'loadleap':False }
-    ds = core_pp.import_ds_lazy(file_path, **kwrgs_pp)
-
-    temporal_freq = pd.Timedelta((ds['time'][1] - ds['time'][0]).values)
-    cls.dates = pd.to_datetime(ds['time'].values)
-    cls.temporal_freq = '{}days'.format(temporal_freq.days)
-    return cls, ex
 
 def load_TV(list_of_name_path, loadleap=False, start_end_year=None, name_ds='ts'):
     '''
@@ -266,7 +158,11 @@ def get_df_test(df, cols: list=None, df_splits: pd.DataFrame=None):
     list_test = []
     for s in range(splits.size):
         TestIsTrue = TrainIsTrue[s]==False
-        list_test.append(df.loc[s][TestIsTrue])
+        try: # normal
+            list_test.append(df.loc[s][TestIsTrue.values])
+        except: # only RV_mask (for predictions)
+            TestIsTrue = TestIsTrue[df_splits.loc[s]['RV_mask']]
+            list_test.append(df.loc[s][TestIsTrue.values])
     df = pd.concat(list_test).sort_index()
     if cols is not None:
         df = df[cols]
@@ -300,8 +196,8 @@ def xrts_to_df(xarray):
 
 def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=False, RV_anomaly=False,
-               verbosity=1):    #%%
-    # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1
+               ext_annual_to_mon=True, verbosity=1):    #%%
+    # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1;ext_annual_to_mon=False
 
     if RV_detrend: # do detrending on all timesteps
         fullts = core_pp.detrend_lin_longterm(fullts)
@@ -333,13 +229,24 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
         same_freq = True
     elif timestep_days == 365 or timestep_days == 366:
         input_freq = 'annual' # temporary to work with lag as int
+
         if verbosity == 1:
             print('Detected timeseries with annual mean values')
-        # fullts, dates, startendTVdate = extend_annual_ts(fullts,
-        #                                 tfreq=1,
-        #                                 start_end_TVdate=start_end_TVdate,
-        #                                 start_end_date=start_end_date)
-        same_freq = None
+            if tfreq is None:
+                print('tfreq is None, no common time aggregation used, '
+                      'loading annual mean data')
+                same_freq = None
+        if tfreq is not None:
+            same_freq=False
+            fullts = extend_annual_ts(fullts,
+                                  tfreq=1,
+                                  start_end_TVdate=start_end_TVdate,
+                                  start_end_date=start_end_date,
+                                  ext_annual_to_mon=ext_annual_to_mon)
+        if ext_annual_to_mon:
+            print('Extending annual data of target to monthly data')
+            input_freq = 'monthly'
+
 
     # Going to make timemeanbins (multiple datapoints per year)
     if same_freq == False:
@@ -373,9 +280,9 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
     return fullts, TV_ts, input_freq, start_end_TVdate
 
 def extend_annual_ts(fullts, tfreq: int, start_end_TVdate: tuple,
-                     start_end_date: tuple=None):
-    # Deprecated 10-11-2020
+                     start_end_date: tuple=None, ext_annual_to_mon=True):
 
+    tfreq = 1
     firstyear = pd.to_datetime(fullts.time.values)[0].year
     endyear   = pd.to_datetime(fullts.time.values)[-1].year
 
@@ -397,45 +304,77 @@ def extend_annual_ts(fullts, tfreq: int, start_end_TVdate: tuple,
     else:
         ed = pd.to_datetime(f'{firstyear}-{start_end_date[-1]}')
 
-    fakedates = pd.date_range(start=sd,
-                              end=ed)
-    fakedates = core_pp.remove_leapdays(fakedates)
-    fakedates = core_pp.make_dates(fakedates, range(firstyear, endyear+1))
-    if tfreq != 1:
-        prec_dates = timeseries_tofit_bins(fakedates, tfreq=tfreq,
-                                       start_end_date=start_end_date,
-                                       start_end_year=(firstyear, endyear),
-                                       closed_on_date=start_end_TVdate[-1])
+    if ext_annual_to_mon == False:
+        fakedates = pd.date_range(start=sd, end=ed)
+        fakedates = core_pp.remove_leapdays(fakedates)
     else:
-        prec_dates = fakedates
+        fakedates = pd.date_range(start=sd, end=ed, freq='M')
+        dtfirst = [s+'-01' for s in fakedates.strftime('%Y-%m')]
+        fakedates = pd.to_datetime(dtfirst)
+
+
+    fakedates = core_pp.make_dates(fakedates, range(firstyear, endyear+1))
+    # if tfreq != 1:
+    #     prec_dates = timeseries_tofit_bins(fakedates, tfreq=tfreq,
+    #                                    start_end_date=start_end_date,
+    #                                    start_end_year=(firstyear, endyear),
+    #                                    closed_on_date=start_end_TVdate[-1])
+    # else:
+    #     prec_dates = fakedates
+    prec_dates = fakedates
     if crossyr:
         npdata = np.repeat(fullts.values[1:], tfreq)
     else:
         steps_tfreq = int(get_oneyr(prec_dates).size / tfreq)
-        npdata = np.repeat(fullts.values,steps_tfreq * tfreq)
+        # trying to add values of previous year in one year
+        # RV_dates = core_pp.get_subdates(fakedates, start_end_date=start_end_TVdate)
+        # l = []
+        # for lagshift in range(0,steps_tfreq):
+        #     _dates = pd.to_datetime([d-date_dt(months=lagshift) for d in RV_dates])
+        #     fakedates = pd.date_range(start=sd, end=ed, freq='M')
+        #     dtfirst = [s for s in RV_dates.strftime('%Y-%d')]
+        #     fakedates = pd.to_datetime(dtfirst)
+        #     _d_match = pd.to_datetime([d for d in _dates if d in prec_dates])
+        #     vals = fullts.shift(time=lagshift, fill_value=fullts.mean())
+        #     l.append(pd.Series(vals, _dates))
+        # fullts_ext = pd.concat(l).sort_index()
+        RV_dates = core_pp.get_subdates(fakedates, start_end_date=start_end_TVdate)
+        npdata = np.zeros(fullts.size*steps_tfreq*tfreq)
+        for i in range(steps_tfreq):
+            if any([True for r in get_oneyr(RV_dates) if r == prec_dates[i]]):
+                npdata[i::get_oneyr(prec_dates).size] = fullts
+            else:
+                fakets = np.random.choice(fullts, fullts.size)
+                while np.corrcoef(fakets, fullts)[0][1] > .15: # resample if corr.
+                    fakets = np.random.choice(fullts, fullts.size)
+                npdata[i::get_oneyr(prec_dates).size] = fakets
+
     fullts_ext = xr.DataArray(npdata,
                               coords=[prec_dates],
-                              dims=['time'])
-    fullts_ext, dates = time_mean_bins(fullts_ext, tfreq=tfreq,
-                                       start_end_date=start_end_date,
-                                       closed_on_date=start_end_TVdate[-1])
-    dates = pd.to_datetime(fullts_ext.time.values)
-    if start_end_TVdate is not None:
-        _endTVdate = pd.to_datetime(f'{dates[0].year}-{start_end_TVdate[1]}')
-        idx = np.argmin(abs(get_oneyr(dates) - _endTVdate))
-        centerTVdate = dates[idx]
-        sd = centerTVdate - pd.Timedelta(f'{int(tfreq/2)}d')
-        if tfreq > 1 and tfreq % 2 == 0: # even tfreq
-            ed = centerTVdate + pd.Timedelta(f'{int(tfreq/2)-1}d')
-        elif tfreq > 1 and tfreq % 2 == 0: # uneven tfreq
-            ed = centerTVdate + pd.Timedelta(f'{int(tfreq/2)}d')
-        else:
-            ed = sd
-        se_TVdate=tuple(["{:02d}-{:02d}".format(d.month, d.day) for d in [sd, ed]])
-        out = (fullts_ext, dates, se_TVdate)
-    else:
-        out = (fullts_ext, dates)
-    return out
+                              dims=['time'],
+                              name=fullts.name)
+
+    # fullts_ext.sel(time=RV_dates)[:] = fullts.values
+    # fullts_ext, dates = time_mean_bins(fullts_ext, tfreq=tfreq,
+    #                                    start_end_date=start_end_date,
+    #                                    closed_on_date=start_end_TVdate[-1])
+    # dates = pd.to_datetime(fullts_ext.time.values)
+    # if start_end_TVdate is not None:
+    #     _endTVdate = pd.to_datetime(f'{dates[0].year}-{start_end_TVdate[1]}')
+    #     idx = np.argmin(abs(get_oneyr(dates) - _endTVdate))
+    #     centerTVdate = dates[idx]
+    #     sd = centerTVdate - pd.Timedelta(f'{int(tfreq/2)}d')
+    #     if tfreq > 1 and tfreq % 2 == 0: # even tfreq
+    #         ed = centerTVdate + pd.Timedelta(f'{int(tfreq/2)-1}d')
+    #     elif tfreq > 1 and tfreq % 2 == 0: # uneven tfreq
+    #         ed = centerTVdate + pd.Timedelta(f'{int(tfreq/2)}d')
+    #     else:
+    #         ed = sd
+    #     se_TVdate=tuple(["{:02d}-{:02d}".format(d.month, d.day) for d in [sd, ed]])
+    #     out = (fullts_ext, dates, se_TVdate)
+    # else:
+    #     out = (fullts_ext, dates)
+    return fullts_ext
 
 def load_npy(filename, name=None):
     '''
@@ -513,6 +452,8 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
         xarray = xr_or_df
 
     date_time = pd.to_datetime(xarray['time'].values)
+    date_time  = core_pp.get_subdates(date_time,
+                                      start_end_year=start_end_year)
     # ensure to remove leapdays
     date_time = core_pp.remove_leapdays(date_time)
     # input_freq = (date_time[1] - date_time[0]).days
@@ -524,32 +465,36 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
         if one_yr.size%i == 0:
             possible.append(i)
 
-    if one_yr.size % tfreq != 0:
-        if verbosity == 1:
-            print('Note: stepsize {} does not fit in one year\n '
-                            ' supply an integer that fits {}'.format(
-                                tfreq, one_yr.size))
-            print('\n Stepsize that do fit are {}'.format(possible))
-            print('\n Will shorten the \'subyear\', so that the temporal'
-                 ' frequency fits in one year')
+    # if one_yr.size % tfreq != 0: # removed if changed on 09-02-2021
+    if verbosity == 1:
+        print('Note: stepsize {} does not fit in one year\n '
+                        ' supply an integer that fits {}'.format(
+                            tfreq, one_yr.size))
+        print('\n Stepsize that do fit are {}'.format(possible))
+        print('\n Will shorten the \'subyear\', so that the temporal'
+             ' frequency fits in one year')
 
-        dates_tobin = timeseries_tofit_bins(date_time, tfreq,
-                                            start_end_date=start_end_date,
-                                            start_end_year=start_end_year,
-                                            closed=closed,
-                                            closed_on_date=closed_on_date,
-                                            verbosity=verbosity)
+    dates_tobin = timeseries_tofit_bins(date_time, tfreq,
+                                        start_end_date=start_end_date,
+                                        start_end_year=start_end_year,
+                                        closed=closed,
+                                        closed_on_date=closed_on_date,
+                                        verbosity=verbosity)
 
-        dates_notpresent = pd.to_datetime([d for d in dates_tobin if d not in date_time])
-        assert len(dates_notpresent)==0, ('dates not present in xr_or_df\n'
-        f' {dates_notpresent[:10]} \n...\n {dates_notpresent[-10:]}')
-        xarray = xarray.sel(time=dates_tobin)
-        one_yr = dates_tobin.where(dates_tobin.year == dates_tobin.year[0]).dropna(how='any')
+    dates_notpresent = pd.to_datetime([d for d in dates_tobin if d not in date_time])
+    assert len(dates_notpresent)==0, ('dates not present in xr_or_df\n'
+    f' {dates_notpresent[:10]} \n...\n {dates_notpresent[-10:]}')
+    xarray = xarray.sel(time=dates_tobin)
+    one_yr = get_oneyr(dates_tobin, years[1])
 
-    else:
-        dates_tobin = date_time
-
+    # else:
+        # dates_tobin = date_time
     n_years = np.unique(dates_tobin.year).size
+    if get_oneyr(dates_tobin, years[0]).size != get_oneyr(dates_tobin, years[1]).size:
+        # crossyr timemeanbins,
+        n_years -= 1
+
+    # not sure why I subset first year? 10-02-2021
     wantfullyr = start_end_date == ('1-1', '12-31') or start_end_date is None
     incomplete_close = tfreq not in possible
     if wantfullyr and incomplete_close:
@@ -558,16 +503,17 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
         bins = np.repeat(np.arange(0,firstyr.size/tfreq),tfreq)
         offset = bins[-1]+1
         fit_steps_yr = int(get_oneyr(dates_tobin, years[1]).size / tfreq)
-        bins = np.concatenate([bins,
+        bins = np.concatenate([bins, # first two year bins
                                np.repeat(np.arange(offset , fit_steps_yr+offset ), tfreq)])
-
+        dates_tobin = pd.to_datetime(np.concatenate([firstyr,
+                                     get_oneyr(dates_tobin, *years[1:])]))
+        xarray = xarray.sel(time=dates_tobin)
+        n_years -= 1
     else:
         # assumes no crossyr, consecutive bins fall in 1 yr
         fit_steps_yr = int((one_yr.size )  / tfreq)
         bins = np.repeat(np.arange(0, fit_steps_yr), tfreq)
-    if get_oneyr(dates_tobin, years[0]).size != get_oneyr(dates_tobin, years[1]).size:
-        # crossyr timemeanbins,
-        n_years -= 1
+
 
 
     for y in np.arange(1, n_years):
@@ -774,7 +720,10 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         start_day = pd.to_datetime(start_day.replace(start_day[-2:], '01'))
         end_day = adjhrsenddate.split(' ')[0]
         end_day = pd.to_datetime(end_day.replace(end_day[-2:], '01'))
-        fit_steps_yr = (end_day.month - start_day.month + 1) / tfreq
+        if crossyr:
+            fit_steps_yr = (12-start_day.month + end_day.month+ 1 ) / tfreq
+        else:
+            fit_steps_yr = (end_day.month - start_day.month + 1) / tfreq
         start_day = (end_day - (dt * int(fit_steps_yr))) \
                 + date_dt(months=+1)
         days_back = end_day
@@ -1071,7 +1020,10 @@ def regrid_xarray(xarray_in, to_grid_res, periodic=True):
     to_grid = xe.util.grid_2d(lon0_b, lon1_b, to_grid_res, lat0_b, lat1_b, to_grid_res)
 #    to_grid = xe.util.grid_global(2.5, 2.5)
     regridder = xe.Regridder(ds, to_grid, method, periodic=periodic, reuse_weights=True)
-    xarray_out = regridder(ds)
+    try:
+        xarray_out = regridder(ds)
+    except:
+        xarray_out  = regridder.regrid_dataarray(ds)
     regridder.clean_weight_file()
     xarray_out = xarray_out.rename({'lon':'longitude',
                                     'lat':'latitude'})
@@ -1385,7 +1337,7 @@ def csv_to_df(path:str, sep=','):
 
    # load data from csv file and save to .h5
 
-   path = '/Users/semvijverberg/Downloads/OMI.csv'
+   # path = '/Users/semvijverberg/Downloads/OMI.csv'
    data = pd.read_csv(path, sep=sep, parse_dates=[[0,1,2]],
                        index_col='year_month_day')
    data.index.name='date'
@@ -1486,6 +1438,106 @@ def match_coords_xarrays(wanted_coords_arr, *to_match):
                        latitude=np.arange(latmin, latmax+dlat,dlat),
                        method='nearest') for tomatch in to_match]
 
+def kornshell_with_input(args, cls):
+#    stopped working for cdo commands
+    '''some kornshell with input '''
+#    args = [anom]
+    import os
+    import subprocess
+    cwd = os.getcwd()
+    # Writing the bash script:
+    new_bash_script = os.path.join(cwd,'bash_scripts', "bash_script.sh")
+#    arg_5d_mean = 'cdo timselmean,5 {} {}'.format(infile, outfile)
+    #arg1 = 'ncea -d latitude,59.0,84.0 -d longitude,-95,-10 {} {}'.format(infile, outfile)
+
+    bash_and_args = [new_bash_script]
+    [bash_and_args.append(arg) for arg in args]
+    with open(new_bash_script, "w") as file:
+        file.write("#!/bin/sh\n")
+        file.write("echo bash script output\n")
+        for cmd in range(len(args)):
+
+            print(args[cmd].replace(cls.base_path, 'base_path/')[:300])
+            file.write("${}\n".format(cmd+1))
+    p = subprocess.Popen(bash_and_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                         stderr=subprocess.STDOUT)
+
+    out = p.communicate()
+    print(out[0].decode())
+    return
+
+def check_pp_done(name, infile, kwrgs_load: dict=None, verbosity=1):
+    #%%
+    '''
+    Check if pre processed ncdf already exists
+    '''
+    # =============================================================================
+    # load dataset lazy
+    # =============================================================================
+#    infile = os.path.join(ex['path_raw'], cls.filename)
+    # if kwrgs_load is None:
+    #     kwrgs = {'loadleap':False, 'format_lon':None}
+    # else:
+    #     keep = ['loadleap', 'format_lon', 'selbox']
+    #     kwrgs = {k: kwrgs_load[k] for k in keep}
+    # ds = core_pp.import_ds_lazy(infile, **kwrgs)
+    ds = xr.open_dataset(infile, decode_cf=True, decode_coords=True, decode_times=False)
+    ds = core_pp.ds_num2date(ds)
+    dates = pd.to_datetime(ds['time'].values)
+    start_day = get_oneyr(dates)[0]
+    end_day   = get_oneyr(dates)[-1]
+    # degree = int(ds.longitude[1] - ds.longitude[0])
+    # selbox = [int(ds.longitude.min()), int(ds.longitude.max()),
+    #            int(ds.latitude.min()), int(ds.latitude.max())]
+    selbox = kwrgs_load['selbox']
+
+    # =============================================================================
+    # give appropriate name to output file
+    # =============================================================================
+    outfilename = infile.split('/')[-1];
+#    outfilename = outfilename.replace('daily', 'dt-{}days'.format(1))
+    months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
+                         8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
+
+    input_freq = (dates[1] - dates[0]).days
+    if input_freq == 1: # daily data
+        startdatestr = '_{}{}_'.format(start_day.day, months[start_day.month])
+        enddatestr   = '_{}{}_'.format(end_day.day, months[end_day.month])
+    elif input_freq > 27 and input_freq < 32: # monthly data
+        startdatestr = '_{}_'.format(months[start_day.month])
+        enddatestr   = '_{}_'.format(months[end_day.month])
+
+    if selbox is not None:
+        selboxstr = '_'+'_'.join(map(str, selbox))
+    else:
+        selboxstr = ''
+    # if core_pp.test_periodic(ds) and core_pp.test_periodic_lat(ds):
+    #     selboxstr = '' # if global, no selbox str
+    selboxstr_startdate = selboxstr+startdatestr
+
+
+    outfilename = outfilename.replace('_{}_'.format(1), selboxstr_startdate)
+    outfilename = outfilename.replace('_{}_'.format(12), enddatestr)
+#    filename_pp = outfilename
+    path_raw = '/'.join(infile.split('/')[:-1])
+    path_pp = os.path.join(path_raw, 'preprocessed')
+    if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
+    outfile = os.path.join(path_pp, outfilename)
+#    dates_fit_tfreq = dates
+    #%%
+    return outfile
+
+# def update_dates(cls, ex):
+#     import os
+#     file_path = os.path.join(cls.path_pp, cls.filename_pp)
+#     kwrgs_pp = {'selbox':ex['selbox'],
+#                 'loadleap':False }
+#     ds = core_pp.import_ds_lazy(file_path, **kwrgs_pp)
+
+#     temporal_freq = pd.Timedelta((ds['time'][1] - ds['time'][0]).values)
+#     cls.dates = pd.to_datetime(ds['time'].values)
+#     cls.temporal_freq = '{}days'.format(temporal_freq.days)
+#     return cls, ex
 
 # def find_region(data, region='EU'):
 #     import numpy as np

@@ -6,16 +6,18 @@ Created on Thu Dec  5 12:17:25 2019
 @author: semvijverberg
 """
 
-import itertools
+import itertools, os, re
 import numpy as np
 import xarray as xr
 #import datetime
 import scipy
 import pandas as pd
 from statsmodels.sandbox.stats import multicomp
-import functions_pp
+import functions_pp, core_pp
 import find_precursors
+from func_models import apply_shift_lag
 from typing import Union
+import uuid
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 try:
@@ -30,10 +32,11 @@ class BivariateMI:
                  FDR_control: bool=True, lags=np.array([1]),
                  lag_as_gap: bool=False,
                  lagasmonthint: bool=False, distance_eps: int=400,
-                 min_area_in_degrees2=3, group_split='together',
-                 calc_ts='region mean', selbox: tuple=None,
-                 use_sign_pattern: bool=False,
-                 use_coef_wghts: bool=False, verbosity=1):
+                 group_lag: bool=False, group_split=True,
+                 min_area_in_degrees2=3, calc_ts='region mean',
+                 selbox: tuple=None, use_sign_pattern: bool=False,
+                 use_coef_wghts: bool=True, path_hashfile: str=None,
+                 hash_str: str=None, verbosity=1):
         '''
 
         Parameters
@@ -123,8 +126,11 @@ class BivariateMI:
         self.distance_eps = distance_eps
         self.min_area_in_degrees2 = min_area_in_degrees2
         self.group_split = group_split
-
+        self.group_lag = group_lag
         self.verbosity = verbosity
+        if hash_str is not None:
+            assert path_hashfile is not None, 'Give path to search hashfile'
+            self.load_files(self, path_hashfile=str, hash_str=str)
 
         return
 
@@ -163,7 +169,7 @@ class BivariateMI:
         n_spl = df_splits.index.levels[0].size
         # make new xarray to store results
         xrcorr = precur_arr.isel(time=0).drop('time').copy()
-        orig_mask = np.isnan(precur_arr[0])
+        orig_mask = np.isnan(precur_arr[1])
         if 'lag' not in xrcorr.dims:
             # add lags
             list_xr = [xrcorr.expand_dims('lag', axis=0) for i in range(n_lags)]
@@ -176,7 +182,7 @@ class BivariateMI:
         xrpvals = xrcorr.copy()
 
 
-        def MI_single_split(RV_ts, precur_train, alpha=.05, FDR_control=True):
+        def MI_single_split(RV_ts, precur_train, s, alpha=.05, FDR_control=True):
 
             lat = precur_train.latitude.values
             lon = precur_train.longitude.values
@@ -188,7 +194,9 @@ class BivariateMI:
             dates_RV = RV_ts.index
             for i, lag in enumerate(lags):
                 if type(lag) == np.int64 and self.lag_as_gap==False:
-                    dates_lag = functions_pp.func_dates_min_lag(dates_RV, self._tfreq*lag)[1]
+                    # dates_lag = functions_pp.func_dates_min_lag(dates_RV, self._tfreq*lag)[1]
+                    m = apply_shift_lag(self.df_splits.loc[s], lag)
+                    dates_lag = m[np.logical_and(m['TrainIsTrue'], m['x_fit'])].index
                     corr_val, pval = self.func(precur_train.sel(time=dates_lag),
                                                RV_ts.values.squeeze(),
                                                **self.kwrgs_func)
@@ -203,17 +211,16 @@ class BivariateMI:
                                                            to_freq=self._tfreq)[0],
                                                RV_ts.values.squeeze(),
                                                **self.kwrgs_func)
-
-                elif type(lag) == np.str_: # aggr. over list of months
-                    months = [int(l) for l in lag.split('.')[:-1]]
-                    precur_lag = precur_train.sel(time=
-                                                np.in1d( precur_train['time.month'],
-                                                months))
-                    precur_lag = precur_train.groupby('time.year',
-                                                restore_coord_dims=True).mean()
-                    corr_val, pval = self.func(precur_lag,
-                                               RV_ts.values.squeeze(),
-                                               **self.kwrgs_func)
+                # elif type(lag) == np.str_: # aggr. over list of months
+                #     months = [int(l) for l in lag.split('.')[:-1]]
+                #     precur_lag = precur_train.sel(time=
+                #                                 np.in1d( precur_train['time.month'],
+                #                                 months))
+                #     precur_lag = precur_train.groupby('time.year',
+                #                                 restore_coord_dims=True).mean()
+                #     corr_val, pval = self.func(precur_lag,
+                #                                RV_ts.values.squeeze(),
+                #                                **self.kwrgs_func)
                 elif type(lag) == np.ndarray:
                     corr_val, pval = self.func(precur_train.sel(lag=i),
                                                RV_ts.values.squeeze(),
@@ -255,22 +262,20 @@ class BivariateMI:
             RV_train_mask = np.logical_and(RV_mask, df_splits.loc[s]['TrainIsTrue'])
             RV_ts = RV.fullts[RV_train_mask.values]
             TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values
-            if type(self.lags[0]) == np.str_: # adapt df_splits to daily precur_arr
-                # convert annual to daily
-                TrainIsTrue = np.repeat(TrainIsTrue,
-                                        functions_pp.get_oneyr(precur_arr).size)
-            if self.lag_as_gap:
-                precur_train = precur_arr.sel(time=functions_pp.get_oneyr(precur_arr,
-                                              *np.unique(df_splits.loc[s].index.year)))
+            if self.lag_as_gap: # no clue why selecting all datapoints, changed 26-01-2021
+                train_dates = df_splits.loc[s]['TrainIsTrue'][TrainIsTrue].index
+                precur_train = precur_arr.sel(time=train_dates)
             else:
-                precur_train = precur_arr[TrainIsTrue]
+                precur_train = precur_arr[TrainIsTrue] # train dates, seems identical
 
             dates_RV = RV_ts.index
             n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
             print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
 
-            ma_data, pvals = MI_single_split(RV_ts, precur_train.copy(), self.alpha,
-                                      self.FDR_control)
+            ma_data, pvals = MI_single_split(RV_ts, precur_train.copy(), s,
+                                             alpha=self.alpha,
+                                             FDR_control=self.FDR_control)
+
             np_data[s] = ma_data.data
             np_mask[s] = ma_data.mask
             np_pvals[s]= pvals
@@ -300,7 +305,6 @@ class BivariateMI:
             if np.isnan(self.prec_labels.values).all():
                 self.ts_corr = np.array(splits.size*[[]])
             else:
-
                 if self.calc_ts == 'region mean':
                     self.ts_corr = find_precursors.spatial_mean_regions(self,
                                                   precur_aggr=precur_aggr,
@@ -313,23 +317,56 @@ class BivariateMI:
                 n_tot_regs += max([self.ts_corr[s].shape[1] for s in range(splits.size)])
         return
 
-    def store_netcdf(self, filename=str):
-        if hasattr(self, 'corr_xr') == False:
-            print('No MI map calculated')
+    def store_netcdf(self, path: str=None, f_name: str=None):
+        assert hasattr(self, 'corr_xr'), 'No MI map calculated'
+        if path is None:
+            path = functions_pp.get_download_path()
+        hash_str  = uuid.uuid4().hex[:6]
+        f_name = '{}_a{}'.format(self._name, self.alpha)
+        self.corr_xr.attrs['alpha'] = self.alpha
+        self.corr_xr.attrs['FDR_control'] = int(self.FDR_control)
+        self.corr_xr['lag'] = ('lag', range(self.lags.shape[0]))
+        if hasattr(self, 'prec_labels'):
+            self.prec_labels['lag'] = self.corr_xr['lag'] # must be same
+            self.prec_labels.attrs['distance_eps'] = self.distance_eps
+            self.prec_labels.attrs['min_area_in_degrees2'] = self.min_area_in_degrees2
+            self.prec_labels.attrs['group_lag'] = int(self.group_lag)
+            self.prec_labels.attrs['group_split'] = int(self.group_split)
+            f_name += '_{}_{}'.format(self.distance_eps,
+                                      self.min_area_in_degrees2)
+            ds = xr.Dataset({'corr_xr':self.corr_xr,
+                             'prec_labels':self.prec_labels,
+                             'precur_arr':self.precur_arr.drop('mask')})
         else:
+            ds = xr.Dataset({'corr_xr':self.corr_xr,
+                             'precur_arr':self.precur_arr.drop('mask')})
+        f_name += f'_{hash_str}'
+        filepath = os.path.join(path, f_name+ '.nc')
+        ds.to_netcdf(filepath)
+        print(f'Dataset stored with hash: {hash_str}')
 
-            if hasattr('prec_labels'):
-                ds = xr.Dataset({'corr_xr':self.corr_xr,
-                                 'prec_labels':self.prec_labels})
-            else:
-                ds = xr.Dataset({'corr_xr':self.corr_xr})
-            ds = ds.where(ds.values != 0.).fillna(-9999)
-            encoding = ( {ds.name : {'_FillValue': -9999}} )
-            mask =  (('latitude', 'longitude'), (ds.values[0] != -9999) )
-            ds.coords['mask'] = mask
-            ds.to_netcdf(filename, mode='w', encoding=encoding)
+    def load_files(self, path_hashfile=str, hash_str=str):
+        #%%
+        for root, dirs, files in os.walk(path_hashfile):
+            for file in files:
+                if re.findall(f'{hash_str}', file):
+                    print(file)
+                    f_name = file
+        filepath = os.path.join(path_hashfile, f_name)
+        self.ds = core_pp.import_ds_lazy(filepath)
+        self.corr_xr = self.ds['corr_xr']
+        self.alpha = self.corr_xr.attrs['alpha']
+        self.FDR_control = bool(self.corr_xr.attrs['FDR_control'])
+        self.precur_arr = self.ds['precur_arr']
+        if 'prec_labels' in self.ds.variables.keys():
+            self.prec_labels = self.ds['prec_labels']
+            self.distance_eps = self.prec_labels.attrs['distance_eps']
+            self.min_area_in_degrees2 = self.prec_labels.attrs['min_area_in_degrees2']
+            self.group_lag = bool(self.prec_labels.attrs['group_lag'])
+            self.group_split = bool(self.prec_labels.attrs['group_split'])
 
 
+        #%%
 def check_NaNs(field, ts):
     '''
     Return shortened timeseries of both field and ts if a few NaNs are detected

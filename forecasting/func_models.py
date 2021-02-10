@@ -141,21 +141,21 @@ def apply_shift_lag(fit_masks, lag_i):
     # due to lag
 
     y_fit = fit_masks['fit_model_mask'].copy()
-    if lag_i > 0:
-        # y_date cannot be predicted elsewise mixing
-        # test test test train train train, cannot use dates test -> train
-        # dates left boundary
-        left_boundary = fit_masks['TrainIsTrue'].shift(periods=-lag_i,
-                                            fill_value=fit_masks['TrainIsTrue'][-1])
-        # train train test test test train train, cannot use dates train -> test
-        # dates right boundary
-        right_boundary = fit_masks['TrainIsTrue'].shift(periods=lag_i,
-                                            fill_value=fit_masks['TrainIsTrue'][-1])
-        diff_left = left_boundary.astype(int) - fit_masks['TrainIsTrue'].astype(int)
-        diff_right = right_boundary.astype(int) - fit_masks['TrainIsTrue'].astype(int)
-        diff_traintest = np.logical_or(diff_left, diff_right)
-        dates_boundary_due_to_lag = diff_traintest[diff_traintest.astype(bool)].index
-        y_fit.loc[dates_boundary_due_to_lag] = False
+    # if lag_i > 0:
+    #     # y_date cannot be predicted elsewise mixing
+    #     # test test test train train train, cannot use dates test -> train
+    #     # dates left boundary
+    #     left_boundary = fit_masks['TrainIsTrue'].shift(periods=-lag_i,
+    #                                         fill_value=fit_masks['TrainIsTrue'][-1])
+    #     # train train test test test train train, cannot use dates train -> test
+    #     # dates right boundary
+    #     right_boundary = fit_masks['TrainIsTrue'].shift(periods=lag_i,
+    #                                         fill_value=fit_masks['TrainIsTrue'][-1])
+    #     diff_left = left_boundary.astype(int) - fit_masks['TrainIsTrue'].astype(int)
+    #     diff_right = right_boundary.astype(int) - fit_masks['TrainIsTrue'].astype(int)
+    #     diff_traintest = np.logical_or(diff_left, diff_right)
+    #     dates_boundary_due_to_lag = diff_traintest[diff_traintest.astype(bool)].index
+    #     y_fit.loc[dates_boundary_due_to_lag] = False
 
 
     x_fit = y_fit.shift(periods=-int(lag_i))
@@ -228,6 +228,14 @@ def _standardize_sklearn(c, TrainIsTrue):
 def standardize_on_train(c, TrainIsTrue):
     return ((c - c[TrainIsTrue.values].mean()) \
             / c[TrainIsTrue.values].std()).squeeze()
+
+def standardize_on_train_and_RV(c, df_splits_s, lag, mask='x_fit'):
+    fit_masks = apply_shift_lag(df_splits_s, lag)
+    TrainIsTrue = fit_masks['TrainIsTrue']
+    x_fit = df_splits_s[mask]
+    TrainRVmask = np.logical_and(TrainIsTrue, x_fit)
+    return ((c - c[TrainRVmask.values].mean()) \
+            / c[TrainRVmask.values].std()).squeeze()
 
 def robustscaling_on_train(c, TrainIsTrue):
     return (c - c[TrainIsTrue.values].quantile(q=.25)) \

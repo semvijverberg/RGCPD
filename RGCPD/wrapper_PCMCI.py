@@ -12,7 +12,7 @@ flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 
 def init_pcmci(df_data, significance='analytic', mask_type='y',
-               selected_variables=None, verbosity=4):
+               selected_variables=None, verbosity=5):
     '''
     First initializing pcmci object for each training set. This allows to plot
     lagged cross-correlations which help to identity a reasonably tau_max.
@@ -61,13 +61,13 @@ def init_pcmci(df_data, significance='analytic', mask_type='y',
         parcorr = ParCorr(significance=significance,
                           mask_type=mask_type,
                           verbosity=0)
+        parcorr.verbosity = verbosity # to avoid print init text each time
 
         # ======================================================================================================================
         # pc algorithm: only parents for selected_variables are calculated
         # ======================================================================================================================
         pcmci   = PCMCI(dataframe=dataframe,
                         cond_ind_test=parcorr,
-                        selected_variables=None,
                         verbosity=verbosity)
         pcmci_dict[s] = pcmci
     return pcmci_dict
@@ -117,11 +117,6 @@ def loop_train_test(pcmci_dict, path_txtoutput, tigr_function_call='run_pcmci',
 
     '''
     #%%
-#    df_data = rg.df_data
-#    path_txtoutput=rg.path_outsub2; tau_min=0; tau_max=1; pc_alpha=0.05;
-#    alpha_level=0.05; max_conds_dim=2; max_combinations=1;
-#    max_conds_py=None; max_conds_px=None; verbosity=4
-
     splits = np.array(list(pcmci_dict.keys()))
 
     pcmci_results_dict = {}
@@ -154,6 +149,24 @@ def run_tigramite(pcmci, path_outsub2, s, tigr_function_call='run_pcmci',
     tigr_func = getattr(pcmci, tigr_function_call)
     print(f'time {pcmci.T}, samples {pcmci.N}')
 
+    kwrgs_tigr = kwrgs_tigr.copy() # ensure copy
+
+    if 'selected_links' in kwrgs_tigr.keys() and 'remove_links' not in kwrgs_tigr.keys(): # selected split
+        kwrgs_tigr['selected_links'] = kwrgs_tigr['selected_links'][s]
+    elif 'remove_links' in kwrgs_tigr.keys() and 'selected_links' not in kwrgs_tigr.keys():
+        remove_links = kwrgs_tigr.pop('remove_links')
+        selected_links = {}
+        for i in range(len(pcmci.var_names)):
+            sel_links_var = []
+            for j in range(len(pcmci.var_names)):
+                for l in range(kwrgs_tigr['tau_min'],kwrgs_tigr['tau_max']+1):
+                    if (i == j and l == 0)==False:
+                        sel_links_var.append((j, -l))
+            sel_links_var = [l for l in sel_links_var if l not in remove_links]
+            selected_links[i] = sel_links_var
+        kwrgs_tigr['selected_links'] = selected_links
+
+
     results = tigr_func(**kwrgs_tigr)
 
     results['q_matrix'] = pcmci.get_corrected_pvalues(p_matrix=results['p_matrix'],
@@ -176,7 +189,6 @@ def run_tigramite(pcmci, path_outsub2, s, tigr_function_call='run_pcmci',
 
         sys.stdout = orig_stdout
 
-
     return results
 
 def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level):
@@ -193,15 +205,15 @@ def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level):
         #                                     val_matrix=results['val_matrix'],
         #                                     alpha_level=alpha_level)
 
-        sig = pcmci.return_significant_parents(results['q_matrix'],
+        sig = pcmci.return_significant_links(results['q_matrix'],
                                                val_matrix=results['val_matrix'],
-                                               alpha_level=alpha_level)
+                                               alpha_level=alpha_level,
+                                               include_lagzero_links=True)
 
-        all_parents = sig['parents']
+        all_parents = sig['link_dict']
         link_matrix = sig['link_matrix']
 
-        links_RV = all_parents[0]
-        parents_dict[s] = links_RV, pcmci.var_names, link_matrix
+        parents_dict[s] = all_parents, pcmci.var_names, link_matrix
 
     #%%
     return parents_dict
@@ -636,10 +648,13 @@ def df_data_Parcorr(df_data, z_keys=[str, list], keys: list=None, target: str=No
         keys = [k for k in df_data.columns if k not in discard]
     if target is None:
         target = df_data.columns[0]
-
+    if keys == z_keys:
+        n_zkeys = len(z_keys) - 1 # cannot regress out itself
+    else:
+        n_zkeys = len(z_keys)
     splits = df_data.index.levels[0]
-    valnp = np.zeros(shape=(len(keys), len(z_keys)-1, splits.size))
-    pvalnp = np.zeros(shape=(len(keys), len(z_keys)-1, splits.size))
+    valnp = np.zeros(shape=(len(keys), n_zkeys, splits.size))
+    pvalnp = np.zeros(shape=(len(keys), n_zkeys, splits.size))
     index = []
     for ix, x_key in enumerate(keys):
         subz_keys = [k for k in z_keys if k != x_key]
@@ -648,7 +663,7 @@ def df_data_Parcorr(df_data, z_keys=[str, list], keys: list=None, target: str=No
 
             # create X, Y, Z format
             dfxyz = df_data[[target, x_key, z]]
-            dfxyz = df_data[[x_key, target, z] +['TrainIsTrue', 'RV_mask']]
+            dfxyz = df_data[[x_key, target, z] + ['TrainIsTrue', 'RV_mask']]
             pcmci_dict = init_pcmci(dfxyz, significance='analytic', mask_type='y',
                                     selected_variables=None, verbosity=0)
 
@@ -661,7 +676,7 @@ def df_data_Parcorr(df_data, z_keys=[str, list], keys: list=None, target: str=No
                 elif x_key not in pcmci.var_names or z not in pcmci.var_names:
                     val, pval = np.nan, np.nan
                 else:
-                    X, Y, Z = [(0, x_lag)],[(1, 0)], [(2, z_lag)]
+                    X, Y, Z = [(0, -x_lag)],[(1, 0)], [(2, -z_lag)]
 
                     runtest = pcmci.cond_ind_test.run_test
                     val, pval = runtest(X, Y, Z,

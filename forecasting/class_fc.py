@@ -519,7 +519,7 @@ class fcev():
         [print(n, file=file) for n in lines]
         file.close()
         [print(n) for n in lines[:-2]]
-        return self.working_folder, self.pathexper
+        return self.working_folder, self.pathexper + '/data.h5'
 
     def perform_validation(self, n_boot=2000, blocksize='auto',
                            threshold_pred='upper_clim', alpha=0.05):
@@ -666,31 +666,44 @@ class fcev():
 
         print(f'{stat_model}')
         from time import time
-        try:
-            t0 = time()
-            futures = {}
-            with ProcessPoolExecutor(max_workers=self.n_cpu) as pool:
+        if self.n_cpu != 1:
+            try:
+                t0 = time()
+                futures = {}
+                with ProcessPoolExecutor(max_workers=self.n_cpu) as pool:
+                    for lag in lags_i:
+                        for split in splits:
+                            fitkey = f'{lag}_{split}'
+                            futures[fitkey] = pool.submit(fit,
+                                                          y_ts=y_ts,
+                                                          df_data=df_data,
+                                                          lag=lag,
+                                                          split=split,
+                                                          stat_model=stat_model,
+                                                          keys_d=keys_d,
+                                                          dates_tobin=dates_tobin,
+                                                          precur_aggr=precur_aggr,
+                                                          kwrgs_pp=kwrgs_pp,
+                                                          verbosity=verbosity)
+                    results = {key:future.result() for key, future in futures.items()}
+                print(time() - t0)
+            except:
+                print('parallel failed')
+                # if on cluster, stop
+                assert sys.platform != 'linux', ('Parallel Failed on cluster')
+
+                t0 = time()
+                results = {}
                 for lag in lags_i:
                     for split in splits:
                         fitkey = f'{lag}_{split}'
-                        futures[fitkey] = pool.submit(fit,
-                                                      y_ts=y_ts,
-                                                      df_data=df_data,
-                                                      lag=lag,
-                                                      split=split,
-                                                      stat_model=stat_model,
-                                                      keys_d=keys_d,
-                                                      dates_tobin=dates_tobin,
-                                                      precur_aggr=precur_aggr,
-                                                      kwrgs_pp=kwrgs_pp,
-                                                      verbosity=verbosity)
-                results = {key:future.result() for key, future in futures.items()}
-            print(time() - t0)
-        except:
-            print('parallel failed')
-            # if on cluster, stop
-            assert sys.platform != 'linux', ('Parallel Failed on cluster')
-
+                        results[fitkey] = fit(y_ts=y_ts, df_data=df_data, lag=lag,
+                                              split=split, stat_model=stat_model,
+                                              keys_d=keys_d, dates_tobin=RV.dates_tobin,
+                                              precur_aggr=precur_aggr, kwrgs_pp=kwrgs_pp,
+                                              verbosity=verbosity)
+                print('in {:.0f} seconds'.format(time() - t0))
+        else:
             t0 = time()
             results = {}
             for lag in lags_i:
