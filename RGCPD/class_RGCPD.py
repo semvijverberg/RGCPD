@@ -225,7 +225,7 @@ class RGCPD:
             plt.savefig(fig_path+self.figext, bbox_inches='tight')
 
     def pp_TV(self, name_ds='ts', loadleap=False, detrend=False, anomaly=False,
-              ext_annual_to_mon: bool=True):
+              ext_annual_to_mon: bool=True, TVdates_aggr: bool=False):
         '''
         Load and pre-process target variable/response variable.
 
@@ -266,7 +266,8 @@ class RGCPD:
                             start_end_year=self.start_end_year,
                             RV_detrend=self.RV_detrend,
                             RV_anomaly=self.RV_anomaly,
-                            ext_annual_to_mon=ext_annual_to_mon)
+                            ext_annual_to_mon=ext_annual_to_mon,
+                            TVdates_aggr=TVdates_aggr)
         self.fullts, self.TV_ts, inf, start_end_TVdate = out
 
         # if inf == 'annual' and self.tfreq != None:

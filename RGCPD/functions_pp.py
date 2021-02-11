@@ -196,8 +196,10 @@ def xrts_to_df(xarray):
 
 def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=False, RV_anomaly=False,
-               ext_annual_to_mon=True, verbosity=1):    #%%
+               ext_annual_to_mon=True, TVdates_aggr: bool=False,
+               verbosity=1):    #%%
     # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1;ext_annual_to_mon=False
+    # start_end_date=None; TVdates_aggr=False
 
     if RV_detrend: # do detrending on all timesteps
         fullts = core_pp.detrend_lin_longterm(fullts)
@@ -262,13 +264,20 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                                         start_end_year)
         print('Selecting subset as defined by start_end_date')
 
+    if TVdates_aggr: # aggregate over start_end_TVdate
+        fullts = time_mean_single_period(fullts, start_end_TVdate, start_end_year)
+        time_index = ('time', pd.to_datetime([f'{y}-01-01' for y in fullts['time'].values]))
+        fullts['time'] = time_index
+        input_freq = 'annual' # now one-value-per-year timeseries
+
 
     if input_freq == 'annual':
         TV_ts = fullts
     else:
         if input_freq == 'daily':
-            dates_RV = core_pp.get_subdates(pd.to_datetime(fullts.time.values), start_end_TVdate,
-                                      start_end_year)
+            dates_RV = core_pp.get_subdates(pd.to_datetime(fullts.time.values),
+                                            start_end_TVdate,
+                                            start_end_year)
         elif input_freq == 'monthly':
             dates_RV = TVmonthrange(fullts, start_end_TVdate)
         # get indices of RVdates
@@ -565,7 +574,6 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
 def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=None,
                           closed: str='right', closed_on_date: str=None,
                           verbosity=0):
-    #%%
     '''
     if tfreq is an even number, the centered date will be
     1 day to the right of the window.
@@ -574,6 +582,8 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
     create cycle of bins starting on closed_on_date moving backward untill back
     at closed_on_date.
     '''
+    #%%
+
     if type(xr_or_dt) == type(xr.DataArray([0])):
         datetime = pd.to_datetime(xr_or_dt['time'].values)
     else:
@@ -735,15 +745,15 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         start_yr = pd.to_datetime(start_yr)
 
 
-#    n_oneyr = start_yr.size
-#    end_year = endyear
+    #    n_oneyr = start_yr.size
+    #    end_year = endyear
     datesdt = core_pp.make_dates(start_yr, years)
     if input_freq == 'day' and tfreq != 1 and start_end_date == ('1-1', '12-31'):
         # make cyclic around closed_end_date
        datesdt = start_yr.append(core_pp.make_dates(otheryrs, years[1:]))
 
 
-#    n_yrs = datesdt.size / n_oneyr
+    #    n_yrs = datesdt.size / n_oneyr
     if verbosity==1:
         months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
                              8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
@@ -811,20 +821,7 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
     date_time = pd.to_datetime(xarray['time'].values)
     xrgr = np.zeros(start_end_periods.shape[0], dtype=object)
     for i,p in enumerate(start_end_periods):
-        dperiod, groups = core_pp.get_subdates(date_time, p,
-                                   start_end_year=start_end_year,
-                                   lpyr=False,
-                                   returngroups=True)
-        if dperiod.size != np.unique(groups).size:
-            xrgr[i] = xarray.sel(time=dperiod).groupby(
-                                            xr.DataArray(groups,
-                                                         coords={'time':dperiod},
-                                                         dims=['time'],
-                                                         name='time'),
-                                            restore_coord_dims=True).mean(dim='time')
-        else:
-            xrgr[i] = xarray.sel(time=dperiod) # No groupby mean needed
-            xrgr[i]['time'] = ('time', groups)
+        xrgr[i] = time_mean_single_period(xarray, p, start_end_year)
 
     xrgr = [x.expand_dims('lag', axis=1) for x in xrgr]
     xarray = xr.concat(xrgr, dim='lag')
@@ -851,6 +848,24 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
     elif return_df == False:
         return_obj = xarray
     return return_obj
+
+def time_mean_single_period(xarray, period: tuple, start_end_year: tuple=None):
+    date_time = pd.to_datetime(xarray['time'].values)
+    dperiod, groups = core_pp.get_subdates(date_time, period,
+                               start_end_year=start_end_year,
+                               lpyr=False,
+                               returngroups=True)
+    if dperiod.size != np.unique(groups).size:
+        xrgr = xarray.sel(time=dperiod).groupby(
+                                        xr.DataArray(groups,
+                                                     coords={'time':dperiod},
+                                                     dims=['time'],
+                                                     name='time'),
+                                        restore_coord_dims=True).mean(dim='time')
+    else:
+        xrgr = xarray.sel(time=dperiod) # No groupby mean needed
+        xrgr['time'] = ('time', groups)
+    return xrgr
 
 #def make_dates(datetime, start_yr, endyear):
 #    '''

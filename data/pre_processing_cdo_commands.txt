@@ -1,3 +1,5 @@
 cdo sellonlatbox,5,52.5,-37.5,20 p_1979-2018_Africa.nc p_1979-2018_east_south_Africa.nc
 cdo monsum p_1979-2018_east_south_Africa.nc p_1979-2018_east_south_Africa_monthly.nc
 cdo selyear,1981,2018 p_1979-2018_east_south_Africa_monthly_aggregated.nc p_1981-2018_east_south_Africa_monthly_aggregated.nc
+
+
