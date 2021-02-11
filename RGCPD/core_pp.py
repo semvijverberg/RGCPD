@@ -788,13 +788,17 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
     sstartdate = pd.to_datetime(str(startyr) + '-' + start_end_date[0])
     senddate_   = pd.to_datetime(str(startyr) + '-' + start_end_date[1])
     crossyr = sstartdate > senddate_
-    if crossyr: sstartdate-=date_dt(years=1) ; startyr-=1
+    if crossyr: senddate_+=date_dt(years=1) ; #startyr-=1
 
     #find closest senddate
-    closest_enddate_idx = np.argmin(abs(firstyr - senddate_))
-    senddate = firstyr[closest_enddate_idx]
+    if crossyr:
+        closedrightyr = get_oneyr(dates, startyr+1)
+    else:
+        closedrightyr = firstyr
+    closest_enddate_idx = np.argmin(abs(closedrightyr - senddate_))
+    senddate = closedrightyr[closest_enddate_idx]
     if senddate > senddate_ :
-        senddate = firstyr[closest_enddate_idx-1]
+        senddate = closedrightyr[closest_enddate_idx-1]
 
 
     tfreq = (dates[1] - dates[0]).days
@@ -827,9 +831,11 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
     if lpyr:
         datessubset = remove_leapdays(datessubset)
     periodgroups = np.repeat(np.arange(start_end_year[0], endyr+1), start_yr.size)
-    if crossyr: # crossyr such as DJF, not possible for 1st yr
-        datessubset = datessubset[periodgroups!=periodgroups[0]] # Del group 1st yr
-        periodgroups = periodgroups[periodgroups!=periodgroups[0]]
+
+    # old crossyr handling
+    # if crossyr: # crossyr such as DJF, not possible for 1st yr
+    #     datessubset = datessubset[periodgroups!=periodgroups[0]] # Del group 1st yr
+    #     periodgroups = periodgroups[periodgroups!=periodgroups[0]]
     if returngroups:
         out = (datessubset, periodgroups)
     else:

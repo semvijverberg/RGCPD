@@ -82,7 +82,7 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load):
                                        df_splits,
                                        start_end_date=kwrgs['start_end_date'],
                                        start_end_year=kwrgs['start_end_year'],
-                                       closed_on_date=kwrgs['closed_on_date'],
+                                       start_end_TVdate=kwrgs['start_end_TVdate'],
                                        cols=precur.kwrgs_z['keys_ext'],
                                        precur_aggr=kwrgs['tfreq'])
         if hasattr(precur.df_z.index, 'levels'): # has train-test splits
@@ -697,7 +697,7 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
         kwrgs['tfreq'] = precur_aggr
 
         print('aggregating precursors to {} days '.format(kwrgs['tfreq']) + \
-              'closed on right {}'.format(kwrgs['closed_on_date']))
+              'closed on right {}'.format(kwrgs['start_end_TVdate'][-1]))
 
         precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
                                                          **kwrgs)
@@ -837,7 +837,7 @@ def import_precur_ts(list_import_ts : List[tuple],
                      df_splits: pd.DataFrame,
                      start_end_date: Tuple[str, str],
                      start_end_year: Tuple[int, int],
-                     closed_on_date: Tuple[str, str],
+                     start_end_TVdate: Tuple[str, str],
                      cols: list=None,
                      precur_aggr: int=1):
     '''
@@ -895,7 +895,7 @@ def import_precur_ts(list_import_ts : List[tuple],
                                                          precur_aggr,
                                                         start_end_date,
                                                         start_end_year,
-                                                        closed_on_date=closed_on_date)[0]
+                                                        start_end_TVdate=start_end_TVdate)[0]
                 except KeyError as e:
                     print('KeyError captured, likely the requested dates '
                           'given by start_end_date and start_end_year are not'

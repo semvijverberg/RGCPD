@@ -192,7 +192,7 @@ class RGCPD:
 
         self.kwrgs_load.update(dict(start_end_date=self.start_end_date,
                                     start_end_year=self.start_end_year,
-                                    closed_on_date=self.start_end_TVdate[-1],
+                                    start_end_TVdate=self.start_end_TVdate,
                                     tfreq=self.tfreq))
 
         self.list_precur_pp = functions_pp.perform_post_processing(self.list_of_name_path,
@@ -270,11 +270,6 @@ class RGCPD:
                             TVdates_aggr=TVdates_aggr)
         self.fullts, self.TV_ts, inf, start_end_TVdate = out
 
-        # if inf == 'annual' and self.tfreq != None:
-        #     self.tfreq = None ;
-        #     if hasattr(self, 'kwrgs_load'): self.kwrgs_load['tfreq'] = None
-        #     print('no common time aggregation possible when loading annual mean '
-        #           f'data, tfreq set to {self.tfreq}')
         self.input_freq = inf
         self.dates_or  = pd.to_datetime(self.fulltso.time.values)
         self.dates_all = pd.to_datetime(self.fullts.time.values)
@@ -419,7 +414,7 @@ class RGCPD:
                 start_end_TVdate = self.start_end_TVdate
                 # for loading aggregated ncdf is aligned
             else:
-                self.kwrgs_load['closed_on_date'] = start_end_TVdate[-1]
+                self.kwrgs_load['start_end_TVdate'] = start_end_TVdate
             # retrieving timeseries at different aggregation, TV and df_splits
             # need to redefined on new tfreq using the same arguments
             print(f'redefine target variable on {self.precur_aggr} day means')
