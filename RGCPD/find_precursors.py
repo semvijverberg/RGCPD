@@ -67,10 +67,9 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load):
     precur.precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
 
     if type(precur.lags[0]) == np.ndarray:
-        start_end_year=(TV.dates_RV[0].year, TV.dates_RV[-1].year)
         tmp = functions_pp.time_mean_periods
         precur.precur_arr = tmp(precur.precur_arr, precur.lags,
-                                start_end_year)
+                                kwrgs_load['start_end_year'])
     # =============================================================================
     # Load external timeseries for partial_corr_z
     # =============================================================================
@@ -819,12 +818,13 @@ def df_data_prec_regs(list_MI, TV, df_splits): #, outdic_precur, df_splits, TV #
                 else:
                     print(f'No timeseries retrieved for {precur.name} on split {s}')
 
-
         # stack actor time-series together:
-
-        fulldata = np.concatenate(tuple(precur_list), axis = 1)
-        n_regions_list.append(fulldata.shape[1])
-        df_data_s[s] = pd.DataFrame(fulldata, columns=flatten(cols), index=index_dates)
+        if len(precur_list) > 0:
+            fulldata = np.concatenate(tuple(precur_list), axis = 1)
+            n_regions_list.append(fulldata.shape[1])
+            df_data_s[s] = pd.DataFrame(fulldata, columns=flatten(cols), index=index_dates)
+        else:
+            df_data_s[s] = pd.DataFrame(index=df_splits.loc[s].index) # no ts for this split
 
 
     print(f'There are {n_regions_list} regions in total (list of different splits)')
@@ -848,7 +848,7 @@ def import_precur_ts(list_import_ts : List[tuple],
     # df_splits = rg.df_splits
 
     splits = df_splits.index.levels[0]
-    orig_traintest = functions_pp.get_testyrs(df_splits)
+    orig_traintest = functions_pp.get_testyrs(df_splits)[0]
     df_data_ext_s   = np.zeros( (splits.size) , dtype=object)
     counter = 0
     for i, (name, path_data) in enumerate(list_import_ts):
@@ -873,8 +873,9 @@ def import_precur_ts(list_import_ts : List[tuple],
             df_data_e_all = df_data_e_all.loc[dates_subset]
 
         if 'TrainIsTrue' in df_data_e_all.columns:
+            _c = [k for k in df_splits.columns if k in ['TrainIsTrue', 'RV_mask']]
             # check if traintest split is correct
-            ext_traintest = functions_pp.get_testyrs(df_data_e_all[['TrainIsTrue']])
+            ext_traintest = functions_pp.get_testyrs(df_data_e_all[_c])
             _check_traintest = all(np.equal(orig_traintest.flatten(), ext_traintest.flatten()))
             assert _check_traintest, ('Train test years of df_splits are not the '
                                       'same as imported timeseries')

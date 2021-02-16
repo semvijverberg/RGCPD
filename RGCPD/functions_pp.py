@@ -79,7 +79,7 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
             core_pp.detrend_anom_ncdf3D(infile, outfile, **kwrgs)
     return list_precur_pp
 
-def load_TV(list_of_name_path, loadleap=False, start_end_year=None, name_ds='ts'):
+def load_TV(list_of_name_path, name_ds='ts'):
     '''
     function will load first item of list_of_name_path
     list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
@@ -99,7 +99,7 @@ def load_TV(list_of_name_path, loadleap=False, start_end_year=None, name_ds='ts'
     if filename.split('.')[-1] == 'npy':
         fulltso = load_npy(filename, name=name)
     elif filename.split('.')[-1] == 'nc':
-        ds = core_pp.import_ds_lazy(filename, start_end_year=start_end_year)
+        ds = core_pp.import_ds_lazy(filename)
         if len(ds.dims) > 1:
             fulltso = ds[name_ds].sel(cluster=name)
         else:
@@ -128,10 +128,107 @@ def load_TV(list_of_name_path, loadleap=False, start_end_year=None, name_ds='ts'
         fulltso = df.to_xarray().to_array(name=name_ds).squeeze()
     hashh = filename.split('_')[-1].split('.')[0]
     fulltso.name = str(list_of_name_path[0][0])+name_ds
-    if loadleap == False:
-        dates = core_pp.remove_leapdays(pd.to_datetime(fulltso.time.values))
-        fulltso = fulltso.sel(time=dates)
     return fulltso, hashh
+
+def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
+               start_end_year=None, RV_detrend=False, RV_anomaly=False,
+               ext_annual_to_mon=True, TVdates_aggr: bool=False,
+               verbosity=1):    #%%
+    # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1;ext_annual_to_mon=False
+    # start_end_date=None; TVdates_aggr=False
+    dates = pd.to_datetime(fullts.time.values)
+    fullts.sel(time=core_pp.get_subdates(dates=dates,
+                                         start_end_date=None,
+                                         start_end_year=start_end_year))
+    if RV_detrend: # do detrending on all timesteps
+        fullts = core_pp.detrend_lin_longterm(fullts)
+    if RV_anomaly: # do anomaly on complete timeseries (rolling mean applied!)
+        fullts = anom1D(fullts)
+
+
+    startyear = dates.year[0]
+    endyear = dates.year[-1]
+    n_timesteps = dates.size
+    n_yrs       = (endyear - startyear) + 1
+
+    # align fullts with precursor import_ds_lazy()
+    fullts = fullts.sel(time=core_pp.get_subdates(dates=dates,
+                                                  start_end_date=start_end_date,
+                                                  start_end_year=None))
+
+    timestep_days = (dates[1] - dates[0]).days
+    # if type(tfreq) == int: # timemeanbins between start_end_date
+    if timestep_days == 1:
+        input_freq = 'daily'
+        same_freq = (dates[1] - dates[0]).days == tfreq #same_freq true/False
+    elif timestep_days >= 28 and timestep_days <= 31 and n_yrs != n_timesteps:
+        input_freq = 'monthly'
+        same_freq = (dates[1].month - dates[0].month) == tfreq #same_freq true/False
+    elif tfreq == timestep_days:
+        same_freq = True
+    elif timestep_days == 365 or timestep_days == 366:
+        input_freq = 'annual' # temporary to work with lag as int
+
+        if verbosity == 1:
+            print('Detected timeseries with annual mean values')
+            if tfreq is None:
+                print('tfreq is None, no common time aggregation used, '
+                      'loading annual mean data')
+                same_freq = None
+        if tfreq is not None:
+            same_freq=False
+            fullts = extend_annual_ts(fullts,
+                                      tfreq=1,
+                                      start_end_TVdate=start_end_TVdate,
+                                      start_end_date=start_end_date,
+                                      ext_annual_to_mon=ext_annual_to_mon)
+        if ext_annual_to_mon:
+            print('Extending annual data of target to monthly data')
+            input_freq = 'monthly'
+
+
+    # time_mean_bins: (multiple datapoints per year)
+    if same_freq == False and TVdates_aggr==False:
+        if verbosity == 1:
+            print('original tfreq of imported response variable is converted to '
+                  'desired tfreq')
+        out = time_mean_bins(fullts, tfreq,
+                             start_end_date,
+                             start_end_year,
+                             start_end_TVdate=start_end_TVdate)
+        fullts, dates_tobin, traintestgroups = out
+
+    if same_freq == True and TVdates_aggr==False: # and start_end_date is not None and input_freq == 'daily':
+        out = timeseries_tofit_bins(fullts, tfreq, start_end_date, start_end_year)
+        fullts, dates, traintestgroups = out
+        print('Selecting subset as defined by start_end_date')
+
+    # time_mean_period: aggregate over start_end_TVdate, one datapoint p/y
+    if TVdates_aggr:
+        fullts = time_mean_single_period(fullts, start_end_TVdate, start_end_year)
+        time_index = ('time', pd.to_datetime([f'{y}-01-01' for y in fullts['time'].values]))
+        fullts['time'] = time_index
+        input_freq = 'annual' # now one-value-per-year timeseries
+
+
+    if input_freq == 'annual':
+        TV_ts = fullts
+        traintestgroups = pd.Series(np.arange(1, TV_ts.size+1),
+                                    index=pd.to_datetime(fullts.time.values))
+    else:
+        if input_freq == 'daily':
+            dates_RV = core_pp.get_subdates(pd.to_datetime(fullts.time.values),
+                                            start_end_TVdate,
+                                            start_end_year)
+        elif input_freq == 'monthly':
+            dates_RV = TVmonthrange(fullts, start_end_TVdate)
+        # get indices of RVdates
+        string_RV = list(dates_RV.strftime('%Y-%m-%d'))
+        string_full = list(pd.to_datetime(fullts.time.values).strftime('%Y-%m-%d'))
+        RV_period = [string_full.index(date) for date in string_full if date in string_RV]
+        TV_ts = fullts[RV_period]
+
+    return fullts, TV_ts, input_freq, traintestgroups
 
 def get_df_test(df, cols: list=None, df_splits: pd.DataFrame=None):
     '''
@@ -194,100 +291,6 @@ def xrts_to_df(xarray):
     df.index.name = name
     return df
 
-def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
-               start_end_year=None, RV_detrend=False, RV_anomaly=False,
-               ext_annual_to_mon=True, TVdates_aggr: bool=False,
-               verbosity=1):    #%%
-    # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1;ext_annual_to_mon=False
-    # start_end_date=None; TVdates_aggr=False
-
-    if RV_detrend: # do detrending on all timesteps
-        fullts = core_pp.detrend_lin_longterm(fullts)
-    if RV_anomaly: # do anomaly on complete timeseries (rolling mean applied!)
-        fullts = anom1D(fullts)
-
-    dates = pd.to_datetime(fullts.time.values)
-    startyear = dates.year[0]
-    endyear = dates.year[-1]
-    n_timesteps = dates.size
-    n_yrs       = (endyear - startyear) + 1
-
-
-
-    # align fullts with precursor import_ds_lazy()
-    fullts = fullts.sel(time=core_pp.get_subdates(dates=dates,
-                           start_end_date=start_end_date,
-                           start_end_year=start_end_year))
-
-    timestep_days = (dates[1] - dates[0]).days
-    # if type(tfreq) == int: # timemeanbins between start_end_date
-    if timestep_days == 1:
-        input_freq = 'daily'
-        same_freq = (dates[1] - dates[0]).days == tfreq #same_freq true/False
-    elif timestep_days >= 28 and timestep_days <= 31 and n_yrs != n_timesteps:
-        input_freq = 'monthly'
-        same_freq = (dates[1].month - dates[0].month) == tfreq #same_freq true/False
-    elif tfreq == timestep_days:
-        same_freq = True
-    elif timestep_days == 365 or timestep_days == 366:
-        input_freq = 'annual' # temporary to work with lag as int
-
-        if verbosity == 1:
-            print('Detected timeseries with annual mean values')
-            if tfreq is None:
-                print('tfreq is None, no common time aggregation used, '
-                      'loading annual mean data')
-                same_freq = None
-        if tfreq is not None:
-            same_freq=False
-            fullts = extend_annual_ts(fullts,
-                                      tfreq=1,
-                                      start_end_TVdate=start_end_TVdate,
-                                      start_end_date=start_end_date,
-                                      ext_annual_to_mon=ext_annual_to_mon)
-        if ext_annual_to_mon:
-            print('Extending annual data of target to monthly data')
-            input_freq = 'monthly'
-
-
-    # Going to make timemeanbins (multiple datapoints per year)
-    if same_freq == False:
-        if verbosity == 1:
-            print('original tfreq of imported response variable is converted to '
-                  'desired tfreq')
-        fullts, dates_tobin = time_mean_bins(fullts, tfreq,
-                                             start_end_date,
-                                             start_end_year,
-                                             start_end_TVdate=start_end_TVdate)
-    if same_freq == True and start_end_date is not None and input_freq == 'daily':
-        out = timeseries_tofit_bins(fullts, tfreq, start_end_date, start_end_year)
-        fullts, dates, dateyrgroups = out
-        print('Selecting subset as defined by start_end_date')
-
-    if TVdates_aggr: # aggregate over start_end_TVdate
-        fullts = time_mean_single_period(fullts, start_end_TVdate, start_end_year)
-        time_index = ('time', pd.to_datetime([f'{y}-01-01' for y in fullts['time'].values]))
-        fullts['time'] = time_index
-        input_freq = 'annual' # now one-value-per-year timeseries
-
-
-    if input_freq == 'annual':
-        TV_ts = fullts
-    else:
-        if input_freq == 'daily':
-            dates_RV = core_pp.get_subdates(pd.to_datetime(fullts.time.values),
-                                            start_end_TVdate,
-                                            start_end_year)
-        elif input_freq == 'monthly':
-            dates_RV = TVmonthrange(fullts, start_end_TVdate)
-        # get indices of RVdates
-        string_RV = list(dates_RV.strftime('%Y-%m-%d'))
-        string_full = list(pd.to_datetime(fullts.time.values).strftime('%Y-%m-%d'))
-        RV_period = [string_full.index(date) for date in string_full if date in string_RV]
-        TV_ts = fullts[RV_period]
-
-    return fullts, TV_ts, input_freq, start_end_TVdate
-
 def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
                            start_end_year=None, closed: str='right',
                            start_end_TVdate: tuple=None,
@@ -307,17 +310,12 @@ def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
                                 dailytomonths=dailytomonths,
                                 format_lon=format_lon)
 
-    if tfreq is not None and tfreq != 1 and dailytomonths==False:
-        ds, dates_tobin = time_mean_bins(ds, tfreq,
-                                        start_end_date,
-                                        start_end_year,
-                                        closed=closed,
-                                        start_end_TVdate=start_end_TVdate)
-    # if to_xarr:
-    #     if type(ds) == type(xr.DataArray(data=[0])):
-    #         ds = ds.squeeze()
-    #     else:
-    #         ds = ds.to_array().squeeze()
+    if tfreq is not None and tfreq != 1:
+        ds = time_mean_bins(ds, tfreq,
+                            start_end_date,
+                            start_end_year,
+                            closed=closed,
+                            start_end_TVdate=start_end_TVdate)[0]
     ds = ds.squeeze()
     # check if no axis has length 0:
     assert 0 not in ds.shape, ('loaded ds has a dimension of length 0'
@@ -373,7 +371,7 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
         print('\n Will shorten the \'subyear\', so that the temporal'
              ' frequency fits in one year')
 
-    dates_tobin, dateyrgroups = timeseries_tofit_bins(date_time, tfreq,
+    dates_tobin, traintestgroups = timeseries_tofit_bins(date_time, tfreq,
                                         start_end_date=start_end_date,
                                         start_end_year=start_end_year,
                                         closed=closed,
@@ -382,7 +380,7 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
 
     dates_notpresent = pd.to_datetime([d for d in dates_tobin if d not in date_time])
     assert len(dates_notpresent)==0, ('dates not present in xr_or_df\n'
-    f' {dates_notpresent[:10]} \n...\n {dates_notpresent[-10:]}')
+    f' {dates_notpresent[:5]} \n...\n {dates_notpresent[-5:]}')
     xarray = xarray.sel(time=dates_tobin)
     one_yr = get_oneyr(dates_tobin, years[1])
 
@@ -393,28 +391,7 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
         # crossyr timemeanbins,
         n_years -= 1
 
-    # # not sure why I subset first year? 10-02-2021
-    # wantfullyr = start_end_date == ('1-1', '12-31') or start_end_date is None
-    # incomplete_close = tfreq not in possible
-    # if wantfullyr and incomplete_close:
-    #     firstyr = get_oneyr(dates_tobin)
-    #     firstyr = firstyr[firstyr <= f'{firstyr.year[0]}-{start_end_TVdate[-1]}']
-    #     bins = np.repeat(np.arange(0,firstyr.size/tfreq),tfreq)
-    #     offset = bins[-1]+1
-    #     fit_steps_yr = int(get_oneyr(dates_tobin, years[1]).size / tfreq)
-    #     bins = np.concatenate([bins, # first two year bins
-    #                            np.repeat(np.arange(offset , fit_steps_yr+offset ), tfreq)])
-    #     dates_tobin = pd.to_datetime(np.concatenate([firstyr,
-    #                                  get_oneyr(dates_tobin, *years[1:])]))
-    #     xarray = xarray.sel(time=dates_tobin)
-    #     n_years -= 1
-    # else:
-    #     # assumes no crossyr, consecutive bins fall in 1 yr
-    #     fit_steps_yr = int((one_yr.size )  / tfreq)
-    #     bins = np.repeat(np.arange(0, fit_steps_yr), tfreq)
-
-
-    firstperiod = dates_tobin[dateyrgroups==1]
+    firstperiod = dates_tobin[traintestgroups==1]
     assert dates_tobin.size % firstperiod.size==0, 'check output timeseries_to_fit_bins'
 
     fit_steps_yr = int(firstperiod.size) / tfreq
@@ -444,6 +421,9 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
     group_bins['bins'] = newdate.values
     xarray = group_bins.rename({'bins' : 'time'})
     dates = pd.to_datetime(newdate.values)
+    traintestgroups = traintestgroups[::tfreq]
+    traintestgroups.index = dates
+    assert traintestgroups.size == dates.size, 'Wrong time_mean_bins'
 
     if return_df:
         if len(xr_init.shape) == 3:
@@ -462,7 +442,7 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
     elif return_df == False:
         return_obj = xarray
    #%%
-    return return_obj, dates_tobin
+    return return_obj, dates_tobin, traintestgroups
 
 
 def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=None,
@@ -504,27 +484,37 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         startyear, endyear = start_end_year
         years = range(startyear, endyear+1)
 
-    if start_end_date is None:
-        d_s = datetime[0]
-        d_e = datetime[-1]
-        sstartdate = '{:02d}-{:02d}'.format(d_s.month, d_s.day)
-        senddate   = '{:02d}-{:02d}'.format(d_e.month, d_e.day)
-    else:
+    if start_end_date is not None:
         sstartdate, senddate = start_end_date
-    if start_end_TVdate is None:
-        start_end_TVdate = (sstartdate, senddate)
+    if start_end_TVdate is None and start_end_date is not None:
+        start_end_TVdate = start_end_date
 
     # check if Target variable period is crossing Dec-Jan
     crossyr = int(start_end_TVdate[0].replace('-','')) > int(start_end_TVdate[1].replace('-',''))
     closed_on_date = start_end_TVdate[-1]
 
-    # add corresponding time information
+    if start_end_date is None:
+        d_s = datetime[0]
+        d_e = datetime[-1]
+        sstartdate = '{:02d}-{:02d}'.format(d_s.month, d_s.day)
+        senddate   = '{:02d}-{:02d}'.format(d_e.month, d_e.day)
+
     sstartdate = '{}-{}'.format(startyear, sstartdate)
     if crossyr:
-        senddate   = '{}-{}'.format(startyear+1, senddate)
+        senddate   = '{}-{}'.format(startyear+1, closed_on_date)
+        # max one year back in time from closed_dates
+        maxlag = pd.to_datetime(senddate) - date_dt(years=1)
+        sstartdate = max(pd.to_datetime(sstartdate), maxlag)
+        sstartdate = sstartdate.strftime('%Y-%m-%d') # keep same format
     else:
-        senddate   = '{}-{}'.format(startyear, senddate)
+        senddate   = '{}-{}'.format(startyear, closed_on_date)
 
+    # if start_end_date is None:
+
+    # else:
+    #     sstartdate = '{}-{}'.format(startyear, sstartdate)
+
+    # remnant two lines of code , may be removed
     adjhrsstartdate = sstartdate + ' {:02d}:00:00'.format(datetime[0].hour)
     adjhrsenddate   = senddate + ' {:02d}:00:00'.format(datetime[0].hour)
 
@@ -534,8 +524,8 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         if closed_on_date is not None:
             _closed_on_date = adjhrsenddate.replace(adjhrsenddate[5:10], closed_on_date)
             dates_aggr =  pd.date_range(end=_closed_on_date, freq=f'{tfreq}d',
-                                    closed=closed,
-                                    periods=fit_bins)
+                                        closed=closed,
+                                        periods=fit_bins)
 
             # Extend untill adjhrsenddate
             while dates_aggr[-1] + pd.Timedelta(f'{tfreq}d') < pd.to_datetime(adjhrsenddate):
@@ -581,9 +571,12 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
                        dates_aggr.is_leap_year[0],
                        dates_aggr[0] < pd.to_datetime(f'{startyear}-03-01')])
         # cross-year, dates between prior and after 03-01
+        # leap2yr = all([any(dates_aggr.is_leap_year),
+        #               any(dates_aggr < pd.to_datetime(f'{startyear+1}-03-01')),
+        #               dates_aggr[-1] > pd.to_datetime(f'{startyear+1}-03-01')])
         leap2yr = all([any(dates_aggr.is_leap_year),
-                       any(dates_aggr < pd.to_datetime(f'{startyear+1}-03-01')),
-                       dates_aggr[-1] > pd.to_datetime(f'{startyear+1}-03-01')])
+                       any(dates_aggr < pd.to_datetime(f'{startyear}-03-01')),
+                       dates_aggr[-1] > pd.to_datetime(f'{startyear}-03-01')])
 
 
         if leap1yr or leap2yr:
@@ -655,7 +648,8 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         # make cyclic around closed_end_date
        datesdt = start_yr.append(core_pp.make_dates(otheryrs, years[1:]))
     n_periods = int(datesdt.size / start_yr.size)
-    dateyrgroups = np.repeat(range(1,n_periods+1), start_yr.size)
+    traintestgroups = pd.Series(np.repeat(range(1,n_periods+1), start_yr.size),
+                             index=datesdt)
     #    n_yrs = datesdt.size / n_oneyr
     if verbosity==1:
         months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
@@ -671,9 +665,9 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
 
     if type(xr_or_dt) == type(xr.DataArray([0])):
         adj_xarray = xr_or_dt.sel(time=datesdt)
-        out = (adj_xarray, datesdt, dateyrgroups)
+        out = (adj_xarray, datesdt, traintestgroups)
     else:
-        out = (datesdt, dateyrgroups)
+        out = (datesdt, traintestgroups)
     #%%
     return out
 
@@ -703,6 +697,7 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
     if np.array(start_end_periods).shape == (2,):
         start_end_periods = np.array([start_end_periods])
 
+
     types = [type(xr.Dataset()), type(xr.DataArray([0])), type(pd.DataFrame([0]))]
 
     assert (type(xr_or_df) in types), ('{} given, should be in {}'.format(type(xr_or_df), types) )
@@ -722,9 +717,14 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
         xarray = xr_or_df
 
     date_time = pd.to_datetime(xarray['time'].values)
+    if start_end_year is None:
+        start_end_year = (date_time.year[0], date_time.year[-1])
+    offset_startyear = check_crossyr_periods(start_end_periods)
     xrgr = np.zeros(start_end_periods.shape[0], dtype=object)
     for i,p in enumerate(start_end_periods):
-        xrgr[i] = time_mean_single_period(xarray, p, start_end_year)
+        offset = offset_startyear[i]
+        s_e_y = (start_end_year[0]+offset, start_end_year[-1])
+        xrgr[i] = time_mean_single_period(xarray, p, s_e_y)
 
     xrgr = [x.expand_dims('lag', axis=1) for x in xrgr]
     xarray = xr.concat(xrgr, dim='lag')
@@ -769,6 +769,24 @@ def time_mean_single_period(xarray, period: tuple, start_end_year: tuple=None):
         xrgr = xarray.sel(time=dperiod) # No groupby mean needed
         xrgr['time'] = ('time', groups)
     return xrgr
+
+def check_crossyr_periods(start_end_periods):
+    ''' If some start_end_periods are cross yr, start year is aligned such that
+    all aggregations have same start year (startyr of data + 1) '''
+    offset_startyear = np.zeros(start_end_periods.shape[0], dtype=int)
+    crossyrlags = np.zeros(start_end_periods.shape[0], dtype=bool)
+    for i, p in enumerate(start_end_periods):
+        sd = pd.to_datetime(f'2000-'+p[0])
+        ed = pd.to_datetime(f'2000-'+p[-1])
+        crossyrlags[i] = sd > ed
+    if crossyrlags.all() and ~crossyrlags.any():
+        pass
+    if crossyrlags.any():
+        offset_startyear[~crossyrlags] = 1
+    else:
+        pass # or all crossyr or no crossyr at all.
+    return offset_startyear
+
 
 def extend_annual_ts(fullts, tfreq: int, start_end_TVdate: tuple,
                      start_end_date: tuple=None, ext_annual_to_mon=True):
@@ -1082,8 +1100,76 @@ def load_hdf5(path_data):
         assert c!= 5, print('loading in hdf5 failed')
     return dict_of_dfs
 
-def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
-                         kwrgs_events=None, verb=0):
+def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
+                     seed=None):
+
+    from func_models import get_cv_accounting_for_years
+    from sklearn.model_selection import KFold
+
+    if test_yrs is not None:
+        method = 'copied_from_import_ts'
+        kfold  = test_yrs.shape[0]
+
+    if traintestgroups is not None:
+        groups = traintestgroups
+        index = traintestgroups.index
+    else:
+        groups = RV_ts.index.year
+        index = RV_ts.index
+
+    uniqgroups = np.unique(groups)
+
+    if method == 'no_train_test_split' or method==False:
+        kfold = 1
+        testgroups = np.array([[]])
+    else:
+        kfold = int(method.split('_')[-1])
+        if method[:8] == 'ranstrat':
+            cv = get_cv_accounting_for_years(RV_ts, kfold, seed)
+            testgroups = cv.uniqgroups
+        elif method[:5] == 'leave':
+            n_splits = int(uniqgroups.size / int(method.split('_')[1]) )
+            cv = KFold(n_splits=n_splits, shuffle=False)
+            testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
+        elif method[:6] == 'random':
+            cv = KFold(n_splits=int(method.split('_')[-1]), shuffle=True)
+            testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
+
+
+    testsetidx = np.zeros(groups.size , dtype=int) ; testsetidx[:] = -999
+    for i, test_fold_idx in enumerate(testgroups):
+        # convert idx to grouplabel (year or dateyrgroup)
+        test_fold = [uniqgroups[i] for i in test_fold_idx]
+        for j, gr in enumerate(groups):
+            if gr in list(test_fold):
+                testsetidx[j] = i
+    TrainIsTrue = []
+    for i in np.unique(testsetidx):
+        # if -999, No Train Test split, all True
+        mask = np.logical_or(testsetidx!=i, testsetidx==-999)
+        TrainIsTrue.append(pd.DataFrame(data=mask.T,
+                                        columns=['TrainIsTrue'],
+                                        index=index))
+    df_TrainIsTrue = pd.concat(TrainIsTrue , axis=0, keys=range(kfold))
+    if traintestgroups is not None:
+        one_group = df_TrainIsTrue.loc[0][groups==groups[0]]
+        RV_mask = [True if d in RV_ts.index else False for d in list(one_group.index)]
+        RV_mask = np.stack([RV_mask]*uniqgroups.size, 0).flatten()
+    else:
+        RV_mask = np.ones(RV_ts.size, dtype=bool)
+    RV_mask = pd.concat([pd.DataFrame(RV_mask,
+                                   index=index,
+                                   columns=['RV_mask'])]*kfold,
+                        keys=range(kfold))
+    # weird pandas bug due to non-unique indices
+    RV_mask.index = df_TrainIsTrue.index
+    df_splits = df_TrainIsTrue.merge(RV_mask,
+                                     left_index=True, right_index=True)
+    return df_splits
+
+
+def rand_traintest_years(RV, traintestgroups=None, test_yrs=None, method=str,
+                         seed=None, kwrgs_events=None, verb=0):
     #%%
     '''
     possible method are:
@@ -1094,11 +1180,14 @@ def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
 
     if test_yrs are given, all arguments are overwritten and we return the samme
     train test masks that are in compliance with the test yrs
+
+    traintestgroups specify which adjecent dates should be kept together. If
+    target_ts is in DJF, then you don't want to split train-test based on years.
     '''
 
 
     RV_ts = RV.RV_ts
-    tested_yrs = [] ; # ex['n_events'] = []
+    tested_yrs = [] ;
     all_yrs = list(np.unique(RV_ts.index.year))
     n_yrs   = len(all_yrs)
 
@@ -1109,13 +1198,13 @@ def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
         if seed is None:
             seed = 1 # control reproducibility train/test split
         if method[:6] == 'random':
-            n_spl = int(method[6:8])
+            n_spl = int(method.split('_')[-1])
         else:
              n_spl = int(method[9:])
     elif method[:5] == 'leave':
         n_spl = int(n_yrs / int(method.split('_')[1]) )
         iterate = np.arange(0, n_yrs+1E-9,
-                            int(method.split('_')[1]), dtype=int )
+                            int(method.split('_')[1]), dtype=int)
     elif method == 'no_train_test_split' or method==False:
         n_spl = 1
 
@@ -1185,8 +1274,6 @@ def rand_traintest_years(RV, test_yrs=None, method=str, seed=None,
                 if s == 0:
                     size_test  = len(rand_test_years)
                 leave_n_years_out = len(test_yrs[s])
-
-
 
 
             # test duplicates
@@ -1290,13 +1377,42 @@ def check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed, s, count, se
 
 def get_testyrs(df_splits):
     #%%
-    traintest_yrs = []
-    splits = df_splits.index.levels[0]
-    for s in splits:
-        df_split = df_splits.loc[s]
-        test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
-        traintest_yrs.append(test_yrs)
-    return np.array(traintest_yrs)
+    if 'RV_mask' in df_splits.columns:
+        # check if not one-val-per-yr data
+        if df_splits.loc[0]['RV_mask'].all()==False:
+            dates = df_splits.loc[0].index
+            dates_RV = df_splits.loc[0][df_splits.loc[0]['RV_mask']].index
+            gapdays = (dates_RV[1:] - dates_RV[:-1]).days
+            adjecent_dates = gapdays > (np.median(gapdays)+gapdays/2)
+            RVgroupsize = np.argmax(adjecent_dates) + 1
+            closed_right = dates_RV[RVgroupsize-1]
+            onecyclicgroup = df_splits.loc[0].index[df_splits.loc[0].index <= closed_right]
+            traintestgroups = np.repeat(np.arange(1, int(dates.size/onecyclicgroup.size)+1),
+                                   onecyclicgroup.size)
+            uniqgroups = np.unique(traintestgroups)
+            test_yrs = [] ; testgroups = []
+            splits = df_splits.index.levels[0]
+            for s in splits:
+                df_split = df_splits.loc[s]
+                TrainIsTrue_s = df_split[df_split['TrainIsTrue']==False].index
+                groups_in_s = traintestgroups[(~df_split['TrainIsTrue']).values]
+                groupset = []
+                for gr in np.unique(groups_in_s):
+                    yrs = TrainIsTrue_s[groups_in_s==gr]
+                    yrs = np.unique(yrs.year)
+                    groupset.append(list(yrs))
+                test_yrs.append(groupset)
+                testgroups.append([list(uniqgroups).index(gr) for gr in np.unique(groups_in_s)])
+            out = (np.array(test_yrs), testgroups)
+    else:
+        traintest_yrs = []
+        splits = df_splits.index.levels[0]
+        for s in splits:
+            df_split = df_splits.loc[s]
+            test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
+            traintest_yrs.append(test_yrs)
+        out = (np.array(test_yrs))
+    return out
 
 def get_download_path():
     """Returns the default downloads path for linux or windows"""

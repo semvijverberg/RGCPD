@@ -339,13 +339,13 @@ def plot_importances(models_splits_lags, lag=0, keys=None, cutoff=6,
             ax.grid(which='both')
             ax.set_title(f"{df_all.columns.name}")
             # ax.barh(np.arange(df_r.size), df_r.squeeze().values, tick_label=df_r.columns)
-            ax.text(0.98, 0.03, f'lead time: {lag_d} days',
-                    fontsize=12,
-                    bbox=dict(boxstyle='round', facecolor='wheat',
-                              edgecolor='black', alpha=0.5),
-                horizontalalignment='right',
-                verticalalignment='top',
-                transform=ax.transAxes)
+            # ax.text(0.98, 0.03, f'lead time: {lag_d} days',
+            #         fontsize=12,
+            #         bbox=dict(boxstyle='round', facecolor='wheat',
+            #                   edgecolor='black', alpha=0.5),
+            #     horizontalalignment='right',
+            #     verticalalignment='top',
+            #     transform=ax.transAxes)
             lim = df_r.apply(abs).max().max()
             lim = lim + .1*lim
             ax.set_xlim((-lim,lim))
@@ -420,31 +420,34 @@ def _get_importances(models_splits_lags, lag=0):
     get feature importance for single lag
     '''
 
-    models_splits = models_splits_lags[f'lag_{lag}']
+    models_splits = models_splits_lags[f'lag_{lag}'].copy()
     splits = np.arange(len(models_splits_lags[f'lag_{lag}']))
     feature_importances = {}
 
-
-    # if keys is None:
+    # unpack model
     keys = set()
-    [keys.update(list(r.X_pred.columns)) for k, r in models_splits.items()]
+    for splitkey, model in models_splits.items():
+        if hasattr(model, 'scikitmodel'):
+            model = model.scikitmodel # scikitmodel wrapper
+        if hasattr(model, 'best_estimator_'): # GridSearchCV instance
+            model = model.best_estimator_
+        models_splits[splitkey] = model # unpacked model
+        keys.update(list(model.X_pred.columns))
+
     masks = ['TrainIsTrue', 'x_fit', 'x_pred', 'y_fit', 'y_pred']
     keys = [k for k in keys if k not in masks]
     tuples_multiindex = []
     for i, k in enumerate(keys):
         np_import = np.zeros( (splits.size))
-        for splitkey, regressor in models_splits.items():
+        for splitkey, model in models_splits.items():
             s = int(splitkey.split('_')[1])
-            keys_s = list(regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)])
-            if hasattr(regressor, 'feature_importances_'): # for GBR
+            keys_s = list(model.X_pred.columns[(model.X_pred.dtypes != bool)])
+            if hasattr(model, 'feature_importances_'): # for GBR
                 name_values = 'Relative Feature Importance'
-                importances = regressor.feature_importances_
-            elif hasattr(regressor, 'coef_'):
+                importances = model.feature_importances_
+            elif hasattr(model, 'coef_'):
                 name_values = 'Coefficients'
-                if regressor.__class__ == LogisticRegressionCV:
-                    importances = regressor.coef_.squeeze(0)
-                if regressor.__class__ == RidgeCV: # for Ridge
-                    importances = regressor.coef_.squeeze()
+                importances = model.coef_
 
             if k not in feature_importances.keys():
                 feature_importances[k] = []

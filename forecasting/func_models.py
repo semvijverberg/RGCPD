@@ -22,7 +22,7 @@ from sklearn import preprocessing
 import functions_pp
 
 def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
-                                seed: int=1):
+                                seed: int=1, groups=None):
     '''
     Train-test split that gives priority to keep data of same year as blocks,
     datapoints of same year are very much not i.i.d. and should be seperated.
@@ -43,8 +43,17 @@ def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
     cv : sk-learn cross-validation generator
 
     '''
+    if groups is None:
+        # find where there is a gap in time, indication of seperate RV period
+        gapdays = (y_train.index[1:] - y_train.index[:-1]).days
+        adjecent_dates = gapdays > (np.median(gapdays)+gapdays/2)
+        n_gr = gapdays[gapdays > (np.median(gapdays)+gapdays/2)].size + 1
+        dategroupsize = np.argmax(adjecent_dates) + 1
+        groups = np.repeat(np.arange(0,n_gr), dategroupsize)
+        if groups.size != y_train.size: # else revert to keeping years together
+            groups = y_train.index.year
 
-    freq = y_train.groupby(y_train.index.year).sum()
+    freq = y_train.groupby(groups).sum()
     freq = (freq > freq.mean()).astype(int)
 
     all_years = np.unique(freq.index)
@@ -54,17 +63,18 @@ def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
 
     cv_strat = StratifiedKFold(n_splits=kfold, shuffle=True,
                                random_state=seed)
-    test_yrs = []
+    test_gr = []
     for i, j in cv_strat.split(X=freq.index, y=freq.values):
-        test_yrs.append(freq.index[j].values)
+        test_gr.append(freq.index[j].values)
 
     label_test = np.zeros( y_train.size , dtype=int)
-    for i, test_fold in enumerate(test_yrs):
-        for j, yr in enumerate(y_train.index.year):
-            if yr in list(test_fold):
+    for i, test_fold in enumerate(test_gr):
+        for j, gr in enumerate(groups):
+            if gr in list(test_fold):
                 label_test[j] = i
 
     cv = PredefinedSplit(label_test)
+    cv.uniqgroups = test_gr
     return cv
 
 def feature_selection(X_train, y_train, model='logitCV', scoring='brier_score_loss', folds=5,
@@ -381,7 +391,7 @@ def get_scores(prediction, df_splits, score_func_list: list=None,
             for f in score_func_list:
                 name = f.__name__
                 train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].loc[:,col])
-                if score_per_test:
+                if score_per_test and testRV.any():
                     test_score = f(sp[testRV].iloc[:,0], sp[testRV].loc[:,col])
                 else:
                     test_score = np.nan
@@ -396,11 +406,12 @@ def get_scores(prediction, df_splits, score_func_list: list=None,
 
     # score on complete test
     df_tests = np.zeros( (columns.size), dtype=object)
-    if testRV.all(): # ensure test data is available
+    pred_test = functions_pp.get_df_test(pred).iloc[:,:-2]
+    if pred_test.size != 0 : # ensure test data is available
         for c, col in enumerate(columns):
             df_test = pd.DataFrame(np.zeros( (1,len(score_func_list))),
                                     columns=[f.__name__ for f in score_func_list])
-            pred_test = functions_pp.get_df_test(pred).iloc[:,:-2]
+
             for f in score_func_list:
                 name = f.__name__
                 y_true = pred_test.iloc[:,0]

@@ -30,13 +30,12 @@ class BivariateMI:
 
     def __init__(self, name, func=None, kwrgs_func={}, alpha: float=0.05,
                  FDR_control: bool=True, lags=np.array([1]),
-                 lag_as_gap: bool=False,
-                 lagasmonthint: bool=False, distance_eps: int=400,
-                 group_lag: bool=False, group_split=True,
-                 min_area_in_degrees2=3, calc_ts='region mean',
+                 lag_as_gap: bool=False, distance_eps: int=400,
+                 min_area_in_degrees2=3, group_lag: bool=False,
+                 group_split : bool=True, calc_ts='region mean',
                  selbox: tuple=None, use_sign_pattern: bool=False,
                  use_coef_wghts: bool=True, path_hashfile: str=None,
-                 hash_str: str=None, verbosity=1):
+                 hash_str: str=None, dailytomonths: bool=False, verbosity=1):
         '''
 
         Parameters
@@ -52,14 +51,9 @@ class BivariateMI:
             significance threshold
         FDR_control: bool, optional
             Control for multiple hypothesis testing
-        lags : np.ndarray of int or str, optional
+        lags : np.ndarray, optional
             lag w.r.t. the the target variable at which to calculate the MI.
             The default is np.array([1]).
-            If npdarray is filled with list of strings (of intergers), it is
-            decomposed into integers referring to the month, i.e.
-            np.array(['123']) is decomposed into month Jan, Feb, Mar of which
-            a mean will be calculated. Works only if your target has one
-            value per year.
         lag_as_gap : bool, optional
             Interpret the lag as days in between last day of precursor
             aggregation window and first day of target window.
@@ -74,8 +68,8 @@ class BivariateMI:
             propotional to the average size of 1 by 1 degree gridcell.
             The default is 400.
         group_split : str, optional
-            Choose 'together' or 'seperate'. If 'together', then region labels
-            will be equal between different train test splits.
+            If True, then region labels will be equal between different train test splits.
+            If False, splits will clustered separately.
             The default is 'together'.
         calc_ts : str, optional
             Choose 'region mean' or 'pattern cov'. If 'region mean', a
@@ -91,6 +85,9 @@ class BivariateMI:
         use_coef_wghts : bool, optional
             When True, using (corr) coefficient values as weights when calculating
             spatial mean. (will always be area weighted).
+        dailytomonths : bool, optional
+            When True, the daily input data will be aggregated to monthly data,
+            subsequently, the pre-processing steps are performed (detrend/anomaly).
         verbosity : int, optional
             Not used atm. The default is 1.
 
@@ -115,13 +112,16 @@ class BivariateMI:
         self.selbox = selbox
         self.use_sign_pattern = use_sign_pattern
         self.use_coef_wghts = use_coef_wghts
+        if type(lags) is np.ndarray and type(lags[0]) is not np.ndarray:
+            lags = np.array(lags, dtype=np.int16) # fix dtype
+            self.lag_coordname = lags
+        else:
+            self.lag_coordname = np.arange(len(lags)) # for period_means
         self.lags = lags
         self.lag_as_gap = lag_as_gap
-        if type(self.lags[0]) == np.str_:
-            self.dailytomonths=True
-        else:
-            self.dailytomonths=False
-            # after which means over month(s) can be calculated
+
+        self.dailytomonths = dailytomonths
+
         # cluster_DBSCAN_regions
         self.distance_eps = distance_eps
         self.min_area_in_degrees2 = min_area_in_degrees2
@@ -151,17 +151,24 @@ class BivariateMI:
 
         n_lags = len(self.lags)
         lags = self.lags
+        self.df_splits = df_splits # add df_splits to self
+        dates = self.df_splits.loc[0].index
+
         targetstepsoneyr = functions_pp.get_oneyr(RV.RV_ts)
         if type(self.lags[0]) == np.ndarray and targetstepsoneyr.size>1:
             raise ValueError('Precursor and Target do not align.\n'
                              'One aggregated value taken for months '
                              f'{self.lags[0]}, while target timeseries has '
                              f'multiple timesteps per year:\n{targetstepsoneyr}')
-        self.df_splits = df_splits # add df_splits to self
-        dates = self.df_splits.loc[0].index
-        dates = dates[~dates.is_leap_year]
+        yrs_precur_arr = np.unique(precur_arr.time.dt.year)
+        if np.unique(dates.year).size != yrs_precur_arr.size:
+            raise ValueError('Numer of years between precursor and Target '
+                             'not match. Check if precursor period is crossyr, '
+                             'while target period is not. '
+                             'Mannually ensure start_end_year is aligned.')
+
         oneyr = functions_pp.get_oneyr(dates)
-        if oneyr.size == 1: # single val per year precursor, lag str or ==0.
+        if oneyr.size == 1: # single val per year precursor
             self._tfreq = 365
         else:
             self._tfreq = (oneyr[1] - oneyr[0]).days
@@ -174,7 +181,7 @@ class BivariateMI:
             # add lags
             list_xr = [xrcorr.expand_dims('lag', axis=0) for i in range(n_lags)]
             xrcorr = xr.concat(list_xr, dim = 'lag')
-            xrcorr['lag'] = ('lag', lags)
+            xrcorr['lag'] = ('lag', self.lag_coordname)
         # add train test split
         list_xr = [xrcorr.expand_dims('split', axis=0) for i in range(n_spl)]
         xrcorr = xr.concat(list_xr, dim = 'split')
@@ -193,14 +200,14 @@ class BivariateMI:
 
             dates_RV = RV_ts.index
             for i, lag in enumerate(lags):
-                if type(lag) == np.int64 and self.lag_as_gap==False:
+                if type(lag) is np.int16 and self.lag_as_gap==False:
                     # dates_lag = functions_pp.func_dates_min_lag(dates_RV, self._tfreq*lag)[1]
                     m = apply_shift_lag(self.df_splits.loc[s], lag)
                     dates_lag = m[np.logical_and(m['TrainIsTrue'], m['x_fit'])].index
                     corr_val, pval = self.func(precur_train.sel(time=dates_lag),
                                                RV_ts.values.squeeze(),
                                                **self.kwrgs_func)
-                elif type(lag) == np.int64 and self.lag_as_gap==True:
+                elif type(lag) == np.int16 and self.lag_as_gap==True:
                     # if only shift tfreq, then gap=0
                     datesdaily = RV.aggr_to_daily_dates(dates_RV, tfreq=self._tfreq)
                     dates_lag = functions_pp.func_dates_min_lag(datesdaily,
@@ -211,16 +218,6 @@ class BivariateMI:
                                                            to_freq=self._tfreq)[0],
                                                RV_ts.values.squeeze(),
                                                **self.kwrgs_func)
-                # elif type(lag) == np.str_: # aggr. over list of months
-                #     months = [int(l) for l in lag.split('.')[:-1]]
-                #     precur_lag = precur_train.sel(time=
-                #                                 np.in1d( precur_train['time.month'],
-                #                                 months))
-                #     precur_lag = precur_train.groupby('time.year',
-                #                                 restore_coord_dims=True).mean()
-                #     corr_val, pval = self.func(precur_lag,
-                #                                RV_ts.values.squeeze(),
-                #                                **self.kwrgs_func)
                 elif type(lag) == np.ndarray:
                     corr_val, pval = self.func(precur_train.sel(lag=i),
                                                RV_ts.values.squeeze(),
@@ -266,7 +263,7 @@ class BivariateMI:
                 train_dates = df_splits.loc[s]['TrainIsTrue'][TrainIsTrue].index
                 precur_train = precur_arr.sel(time=train_dates)
             else:
-                precur_train = precur_arr[TrainIsTrue] # train dates, seems identical
+                precur_train = precur_arr[TrainIsTrue] # only train data
 
             dates_RV = RV_ts.index
             n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
@@ -288,6 +285,8 @@ class BivariateMI:
         xrcorr['mask'] = xrcorr['mask'].where(orig_mask==False, other=orig_mask).drop('time')
         #%%
         return xrcorr, xrpvals
+
+    # def check_exception_time_mean_period(df_splits, precur_train)
 
     def adjust_significance_threshold(self, alpha):
         self.alpha = alpha

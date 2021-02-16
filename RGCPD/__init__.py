@@ -25,6 +25,7 @@ from df_ana_class import DFA
 
 
 
+
 __version__ = '0.1'
 
 __author__ = 'Sem Vijverberg '

@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import functions_pp
 import plot_maps
 import find_precursors
+import core_pp
 from class_RV import RV_class
 from class_EOF import EOF
 from class_BivariateMI import BivariateMI
@@ -68,52 +69,55 @@ class RGCPD:
         Class to study teleconnections of a Response Variable* of interest.
 
         Methods to extract teleconnections/precursors:
-            - BivariateMI (now only supporting correlation maps)
+            - BivariateMI (supporting (partial) correlation maps)
             - EOF analysis
 
         BivariateMI (MI = Mutual Information) is class which allows for a
         statistical test in the form:
         MI(lon,lat) = for gc in map: func(x(t), y(t)),
         where map is a (time,lon,lat) map and gc stands for each gridcell/coordinate
-        in that map. The y is always the same 1-dimensional timeseries of interest
-        (i.e. the Response Variable). At this point, only supports the
+        in that map. The y timeseries is always the same 1-dimensional timeseries of
+        interest (i.e. the Response Variable). At this point, only supports the
         correlation analysis. Once the significance is attributed, it is stored
         in the MI map. Precursor regions are found by clustering the
         significantly (correlating) gridcells (+ and - regions are separated)
-        and extract their spatial mean timeseries.
+        and extract their spatial mean (or spatial covariance) timeseries.
 
         *Sometimes Response Variable is also called Target Variable.
 
         Parameters
         ----------
         list_of_name_path : list, optional
-            list of (name, path) tuples defining the input data (.nc).
+            list of (name, path) tuples defining the input data.
 
             Convention: first entry should be (name, path) of target variable (TV).
             e.g. list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
 
-            'prec_name' is a string/key that can be chosen freely, does not have to refer
-            to the variable in the .nc file.
+            TVpath input data supports .nc/.h5 or .csv file format.
+            if using output of the clustering:
+                'TVname' should refer the name
+                you have given the timeseries on the dimesion 'cluster', i.e.
+                xrTV.sel(cluster=TVname)
+            elif using .h5 the index should contain a datetime axis.
+            elif using .csv the first columns should be [year, month, day, value]
+
+
+            prec_path input data supports only .nc
+            'prec_name' is a string/key that can be chosen freely, does not have
+            to refer to the variable in the .nc file.
             Each prec_path .nc file should contain only a single variable
             of format (time, lat, lon).
-            'TVname' should refer the name you have given the timeseries on
-            the dimesion 'cluster', i.e. xrTV.sel(cluster=TVname)
-            The TVpath Netcdf file assumes that it contains a xr.DataArray
-            called xrclustered containing a spatial map with clustered regions.
-            It must contain an xr.DataArray which contains timeseries for each
-            cluster. See RGCPD.pp_TV().
-
         list_for_EOFS : list, optional
             list of EOF classes, see docs EOF?
         list_import_ts : list, optional
             Load in precursor 1-d timeseries in format:
-                          [(name1, path_to_h5_file1), [(name2, path_to_h5_file2)]]
-                          precursor_ts should follow the RGCPD traintest format
+            [(name1, path_to_h5_file1), [(name2, path_to_h5_file2)]]
+            precursor_ts can handle the RGCPD cross-validation format.
         start_end_TVdate : tuple, optional
             tuple of start- and enddate for target variable in
             format ('mm-dd', 'mm-dd').
         tfreq : int, optional
-            The default is 10.
+            The default is 10, if using time_mean_periods, tfreq should be None.
         start_end_date : tuple, optional
             tuple of start- and enddate for data to load in
             format ('mm-dd', 'mm-dd'). default is ('01-01' - '12-31')
@@ -202,30 +206,9 @@ class RGCPD:
             for precur in self.list_for_MI:
                 precur.filepath = [l for l in self.list_precur_pp if l[0]==precur.name][0][1]
 
-    def get_clust(self, name_ds='ts'):
-        f = functions_pp
-        self.df_clust, self.ds = f.nc_xr_ts_to_df(self.list_of_name_path[0][1],
-                                                  name_ds=name_ds)
-
-    def apply_df_ana_plot(self, df=None, name_ds='ts', func=None, kwrgs_func={},
-                          colwrap=2):
-        if df is None:
-            self.get_clust(name_ds=name_ds)
-            df = self.df_clust
-        if func is None:
-            func = df_ana.plot_ac ; kwrgs_func = {'AUC_cutoff':(14,30),'s':60}
-        return df_ana.loop_df(df, function=func, sharex=False,
-                             colwrap=colwrap, hspace=.5, kwrgs=kwrgs_func)
-
-    def plot_df_clust(self, save=False):
-        self.get_clust()
-        plot_maps.plot_labels(self.ds['xrclustered'])
-        if save and hasattr(self, 'path_sub1'):
-            fig_path = os.path.join(self.path_outsub1, 'RV_clusters')
-            plt.savefig(fig_path+self.figext, bbox_inches='tight')
-
-    def pp_TV(self, name_ds='ts', loadleap=False, detrend=False, anomaly=False,
-              ext_annual_to_mon: bool=True, TVdates_aggr: bool=False):
+    def pp_TV(self, name_ds='ts', detrend=False, anomaly=False,
+              kwrgs_core_pp_time: dict={}, ext_annual_to_mon: bool=True,
+              TVdates_aggr: bool=False):
         '''
         Load and pre-process target variable/response variable.
 
@@ -233,22 +216,32 @@ class RGCPD:
         ----------
         name_ds : str, optional
             name of 1-d timeseries in .nc file. The default is 'ts'.
-        loadleap : bool, optional
-            The default is False.
         detrend : bool, optional
             linear detrend. The default is False.
         anomaly : bool, optional
             calculate anomaly verus climatology. The default is False.
+        kwrgs_core_pp_time: dict, {}
+            see xr_core_pp_time? for optional arguments
+            - start_end_year selection is done prior to detrend & anomoly.
         ext_annual_to_mon : bool, optional
             if tfreq is None and target variable contain one-value-per-year,
             the target is extended to match the percursor time-axis.
             If precursors are monthly means, then the the target is also extended
             to monthly values, else daily values. Both are then aggregated to
             {tfreq} day/monthly means.  The default is True.
+        TVdates_aggr : bool, optional
+            If True, set rg.tfreq to None. Target Variable will be aggregated
+            to a single-value-per-year "period mean". start_end_TVdate defines
+            the period to aggregate over.
 
         Returns
         -------
-        1-d xarray and other stuff.
+        fulltso: the original 1-d timeseries
+        fullts: the pre-processed 1-d timeseries
+        TV_ts: the pre-processed 1-d timeseries within target period
+        dates_all: all dates of fullts
+        dates_TV: all dates of TV_ts
+
 
         '''
         self.name_TVds = name_ds
@@ -256,9 +249,9 @@ class RGCPD:
         self.RV_detrend = detrend
         f = functions_pp
         self.fulltso, self.hash = f.load_TV(self.list_of_name_path,
-                                            loadleap=loadleap,
-                                            start_end_year=self.start_end_year,
                                             name_ds=self.name_TVds)
+        from core_pp import xr_core_pp_time
+        self.fulltso = xr_core_pp_time(self.fulltso, **kwrgs_core_pp_time)
         out = f.process_TV(self.fulltso,
                             tfreq=self.tfreq,
                             start_end_TVdate=self.start_end_TVdate,
@@ -268,47 +261,43 @@ class RGCPD:
                             RV_anomaly=self.RV_anomaly,
                             ext_annual_to_mon=ext_annual_to_mon,
                             TVdates_aggr=TVdates_aggr)
-        self.fullts, self.TV_ts, inf, start_end_TVdate = out
+        self.fullts, self.TV_ts, inf, self.traintestgroups = out
 
         self.input_freq = inf
         self.dates_or  = pd.to_datetime(self.fulltso.time.values)
         self.dates_all = pd.to_datetime(self.fullts.time.values)
         self.dates_TV = pd.to_datetime(self.TV_ts.time.values)
-        # Store added information in RV class to the exp dictionary
-        # if self.start_end_date is None and self.input_freq == 'annual':
-        #     self.start_end_date = self.start_end_TVdate
-        if self.start_end_date is None and self.input_freq != 'annual':
-            self.start_end_date = ('{}-{}'.format(self.dates_or.month[0],
-                                                 self.dates_or[0].day),
-                                '{}-{}'.format(self.dates_or.month[-1],
-                                                 self.dates_or[-1].day))
+        # if self.start_end_date is None and self.input_freq != 'annual':
+        #     self.start_end_date = ('{}-{}'.format(self.dates_or.month[0],
+        #                                          self.dates_or[0].day),
+        #                            '{}-{}'.format(self.dates_or.month[-1],
+        #                                          self.dates_or[-1].day))
         if self.start_end_year is None:
             self.start_end_year = (self.dates_or.year[0],
                                    self.dates_or.year[-1])
 
 
-    def traintest(self, method: str=None, seed=1,
+    def traintest(self, method: Union[str, bool]=None, seed=1,
                   kwrgs_events=None, subfoldername=None):
         ''' Splits the training and test dates, either via cross-validation or
         via a simple single split.
-        agrs:
-        'method'        : str referring to method to split train test, see
-                          options for method below.
-        seed            : the seed to draw random samples for train test split
-        kwrgs_events    : dict needed to create binary event timeseries, which
-                          is used to create stratified folds.
-                          See func_fc.Ev_timeseries? for more info.
+
+        method : str or bool, optional
+            Referring to method to split train test, see options for method below.
+            default is False.
+        seed : int, optional
+            The seed to draw random samples for train test split, default is 1.
+        kwrgs_events : dict, optional
+            Kwrgs needed to create binary event timeseries, which was used to
+            create stratified folds. See func_fc.Ev_timeseries? for more info.
 
         Options for method:
-        (1) random{int}   :   with the int(ex['method'][6:8]) determining the amount of folds
-        (2) ran_strat{int}:   random stratified folds, stratified based upon events,
+        (1) random_{int}   :   with the int(ex['method'][6:8]) determining the amount of folds
+        (2) ranstrat_{int}:   random stratified folds, stratified based upon events,
                               requires kwrgs_events.
         (3) leave_{int}    :   chronologically split train and test years.
-        (4) split{int}    :   split dataset into single train and test set
+        (4) split_{int}    :   (should be updated) split dataset into single train and test set
         (5) no_train_test_split or False
-        # Extra: RV events settings are needed to make balanced traintest splits
-        Returns panda dataframe with traintest mask and Target variable mask
-        concomitant to each split.
         '''
 
         if method is None or method is False:
@@ -319,9 +308,10 @@ class RGCPD:
                     precursor_ts=self.list_import_ts)
 
         self.TV, self.df_splits = RV_and_traintest(self.fullts,
-                                              self.TV_ts,
-                                              verbosity=self.verbosity,
-                                              **self.kwrgs_TV)
+                                                   self.TV_ts,
+                                                   self.traintestgroups,
+                                                   verbosity=self.verbosity,
+                                                   **self.kwrgs_TV)
         self.n_spl = self.df_splits.index.levels[0].size
         if subfoldername is None:
             RV_name_range = '{}-{}_'.format(*list(self.start_end_TVdate))
@@ -338,8 +328,6 @@ class RGCPD:
         if self.save and os.path.isdir(self.path_outsub1)==False:
             os.makedirs(self.path_outsub1)
 
-
-
     def calc_corr_maps(self, var: Union[str, list]=None):
 
         if var is None:
@@ -347,15 +335,12 @@ class RGCPD:
                 var = [var]
             var = [MI.name for MI in self.list_for_MI]
         kwrgs_load = self.kwrgs_load
-        # self.list_for_MI = []
         for precur in self.list_for_MI:
             if precur.name in var:
                 find_precursors.calculate_region_maps(precur,
                                                       self.TV,
                                                       self.df_splits,
                                                       kwrgs_load)
-
-            # self.list_for_MI.append(precur)
 
     def cluster_list_MI(self, var: Union[str, list]=None):
         if var is None:
@@ -368,7 +353,6 @@ class RGCPD:
                     precur = find_precursors.cluster_DBSCAN_regions(precur)
                 else:
                     print(f'No MI map available for {precur.name}')
-
 
     def get_EOFs(self):
         for i, e_class in enumerate(self.list_for_EOFS):
@@ -427,7 +411,8 @@ class RGCPD:
                                                 RV_detrend=self.RV_detrend,
                                                 RV_anomaly=self.RV_anomaly)[:2]
             TV, df_splits = RV_and_traintest(self.fullts,
-                                             self.TV_ts, **self.kwrgs_TV)
+                                             self.TV_ts,
+                                             self.traintestgroups, **self.kwrgs_TV)
         else:
             # use original TV timeseries
             start_end_TVdate = self.start_end_TVdate
@@ -453,8 +438,8 @@ class RGCPD:
                 any_MI_ts = (~np.equal(check_ts, 0)).any() # ts_corr.size != 0?
                 if any_MI_ts:
                     df_data_MI = find_precursors.df_data_prec_regs(self.list_for_MI,
-                                                                     TV,
-                                                                     df_splits)
+                                                                   TV,
+                                                                   df_splits)
                     self.df_data = self.df_data.merge(df_data_MI, left_index=True,
                                                       right_index=True)
                 else:
@@ -471,7 +456,8 @@ class RGCPD:
                                                   cols=keys_ext,
                                                   precur_aggr=self.precur_aggr,
                                                   closed_on_date=start_end_TVdate[-1])
-            self.df_data = self.df_data.merge(self.df_data_ext, left_index=True, right_index=True)
+            self.df_data = self.df_data.merge(self.df_data_ext,
+                                              left_index=True, right_index=True)
 
 
         # Append (or only load) EOF timeseries
@@ -506,7 +492,7 @@ class RGCPD:
 
     def merge_df_on_df_data(self, df, columns: list=None):
         '''
-        Merges self.df_data with given df[columns]. Ensure that first column
+        Merges self.df_data with given df[columns]. Ensures that first column
         remains target var and last (two) column(s) are TrainIsTrue, (RV_mask).
         self.df_data and df must be on same time axis.
 
@@ -744,6 +730,28 @@ class RGCPD:
         print('Data stored in \n{}'.format(filename+'.h5'))
         self.path_df_data = filename
 
+    def get_clust(self, name_ds='ts'):
+        f = functions_pp
+        self.df_clust, self.ds = f.nc_xr_ts_to_df(self.list_of_name_path[0][1],
+                                                  name_ds=name_ds)
+
+    def apply_df_ana_plot(self, df=None, name_ds='ts', func=None, kwrgs_func={},
+                          colwrap=2):
+        if df is None:
+            self.get_clust(name_ds=name_ds)
+            df = self.df_clust
+        if func is None:
+            func = df_ana.plot_ac ; kwrgs_func = {'AUC_cutoff':(14,30),'s':60}
+        return df_ana.loop_df(df, function=func, sharex=False,
+                             colwrap=colwrap, hspace=.5, kwrgs=kwrgs_func)
+
+    def plot_df_clust(self, save=False):
+        self.get_clust()
+        plot_maps.plot_labels(self.ds['xrclustered'])
+        if save and hasattr(self, 'path_sub1'):
+            fig_path = os.path.join(self.path_outsub1, 'RV_clusters')
+            plt.savefig(fig_path+self.figext, bbox_inches='tight')
+
     def quick_view_labels(self, var=None, mean=True, save=False,
                           kwrgs_plot: dict={}, min_detect_gc: float=.5,
                           append_str: str=None, region_labels=None,
@@ -896,10 +904,6 @@ class RGCPD:
                       cols: List=['corr', 'C.D.'], save: bool=False,
                       kwrgs_plot={}):
 
-#         if map_proj is None:
-#             central_lon_plots = 200
-#             map_proj = ccrs.LambertCylindrical(central_longitude=central_lon_plots)
-
         if figpath is None:
             figpath = self.path_outsub1
         if paramsstr is None:
@@ -943,13 +947,27 @@ class RGCPD:
     #%%
         if df_splits is None:
             df_splits = self.df_splits
-        traintest_yrs = []
-        splits = df_splits.index.levels[0]
-        for s in splits:
-            df_split = df_splits.loc[s]
-            test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
-            traintest_yrs.append(test_yrs)
-        return traintest_yrs
+        return functions_pp.get_testyrs(df_splits)
+
+    def transform_df_data(self, df_data: pd.DataFrame=None, transformer=None,
+                          keys : list=None):
+        if df_data is None:
+            df_data = self.df_data.copy()
+        if transformer is None:
+            transformer = fc_utils.standardize_on_train_and_RV
+        if keys is None:
+            keys = [k for k in df_data.columns if k not in ['RV_mask', 'TrainIsTrue']]
+        df_trans = np.zeros( self.n_spl, dtype=object)
+        for s in range(self.n_spl):
+            df_s = df_data.loc[s]
+            if transformer.__name__ == 'standardize_on_train_and_RV':
+                df_trans[s] = df_s[keys].apply(fc_utils.standardize_on_train_and_RV,
+                              args=[df_s[['RV_mask', 'TrainIsTrue']], 0])
+
+            else:
+                df_trans[s] = df_s[keys].apply(transformer,
+                                          args=[df_s['TrainIsTrue']])
+        return pd.concat(df_trans, keys=range(self.n_spl))
 
     def fit_df_data_ridge(self,
                           df_data: pd.DataFrame=None,
@@ -1091,10 +1109,10 @@ class RGCPD:
 
 
 
-def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=None,
-                     seed=int, verbosity=1): #, method=str, kwrgs_events=None, precursor_ts=None, seed=int, verbosity=1
-
-
+def RV_and_traintest(fullts, TV_ts, traintestgroups, method=str, kwrgs_events=None,
+                     precursor_ts=None, seed: int=1, verbosity=1):
+    # fullts = rg.fullts ; TV_ts = rg.TV_ts
+    # method='random_10'; kwrgs_events=None; precursor_ts=None; seed=1; verbosity=1
 
     # Define traintest:
     df_fullts = pd.DataFrame(fullts.values,
@@ -1124,25 +1142,26 @@ def RV_and_traintest(fullts, TV_ts, method=str, kwrgs_events=None, precursor_ts=
                         kwrgs_events['event_percentile']))
 
     TV = RV_class(df_fullts, df_RV_ts, kwrgs_events)
-
+    # TV.traintestgroups = traintestgroups
 
 
     if method == 'from_import':
         df_splits = functions_pp.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
         test_yrs_imp  = functions_pp.get_testyrs(df_splits)
-        df_splits = functions_pp.rand_traintest_years(TV, test_yrs=test_yrs_imp,
-                                                        method=method,
-                                                        seed=seed,
-                                                        kwrgs_events=kwrgs_events,
-                                                        verb=verbosity)
+        df_splits = functions_pp.rand_traintest_years(TV,
+                                                      test_yrs=test_yrs_imp,
+                                                      method=method,
+                                                      seed=seed,
+                                                      kwrgs_events=kwrgs_events,
+                                                      verb=verbosity)
         test_yrs_set  = functions_pp.get_testyrs(df_splits)
         assert (np.equal(test_yrs_imp, test_yrs_set)).all(), "Train test split not equal"
 
     if method != 'from_import':
-        df_splits = functions_pp.rand_traintest_years(TV, method=method,
-                                                        seed=seed,
-                                                        kwrgs_events=kwrgs_events,
-                                                        verb=verbosity)
+        df_splits = functions_pp.cross_validation(df_RV_ts,
+                                                  traintestgroups=traintestgroups,
+                                                  method=method,
+                                                  seed=seed)
     TV.method = method
     TV.seed   = seed
     return TV, df_splits

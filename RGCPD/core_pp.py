@@ -42,7 +42,7 @@ def get_oneyr(dt_pdf_pds_xr, *args):
 
 
 
-def import_ds_lazy(filename, loadleap=False,
+def import_ds_lazy(filepath, loadleap: bool=False,
                    seldates: Union[tuple, pd.DatetimeIndex]=None,
                    start_end_year: tuple=None, selbox: Union[list, tuple]=None,
                    format_lon='only_east', var=None, auto_detect_mask: bool=False,
@@ -52,14 +52,22 @@ def import_ds_lazy(filename, loadleap=False,
 
     Parameters
     ----------
-    filename : TYPE
+    filepath : TYPE
         DESCRIPTION.
-    loadleap : TYPE, optional
-        DESCRIPTION. The default is False.
-    seldates : Union[tuple, pd.core.indexes.datetimes.DatetimeIndex], optional
-        DESCRIPTION. The default is None.
+    seldates: tuple, pd.DatetimeIndex, optional
+        default is None.
+        if type is tuple: selecting data that fits within start- and enddate,
+        format ('mm-dd', 'mm-dd'). default is ('01-01' - '12-31')
+        if type is pd.DatetimeIndex: select that exact timeindex with
+        xarray.sel(time=seldates)
+        Default is None.
     start_end_year : tuple, optional
-        DESCRIPTION. The default is None.
+        default is to load all years
+    loadleap : bool, optional
+        If True also loads the 29-02 leapdays. The default is False.
+    dailytomonths: bool, optional
+        When True, the daily input data will be aggregated to monthly data.
+        Default is False.
     selbox : Union[list, tuple], optional
         selbox assumes [lowest_east_lon, highest_east_lon, south_lat, north_lat].
         The default is None.
@@ -69,9 +77,6 @@ def import_ds_lazy(filename, loadleap=False,
         variable name. The default is None.
     auto_detect_mask : bool, optional
         Detect mask based on NaNs. The default is False.
-    dailytomonths : bool, optional
-        aggregate to monthly, tfreq is then considered {tfreq} monthly means.
-        The default is False.
     verbosity : TYPE, optional
         DESCRIPTION. The default is 0.
 
@@ -83,7 +88,7 @@ def import_ds_lazy(filename, loadleap=False,
     '''
 
 
-    ds = xr.open_dataset(filename, decode_cf=True, decode_coords=True, decode_times=False)
+    ds = xr.open_dataset(filepath, decode_cf=True, decode_coords=True, decode_times=False)
 
     if len(ds.dims.keys()) > 1: # more then 1-d
         multi_dims = True
@@ -111,22 +116,8 @@ def import_ds_lazy(filename, loadleap=False,
     if 'time' in ds.squeeze().dims:
         ds = ds_num2date(ds, loadleap=loadleap)
 
-        if type(seldates) is tuple or start_end_year is not None and seldates is None:
-            pddates = get_subdates(dates=pd.to_datetime(ds.time.values),
-                                   start_end_date=seldates,
-                                   start_end_year=start_end_year,
-                                   lpyr=loadleap)
-            ds = ds.sel(time=pddates)
-        elif type(seldates) is pd.DatetimeIndex:
-            # seldates are pd.DatetimeIndex
-            ds = ds.sel(time=seldates)
-        if dailytomonths:
-            # resample annoying replaces datetimes between date gaps, dropna().
-            ds = ds.resample(time='1M', skipna=True,
-                             restore_coord_dims=False).mean().dropna(dim='time')
-            dtfirst = [s+'-01' for s in ds["time"].dt.strftime('%Y-%m').values]
-            ds = ds.assign_coords({'time':pd.to_datetime(dtfirst)})
-
+        ds = xr_core_pp_time(ds, seldates, start_end_year, loadleap,
+                             dailytomonths)
 
     if multi_dims:
         if 'latitude' and 'longitude' not in ds.dims:
@@ -134,6 +125,7 @@ def import_ds_lazy(filename, loadleap=False,
                             'lon':'longitude'})
             if 'time' in ds.squeeze().dims and len(ds.squeeze().dims) == 3:
                 ds = ds.transpose('time', 'latitude', 'longitude')
+
 
 
 
@@ -168,6 +160,48 @@ def import_ds_lazy(filename, loadleap=False,
         ds.attrs['is_DataArray'] = 1
     else:
         ds.attrs['is_DataArray'] = 0
+    return ds
+
+def xr_core_pp_time(ds, seldates: Union[tuple, pd.DatetimeIndex]=None,
+                    start_end_year: tuple=None, loadleap: bool=False,
+                    dailytomonths: bool=False):
+    ''' Wrapper for some essentials for basic timeslicing and dailytomonthly
+        aggregation
+
+    ds : xr.DataArray or xr.Dataset
+        input xarray with 'time' dimension
+    seldates: tuple, pd.DatetimeIndex, optional
+        default is None.
+        if type is tuple: selecting data that fits within start- and enddate,
+        format ('mm-dd', 'mm-dd'). default is ('01-01' - '12-31')
+        if type is pd.DatetimeIndex: select that exact timeindex with
+        xarray.sel(time=seldates)
+    start_end_year : tuple, optional
+        default is to load all years
+    loadleap : TYPE, optional
+        If True also loads the 29-02 leapdays. The default is False.
+    dailytomonths:
+        When True, the daily input data will be aggregated to monthly data.
+
+    '''
+
+    if type(seldates) is tuple or start_end_year is not None:
+        pddates = get_subdates(dates=pd.to_datetime(ds.time.values),
+                               start_end_date=seldates,
+                               start_end_year=start_end_year,
+                               lpyr=loadleap)
+        ds = ds.sel(time=pddates)
+    elif type(seldates) is pd.DatetimeIndex:
+        # seldates are pd.DatetimeIndex
+        ds = ds.sel(time=seldates)
+    if dailytomonths:
+        # resample annoying replaces datetimes between date gaps, dropna().
+        ds = ds.resample(time='1M', skipna=True, closed='right',
+                         label='right', restore_coord_dims=False
+                         ).mean().dropna(dim='time', how='all')
+
+        dtfirst = [s+'-01' for s in ds["time"].dt.strftime('%Y-%m').values]
+        ds = ds.assign_coords({'time':pd.to_datetime(dtfirst)})
     return ds
 
 def detect_mask(ds):
@@ -804,10 +838,6 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
     tfreq = (dates[1] - dates[0]).days
     oneyr_dates = pd.date_range(start=sstartdate, end=senddate_,
                                     freq=pd.Timedelta(1, 'd'))
-    # if tfreq == 1 or tfreq in [365, 366]: # daily or annual
-
-
-
 
     if tfreq in [28,29,30,31]: # monthly timeseries
         yr_mon = np.unique(np.stack([oneyr_dates.year.values,
@@ -830,7 +860,10 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
         datessubset = pd.to_datetime([d for d in datessubset if d in dates])
     if lpyr:
         datessubset = remove_leapdays(datessubset)
-    periodgroups = np.repeat(np.arange(start_end_year[0], endyr+1), start_yr.size)
+    if crossyr:
+        periodgroups = np.repeat(np.arange(startyr+1, endyr+1), start_yr.size)
+    else:
+        periodgroups = np.repeat(np.arange(startyr, endyr+1), start_yr.size)
 
     # old crossyr handling
     # if crossyr: # crossyr such as DJF, not possible for 1st yr
