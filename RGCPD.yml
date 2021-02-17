@@ -1,4 +1,4 @@
-name: RGCPDtestinstall
+name: RGCPD
 channels:
   - conda-forge
   - defaults
@@ -10,7 +10,6 @@ dependencies:
   - cdsapi=0.1.6
   - ecmwfapi=1.4.1
   - eofs=1.4.0
-#  - esmf=7.1.0
   - h5py=2.10.0
   - hdf4=4.2.13
   - hdf5=1.10.5
@@ -36,7 +35,8 @@ dependencies:
   - statsmodels=0.10.1
   - qt=5.9.7
   - xarray=0.13.0
-#  - xesmf=0.2.0
+#  - esmf=7.1.0 <- optional packages for regridding
+#  - xesmf=0.2.0 <- optional packages for regridding
   - pip:
     - properscoring
 

@@ -66,7 +66,7 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='random_5',
                list_for_MI=list_for_MI,
                start_end_TVdate=start_end_TVdate,
                tfreq=tfreq,
-               path_outmain=os.path.join(main_dir,f'data', 'test'),
+               path_outmain=os.path.join(main_dir,'data', 'test'),
                save=True)
 
     # if TVpath contains the xr.DataArray xrclustered, we can have a look at the spatial regions.

@@ -91,9 +91,10 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         aspect = (lon.size) / lat.size
 
 
-    g = xr.plot.FacetGrid(plot_xr, col='col', row='row', subplot_kws={'projection': map_proj},
-                      sharex=True, sharey=True,
-                      aspect=aspect, size=size)
+    g = xr.plot.FacetGrid(plot_xr, col='col', row='row',
+                          subplot_kws={'projection': map_proj},
+                          sharex=True, sharey=True,
+                          aspect=aspect, size=size)
     figheight = g.fig.get_figheight()
 
     # =============================================================================
@@ -111,7 +112,6 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         latitude_labels = sorted(list(set(np.round(latitude_labels, -1))))
     else:
         latitude_labels = y_ticks # if y_ticks==False -> no ticklabels
-    # g.set_xlabels(label=[str(el) for el in longitude_labels])
 
     g.fig.subplots_adjust(hspace=hspace, wspace=wspace)
 
