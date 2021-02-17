@@ -14,6 +14,7 @@ import xarray as xr
 from netCDF4 import num2date
 from dateutil.relativedelta import relativedelta as date_dt
 import itertools
+import scipy.signal.windows as spwin
 # from dateutil.relativedelta import relativedelta as date_dt
 from collections import Counter
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
@@ -42,7 +43,7 @@ def get_oneyr(dt_pdf_pds_xr, *args):
 
 
 
-def import_ds_lazy(filepath, loadleap: bool=False,
+def import_ds_lazy(filepath: str, loadleap: bool=False,
                    seldates: Union[tuple, pd.DatetimeIndex]=None,
                    start_end_year: tuple=None, selbox: Union[list, tuple]=None,
                    format_lon='only_east', var=None, auto_detect_mask: bool=False,
@@ -52,8 +53,8 @@ def import_ds_lazy(filepath, loadleap: bool=False,
 
     Parameters
     ----------
-    filepath : TYPE
-        DESCRIPTION.
+    filepath : str
+        filepath to .nc file.
     seldates: tuple, pd.DatetimeIndex, optional
         default is None.
         if type is tuple: selecting data that fits within start- and enddate,
@@ -724,7 +725,7 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=True, n_harmonics=6):
     return output
 #%%
 def rolling_mean_np(arr, win, center=True, win_type='boxcar'):
-    import scipy.signal.windows as spwin
+
 
     df = pd.DataFrame(data=arr.reshape( (arr.shape[0], arr[0].size)))
 
