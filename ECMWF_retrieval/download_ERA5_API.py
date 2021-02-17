@@ -5,6 +5,12 @@ Created on Thu Feb  7 15:42:46 2019
 
 @author: semvijverberg
 """
+import sys, os, inspect
+if 'win' in sys.platform and 'dar' not in sys.platform:
+    sep = '\\' # Windows folder seperator
+else:
+    sep = '/' # Mac/Linux folder seperator
+
 import os
 import numpy as np
 import pandas as pd
@@ -184,9 +190,10 @@ def retrieve_field(cls):
 
             else:
                 print("convert operational oper data to daily means")
-                ana_to_day = 'cdo -b 32 settime,00:00 -{} -mergetime {}/*.nc {}'.format(
+                ana_to_day = 'cdo -b 32 settime,00:00 -{} -mergetime {}{}*.nc {}'.format(
                                         cls.CDO_command,
                                         cls.tmp_folder,
+                                        sep,
                                         file_path)
                 args = [ana_to_day]
 
@@ -227,7 +234,7 @@ def retrieve_field(cls):
                                        cls.months, cls.stream,
                                        cls.grid, cls.area, cls.lvllist, cls.levtype,
                                        d, target) for yr_in_d, d, target in download_targets]
-            mergetime = 'cdo -b 32 cat {}/*.nc {}'.format(cls.tmp_folder, file_path)
+            mergetime = 'cdo -b 32 cat {}{}*.nc {}'.format(cls.tmp_folder, sep, file_path)
             kornshell_with_input([mergetime], cls)
 #            retrieval_moda(cls, requestDates, d, target)
     #%%
@@ -341,7 +348,7 @@ def kornshell_with_input(args, cls):
         file.write("echo bash script output\n")
         for cmd in range(len(args)):
 
-            print(args[cmd].replace(cls.base_path, 'base_path/')[:300])
+            print(args[cmd].replace(cls.base_path, 'base_path')[:300])
             file.write("${}\n".format(cmd+1))
     p = subprocess.Popen(bash_and_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)

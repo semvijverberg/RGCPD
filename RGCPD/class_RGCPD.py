@@ -10,6 +10,8 @@ if 'win' in sys.platform and 'dar' not in sys.platform:
 else:
     sep = '/' # Mac/Linux folder seperator
 
+curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -20,20 +22,16 @@ import core_pp
 from class_RV import RV_class
 from class_EOF import EOF
 from class_BivariateMI import BivariateMI
-curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = sep.join(curr_dir.split(sep)[:-1])
-fc_dir = os.path.join(main_dir, 'forecasting')
-
-if fc_dir not in sys.path:
-    sys.path.append(fc_dir)
-import func_models as fc_utils
-
 from typing import List, Tuple, Union
+# from forecasting folder
+import func_models as fc_utils
+import stat_models_cont as sm
+# from df_analysis folder
+import df_ana
 
 def get_timestr(formatstr='%Y-%m-%d_%Hhr_%Mmin'):
     import datetime
     return datetime.datetime.today().strftime(formatstr)
-
 
 try:
     import wrapper_PCMCI as wPCMCI
@@ -49,16 +47,9 @@ except:
     # raise(ModuleNotFoundError)
     print('Not able to load in plotting modules, check installment of networkx')
 
-df_ana_dir = os.path.join(curr_dir, '..', 'df_analysi, df_analysis') # add df_ana path
-fc_dir       = os.path.join(curr_dir, '..', 'forecasting') # add df_ana path
-sys.path.append(df_ana_dir) ; sys.path.append(fc_dir)
-import df_ana
-import stat_models_cont as sm
 path_test = os.path.join(curr_dir, '..', 'data')
 
-
 class RGCPD:
-
     def __init__(self, list_of_name_path: List[Tuple[str, str]]=None,
                  list_for_EOFS: List[Union[EOF]]=None,
                  list_for_MI: List[Union[BivariateMI]]=None,

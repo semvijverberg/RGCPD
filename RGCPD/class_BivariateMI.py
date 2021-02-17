@@ -5,11 +5,16 @@ Created on Thu Dec  5 12:17:25 2019
 
 @author: semvijverberg
 """
+import sys, os, inspect
+if 'win' in sys.platform and 'dar' not in sys.platform:
+    sep = '\\' # Windows folder seperator
+else:
+    sep = '/' # Mac/Linux folder seperator
 
+import func_models as fc_utils
 import itertools, os, re
 import numpy as np
 import xarray as xr
-#import datetime
 import scipy
 import pandas as pd
 from statsmodels.sandbox.stats import multicomp
@@ -45,8 +50,8 @@ class BivariateMI:
         func : function to apply to calculate the bivariate
             Mutual Informaiton (MI), optional
             The default is applying a correlation map.
-        kwrgs_func : TYPE, optional
-            DESCRIPTION. The default is {}.
+        kwrgs_func : dict, optional
+            Arguments for func. The default is {}.
         alpha : float, optional
             significance threshold
         FDR_control: bool, optional

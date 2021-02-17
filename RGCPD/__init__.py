@@ -13,17 +13,20 @@ df_ana_dir = os.path.join(main_dir, 'df_analysis', 'df_analysis')
 cluster_func = os.path.join(main_dir, 'clustering')
 fc_dir = os.path.join(main_dir, 'forecasting')
 
-if cluster_func not in sys.path:
-    sys.path.append(main_dir)
-    sys.path.append(RGCPD_func)
-    sys.path.append(cluster_func)
-    sys.path.append(fc_dir)
+if df_ana_dir not in sys.path:
     sys.path.append(df_ana_dir)
+if main_dir not in sys.path:
+    sys.path.append(main_dir)
+if RGCPD_func not in sys.path:
+    sys.path.append(RGCPD_func)
+if cluster_func not in sys.path:
+    sys.path.append(cluster_func)
+if fc_dir not in sys.path:
+    sys.path.append(fc_dir)
 
 
-# sys.path.append('./forecasting')
+
 from class_RGCPD import RGCPD
-# from func_fc import fcev
 from class_EOF import EOF
 from class_BivariateMI import BivariateMI
 
