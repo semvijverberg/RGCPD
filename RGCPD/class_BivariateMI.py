@@ -112,11 +112,6 @@ class BivariateMI:
         self.selbox = selbox
         self.use_sign_pattern = use_sign_pattern
         self.use_coef_wghts = use_coef_wghts
-        if type(lags) is np.ndarray and type(lags[0]) is not np.ndarray:
-            lags = np.array(lags, dtype=np.int16) # fix dtype
-            self.lag_coordname = lags
-        else:
-            self.lag_coordname = np.arange(len(lags)) # for period_means
         self.lags = lags
         self.lag_as_gap = lag_as_gap
 
@@ -149,6 +144,11 @@ class BivariateMI:
         i.e. bool == False
         """
 
+        if type(self.lags) is np.ndarray and type(self.lags[0]) is not np.ndarray:
+            self.lags = np.array(self.lags, dtype=np.int16) # fix dtype
+            self.lag_coordname = self.lags
+        else:
+            self.lag_coordname = np.arange(len(self.lags)) # for period_means
         n_lags = len(self.lags)
         lags = self.lags
         self.df_splits = df_splits # add df_splits to self
@@ -387,7 +387,7 @@ def check_NaNs(field, ts):
             if i > t:
                 raise ValueError('More NaNs detected then # of datapoints in '
                                  'single year')
-    j = -1 ; # check NaNs in first year
+    j = -1 ; # check NaNs in last year
     if bool(np.isnan(field[j]).all()):
         j-=1
         while bool(np.isnan(field[j]).all()):

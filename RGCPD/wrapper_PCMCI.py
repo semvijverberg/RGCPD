@@ -581,12 +581,12 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
         # create fake X, Y format, needed for function _get_single_residuals
         dfxy = df_data[[orig]].merge(df_data[[orig]].copy().rename({orig:'copy'},
                                                                   axis=1),
-                                 left_index=True, right_index=True)
+                                     left_index=True, right_index=True).copy()
         # Append Z timeseries
         dfxyz = dfxy.merge(df_data[z], left_index=True, right_index=True)
 
         for s in df_data.index.levels[0]:
-            dfxyz_s = dfxyz.loc[s]
+            dfxyz_s = dfxyz.loc[s].copy()
             if all(dfxyz_s[orig].isna().values):
                 npstore[i,s,:] = dfxyz_s[orig].values # fill in all nans
             else:

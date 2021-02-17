@@ -141,7 +141,7 @@ def apply_shift_lag(fit_masks, lag_i):
     in the TrainIsTrue mask.
     '''
     if 'fit_model_mask' not in fit_masks.columns:
-        fit_masks['fit_model_mask'] = fit_masks['RV_mask'].copy()
+        fit_masks.loc[:,'fit_model_mask'] = fit_masks['RV_mask'].copy()
 
     RV_mask = fit_masks['RV_mask'].copy()
     x_pred = RV_mask.shift(periods=-int(lag_i))
@@ -186,10 +186,10 @@ def apply_shift_lag(fit_masks, lag_i):
     y_fit.loc[dates_no_X_info] = False
 
 
-    fit_masks['x_fit'] = x_fit
-    fit_masks['y_fit'] = y_fit
-    fit_masks['x_pred'] = x_pred
-    fit_masks['y_pred'] = y_pred
+    fit_masks.loc[:,'x_fit'] = x_fit
+    fit_masks.loc[:,'y_fit'] = y_fit
+    fit_masks.loc[:,'x_pred'] = x_pred
+    fit_masks.loc[:,'y_pred'] = y_pred
     fit_masks = fit_masks.drop(['RV_mask'], axis=1)
     fit_masks = fit_masks.drop(['fit_model_mask'], axis=1)
     return fit_masks.astype(bool)

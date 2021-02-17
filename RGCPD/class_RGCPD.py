@@ -962,11 +962,11 @@ class RGCPD:
             df_s = df_data.loc[s]
             if transformer.__name__ == 'standardize_on_train_and_RV':
                 df_trans[s] = df_s[keys].apply(fc_utils.standardize_on_train_and_RV,
-                              args=[df_s[['RV_mask', 'TrainIsTrue']], 0])
+                              args=[df_s.loc[:,['RV_mask', 'TrainIsTrue']], 0])
 
             else:
                 df_trans[s] = df_s[keys].apply(transformer,
-                                          args=[df_s['TrainIsTrue']])
+                                          args=[df_s.loc[:,'TrainIsTrue']])
         return pd.concat(df_trans, keys=range(self.n_spl))
 
     def fit_df_data_ridge(self,
@@ -1065,10 +1065,10 @@ class RGCPD:
                 elif type(target) is pd.DataFrame:
                     target_ts = target
 
-
-                df_norm = df_trans.merge(fc_utils.apply_shift_lag(fit_masks, lag),
-                                          left_index=True,
-                                          right_index=True)
+                shift_lag = fc_utils.apply_shift_lag
+                df_norm = df_trans.merge(shift_lag(fit_masks.copy(), lag),
+                                         left_index=True,
+                                         right_index=True)
 
 
                 if fcmodel is None:
