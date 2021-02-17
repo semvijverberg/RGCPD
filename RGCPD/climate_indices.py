@@ -5,26 +5,18 @@ Created on Thu Sep  5 09:25:11 2019
 
 @author: semvijverberg
 """
-import sys, os, io
-
-
+import os
 import find_precursors
 from time import time
 import numpy as np
 import xarray as xr
-#import datetime
-#import cartopy.crs as ccrs
 import pandas as pd
 import functions_pp
-import matplotlib.pyplot as plt
 import plot_maps
 from concurrent.futures import ProcessPoolExecutor
-#import func_CPPA # temp
 import core_pp
 
-kwrgs_ENSO = {'tfreq' : 30,
-              'method' : 'no_train_test_split'
-              }
+
 # get indices
 def ENSO_34(filepath, df_splits=None, get_ENSO_states: bool=True):
     #%%

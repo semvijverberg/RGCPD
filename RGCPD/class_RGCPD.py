@@ -4,7 +4,12 @@
 Created on Tue Oct  1 15:13:58 2019
 @author: semvijverberg
 """
-import inspect, os, sys
+import sys, os, inspect
+if 'win' in sys.platform and 'dar' not in sys.platform:
+    sep = '\\' # Windows folder seperator
+else:
+    sep = '/' # Mac/Linux folder seperator
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -16,8 +21,8 @@ from class_RV import RV_class
 from class_EOF import EOF
 from class_BivariateMI import BivariateMI
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-1])
-fc_dir = os.path.join(main_dir, 'forecasting/')
+main_dir = sep.join(curr_dir.split(sep)[:-1])
+fc_dir = os.path.join(main_dir, 'forecasting')
 
 if fc_dir not in sys.path:
     sys.path.append(fc_dir)
@@ -44,8 +49,8 @@ except:
     # raise(ModuleNotFoundError)
     print('Not able to load in plotting modules, check installment of networkx')
 
-df_ana_dir = os.path.join(curr_dir, '..', 'df_analysis/df_analysis/') # add df_ana path
-fc_dir       = os.path.join(curr_dir, '..', 'forecasting/') # add df_ana path
+df_ana_dir = os.path.join(curr_dir, '..', 'df_analysi, df_analysis') # add df_ana path
+fc_dir       = os.path.join(curr_dir, '..', 'forecasting') # add df_ana path
 sys.path.append(df_ana_dir) ; sys.path.append(fc_dir)
 import df_ana
 import stat_models_cont as sm
@@ -153,7 +158,7 @@ class RGCPD:
 
         if path_outmain is None:
             user_download_path = get_download_path()
-            path_outmain = user_download_path + '/output_RGCPD/'
+            path_outmain = os.path.join(user_download_path, 'output_RGCPD')
 
 
 

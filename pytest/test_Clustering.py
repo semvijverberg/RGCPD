@@ -2,12 +2,14 @@
 # coding: utf-8
 
 # # Clustering
+import sys, os, inspect
+if 'win' in sys.platform and 'dar' not in sys.platform:
+    sep = '\\' # Windows folder seperator
+else:
+    sep = '/' # Mac/Linux folder seperator
 
-
-
-import os, inspect, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-1])
+main_dir = sep.join(curr_dir.split(sep)[:-1])
 print(main_dir)
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering')

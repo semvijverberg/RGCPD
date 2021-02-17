@@ -5,11 +5,16 @@ Created on Thu Aug 22 12:54:45 2019
 
 @author: semvijverberg
 """
-import inspect, os, sys
+import sys, os, inspect
+if 'win' in sys.platform and 'dar' not in sys.platform:
+    sep = '\\' # Windows folder seperator
+else:
+    sep = '/' # Mac/Linux folder seperator
+
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-1])
+main_dir = sep.join(curr_dir.split(sep)[:-1])
 RGCPD_dir = os.path.join(main_dir, 'RGCPD')
-df_ana_path = os.path.join(main_dir, 'df_analysis/df_analysis/')
+df_ana_path = os.path.join(main_dir, 'df_analysis', 'df_analysis')
 if df_ana_path not in sys.path:
     sys.path.append(df_ana_path)
     sys.path.append(RGCPD_dir)

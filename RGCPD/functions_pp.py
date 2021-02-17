@@ -5,23 +5,18 @@ Created on Mon Jul  9 17:48:31 2018
 
 @author: semvijverberg
 """
-import os
-import numpy as np
+import sys, os, inspect
+if 'win' in sys.platform and 'dar' not in sys.platform:
+    sep = '\\' # Windows folder seperator
+else:
+    sep = '/' # Mac/Linux folder seperator
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import xarray as xr
 import itertools
 import core_pp
 import datetime
-
-# user_dir = os.path.expanduser('~')
-# curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-# main_dir = '/'.join(curr_dir.split('/')[:-1])
-# df_ana_dir = os.path.join(main_dir, 'df_analysis/df_analysis')
-# if df_ana_dir not in sys.path:
-#     sys.path.append(df_ana_dir)
-# from df_ana import load_hdf5
-
 
 from dateutil.relativedelta import relativedelta as date_dt
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
@@ -1621,7 +1616,7 @@ def check_pp_done(name, infile, kwrgs_load: dict=None, verbosity=1):
     # =============================================================================
     # give appropriate name to output file
     # =============================================================================
-    outfilename = infile.split('/')[-1];
+    outfilename = infile.split(sep)[-1];
 #    outfilename = outfilename.replace('daily', 'dt-{}days'.format(1))
     months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
                          8:'aug',9:'sep',10:'okt',11:'nov',12:'dec' } )
@@ -1646,7 +1641,7 @@ def check_pp_done(name, infile, kwrgs_load: dict=None, verbosity=1):
     outfilename = outfilename.replace('_{}_'.format(1), selboxstr_startdate)
     outfilename = outfilename.replace('_{}_'.format(12), enddatestr)
 #    filename_pp = outfilename
-    path_raw = '/'.join(infile.split('/')[:-1])
+    path_raw = sep.join(infile.split(sep)[:-1])
     path_pp = os.path.join(path_raw, 'preprocessed')
     if os.path.isdir(path_pp) == False: os.makedirs(path_pp)
     outfile = os.path.join(path_pp, outfilename)

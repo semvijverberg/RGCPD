@@ -5,10 +5,14 @@
 
 # In[1]:
 
+import sys, os, inspect
+if 'win' in sys.platform and 'dar' not in sys.platform:
+    sep = '\\' # Windows folder seperator
+else:
+    sep = '/' # Mac/Linux folder seperator
 
-import os, inspect, sys
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-1])
+main_dir = sep.join(curr_dir.split(sep)[:-1])
 print(main_dir)
 if main_dir not in sys.path:
     sys.path.append(main_dir)
@@ -45,7 +49,10 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='random_5',
     # start_end_yr_target=None; start_end_yr_precur = None; lags = np.array([1]); TVdates_aggr=False; dailytomonths=False;
     # alpha=0.05; tfreq=10; method='random_5';start_end_TVdate=('07-01', '08-31');
 
+    curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+    main_dir = sep.join(curr_dir.split(sep)[:-1])
     path_test = os.path.join(main_dir, 'data')
+
     list_of_name_path = [(3, os.path.join(path_test, 'tf5_nc5_dendo_80d77.nc')),
                         ('sst', os.path.join(path_test,'sst_daily_1979-2018_5deg_Pacific_175_240E_25_50N.nc'))]
 
@@ -59,7 +66,7 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='random_5',
                list_for_MI=list_for_MI,
                start_end_TVdate=start_end_TVdate,
                tfreq=tfreq,
-               path_outmain=os.path.join(main_dir,'data/test/'),
+               path_outmain=os.path.join(main_dir,f'data', 'test'),
                save=True)
 
     # if TVpath contains the xr.DataArray xrclustered, we can have a look at the spatial regions.
@@ -337,6 +344,6 @@ if __name__ == '__main__':
     # remove created output folders
     import shutil
     shutil.rmtree(rg.path_outsub1)
-    shutil.rmtree(os.path.join(main_dir, 'data/preprocessed'))
+    shutil.rmtree(os.path.join(main_dir, 'data', 'preprocessed'))
 
 

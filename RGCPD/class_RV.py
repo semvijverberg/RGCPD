@@ -6,9 +6,6 @@ Created on Mon Jan  6 08:46:05 2020
 @author: semvijverberg
 """
 
-# import inspect, os
-# curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-
 import numpy as np
 import pandas as pd
 import xarray as xr
