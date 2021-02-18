@@ -124,7 +124,7 @@ elif target_dataset == 'USDA_Maize':
 
 calc_ts='region mean' # pattern cov
 alpha_corr = .05
-method     = 'ran_strat10' ;
+method     = 'ranstrat_10' ;
 n_boot = 2000
 
 if experiment == 'seasons':
@@ -329,7 +329,7 @@ def feature_selection_CondDep(df_data, keys, z_keys=None, alpha_CI=.05, x_lag=0,
     return corr, pvals, keys_dict.copy()
 
 
-regress_autocorr_SM = True
+regress_autocorr_SM = False
 unique_keys = np.unique([k[4:] for k in rg.df_data.columns[1:-2]])
 list_pvals = [] ; list_corr = []
 for k in unique_keys:
@@ -352,6 +352,7 @@ for k in unique_keys:
 
 df_pvals = pd.concat(list_pvals,axis=0)
 df_corr = pd.concat(list_corr,axis=0)
+
 #%%
 alpha_CI = .05
 CondDepKeys = {} ;
@@ -368,41 +369,58 @@ for i, mon in enumerate(periodnames):
 
 select_str_SM = False
 mean_SST = True
-# mon = 'JA' ; uniqk = '5..sst'
-# dict with strongest mean parcorr over growing season
-mean_SST_list = []
-keys_dict = {s:[] for s in range(n_spl)} ;
-keys_dict_meansst = {s:[] for s in range(n_spl)} ;
-for s in range(n_spl):
-    mean_SST_list_s = []
-    sign_s = df_pvals[s][df_pvals[s] <= alpha_CI].dropna(axis=0, how='all')
-    for uniqk in unique_keys:
-        keys_mon = [mon+ '..'+uniqk for mon in periodnames]
-        keys_mon_sig = [k for k in keys_mon if k in sign_s.index] # check if sig.
-        # calculate mean
-        if mean_SST and 'sst' in uniqk and len(keys_mon_sig)!=0:
+def get_df_mean_SST(mean_SST=True, select_str_SM=True, n_strongest=2, labels=None):
+    # mon = 'JA' ; uniqk = '1..sst'
+    unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
+    if labels is not None:
+        unique_keys = [k for k in unique_keys if k in labels]
 
-            df_mean = rg.df_data.loc[s][keys_mon_sig].copy().mean(1)
-            df_mean.name = ''.join(periodnames) + '..'+uniqk
-            keys_dict_meansst[s].append( df_mean.name )
-            mean_SST_list_s.append(df_mean)
-        elif mean_SST and 'smi' in uniqk and len(keys_mon_sig)!=0:
-            mean_SST_list_s.append(rg.df_data.loc[s][keys_mon_sig].copy())
-            keys_dict_meansst[s] = keys_dict_meansst[s] + keys_mon_sig
-        # select strongest
-        if len(keys_mon_sig) != 0 and 'sst' in uniqk:
-            df_corr.loc[keys_mon_sig].mean()
-            keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
-        if select_str_SM and len(keys_mon_sig) != 0 and 'sm' in uniqk:
-            df_corr.loc[keys_mon_sig].mean()
-            keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
-        elif select_str_SM==False and len(keys_mon_sig) != 0 and 'sm' in uniqk:
-            keys_dict[s] = keys_dict[s] + keys_mon_sig
-    df_s = pd.concat(mean_SST_list_s, axis=1)
-    mean_SST_list.append(df_s)
-df_mean_SST = pd.concat(mean_SST_list, keys=range(n_spl))
-df_mean_SST = df_mean_SST.merge(rg.df_splits.copy(),
-                                left_index=True, right_index=True)
+    # dict with strongest mean parcorr over growing season
+    mean_SST_list = []
+    keys_dict = {s:[] for s in range(n_spl)} ;
+    keys_dict_meansst = {s:[] for s in range(n_spl)} ;
+    for s in range(n_spl):
+        mean_SST_list_s = []
+        sign_s = df_pvals[s][df_pvals[s] <= alpha_CI].dropna(axis=0, how='all')
+        for uniqk in unique_keys:
+            # region label (R) for each month in split (s)
+            keys_mon = [mon+ '..'+uniqk for mon in periodnames]
+            # significant region label (R) for each month in split (s)
+            keys_mon_sig = [k for k in keys_mon if k in sign_s.index] # check if sig.
+            if mean_SST and 'sst' in uniqk and len(keys_mon_sig)!=0:
+                # calculate mean over n strongest SST timeseries
+                if len(keys_mon_sig) > 1:
+                    meanparcorr = df_corr.loc[keys_mon_sig][[s]].squeeze().sort_values()
+                    keys_str = meanparcorr.index[-n_strongest:]
+                else:
+                    keys_str  = keys_mon_sig
+                df_mean = rg.df_data.loc[s][keys_str].copy().mean(1)
+                month_strings = [k.split('..')[0] for k in keys_str]
+                df_mean.name = ''.join(month_strings) + '..'+uniqk
+                keys_dict_meansst[s].append( df_mean.name )
+                mean_SST_list_s.append(df_mean)
+            elif mean_SST and 'smi' in uniqk and len(keys_mon_sig)!=0:
+                # use all SM timeseries (for each month)
+                mean_SST_list_s.append(rg.df_data.loc[s][keys_mon_sig].copy())
+                keys_dict_meansst[s] = keys_dict_meansst[s] + keys_mon_sig
+            # select strongest
+            if len(keys_mon_sig) != 0 and 'sst' in uniqk:
+                # appending keys_dict for plotting causal regions
+                df_corr.loc[keys_mon_sig].mean()
+                keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
+            if select_str_SM and len(keys_mon_sig) != 0 and 'sm' in uniqk:
+                # use only strongest SM region
+                df_corr.loc[keys_mon_sig].mean()
+                keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
+            elif select_str_SM==False and len(keys_mon_sig) != 0 and 'sm' in uniqk:
+                # use all SM region
+                keys_dict[s] = keys_dict[s] + keys_mon_sig
+        df_s = pd.concat(mean_SST_list_s, axis=1)
+        mean_SST_list.append(df_s)
+    df_mean_SST = pd.concat(mean_SST_list, keys=range(n_spl))
+    df_mean_SST = df_mean_SST.merge(rg.df_splits.copy(),
+                                    left_index=True, right_index=True)
+    return df_mean_SST, keys_dict_meansst
 
 CondDepKeys_strongest = {}
 for i, mon in enumerate(periodnames):
@@ -514,7 +532,7 @@ from stat_models_cont import ScikitModel
 fcmodel = ScikitModel(RidgeCV, verbosity=0)
 kwrgs_model = {'scoring':'neg_mean_absolute_error',
                 'alphas':np.concatenate([[1E-20],np.logspace(-5,0, 6),
-                                         np.logspace(.01, 2.5, num=25)]), # large a, strong regul.
+                                         np.logspace(.01, 2.5, num=10)]), # large a, strong regul.
                 'normalize':False,
                 'fit_intercept':False,
                 # 'store_cv_values':True}
@@ -523,7 +541,7 @@ kwrgs_model = {'scoring':'neg_mean_absolute_error',
 fcmodel = ScikitModel(Ridge, verbosity=0)
 kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
                 'alpha':list(np.concatenate([[1E-20],np.logspace(-5,0, 6),
-                                         np.logspace(.01, 2.5, num=25)])), # large a, strong regul.
+                                         np.logspace(.01, 2.5, num=10)])), # large a, strong regul.
                 'normalize':False,
                 'fit_intercept':False,
                 'kfold':5}
@@ -540,8 +558,8 @@ score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS]
 metric_names = [s.__name__ for s in score_func_list]
 
 if mean_SST:
-    df_data = df_mean_SST.copy()
-    keys_dict = keys_dict_meansst.copy()
+    df_data, keys_dict = get_df_mean_SST(n_strongest=1)
+    # keys_dict = keys_dict_meansst.copy()
 else:
     df_data = rg.df_data.copy()
 
@@ -560,7 +578,7 @@ prediction = predict.rename({predict.columns[0]:'target',lag_:'Prediction'},
 
 
 weights_norm = weights.mean(axis=0, level=1)
-weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box', figsize=(15,5))
+# weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box', figsize=(15,5))
 
 
 df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(prediction,

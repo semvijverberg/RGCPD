@@ -71,12 +71,13 @@ def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
                                random_state=seed)
     test_gr = []
     for i, j in cv_strat.split(X=freq.index, y=freq.values):
-        test_gr.append(freq.index[j].values)
+        test_gr.append(j)
+        # test_gr.append(freq.index[j].values)
 
     label_test = np.zeros( y_train.size , dtype=int)
     for i, test_fold in enumerate(test_gr):
         for j, gr in enumerate(groups):
-            if gr in list(test_fold):
+            if j in list(test_fold):
                 label_test[j] = i
 
     cv = PredefinedSplit(label_test)

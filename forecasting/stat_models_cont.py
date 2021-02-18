@@ -8,12 +8,8 @@ Created on Wed Oct  2 15:03:31 2019
 
 import pandas as pd
 import numpy as np
-# import sklearn.linear_model as scikitlinear
 from sklearn.linear_model import RidgeCV
 from sklearn.model_selection import GridSearchCV
-
-
-
 
 import func_models as utils
 

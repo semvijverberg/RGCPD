@@ -1120,7 +1120,8 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
     else:
         kfold = int(method.split('_')[-1])
         if method[:8] == 'ranstrat':
-            cv = get_cv_accounting_for_years(RV_ts, kfold, seed)
+            TVgroups = groups.loc[RV_ts.index]
+            cv = get_cv_accounting_for_years(RV_ts, kfold, seed, TVgroups)
             testgroups = cv.uniqgroups
         elif method[:5] == 'leave':
             n_splits = int(uniqgroups.size / int(method.split('_')[1]) )

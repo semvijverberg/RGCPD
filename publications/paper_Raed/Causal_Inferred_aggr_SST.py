@@ -124,7 +124,7 @@ elif target_dataset == 'USDA_Maize':
 
 calc_ts='region mean' # pattern cov
 alpha_corr = .05
-method     = 'ran_strat10' ;
+method     = 'ranstrat_10' ;
 n_boot = 2000
 
 if experiment == 'seasons':
@@ -145,10 +145,12 @@ elif experiment == 'bimonthly':
                         ])
     SM_periodnames = ['MA','MJ','JA','SO']
     SST_lags = np.array([
-                        # ['09-01', '02-28'], # Mar-Oct
-                        ['03-01', '10-31'], # Mar-Oct
+                        ['03-01', '5-30'], # Mar-Oct
+                        ['06-01', '8-31'], # Mar-Oct
+                        ['09-01', '11-30'], # Mar-Oct
                         ])
-    SST_periodnames = ['Mar-Oct']
+    # SST_periodnames = ['Mar-Oct']
+    SST_periodnames = ['MAM', 'JJA', 'SON']
 
     # SM_lags = corlags #np.array([
                         # ['05-01', '05-30'], # May
@@ -374,7 +376,7 @@ alpha_CI = .05
 CondDepKeys = {} ;
 for i, mon in enumerate(periodnames):
     list_mon = []
-    _keys = [k for k in df_pvals.index if mon in k] # month
+    _keys = [k for k in df_pvals.index if mon in k and 'sm' in k] # month
     df_sig = df_pvals[df_pvals.loc[_keys] <= alpha_CI].dropna(axis=0, how='all') # significant
 
     for k in df_sig.index:
