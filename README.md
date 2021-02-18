@@ -36,7 +36,7 @@ I'm currently using the code mostly privately, I'm willing to set up collaborati
 - (basic) plotting functions with cartopy
 - ECMWF_retrieval with a download python wrapper to get data from the Climate Data Store ERA-5 dataset
 \
-Have a look at subseasonal.ipynb and seasonal.ipynb for an overview of the core functionality.
+Have a look at **subseasonal.ipynb** and **seasonal.ipynb** for an overview of the core functionality.
 
 Installation
 ===========
