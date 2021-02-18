@@ -3,7 +3,7 @@
 Introduction
 =====
 
-RG-CPD is a framework to process 3-dimensional climate data, such that relationships based on correlation can be tested for conditional independence, i.e. causality.
+RG-CPD is a framework to process 3-dimensional climate data, such that relationships based on correlation can be tested for conditional independence, i.e. causality. 
 
 Causal inference frameworks have been proven valuable by going beyond defining a relationship based upon correlation. Autocorrelation, common drivers and indirect drivers are very common in the climate system, and they lead to spurious (significant) correlations. Tigramite has been successfully applied to 1 dimensional time series in climate science (Kretschmer et al. 2016 https://doi.org/10.1175/JCLI-D-15-0654.1), in order to filter out these spurious correlations using conditional indepence tests (Runge et al. 2017 http://arxiv.org/abs/1702.07007).
 
@@ -13,9 +13,9 @@ The final step is the same, where the 1-d time series are processed by Tigramite
 
 # Example output
 Correlated (left) and 'Causal' (right) SST regions with eastern U.S. temperature. No scientific output.
-![corr_field](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.002_at0.05_t2mmax_E-US_vs_sst_tigr_corr_mean.png)
+![corr_field](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.01_at0.01_t2mmax_E-US_vs_sst_labels_mean.png)
 Clustering of the precursor regions.
-![precursor_labels](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.002_at0.05_t2mmax_E-US_vs_sst_labels_mean.png)
+![precursor_labels](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.01_at0.01_t2mmax_E-US_vs_sst_tigr_corr_mean.png)
 
 Output is stored in .hdf5 format (pandas dataframe) and can be used by forecasting.py to predict events and validate the forecast. Forecasting and evaluating Continuous timeseries is not fully supported yet. 
 
@@ -29,15 +29,19 @@ Options to load/download timeseries
 - 3 Add 3-d Response Variable (RV) of interest, RGCPD assumes you interested in finding the teleconnection of a variable of interest
 - 4 Add a 1-d RV timeseries
 
-Options for loading/retrieving features
-- 1 Correlation maps
-- 2 Climate Indices (PDO, ENSO, ... under development)
-- 3 load in pandas dataframe with timeseries directly (must follow train-test split format that is used in the code)
+- basic pre-processing steps (removing climatology and linear detrending)
+- time-aggregation handling (for subseasonal and seasonal user-case)
+- set of cross-validations types (random k-fold, stratified k-fold, leave-n-out)
+- extracting precursor from netcdf4:
+	- Correlation maps (corr. maps -> spatial clustering -> precursor timeseries).
+	- Correlation maps while regressing out (1) influence of third timeseries or autocorrelation of target and/or precursor.
+	- Empirical Orthogonal Functions (EOFs, or PCA)
+	- some climate indices and/or directly loading precursor timeseries
+- Tigramite (Causal discovery and inference)
+- Scikit-learn models + optional GridSearch for tuning
+- flexible forecast verification metrics
+- (basic) plotting functions with cartopy
 
-Options to forecast:
-- forecasting.py uses the timeseries data from the main analysis.
-- forecasts can be made for events with logistic regression and an 'adapted' Gradient Boosting Regressor.
-- forecasts evaluation metrics and plots are based on the test data.
 
 Installation
 ===========
@@ -45,10 +49,10 @@ If depencies are correct, then all scripts should work. Please use the .yml file
 
 
 ### Create conda environment:
-conda env create -f RGCPD.yml \
+conda env create -f RGCPD_no_build.yml \
 conda activate RGCPD \
-Git clone https://github.com/jakobrunge/tigramite.git (you can clone this dir into any folder, e.g. your Download folder)\
-pip install ./tigramite 
+Git clone https://github.com/jakobrunge/tigramite.git (you can clone this repo into any folder, e.g. your Download folder)\
+python setup.py install
 
 
 

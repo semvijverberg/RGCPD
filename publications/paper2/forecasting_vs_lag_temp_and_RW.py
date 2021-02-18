@@ -365,24 +365,24 @@ for match_lag in [True]:#[False, True]: #
                              match_lag=match_lag, n_boot=n_boot)
     # out_PDO = prediction_wrapper(rg.df_data.copy(), keys=['PDO2bw'],
     #                              match_lag=False, n_boot=n_boot)
-    df_lwp = rg.df_data.copy()
-    df_lwp[keys] = df_ana.loop_df_ana(df_lwp, filters.lowpass, keys=keys,
-                                kwrgs={'period':round(.25*functions_pp.get_oneyr(df_lwp.loc[0]).size)})
-    out_lwp = prediction_wrapper(df_lwp, keys=keys,
-                                 match_lag=True, n_boot=0)
+    # df_lwp = rg.df_data.copy()
+    # df_lwp[keys] = df_ana.loop_df_ana(df_lwp, filters.lowpass, keys=keys,
+    #                             kwrgs={'period':round(.25*functions_pp.get_oneyr(df_lwp.loc[0]).size)})
+    # out_lwp = prediction_wrapper(df_lwp, keys=keys,
+    #                              match_lag=True, n_boot=0)
 
-    df_comb = pd.merge(df_lwp.iloc[:,0],
-                       pd.merge(df_ana.loop_df_ana(df_lwp, filters.lowpass, keys=keys,
-                        kwrgs={'period':2*functions_pp.get_oneyr(df_lwp.loc[0]).size}),
-                       df_lwp.iloc[:,1:], left_index=True, right_index=True),
-                       left_index=True, right_index=True)
-    y_keys = [k for k in df_comb.columns[:-2] if k not in df_PDOs.columns]
-    if match_lag==False: # only keep regions of lag=0
-        y_keys = [k for k in y_keys if k.split('..')[0] == str(0)]
-    keys = [k for k in y_keys if k not in [rg.TV.name]] # not use target as precursor
-    keys = [k for k in keys if int(k.split('..')[1]) in region_labels]
-    out_comb = prediction_wrapper(df_comb, keys=keys,
-                             match_lag=True, n_boot=0)
+    # df_comb = pd.merge(df_lwp.iloc[:,0],
+    #                    pd.merge(df_ana.loop_df_ana(df_lwp, filters.lowpass, keys=keys,
+    #                     kwrgs={'period':2*functions_pp.get_oneyr(df_lwp.loc[0]).size}),
+    #                    df_lwp.iloc[:,1:], left_index=True, right_index=True),
+    #                    left_index=True, right_index=True)
+    # y_keys = [k for k in df_comb.columns[:-2] if k not in df_PDOs.columns]
+    # if match_lag==False: # only keep regions of lag=0
+    #     y_keys = [k for k in y_keys if k.split('..')[0] == str(0)]
+    # keys = [k for k in y_keys if k not in [rg.TV.name]] # not use target as precursor
+    # keys = [k for k in keys if int(k.split('..')[1]) in region_labels]
+    # out_comb = prediction_wrapper(df_comb, keys=keys,
+    #                          match_lag=True, n_boot=0)
     # df_lwpboth = rg.df_data.copy()
     # keys_incl_target = [k for k in rg.df_data.columns[:-2] if k not in df_PDOs.columns]
     # df_lwpboth[keys_incl_target] = df_ana.loop_df_ana(df_lwpboth, filters.lowpass, keys=keys_incl_target,
@@ -390,8 +390,6 @@ for match_lag in [True]:#[False, True]: #
     # out_lwpboth = prediction_wrapper(df_lwpboth, keys=keys,
     #                          match_lag=True, n_boot=500)
 
-    # out_regr1PDO = prediction_wrapper(df_data_r1PDO, keys=keys,
-    #                             match_lag=match_lag, n_boot=n_boot)
 
     # [rg.df_data.copy().loc[s].loc[:,['0..1..sst', '1..1..sst', '2..1..sst', '3..1..sst']].corr() for s in range(10)]
 
