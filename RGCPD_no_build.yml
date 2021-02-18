@@ -1,0 +1,42 @@
+name: RGCPD1
+channels:
+  - conda-forge
+  - defaults
+  - bioconda
+dependencies:
+  - cartopy
+  - cftime
+  - conda
+  - cdsapi
+  - ecmwfapi
+  - eofs
+  - h5py
+  - hdf4
+  - hdf5
+  - ipython
+  - jupyterlab
+  - matplotlib
+  - matplotlib-base
+  - nbconvert
+  - nbformat
+  - netcdf-fortran
+  - netcdf4
+  - numpy
+  - pandas
+  - pip
+  - python=3.7.3
+  - pytest
+  - scikit-learn
+  - scipy
+  - seaborn
+  - shapely
+  - spyder # <- optional Spyder IDE
+  - statsmodels
+  - xarray
+#  - esmf # <- optional packages for regridding
+#  - xesmf # <- optional packages for regridding
+  - pip:
+    - properscoring
+prefix: /Users/semvijverberg/miniconda3/envs/RGCPD
+# conda env create -f RGCPD_no_build.yml
+# to install spyder later: conda install -c conda-forge spyder=4

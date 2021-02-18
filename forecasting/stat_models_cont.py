@@ -8,8 +8,10 @@ Created on Wed Oct  2 15:03:31 2019
 
 import pandas as pd
 import numpy as np
+# import sklearn.linear_model as scikitlinear
 from sklearn.linear_model import RidgeCV
-import functions_pp
+from sklearn.model_selection import GridSearchCV
+
 
 
 
@@ -56,27 +58,32 @@ def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
     X_train = X[x_fit_mask.values]
     X_pred  = X[x_pred_mask.values]
 
-    RV_bin_fit = y_ts['ts']
-    # y_ts dates no longer align with x_fit  y_fit masks
+    RV_fit = y_ts['ts'].loc[y_fit_mask.index] # y_fit may be shortened
+    # because X_test was used to predict y_train due to lag, hence train-test
+    # leakage.
+
+    # y_ts dates may no longer align with x_fit  y_fit masks
     y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
-    y_train = RV_bin_fit[y_fit_mask].squeeze()
+    y_train = RV_fit[y_fit_mask].squeeze()
 
     # if y_pred_mask is not None:
-    #     y_dates = RV_bin_fit[y_pred_mask.values].index
+    #     y_dates = RV_fit[y_pred_mask.values].index
     # else:
-    y_dates = RV_bin_fit.index
+    # y_dates = RV_fit.index
 
     X = X_train
 
     # # Create stratified random shuffle which keeps together years as blocks.
-    # kwrgs_cv = ['kfold', 'seed']
-    # kwrgs_cv = {k:i for k, i in kwrgs.items() if k in kwrgs_cv}
-    # [kwrgs.pop(k) for k in kwrgs_cv.keys()]
-
-    # cv = utils.get_cv_accounting_for_years(y_train, **kwrgs_cv)
-    cv = None
+    kwrgs_cv = ['kfold', 'seed']
+    kwrgs_cv = {k:i for k, i in kwrgs.items() if k in kwrgs_cv}
+    [kwrgs.pop(k) for k in kwrgs_cv.keys()]
+    if len(kwrgs_cv) >= 1:
+        cv = utils.get_cv_accounting_for_years(y_train, **kwrgs_cv)
+        kwrgs['store_cv_values'] = False
+    else:
+        cv = None
+        kwrgs['store_cv_values'] = True
     model = RidgeCV(cv=cv,
-                    store_cv_values=True,
                     **kwrgs)
 
     if feat_sel is not None:
@@ -90,44 +97,122 @@ def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
 
     y_pred = model.predict(X_pred)
 
-    prediction = pd.DataFrame(y_pred, index=y_dates, columns=[0])
+    prediction = pd.DataFrame(y_pred, index=y_pred_mask.index, columns=[0])
     model.X_pred = X_pred
     model.name = 'Ridge Regression'
     #%%
     return prediction, model
 
 
-def get_scores(prediction, df_splits, score_func_list=list):
-    #%%
-    pred = prediction.merge(df_splits,
-                            left_index=True,
-                            right_index=True)
-    splits = pred.index.levels[0]
-    df_train = pd.DataFrame(np.zeros( (splits.size, len(score_func_list))),
-                            columns=[f.__name__ for f in score_func_list])
-    df_test_s = pd.DataFrame(np.zeros( (splits.size, len(score_func_list))),
-                            columns=[f.__name__ for f in score_func_list])
-    for s in splits:
-        sp = pred.loc[s]
-        trainRV = np.logical_and(sp['TrainIsTrue'], sp['RV_mask'])
-        testRV  = np.logical_and(~sp['TrainIsTrue'], sp['RV_mask'])
-        for f in score_func_list:
-            name = f.__name__
-            train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].iloc[:,1])
-            test_score = f(sp[testRV].iloc[:,0], sp[testRV].iloc[:,1])
-            if name == 'corrcoef':
-                train_score = train_score[0][1]
-                test_score = test_score[0][1]
-            df_train.loc[s,name] = train_score
-            df_test_s.loc[s,name] = test_score
+class ScikitModel:
 
-    df_test = pd.DataFrame(np.zeros( (1,len(score_func_list))),
-                            columns=[f.__name__ for f in score_func_list])
-    pred_test = functions_pp.get_df_test(pred).iloc[:,:2]
-    for f in score_func_list:
-        name = f.__name__
-        test_score = f(pred_test.iloc[:,0], pred_test.iloc[:,1])
-        if name == 'corrcoef':
-            test_score = test_score[0][1]
-        df_test[name] = test_score
-    return df_train, df_test_s, df_test
+    def __init__(self, scikitmodel=None, verbosity=1):
+        if scikitmodel is None:
+            scikitmodel = RidgeCV
+        self.scikitmodel = scikitmodel
+        self.verbosity = verbosity
+
+    def fit_wrapper(self, y_ts, df_norm, keys=None, kwrgs_model=None):
+        '''
+        X contains all precursor data, incl train and test
+        X_train, y_train are split up by TrainIsTrue
+        Preciction is made for whole timeseries
+        '''
+        #%%
+
+        scikitmodel = self.scikitmodel
+
+        if keys is None:
+                no_data_col = ['TrainIsTrue', 'RV_mask', 'fit_model_mask']
+                keys = df_norm.columns
+                keys = [k for k in keys if k not in no_data_col]
+        import warnings
+        warnings.filterwarnings("ignore", category=DeprecationWarning)
+        # warnings.filterwarnings("ignore", category=FutureWarning)
+
+        if kwrgs_model == None:
+            # use Bram settings
+            kwrgs_model = { 'fit_intercept':True,
+                            'alphas':(.01, .1, 1.0, 10.0)}
+
+
+        # find parameters for gridsearch optimization
+        kwrgs_gridsearch = {k:i for k, i in kwrgs_model.items() if type(i) == list}
+        # only the constant parameters are kept
+        kwrgs = kwrgs_model.copy()
+        [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
+        if 'scoringCV' in kwrgs.keys():
+            scoring = kwrgs.pop('scoringCV')
+        else:
+            scoring = None
+        # Get training years
+        x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = utils.get_masks(df_norm)
+
+        X = df_norm[keys]
+        X = X.dropna(axis='columns') # drop only nan columns
+        # X = add_constant(X)
+        X_train = X[x_fit_mask.values]
+        X_pred  = X[x_pred_mask.values]
+
+        RV_fit = y_ts['ts'].loc[y_fit_mask.index] # y_fit may be shortened
+        # because X_test was used to predict y_train due to lag, hence train-test
+        # leakage.
+
+        # y_ts dates may no longer align with x_fit  y_fit masks
+        y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
+        y_train = RV_fit[y_fit_mask].squeeze()
+
+        # if y_pred_mask is not None:
+        #     y_dates = RV_fit[y_pred_mask.values].index
+        # else:
+        # y_dates = RV_fit.index
+
+        X = X_train
+
+        # # Create stratified random shuffle which keeps together years as blocks.
+        kwrgs_cv = ['kfold', 'seed']
+        kwrgs_cv = {k:i for k, i in kwrgs.items() if k in kwrgs_cv}
+        [kwrgs.pop(k) for k in kwrgs_cv.keys()]
+        if len(kwrgs_cv) >= 1:
+            cv = utils.get_cv_accounting_for_years(y_train, **kwrgs_cv)
+        else:
+            cv = None
+        try:
+            model = scikitmodel(cv=cv, **kwrgs)
+        except:
+            model = scikitmodel(**kwrgs)
+
+        if len(kwrgs_gridsearch) != 0:
+            # get cross-validation splitter
+            # if 'kfold' in kwrgs.keys():
+            #     kfold = kwrgs.pop('kfold')
+            # else:
+            #     kfold = 5
+            # cv = utils.get_cv_accounting_for_years(y_train, kfold, seed=1)
+
+            model = GridSearchCV(model,
+                      param_grid=kwrgs_gridsearch,
+                      scoring=scoring, cv=cv, refit=True,
+                      return_train_score=True, verbose=self.verbosity)
+            model.fit(X_train, y_train.values.ravel())
+            model.best_estimator_.X_pred = X_pred # add X_pred to model
+            # if self.verbosity == 1:
+            #     results = model.cv_results_
+            #     scores = results['mean_test_score']
+            #     greaterisbetter = model.scorer_._sign
+            #     improv = int(100* greaterisbetter*(max(scores)- min(scores)) / max(scores))
+            #     print("Hyperparam tuning led to {:}% improvement, best {:.2f}, "
+            #           "best params {}".format(
+            #             improv, model.best_score_, model.best_params_))
+        else:
+            model.fit(X_train, y_train.values.ravel())
+            model.X_pred = X_pred # add X_pred to model
+
+        if np.unique(y_train).size < 5:
+            y_pred = model.predict_proba(X_pred)[:,1] # prob. event prediction
+        else:
+            y_pred = model.predict(X_pred)
+
+        prediction = pd.DataFrame(y_pred, index=y_pred_mask.index, columns=[0])
+        #%%
+        return prediction, model

@@ -9,6 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy as sp
 import seaborn as sns
+import matplotlib.dates as mdates
 # import mtspec
 flatten = lambda l: [item for sublist in l for item in sublist]
 from typing import List, Tuple, Union
@@ -47,7 +48,7 @@ def loop_df_ana(df, function, keys=None, to_np=False, kwrgs=None):
         # retrieve only float series
         type_check = np.logical_or(df.dtypes == 'float',df.dtypes == 'float32')
         keys = type_check[type_check].index
-
+    df = df.loc[:,keys]
     out_list = []
     for header in df:
         if to_np == False:
@@ -104,7 +105,7 @@ def loop_df(df: pd.DataFrame(), function=None, keys=None, colwrap=3, sharex='col
                 kwrgs['ax'] = ax
 
             function(y, **kwrgs)
-    return fig
+    return
     #%%
 
 def plot_df(df: pd.DataFrame(), function=None, keys=None, title: str=None,
@@ -229,7 +230,7 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=False, ax=None):
 
 def plot_timeseries(y, timesteps: list=None,
                     selyears: Union[list, int]=None, title=None,
-                    legend: bool=True, ax=None):
+                    legend: bool=True, nth_xyear: int=10, ax=None):
     # ax=None
     #%%
 
@@ -280,10 +281,18 @@ def plot_timeseries(y, timesteps: list=None,
     else:
         ax.plot(datetimes, y.loc[datetimes])
 
-    every_nth = round(len(ax.xaxis.get_ticklabels())/3)
-    for n, label in enumerate(ax.xaxis.get_ticklabels()):
-        if n % every_nth != 0:
-            label.set_visible(False)
+    if nth_xyear is None:
+        nth_xtick = round(len(ax.xaxis.get_ticklabels())/5)
+        for n, label in enumerate(ax.xaxis.get_ticklabels()):
+            if n % nth_xtick != 0:
+                label.set_visible(False)
+    else:
+        ax.xaxis.set_major_locator(mdates.YearLocator(1)) # set tick every year
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%Y')) # format %Y
+        for n, label in enumerate(ax.xaxis.get_ticklabels()):
+            if n % nth_xyear != 0:
+                label.set_visible(False)
+
     ax.tick_params(axis='both', which='major', labelsize=8)
     if title is not None:
         ax.set_title(title, fontsize=10)
@@ -433,7 +442,7 @@ def corr_matrix_pval(df, alpha=0.05):
     return cross_corr, sig_mask, pval_matrix
 
 def plot_ts_matric(df_init, win: int=None, lag=0, columns: list=None, rename: dict=None,
-                   period='fullyear'):
+                   period='fullyear', plot_sign_stars=True, fontsizescaler=0):
     #%%
     '''
     period = ['fullyear', 'summer60days', 'pre60days']
@@ -505,23 +514,25 @@ def plot_ts_matric(df_init, win: int=None, lag=0, columns: list=None, rename: di
 
     ax = sns.heatmap(corr, ax=ax, mask=mask_tri, cmap=cmap, vmax=1E99, center=0,
                 square=True, linewidths=.5,
-                 annot=False, annot_kws={'size':30}, cbar=False)
+                 annot=False, annot_kws={'size':30+fontsizescaler}, cbar=False)
 
-
-    sig_bold_labels = sig_bold_annot(corr, mask_sig)
+    if plot_sign_stars:
+        sig_bold_labels = sig_bold_annot(corr, mask_sig)
+    else:
+        sig_bold_labels = corr.round(2).astype(str).values
     # Draw the heatmap with the mask and correct aspect ratio
     ax = sns.heatmap(corr, ax=ax, mask=mask_tri, cmap=cmap, vmax=1, center=0,
                 square=True, linewidths=.5, cbar_kws={"shrink": .8},
-                 annot=sig_bold_labels, annot_kws={'size':30}, cbar=False, fmt='s')
+                 annot=sig_bold_labels, annot_kws={'size':30+fontsizescaler}, cbar=False, fmt='s')
 
-    ax.tick_params(axis='both', labelsize=15,
+    ax.tick_params(axis='both', labelsize=15+fontsizescaler,
                    bottom=True, top=False, left=True, right=False,
                    labelbottom=True, labeltop=False, labelleft=True, labelright=False)
 
     ax.set_xticklabels(corr.columns, fontdict={'fontweight':'bold',
-                                               'fontsize':25})
+                                               'fontsize':20+fontsizescaler})
     ax.set_yticklabels(corr.index, fontdict={'fontweight':'bold',
-                                               'fontsize':25}, rotation=0)
+                                               'fontsize':20+fontsizescaler}, rotation=0)
     b, t = ax.get_ylim()
     b += 0.5 # Add 0.5 to the bottom
     t -= 0.5 # Subtract 0.5 from the top

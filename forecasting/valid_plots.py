@@ -894,7 +894,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
     2 can be assigned to row or col, the third will be lines in the same axes.
     '''
 
-    # group_line_by=None; met='default'; wspace=0.08; col_wrap=None; skip_redundant_title=True; lags_relcurve=None; figaspect=2; fontbase=12
+    # group_line_by=None; met='default'; wspace=0.08; col_wrap=None; skip_redundant_title=True; lags_relcurve=None; figaspect=2; fontbase=12; lines_legend=None
     #%%
     dims = ['exper', 'models', 'met']
     col_dim = [s for s in dims if s not in [line_dim, 'met']][0]

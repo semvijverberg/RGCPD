@@ -5,11 +5,16 @@ Created on Thu Aug 22 12:54:45 2019
 
 @author: semvijverberg
 """
-import inspect, os, sys
+import sys, os, inspect
+if 'win' in sys.platform and 'dar' not in sys.platform:
+    sep = '\\' # Windows folder seperator
+else:
+    sep = '/' # Mac/Linux folder seperator
+
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-1])
+main_dir = sep.join(curr_dir.split(sep)[:-1])
 RGCPD_dir = os.path.join(main_dir, 'RGCPD')
-df_ana_path = os.path.join(main_dir, 'df_analysis/df_analysis/')
+df_ana_path = os.path.join(main_dir, 'df_analysis', 'df_analysis')
 if df_ana_path not in sys.path:
     sys.path.append(df_ana_path)
     sys.path.append(RGCPD_dir)
@@ -32,6 +37,8 @@ import functions_pp
 import df_ana
 import exp_fc
 import core_pp
+import func_models as util
+# from RGCPD import RGCPD
 
 
 
@@ -455,7 +462,7 @@ class fcev():
         if subfoldername is None:
             subfoldername = 'forecasts'
         if pathexper is None:
-            working_folder = '/'.join(self.path_data.split('/')[:-1])
+            working_folder = f'{sep}'.join(self.path_data.split(sep)[:-1])
             working_folder = os.path.join(working_folder, subfoldername)
             self.working_folder = working_folder
             if os.path.isdir(working_folder) != True : os.makedirs(working_folder)
@@ -517,7 +524,7 @@ class fcev():
         [print(n, file=file) for n in lines]
         file.close()
         [print(n) for n in lines[:-2]]
-        return self.working_folder, self.pathexper
+        return self.working_folder, os.path.join(self.pathexper, 'data.h5')
 
     def perform_validation(self, n_boot=2000, blocksize='auto',
                            threshold_pred='upper_clim', alpha=0.05):
@@ -558,8 +565,10 @@ class fcev():
         new_RVmask.loc[dates_RV] = True
         self.df_data['RV_mask'] = pd.concat([new_RVmask] * self.splits.size,
                                             keys=self.splits)
-    def _get_start_end_TVdate(self):
-        RV_mask_orig   = self.df_data['RV_mask'].loc[0].copy()
+    def _get_start_end_TVdate(self, df_data:pd.DataFrame=None):
+        if df_data is None:
+            df_data = self.df_data.copy()
+        RV_mask_orig   = df_data['RV_mask'].loc[0].copy()
         dates_RV = RV_mask_orig[RV_mask_orig].index
         return (f'{dates_RV[0].month}-{dates_RV[0].day}',
                                  f'{dates_RV[-1].month}-{dates_RV[-1].day}')
@@ -662,31 +671,44 @@ class fcev():
 
         print(f'{stat_model}')
         from time import time
-        try:
-            t0 = time()
-            futures = {}
-            with ProcessPoolExecutor(max_workers=self.n_cpu) as pool:
+        if self.n_cpu != 1:
+            try:
+                t0 = time()
+                futures = {}
+                with ProcessPoolExecutor(max_workers=self.n_cpu) as pool:
+                    for lag in lags_i:
+                        for split in splits:
+                            fitkey = f'{lag}_{split}'
+                            futures[fitkey] = pool.submit(fit,
+                                                          y_ts=y_ts,
+                                                          df_data=df_data,
+                                                          lag=lag,
+                                                          split=split,
+                                                          stat_model=stat_model,
+                                                          keys_d=keys_d,
+                                                          dates_tobin=dates_tobin,
+                                                          precur_aggr=precur_aggr,
+                                                          kwrgs_pp=kwrgs_pp,
+                                                          verbosity=verbosity)
+                    results = {key:future.result() for key, future in futures.items()}
+                print(time() - t0)
+            except:
+                print('parallel failed')
+                # if on cluster, stop
+                assert sys.platform != 'linux', ('Parallel Failed on cluster')
+
+                t0 = time()
+                results = {}
                 for lag in lags_i:
                     for split in splits:
                         fitkey = f'{lag}_{split}'
-                        futures[fitkey] = pool.submit(fit,
-                                                      y_ts=y_ts,
-                                                      df_data=df_data,
-                                                      lag=lag,
-                                                      split=split,
-                                                      stat_model=stat_model,
-                                                      keys_d=keys_d,
-                                                      dates_tobin=dates_tobin,
-                                                      precur_aggr=precur_aggr,
-                                                      kwrgs_pp=kwrgs_pp,
-                                                      verbosity=verbosity)
-                results = {key:future.result() for key, future in futures.items()}
-            print(time() - t0)
-        except:
-            print('parallel failed')
-            # if on cluster, stop
-            assert sys.platform != 'linux', ('Parallel Failed on cluster')
-
+                        results[fitkey] = fit(y_ts=y_ts, df_data=df_data, lag=lag,
+                                              split=split, stat_model=stat_model,
+                                              keys_d=keys_d, dates_tobin=RV.dates_tobin,
+                                              precur_aggr=precur_aggr, kwrgs_pp=kwrgs_pp,
+                                              verbosity=verbosity)
+                print('in {:.0f} seconds'.format(time() - t0))
+        else:
             t0 = time()
             results = {}
             for lag in lags_i:
@@ -910,7 +932,7 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
         # 10 day means, we can make a lag_step of 1, 2, etc, resulting in lag
         # in days of 5, 15, 25.
         fit_masks = df_split.loc[:,['TrainIsTrue', 'RV_mask']].copy()
-        fit_masks = apply_shift_lag(fit_masks, lag_i)
+        fit_masks = util.apply_shift_lag(fit_masks, lag_i)
     elif type(dates_tobin) == pd.DatetimeIndex:
         # df_data contain daily data, we can shift dates_tobin to allow any
         # lag in days w.r.t. target variable
@@ -922,14 +944,14 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
             base_lag = int(tfreq_TV / 2) # minimal shift to get lag vs onset
         last_centerdate = dates_TV[-1]
         fit_masks = df_split.loc[:,['TrainIsTrue', 'RV_mask']].copy()
-        fit_masks = apply_shift_lag(fit_masks, lag_i+base_lag)
+        fit_masks = util.apply_shift_lag(fit_masks, lag_i+base_lag)
         df_prec = df_prec[x_keys].merge(fit_masks, left_index=True, right_index=True)
         dates_bin_shift = functions_pp.func_dates_min_lag(dates_tobin, lag_i+base_lag)[1]
 
         df_prec, dates_tobin_p = _daily_to_aggr(df_prec.loc[dates_bin_shift], precur_aggr)
         fit_masks = df_prec[df_prec.columns[df_prec.dtypes==bool]]
         # check y_fit mask
-        fit_masks = _check_y_fitmask(fit_masks, lag_i, base_lag)
+        fit_masks = util._check_y_fitmask(fit_masks, lag_i, base_lag)
         lag_v = (last_centerdate - df_prec[df_prec['x_fit']].index[-1]).days
         if tfreq_TV == precur_aggr:
             assert lag_v == lag_i+base_lag, (
@@ -938,7 +960,7 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
     elif type(dates_tobin) is tuple:
         df_prec = start_end_date_mean(df_prec,
                             start_end_date=dates_tobin)
-        fit_masks = apply_shift_lag(df_prec[['TrainIsTrue', 'RV_mask']], 0)
+        fit_masks = util.apply_shift_lag(df_prec[['TrainIsTrue', 'RV_mask']], 0)
 
 
     df_prec = df_prec[x_keys]
@@ -983,73 +1005,6 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
     #%%
     return df_prec, upd_keys
 
-def _check_y_fitmask(fit_masks, lag_i, base_lag):
-    ''' If lag_i is uneven, taking the mean over the RV period may result in
-    a shorter y_fit (RV_mask) then the original RV_mask (where the time mean
-    bins were done on its own time axis. Hence y_fit is redefined by adding
-    lag_i+base_lag to x_fit mask.
-
-    Note: y_fit_mask and y_pred_mask the same now
-    '''
-    fit_masks_n = fit_masks.copy()
-    y_fit = fit_masks['y_fit'] ; x_fit = fit_masks['x_fit']
-    y_dates_RV = x_fit[x_fit].index + pd.Timedelta(lag_i+base_lag, 'd')
-    y_dates_pr = y_fit[y_fit].index
-    mismatch = (functions_pp.get_oneyr(y_dates_pr)[0]- \
-                functions_pp.get_oneyr(y_dates_RV)[0] ).days
-    y_fit_corr = y_dates_RV + pd.Timedelta(mismatch, 'd')
-    y_fit_mask = [True if d in y_fit_corr else False for d in x_fit.index]
-    fit_masks_n.loc[:,'y_fit'] = np.array(y_fit_mask)
-
-    y_pred = fit_masks['y_pred'] ; x_pred = fit_masks['x_pred']
-    y_dates_RV = x_pred[x_pred].index + pd.Timedelta(lag_i+base_lag, 'd')
-    y_dates_pr = y_pred[y_pred].index
-    mismatch = (functions_pp.get_oneyr(y_dates_pr)[0]- \
-                functions_pp.get_oneyr(y_dates_RV)[0] ).days
-    y_pred_corr = y_dates_RV + pd.Timedelta(mismatch, 'd')
-    y_pred_mask = [True if d in y_pred_corr else False for d in x_pred.index]
-    fit_masks_n.loc[:,'y_pred'] = np.array(y_pred_mask)
-    size_y_fit = fit_masks_n['y_fit'][fit_masks_n['y_fit']].dropna().size
-    assert  size_y_fit == y_dates_RV.size, ('y_fit mask will not match RV '
-                ' dates length')
-    return fit_masks_n
-
-def apply_shift_lag(fit_masks, lag_i):
-    '''
-    only shifting the boolean masks, Traintest split info is contained
-    in the TrainIsTrue mask.
-    '''
-    if 'fit_model_mask' not in fit_masks.columns:
-        fit_masks['fit_model_mask'] = fit_masks['RV_mask'].copy()
-    RV_mask = fit_masks['RV_mask'].copy()
-    y_fit = fit_masks['fit_model_mask'].copy()
-    x_fit = y_fit.shift(periods=-int(lag_i))
-    n_nans = x_fit[~x_fit.notna()].size
-    # set last x_fit date to False if x_fit caused nan
-    if n_nans > 0:
-        # take into account that last x_fit_train should be False to have
-        # equal length y_train & x_fit and to avoid Train-test mix-up due to lag
-        x_fit[~x_fit.notna()] = False
-        x_date = x_fit[fit_masks['TrainIsTrue']].index[-n_nans:]
-        x_fit.loc[x_date] = False
-
-    x_pred = RV_mask.shift(periods=-int(lag_i))
-    x_pred[~x_pred.notna()] = False
-    # first indices of RV_mask cannot be predicted at lag > lag_i
-    if lag_i > 0:
-        # y_date cannot be predicted elsewise mixing
-        # Train test dates
-        y_date = RV_mask[fit_masks['TrainIsTrue']].index[:int(lag_i)]
-        RV_mask.loc[y_date] = False
-        y_fit.loc[y_date] = False #
-
-    fit_masks['x_fit'] = x_fit
-    fit_masks['y_fit'] = y_fit
-    fit_masks['x_pred'] = x_pred
-    fit_masks['y_pred'] = RV_mask
-    fit_masks = fit_masks.drop(['RV_mask'], axis=1)
-    fit_masks = fit_masks.drop(['fit_model_mask'], axis=1)
-    return fit_masks.astype(bool)
 
 def transform_EOF(df_prec, TrainIsTrue, RV_mask, expl_var=0.8):
     '''
@@ -1086,14 +1041,14 @@ def _daily_to_aggr(df_data, daily_to_aggr=int):
         for s in splits:
             df_data_s[s], dates_tobin = functions_pp.time_mean_bins(
                                                         df_data.loc[s],
-                                                        to_freq=daily_to_aggr,
+                                                        tfreq=daily_to_aggr,
                                                         start_end_date=None,
                                                         start_end_year=None,
                                                         verbosity=0)
         df_data_resample  = pd.concat(list(df_data_s), keys= range(splits.size))
     else:
         df_data_resample, dates_tobin = functions_pp.time_mean_bins(df_data,
-                                                       to_freq=daily_to_aggr,
+                                                       tfreq=daily_to_aggr,
                                                        start_end_date=None,
                                                        start_end_year=None,
                                                        verbosity=0)

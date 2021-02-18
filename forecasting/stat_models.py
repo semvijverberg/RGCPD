@@ -40,7 +40,7 @@ logit = ('logit', None)
 
 
 
-def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
+def logit_skl(y_ts, df_norm, keys=None, kwrgs_model=None):
 
     #%%
     '''
@@ -57,18 +57,18 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_logit=None):
     warnings.filterwarnings("ignore", category=DeprecationWarning)
 #    warnings.filterwarnings("ignore", category=FutureWarning)
 
-    if kwrgs_logit == None:
+    if kwrgs_model == None:
         # use Bram settings
-        kwrgs_logit = { 'class_weight':{ 0:1, 1:1},
+        kwrgs_model = { 'class_weight':{ 0:1, 1:1},
                 'scoring':'neg_brier_score',
                 'penalty':'l2',
                 'solver':'lbfgs'}
 
 
     # find parameters for gridsearch optimization
-    kwrgs_gridsearch = {k:i for k, i in kwrgs_logit.items() if type(i) == list}
+    kwrgs_gridsearch = {k:i for k, i in kwrgs_model.items() if type(i) == list}
     # only the constant parameters are kept
-    kwrgs = kwrgs_logit.copy()
+    kwrgs = kwrgs_model.copy()
     [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
     if 'feat_sel' in kwrgs:
         feat_sel = kwrgs.pop('feat_sel')
@@ -185,8 +185,8 @@ def GBC(y_ts, df_norm, keys, kwrgs_GBM=None, verbosity=0):
         model, new_features, rfecv = utils.feature_selection(X_train, y_train.values.ravel(), **feat_sel)
         X_pred = X_pred[new_features] # subset predictors
         X_train = X_train[new_features] # subset predictors
-    else:
-        model.fit(X_train, y_train.values.ravel())
+    # else:
+        # model.fit(X_train, y_train.values.ravel())
 
 
 
@@ -339,13 +339,13 @@ def plot_importances(models_splits_lags, lag=0, keys=None, cutoff=6,
             ax.grid(which='both')
             ax.set_title(f"{df_all.columns.name}")
             # ax.barh(np.arange(df_r.size), df_r.squeeze().values, tick_label=df_r.columns)
-            ax.text(0.98, 0.03, f'lead time: {lag_d} days',
-                    fontsize=12,
-                    bbox=dict(boxstyle='round', facecolor='wheat',
-                              edgecolor='black', alpha=0.5),
-                horizontalalignment='right',
-                verticalalignment='top',
-                transform=ax.transAxes)
+            # ax.text(0.98, 0.03, f'lead time: {lag_d} days',
+            #         fontsize=12,
+            #         bbox=dict(boxstyle='round', facecolor='wheat',
+            #                   edgecolor='black', alpha=0.5),
+            #     horizontalalignment='right',
+            #     verticalalignment='top',
+            #     transform=ax.transAxes)
             lim = df_r.apply(abs).max().max()
             lim = lim + .1*lim
             ax.set_xlim((-lim,lim))
@@ -420,32 +420,34 @@ def _get_importances(models_splits_lags, lag=0):
     get feature importance for single lag
     '''
 
-    models_splits = models_splits_lags[f'lag_{lag}']
+    models_splits = models_splits_lags[f'lag_{lag}'].copy()
     splits = np.arange(len(models_splits_lags[f'lag_{lag}']))
     feature_importances = {}
 
-
-    # if keys is None:
+    # unpack model
     keys = set()
-    [keys.update(list(r.X_pred.columns)) for k, r in models_splits.items()]
+    for splitkey, model in models_splits.items():
+        if hasattr(model, 'scikitmodel'):
+            model = model.scikitmodel # scikitmodel wrapper
+        if hasattr(model, 'best_estimator_'): # GridSearchCV instance
+            model = model.best_estimator_
+        models_splits[splitkey] = model # unpacked model
+        keys.update(list(model.X_pred.columns))
+
     masks = ['TrainIsTrue', 'x_fit', 'x_pred', 'y_fit', 'y_pred']
     keys = [k for k in keys if k not in masks]
     tuples_multiindex = []
     for i, k in enumerate(keys):
         np_import = np.zeros( (splits.size))
-        for splitkey, regressor in models_splits.items():
+        for splitkey, model in models_splits.items():
             s = int(splitkey.split('_')[1])
-            keys_s = list(regressor.X_pred.columns[(regressor.X_pred.dtypes != bool)])
-            if hasattr(regressor, 'feature_importances_'): # for GBR
+            keys_s = list(model.X_pred.columns[(model.X_pred.dtypes != bool)])
+            if hasattr(model, 'feature_importances_'): # for GBR
                 name_values = 'Relative Feature Importance'
-                importances = regressor.feature_importances_
-            elif hasattr(regressor, 'coef_'):
-                if regressor.__class__ == LogisticRegressionCV:
-                    name_values = 'Logistic Regression Coefficients'  # for logit
-                    importances = regressor.coef_.squeeze(0)
-                if regressor.__class__ == RidgeCV: # for Ridge
-                    name_values = 'Ridge Regression Coefficients'
-                    importances = regressor.coef_.squeeze()
+                importances = model.feature_importances_
+            elif hasattr(model, 'coef_'):
+                name_values = 'Coefficients'
+                importances = model.coef_
 
             if k not in feature_importances.keys():
                 feature_importances[k] = []
@@ -459,20 +461,6 @@ def _get_importances(models_splits_lags, lag=0):
 
         feature_importances[k] = np_import
 
-            # for name, importance in zip(keys_s, importances):
-            #     if name not in feature_importances:
-            #         if name not in feature_importances.keys():
-            #             feature_importances[name] = []
-            #     feature_importances[name].append( importance )
-                # feature_importances[name][1] += 1
-
-    # remnant from Bram, importance by amount of time precursor was in model.
-    # robust precursors get divided by 10, while other precursors are divided
-    # by 1. == silly
-    # names, importances = [], []
-    # for name, (importance, count) in feature_importances.items():
-    #     names.append(name)
-    #     importances.append(float(importance) / float(count))
 
     df = pd.DataFrame(feature_importances)
     df_mean = df.apply(np.nanmean).apply(abs)
@@ -481,29 +469,6 @@ def _get_importances(models_splits_lags, lag=0):
     # add info lags
     df = pd.concat([df], keys=[lag])
     df = df.rename_axis(name_values, axis=1)
-    # names, importances = [], []
-
-    # for name, importances_splits in feature_importances.items():
-    #     names.append(name)
-    #     importances.append(np.mean(importances_splits))
-    # if hasattr(regressor, 'feature_importances_'):
-    #     importances = np.array(importances) / np.sum(importances)
-    # elif hasattr(regressor, 'coef_'): # for logit
-    #     importances = np.array(importances)
-    # order = np.argsort(importances)
-    # names_order = [names[index] for index in order] ; names_order.reverse()
-    # zz = np.zeros( (len(names_order)), dtype=object)
-    # for i, k in enumerate(names_order):
-    #     zz[i] = feature_importances[k]
-    # # freq = (regressor.X_pred.index[1] - regressor.X_pred.index[0]).days
-    # # lags_tf = [l*freq for l in [lag]]
-    # # if freq != 1:
-    # #     # the last day of the time mean bin is tfreq/2 later then the centerered day
-    # #     lags_tf = [l_tf- int(freq/2) if l_tf!=0 else 0 for l_tf in lags_tf]
-    # df = pd.DataFrame(zz, index=names_order, columns=[lag])
-    # # df = pd.DataFrame([sorted(importances, reverse=True)], columns=names_order,
-    # #                   index=[lag])
-
 
     #%%
     return df

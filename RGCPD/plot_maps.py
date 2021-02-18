@@ -36,13 +36,15 @@ def extend_longitude(data):
     return plottable
 
 def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
-                   col_dim='lag', clim='relaxed', hspace=-0.4, wspace=0.01,
+                   col_dim='lag', clim='relaxed', hspace=-0.6, wspace=0.02,
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
-                   clevels=None, cticks_center=None, title=None,
-                   drawbox=None, subtitles=None, zoomregion=None,
-                   lat_labels=True, aspect=None, n_xticks=5, n_yticks=3,
-                   x_ticks: np.ndarray=None, y_ticks: np.ndarray=None,
-                   add_cfeature: str=None):
+                   clevels=None, cticks_center=None, drawbox=None, title=None,
+                   title_fontdict: dict=None, subtitles: np.ndarray=None,
+                   subtitle_fontdict: dict=None, zoomregion=None,
+                   aspect=None, n_xticks=5, n_yticks=3, x_ticks: Union[bool, np.ndarray]=None,
+                   y_ticks: Union[bool, np.ndarray]=None, add_cfeature: str=None,
+                   textinmap: list=None):
+
     '''
     zoomregion = tuple(east_lon, west_lon, south_lat, north_lat)
     '''
@@ -50,9 +52,10 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     # default parameters
     # mask_xr=None ; row_dim='split'; col_dim='lag'; clim='relaxed';
     # size=2.5; cbar_vert=-0.01; units='units'; cmap=None; hspace=-0.6;
-    # clevels=None; cticks_center=None; map_proj=None ; wspace=.0
+    # clevels=None; cticks_center=None; map_proj=None ; wspace=.03;
     # drawbox=None; subtitles=None; title=None; lat_labels=True; zoomregion=None
-    # aspect=None; n_xticks=5; n_yticks=3
+    # aspect=None; n_xticks=5; n_yticks=3; title_fontdict=None; x_ticks=None;
+    # y_ticks=None; add_cfeature=None; textinmap=None
 
     if map_proj is None:
         cen_lon = int(corr_xr.longitude.mean().values)
@@ -60,11 +63,11 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
     if row_dim not in corr_xr.dims:
         corr_xr = corr_xr.expand_dims(row_dim, 0)
-        if mask_xr is not None:
+        if mask_xr is not None and row_dim not in mask_xr.dims:
             mask_xr = mask_xr.expand_dims(row_dim, 0)
     if col_dim not in corr_xr.dims:
         corr_xr = corr_xr.expand_dims(col_dim, 0)
-        if mask_xr is not None:
+        if mask_xr is not None and col_dim not in mask_xr.dims:
             mask_xr = mask_xr.expand_dims(col_dim, 0)
 
     var_n   = corr_xr.name
@@ -88,28 +91,27 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         aspect = (lon.size) / lat.size
 
 
-    g = xr.plot.FacetGrid(plot_xr, col='col', row='row', subplot_kws={'projection': map_proj},
-                      sharex=True, sharey=True,
-                      aspect=aspect, size=size)
+    g = xr.plot.FacetGrid(plot_xr, col='col', row='row',
+                          subplot_kws={'projection': map_proj},
+                          sharex=True, sharey=True,
+                          aspect=aspect, size=size)
     figheight = g.fig.get_figheight()
 
     # =============================================================================
     # Coordinate labels
     # =============================================================================
     import cartopy.mpl.ticker as cticker
-    if x_ticks is None: # auto ticks
+    g.set_ticks(fontsize='large')
+    if x_ticks is None or x_ticks is False: #auto-ticks, if False, will be masked
         longitude_labels = np.linspace(np.min(lon), np.max(lon), n_xticks, dtype=int)
         longitude_labels = np.array(sorted(list(set(np.round(longitude_labels, -1)))))
     else:
-        longitude_labels = x_ticks
-    if y_ticks is None:  # auto ticks
+        longitude_labels = x_ticks # if x_ticks==False -> no ticklabels
+    if y_ticks is None or y_ticks is False: #auto-ticks, if False, will be masked
         latitude_labels = np.linspace(lat.min(), lat.max(), n_yticks, dtype=int)
         latitude_labels = sorted(list(set(np.round(latitude_labels, -1))))
     else:
-        latitude_labels = y_ticks
-    g.set_ticks(fontsize='large')
-    g.set_xlabels(label=[str(el) for el in longitude_labels])
-
+        latitude_labels = y_ticks # if y_ticks==False -> no ticklabels
 
     g.fig.subplots_adjust(hspace=hspace, wspace=wspace)
 
@@ -156,7 +158,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
 
         for row, r_label in enumerate(rows):
-            print(f"\rPlotting Corr maps {var_n}, {row_dim} {r_label}, {col_dim} {c_label}", end="")
+            print(f"\rPlotting Corr maps {var_n}, {row_dim} {r_label}, {col_dim} {c_label}", end="\n")
             plotdata = xrdatavar.sel(row=r_label).rename(rename_subs).squeeze()
 
             if mask_xr is not None:
@@ -172,10 +174,13 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                 # field not completely masked?
                 all_masked = (plotmask.values==False).all()
                 if all_masked == False:
-                    if p_nans < 90:
-                        plotmask.plot.contour(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
-                                          subplot_kws={'projection': map_proj}, colors=['black'],
-                                          linewidths=np.round(zonal_width/150, 1)+0.3, levels=[float(vmin),float(vmax)],
+                    if p_nans != 100:
+                        plotmask.plot.contour(ax=g.axes[row,col],
+                                              transform=ccrs.PlateCarree(),
+                                          # subplot_kws={'projection': map_proj},
+                                          colors=['black'],
+                                          linewidths=np.round(zonal_width/150, 1)+0.3,
+                                          levels=[float(vmin),float(vmax)],
                                           add_colorbar=False)
         #                try:
         #                    im = plotdata.plot.contourf(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
@@ -188,16 +193,13 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             # if no signifcant regions, still plot corr values, but the causal plot must remain empty
             if mask_xr is None or all_masked==False or (all_masked and 'tigr' not in str(c_label)):
                 im = plotdata.plot.pcolormesh(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
-                                        center=0,
-                                         levels=clevels, cmap=cmap,
-                                         subplot_kws={'projection':map_proj},add_colorbar=False)
+                                              center=0, levels=clevels,
+                                              cmap=cmap,add_colorbar=False)
+                                              # subplot_kws={'projection':map_proj})
             elif all_masked and 'tigr' in c_label:
                 g.axes[row,col].text(0.5, 0.5, 'No regions significant',
                       horizontalalignment='center', fontsize='x-large',
                       verticalalignment='center', transform=g.axes[row,col].transAxes)
-            g.axes[row,col].set_extent([lon[0], lon[-1],
-                                       lat[0], lat[-1]], ccrs.PlateCarree())
-
             # =============================================================================
             # Draw (rectangular) box
             # =============================================================================
@@ -225,32 +227,57 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                         g.axes[row,col].add_geometries(ring, ccrs.PlateCarree(),
                                                        facecolor='none', edgecolor='green',
                                                        linewidth=2, linestyle='dashed')
+            # =============================================================================
+            # Add text in plot - list([location, list(tuple(lon,lat,text,kwrgs))])
+            # =============================================================================
+            if textinmap is not None:
+                for list_t in textinmap:
+                    if list_t[0] == g.axes.size or list_t[0] == 'all':
+                        row_text, col_text = row, col
+                    if type(list_t[0]) is tuple:
+                        row_text, col_text = list_t[0]
+                    if type(list_t[1]) is not list:
+                        list_t[1] = [list_t[1]]
+                    for t in list_t[1]:
+                        lontext, lattext, text, kwrgs = t # lon in degrees west-east
+                        kwrgs.update(dict(horizontalalignment='center',
+                                         transform=ccrs.Geodetic())) # standard settings
+                        g.axes[row_text,col_text].text(int(lontext), int(lattext),
+                                                       text, **kwrgs)
+
 
             # =============================================================================
             # Subtitles
             # =============================================================================
             if subtitles is not None:
-                fontdict = dict({'fontsize'     : 18,
-                             'fontweight'   : 'bold'})
-                g.axes[row,col].set_title(subtitles[row,col], fontdict=fontdict, loc='center')
+                if subtitle_fontdict is None:
+                    subtitle_fontdict = dict({'fontsize' : 16})
+                g.axes[row,col].set_title(subtitles[row,col], fontdict=subtitle_fontdict,
+                                          loc='center')
             # =============================================================================
             # Format coordinate ticks
             # =============================================================================
             if map_proj.proj4_params['proj'] in ['merc', 'eqc', 'cea']:
                 ax = g.axes[row,col]
+                # x-ticks and labels
                 ax.set_xticks(longitude_labels[:], crs=ccrs.PlateCarree())
-                ax.set_xticklabels(longitude_labels[:], fontsize=12)
-                lon_formatter = cticker.LongitudeFormatter()
-                ax.xaxis.set_major_formatter(lon_formatter)
-
+                if x_ticks is not False:
+                    ax.set_xticklabels(longitude_labels[:], fontsize=12)
+                    lon_formatter = cticker.LongitudeFormatter()
+                    ax.xaxis.set_major_formatter(lon_formatter)
+                else:
+                    fake_labels = [' ' * len( str(l) ) for l in longitude_labels]
+                    g.axes[row,col].set_xticklabels(fake_labels, fontsize=12)
+                # y-ticks and labels
                 g.axes[row,col].set_yticks(latitude_labels, crs=ccrs.PlateCarree())
-                if lat_labels == True:
+                if y_ticks is not False:
                     g.axes[row,col].set_yticklabels(latitude_labels, fontsize=12)
                     lat_formatter = cticker.LatitudeFormatter()
                     g.axes[row,col].yaxis.set_major_formatter(lat_formatter)
                 else:
                     fake_labels = [' ' * len( str(l) ) for l in latitude_labels]
                     g.axes[row,col].set_yticklabels(fake_labels, fontsize=12)
+
                 g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3, linestyle='--')
                 g.axes[row,col].set_ylabel('')
                 g.axes[row,col].set_xlabel('')
@@ -259,7 +286,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                                           facecolor='grey',
                                           linewidth=2)
             # black outline subplot
-            g.axes[row,col].outline_patch.set_edgecolor('black')
+            g.axes[row,col].spines['geo'].set_edgecolor('black')
 
             if corr_xr.name is not None:
                 if corr_xr.name[:3] == 'sst':
@@ -267,6 +294,14 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             if add_cfeature is not None:
                 g.axes[row,col].add_feature(cfeature.__dict__[add_cfeature],
                                             facecolor='grey', alpha=0.2)
+
+
+            if zoomregion is not None:
+                g.axes[row,col].set_extent(zoomregion, crs=ccrs.PlateCarree())
+            else:
+                g.axes[row,col].set_extent([lon[0], lon[-1],
+                                       lat[0], lat[-1]], crs=ccrs.PlateCarree())
+
 
 
 
@@ -289,30 +324,32 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
 
     if cticks_center is None:
-        plt.colorbar(im, cax=cbar_ax , orientation='horizontal', norm=norm,
+        plt.colorbar(im, cax=cbar_ax , orientation='horizontal', # norm=norm,
                  label=clabel, ticks=clevels[::ticksteps], extend='neither')
     else:
-        norm = mcolors.BoundaryNorm(boundaries=clevels, ncolors=256)
-        cbar = plt.colorbar(im, cbar_ax, cmap=cmap, orientation='horizontal',
-                 extend='neither', norm=norm, label=clabel)
+        # norm = mcolors.BoundaryNorm(boundaries=clevels, ncolors=256)
+        cbar = plt.colorbar(im, cbar_ax,
+                            orientation='horizontal', extend='neither',
+                            label=clabel)
         cbar.set_ticks(clevels + 0.5)
         ticklabels = np.array(clevels+1, dtype=int)
         cbar.set_ticklabels(ticklabels, update_ticks=True)
         cbar.update_ticks()
 
-    if zoomregion is not None:
-        ax.set_extent(zoomregion, crs=ccrs.PlateCarree())
         # ax.set_xlim(zoomregion[:2])
         # ax.set_ylim(zoomregion[:2])
     if title is not None:
-        g.fig.suptitle(title)
+        if title_fontdict is None:
+            title_fontdict = dict({'fontsize'     : 18,
+                                   'fontweight'   : 'bold'})
+        g.fig.suptitle(title, **title_fontdict)
     # plt.tight_layout(pad=1.1-0.02*rows.size, h_pad=None, w_pad=None, rect=None)
 
     # print("\n")
 
 
     #%%
-    return
+    return g.fig
 
 def causal_reg_to_xarray(df_links, list_MI):
     #%%
@@ -420,7 +457,7 @@ def causal_reg_to_xarray(df_links, list_MI):
     return dict_ds
 
 def plot_labels_vars_splits(dict_ds, df_links, figpath, paramsstr, RV_name,
-                            filetype='.pdf', mean_splits=True,
+                            save: bool=False, filetype='.pdf', mean_splits=True,
                             cols: List=['corr', 'C.D.'], kwrgs_plot={}):
 
     #%%
@@ -440,8 +477,10 @@ def plot_labels_vars_splits(dict_ds, df_links, figpath, paramsstr, RV_name,
                 f_name = '{}_{}_vs_{}_labels_mean'.format(paramsstr, RV_name, var) + filetype
             else:
                 f_name = '{}_{}_vs_{}_labels'.format(paramsstr, RV_name, var) + filetype
-
-            filepath = os.path.join(figpath, f_name)
+            if save:
+                filepath = os.path.join(figpath, f_name)
+            else:
+                filepath  = False
             plot_labels_RGCPD(ds, var, lag, filepath,
                               mean_splits, cols, kwrgs_plot)
     #%%
@@ -557,7 +596,7 @@ def plot_labels_RGCPD(ds, var, lag, filepath,
     return
 
 def plot_corr_vars_splits(dict_ds, df_sum, figpath, paramsstr, RV_name,
-                          filetype='.pdf', mean_splits=True,
+                          save: bool=False, filetype='.pdf', mean_splits=True,
                           cols: List=['corr', 'C.D.'], kwrgs_plot={}):
     #%%
     # =============================================================================
@@ -610,7 +649,7 @@ def _get_kwrgs_labels(prec_labels):
 
 
     kwrgs_labels = {'size':3, 'clevels':clevels,
-                  'lat_labels':True, 'cticks_center':True,
+                  'cticks_center':True,
                   'cmap':cmap,
                   'units': None}
 
@@ -619,18 +658,13 @@ def _get_kwrgs_labels(prec_labels):
 
     return kwrgs_labels
 
-def plot_labels(prec_labels, cbar_vert=None, col_dim='lag', row_dim='split',
-                wspace=0.1, hspace=-.2, zoomregion=None, kwrgs_plot={}):
+def plot_labels(prec_labels,
+                kwrgs_plot={}):
     xrlabels = prec_labels.copy()
     xrlabels.values = prec_labels.values - 0.5
     kwrgs_labels = _get_kwrgs_labels(xrlabels)
-    if cbar_vert is not None:
-        kwrgs_labels['cbar_vert'] = cbar_vert
-    for k, item in kwrgs_plot.items():
-        kwrgs_labels[k] = item
-    plot_corr_maps(xrlabels, col_dim=col_dim, row_dim=row_dim,
-                   hspace=hspace, wspace=wspace, zoomregion=zoomregion,
-                   **kwrgs_labels)
+    kwrgs_labels.update(kwrgs_plot)
+    plot_corr_maps(xrlabels, **kwrgs_labels)
 
 def plot_corr_regions(ds, var, lag, filepath,
                       mean_splits=True, cols: List=['corr','C.D.'],

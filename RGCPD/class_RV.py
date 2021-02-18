@@ -6,9 +6,6 @@ Created on Mon Jan  6 08:46:05 2020
 @author: semvijverberg
 """
 
-# import inspect, os
-# curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -38,7 +35,11 @@ class RV_class:
         self.dates_all = fullts.index
         self.dates_RV = RV_ts.index
         self.n_oneRVyr = self.dates_RV[self.dates_RV.year == self.dates_RV.year[0]].size
-        self.tfreq = (self.dates_all[1] - self.dates_all[0]).days
+        nonleap = self.dates_all[~self.dates_all.is_leap_year]
+        self.tfreq = (nonleap[1] - nonleap[0]).days
+        if self.tfreq != 365 or self.tfreq != 1:
+            self.dates_tobin = self.aggr_to_daily_dates(self.dates_RV,
+                                                        tfreq=self.tfreq)
 
         def handle_fit_model_dates(dates_RV, dates_all, RV_ts, fit_model_dates):
             if fit_model_dates is None:
@@ -164,7 +165,7 @@ class RV_class:
         yr_daily  = pd.date_range(start=start_date, end=end_date,
                                         freq=pd.Timedelta('1d'))
         years = np.unique(dates_precur_data.year)
-        ext_dates = functions_pp.make_dates(yr_daily, years)
+        ext_dates = core_pp.make_dates(yr_daily, years)
 
         return ext_dates
 

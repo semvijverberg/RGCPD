@@ -2,6 +2,7 @@
 import os, io, sys
 from tigramite import data_processing as pp
 from tigramite.pcmci import PCMCI
+import matplotlib.pyplot as plt
 from tigramite.independence_tests import ParCorr #, GPDC, CMIknn, CMIsymb
 import numpy as np
 import pandas as pd
@@ -11,7 +12,7 @@ flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 
 def init_pcmci(df_data, significance='analytic', mask_type='y',
-               selected_variables=None, verbosity=4):
+               selected_variables=None, verbosity=5):
     '''
     First initializing pcmci object for each training set. This allows to plot
     lagged cross-correlations which help to identity a reasonably tau_max.
@@ -44,12 +45,14 @@ def init_pcmci(df_data, significance='analytic', mask_type='y',
         df_data_s = df_data.loc[s][TrainIsTrue.values]
         df_data_s = df_data_s.dropna(axis=1, how='all')
         if any(df_data_s.isna().values.flatten()):
-            print('Warnning: nans detected')
+            if verbosity > 0:
+                print('Warnning: nans detected')
 #        print(np.unique(df_data_s.isna().values))
-        var_names = list(df_data_s.columns[(df_data_s.dtypes != np.bool)])
+        var_names = list(df_data_s.columns[(df_data_s.dtypes != bool)])
         df_data_s = df_data_s.loc[:,var_names]
         data = df_data_s.values
-        data_mask = RV_mask.loc[s][TrainIsTrue.values].values
+        data_mask = ~RV_mask.loc[s][TrainIsTrue.values].values
+        # indices with mask == False are used (with mask_type 'y')
         data_mask = np.repeat(data_mask, data.shape[1]).reshape(data.shape)
 
         # create dataframe in Tigramite format
@@ -58,13 +61,13 @@ def init_pcmci(df_data, significance='analytic', mask_type='y',
         parcorr = ParCorr(significance=significance,
                           mask_type=mask_type,
                           verbosity=0)
+        parcorr.verbosity = verbosity # to avoid print init text each time
 
         # ======================================================================================================================
         # pc algorithm: only parents for selected_variables are calculated
         # ======================================================================================================================
         pcmci   = PCMCI(dataframe=dataframe,
                         cond_ind_test=parcorr,
-                        selected_variables=None,
                         verbosity=verbosity)
         pcmci_dict[s] = pcmci
     return pcmci_dict
@@ -78,7 +81,8 @@ def plot_lagged_dependences(pcmci, selected_links: dict=None, tau_max=5):
     origverbosity= pcmci.verbosity ; pcmci.verbosity = 0
     correlations = pcmci.get_lagged_dependencies(selected_links=selected_links,
                                                  tau_max=tau_max)
-    df_lagged = pd.DataFrame(correlations[:,0,:-1], index=pcmci.var_names,
+    df_lagged = pd.DataFrame(correlations['val_matrix'][:,0,:-1],
+                             index=pcmci.var_names,
                              columns=range(tau_max))
 
     df_lagged.T.plot(figsize=(10,10))
@@ -89,9 +93,8 @@ def plot_lagged_dependences(pcmci, selected_links: dict=None, tau_max=5):
     pcmci.verbosity = origverbosity
     return
 
-def loop_train_test(pcmci_dict, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=None,
-                    max_conds_dim=4, max_combinations=1,
-                    max_conds_py=None, max_conds_px=None, verbosity=4):
+def loop_train_test(pcmci_dict, path_txtoutput, tigr_function_call='run_pcmci',
+                    kwrgs_tigr={}):
     '''
     pc_alpha (float, optional (default: 0.05))
         Significance level in algorithm.
@@ -114,36 +117,26 @@ def loop_train_test(pcmci_dict, path_txtoutput, tau_min=0, tau_max=1, pc_alpha=N
 
     '''
     #%%
-#    df_data = rg.df_data
-#    path_txtoutput=rg.path_outsub2; tau_min=0; tau_max=1; pc_alpha=0.05;
-#    alpha_level=0.05; max_conds_dim=2; max_combinations=1;
-#    max_conds_py=None; max_conds_px=None; verbosity=4
-
     splits = np.array(list(pcmci_dict.keys()))
 
     pcmci_results_dict = {}
     for s in range(splits.size):
         progress = int(100 * (s+1) / splits.size)
         print(f"\rProgress causal inference - traintest set {progress}%", end="")
-        results = run_pcmci(pcmci_dict[s], path_txtoutput, s,
-                        tau_min, tau_max, pc_alpha, max_conds_dim,
-                        max_combinations, max_conds_py, max_conds_px,
-                        verbosity)
+        results = run_tigramite(pcmci_dict[s], path_txtoutput, s,
+                                tigr_function_call,
+                                kwrgs_tigr=kwrgs_tigr)
         pcmci_results_dict[s] = results
     #%%
     return pcmci_results_dict
 
     #%%
-def run_pcmci(pcmci, path_outsub2, s, tau_min=0, tau_max=1,
-              pc_alpha=None, max_conds_dim=4, max_combinations=1,
-              max_conds_py=None, max_conds_px=None, verbosity=4):
-
-
+def run_tigramite(pcmci, path_outsub2, s, tigr_function_call='run_pcmci',
+                  kwrgs_tigr={}):
 
     #%%
     if path_outsub2 is not False:
         txt_fname = os.path.join(path_outsub2, f'split_{s}_PCMCI_out.txt')
-#        from contextlib import redirect_stdout
         orig_stdout = sys.stdout
         # buffer print statement output to f
         sys.stdout = f = io.StringIO()
@@ -152,13 +145,29 @@ def run_pcmci(pcmci, path_outsub2, s, tau_min=0, tau_max=1,
     # tigramite 4
     # ======================================================================================================================
     pcmci.cond_ind_test.print_info()
+    print(f'run {tigr_function_call}')
+    tigr_func = getattr(pcmci, tigr_function_call)
     print(f'time {pcmci.T}, samples {pcmci.N}')
 
-    results = pcmci.run_pcmci(tau_max=tau_max, pc_alpha=pc_alpha, tau_min=tau_min,
-                              max_conds_dim=max_conds_dim,
-                              max_combinations=max_combinations,
-                              max_conds_px=max_conds_px,
-                              max_conds_py=max_conds_py)
+    kwrgs_tigr = kwrgs_tigr.copy() # ensure copy
+
+    if 'selected_links' in kwrgs_tigr.keys() and 'remove_links' not in kwrgs_tigr.keys(): # selected split
+        kwrgs_tigr['selected_links'] = kwrgs_tigr['selected_links'][s]
+    elif 'remove_links' in kwrgs_tigr.keys() and 'selected_links' not in kwrgs_tigr.keys():
+        remove_links = kwrgs_tigr.pop('remove_links')
+        selected_links = {}
+        for i in range(len(pcmci.var_names)):
+            sel_links_var = []
+            for j in range(len(pcmci.var_names)):
+                for l in range(kwrgs_tigr['tau_min'],kwrgs_tigr['tau_max']+1):
+                    if (i == j and l == 0)==False:
+                        sel_links_var.append((j, -l))
+            sel_links_var = [l for l in sel_links_var if l not in remove_links]
+            selected_links[i] = sel_links_var
+        kwrgs_tigr['selected_links'] = selected_links
+
+
+    results = tigr_func(**kwrgs_tigr)
 
     results['q_matrix'] = pcmci.get_corrected_pvalues(p_matrix=results['p_matrix'],
                                                       fdr_method='fdr_bh')
@@ -180,7 +189,6 @@ def run_pcmci(pcmci, path_outsub2, s, tau_min=0, tau_max=1,
 
         sys.stdout = orig_stdout
 
-
     return results
 
 def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level):
@@ -197,15 +205,15 @@ def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level):
         #                                     val_matrix=results['val_matrix'],
         #                                     alpha_level=alpha_level)
 
-        sig = pcmci.return_significant_parents(results['q_matrix'],
+        sig = pcmci.return_significant_links(results['q_matrix'],
                                                val_matrix=results['val_matrix'],
-                                               alpha_level=alpha_level)
+                                               alpha_level=alpha_level,
+                                               include_lagzero_links=True)
 
-        all_parents = sig['parents']
+        all_parents = sig['link_dict']
         link_matrix = sig['link_matrix']
 
-        links_RV = all_parents[0]
-        parents_dict[s] = links_RV, pcmci.var_names, link_matrix
+        parents_dict[s] = all_parents, pcmci.var_names, link_matrix
 
     #%%
     return parents_dict
@@ -262,7 +270,7 @@ def get_df_MCI(pcmci_dict, pcmci_results_dict, lags, variable):
         coeffs = results_dict['val_matrix'][:,idx]
         # data = np.concatenate([coeffs, pvals],  1)
 
-        cols = [f'coeff l{l}' for l in lags]
+        cols = [f'coeff l{l}' for l in range(0,max(lags)+1)]
         # cols.append([f'pval l{l}' for l in lags])
         df_coeff = pd.DataFrame(coeffs, index=var_names,
                           columns=cols)
@@ -505,7 +513,6 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
         df_robustness = df_robustness.reindex(index=fullindex)
         weights = df_robustness.values
         weights = weights.reshape(len(var_names), len(var_names), -1)
-        # df_links = pd.concat(links_s, keys=splits).max(axis=0, level=1)
         df_links = df_robustness >= min_link_robustness
         # ensure that missing links due to potential precursor step are not
         # appended to pandas df (auto behavior)
@@ -521,7 +528,8 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
         # now we can safely reshape
         links_plot = df_link_matrix.values.reshape(len(var_names), len(var_names), -1)
         val_plot = df_MCIval_matrix.values.reshape(len(var_names), len(var_names), -1)
-        val_plot = pcmci_results_dict[s]['val_matrix']
+        # Commented error in val_plots, 02-11-2020
+        # val_plot = pcmci_results_dict[s]['val_matrix'] # was giving vals of split s
         var_names = fullvar_names
     elif type(s) is int:
         var_names = pcmci_dict[s].var_names
@@ -540,68 +548,151 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
             val_plot = val_matrix_s
     return links_plot, val_plot, weights, var_names
 
-# def print_particular_region_new(links_RV, var_names, s, outdic_precur, map_proj, ex):
-
-#     #%%
-#     n_parents = len(links_RV)
-
-#     for i in range(n_parents):
-#         tigr_lag = links_RV[i][1] #-1 There was a minus, but is it really correct?
-#         index_in_fulldata = links_RV[i][0]
-#         print("\n\nunique_label_format: \n\'lag\'_\'regionlabel\'_\'var\'")
-#         if index_in_fulldata>0 and index_in_fulldata < len(var_names):
-#             uniq_label = var_names[index_in_fulldata][1]
-#             var_name = uniq_label.split('_')[-1]
-#             according_varname = uniq_label
-#             according_number = int(float(uniq_label.split('_')[1]))
-# #            according_var_idx = ex['vars'][0].index(var_name)
-#             corr_lag = int(uniq_label.split('_')[0])
-#             print('index in fulldata {}: region: {} at lag {}'.format(
-#                     index_in_fulldata, uniq_label, tigr_lag))
-#             # *********************************************************
-#             # print and save only significant regions
-#             # *********************************************************
-#             according_fullname = '{} at lag {} - ts_index_{}'.format(according_varname,
-#                                   tigr_lag, index_in_fulldata)
+def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
+                     plot: bool=True):
+    '''
 
 
+    Parameters
+    ----------
+    df_data : pd.DataFrame
+        DataFrame containing timeseries.
+    z : str, optional
+        variable z, of which influence will be remove of columns in keys.
+        The default is str.
 
-#             actor = outdic_precur[var_name]
-#             prec_labels = actor.prec_labels.sel(split=s)
+    Returns
+    -------
+    None.
 
-#             for_plt = prec_labels.where(prec_labels.values==according_number).sel(lag=corr_lag)
+    '''
+    method = ParCorr()
 
-#             map_proj = map_proj
-#             plt.figure(figsize=(6, 4))
-#             ax = plt.axes(projection=map_proj)
-#             im = for_plt.plot.pcolormesh(ax=ax, cmap=plt.cm.BuPu,
-#                              transform=ccrs.PlateCarree(), add_colorbar=False)
-#             plt.colorbar(im, ax=ax , orientation='horizontal')
-#             ax.coastlines(color='grey', alpha=0.3)
-#             ax.set_title(according_fullname)
-#             fig_file = 's{}_{}{}'.format(s, according_fullname, ex['file_type2'])
+    if type(z) is str:
+        z = [z]
+    if keys is None:
+        discard = ['TrainIsTrue', 'RV_mask'] + z
+        keys = [k for k in df_data.columns if k not in discard]
 
-#             plt.savefig(os.path.join(ex['fig_subpath'], fig_file), dpi=100)
-# #            plt.show()
-#             plt.close()
-#             # =============================================================================
-#             # Print to text file
-#             # =============================================================================
-#             print('                                        ')
-#             # *********************************************************
-#             # save data
-#             # *********************************************************
-#             according_fullname = str(according_number) + according_varname
-#             name = ''.join([str(index_in_fulldata),'_',uniq_label])
+    npstore = np.zeros(shape=(len(keys),df_data.index.levels[0].size, df_data.index.levels[1].size))
+    for i, orig in enumerate(keys):
+        orig = keys[i]
 
-# #            print((fulldata[:,index_in_fulldata].size))
-#             print(name)
-#         else :
-#             print('Index itself is also causal parent -> skipped')
-#             print('*******************              ***************************')
+        # create fake X, Y format, needed for function _get_single_residuals
+        dfxy = df_data[[orig]].merge(df_data[[orig]].copy().rename({orig:'copy'},
+                                                                  axis=1),
+                                     left_index=True, right_index=True).copy()
+        # Append Z timeseries
+        dfxyz = dfxy.merge(df_data[z], left_index=True, right_index=True)
 
-# #%%
-#     return
+        for s in df_data.index.levels[0]:
+            dfxyz_s = dfxyz.loc[s].copy()
+            if all(dfxyz_s[orig].isna().values):
+                npstore[i,s,:] = dfxyz_s[orig].values # fill in all nans
+            else:
+                npstore[i,s,:] = method._get_single_residuals(np.moveaxis(dfxyz_s.values, 0,1), 0,
+                                                              standardize=standardize)
 
+    df_new = pd.DataFrame(np.moveaxis(npstore, 0, 2).reshape(-1,len(keys)),
+                          index=df_data.index, columns=keys)
+    if plot:
+        fig, axes = plt.subplots(len(keys),1, figsize=(10,2.5*len(keys)), sharex=True)
+        if len(keys) == 1:
+            axes = [axes]
+        for i, k in enumerate(keys):
+            df_data[k].loc[0].plot(ax=axes[i], label=f'{k} original',
+                                      legend=False, color='green', lw=1, alpha=.8)
+            df_new[k].loc[0].plot(ax=axes[i], label=f'{z} regressed out',
+                                     legend=False, color='blue', lw=1)
+            axes[i].legend()
+        out = (df_new, fig)
+    else:
+        out = (df_new)
+    return out
+
+def df_data_Parcorr(df_data, z_keys=[str, list], keys: list=None, target: str=None,
+                    x_lag: int=0, z_lag: int=0):
+    '''
+    Wrapper function to test bivariate partial correlation between x and y
+    conditioning on z (parcorr(x,y,z)). Only univariate x or z supported.
+
+    Parameters
+    ----------
+    df_data : TYPE
+        MultiIndex Dataframe (with index levels (splits, time) and columns
+        indicated precursors. DataFrame should contain TrainIsTrue and RV_mask
+        columns.
+    z : list or str
+        key(s) you want to iteratively condition on. The default is [str, list].
+    keys : list, optional
+        keys of which you want to iteratively test link with target.
+        The default will test all x_keysin df.
+    target : str, optional
+        target key (should be in df_data). The default is df_data's first column.
+    x_lag : int, optional
+        lag shift to apply to x keys. The default is 0.
+    z_lag : int, optional
+        lag shift to apply to z keys. The default is 0.
+
+    Returns
+    -------
+    vals : pd.DataFrame
+        corr. vals pd.DataFrame with index as keys and columns as splits.
+    pvals : pd.DataFrame
+        corr. vals pd.DataFrame with index as keys and columns as splits.
+
+    '''
+
+    if type(z_keys) is str:
+        z_keys = [z_keys]
+    if keys is None:
+        discard = ['TrainIsTrue', 'RV_mask'] + z_keys
+        keys = [k for k in df_data.columns if k not in discard]
+    if target is None:
+        target = df_data.columns[0]
+    if keys == z_keys:
+        n_zkeys = len(z_keys) - 1 # cannot regress out itself
+    else:
+        n_zkeys = len(z_keys)
+    splits = df_data.index.levels[0]
+    valnp = np.zeros(shape=(len(keys), n_zkeys, splits.size))
+    pvalnp = np.zeros(shape=(len(keys), n_zkeys, splits.size))
+    index = []
+    for ix, x_key in enumerate(keys):
+        subz_keys = [k for k in z_keys if k != x_key]
+        for iz, z in enumerate(subz_keys):
+            index.append((x_key, z))
+
+            # create X, Y, Z format
+            dfxyz = df_data[[target, x_key, z]]
+            dfxyz = df_data[[x_key, target, z] + ['TrainIsTrue', 'RV_mask']]
+            pcmci_dict = init_pcmci(dfxyz, significance='analytic', mask_type='y',
+                                    selected_variables=None, verbosity=0)
+
+            for s in df_data.index.levels[0]:
+                pcmci = pcmci_dict[s]
+
+                if np.isnan(pcmci.dataframe.values).any(): #NaNs in array
+                    # break
+                    val, pval = np.nan, np.nan
+                elif x_key not in pcmci.var_names or z not in pcmci.var_names:
+                    val, pval = np.nan, np.nan
+                else:
+                    X, Y, Z = [(0, -x_lag)],[(1, 0)], [(2, -z_lag)]
+
+                    runtest = pcmci.cond_ind_test.run_test
+                    val, pval = runtest(X, Y, Z,
+                                        tau_max=max(x_lag, z_lag),
+                                        cut_off='max_lag')
+
+                valnp[ix,iz,s] = val
+                pvalnp[ix,iz,s] = pval
+
+    MultiIndex = pd.MultiIndex.from_tuples(index, names=['x', 'z'])
+    vals = pd.DataFrame(valnp.reshape(-1,splits.size), columns=splits,
+                        index=MultiIndex)
+    pvals = pd.DataFrame(pvalnp.reshape(-1,splits.size), columns=splits,
+                        index=MultiIndex)
+    return vals, pvals
 
 

@@ -3,7 +3,7 @@
 Introduction
 =====
 
-RG-CPD is a framework to process 3-dimensional climate data, such that relationships based on correlation can be tested for conditional independence, i.e. causality.
+RG-CPD is a framework to process 3-dimensional climate data, such that relationships based on correlation can be tested for conditional independence, i.e. causality. 
 
 Causal inference frameworks have been proven valuable by going beyond defining a relationship based upon correlation. Autocorrelation, common drivers and indirect drivers are very common in the climate system, and they lead to spurious (significant) correlations. Tigramite has been successfully applied to 1 dimensional time series in climate science (Kretschmer et al. 2016 https://doi.org/10.1175/JCLI-D-15-0654.1), in order to filter out these spurious correlations using conditional indepence tests (Runge et al. 2017 http://arxiv.org/abs/1702.07007).
 
@@ -13,31 +13,30 @@ The final step is the same, where the 1-d time series are processed by Tigramite
 
 # Example output
 Correlated (left) and 'Causal' (right) SST regions with eastern U.S. temperature. No scientific output.
-![corr_field](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.002_at0.05_t2mmax_E-US_vs_sst_tigr_corr_mean.png)
+![corr_field](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.01_at0.01_t2mmax_E-US_vs_sst_labels_mean.png)
 Clustering of the precursor regions.
-![precursor_labels](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.002_at0.05_t2mmax_E-US_vs_sst_labels_mean.png)
+![precursor_labels](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.01_at0.01_t2mmax_E-US_vs_sst_tigr_corr_mean.png)
 
-Output is stored in .hdf5 format (pandas dataframe) and can be used by forecasting.py to predict events and validate the forecast. Forecasting and evaluating Continuous timeseries is not fully supported yet. 
-
+ 
 # Personal note
 I'm currently using the code mostly privately, I'm willing to set up collaborations, make this code more professional and add new features. 
 
 # Features
-Options to load/download timeseries
-- 1 Download from the new ECMWF ERA-5 dataset
-- 2 Add own 3-d netcdf datasets   
-- 3 Add 3-d Response Variable (RV) of interest, RGCPD assumes you interested in finding the teleconnection of a variable of interest
-- 4 Add a 1-d RV timeseries
-
-Options for loading/retrieving features
-- 1 Correlation maps
-- 2 Climate Indices (PDO, ENSO, ... under development)
-- 3 load in pandas dataframe with timeseries directly (must follow train-test split format that is used in the code)
-
-Options to forecast:
-- forecasting.py uses the timeseries data from the main analysis.
-- forecasts can be made for events with logistic regression and an 'adapted' Gradient Boosting Regressor.
-- forecasts evaluation metrics and plots are based on the test data.
+- basic pre-processing steps (removing climatology and linear detrending)
+- time-aggregation handling (for subseasonal and seasonal user-case)
+- set of cross-validations types (random k-fold, stratified k-fold, leave-n-out)
+- extracting precursors (from netcdf4):
+	- Correlation maps (corr. maps -> spatial clustering -> precursor timeseries).
+	- Correlation maps while regressing out (1) influence of third timeseries or autocorrelation of (2) target and/or (3) precursor.
+	- Empirical Orthogonal Functions (EOFs, or PCA)
+	- some climate indices and/or directly loading precursor timeseries
+- Tigramite (Causal discovery and inference)
+- Scikit-learn models + optional GridSearch for tuning
+- flexible forecast verification metrics
+- (basic) plotting functions with cartopy
+- ECMWF_retrieval with a download python wrapper to get data from the Climate Data Store ERA-5 dataset
+\
+Have a look at **subseasonal.ipynb** and **seasonal.ipynb** for an overview of the core functionality.
 
 Installation
 ===========
@@ -45,10 +44,10 @@ If depencies are correct, then all scripts should work. Please use the .yml file
 
 
 ### Create conda environment:
-conda env create -f RGCPD.yml \
+conda env create -f RGCPD_no_build.yml \
 conda activate RGCPD \
-Git clone https://github.com/jakobrunge/tigramite.git (you can clone this dir into any folder, e.g. your Download folder)\
-pip install ./tigramite 
+Git clone https://github.com/jakobrunge/tigramite.git (you can clone this repo into any folder, e.g. your Download folder)\
+python setup.py install
 
 
 
@@ -107,16 +106,7 @@ PhD. Sem Vijverberg, who expanded Kretschmer's original python code into a pytho
 
 Vijverberg, S.P., Kretschmer, M. (2018). Python code for applying the Response Guided - Causal Precursor Detection scheme. https://doi.org/10.5281/zenodo.1486739
 
-
-Dr. Jakob Runge, who developed the causal inference python package Tigramite (https://github.com/jakobrunge/tigramite).
-
-1. J. Runge, S. Flaxman, and D. Sejdinovic (2017): Detecting causal associations in large nonlinear time series datasets. https://arxiv.org/abs/1702.07007
-
-2. J. Runge et al. (2015): Identifying causal gateways and mediators in complex spatio-temporal systems. Nature Communications, 6, 8502. http://doi.org/10.1038/ncomms9502
-
-3. J. Runge (2015): Quantifying information transfer and mediation along causal pathways in complex systems. Phys. Rev. E, 92(6), 62829. http://doi.org/10.1103/PhysRevE.92.062829
-
-4. J. Runge, J. Heitzig, V. Petoukhov, and J. Kurths (2012): Escaping the Curse of Dimensionality in Estimating Multivariate Transfer Entropy. Physical Review Letters, 108(25), 258701. http://doi.org/10.1103/PhysRevLett.108.258701
+Dr. Jakob Runge, who developed the causal inference python package Tigramite (https://github.com/jakobrunge/tigramite). Depending on what you implement from Tigramite, please cite accordingly.
 
 
 License

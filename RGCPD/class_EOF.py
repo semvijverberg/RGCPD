@@ -39,14 +39,11 @@ class EOF:
 
 
         if self.tfreq_EOF == 'monthly':
-            ds = functions_pp.import_ds_timemeanbins(self.filepath, tfreq=1,
+            self.ds_EOF = functions_pp.import_ds_timemeanbins(self.filepath, tfreq=1,
                                                      selbox=self.selbox,
-                                         start_end_date=self.start_end_date,
-                                         start_end_year=self.start_end_year)
-            # # ensure latitude is in increasing order
-            # if np.where(ds.latitude == ds.latitude.min()) > np.where(ds.latitude == ds.latitude.max()):
-            #     ds = ds.sortby('latitude')
-            self.ds_EOF = ds.resample(time='M',restore_coord_dims=False).mean(dim='time', skipna=True)
+                                                     dailytomonths=True,
+                                                     start_end_date=self.start_end_date,
+                                                     start_end_year=self.start_end_year)
         else:
             self.ds_EOF = functions_pp.import_ds_timemeanbins(self.filepath,
                                                           tfreq=self.tfreq_EOF,
@@ -167,8 +164,6 @@ class EOF:
 
     @staticmethod
     def _single_split(func, ds_EOF, s, df_splits, neofs):
-        splits = df_splits.index.levels[0]
-
         dates_train = functions_pp.dfsplits_to_dates(df_splits, s)[0]
         # convert Train test year from original time to monthly
         train_yrs = np.unique(dates_train.year)

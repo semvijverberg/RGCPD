@@ -35,7 +35,7 @@ except:
 
 
 dataset   = 'ERA5' # choose 'era5' or 'ERAint' or era20c
-path_raw = os.path.join(base_path,f'{dataset}/input_raw/')
+path_raw = os.path.join(base_path,f'{dataset}', 'input_raw')
 
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 

@@ -20,6 +20,7 @@ from shapely.geometry.polygon import LinearRing
 # import metpy.calc as mpcalc
 import plot_maps
 import functions_pp
+import core_pp
 import find_precursors
 from typing import List, Tuple, Union
 
@@ -390,7 +391,7 @@ class Hovmoller:
                           f'{self.seldates[-1].month}-'
                           f'{self.seldates[-1].day}')
 
-        self.seldates_ext = functions_pp.make_dates(pd.date_range(start_date, end_date),
+        self.seldates_ext = core_pp.make_dates(pd.date_range(start_date, end_date),
                                                     np.unique(self.seldates.year))
 
 
