@@ -11,16 +11,6 @@ Within RG-CPD, the 1-d precursor time series are obtained by creating point-wise
 
 The final step is the same, where the 1-d time series are processed by Tigramite to extract the causal relationships. This requires thorough understanding of the method, see Runge et al. 2017 http://arxiv.org/abs/1702.07007). These 1d time series contain more information since they are spatially aggregated. The 1d time series of different precursor regions are subsequently tested for causality using the Tigramite package (https://github.com/jakobrunge/tigramite). One has to have good knowledge about the assumptions needed for causal inference, https://doi.org/10.1063/1.5025050.
 
-# Example output
-Correlated (left) and 'Causal' (right) SST regions with eastern U.S. temperature. No scientific output.
-![corr_field](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.002_at0.05_t2mmax_E-US_vs_sst_labels_mean.png)
-Clustering of the precursor regions.
-![precursor_labels](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.002_at0.05_t2mmax_E-US_vs_sst_tigr_corr_mean.png)
-
- 
-# Personal note
-I'm currently using the code mostly privately, I'm willing to set up collaborations, make this code more professional and add new features. 
-
 # Features
 - basic pre-processing steps (removing climatology and linear detrending)
 - time-aggregation handling (for subseasonal and seasonal user-case)
