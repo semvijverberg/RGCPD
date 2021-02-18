@@ -24,9 +24,9 @@ I'm currently using the code mostly privately, I'm willing to set up collaborati
 - basic pre-processing steps (removing climatology and linear detrending)
 - time-aggregation handling (for subseasonal and seasonal user-case)
 - set of cross-validations types (random k-fold, stratified k-fold, leave-n-out)
-- extracting precursor from netcdf4:
+- extracting precursors (from netcdf4):
 	- Correlation maps (corr. maps -> spatial clustering -> precursor timeseries).
-	- Correlation maps while regressing out (1) influence of third timeseries or autocorrelation of target and/or precursor.
+	- Correlation maps while regressing out (1) influence of third timeseries or autocorrelation of (2) target and/or (3) precursor.
 	- Empirical Orthogonal Functions (EOFs, or PCA)
 	- some climate indices and/or directly loading precursor timeseries
 - Tigramite (Causal discovery and inference)
@@ -104,16 +104,7 @@ PhD. Sem Vijverberg, who expanded Kretschmer's original python code into a pytho
 
 Vijverberg, S.P., Kretschmer, M. (2018). Python code for applying the Response Guided - Causal Precursor Detection scheme. https://doi.org/10.5281/zenodo.1486739
 
-
-Dr. Jakob Runge, who developed the causal inference python package Tigramite (https://github.com/jakobrunge/tigramite).
-
-1. J. Runge, S. Flaxman, and D. Sejdinovic (2017): Detecting causal associations in large nonlinear time series datasets. https://arxiv.org/abs/1702.07007
-
-2. J. Runge et al. (2015): Identifying causal gateways and mediators in complex spatio-temporal systems. Nature Communications, 6, 8502. http://doi.org/10.1038/ncomms9502
-
-3. J. Runge (2015): Quantifying information transfer and mediation along causal pathways in complex systems. Phys. Rev. E, 92(6), 62829. http://doi.org/10.1103/PhysRevE.92.062829
-
-4. J. Runge, J. Heitzig, V. Petoukhov, and J. Kurths (2012): Escaping the Curse of Dimensionality in Estimating Multivariate Transfer Entropy. Physical Review Letters, 108(25), 258701. http://doi.org/10.1103/PhysRevLett.108.258701
+Dr. Jakob Runge, who developed the causal inference python package Tigramite (https://github.com/jakobrunge/tigramite). Depending on what you implement from Tigramite, please cite accordingly.
 
 
 License
