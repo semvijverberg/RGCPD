@@ -177,7 +177,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                     if p_nans != 100:
                         plotmask.plot.contour(ax=g.axes[row,col],
                                               transform=ccrs.PlateCarree(),
-                                          subplot_kws={'projection': map_proj},
+                                          # subplot_kws={'projection': map_proj},
                                           colors=['black'],
                                           linewidths=np.round(zonal_width/150, 1)+0.3,
                                           levels=[float(vmin),float(vmax)],
@@ -193,9 +193,9 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             # if no signifcant regions, still plot corr values, but the causal plot must remain empty
             if mask_xr is None or all_masked==False or (all_masked and 'tigr' not in str(c_label)):
                 im = plotdata.plot.pcolormesh(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
-                                        center=0,
-                                         levels=clevels, cmap=cmap,
-                                         subplot_kws={'projection':map_proj},add_colorbar=False)
+                                              center=0, levels=clevels,
+                                              cmap=cmap,add_colorbar=False)
+                                              # subplot_kws={'projection':map_proj})
             elif all_masked and 'tigr' in c_label:
                 g.axes[row,col].text(0.5, 0.5, 'No regions significant',
                       horizontalalignment='center', fontsize='x-large',
@@ -324,12 +324,13 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
 
     if cticks_center is None:
-        plt.colorbar(im, cax=cbar_ax , orientation='horizontal', norm=norm,
+        plt.colorbar(im, cax=cbar_ax , orientation='horizontal', # norm=norm,
                  label=clabel, ticks=clevels[::ticksteps], extend='neither')
     else:
-        norm = mcolors.BoundaryNorm(boundaries=clevels, ncolors=256)
-        cbar = plt.colorbar(im, cbar_ax, cmap=cmap, orientation='horizontal',
-                 extend='neither', norm=norm, label=clabel)
+        # norm = mcolors.BoundaryNorm(boundaries=clevels, ncolors=256)
+        cbar = plt.colorbar(im, cbar_ax,
+                            orientation='horizontal', extend='neither',
+                            label=clabel)
         cbar.set_ticks(clevels + 0.5)
         ticklabels = np.array(clevels+1, dtype=int)
         cbar.set_ticklabels(ticklabels, update_ticks=True)

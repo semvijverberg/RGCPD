@@ -238,7 +238,9 @@ def remove_leapdays(datetime):
 
 def ds_num2date(ds, loadleap=False):
     numtime = ds['time']
-    dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+    dates = num2date(numtime, units=numtime.units,
+                     calendar=numtime.attrs['calendar'],
+                     only_use_cftime_datetimes=False)
 
     timestep_days = (dates[1] - dates[0]).days
     if timestep_days == 1:
@@ -541,7 +543,7 @@ def detrend_lin_longterm(ds):
                     ha='center', va='bottom')
     else:
         fig, ax = plt.subplots(1, figsize=(8,4))
-        ax.set_title(f'detrend 1D ts')
+        ax.set_title('detrend 1D ts')
         ax.plot(ds.values)
         ax.plot(detrended)
         trend1d = ds - detrended

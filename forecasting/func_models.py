@@ -53,12 +53,18 @@ def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
         if groups.size != y_train.size: # else revert to keeping years together
             groups = y_train.index.year
 
-    freq = y_train.groupby(groups).sum()
-    freq = (freq > freq.mean()).astype(int)
+    high_normal_low = y_train.groupby(groups).sum()
+    high_normal_low[(high_normal_low > high_normal_low.quantile(q=.66)).values] = 1
+    high_normal_low[(high_normal_low < high_normal_low.quantile(q=.33)).values] = -1
+    high_normal_low[np.logical_and(high_normal_low!=1, high_normal_low!=-1)] = 0
+    # high_normal_low = high_normal_low.groupby(groups).sum()
+    freq  = high_normal_low
+    # freq = y_train.groupby(groups).sum()
+    # freq = (freq > freq.mean()).astype(int)
 
-    all_years = np.unique(freq.index)
-    while all_years.size % kfold != 0:
-        kfold += 1
+    # all_years = np.unique(freq.index) Folds may be of different size
+    # while all_years.size % kfold != 0:
+    #     kfold += 1
 
 
     cv_strat = StratifiedKFold(n_splits=kfold, shuffle=True,
@@ -423,7 +429,7 @@ def get_scores(prediction, df_splits, score_func_list: list=None,
 
     # Bootstrapping with replacement
     df_boots = np.zeros( (columns.size), dtype=object)
-    if testRV.all(): # ensure test data is available
+    if pred_test.size != 0 : # ensure test data is available
         for c, col in enumerate(columns):
             old_index = range(0,len(y_true),1)
             n_bl = blocksize

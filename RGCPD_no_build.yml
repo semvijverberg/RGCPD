@@ -1,4 +1,4 @@
-name: RGtestinstall
+name: RGCPD1
 channels:
   - conda-forge
   - defaults
@@ -24,21 +24,19 @@ dependencies:
   - numpy
   - pandas
   - pip
-  - pytables
   - python=3.7.3
-  - pyqt
+  - pytest
   - scikit-learn
   - scipy
   - seaborn
   - shapely
-  - spyder
+  - spyder # <- optional Spyder IDE
   - statsmodels
-  - qt
   - xarray
-#  - esmf=7.1.0 <- optional packages for regridding
-#  - xesmf=0.2.0 <- optional packages for regridding
+#  - esmf # <- optional packages for regridding
+#  - xesmf # <- optional packages for regridding
   - pip:
     - properscoring
-
 prefix: /Users/semvijverberg/miniconda3/envs/RGCPD
-
+# conda env create -f RGCPD_no_build.yml
+# to install spyder later: conda install -c conda-forge spyder=4

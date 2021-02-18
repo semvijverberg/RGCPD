@@ -462,7 +462,7 @@ class fcev():
         if subfoldername is None:
             subfoldername = 'forecasts'
         if pathexper is None:
-            working_folder = '/'.join(self.path_data.split('/')[:-1])
+            working_folder = f'{sep}'.join(self.path_data.split(sep)[:-1])
             working_folder = os.path.join(working_folder, subfoldername)
             self.working_folder = working_folder
             if os.path.isdir(working_folder) != True : os.makedirs(working_folder)
@@ -524,7 +524,7 @@ class fcev():
         [print(n, file=file) for n in lines]
         file.close()
         [print(n) for n in lines[:-2]]
-        return self.working_folder, self.pathexper + '/data.h5'
+        return self.working_folder, os.path.join(self.pathexper, 'data.h5')
 
     def perform_validation(self, n_boot=2000, blocksize='auto',
                            threshold_pred='upper_clim', alpha=0.05):

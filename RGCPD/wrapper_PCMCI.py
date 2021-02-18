@@ -48,7 +48,7 @@ def init_pcmci(df_data, significance='analytic', mask_type='y',
             if verbosity > 0:
                 print('Warnning: nans detected')
 #        print(np.unique(df_data_s.isna().values))
-        var_names = list(df_data_s.columns[(df_data_s.dtypes != np.bool)])
+        var_names = list(df_data_s.columns[(df_data_s.dtypes != bool)])
         df_data_s = df_data_s.loc[:,var_names]
         data = df_data_s.values
         data_mask = ~RV_mask.loc[s][TrainIsTrue.values].values

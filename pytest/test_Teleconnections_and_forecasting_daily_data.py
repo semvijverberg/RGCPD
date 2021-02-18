@@ -20,6 +20,7 @@ from RGCPD import RGCPD
 from RGCPD import BivariateMI
 import class_BivariateMI, functions_pp
 import numpy as np
+import shutil
 
 
 def check_dates_RV(df_splits, traintestgroups, start_end_TVdate):
@@ -99,16 +100,22 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='random_5',
     # rg.quick_view_labels(mean=False)
 
     rg.get_ts_prec()
+    try:
+        import wrapper_PCMCI as wPCMCI
+        if rg.df_data.columns.size <= 3:
+            print('Skipping causal inference step')
+        else:
+            rg.PCMCI_df_data()
 
-    if rg.df_data.columns.size <= 3:
-        print('Skipping causal inference step')
-    else:
-        rg.PCMCI_df_data()
+            rg.PCMCI_get_links(var=rg.TV.name, alpha_level=.05)
+            rg.df_links
 
-        rg.PCMCI_get_links(var=rg.TV.name, alpha_level=.05)
-        rg.df_links
-
-        rg.store_df_PCMCI()
+            rg.store_df_PCMCI()
+    except:
+        # raise(ModuleNotFoundError)
+        print('Not able to load in Tigramite modules, to enable causal inference '
+          'features, install Tigramite from '
+          'https://github.com/jakobrunge/tigramite/')
     #%%
     return rg
 test = test_subseas_US_t2m_tigramite
@@ -174,14 +181,7 @@ rg = test(alpha=.2,
 
 
 rg = test_subseas_US_t2m_tigramite()
-path_df_data = rg.path_df_data
-
-
-
-
 # Forecasting pipeline 1
-
-
 import func_models as fc_utils
 from stat_models_cont import ScikitModel
 from sklearn.linear_model import Ridge
@@ -276,44 +276,29 @@ elif prediction == 'continuous':
 # There is some multiprocessing based on Python's standard 'concurrent futures' module. This only works when run script is run in one go. Will not work another time. Has to do with the running the code as the __main__ file or something.. (don't know the details).
 
 # Now we load in the data, including info on the causal links.
-
-# In[22]:
-
+try: # check if tigramite is installed
+    import wrapper_PCMCI as wPCMCI
+except ImportError as e:
+    print('Not able to load in Tigramite modules, to enable causal inference '
+          'features, install Tigramite from '
+          'https://github.com/jakobrunge/tigramite/')
+	# remove created output folders
+    shutil.rmtree(rg.path_outsub1)
+    shutil.rmtree(os.path.join(main_dir, 'data', 'preprocessed'))
+    raise(e)
 
 from class_fc import fcev
 import valid_plots as dfplots
 
 if __name__ == '__main__':
 
-    # In[89]:
-
-
     fc = fcev(path_data=path_df_data, n_cpu=1, causal=True)
-    fc.df_data
-
-
-    # In[90]:
-
-
     fc.get_TV(kwrgs_events=None)
-
-
-    # In[ ]:
-
-
     fc.fit_models(lead_max=35)
-
-
-    # In[ ]:
-
-
     dict_experiments = {}
     fc.perform_validation(n_boot=100, blocksize='auto',
                                   threshold_pred=(1.5, 'times_clim'))
     dict_experiments['test'] = fc.dict_sum
-
-
-    # In[28]:
 
 
     working_folder, filename = fc._print_sett(list_of_fc=[fc])
@@ -321,11 +306,6 @@ if __name__ == '__main__':
     dict_all = dfplots.merge_valid_info([fc], store=store)
     if store:
         dict_merge_all = functions_pp.load_hdf5(filename)
-
-
-    # In[29]:
-
-
 
     kwrgs = {'wspace':0.25, 'col_wrap':3} #, 'threshold_bin':fc.threshold_pred}
     met = ['AUC-ROC', 'AUC-PR', 'BSS', 'Rel. Curve', 'Precision', 'Accuracy']
@@ -339,10 +319,7 @@ if __name__ == '__main__':
                               lines_legend=None,
                               met=met, **kwrgs)
 
-
-# In[ ]:
     # remove created output folders
-    import shutil
     shutil.rmtree(rg.path_outsub1)
     shutil.rmtree(os.path.join(main_dir, 'data', 'preprocessed'))
 

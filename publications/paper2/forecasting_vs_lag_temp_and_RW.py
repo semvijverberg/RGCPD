@@ -16,7 +16,7 @@ else:
     mpl.rc('font', family='serif', serif='cm10')
 
     mpl.rc('text', usetex=True)
-    mpl.rcParams['text.latex.preamble'] = [r'\boldmath']
+    mpl.rcParams['text.latex.preamble'] = r'\boldmath'
 import numpy as np
 from time import time
 import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
@@ -55,11 +55,6 @@ import functions_pp; import df_ana
 import plot_maps; import core_pp
 import wrapper_PCMCI as wPCMCI
 
-# Optionally set font to Computer Modern to avoid common missing font errors
-# matplotlib.rc('font', family='serif', serif='cm10')
-
-# matplotlib.rc('text', usetex=True)
-matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
 # targets = ['temp', 'RW']
 
@@ -71,7 +66,7 @@ periods = ['JA_center', 'JA_shiftright', 'JA_shiftleft', 'JJA_center']
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, periods, seeds)).T.reshape(-1,3)
 
-i_default = 0
+i_default = 0 #8
 
 def parseArguments():
     # Create argument parser
@@ -130,7 +125,7 @@ elif period == 'JJA_center':
     start_end_TVdate = ('07-01', '08-31')
 
 precur_aggr = tfreq
-method     = 'ran_strat10' ;
+method     = 'ranstrat_10' ;
 n_boot = 5000
 min_detect_gc = 0.9
 append_main = ''
@@ -155,7 +150,7 @@ list_import_ts = None #[('PDO', os.path.join(data_dir, f'PDO_2y_rm_25-09-20_15hr
 list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={}, group_split='together',
-                            distance_eps=600, min_area_in_degrees2=10,
+                            distance_eps=500, min_area_in_degrees2=10,
                             calc_ts=calc_ts, selbox=(130,260,-10,60),
                             lags=np.array([0,1,2,3,4,5]))]
 
@@ -481,6 +476,7 @@ for match_lag in [True]:#[False, True]: #
                                  f'matchlag{match_lag}_nb{n_boot}' + \
                                  f'{method}_{append_str}_{lwp_method}_{lowpass}'
     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
+
     f.savefig(fig_path, bbox_inches='tight')
 #%%
 import matplotlib.patches as mpatches

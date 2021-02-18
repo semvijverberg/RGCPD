@@ -451,7 +451,7 @@ class RGCPD:
                                                   self.start_end_year,
                                                   cols=keys_ext,
                                                   precur_aggr=self.precur_aggr,
-                                                  closed_on_date=start_end_TVdate[-1])
+                                                  start_end_TVdate=start_end_TVdate)
             self.df_data = self.df_data.merge(self.df_data_ext,
                                               left_index=True, right_index=True)
 
