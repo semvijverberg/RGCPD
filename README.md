@@ -17,18 +17,10 @@ Correlated (left) and 'Causal' (right) SST regions with eastern U.S. temperature
 Clustering of the precursor regions.
 ![precursor_labels](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.01_at0.01_t2mmax_E-US_vs_sst_tigr_corr_mean.png)
 
-Output is stored in .hdf5 format (pandas dataframe) and can be used by forecasting.py to predict events and validate the forecast. Forecasting and evaluating Continuous timeseries is not fully supported yet. 
-
 # Personal note
 I'm currently using the code mostly privately, I'm willing to set up collaborations, make this code more professional and add new features. 
 
 # Features
-Options to load/download timeseries
-- 1 Download from the new ECMWF ERA-5 dataset
-- 2 Add own 3-d netcdf datasets   
-- 3 Add 3-d Response Variable (RV) of interest, RGCPD assumes you interested in finding the teleconnection of a variable of interest
-- 4 Add a 1-d RV timeseries
-
 - basic pre-processing steps (removing climatology and linear detrending)
 - time-aggregation handling (for subseasonal and seasonal user-case)
 - set of cross-validations types (random k-fold, stratified k-fold, leave-n-out)
@@ -41,6 +33,7 @@ Options to load/download timeseries
 - Scikit-learn models + optional GridSearch for tuning
 - flexible forecast verification metrics
 - (basic) plotting functions with cartopy
+- ECMWF_retrieval with a download python wrapper to get data from the Climate Data Store ERA-5 dataset
 
 
 Installation
