@@ -17,6 +17,7 @@ Correlated (left) and 'Causal' (right) SST regions with eastern U.S. temperature
 Clustering of the precursor regions.
 ![precursor_labels](https://github.com/semvijverberg/RGCPD/blob/master/docs/images/pcA_none_ac0.01_at0.01_t2mmax_E-US_vs_sst_tigr_corr_mean.png)
 
+ 
 # Personal note
 I'm currently using the code mostly privately, I'm willing to set up collaborations, make this code more professional and add new features. 
 
@@ -34,7 +35,8 @@ I'm currently using the code mostly privately, I'm willing to set up collaborati
 - flexible forecast verification metrics
 - (basic) plotting functions with cartopy
 - ECMWF_retrieval with a download python wrapper to get data from the Climate Data Store ERA-5 dataset
-
+\
+Have a look at subseasonal.ipynb and seasonal.ipynb for an overview of the core functionality.
 
 Installation
 ===========
