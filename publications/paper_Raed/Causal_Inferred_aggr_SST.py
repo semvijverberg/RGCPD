@@ -266,7 +266,7 @@ rg.plot_maps_corr('smi', kwrgs_plot=kwrgs_plotcorr_SM, save=save)
 
 #%%
 
-sst.distance_eps = 300 ; sst.min_area_in_degrees2 = 4
+sst.distance_eps = 210 ; sst.min_area_in_degrees2 = 4
 rg.cluster_list_MI('sst')
 # rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst)
 
@@ -288,7 +288,7 @@ merge = find_precursors.merge_labels_within_lonlatbox
 sst.prec_labels = merge(sst, lonlatbox)
 Indonesia_oceans = [110, 150, 0, 10]
 sst.prec_labels = merge(sst, Indonesia_oceans)
-Japanese_sea = [100, 140, 30, 50]
+Japanese_sea = [100, 150, 30, 50]
 sst.prec_labels = merge(sst, Japanese_sea)
 Mediterrenean_sea = [0, 45, 30, 50]
 sst.prec_labels = merge(sst, Mediterrenean_sea)
@@ -388,7 +388,7 @@ for i, mon in enumerate(periodnames):
 
 for i, mon in enumerate(periodnames):
     list_mon = []
-    _keys = [k for k in df_pvals.index if 'sst' in k] # month
+    _keys = [k for k in df_pvals.index if 'sst' in k and mon in k] # month
     df_sig = df_pvals[df_pvals.loc[_keys] <= alpha_CI].dropna(axis=0, how='all') # significant
 
     for k in df_sig.index:
@@ -433,7 +433,7 @@ for ip, precur in enumerate(rg.list_for_MI):
     # ip=0; precur = rg.list_for_MI[ip]
 
     CDlabels = precur.prec_labels.copy()
-
+    precur_periodnames = list(CDlabels.lag.values)
     if precur.group_lag:
         CDlabels = xr.concat([CDlabels]*corlags.size, dim='lag')
         CDlabels['lag'] = ('lag', periodnames)
@@ -442,7 +442,7 @@ for ip, precur in enumerate(rg.list_for_MI):
         CDcorr = precur.corr_xr.copy()
     textinmap = []
     MCIstr = CDlabels.copy()
-    for i, month in enumerate(CondDepKeys):
+    for i, month in enumerate(precur_periodnames):
 
         CDkeys = [k[0] for k in CondDepKeys[month] if k[0].split('..')[-1]==precur.name]
         MCIv = [k[1] for k in CondDepKeys[month] if k[0].split('..')[-1]==precur.name]
@@ -462,7 +462,7 @@ for ip, precur in enumerate(rg.list_for_MI):
                 if lon > 180: lon-360
                 count = rg._df_count[k]
                 text = f'{int(RB[q])}/{count}'
-                temp.append([lon+10,lat+5, text, {'fontsize':15,
+                temp.append([lon-5,lat-5, text, {'fontsize':15,
                                                'bbox':dict(facecolor='white', alpha=0.8)}])
             textinmap.append([(i,0), temp])
 
@@ -484,7 +484,8 @@ for ip, precur in enumerate(rg.list_for_MI):
                      bbox_inches='tight')
 
     # MCI values plot
-    kwrgs_plot.update({'clevels':np.arange(-0.8, 0.9, .2),
+    kwrgs_plot.update({'clevels':np.arange(-0.7, 0.8, .1),
+                       'clabels':np.arange(-0.6, 0.7, .2),
                        'textinmap':textinmap})
     fig = plot_maps.plot_corr_maps(MCIstr.mean(dim='split'),
                                    mask_xr=np.isnan(MCIstr.mean(dim='split')).astype(bool),

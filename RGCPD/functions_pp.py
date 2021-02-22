@@ -131,10 +131,12 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                verbosity=1):    #%%
     # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1;ext_annual_to_mon=False
     # start_end_date=None; TVdates_aggr=False
+
     dates = pd.to_datetime(fullts.time.values)
-    fullts.sel(time=core_pp.get_subdates(dates=dates,
-                                         start_end_date=None,
-                                         start_end_year=start_end_year))
+    # start_end_year selection done on fulltso in func above
+    # fullts.sel(time=core_pp.get_subdates(dates=dates,
+    #                                      start_end_date=None,
+    #                                      start_end_year=start_end_year))
     if RV_detrend: # do detrending on all timesteps
         fullts = core_pp.detrend_lin_longterm(fullts)
     if RV_anomaly: # do anomaly on complete timeseries (rolling mean applied!)
@@ -259,6 +261,31 @@ def get_df_test(df, cols: list=None, df_splits: pd.DataFrame=None):
     if cols is not None:
         df = df[cols]
     return df
+
+def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0):
+    '''
+    Parameters
+    ----------
+    df : pd.DataFrame
+        df with train-test splits on the multi-index.
+    cols : list, optional
+        return sub df based on columns. The default is None.
+    df_splits : pd.DataFrame
+        seperate df with TrainIsTrue column specifying the train-test data
+
+    Returns
+    -------
+    Returns only the data at which TrainIsTrue.
+
+    '''
+    if df_splits is None:
+        TrainIsTrue = df['TrainIsTrue']
+    else:
+        TrainIsTrue = df_splits['TrainIsTrue']
+    df_train = df.loc[s][TrainIsTrue.loc[s].values]
+    if cols is not None:
+        df_train = df_train[cols]
+    return df_train
 
 def nc_xr_ts_to_df(filename, name_ds='ts'):
     if filename.split('.')[-1] == 'nc':

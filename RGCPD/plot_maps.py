@@ -38,7 +38,7 @@ def extend_longitude(data):
 def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    col_dim='lag', clim='relaxed', hspace=-0.6, wspace=0.02,
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
-                   clevels=None, cticks_center=None, drawbox=None, title=None,
+                   clevels=None, clabels=None, cticks_center=None, drawbox=None, title=None,
                    title_fontdict: dict=None, subtitles: np.ndarray=None,
                    subtitle_fontdict: dict=None, zoomregion=None,
                    aspect=None, n_xticks=5, n_yticks=3, x_ticks: Union[bool, np.ndarray]=None,
@@ -52,7 +52,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     # default parameters
     # mask_xr=None ; row_dim='split'; col_dim='lag'; clim='relaxed';
     # size=2.5; cbar_vert=-0.01; units='units'; cmap=None; hspace=-0.6;
-    # clevels=None; cticks_center=None; map_proj=None ; wspace=.03;
+    # clevels=None; clabels=None; cticks_center=None; map_proj=None ; wspace=.03;
     # drawbox=None; subtitles=None; title=None; lat_labels=True; zoomregion=None
     # aspect=None; n_xticks=5; n_yticks=3; title_fontdict=None; x_ticks=None;
     # y_ticks=None; add_cfeature=None; textinmap=None
@@ -136,14 +136,12 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
         vmin = np.round(float(vmin_),decimals=2) ; vmax = np.round(float(vmax_),decimals=2)
         clevels = np.linspace(-max(abs(vmin),vmax),max(abs(vmin),vmax),17) # choose uneven number for # steps
-        norm = MidpointNormalize(midpoint=0, vmin=clevels[0],vmax=clevels[-1])
-        ticksteps = 4
+
     else:
         vmin_ = np.nanpercentile(plot_xr, 1) ; vmax_ = np.nanpercentile(plot_xr, 99)
         vmin = np.round(float(vmin_),decimals=2) ; vmax = np.round(float(vmax_),decimals=2)
         clevels=clevels
-        norm=None
-        ticksteps = 1
+
 
     if cmap is None:
         cmap = plt.cm.RdBu_r
@@ -324,20 +322,19 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
 
     if cticks_center is None:
+        if clabels is None:
+            clabels = clevels[::2]
         plt.colorbar(im, cax=cbar_ax , orientation='horizontal', # norm=norm,
-                 label=clabel, ticks=clevels[::ticksteps], extend='neither')
+                 label=clabel, ticks=clabels, extend='neither')
     else:
-        # norm = mcolors.BoundaryNorm(boundaries=clevels, ncolors=256)
         cbar = plt.colorbar(im, cbar_ax,
                             orientation='horizontal', extend='neither',
                             label=clabel)
         cbar.set_ticks(clevels + 0.5)
-        ticklabels = np.array(clevels+1, dtype=int)
-        cbar.set_ticklabels(ticklabels, update_ticks=True)
+        cbar.set_ticklabels(np.array(clevels+1, dtype=int),
+                            update_ticks=True)
         cbar.update_ticks()
 
-        # ax.set_xlim(zoomregion[:2])
-        # ax.set_ylim(zoomregion[:2])
     if title is not None:
         if title_fontdict is None:
             title_fontdict = dict({'fontsize'     : 18,

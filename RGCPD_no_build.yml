@@ -1,4 +1,4 @@
-name: RGCPD1
+name: RGCPD
 channels:
   - conda-forge
   - defaults
@@ -37,6 +37,7 @@ dependencies:
 #  - xesmf # <- optional packages for regridding
   - pip:
     - properscoring
+    - tigramite
 prefix: /Users/semvijverberg/miniconda3/envs/RGCPD
 # conda env create -f RGCPD_no_build.yml
 # to install spyder later: conda install -c conda-forge spyder=4

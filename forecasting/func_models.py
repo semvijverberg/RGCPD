@@ -435,7 +435,8 @@ def get_scores(prediction, df_splits, score_func_list: list=None,
             old_index = range(0,len(y_true),1)
             n_bl = blocksize
             chunks = [old_index[n_bl*i:n_bl*(i+1)] for i in range(int(len(old_index)/n_bl))]
-            score_list = _bootstrap(pred_test.iloc[:,[0,c+1]], n_boot, chunks, score_func_list,
+            score_list = _bootstrap(pred_test.iloc[:,[0,c+1]], n_boot, chunks,
+                                    score_func_list,
                                     rng_seed=rng_seed)
             df_boot = pd.DataFrame(score_list,
                                    columns=[f.__name__ for f in score_func_list])

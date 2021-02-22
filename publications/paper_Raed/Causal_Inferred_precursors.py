@@ -354,6 +354,9 @@ df_pvals = pd.concat(list_pvals,axis=0)
 df_corr = pd.concat(list_corr,axis=0)
 
 #%%
+
+from sklearn.ensemble import RandomForestClassifier
+
 alpha_CI = .05
 CondDepKeys = {} ;
 for i, mon in enumerate(periodnames):
@@ -369,7 +372,8 @@ for i, mon in enumerate(periodnames):
 
 select_str_SM = False
 mean_SST = True
-def get_df_mean_SST(mean_SST=True, select_str_SM=True, n_strongest=2, labels=None):
+def get_df_mean_SST(mean_SST=True, select_str_SM=True, n_strongest=4, weights=True,
+                    labels=None):
     # mon = 'JA' ; uniqk = '1..sst'
     unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
     if labels is not None:
@@ -394,7 +398,17 @@ def get_df_mean_SST(mean_SST=True, select_str_SM=True, n_strongest=2, labels=Non
                     keys_str = meanparcorr.index[-n_strongest:]
                 else:
                     keys_str  = keys_mon_sig
-                df_mean = rg.df_data.loc[s][keys_str].copy().mean(1)
+                if weights:
+                    df_train = functions_pp.get_df_train(rg.df_data,
+                                                         cols=[target_dataset] + list(keys_str),
+                                                         s=s)
+                    kwrgs = {'alphas':[1E-20, 1E-5, 1E-2, .1, 1, 10, 50, 100]}
+                    _m = RidgeCV(**kwrgs).fit(df_train[keys_str],
+                                                            df_train[target_dataset])
+                    df_mean = pd.Series(_m.predict(rg.df_data.loc[s][keys_str].copy()),
+                                           index=target_ts.index)
+                else:
+                    df_mean = rg.df_data.loc[s][keys_str].copy().mean(1)
                 month_strings = [k.split('..')[0] for k in keys_str]
                 df_mean.name = ''.join(month_strings) + '..'+uniqk
                 keys_dict_meansst[s].append( df_mean.name )
@@ -502,7 +516,7 @@ for ip, precur in enumerate(rg.list_for_MI):
                      bbox_inches='tight')
 
     # MCI values plot
-    kwrgs_plot.update({'clevels':np.arange(-0.8, 0.9, .2),
+    kwrgs_plot.update({'clevels':np.arange(-0.8, 0.9, .1),
                        'textinmap':textinmap})
     fig = plot_maps.plot_corr_maps(MCIstr.mean(dim='split'),
                                    mask_xr=np.isnan(MCIstr.mean(dim='split')).astype(bool),
@@ -516,7 +530,6 @@ for ip, precur in enumerate(rg.list_for_MI):
 #%% Forecast with Causal Precursors
 
 from sklearn.linear_model import RidgeCV, Ridge
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegressionCV
 from stat_models_cont import ScikitModel
 
@@ -548,7 +561,7 @@ kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
 
 
 # target
-fc_mask = rg.df_data.iloc[:,-1].loc[0]#.shift(lag, fill_value=False)
+fc_mask = rg.df_data.iloc[:,-1].loc[0]
 target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
 target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 # metrics
@@ -558,7 +571,7 @@ score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS]
 metric_names = [s.__name__ for s in score_func_list]
 
 if mean_SST:
-    df_data, keys_dict = get_df_mean_SST(n_strongest=1)
+    df_data, keys_dict = get_df_mean_SST(n_strongest=3)
     # keys_dict = keys_dict_meansst.copy()
 else:
     df_data = rg.df_data.copy()
@@ -582,13 +595,14 @@ weights_norm = weights.mean(axis=0, level=1)
 
 
 df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(prediction,
-                                                       rg.df_data.iloc[:,-2:],
-                                                       score_func_list,
-                                                       n_boot = n_boot,
-                                                       blocksize=1,
-                                                       rng_seed=seed)
+                                                                  rg.df_data.iloc[:,-2:],
+                                                                  score_func_list,
+                                                                  n_boot = n_boot,
+                                                                  blocksize=1,
+                                                                  rng_seed=1)
 
 m = models_lags[f'lag_{lag_}'][f'split_{0}']
+print(m.cv_results_['mean_test_score'].mean())
 # cvfitalpha = [models_lags[f'lag_{lag_}'][f'split_{s}'].alpha_ for s in range(n_spl)]
 # if kwrgs_model['alphas'].max() in cvfitalpha: print('Max a reached')
 # if kwrgs_model['alphas'].min() in cvfitalpha: print('Min a reached')
@@ -664,8 +678,13 @@ df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(predict,
                                                        n_boot = n_boot,
                                                        blocksize=1,
                                                        rng_seed=seed)
+
+
 state_sst = functions_pp.get_df_test(predict[['JA..1..sst']].rename({lag_:'JAsst'}, axis=1),
-                                   df_splits=rg.df_splits)
+                                     df_splits=rg.df_splits)
+
+
+
 
 m = models_lags[f'lag_{lag_}'][f'split_{0}']
 mask = state_sst.abs() > state_sst.std() ; np_mask = mask.values.squeeze()
