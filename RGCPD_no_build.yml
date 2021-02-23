@@ -1,4 +1,4 @@
-name: RGCPD
+name: RGCPD1
 channels:
   - conda-forge
   - defaults
@@ -33,6 +33,7 @@ dependencies:
   - spyder # <- optional Spyder IDE
   - statsmodels
   - xarray
+  - joblib
 #  - esmf # <- optional packages for regridding
 #  - xesmf # <- optional packages for regridding
   - pip:

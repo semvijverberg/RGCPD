@@ -131,8 +131,7 @@ GlobalBox  = (-180,360,-10,60)
 USBox = (225, 300, 20, 60)
 
 
-#%%
-save = False
+save = True
 
 
 #%% run RGPD
@@ -143,7 +142,12 @@ list_of_name_path = [(cluster_label, TVpath),
                        ('smi', os.path.join(path_raw, 'SM_ownspi_gamma_2_1950-2019_1_12_monthly_1.0deg.nc'))]
                       # ('swvl1', os.path.join(path_raw, 'swvl1_1950-2019_1_12_monthly_1.0deg.nc'))]
 
-def pipeline(lags, periodnames, crossyr=False):
+def pipeline(lags, periodnames):
+
+    if int(lags[0][0].split('-')[0]) > 7: # first month after july
+        crossyr = True
+    else:
+        crossyr = False
 
     SM_lags = np.array([[l[1][:2]+l[0][2:], l[1]] for l in lags])
     list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
@@ -207,10 +211,22 @@ def pipeline(lags, periodnames, crossyr=False):
     sst.distance_eps = 250 ; sst.min_area_in_degrees2 = 4
     rg.cluster_list_MI('sst')
 
+    # check if west-Atlantic is a seperate region, otherwise split region 1
+    df_labels = find_precursors.labels_to_df(sst.prec_labels)
+    dlat = df_labels['latitude'] - 29
+    dlon = df_labels['longitude'] - 290
+    zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
+    if zz.query('latitude < 10 & longitude < 10').size==0:
+        print('Splitting region west-Atlantic')
+        largest_regions = df_labels['n_gridcells'].idxmax()
+        split = find_precursors.split_region_by_lonlat
+        sst.prec_labels, _ = split(sst.prec_labels.copy(), label=int(largest_regions),
+                                kwrgs_mask_latlon={'upper_right': (263, 16)})
+
     merge = find_precursors.merge_labels_within_lonlatbox
 
     # # Ensure that what is in Atlantic is one precursor region
-    lonlatbox = [260, 350, 17, 35]
+    lonlatbox = [263, 315, 17, 30]
     sst.prec_labels = merge(sst, lonlatbox)
     # Indonesia_oceans = [110, 150, 0, 10]
     # sst.prec_labels = merge(sst, Indonesia_oceans)
@@ -220,8 +236,9 @@ def pipeline(lags, periodnames, crossyr=False):
     sst.prec_labels = merge(sst, Mediterrenean_sea)
     East_Tropical_Atlantic = [330, 20, -10, 10]
     sst.prec_labels = merge(sst, East_Tropical_Atlantic)
-    rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst, min_detect_gc=1, save=save)
+    rg.quick_view_labels('sst', min_detect_gc=1, save=save)
 
+    #%%
     SM = rg.list_for_MI[1]
     SM.distance_eps = 280 ; SM.min_area_in_degrees2 = 4
     rg.cluster_list_MI('smi')
@@ -231,7 +248,7 @@ def pipeline(lags, periodnames, crossyr=False):
     lonlatbox = [270, 280, 25, 45] # mid-US
     SM.prec_labels = merge(SM, lonlatbox)
 
-    rg.quick_view_labels('smi', kwrgs_plot=kwrgs_plotcorr_SM, min_detect_gc=1, save=save)
+    rg.quick_view_labels('smi', min_detect_gc=1, save=save)
 
 #%%
 
@@ -293,36 +310,53 @@ def pipeline(lags, periodnames, crossyr=False):
     rg.df_pvals = pd.concat(list_pvals,axis=0)
     rg.df_corr = pd.concat(list_corr,axis=0)
 
-    rg_list.append(rg)
-    return
+    # rg_list.append(rg)
+    return rg
 #%%
-
-lags_july = np.array([
-                    ['02-01', '03-01'],# FM
-                    ['04-01', '05-01'],# AM
-                    ['06-01', '07-01'] # JJ
-                    ])
-periodnames_july = ['March', 'May', 'July']
-lags_june = np.array([
-                    ['01-01', '02-01'],# FM
-                    ['03-01', '04-01'],# AM
-                    ['05-01', '06-01'] # JJ
-                    ])
-periodnames_june = ['Feb', 'April', 'June']
-lags_may = np.array([
-                    ['10-01', '11-01'],# ON
-                    ['12-01', '01-01'],# DJ
-                    ['02-01', '03-01'],# FM
-                    ['04-01', '05-01'] # AM
-                    ])
-periodnames_may = ['Nov', 'Jan', 'Mar', 'May']
+if __name__ == '__main__':
+    from joblib import Parallel, delayed
 
 
-rg_list = []
-pipeline(lags_july, periodnames_july)
-pipeline(lags_june, periodnames_june)
-pipeline(lags_may, periodnames_may, crossyr=True)
-rg = rg_list[1]
+
+
+    lags_july = np.array([
+                        ['02-01', '03-01'],# FM
+                        ['04-01', '05-01'],# AM
+                        ['06-01', '07-01'] # JJ
+                        ])
+    periodnames_july = ['March', 'May', 'July']
+    lags_june = np.array([
+                        ['01-01', '02-01'],# FM
+                        ['03-01', '04-01'],# AM
+                        ['05-01', '06-01'] # JJ
+                        ])
+    periodnames_june = ['Feb', 'April', 'June']
+    lags_may = np.array([
+                        ['10-01', '11-01'],# ON
+                        ['12-01', '01-01'],# DJ
+                        ['02-01', '03-01'],# FM
+                        ['04-01', '05-01'] # AM
+                        ])
+    periodnames_may = ['Nov', 'Jan', 'Mar', 'May']
+
+    lag_list = [lags_july, lags_june, lags_may]
+    periodnames_list = [periodnames_july, periodnames_june, periodnames_may]
+
+    # futures = []
+    # for lags, periodnames in zip(lag_list, periodnames_list):
+    #     futures.append( client.submit(pipeline, lags, periodnames) )
+
+    backend = 'loky' # so far robust when using interactively
+    rg_list = Parallel(n_jobs=2, backend=backend)(delayed(
+                    pipeline)(lags, periodnames) for lags, periodnames in zip(lag_list, periodnames_list))
+
+    # rg_list = client.gather(futures)
+
+
+    # pipeline(lags_july, periodnames_july)
+    # pipeline(lags_june, periodnames_june)
+    # pipeline(lags_may, periodnames_may)
+    rg = rg_list[1]
     # df_data = rg.get_subdates_df(years=(1950, 2019))
 
 
@@ -401,7 +435,7 @@ def get_df_mean_SST(rg, mean_SST=True, select_str_SM=False, n_strongest=4, weigh
 
 
 #%%
-months = ['Mar', 'April', 'May', 'June','July']
+months = ['Mar', 'April', 'May', 'June','July', 'August']
 list_verification = [] ; list_prediction = []
 for i, rg in enumerate(rg_list):
 
@@ -655,6 +689,7 @@ def plot_regions(rg, save=save):
 
 
 
-
+for rg in rg_list:
+    plot_regions(rg, save=save)
 
 

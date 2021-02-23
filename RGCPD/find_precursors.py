@@ -538,12 +538,13 @@ def split_region_by_lonlat(prec_labels, label=int, plot_s=0,
         i_s = splits.index(s)
         i_l = lags.index(l)
         single = copy_labels.sel(split=s, lag=l)
-        mask_label = ~np.isnan(single.where(single.values==label))
+        orig_mask_label = ~np.isnan(single.where(single.values==label))
         for key, mask_latlon in kwrgs_mask_latlon.items():
 #            print(key, mask_latlon)
-            mask_label = xrmask_by_latlon(mask_label,
+            mask_label = xrmask_by_latlon(orig_mask_label,
                                           **{str(key):mask_latlon})
-        mask_label = np.logical_and(~np.isnan(mask_label), mask_label!=0)
+        # mask_label = np.logical_and(~np.isnan(mask_label), mask_label!=0)
+        mask_label = np.logical_and(np.isnan(mask_label), orig_mask_label)
         # assign new label
         single.values[mask_label.values] = max(orig_labels) + 1
         np_labels[i_s, i_l] = single.values
