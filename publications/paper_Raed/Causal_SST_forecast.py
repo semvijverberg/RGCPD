@@ -62,12 +62,12 @@ import wrapper_PCMCI
 target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-add_prev = [False]
+methods = ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
-                                    add_prev,
+                                    methods,
                                     feature_sel)).T.reshape(-1,5)
 i_default = 0
 
@@ -90,7 +90,7 @@ if __name__ == '__main__':
     target_dataset = out[0]
     seed = int(out[1])
     start_end_year = (int(out[2][:4]), int(out[2][-4:]))
-    feature_selection = out[3] == 'True'
+    method = out[3]
     add_previous_periods = out[4] == 'True'
     print(f'arg {args.intexper} {out}')
 else:
@@ -98,7 +98,7 @@ else:
     target_dataset = out[0]
     seed = int(out[1])
     start_end_year = (int(out[2][:4]), int(out[2][-4:]))
-    feature_selection = out[3] == 'True'
+    method = out[3]
     add_previous_periods = out[4] == 'True'
 
 
@@ -126,7 +126,6 @@ elif target_dataset == 'USDA_Maize':
 append_pathsub = 'mean_sst_smi'
 calc_ts='region mean' # pattern cov
 alpha_corr = .05
-method     = 'ranstrat_10' ;
 n_boot = 2000
 
 
@@ -183,13 +182,14 @@ def pipeline(lags, periodnames):
                start_end_date=None,
                start_end_year=start_end_year,
                tfreq=None,
-               path_outmain=path_out_main,
-               append_pathsub=append_pathsub)
+               path_outmain=path_out_main)
 
 
     subfoldername = target_dataset+'_'.join(['', str(method),
-                                             's'+ str(seed)] +
+                                             's'+ str(seed),
+                                             append_pathsub] +
                                             list(np.array(start_end_year, str)))
+
 
 
     rg.pp_precursors(detrend=[True, {'tp':False, 'smi':False, 'swvl1':False, 'swvl3':False}],
