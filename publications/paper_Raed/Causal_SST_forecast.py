@@ -148,13 +148,18 @@ list_of_name_path = [(cluster_label, TVpath),
                       # ('swvl1', os.path.join(path_raw, 'swvl1_1950-2019_1_12_monthly_1.0deg.nc'))]
 
 def pipeline(lags, periodnames):
-
+    #%%
     if int(lags[0][0].split('-')[-2]) > 7: # first month after july
         crossyr = True
     else:
         crossyr = False
 
-    SM_lags = np.array([[l[0].replace(l[0].split('-')[-2], l[1].split('-')[-2], 1), l[1]] for l in lags])
+    SM_lags = lags.copy()
+    for i, l in enumerate(SM_lags):
+        orig = '-'.join(l[0].split('-')[:-1])
+        repl = '-'.join(l[1].split('-')[:-1])
+        SM_lags[i] = [l[0].replace(orig, repl), l[1]]
+
     list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                                 alpha=alpha_corr, FDR_control=True,
                                 kwrgs_func={},
