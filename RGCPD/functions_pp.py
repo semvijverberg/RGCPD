@@ -747,7 +747,6 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
         p = ( '-'.join(p[0].split('-')[-2:]), '-'.join(p[-1].split('-')[-2:]) )
         offset = offset_startyear[i]
         s_e_y = (start_end_year[0]+offset[0], start_end_year[-1] + offset[-1])
-        print(s_e_y, p)
         xrgr[i] = time_mean_single_period(xarray, p, s_e_y)
 
     # use time-index of last lag given

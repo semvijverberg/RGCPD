@@ -211,113 +211,113 @@ def pipeline(lags, periodnames):
 
 
 
-    sst.distance_eps = 250 ; sst.min_area_in_degrees2 = 4
-    rg.cluster_list_MI('sst')
+#     sst.distance_eps = 250 ; sst.min_area_in_degrees2 = 4
+#     rg.cluster_list_MI('sst')
 
-    # check if west-Atlantic is a seperate region, otherwise split region 1
-    df_labels = find_precursors.labels_to_df(sst.prec_labels)
-    dlat = df_labels['latitude'] - 29
-    dlon = df_labels['longitude'] - 290
-    zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
-    if zz.query('latitude < 10 & longitude < 10').size==0:
-        print('Splitting region west-Atlantic')
-        largest_regions = df_labels['n_gridcells'].idxmax()
-        split = find_precursors.split_region_by_lonlat
-        sst.prec_labels, _ = split(sst.prec_labels.copy(), label=int(largest_regions),
-                                kwrgs_mask_latlon={'upper_right': (263, 16)})
+#     # check if west-Atlantic is a seperate region, otherwise split region 1
+#     df_labels = find_precursors.labels_to_df(sst.prec_labels)
+#     dlat = df_labels['latitude'] - 29
+#     dlon = df_labels['longitude'] - 290
+#     zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
+#     if zz.query('latitude < 10 & longitude < 10').size==0:
+#         print('Splitting region west-Atlantic')
+#         largest_regions = df_labels['n_gridcells'].idxmax()
+#         split = find_precursors.split_region_by_lonlat
+#         sst.prec_labels, _ = split(sst.prec_labels.copy(), label=int(largest_regions),
+#                                 kwrgs_mask_latlon={'upper_right': (263, 16)})
 
-    merge = find_precursors.merge_labels_within_lonlatbox
+#     merge = find_precursors.merge_labels_within_lonlatbox
 
-    # # Ensure that what is in Atlantic is one precursor region
-    lonlatbox = [263, 315, 17, 30]
-    sst.prec_labels = merge(sst, lonlatbox)
-    # Indonesia_oceans = [110, 150, 0, 10]
-    # sst.prec_labels = merge(sst, Indonesia_oceans)
-    Japanese_sea = [100, 150, 30, 50]
-    sst.prec_labels = merge(sst, Japanese_sea)
-    Mediterrenean_sea = [0, 45, 30, 50]
-    sst.prec_labels = merge(sst, Mediterrenean_sea)
-    East_Tropical_Atlantic = [330, 20, -10, 10]
-    sst.prec_labels = merge(sst, East_Tropical_Atlantic)
-    rg.quick_view_labels('sst', min_detect_gc=1, save=save)
+#     # # Ensure that what is in Atlantic is one precursor region
+#     lonlatbox = [263, 315, 17, 30]
+#     sst.prec_labels = merge(sst, lonlatbox)
+#     # Indonesia_oceans = [110, 150, 0, 10]
+#     # sst.prec_labels = merge(sst, Indonesia_oceans)
+#     Japanese_sea = [100, 150, 30, 50]
+#     sst.prec_labels = merge(sst, Japanese_sea)
+#     Mediterrenean_sea = [0, 45, 30, 50]
+#     sst.prec_labels = merge(sst, Mediterrenean_sea)
+#     East_Tropical_Atlantic = [330, 20, -10, 10]
+#     sst.prec_labels = merge(sst, East_Tropical_Atlantic)
+#     rg.quick_view_labels('sst', min_detect_gc=1, save=save)
 
-    #%%
-    SM = rg.list_for_MI[1]
-    SM.distance_eps = 280 ; SM.min_area_in_degrees2 = 4
-    rg.cluster_list_MI('smi')
+#     #%%
+#     SM = rg.list_for_MI[1]
+#     SM.distance_eps = 280 ; SM.min_area_in_degrees2 = 4
+#     rg.cluster_list_MI('smi')
 
-    lonlatbox = [220, 240, 25, 55] # eastern US
-    SM.prec_labels = merge(SM, lonlatbox)
-    lonlatbox = [270, 280, 25, 45] # mid-US
-    SM.prec_labels = merge(SM, lonlatbox)
+#     lonlatbox = [220, 240, 25, 55] # eastern US
+#     SM.prec_labels = merge(SM, lonlatbox)
+#     lonlatbox = [270, 280, 25, 45] # mid-US
+#     SM.prec_labels = merge(SM, lonlatbox)
 
-    rg.quick_view_labels('smi', min_detect_gc=1, save=save)
+#     rg.quick_view_labels('smi', min_detect_gc=1, save=save)
 
-#%%
+# #%%
 
-    rg.get_ts_prec()
-    rg.df_data = rg.df_data.rename({rg.df_data.columns[0]:target_dataset},axis=1)
-    # # fill first value of smi (NaN because of missing December when calc smi
-    # # on month februari).
-    # keys = [k for k in rg.df_data.columns if k.split('..')[-1]=='smi']
-    # rg.df_data[keys] = rg.df_data[keys].fillna(value=0)
+#     rg.get_ts_prec()
+#     rg.df_data = rg.df_data.rename({rg.df_data.columns[0]:target_dataset},axis=1)
+#     # # fill first value of smi (NaN because of missing December when calc smi
+#     # # on month februari).
+#     # keys = [k for k in rg.df_data.columns if k.split('..')[-1]=='smi']
+#     # rg.df_data[keys] = rg.df_data[keys].fillna(value=0)
 
-    #%% Causal Inference
+#     #%% Causal Inference
 
-    def feature_selection_CondDep(df_data, keys, z_keys=None, alpha_CI=.05, x_lag=0, z_lag=0):
+#     def feature_selection_CondDep(df_data, keys, z_keys=None, alpha_CI=.05, x_lag=0, z_lag=0):
 
-        # Feature selection Cond. Dependence
-        keys = list(keys) # must be list
-        if z_keys is None:
-            z_keys = keys
-        corr, pvals = wrapper_PCMCI.df_data_Parcorr(df_data.copy(), keys=keys,
-                                                    z_keys=z_keys, z_lag=z_lag)
-        # removing all keys that are Cond. Indep. in each trainingset
-        keys_dict = dict(zip(range(rg.n_spl), [keys]*rg.n_spl)) # all vars
-        for s in rg.df_splits.index.levels[0]:
-            for k_i in keys:
-                onekeyCI = (np.nan_to_num(pvals.loc[k_i][s],nan=alpha_CI) > alpha_CI).mean()>0
-                keyisNaN = np.isnan(pvals.loc[k_i][s]).all()
-                if onekeyCI or keyisNaN:
-                    k_ = keys_dict[s].copy() ; k_.pop(k_.index(k_i))
-                    keys_dict[s] = k_
+#         # Feature selection Cond. Dependence
+#         keys = list(keys) # must be list
+#         if z_keys is None:
+#             z_keys = keys
+#         corr, pvals = wrapper_PCMCI.df_data_Parcorr(df_data.copy(), keys=keys,
+#                                                     z_keys=z_keys, z_lag=z_lag)
+#         # removing all keys that are Cond. Indep. in each trainingset
+#         keys_dict = dict(zip(range(rg.n_spl), [keys]*rg.n_spl)) # all vars
+#         for s in rg.df_splits.index.levels[0]:
+#             for k_i in keys:
+#                 onekeyCI = (np.nan_to_num(pvals.loc[k_i][s],nan=alpha_CI) > alpha_CI).mean()>0
+#                 keyisNaN = np.isnan(pvals.loc[k_i][s]).all()
+#                 if onekeyCI or keyisNaN:
+#                     k_ = keys_dict[s].copy() ; k_.pop(k_.index(k_i))
+#                     keys_dict[s] = k_
 
-        return corr, pvals, keys_dict.copy()
-
-
-    regress_autocorr_SM = False
-    unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
-    # select the causal regions from analysys in Causal Inferred Precursors
+#         return corr, pvals, keys_dict.copy()
 
 
-    print('Start Causal Inference')
-    list_pvals = [] ; list_corr = []
-    for k in unique_keys:
-        z_keys = [z for z in rg.df_data.columns[1:-2] if k not in z]
-
-        for mon in periodnames:
-            keys = [mon+ '..'+k]
-            if regress_autocorr_SM and 'sm' in k:
-                z_keys = [z for z in rg.df_data.columns[1:-2] if keys[0] not in z]
+#     regress_autocorr_SM = False
+#     unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
+#     # select the causal regions from analysys in Causal Inferred Precursors
 
 
-            if keys[0] not in rg.df_data.columns:
-                continue
-            out = feature_selection_CondDep(rg.df_data.copy(), keys=keys,
-                                            z_keys=z_keys, alpha_CI=.05)
-            corr, pvals, keys_dict = out
-            list_pvals.append(pvals.max(axis=0, level=0))
-            list_corr.append(corr.mean(axis=0, level=0))
+    # print('Start Causal Inference')
+    # list_pvals = [] ; list_corr = []
+    # for k in unique_keys:
+    #     z_keys = [z for z in rg.df_data.columns[1:-2] if k not in z]
+
+    #     for mon in periodnames:
+    #         keys = [mon+ '..'+k]
+    #         if regress_autocorr_SM and 'sm' in k:
+    #             z_keys = [z for z in rg.df_data.columns[1:-2] if keys[0] not in z]
 
 
-    rg.df_pvals = pd.concat(list_pvals,axis=0)
-    rg.df_corr = pd.concat(list_corr,axis=0)
+    #         if keys[0] not in rg.df_data.columns:
+    #             continue
+    #         out = feature_selection_CondDep(rg.df_data.copy(), keys=keys,
+    #                                         z_keys=z_keys, alpha_CI=.05)
+    #         corr, pvals, keys_dict = out
+    #         list_pvals.append(pvals.max(axis=0, level=0))
+    #         list_corr.append(corr.mean(axis=0, level=0))
+
+
+    # rg.df_pvals = pd.concat(list_pvals,axis=0)
+    # rg.df_corr = pd.concat(list_corr,axis=0)
 
     # rg_list.append(rg)
     return rg
 
 
-# pipeline(lags=lags_june, periodnames=periodnames_june)
+# pipeline(lags=lags_april, periodnames=periodnames_april)
 
 #%%
 if __name__ == '__main__':
@@ -338,15 +338,15 @@ if __name__ == '__main__':
 
     lags_may = np.array([['0-10-01', '-1-11-01'],# ON
                          ['0-12-01', '0-01-01'],# DJ
-                         ['1-02-01', '1-03-01'],# FM
-                         ['1-04-01', '1-05-01'] # AM
+                         ['1-02-01', '0-03-01'],# FM
+                         ['1-04-01', '0-05-01'] # AM
                          ])
     periodnames_may = ['Nov', 'Jan', 'Mar', 'May']
 
-    lags_april = np.array([['0-09-01', '0-10-01'],# SO
-                           ['0-11-01', '0-12-01'],# ND
-                           ['1-01-01', '1-02-01'],# JF
-                           ['1-03-01', '1-04-01'] # MA
+    lags_april = np.array([['0-09-01', '-1-10-01'],# SO
+                           ['0-11-01', '-1-12-01'],# ND
+                           ['1-01-01', '0-02-01'],# JF
+                           ['1-03-01', '0-04-01'] # MA
                            ])
     periodnames_april = ['Oct', 'Dec', 'Feb', 'April']
 
@@ -355,9 +355,8 @@ if __name__ == '__main__':
                         periodnames_may, periodnames_april]
 
 
-
-    rg_list = Parallel(n_jobs=n_cpu, backend='loky')(delayed(
-                    pipeline)(lags, periodnames) for lags, periodnames in zip(lag_list, periodnames_list))
+    futures = [delayed(pipeline)(lags, periodnames) for lags, periodnames in zip(lag_list, periodnames_list)]
+    rg_list = Parallel(n_jobs=n_cpu, backend='loky')(futures)
 
 
 #%%
