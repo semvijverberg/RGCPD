@@ -123,7 +123,7 @@ elif target_dataset == 'USDA_Maize':
     # start_end_year = (1950, 2019)
 
 
-
+append_pathsub = 'mean_sst_smi'
 calc_ts='region mean' # pattern cov
 alpha_corr = .05
 method     = 'ranstrat_10' ;
@@ -183,7 +183,8 @@ def pipeline(lags, periodnames):
                start_end_date=None,
                start_end_year=start_end_year,
                tfreq=None,
-               path_outmain=path_out_main)
+               path_outmain=path_out_main,
+               append_pathsub=append_pathsub)
 
 
     subfoldername = target_dataset+'_'.join(['', str(method),
@@ -372,10 +373,9 @@ if __name__ == '__main__':
 #%%
 
 from sklearn.linear_model import RidgeCV
-select_str_SM = False
-mean_SST = True
-def get_df_mean_SST(rg, mean_SST=True, select_str_SM=False, n_strongest='all', weights=True,
-                    labels=None):
+def get_df_mean_SST(rg, mean_vars=['sst'], select_str_SM=False, n_strongest='all',
+                    weights=True, labels=None):
+
     alpha_CI = .05
     periodnames = list(rg.list_for_MI[0].corr_xr.lag.values)
     df_pvals = rg.df_pvals.copy()
@@ -392,37 +392,43 @@ def get_df_mean_SST(rg, mean_SST=True, select_str_SM=False, n_strongest='all', w
         mean_SST_list_s = []
         sign_s = df_pvals[s][df_pvals[s] <= alpha_CI].dropna(axis=0, how='all')
         for uniqk in unique_keys:
-            # uniqk = '1..sst'
+            # uniqk = '1..smi'
             # region label (R) for each month in split (s)
             keys_mon = [mon+ '..'+uniqk for mon in periodnames]
             # significant region label (R) for each month in split (s)
             keys_mon_sig = [k for k in keys_mon if k in sign_s.index] # check if sig.
-            if mean_SST and 'sst' in uniqk and len(keys_mon_sig)!=0:
-                # calculate mean over n strongest SST timeseries
-                if len(keys_mon_sig) > 1:
-                    meanparcorr = df_corr.loc[keys_mon_sig][[s]].squeeze().sort_values()
-                    if n_strongest == 'all':
-                        keys_str = meanparcorr.index
+            if uniqk.split('..')[-1] in mean_vars and len(keys_mon_sig)!=0:
+                # mean over region if they have same correlation sign
+                for sign in [1,-1]:
+                    mask = np.sign(df_corr.loc[keys_mon_sig][[s]]) == sign
+                    k_sign = np.array(keys_mon_sig)[mask.values.flatten()]
+                    if len(k_sign)==0:
+                        continue
+                    # calculate mean over n strongest SST timeseries
+                    if len(k_sign) > 1:
+                        meanparcorr = df_corr.loc[k_sign][[s]].squeeze().sort_values()
+                        if n_strongest == 'all':
+                            keys_str = meanparcorr.index
+                        else:
+                            keys_str = meanparcorr.index[-n_strongest:]
                     else:
-                        keys_str = meanparcorr.index[-n_strongest:]
-                else:
-                    keys_str  = keys_mon_sig
-                if weights:
-                    df_train = functions_pp.get_df_train(rg.df_data,
-                                                          cols=[target_dataset] + list(keys_str),
-                                                          s=s)
-                    kwrgs = {'alphas':[1E-20, 1E-5, 1E-2, .1, 1, 10, 50, 100]}
-                    _m = RidgeCV(**kwrgs).fit(df_train[keys_str],
-                                                            df_train[target_dataset])
-                    df_mean = pd.Series(_m.predict(rg.df_data.loc[s][keys_str].copy()),
-                                            index=rg.df_data.loc[s].index)
-                else:
-                    df_mean = rg.df_data.loc[s][keys_str].copy().mean(1)
-                month_strings = [k.split('..')[0] for k in sorted(keys_str)]
-                df_mean.name = ''.join(month_strings) + '..'+uniqk
-                keys_dict_meansst[s].append( df_mean.name )
-                mean_SST_list_s.append(df_mean)
-            elif mean_SST and 'smi' in uniqk and len(keys_mon_sig)!=0:
+                        keys_str  = k_sign
+                    if weights:
+                        df_train = functions_pp.get_df_train(rg.df_data,
+                                                              cols=[target_dataset] + list(keys_str),
+                                                              s=s)
+                        kwrgs = {'alphas':[1E-20, 1E-5, 1E-2, .1, 1, 10, 50, 100]}
+                        _m = RidgeCV(**kwrgs).fit(df_train[keys_str],
+                                                  df_train[target_dataset])
+                        df_mean = pd.Series(_m.predict(rg.df_data.loc[s][keys_str].copy()),
+                                                index=rg.df_data.loc[s].index)
+                    else:
+                        df_mean = rg.df_data.loc[s][keys_str].copy().mean(1)
+                    month_strings = [k.split('..')[0] for k in sorted(keys_str)]
+                    df_mean.name = ''.join(month_strings) + '..'+uniqk
+                    keys_dict_meansst[s].append( df_mean.name )
+                    mean_SST_list_s.append(df_mean)
+            elif uniqk.split('..')[-1] not in mean_vars and len(keys_mon_sig)!=0:
                 # use all SM timeseries (for each month)
                 mean_SST_list_s.append(rg.df_data.loc[s][keys_mon_sig].copy())
                 keys_dict_meansst[s] = keys_dict_meansst[s] + keys_mon_sig
@@ -451,7 +457,9 @@ months = ['Mar', 'April', 'May', 'June','July', 'August']
 list_verification = [] ; list_prediction = []
 for i, rg in enumerate(rg_list):
 
-    df_data, keys_dict = get_df_mean_SST(rg, n_strongest=3)
+    df_data, keys_dict = get_df_mean_SST(rg,
+                                         mean_vars=['sst', 'smi'],
+                                         n_strongest='all')
     last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
     fc_month = months[months.index(last_month)+1]
     from sklearn.linear_model import Ridge
@@ -591,6 +599,7 @@ for i, m in enumerate(metrics_cols):
                         df_boot.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
                         edgecolor=c2, facecolor=c2, alpha=0.3,
                         linestyle='solid', linewidth=2)
+
     # Conditional SST
     df_scores, df_boot = df_scores_for_plot(name_object='cond_verif_tuple')
     labels = df_scores.columns.levels[0]
