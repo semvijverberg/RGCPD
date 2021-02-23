@@ -371,10 +371,26 @@ class CRPSS_vs_constant_bench:
             return (bench - fc_score) / bench
 
 
-def get_scores(prediction, df_splits, score_func_list: list=None,
-               score_per_test=True,
-               n_boot: int=1, blocksize: int=1, rng_seed=1):
+def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=None,
+               score_per_test=True, n_boot: int=1, blocksize: int=1,
+               rng_seed=1):
     #%%
+    if df_splits is None:
+        # assuming all is test data
+        TrainIsTrue = np.zeros((prediction.index.size, 1))
+        RV_mask  = np.ones((prediction.index.size, 1))
+        df_splits = pd.DataFrame(np.concatenate([TrainIsTrue,RV_mask], axis=1),
+                                   index=prediction.index,
+                                   dtype=bool,
+                                   columns=['TrainIsTrue', 'RV_mask'])
+
+    # add empty multi-index to maintain same data format
+    if hasattr(df_splits .index, 'levels')==False:
+        df_splits = pd.concat([df_splits], keys=[0])
+
+    if hasattr(prediction.index, 'levels')==False:
+        prediction = pd.concat([prediction], keys=[0])
+
     pred = prediction.merge(df_splits,
                             left_index=True,
                             right_index=True)
@@ -397,7 +413,10 @@ def get_scores(prediction, df_splits, score_func_list: list=None,
             testRV  = np.logical_and(~sp['TrainIsTrue'], sp['RV_mask'])
             for f in score_func_list:
                 name = f.__name__
-                train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].loc[:,col])
+                if ~trainRV.all()==False: # training data exists
+                    train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].loc[:,col])
+                else:
+                    train_score  = np.nan
                 if score_per_test and testRV.any():
                     test_score = f(sp[testRV].iloc[:,0], sp[testRV].loc[:,col])
                 else:

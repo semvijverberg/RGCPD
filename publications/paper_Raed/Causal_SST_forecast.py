@@ -59,17 +59,17 @@ import plot_maps;
 import wrapper_PCMCI
 
 
-target_datasets = ['USDA_Soy', 'USDA_Maize']#, 'GDHY_Soy']
-seeds = seeds = [1] # [1,2,3,4,5]
+target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
+seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-add_prev = [True, False]
-feature_sel = [True, False]
+add_prev = [False]
+feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     add_prev,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 4
+i_default = 0
 
 
 def parseArguments():
@@ -98,7 +98,8 @@ else:
     target_dataset = out[0]
     seed = int(out[1])
     start_end_year = (int(out[2][:4]), int(out[2][-4:]))
-
+    feature_selection = out[3] == 'True'
+    add_previous_periods = out[4] == 'True'
 
 
 if target_dataset == 'GDHY_Soy':
@@ -373,7 +374,7 @@ if __name__ == '__main__':
 from sklearn.linear_model import RidgeCV
 select_str_SM = False
 mean_SST = True
-def get_df_mean_SST(rg, mean_SST=True, select_str_SM=False, n_strongest=4, weights=True,
+def get_df_mean_SST(rg, mean_SST=True, select_str_SM=False, n_strongest='all', weights=True,
                     labels=None):
     alpha_CI = .05
     periodnames = list(rg.list_for_MI[0].corr_xr.lag.values)
@@ -400,7 +401,10 @@ def get_df_mean_SST(rg, mean_SST=True, select_str_SM=False, n_strongest=4, weigh
                 # calculate mean over n strongest SST timeseries
                 if len(keys_mon_sig) > 1:
                     meanparcorr = df_corr.loc[keys_mon_sig][[s]].squeeze().sort_values()
-                    keys_str = meanparcorr.index[-n_strongest:]
+                    if n_strongest == 'all':
+                        keys_str = meanparcorr.index
+                    else:
+                        keys_str = meanparcorr.index[-n_strongest:]
                 else:
                     keys_str  = keys_mon_sig
                 if weights:
@@ -528,18 +532,41 @@ for i, rg in enumerate(rg_list):
     list_verification.append(verification_tuple)
     rg.verification_tuple = verification_tuple
 
+    #%% Conditional forecast
+for rg in rg_list:
+    df_mean, keys_dict = get_df_mean_SST(rg, n_strongest='all', weights=True)
+    PacSST = [k for k in df_mean.columns if '..1..sst' in k]
+    PacSST = functions_pp.get_df_test(df_mean[PacSST],
+                                      df_splits=rg.df_splits)
+    low = PacSST < PacSST.quantile(.33)
+    high = PacSST > PacSST.quantile(.66)
+    mask_anomalous = np.logical_or(low, high)
+    prediction = rg.prediction_tuple[0]
+    df_test = functions_pp.get_df_test(prediction,
+                                       df_splits=rg.df_splits)
+
+    condfc = df_test[mask_anomalous.values]
+    cond_verif_tuple = fc_utils.get_scores(condfc,
+                                           score_func_list=score_func_list,
+                                           n_boot=n_boot,
+                                           blocksize=1,
+                                           rng_seed=1)
+    rg.cond_verif_tuple  = cond_verif_tuple
 
 #%%
-df_scores = [] ; df_boot = []
-for i, rg in enumerate(rg_list):
-    df_scores.append(rg.verification_tuple[2])
-    df_boot.append(rg.verification_tuple[3])
-df_scores = pd.concat(df_scores, axis=1)
-df_boot = pd.concat(df_boot, axis=1)
+def df_scores_for_plot(name_object):
+    df_scores = [] ; df_boot = []
+    for i, rg in enumerate(rg_list):
+        verification_tuple = rg.__dict__[name_object]
+        df_scores.append(verification_tuple[2])
+        df_boot.append(verification_tuple[3])
+    df_scores = pd.concat(df_scores, axis=1)
+    df_boot = pd.concat(df_boot, axis=1)
+    return df_scores, df_boot
 
-orientation = 'vertical'
+orientation = 'horizontal'
 alpha = .05
-metrics_cols = ['corrcoef', 'MAE']
+metrics_cols = ['corrcoef', 'MAE', 'RMSE']
 rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
             'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
 
@@ -552,10 +579,11 @@ else:
 
 c1, c2 = '#3388BB', '#EE6666'
 for i, m in enumerate(metrics_cols):
-    labels = df_scores.columns.levels[0]
     # normal SST
+    df_scores, df_boot = df_scores_for_plot(name_object='verification_tuple')
+    labels = df_scores.columns.levels[0]
     ax[i].plot(labels, df_scores.reorder_levels((1,0), axis=1).loc[0][m].T,
-            label='Forecast [SST+SM]',
+            label='Verification on all years',
             color=c2,
             linestyle='solid')
     ax[i].fill_between(labels,
@@ -563,15 +591,27 @@ for i, m in enumerate(metrics_cols):
                         df_boot.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
                         edgecolor=c2, facecolor=c2, alpha=0.3,
                         linestyle='solid', linewidth=2)
+    # Conditional SST
+    df_scores, df_boot = df_scores_for_plot(name_object='cond_verif_tuple')
+    labels = df_scores.columns.levels[0]
+    ax[i].plot(labels, df_scores.reorder_levels((1,0), axis=1).loc[0][m].T,
+            label='Pronounced Pacific state years',
+            color=c1,
+            linestyle='solid')
+    ax[i].fill_between(labels,
+                        df_boot.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                        df_boot.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                        edgecolor=c1, facecolor=c1, alpha=0.3,
+                        linestyle='solid', linewidth=2)
 
 
 
     if m == 'corrcoef':
         ax[i].set_ylim(-.2,1)
     else:
-        ax[i].set_ylim(-.15,.4)
+        ax[i].set_ylim(-.2,.6)
     ax[i].axhline(y=0, color='black', linewidth=1)
-    ax[i].tick_params(labelsize=16)
+    ax[i].tick_params(labelsize=16, pad=6)
     if i == len(metrics_cols)-1 and orientation=='vertical':
         ax[i].set_xlabel('Forecast month', fontsize=18)
     elif orientation=='horizontal':
@@ -583,7 +623,7 @@ for i, m in enumerate(metrics_cols):
 
 f.subplots_adjust(hspace=.1)
 f.subplots_adjust(wspace=.2)
-title = 'Verification Soy Yield forecast using SST and SMI'
+title = 'Verification Soy Yield forecast'
 if orientation == 'vertical':
     f.suptitle(title, y=.92, fontsize=18)
 else:
