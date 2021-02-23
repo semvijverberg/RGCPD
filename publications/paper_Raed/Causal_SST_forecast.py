@@ -318,7 +318,7 @@ def pipeline(lags, periodnames):
     rg.df_pvals = pd.concat(list_pvals,axis=0)
     rg.df_corr = pd.concat(list_corr,axis=0)
 
-    rg_list.append(rg)
+    # rg_list.append(rg)
     return rg
 
 
@@ -358,10 +358,11 @@ if __name__ == '__main__':
     lag_list = [lags_july, lags_june, lags_may, lags_april]
     periodnames_list = [periodnames_july, periodnames_june,
                         periodnames_may, periodnames_april]
+    for lags, periodnames in zip(lag_list, periodnames_list):
+        pipeline(lags, periodnames)
 
-
-    futures = [delayed(pipeline)(lags, periodnames) for lags, periodnames in zip(lag_list, periodnames_list)]
-    rg_list = Parallel(n_jobs=n_cpu, backend='loky')(futures)
+    # futures = [delayed(pipeline)(lags, periodnames) for lags, periodnames in zip(lag_list, periodnames_list)]
+    # rg_list = Parallel(n_jobs=n_cpu, backend='loky')(futures)
 
 
 #%%

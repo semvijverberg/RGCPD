@@ -746,6 +746,7 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
         # check format for of offset yr is given '{offsetyr}-{mm}-{dd}'
         p = ( '-'.join(p[0].split('-')[-2:]), '-'.join(p[-1].split('-')[-2:]) )
         s_e_y = upd_start_end_years[i]
+        print(s_e_y, p)
         xrgr[i] = time_mean_single_period(xarray, p, s_e_y)
 
     # use time-index of last lag given
@@ -810,14 +811,19 @@ def check_crossyr_periods(start_end_periods, start_end_year):
             eyp = int('-'.join(sep[-1].split('-')[:-2])) # end year period
             dateyears[i] = [syp, eyp]
 
-        if np.unique(dateyears).size > 1: # varying startyr
-            for i, d in enumerate(dateyears):
+        for i, d in enumerate(dateyears):
+            if np.unique(dateyears).size > 1: # varying startyr
                 if d[0] == startyr and d[-1] == startyr:
                     upd_start_end_years[i] = (startyr, endyr-1)
                 elif d[0] == startyr and d[-1] == startyr+1:
                     upd_start_end_years[i] = (startyr, endyr)
                 else:
                     upd_start_end_years[i] = (startyr+1, endyr)
+            else:
+                # use given start yr
+                upd_start_end_years[i] = (np.unique(dateyears)[0],
+                                          endyr)
+
     else: # check for crossyr within periods
         crossyrlags = np.zeros(start_end_periods.shape[0], dtype=bool)
         for i, p in enumerate(start_end_periods):
