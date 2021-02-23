@@ -740,13 +740,12 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
     date_time = pd.to_datetime(xarray['time'].values)
     if start_end_year is None:
         start_end_year = (date_time.year[0], date_time.year[-1])
-    offset_startyear = check_crossyr_periods(start_end_periods)
+    upd_start_end_years = check_crossyr_periods(start_end_periods, start_end_year)
     xrgr = np.zeros(start_end_periods.shape[0], dtype=object)
     for i,p in enumerate(start_end_periods):
         # check format for of offset yr is given '{offsetyr}-{mm}-{dd}'
         p = ( '-'.join(p[0].split('-')[-2:]), '-'.join(p[-1].split('-')[-2:]) )
-        offset = offset_startyear[i]
-        s_e_y = (start_end_year[0]+offset[0], start_end_year[-1] + offset[-1])
+        s_e_y = upd_start_end_years[i]
         xrgr[i] = time_mean_single_period(xarray, p, s_e_y)
 
     # use time-index of last lag given
@@ -796,17 +795,29 @@ def time_mean_single_period(xarray, period: tuple, start_end_year: tuple=None):
         xrgr['time'] = ('time', groups)
     return xrgr
 
-def check_crossyr_periods(start_end_periods):
+def check_crossyr_periods(start_end_periods, start_end_year):
     ''' If some start_end_periods are cross yr, start year is aligned such that
     all aggregations have same start year (startyr of data + 1) '''
 
-    offset_startyear = np.zeros( (start_end_periods.shape[0],2), dtype=int)
-    if len(start_end_periods[0][0].split('-')) >= 3: # offset explicitly given
-        for i, sep in enumerate(start_end_periods):
-            offset = [int(sep[0].split('-')[0]),
-                      -abs(int('-'.join(sep[-1].split('-')[:-2])))]
-            offset_startyear[i] = offset
+    startyr, endyr = start_end_year
 
+    dateyears = np.zeros( (start_end_periods.shape[0],2), dtype=int)
+    upd_start_end_years = np.zeros_like(dateyears)
+    if len(start_end_periods[0][0].split('-')) >= 3: # offset explicitly given
+
+        for i, sep in enumerate(start_end_periods):
+            syp = int(sep[0].split('-')[0]) # start year period
+            eyp = int('-'.join(sep[-1].split('-')[:-2])) # end year period
+            dateyears[i] = [syp, eyp]
+
+        if np.unique(dateyears).size > 1: # varying startyr
+            for i, d in enumerate(dateyears):
+                if d[0] == startyr and d[-1] == startyr:
+                    upd_start_end_years[i] = (startyr, endyr-1)
+                elif d[0] == startyr and d[-1] == startyr+1:
+                    upd_start_end_years[i] = (startyr, endyr)
+                else:
+                    upd_start_end_years[i] = (startyr+1, endyr)
     else: # check for crossyr within periods
         crossyrlags = np.zeros(start_end_periods.shape[0], dtype=bool)
         for i, p in enumerate(start_end_periods):
@@ -816,11 +827,16 @@ def check_crossyr_periods(start_end_periods):
         if crossyrlags.all() and ~crossyrlags.any():
             pass
         if crossyrlags.any():
-            offset_startyear[~crossyrlags,:] = 1
-            offset_startyear[crossyrlags,-1] = 1
+            for i, crossyr in enumerate(crossyrlags):
+                if crossyr:
+                    upd_start_end_years[i] = (startyr, endyr)
+                else:
+                    upd_start_end_years[i] = (startyr+1, endyr)
         else:
-            pass # or all crossyr or no crossyr at all.
-    return offset_startyear
+            # or all crossyr or no crossyr at all.
+            for i, crossyr in enumerate(crossyrlags):
+                upd_start_end_years[i] = (startyr, endyr)
+    return upd_start_end_years
 
 
 def extend_annual_ts(fullts, tfreq: int, start_end_TVdate: tuple,
