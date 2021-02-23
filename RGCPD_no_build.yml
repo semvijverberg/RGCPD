@@ -1,4 +1,4 @@
-name: RGCPD1
+name: RGCPD
 channels:
   - conda-forge
   - defaults

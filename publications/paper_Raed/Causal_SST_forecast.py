@@ -327,34 +327,36 @@ def pipeline(lags, periodnames):
 #%%
 if __name__ == '__main__':
 
-    lags_july = np.array([['1950-12-01', '1951-01-01'],# DJ
-                          ['1951-02-01', '1951-03-01'],# FM
-                          ['1951-04-01', '1951-05-01'],# AM
-                          ['1951-06-01', '1951-07-01'] # JJ
+    lags_july = np.array([#['1950-12-01', '1951-01-01'],# DJ
+                          ['1950-02-01', '1950-03-01'],# FM
+                          ['1950-04-01', '1950-05-01'],# AM
+                          ['1950-06-01', '1950-07-01'] # JJ
                           ])
-    periodnames_july = ['Jan', 'March', 'May', 'July']
+    periodnames_july = ['March', 'May', 'July']
 
-    lags_june = np.array([['1950-11-01', '1950-12-01'],# FM
-                          ['1951-01-01', '1951-02-01'],# FM
-                          ['1951-03-01', '1951-04-01'],# AM
-                          ['1951-05-01', '1951-06-01'] # JJ
+    lags_june = np.array([#['1950-11-01', '1950-12-01'],# FM
+                          ['1950-01-01', '1950-02-01'],# FM
+                          ['1950-03-01', '1950-04-01'],# AM
+                          ['1950-05-01', '1950-06-01'] # JJ
                           ])
-    periodnames_june = ['Dec', 'Feb', 'April', 'June']
+    periodnames_june = ['Feb', 'April', 'June']
 
-    lags_may = np.array([['1950-10-01', '1950-11-01'],# ON
+    lags_may = np.array([#['1950-10-01', '1950-11-01'],# ON
                          ['1950-12-01', '1951-01-01'],# DJ
                          ['1951-02-01', '1951-03-01'],# FM
                          ['1951-04-01', '1951-05-01'] # AM
                          ])
-    periodnames_may = ['Nov', 'Jan', 'Mar', 'May']
+    periodnames_may = ['Jan', 'Mar', 'May']
 
-    lags_april = np.array([['1950-09-01', '1950-10-01'],# SO
+    lags_april = np.array([#['1950-09-01', '1950-10-01'],# SO
                            ['1950-11-01', '1950-12-01'],# ND
                            ['1951-01-01', '1951-02-01'],# JF
                            ['1951-03-01', '1951-04-01'] # MA
                            ])
-    periodnames_april = ['Oct', 'Dec', 'Feb', 'April']
+    periodnames_april = ['Dec', 'Feb', 'April']
 
+
+    # Run in Parallel
     lag_list = [lags_july, lags_june, lags_may, lags_april]
     periodnames_list = [periodnames_july, periodnames_june,
                         periodnames_may, periodnames_april]
@@ -365,14 +367,6 @@ if __name__ == '__main__':
 
     rg_list = Parallel(n_jobs=n_cpu, backend='loky')(futures)
 
-
-#%%
-lags_june = np.array([['0-11-01', '0-12-01'],# FM
-                      ['1-01-01', '1-02-01'],# FM
-                      ['1-03-01', '1-04-01'],# AM
-                      ['1-05-01', '1-06-01'] # JJ
-                      ])
-periodnames_june = ['Dec', 'Feb', 'April', 'June']
 
 #%%
 
@@ -507,7 +501,7 @@ for i, rg in enumerate(rg_list):
                                             transformer=None)
     predict, weights, models_lags = prediction_tuple
     prediction = predict.rename({predict.columns[0]:'target',
-                                 lag_:last_month}, axis=1)
+                                 lag_:fc_month}, axis=1)
     prediction_tuple = (prediction, weights, models_lags)
     list_prediction.append(prediction_tuple)
     rg.prediction_tuple = prediction_tuple
@@ -519,7 +513,7 @@ for i, rg in enumerate(rg_list):
     verification_tuple = fc_utils.get_scores(prediction,
                                              rg.df_data.iloc[:,-2:],
                                              score_func_list,
-                                             n_boot=2000,
+                                             n_boot=n_boot,
                                              blocksize=1,
                                              rng_seed=1)
     df_train_m, df_test_s_m, df_test_m, df_boot = verification_tuple
