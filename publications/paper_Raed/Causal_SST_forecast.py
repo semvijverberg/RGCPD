@@ -358,11 +358,12 @@ if __name__ == '__main__':
     lag_list = [lags_july, lags_june, lags_may, lags_april]
     periodnames_list = [periodnames_july, periodnames_june,
                         periodnames_may, periodnames_april]
+    futures = []
     for lags, periodnames in zip(lag_list, periodnames_list):
-        pipeline(lags, periodnames)
+        # pipeline(lags, periodnames)
+        futures.append(delayed(pipeline)(lags, periodnames))
 
-    # futures = [delayed(pipeline)(lags, periodnames) for lags, periodnames in zip(lag_list, periodnames_list)]
-    # rg_list = Parallel(n_jobs=n_cpu, backend='loky')(futures)
+    rg_list = Parallel(n_jobs=n_cpu, backend='loky')(futures)
 
 
 #%%
