@@ -11,6 +11,9 @@ import os, inspect, sys
 import matplotlib as mpl
 if sys.platform == 'linux':
     mpl.use('Agg')
+    n_cpu = 4
+else:
+    n_cpu = 2
 # else:
 #     # Optionally set font to Computer Modern to avoid common missing font errors
 #     mpl.rc('font', family='serif', serif='cm10')
@@ -317,10 +320,6 @@ def pipeline(lags, periodnames):
 #%%
 if __name__ == '__main__':
 
-
-
-
-
     lags_july = np.array([
                         ['02-01', '03-01'],# FM
                         ['04-01', '05-01'],# AM
@@ -344,22 +343,10 @@ if __name__ == '__main__':
     lag_list = [lags_july, lags_june, lags_may]
     periodnames_list = [periodnames_july, periodnames_june, periodnames_may]
 
-    # futures = []
-    # for lags, periodnames in zip(lag_list, periodnames_list):
-    #     futures.append( client.submit(pipeline, lags, periodnames) )
 
-    backend = 'loky' # so far robust when using interactively
-    rg_list = Parallel(n_jobs=2, backend=backend)(delayed(
+
+    rg_list = Parallel(n_jobs=n_cpu, backend='loky')(delayed(
                     pipeline)(lags, periodnames) for lags, periodnames in zip(lag_list, periodnames_list))
-
-    # rg_list = client.gather(futures)
-
-
-    # pipeline(lags_july, periodnames_july)
-    # pipeline(lags_june, periodnames_june)
-    # pipeline(lags_may, periodnames_may)
-    rg = rg_list[1]
-    # df_data = rg.get_subdates_df(years=(1950, 2019))
 
 
 #%%
