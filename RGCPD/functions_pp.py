@@ -704,8 +704,8 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
         input timeseries with dimension 'time'.
     start_end_periods : tuple or np.ndarray
         tuple of start- and enddate for target variable in
-        format ('mm-dd', 'mm-dd'). If start_end_periods[0] date is after
-        start_end_periods[1], then ('startyear-mm-dd', 'startyear+1-mm-dd').
+        format ('mm-dd', 'mm-dd'). If the first entry date of a period is after
+        the last entry date, then ('startyear-mm-dd', 'startyear+1-mm-dd').
     start_end_year : tuple, optional
 
 
@@ -718,7 +718,6 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
 
     if np.array(start_end_periods).shape == (2,):
         start_end_periods = np.array([start_end_periods])
-
 
     types = [type(xr.Dataset()), type(xr.DataArray([0])), type(pd.DataFrame([0]))]
 
@@ -744,15 +743,21 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
     offset_startyear = check_crossyr_periods(start_end_periods)
     xrgr = np.zeros(start_end_periods.shape[0], dtype=object)
     for i,p in enumerate(start_end_periods):
+        # check format for of offset yr is given '{offsetyr}-{mm}-{dd}'
+        p = ( '-'.join(p[0].split('-')[-2:]), '-'.join(p[-1].split('-')[-2:]) )
         offset = offset_startyear[i]
-        s_e_y = (start_end_year[0]+offset, start_end_year[-1])
+        s_e_y = (start_end_year[0]+offset[0], start_end_year[-1] + offset[-1])
+        print(s_e_y, p)
         xrgr[i] = time_mean_single_period(xarray, p, s_e_y)
 
-    xrgr = [x.expand_dims('lag', axis=1) for x in xrgr]
+    # use time-index of last lag given
+    time_index = ('time', pd.to_datetime([f'{y}-01-01' for y in xrgr[i]['time'].values]))
+    for i in range(len(xrgr)):
+        xrgr[i]['time'] = time_index
+        xrgr[i].expand_dims('lag', axis=1)
+
     xarray = xr.concat(xrgr, dim='lag')
     xarray['lag'] = ('lag', np.arange(start_end_periods.shape[0]))
-    time_index = ('time', pd.to_datetime([f'{y}-01-01' for y in xrgr[i]['time'].values]))
-    xarray['time'] = time_index
     xarray = xarray.transpose('time', 'lag', 'latitude', 'longitude', # ensure order dims
                               transpose_coords=True)
 
@@ -795,18 +800,27 @@ def time_mean_single_period(xarray, period: tuple, start_end_year: tuple=None):
 def check_crossyr_periods(start_end_periods):
     ''' If some start_end_periods are cross yr, start year is aligned such that
     all aggregations have same start year (startyr of data + 1) '''
-    offset_startyear = np.zeros(start_end_periods.shape[0], dtype=int)
-    crossyrlags = np.zeros(start_end_periods.shape[0], dtype=bool)
-    for i, p in enumerate(start_end_periods):
-        sd = pd.to_datetime(f'2000-'+p[0])
-        ed = pd.to_datetime(f'2000-'+p[-1])
-        crossyrlags[i] = sd > ed
-    if crossyrlags.all() and ~crossyrlags.any():
-        pass
-    if crossyrlags.any():
-        offset_startyear[~crossyrlags] = 1
-    else:
-        pass # or all crossyr or no crossyr at all.
+
+    offset_startyear = np.zeros( (start_end_periods.shape[0],2), dtype=int)
+    if len(start_end_periods[0][0].split('-')) >= 3: # offset explicitly given
+        for i, sep in enumerate(start_end_periods):
+            offset = [int(sep[0].split('-')[0]),
+                      -abs(int('-'.join(sep[-1].split('-')[:-2])))]
+            offset_startyear[i] = offset
+
+    else: # check for crossyr within periods
+        crossyrlags = np.zeros(start_end_periods.shape[0], dtype=bool)
+        for i, p in enumerate(start_end_periods):
+            sd = pd.to_datetime('2000-'+p[0])
+            ed = pd.to_datetime('2000-'+p[-1])
+            crossyrlags[i] = sd > ed
+        if crossyrlags.all() and ~crossyrlags.any():
+            pass
+        if crossyrlags.any():
+            offset_startyear[~crossyrlags,:] = 1
+            offset_startyear[crossyrlags,-1] = 1
+        else:
+            pass # or all crossyr or no crossyr at all.
     return offset_startyear
 
 

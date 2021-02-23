@@ -149,12 +149,12 @@ list_of_name_path = [(cluster_label, TVpath),
 
 def pipeline(lags, periodnames):
 
-    if int(lags[0][0].split('-')[0]) > 7: # first month after july
+    if int(lags[0][0].split('-')[-2]) > 7: # first month after july
         crossyr = True
     else:
         crossyr = False
 
-    SM_lags = np.array([[l[1][:2]+l[0][2:], l[1]] for l in lags])
+    SM_lags = np.array([[l[0].replace(l[0].split('-')[-2], l[1].split('-')[-2], 1), l[1]] for l in lags])
     list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                                 alpha=alpha_corr, FDR_control=True,
                                 kwrgs_func={},
@@ -190,24 +190,22 @@ def pipeline(lags, periodnames):
                      auto_detect_mask=[False, {'swvl1':True, 'swvl2':True}])
     if crossyr:
         TV_start_end_year = (1951, 2019)
-
     else:
         TV_start_end_year = (1950, 2019)
+
     kwrgs_core_pp_time = {'start_end_year': TV_start_end_year}
     rg.pp_TV(name_ds=name_ds, detrend=True, ext_annual_to_mon=False,
              kwrgs_core_pp_time=kwrgs_core_pp_time)
     rg.traintest(method, seed=seed, subfoldername=subfoldername)
 
     #%%
-    rg.calc_corr_maps('sst')
     sst = rg.list_for_MI[0]
+    rg.calc_corr_maps('sst')
     sst.corr_xr['lag'] = ('lag', periodnames)
 
     #%%
-    if crossyr and (12-int(SM_lags[0][0][:2])) > 0: # crossyr for SM False
-        rg.kwrgs_load['start_end_year'] = TV_start_end_year
-    rg.calc_corr_maps('smi')
     SM = rg.list_for_MI[1]
+    rg.calc_corr_maps('smi')
     SM.corr_xr['lag'] = ('lag', periodnames)
     #%%
 
@@ -317,34 +315,38 @@ def pipeline(lags, periodnames):
 
     # rg_list.append(rg)
     return rg
+
+
+# pipeline(lags=lags_june, periodnames=periodnames_june)
+
 #%%
 if __name__ == '__main__':
 
-    lags_july = np.array([['12-01', '01-01'],# DJ
-                          ['02-01', '03-01'],# FM
-                          ['04-01', '05-01'],# AM
-                          ['06-01', '07-01'] # JJ
+    lags_july = np.array([['0-12-01', '0-01-01'],# DJ
+                          ['1-02-01', '0-03-01'],# FM
+                          ['1-04-01', '0-05-01'],# AM
+                          ['1-06-01', '0-07-01'] # JJ
                           ])
     periodnames_july = ['Jan', 'March', 'May', 'July']
 
-    lags_june = np.array([['11-01', '12-01'],# FM
-                          ['01-01', '02-01'],# FM
-                          ['03-01', '04-01'],# AM
-                          ['05-01', '06-01'] # JJ
+    lags_june = np.array([['0-11-01', '-1-12-01'],# FM
+                          ['1-01-01', '0-02-01'],# FM
+                          ['1-03-01', '0-04-01'],# AM
+                          ['1-05-01', '0-06-01'] # JJ
                           ])
     periodnames_june = ['Dec', 'Feb', 'April', 'June']
 
-    lags_may = np.array([['10-01', '11-01'],# ON
-                         ['12-01', '01-01'],# DJ
-                         ['02-01', '03-01'],# FM
-                         ['04-01', '05-01'] # AM
+    lags_may = np.array([['0-10-01', '-1-11-01'],# ON
+                         ['0-12-01', '0-01-01'],# DJ
+                         ['1-02-01', '1-03-01'],# FM
+                         ['1-04-01', '1-05-01'] # AM
                          ])
     periodnames_may = ['Nov', 'Jan', 'Mar', 'May']
 
-    lags_april = np.array([['09-01', '10-01'],# SO
-                           ['11-01', '12-01'],# ND
-                           ['01-01', '02-01'],# JF
-                           ['03-01', '04-01'] # MA
+    lags_april = np.array([['0-09-01', '0-10-01'],# SO
+                           ['0-11-01', '0-12-01'],# ND
+                           ['1-01-01', '1-02-01'],# JF
+                           ['1-03-01', '1-04-01'] # MA
                            ])
     periodnames_april = ['Oct', 'Dec', 'Feb', 'April']
 
@@ -357,6 +359,14 @@ if __name__ == '__main__':
     rg_list = Parallel(n_jobs=n_cpu, backend='loky')(delayed(
                     pipeline)(lags, periodnames) for lags, periodnames in zip(lag_list, periodnames_list))
 
+
+#%%
+lags_june = np.array([['0-11-01', '0-12-01'],# FM
+                      ['1-01-01', '1-02-01'],# FM
+                      ['1-03-01', '1-04-01'],# AM
+                      ['1-05-01', '1-06-01'] # JJ
+                      ])
+periodnames_june = ['Dec', 'Feb', 'April', 'June']
 
 #%%
 
