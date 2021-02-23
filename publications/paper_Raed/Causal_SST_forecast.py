@@ -320,28 +320,37 @@ def pipeline(lags, periodnames):
 #%%
 if __name__ == '__main__':
 
-    lags_july = np.array([
-                        ['02-01', '03-01'],# FM
-                        ['04-01', '05-01'],# AM
-                        ['06-01', '07-01'] # JJ
-                        ])
-    periodnames_july = ['March', 'May', 'July']
-    lags_june = np.array([
-                        ['01-01', '02-01'],# FM
-                        ['03-01', '04-01'],# AM
-                        ['05-01', '06-01'] # JJ
-                        ])
-    periodnames_june = ['Feb', 'April', 'June']
-    lags_may = np.array([
-                        ['10-01', '11-01'],# ON
-                        ['12-01', '01-01'],# DJ
-                        ['02-01', '03-01'],# FM
-                        ['04-01', '05-01'] # AM
-                        ])
+    lags_july = np.array([['12-01', '01-01'],# DJ
+                          ['02-01', '03-01'],# FM
+                          ['04-01', '05-01'],# AM
+                          ['06-01', '07-01'] # JJ
+                          ])
+    periodnames_july = ['Jan', 'March', 'May', 'July']
+
+    lags_june = np.array([['11-01', '12-01'],# FM
+                          ['01-01', '02-01'],# FM
+                          ['03-01', '04-01'],# AM
+                          ['05-01', '06-01'] # JJ
+                          ])
+    periodnames_june = ['Dec', 'Feb', 'April', 'June']
+
+    lags_may = np.array([['10-01', '11-01'],# ON
+                         ['12-01', '01-01'],# DJ
+                         ['02-01', '03-01'],# FM
+                         ['04-01', '05-01'] # AM
+                         ])
     periodnames_may = ['Nov', 'Jan', 'Mar', 'May']
 
-    lag_list = [lags_july, lags_june, lags_may]
-    periodnames_list = [periodnames_july, periodnames_june, periodnames_may]
+    lags_april = np.array([['09-01', '10-01'],# SO
+                           ['11-01', '12-01'],# ND
+                           ['01-01', '02-01'],# JF
+                           ['03-01', '04-01'] # MA
+                           ])
+    periodnames_april = ['Oct', 'Dec', 'Feb', 'April']
+
+    lag_list = [lags_july, lags_june, lags_may, lags_april]
+    periodnames_list = [periodnames_july, periodnames_june,
+                        periodnames_may, periodnames_april]
 
 
 
@@ -494,7 +503,7 @@ for i, rg in enumerate(rg_list):
     verification_tuple = fc_utils.get_scores(prediction,
                                              rg.df_data.iloc[:,-2:],
                                              score_func_list,
-                                             n_boot=10,
+                                             n_boot=2000,
                                              blocksize=1,
                                              rng_seed=1)
     df_train_m, df_test_s_m, df_test_m, df_boot = verification_tuple
@@ -564,13 +573,15 @@ for i, m in enumerate(metrics_cols):
 
 f.subplots_adjust(hspace=.1)
 f.subplots_adjust(wspace=.2)
-title = 'Title'
+title = 'Verification Soy Yield forecast using SST and SMI'
 if orientation == 'vertical':
     f.suptitle(title, y=.92, fontsize=18)
 else:
     f.suptitle(title, y=.95, fontsize=18)
 f_name = f'{method}_{seed}'
 fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
+if save:
+    plt.savefig(fig_path, bbox_inches='tight')
 
 
 #%%
@@ -591,7 +602,6 @@ kwrgs_plotcorr_SM.update({'aspect':2, 'hspace':0.2,
 #%%
 
 def plot_regions(rg, save=save):
-    plot_strongest = False
     # Get ConDepKeys
     df_pvals = rg.df_pvals.copy()
     df_corr  = rg.df_corr.copy()
@@ -660,8 +670,9 @@ def plot_regions(rg, save=save):
             else:
                 dirpath = rg.path_outsub1
             plt.savefig(os.path.join(dirpath,
-                                  f'{precur.name}_str{plot_strongest}_eps{precur.distance_eps}'
-                                  f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_labels'+rg.figext),
+                                  f'{precur.name}_eps{precur.distance_eps}'
+                                  f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_labels_'
+                                  f'{periodnames[-1]}'+rg.figext),
                          bbox_inches='tight')
 
         # MCI values plot
@@ -672,8 +683,9 @@ def plot_regions(rg, save=save):
                                        **kwrgs_plot)
         if save:
             fig.savefig(os.path.join(dirpath,
-                                      f'{precur.name}_str{plot_strongest}_eps{precur.distance_eps}'
-                                      f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_MCI'+rg.figext),
+                                      f'{precur.name}_eps{precur.distance_eps}'
+                                      f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_MCI_'
+                                      f'{periodnames[-1]}'+rg.figext),
                         bbox_inches='tight')
 
 
