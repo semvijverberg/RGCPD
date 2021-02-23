@@ -24,6 +24,7 @@ import matplotlib
 import pandas as pd
 import xarray as xr
 import csv
+from joblib import Parallel, delayed
 # import sklearn.linear_model as scikitlinear
 import argparse
 
@@ -50,8 +51,9 @@ from RGCPD import RGCPD
 from RGCPD import BivariateMI
 import class_BivariateMI
 import func_models as fc_utils
-import functions_pp, df_ana, climate_indices, find_precursors
-import plot_maps; import core_pp
+import functions_pp, find_precursors
+import plot_maps;
+import wrapper_PCMCI
 
 
 target_datasets = ['USDA_Soy', 'USDA_Maize']#, 'GDHY_Soy']
@@ -260,7 +262,7 @@ def pipeline(lags, periodnames):
     # rg.df_data[keys] = rg.df_data[keys].fillna(value=0)
 
     #%% Causal Inference
-    import wrapper_PCMCI
+
     def feature_selection_CondDep(df_data, keys, z_keys=None, alpha_CI=.05, x_lag=0, z_lag=0):
 
         # Feature selection Cond. Dependence
@@ -314,7 +316,7 @@ def pipeline(lags, periodnames):
     return rg
 #%%
 if __name__ == '__main__':
-    from joblib import Parallel, delayed
+
 
 
 
