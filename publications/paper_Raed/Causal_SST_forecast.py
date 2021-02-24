@@ -127,7 +127,7 @@ calc_ts='region mean' # pattern cov
 alpha_corr = .05
 alpha_CI = .05
 n_boot = 100
-append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}_pc'
+append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
@@ -399,6 +399,7 @@ if __name__ == '__main__':
     for lags, periodnames, use_vars in zip(lag_list, periodnames_list, use_vars_list):
         # pipeline(lags, periodnames)
         futures.append(delayed(pipeline)(lags, periodnames, use_vars))
+
 
     rg_list = Parallel(n_jobs=n_cpu, backend='loky')(futures)
 
