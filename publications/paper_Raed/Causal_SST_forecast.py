@@ -124,7 +124,7 @@ elif target_dataset == 'USDA_Maize':
 
 append_pathsub = '_mean_sst_smi'
 calc_ts='region mean' # pattern cov
-alpha_corr = .05
+alpha_corr = .01
 n_boot = 2000
 
 
