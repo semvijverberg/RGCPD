@@ -127,7 +127,7 @@ calc_ts='region mean' # pattern cov
 alpha_corr = .05
 alpha_CI = .05
 n_boot = 100
-append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}_e'
+append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
@@ -360,77 +360,77 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
 #%%
 if __name__ == '__main__':
 
-    # =============================================================================
-    # 4 * bimonthly
-    # =============================================================================
-    lags_july = np.array([['1950-12-01', '1951-01-01'],# DJ
-                          ['1951-02-01', '1951-03-01'],# FM
-                          ['1951-04-01', '1951-05-01'],# AM
-                          ['1951-06-01', '1951-07-01'] # JJ
-                          ])
-    periodnames_july = ['jan', 'March', 'May', 'July']
-    use_vars_july = ['sst', 'smi']
+    # # =============================================================================
+    # # 4 * bimonthly
+    # # =============================================================================
+    # lags_july = np.array([['1950-12-01', '1951-01-01'],# DJ
+    #                       ['1951-02-01', '1951-03-01'],# FM
+    #                       ['1951-04-01', '1951-05-01'],# AM
+    #                       ['1951-06-01', '1951-07-01'] # JJ
+    #                       ])
+    # periodnames_july = ['jan', 'March', 'May', 'July']
+    # use_vars_july = ['sst', 'smi']
 
-    lags_june = np.array([['1950-11-01', '1950-12-01'],# FM
-                          ['1951-01-01', '1951-02-01'],# FM
-                          ['1951-03-01', '1951-04-01'],# AM
-                          ['1951-05-01', '1951-06-01'] # JJ
-                          ])
-    periodnames_june = ['Dec', 'Feb', 'April', 'June']
-    use_vars_june = ['sst', 'smi']
+    # lags_june = np.array([['1950-11-01', '1950-12-01'],# FM
+    #                       ['1951-01-01', '1951-02-01'],# FM
+    #                       ['1951-03-01', '1951-04-01'],# AM
+    #                       ['1951-05-01', '1951-06-01'] # JJ
+    #                       ])
+    # periodnames_june = ['Dec', 'Feb', 'April', 'June']
+    # use_vars_june = ['sst', 'smi']
 
-    lags_may = np.array([['1950-10-01', '1950-11-01'],# ON
-                         ['1950-12-01', '1951-01-01'],# DJ
-                         ['1951-02-01', '1951-03-01'],# FM
-                         ['1951-04-01', '1951-05-01'] # AM
-                         ])
-    periodnames_may = ['nov', 'Jan', 'Mar', 'May']
-    use_vars_may = ['sst']
+    # lags_may = np.array([['1950-10-01', '1950-11-01'],# ON
+    #                      ['1950-12-01', '1951-01-01'],# DJ
+    #                      ['1951-02-01', '1951-03-01'],# FM
+    #                      ['1951-04-01', '1951-05-01'] # AM
+    #                      ])
+    # periodnames_may = ['nov', 'Jan', 'Mar', 'May']
+    # use_vars_may = ['sst']
 
-    lags_april = np.array([['1950-09-01', '1950-10-01'],# SO
-                           ['1950-11-01', '1950-12-01'],# ND
-                           ['1951-01-01', '1951-02-01'],# JF
-                           ['1951-03-01', '1951-04-01'] # MA
-                           ])
-    periodnames_april = ['Oct', 'Dec', 'Feb', 'April']
-    use_vars_april = ['sst']
+    # lags_april = np.array([['1950-09-01', '1950-10-01'],# SO
+    #                        ['1950-11-01', '1950-12-01'],# ND
+    #                        ['1951-01-01', '1951-02-01'],# JF
+    #                        ['1951-03-01', '1951-04-01'] # MA
+    #                        ])
+    # periodnames_april = ['Oct', 'Dec', 'Feb', 'April']
+    # use_vars_april = ['sst']
     # =============================================================================
     # 3 * bimonthly
     # =============================================================================
 
 
 
-    # lags_july = np.array([#['1950-12-01', '1951-01-01'],# DJ
-    #                       ['1950-02-01', '1950-03-01'],# FM
-    #                       ['1950-04-01', '1950-05-01'],# AM
-    #                       ['1950-06-01', '1950-07-01'] # JJ
-    #                       ])
-    # periodnames_july = ['March', 'May', 'July']
-    # use_vars_july = ['sst', 'smi']
+    lags_july = np.array([#['1950-12-01', '1951-01-01'],# DJ
+                          ['1950-02-01', '1950-03-01'],# FM
+                          ['1950-04-01', '1950-05-01'],# AM
+                          ['1950-06-01', '1950-07-01'] # JJ
+                          ])
+    periodnames_july = ['March', 'May', 'July']
+    use_vars_july = ['sst', 'smi']
 
-    # lags_june = np.array([#['1950-11-01', '1950-12-01'],# FM
-    #                       ['1950-01-01', '1950-02-01'],# FM
-    #                       ['1950-03-01', '1950-04-01'],# AM
-    #                       ['1950-05-01', '1950-06-01'] # JJ
-    #                       ])
-    # periodnames_june = ['Feb', 'April', 'June']
-    # use_vars_june = ['sst', 'smi']
+    lags_june = np.array([#['1950-11-01', '1950-12-01'],# FM
+                          ['1950-01-01', '1950-02-01'],# FM
+                          ['1950-03-01', '1950-04-01'],# AM
+                          ['1950-05-01', '1950-06-01'] # JJ
+                          ])
+    periodnames_june = ['Feb', 'April', 'June']
+    use_vars_june = ['sst', 'smi']
 
-    # lags_may = np.array([#['1950-10-01', '1950-11-01'],# ON
-    #                      ['1950-12-01', '1951-01-01'],# DJ
-    #                      ['1951-02-01', '1951-03-01'],# FM
-    #                      ['1951-04-01', '1951-05-01'] # AM
-    #                      ])
-    # periodnames_may = ['Jan', 'Mar', 'May']
-    # use_vars_may = ['sst']
+    lags_may = np.array([#['1950-10-01', '1950-11-01'],# ON
+                          ['1950-12-01', '1951-01-01'],# DJ
+                          ['1951-02-01', '1951-03-01'],# FM
+                          ['1951-04-01', '1951-05-01'] # AM
+                          ])
+    periodnames_may = ['Jan', 'Mar', 'May']
+    use_vars_may = ['sst']
 
-    # lags_april = np.array([#['1950-09-01', '1950-10-01'],# SO
-    #                        ['1950-11-01', '1950-12-01'],# ND
-    #                        ['1951-01-01', '1951-02-01'],# JF
-    #                        ['1951-03-01', '1951-04-01'] # MA
-    #                        ])
-    # periodnames_april = ['Dec', 'Feb', 'April']
-    # use_vars_april = ['sst']
+    lags_april = np.array([#['1950-09-01', '1950-10-01'],# SO
+                            ['1950-11-01', '1950-12-01'],# ND
+                            ['1951-01-01', '1951-02-01'],# JF
+                            ['1951-03-01', '1951-04-01'] # MA
+                            ])
+    periodnames_april = ['Dec', 'Feb', 'April']
+    use_vars_april = ['sst']
 
 
     # Run in Parallel
