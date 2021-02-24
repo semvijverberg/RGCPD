@@ -345,29 +345,40 @@ class BivariateMI:
             ds = xr.Dataset({'corr_xr':self.corr_xr,
                              'precur_arr':self.precur_arr.drop('mask')})
         f_name += f'_{hash_str}'
-        filepath = os.path.join(path, f_name+ '.nc')
-        ds.to_netcdf(filepath)
+        self.filepath_experiment = os.path.join(path, f_name+ '.nc')
+        ds.to_netcdf(self.filepath_experiment)
         print(f'Dataset stored with hash: {hash_str}')
 
-    def load_files(self, path_hashfile=str, hash_str=str):
+    def load_files(self, path_hashfile=str, hash_str: str=None):
         #%%
+        if hash_str is None:
+            hash_str = '{}_a{}_{}_{}'.format(self._name, self.alpha,
+                                           self.distance_eps,
+                                           self.min_area_in_degrees2)
+        if path_hashfile is None:
+            path_hashfile = functions_pp.get_download_path()
+        f_name = None
         for root, dirs, files in os.walk(path_hashfile):
             for file in files:
                 if re.findall(f'{hash_str}', file):
-                    print(file)
+                    print(f'Found file {file}')
                     f_name = file
-        filepath = os.path.join(path_hashfile, f_name)
-        self.ds = core_pp.import_ds_lazy(filepath)
-        self.corr_xr = self.ds['corr_xr']
-        self.alpha = self.corr_xr.attrs['alpha']
-        self.FDR_control = bool(self.corr_xr.attrs['FDR_control'])
-        self.precur_arr = self.ds['precur_arr']
-        if 'prec_labels' in self.ds.variables.keys():
-            self.prec_labels = self.ds['prec_labels']
-            self.distance_eps = self.prec_labels.attrs['distance_eps']
-            self.min_area_in_degrees2 = self.prec_labels.attrs['min_area_in_degrees2']
-            self.group_lag = bool(self.prec_labels.attrs['group_lag'])
-            self.group_split = bool(self.prec_labels.attrs['group_split'])
+        if f_name is not None:
+            filepath = os.path.join(path_hashfile, f_name)
+            self.ds = core_pp.import_ds_lazy(filepath)
+            self.corr_xr = self.ds['corr_xr']
+            self.alpha = self.corr_xr.attrs['alpha']
+            self.FDR_control = bool(self.corr_xr.attrs['FDR_control'])
+            self.precur_arr = self.ds['precur_arr']
+            if 'prec_labels' in self.ds.variables.keys():
+                self.prec_labels = self.ds['prec_labels']
+                self.distance_eps = self.prec_labels.attrs['distance_eps']
+                self.min_area_in_degrees2 = self.prec_labels.attrs['min_area_in_degrees2']
+                self.group_lag = bool(self.prec_labels.attrs['group_lag'])
+                self.group_split = bool(self.prec_labels.attrs['group_split'])
+        else:
+            print('No file that matches the hash_str or instance settings in '
+                  f'folder {path_hashfile}')
 
 
         #%%

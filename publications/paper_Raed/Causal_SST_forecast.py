@@ -23,10 +23,9 @@ else:
 import numpy as np
 from time import time
 import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
-import matplotlib
 import pandas as pd
 import xarray as xr
-import csv
+# import csv
 from joblib import Parallel, delayed
 # import sklearn.linear_model as scikitlinear
 import argparse
@@ -62,14 +61,14 @@ import wrapper_PCMCI
 target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['ranstrat_20']
+methods = ['ranstrat_10']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 0
+i_default = 1
 
 
 def parseArguments():
@@ -163,14 +162,14 @@ def pipeline(lags, periodnames):
     list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                                 alpha=alpha_corr, FDR_control=True,
                                 kwrgs_func={},
-                                distance_eps=400, min_area_in_degrees2=7,
+                                distance_eps=250, min_area_in_degrees2=4,
                                 calc_ts=calc_ts, selbox=GlobalBox,
                                 lags=lags, group_split=True,
                                 use_coef_wghts=True),
                       BivariateMI(name='smi', func=class_BivariateMI.corr_map,
                                  alpha=.05, FDR_control=True,
                                  kwrgs_func={},
-                                 distance_eps=300, min_area_in_degrees2=4,
+                                 distance_eps=280, min_area_in_degrees2=4,
                                  calc_ts=calc_ts, selbox=USBox,
                                  lags=SM_lags, use_coef_wghts=True)]
 
@@ -207,59 +206,65 @@ def pipeline(lags, periodnames):
 
     #%%
     sst = rg.list_for_MI[0]
-    rg.calc_corr_maps('sst')
+    sst.load_files(rg.path_outsub1)
+    if hasattr(sst, 'corr_xr')==False:
+        rg.calc_corr_maps('sst')
     sst.corr_xr['lag'] = ('lag', periodnames)
 
     #%%
     SM = rg.list_for_MI[1]
-    rg.calc_corr_maps('smi')
+    SM.load_files(rg.path_outsub1)
+    if hasattr(SM, 'corr_xr')==False:
+        rg.calc_corr_maps('smi')
     SM.corr_xr['lag'] = ('lag', periodnames)
     #%%
 
 
 
-    sst.distance_eps = 250 ; sst.min_area_in_degrees2 = 4
-    rg.cluster_list_MI('sst')
+    # sst.distance_eps = 250 ; sst.min_area_in_degrees2 = 4
+    if hasattr(sst, 'prec_labels')==False:
+        rg.cluster_list_MI('sst')
 
-    # check if west-Atlantic is a seperate region, otherwise split region 1
-    df_labels = find_precursors.labels_to_df(sst.prec_labels)
-    dlat = df_labels['latitude'] - 29
-    dlon = df_labels['longitude'] - 290
-    zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
-    if zz.query('latitude < 10 & longitude < 10').size==0:
-        print('Splitting region west-Atlantic')
-        largest_regions = df_labels['n_gridcells'].idxmax()
-        split = find_precursors.split_region_by_lonlat
-        sst.prec_labels, _ = split(sst.prec_labels.copy(), label=int(largest_regions),
-                                kwrgs_mask_latlon={'upper_right': (263, 16)})
+        # check if west-Atlantic is a seperate region, otherwise split region 1
+        df_labels = find_precursors.labels_to_df(sst.prec_labels)
+        dlat = df_labels['latitude'] - 29
+        dlon = df_labels['longitude'] - 290
+        zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
+        if zz.query('latitude < 10 & longitude < 10').size==0:
+            print('Splitting region west-Atlantic')
+            largest_regions = df_labels['n_gridcells'].idxmax()
+            split = find_precursors.split_region_by_lonlat
+            sst.prec_labels, _ = split(sst.prec_labels.copy(), label=int(largest_regions),
+                                    kwrgs_mask_latlon={'upper_right': (263, 16)})
 
-    merge = find_precursors.merge_labels_within_lonlatbox
+        merge = find_precursors.merge_labels_within_lonlatbox
 
-    # # Ensure that what is in Atlantic is one precursor region
-    lonlatbox = [263, 315, 17, 30]
-    sst.prec_labels = merge(sst, lonlatbox)
-    # Indonesia_oceans = [110, 150, 0, 10]
-    # sst.prec_labels = merge(sst, Indonesia_oceans)
-    Japanese_sea = [100, 150, 30, 50]
-    sst.prec_labels = merge(sst, Japanese_sea)
-    Mediterrenean_sea = [0, 45, 30, 50]
-    sst.prec_labels = merge(sst, Mediterrenean_sea)
-    East_Tropical_Atlantic = [330, 20, -10, 10]
-    sst.prec_labels = merge(sst, East_Tropical_Atlantic)
+        # # Ensure that what is in Atlantic is one precursor region
+        lonlatbox = [263, 315, 17, 30]
+        sst.prec_labels = merge(sst, lonlatbox)
+        # Indonesia_oceans = [110, 150, 0, 10]
+        # sst.prec_labels = merge(sst, Indonesia_oceans)
+        Japanese_sea = [100, 150, 30, 50]
+        sst.prec_labels = merge(sst, Japanese_sea)
+        Mediterrenean_sea = [0, 45, 30, 50]
+        sst.prec_labels = merge(sst, Mediterrenean_sea)
+        East_Tropical_Atlantic = [330, 20, -10, 10]
+        sst.prec_labels = merge(sst, East_Tropical_Atlantic)
     rg.quick_view_labels('sst', min_detect_gc=1, save=save)
-
+    sst.store_netcdf(rg.path_outsub1)
     #%%
-    SM = rg.list_for_MI[1]
-    SM.distance_eps = 280 ; SM.min_area_in_degrees2 = 4
-    rg.cluster_list_MI('smi')
+    if hasattr(SM, 'prec_labels')==False:
+        SM = rg.list_for_MI[1]
+        SM.distance_eps = 280 ; SM.min_area_in_degrees2 = 4
+        rg.cluster_list_MI('smi')
 
-    lonlatbox = [220, 240, 25, 55] # eastern US
-    SM.prec_labels = merge(SM, lonlatbox)
-    lonlatbox = [270, 280, 25, 45] # mid-US
-    SM.prec_labels = merge(SM, lonlatbox)
+        lonlatbox = [220, 240, 25, 55] # eastern US
+        SM.prec_labels = merge(SM, lonlatbox)
+        lonlatbox = [270, 280, 25, 45] # mid-US
+        SM.prec_labels = merge(SM, lonlatbox)
 
     rg.quick_view_labels('smi', min_detect_gc=1, save=save)
-
+    SM.store_netcdf(rg.path_outsub1)
 #%%
 
     rg.get_ts_prec()
@@ -459,7 +464,8 @@ for i, rg in enumerate(rg_list):
 
     df_data, keys_dict = get_df_mean_SST(rg,
                                          mean_vars=['sst', 'smi'],
-                                         n_strongest='all')
+                                         n_strongest='all',
+                                         weights=True)
     last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
     fc_month = months[months.index(last_month)+1]
     from sklearn.linear_model import Ridge
@@ -518,9 +524,12 @@ for i, rg in enumerate(rg_list):
     list_prediction.append(prediction_tuple)
     rg.prediction_tuple = prediction_tuple
 
-    weights_norm = weights.mean(axis=0, level=1)
-    # weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box', figsize=(15,5))
 
+    weights_norm = weights.mean(axis=0, level=1)
+    weights_norm = weights_norm.sort_values(ascending=False, by=0)
+    weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box', figsize=(23,5))
+    plt.savefig(os.path.join(rg.path_outsub1, f'weights_{fc_month}.png'),
+                bbox_inches='tight', dpi=100)
 
     verification_tuple = fc_utils.get_scores(prediction,
                                              rg.df_data.iloc[:,-2:],
