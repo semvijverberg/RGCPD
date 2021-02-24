@@ -833,10 +833,11 @@ class RGCPD:
                         r = ''.join(np.array(replacement_labels, dtype=str))
                     else:
                         r = ''
-                    f_name = 'clusterlabels{}_{}_eps{}_mingc{}'.format(r,
+                    f_name = 'regions{}_{}_eps{}_mingc{}_ac{}'.format(r,
                                                         pclass._name,
                                                         pclass.distance_eps,
-                                                        pclass.min_area_in_degrees2)
+                                                        pclass.min_area_in_degrees2,
+                                                        pclass.alpha)
                     if append_str is not None:
                         f_name += f'_{append_str}'
                     fig_path = os.path.join(self.path_outsub1, f_name)+self.figext

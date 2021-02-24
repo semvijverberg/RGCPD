@@ -331,6 +331,9 @@ class BivariateMI:
         self.corr_xr.attrs['alpha'] = self.alpha
         self.corr_xr.attrs['FDR_control'] = int(self.FDR_control)
         self.corr_xr['lag'] = ('lag', range(self.lags.shape[0]))
+        if 'mask' in self.precur_arr.coords:
+                self.precur_arr = self.precur_arr.drop('mask')
+        self.precur_arr.attrs['_tfreq'] = int(self._tfreq)
         if hasattr(self, 'prec_labels'):
             self.prec_labels['lag'] = self.corr_xr['lag'] # must be same
             self.prec_labels.attrs['distance_eps'] = self.distance_eps
@@ -340,12 +343,13 @@ class BivariateMI:
             if f_name is None:
                 f_name += '_{}_{}'.format(self.distance_eps,
                                           self.min_area_in_degrees2)
+
             ds = xr.Dataset({'corr_xr':self.corr_xr,
                              'prec_labels':self.prec_labels,
-                             'precur_arr':self.precur_arr.drop('mask')})
+                             'precur_arr':self.precur_arr})
         else:
             ds = xr.Dataset({'corr_xr':self.corr_xr,
-                             'precur_arr':self.precur_arr.drop('mask')})
+                             'precur_arr':self.precur_arr})
         f_name += f'_{hash_str}'
         self.filepath_experiment = os.path.join(path, f_name+ '.nc')
         ds.to_netcdf(self.filepath_experiment)
@@ -372,15 +376,19 @@ class BivariateMI:
             self.alpha = self.corr_xr.attrs['alpha']
             self.FDR_control = bool(self.corr_xr.attrs['FDR_control'])
             self.precur_arr = self.ds['precur_arr']
+            self._tfreq = self.precur_arr.attrs['_tfreq']
             if 'prec_labels' in self.ds.variables.keys():
                 self.prec_labels = self.ds['prec_labels']
                 self.distance_eps = self.prec_labels.attrs['distance_eps']
                 self.min_area_in_degrees2 = self.prec_labels.attrs['min_area_in_degrees2']
                 self.group_lag = bool(self.prec_labels.attrs['group_lag'])
                 self.group_split = bool(self.prec_labels.attrs['group_split'])
+            loaded = True
         else:
             print('No file that matches the hash_str or instance settings in '
                   f'folder {path_hashfile}')
+            loaded = False
+        return loaded
 
 
         #%%
@@ -502,16 +510,20 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
     name            = precur.name
     corr_xr         = precur.corr_xr
     prec_labels     = precur.prec_labels
-    df_splits       = precur.df_splits
-    splits          = df_splits.index.levels[0]
-    lags            = precur.corr_xr.lag.values
-    use_sign_pattern= precur.use_sign_pattern
-    tfreq           = precur.tfreq
+    splits           = corr_xr.split
+    lags            = precur.prec_labels.lag.values
+    tfreq           = precur._tfreq
+    use_sign_pattern = precur.use_sign_pattern
 
-    if precur_aggr is None and (tfreq != 365 and len(lags)==1):
-        # use precursor array with temporal aggregation that was used to create
-        # correlation map. When tfreq=365 and lag>1, reaggregate months precur_arr
+
+    if precur_aggr is None:
         precur_arr = precur.precur_arr
+        if tfreq==365:
+            precur_arr = precur.precur_arr
+        # use precursor array with temporal aggregation that was used to create
+        # correlation map. When tfreq=365, aggregation (one-value-per-year)
+        # is already done. period used to aggregate was defined by the lag
+
     else:
         # =============================================================================
         # Unpack kwrgs for loading
@@ -531,18 +543,13 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
             precur_aggr = tfreq
         kwrgs['tfreq'] = precur_aggr
 
-        if tfreq == 365:
-            # create seperate xarray with monthly means, of which grouped
-            # means will be calculated defined by lag, lag=[1,2,3]=JFM mean
-            precur_months = functions_pp.import_ds_timemeanbins(precur.filepath,
-                                                         **kwrgs)
-        else:
-            print('aggregating precursors to {} days '.format(kwrgs['tfreq']) + \
-                  'closed on right {}'.format(kwrgs['closed_on_date']))
+        print('aggregating precursors to {} days '.format(kwrgs['tfreq']) + \
+              'closed on right {}'.format(kwrgs['start_end_TVdate'][-1]))
 
-            precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
+        precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
                                                          **kwrgs)
 
+    precur.area_grid = functions_pp.get_area(precur_arr)
     if precur_arr.shape[-2:] != corr_xr.shape[-2:]:
         print('shape loaded precur_arr != corr map, matching coords')
         corr_xr, prec_labels = functions_pp.match_coords_xarrays(precur_arr,
@@ -554,17 +561,9 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
         track_names = []
         for il,lag in enumerate(lags):
 
-            # if lag represents months to aggregate:
-            if type(lag) is np.str_: # aggr. over months
-                months = [int(l) for l in lag.split('.')[:-1]]
-                precur_arr = precur_months.sel(time=
-                                            np.in1d(precur_months['time.month'],
-                                            months))
-                precur_arr = precur_arr.groupby('time.year',
-                                            restore_coord_dims=True).mean()
-                d = pd.to_datetime([f'{Y}-01-01' for Y in precur_arr.year.values])
-                precur_arr = precur_arr.rename({'year':'time'}).assign_coords(
-                                                {'time':d})
+            # if lag represents aggregation period:
+            if type(precur.lags[il]) is np.ndarray and precur_aggr is None:
+                precur_arr = precur.precur_arr.sel(lag=il)
 
             corr_vals = corr_xr.sel(split=s).isel(lag=il)
             mask = prec_labels.sel(split=s).isel(lag=il)

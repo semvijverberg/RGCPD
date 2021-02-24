@@ -209,21 +209,19 @@ def pipeline(lags, periodnames):
                                         sst.distance_eps,
                                         sst.min_area_in_degrees2,
                                         ''.join(periodnames))
-    sst.load_files(rg.path_outsub1, load_sst)
+    loaded = sst.load_files(rg.path_outsub1, load_sst)
     if hasattr(sst, 'corr_xr')==False:
         rg.calc_corr_maps('sst')
-    sst.corr_xr['lag'] = ('lag', periodnames)
-
     #%%
     SM = rg.list_for_MI[1]
     load_SM = '{}_a{}_{}_{}_{}'.format(SM._name, SM.alpha,
                                        SM.distance_eps,
                                        SM.min_area_in_degrees2,
                                        ''.join(periodnames))
-    SM.load_files(rg.path_outsub1, load_SM)
+    loaded = SM.load_files(rg.path_outsub1, load_SM)
     if hasattr(SM, 'corr_xr')==False:
         rg.calc_corr_maps('smi')
-    SM.corr_xr['lag'] = ('lag', periodnames)
+
     #%%
 
     # sst.distance_eps = 250 ; sst.min_area_in_degrees2 = 4
@@ -255,24 +253,30 @@ def pipeline(lags, periodnames):
         sst.prec_labels = merge(sst, Mediterrenean_sea)
         East_Tropical_Atlantic = [330, 20, -10, 10]
         sst.prec_labels = merge(sst, East_Tropical_Atlantic)
-    sst.prec_labels['lag'] = ('lag', periodnames)
+
     rg.quick_view_labels('sst', min_detect_gc=1, save=save,
                          append_str=''.join(periodnames))
-    sst.store_netcdf(rg.path_outsub1, load_sst)
+    if loaded==False:
+        sst.store_netcdf(rg.path_outsub1, load_sst)
+    sst.prec_labels['lag'] = ('lag', periodnames)
+    sst.corr_xr['lag'] = ('lag', periodnames)
+
     #%%
     if hasattr(SM, 'prec_labels')==False:
         SM = rg.list_for_MI[1]
-        SM.distance_eps = 280 ; SM.min_area_in_degrees2 = 4
         rg.cluster_list_MI('smi')
 
         lonlatbox = [220, 240, 25, 55] # eastern US
         SM.prec_labels = merge(SM, lonlatbox)
         lonlatbox = [270, 280, 25, 45] # mid-US
         SM.prec_labels = merge(SM, lonlatbox)
-    SM.prec_labels['lag'] = ('lag', periodnames)
+
     rg.quick_view_labels('smi', min_detect_gc=1, save=save,
                          append_str=''.join(periodnames))
-    SM.store_netcdf(rg.path_outsub1, load_SM)
+    if loaded==False:
+        SM.store_netcdf(rg.path_outsub1, load_SM)
+    SM.corr_xr['lag'] = ('lag', periodnames)
+    SM.prec_labels['lag'] = ('lag', periodnames)
 #%%
 
     rg.get_ts_prec()

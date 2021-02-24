@@ -25,7 +25,6 @@ def add_info_precur(precur, corr_xr, pval_xr):
     precur.pval_xr = pval_xr
     precur.lat_grid = precur.precur_arr.latitude.values
     precur.lon_grid = precur.precur_arr.longitude.values
-    precur.area_grid = get_area(precur.precur_arr)
     precur.grid_res = abs(precur.lon_grid[1] - precur.lon_grid[0])
 
 
@@ -276,6 +275,8 @@ def cluster_DBSCAN_regions(precur):
     corr_xr  = precur.corr_xr.copy()
     lags = precur.corr_xr.lag.values
     n_spl  = corr_xr.coords['split'].size
+    precur.area_grid = get_area(precur.precur_arr)
+
 
     if precur.group_lag: # group over regions found in range of lags
         if hasattr(precur, 'corr_xr_'): # already clustered before
@@ -702,6 +703,7 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
         precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
                                                          **kwrgs)
 
+    precur.area_grid = get_area(precur_arr)
     if precur_arr.shape[-2:] != corr_xr.shape[-2:]:
         print('shape loaded precur_arr != corr map, matching coords')
         corr_xr, prec_labels = functions_pp.match_coords_xarrays(precur_arr,
@@ -721,7 +723,6 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
             # if lag represents aggregation period:
             if type(precur.lags[l_idx]) is np.ndarray and precur_aggr is None:
                 precur_arr = precur.precur_arr.sel(lag=l_idx)
-
 
 
             regions_for_ts = list(np.unique(labels_lag[~np.isnan(labels_lag)]))
