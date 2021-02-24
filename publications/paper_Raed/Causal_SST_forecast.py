@@ -147,7 +147,7 @@ list_of_name_path = [(cluster_label, TVpath),
                        ('smi', os.path.join(path_raw, 'SM_ownspi_gamma_2_1950-2019_1_12_monthly_1.0deg.nc'))]
                       # ('swvl1', os.path.join(path_raw, 'swvl1_1950-2019_1_12_monthly_1.0deg.nc'))]
 
-def pipeline(lags, periodnames):
+def pipeline(lags, periodnames, use_vars=['sst', 'smi']):
     #%%
     if int(lags[0][0].split('-')[-2]) > 7: # first month after july
         crossyr = True
@@ -206,29 +206,31 @@ def pipeline(lags, periodnames):
 
     #%%
     sst = rg.list_for_MI[0]
-    load_sst = '{}_a{}_{}_{}_{}'.format(sst._name, sst.alpha,
-                                        sst.distance_eps,
-                                        sst.min_area_in_degrees2,
-                                        periodnames[-1])
-    # loaded = sst.load_files(rg.path_outsub1, load_sst)
-    loaded=False
-    if hasattr(sst, 'corr_xr')==False:
-        rg.calc_corr_maps('sst')
+    if 'sst' in use_vars:
+        load_sst = '{}_a{}_{}_{}_{}'.format(sst._name, sst.alpha,
+                                            sst.distance_eps,
+                                            sst.min_area_in_degrees2,
+                                            periodnames[-1])
+        # loaded = sst.load_files(rg.path_outsub1, load_sst)
+        loaded=False
+        if hasattr(sst, 'corr_xr')==False:
+            rg.calc_corr_maps('sst')
     #%%
     SM = rg.list_for_MI[1]
-    load_SM = '{}_a{}_{}_{}_{}'.format(SM._name, SM.alpha,
-                                       SM.distance_eps,
-                                       SM.min_area_in_degrees2,
-                                       periodnames[-1])
-    # loaded = SM.load_files(rg.path_outsub1, load_SM)
-    loaded = False
-    if hasattr(SM, 'corr_xr')==False:
-        rg.calc_corr_maps('smi')
+    if 'smi' in use_vars:
+        load_SM = '{}_a{}_{}_{}_{}'.format(SM._name, SM.alpha,
+                                           SM.distance_eps,
+                                           SM.min_area_in_degrees2,
+                                           periodnames[-1])
+        # loaded = SM.load_files(rg.path_outsub1, load_SM)
+        loaded = False
+        if hasattr(SM, 'corr_xr')==False:
+            rg.calc_corr_maps('smi')
 
     #%%
 
     # sst.distance_eps = 250 ; sst.min_area_in_degrees2 = 4
-    if hasattr(sst, 'prec_labels')==False:
+    if hasattr(sst, 'prec_labels')==False and 'sst' in use_vars:
         rg.cluster_list_MI('sst')
 
         # check if west-Atlantic is a seperate region, otherwise split region 1
@@ -258,15 +260,17 @@ def pipeline(lags, periodnames):
         sst.prec_labels = merge(sst, East_Tropical_Atlantic)
 
 
-    if loaded==False:
-        sst.store_netcdf(rg.path_outsub1, load_sst)
-    sst.prec_labels['lag'] = ('lag', periodnames)
-    sst.corr_xr['lag'] = ('lag', periodnames)
-    rg.quick_view_labels('sst', min_detect_gc=1, save=save,
-                         append_str=periodnames[-1])
+
+    if 'sst' in use_vars:
+        if loaded==False:
+            sst.store_netcdf(rg.path_outsub1, load_sst)
+        sst.prec_labels['lag'] = ('lag', periodnames)
+        sst.corr_xr['lag'] = ('lag', periodnames)
+        rg.quick_view_labels('sst', min_detect_gc=1, save=save,
+                             append_str=periodnames[-1])
 
     #%%
-    if hasattr(SM, 'prec_labels')==False:
+    if hasattr(SM, 'prec_labels')==False and 'smi' in use_vars:
         SM = rg.list_for_MI[1]
         rg.cluster_list_MI('smi')
 
@@ -274,13 +278,13 @@ def pipeline(lags, periodnames):
         SM.prec_labels = merge(SM, lonlatbox)
         lonlatbox = [270, 280, 25, 45] # mid-US
         SM.prec_labels = merge(SM, lonlatbox)
-
-    if loaded==False:
-        SM.store_netcdf(rg.path_outsub1, load_SM)
-    SM.corr_xr['lag'] = ('lag', periodnames)
-    SM.prec_labels['lag'] = ('lag', periodnames)
-    rg.quick_view_labels('smi', min_detect_gc=1, save=save,
-                         append_str=periodnames[-1])
+    if 'smi' in use_vars:
+        if loaded==False:
+            SM.store_netcdf(rg.path_outsub1, load_SM)
+        SM.corr_xr['lag'] = ('lag', periodnames)
+        SM.prec_labels['lag'] = ('lag', periodnames)
+        rg.quick_view_labels('smi', min_detect_gc=1, save=save,
+                             append_str=periodnames[-1])
 #%%
 
     rg.get_ts_prec()
@@ -358,6 +362,7 @@ if __name__ == '__main__':
                           ['1950-06-01', '1950-07-01'] # JJ
                           ])
     periodnames_july = ['March', 'May', 'July']
+    use_vars_july = ['sst', 'smi']
 
     lags_june = np.array([#['1950-11-01', '1950-12-01'],# FM
                           ['1950-01-01', '1950-02-01'],# FM
@@ -365,6 +370,7 @@ if __name__ == '__main__':
                           ['1950-05-01', '1950-06-01'] # JJ
                           ])
     periodnames_june = ['Feb', 'April', 'June']
+    use_vars_june = ['sst', 'smi']
 
     lags_may = np.array([#['1950-10-01', '1950-11-01'],# ON
                          ['1950-12-01', '1951-01-01'],# DJ
@@ -372,6 +378,7 @@ if __name__ == '__main__':
                          ['1951-04-01', '1951-05-01'] # AM
                          ])
     periodnames_may = ['Jan', 'Mar', 'May']
+    use_vars_may = ['sst']
 
     lags_april = np.array([#['1950-09-01', '1950-10-01'],# SO
                            ['1950-11-01', '1950-12-01'],# ND
@@ -379,16 +386,19 @@ if __name__ == '__main__':
                            ['1951-03-01', '1951-04-01'] # MA
                            ])
     periodnames_april = ['Dec', 'Feb', 'April']
+    use_vars_april = ['sst']
 
 
     # Run in Parallel
     lag_list = [lags_july, lags_june, lags_may, lags_april]
     periodnames_list = [periodnames_july, periodnames_june,
                         periodnames_may, periodnames_april]
+    use_vars_list = [use_vars_july, use_vars_june,
+                     use_vars_may, use_vars_april]
     futures = []
-    for lags, periodnames in zip(lag_list, periodnames_list):
+    for lags, periodnames, use_vars in zip(lag_list, periodnames_list, use_vars_list):
         # pipeline(lags, periodnames)
-        futures.append(delayed(pipeline)(lags, periodnames))
+        futures.append(delayed(pipeline)(lags, periodnames, use_vars))
 
     rg_list = Parallel(n_jobs=n_cpu, backend='loky')(futures)
 
