@@ -541,7 +541,7 @@ for i, rg in enumerate(rg_list):
 
     weights_norm = weights.mean(axis=0, level=1)
     weights_norm = weights_norm.sort_values(ascending=False, by=0)
-    weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box', figsize=(23,5))
+    weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box', figsize=(35,5))
     plt.savefig(os.path.join(rg.path_outsub1, f'weights_{fc_month}.png'),
                 bbox_inches='tight', dpi=100)
 
