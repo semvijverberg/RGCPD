@@ -124,7 +124,7 @@ elif target_dataset == 'USDA_Maize':
 
 
 calc_ts='region mean' # pattern cov
-alpha_corr = .01
+alpha_corr = .05
 alpha_CI = .01
 n_boot = 100
 append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}'
@@ -694,7 +694,6 @@ def plot_regions(rg, save=save):
     df_corr  = rg.df_corr.copy()
     periodnames = list(rg.list_for_MI[0].corr_xr.lag.values)
 
-    alpha_CI = .05
     CondDepKeys = {} ;
     for i, mon in enumerate(periodnames):
         list_mon = []
