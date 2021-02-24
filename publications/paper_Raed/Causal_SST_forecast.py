@@ -127,7 +127,7 @@ calc_ts='region mean' # pattern cov
 alpha_corr = .05
 alpha_CI = .01
 n_boot = 100
-append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}'
+append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}_pc'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
@@ -171,7 +171,7 @@ def pipeline(lags, periodnames):
                                  alpha=alpha_corr, FDR_control=True,
                                  kwrgs_func={},
                                  distance_eps=300, min_area_in_degrees2=4,
-                                 calc_ts=calc_ts, selbox=USBox,
+                                 calc_ts='pattern cov', selbox=USBox,
                                  lags=SM_lags, use_coef_wghts=True)]
 
 
