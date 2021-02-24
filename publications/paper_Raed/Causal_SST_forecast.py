@@ -347,7 +347,7 @@ def pipeline(lags, periodnames):
     return rg
 
 
-# pipeline(lags=lags_april, periodnames=periodnames_april)
+# pipeline(lags=lags_july, periodnames=periodnames_july)
 
 #%%
 if __name__ == '__main__':

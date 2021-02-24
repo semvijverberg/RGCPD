@@ -554,7 +554,7 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
         precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
                                                          **kwrgs)
 
-    precur.area_grid = functions_pp.get_area(precur_arr)
+    precur.area_grid = find_precursors.get_area(precur_arr)
     if precur_arr.shape[-2:] != corr_xr.shape[-2:]:
         print('shape loaded precur_arr != corr map, matching coords')
         corr_xr, prec_labels = functions_pp.match_coords_xarrays(precur_arr,
