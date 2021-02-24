@@ -124,7 +124,7 @@ elif target_dataset == 'USDA_Maize':
 
 
 calc_ts='region mean' # pattern cov
-alpha_corr = .01
+alpha_corr = .05
 alpha_CI = .05
 n_boot = 100
 append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}'
@@ -252,7 +252,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         merge = find_precursors.merge_labels_within_lonlatbox
 
         # # Ensure that what is in Atlantic is one precursor region
-        lonlatbox = [263, 315, 17, 30]
+        lonlatbox = [263, 315, 17, 40]
         sst.prec_labels = merge(sst, lonlatbox)
         # Indonesia_oceans = [110, 150, 0, 10]
         # sst.prec_labels = merge(sst, Indonesia_oceans)
