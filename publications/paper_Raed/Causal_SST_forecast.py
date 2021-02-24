@@ -147,7 +147,7 @@ list_of_name_path = [(cluster_label, TVpath),
                        ('smi', os.path.join(path_raw, 'SM_ownspi_gamma_2_1950-2019_1_12_monthly_1.0deg.nc'))]
                       # ('swvl1', os.path.join(path_raw, 'swvl1_1950-2019_1_12_monthly_1.0deg.nc'))]
 
-def pipeline(lags, periodnames, use_vars=['sst', 'smi']):
+def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     #%%
     if int(lags[0][0].split('-')[-2]) > 7: # first month after july
         crossyr = True
@@ -211,8 +211,10 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi']):
                                             sst.distance_eps,
                                             sst.min_area_in_degrees2,
                                             periodnames[-1])
-        # loaded = sst.load_files(rg.path_outsub1, load_sst)
-        loaded=False
+        if load:
+            loaded = sst.load_files(rg.path_outsub1, load_sst)
+        else:
+            loaded = False
         if hasattr(sst, 'corr_xr')==False:
             rg.calc_corr_maps('sst')
     #%%
@@ -222,8 +224,10 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi']):
                                            SM.distance_eps,
                                            SM.min_area_in_degrees2,
                                            periodnames[-1])
-        # loaded = SM.load_files(rg.path_outsub1, load_SM)
-        loaded = False
+        if load:
+            loaded = SM.load_files(rg.path_outsub1, load_SM)
+        else:
+            loaded = False
         if hasattr(SM, 'corr_xr')==False:
             rg.calc_corr_maps('smi')
 
@@ -491,9 +495,12 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05, select_str_SM=False,
 months = ['Mar', 'April', 'May', 'June','July', 'August']
 list_verification = [] ; list_prediction = []
 for i, rg in enumerate(rg_list):
-
+    if rg.list_for_MI[1].calc_ts == 'pattern cov':
+        mean_vars=['sst', 'smi_sp']
+    else:
+        mean_vars=['sst', 'smi']
     df_data, keys_dict = get_df_mean_SST(rg,
-                                         mean_vars=['sst', 'smi'],
+                                         mean_vars=mean_vars,
                                          alpha_CI=alpha_CI,
                                          n_strongest='all',
                                          weights=True)
@@ -733,11 +740,15 @@ def plot_regions(rg, save=save):
         MCIstr = CDlabels.copy()
         for i, month in enumerate(CondDepKeys):
 
-            CDkeys = [k[0] for k in CondDepKeys[month] if k[0].split('..')[-1]==precur.name]
-            MCIv = [k[1] for k in CondDepKeys[month] if k[0].split('..')[-1]==precur.name]
-            RB = [k[2] for k in CondDepKeys[month] if k[0].split('..')[-1]==precur.name]
-            region_labels = [int(l.split('..')[1]) for l in CDkeys if l.split('..')[-1] == precur.name]
+            CDkeys = [k[0] for k in CondDepKeys[month] if precur.name in k[0].split('..')[-1]]
+            MCIv = [k[1] for k in CondDepKeys[month] if precur.name in k[0].split('..')[-1]]
+            RB = [k[2] for k in CondDepKeys[month] if precur.name in k[0].split('..')[-1]]
+            region_labels = [int(l.split('..')[1]) for l in CDkeys if precur.name in l.split('..')[-1]]
             f = find_precursors.view_or_replace_labels
+            if region_labels[0] == 0:
+                region_labels = np.unique(CDlabels[:,i].values[~np.isnan(CDlabels[:,i]).values])
+                region_labels = np.array(region_labels, dtype=int)
+                MCIv = np.repeat(MCIv, len(region_labels))
             CDlabels[:,i] = f(CDlabels[:,i].copy(), region_labels)
             MCIstr[:,i]   = f(CDlabels[:,i].copy(), region_labels,
                               replacement_labels=MCIv)
@@ -747,7 +758,10 @@ def plot_regions(rg, save=save):
                 df_labelloc = find_precursors.labels_to_df(CDlabels[:,i])
                 for q, k in enumerate(CDkeys):
                     l = int(k.split('..')[1])
-                    lat, lon = df_labelloc.loc[l].iloc[:2].values.round(1)
+                    if l == 0: # pattern cov
+                        lat, lon = df_labelloc.loc[1].iloc[:2].values.round(1)
+                    else:
+                        lat, lon = df_labelloc.loc[l].iloc[:2].values.round(1)
                     if lon > 180: lon-360
                     count = rg._df_count[k]
                     text = f'{int(RB[q])}/{count}'
