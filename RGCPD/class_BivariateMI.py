@@ -333,7 +333,7 @@ class BivariateMI:
         self.corr_xr['lag'] = ('lag', range(self.lags.shape[0]))
         if 'mask' in self.precur_arr.coords:
                 self.precur_arr = self.precur_arr.drop('mask')
-        self.precur_arr.attrs['_tfreq'] = int(self._tfreq)
+        # self.precur_arr.attrs['_tfreq'] = int(self._tfreq)
         if hasattr(self, 'prec_labels'):
             self.prec_labels['lag'] = self.corr_xr['lag'] # must be same
             self.prec_labels.attrs['distance_eps'] = self.distance_eps
@@ -376,7 +376,7 @@ class BivariateMI:
             self.alpha = self.corr_xr.attrs['alpha']
             self.FDR_control = bool(self.corr_xr.attrs['FDR_control'])
             self.precur_arr = self.ds['precur_arr']
-            self._tfreq = self.precur_arr.attrs['_tfreq']
+            # self._tfreq = self.precur_arr.attrs['_tfreq']
             if 'prec_labels' in self.ds.variables.keys():
                 self.prec_labels = self.ds['prec_labels']
                 self.distance_eps = self.prec_labels.attrs['distance_eps']
@@ -512,7 +512,12 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
     prec_labels     = precur.prec_labels
     splits           = corr_xr.split
     lags            = precur.prec_labels.lag.values
-    tfreq           = precur._tfreq
+    dates           = pd.to_datetime(precur.precur_arr.time.values)
+    oneyr = functions_pp.get_oneyr(dates)
+    if oneyr.size == 1: # single val per year precursor
+        tfreq = 365
+    else:
+        tfreq = (oneyr[1] - oneyr[0]).days
     use_sign_pattern = precur.use_sign_pattern
 
 

@@ -209,7 +209,8 @@ def pipeline(lags, periodnames):
                                         sst.distance_eps,
                                         sst.min_area_in_degrees2,
                                         ''.join(periodnames))
-    loaded = sst.load_files(rg.path_outsub1, load_sst)
+    # loaded = sst.load_files(rg.path_outsub1, load_sst)
+    loaded=False
     if hasattr(sst, 'corr_xr')==False:
         rg.calc_corr_maps('sst')
     #%%
@@ -218,7 +219,8 @@ def pipeline(lags, periodnames):
                                        SM.distance_eps,
                                        SM.min_area_in_degrees2,
                                        ''.join(periodnames))
-    loaded = SM.load_files(rg.path_outsub1, load_SM)
+    # loaded = SM.load_files(rg.path_outsub1, load_SM)
+    loaded = False
     if hasattr(SM, 'corr_xr')==False:
         rg.calc_corr_maps('smi')
 

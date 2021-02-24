@@ -667,7 +667,12 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
     n_spl           = corr_xr.split.size
     lags            = precur.prec_labels.lag.values
     use_coef_wghts  = precur.use_coef_wghts
-    tfreq           = precur._tfreq
+    dates           = pd.to_datetime(precur.precur_arr.time.values)
+    oneyr = functions_pp.get_oneyr(dates)
+    if oneyr.size == 1: # single val per year precursor
+        tfreq = 365
+    else:
+        tfreq = (oneyr[1] - oneyr[0]).days
 
 
     if precur_aggr is None:
