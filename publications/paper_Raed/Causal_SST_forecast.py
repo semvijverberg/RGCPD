@@ -122,11 +122,12 @@ elif target_dataset == 'USDA_Maize':
     # start_end_year = (1950, 2019)
 
 
-append_pathsub = '_mean_sst_smi'
+
 calc_ts='region mean' # pattern cov
 alpha_corr = .01
-n_boot = 2000
-
+alpha_CI = .05
+n_boot = 100
+append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
@@ -167,9 +168,9 @@ def pipeline(lags, periodnames):
                                 lags=lags, group_split=True,
                                 use_coef_wghts=True),
                       BivariateMI(name='smi', func=class_BivariateMI.corr_map,
-                                 alpha=.05, FDR_control=True,
+                                 alpha=alpha_corr, FDR_control=True,
                                  kwrgs_func={},
-                                 distance_eps=280, min_area_in_degrees2=4,
+                                 distance_eps=300, min_area_in_degrees2=4,
                                  calc_ts=calc_ts, selbox=USBox,
                                  lags=SM_lags, use_coef_wghts=True)]
 
@@ -283,6 +284,8 @@ def pipeline(lags, periodnames):
 
     rg.get_ts_prec()
     rg.df_data = rg.df_data.rename({rg.df_data.columns[0]:target_dataset},axis=1)
+
+
     # # fill first value of smi (NaN because of missing December when calc smi
     # # on month februari).
     # keys = [k for k in rg.df_data.columns if k.split('..')[-1]=='smi']
@@ -392,10 +395,11 @@ if __name__ == '__main__':
 #%%
 
 from sklearn.linear_model import RidgeCV
-def get_df_mean_SST(rg, mean_vars=['sst'], select_str_SM=False, n_strongest='all',
+def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05, select_str_SM=False,
+                    n_strongest='all',
                     weights=True, labels=None):
 
-    alpha_CI = .05
+
     periodnames = list(rg.list_for_MI[0].corr_xr.lag.values)
     df_pvals = rg.df_pvals.copy()
     df_corr  = rg.df_corr.copy()
@@ -478,6 +482,7 @@ for i, rg in enumerate(rg_list):
 
     df_data, keys_dict = get_df_mean_SST(rg,
                                          mean_vars=['sst', 'smi'],
+                                         alpha_CI=alpha_CI,
                                          n_strongest='all',
                                          weights=True)
     last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
