@@ -326,7 +326,8 @@ class BivariateMI:
         if path is None:
             path = functions_pp.get_download_path()
         hash_str  = uuid.uuid4().hex[:6]
-        f_name = '{}_a{}'.format(self._name, self.alpha)
+        if f_name is None:
+            f_name = '{}_a{}'.format(self._name, self.alpha)
         self.corr_xr.attrs['alpha'] = self.alpha
         self.corr_xr.attrs['FDR_control'] = int(self.FDR_control)
         self.corr_xr['lag'] = ('lag', range(self.lags.shape[0]))
@@ -336,8 +337,9 @@ class BivariateMI:
             self.prec_labels.attrs['min_area_in_degrees2'] = self.min_area_in_degrees2
             self.prec_labels.attrs['group_lag'] = int(self.group_lag)
             self.prec_labels.attrs['group_split'] = int(self.group_split)
-            f_name += '_{}_{}'.format(self.distance_eps,
-                                      self.min_area_in_degrees2)
+            if f_name is None:
+                f_name += '_{}_{}'.format(self.distance_eps,
+                                          self.min_area_in_degrees2)
             ds = xr.Dataset({'corr_xr':self.corr_xr,
                              'prec_labels':self.prec_labels,
                              'precur_arr':self.precur_arr.drop('mask')})

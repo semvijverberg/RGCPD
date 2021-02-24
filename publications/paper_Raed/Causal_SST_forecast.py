@@ -68,7 +68,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 1
+i_default = 0
 
 
 def parseArguments():
@@ -122,7 +122,7 @@ elif target_dataset == 'USDA_Maize':
     # start_end_year = (1950, 2019)
 
 
-append_pathsub = 'mean_sst_smi'
+append_pathsub = '_mean_sst_smi'
 calc_ts='region mean' # pattern cov
 alpha_corr = .05
 n_boot = 2000
@@ -185,10 +185,9 @@ def pipeline(lags, periodnames):
 
 
     subfoldername = target_dataset+'_'.join(['', str(method),
-                                             's'+ str(seed),
-                                             append_pathsub] +
+                                             's'+ str(seed)] +
                                             list(np.array(start_end_year, str)))
-
+    subfoldername += append_pathsub
 
 
     rg.pp_precursors(detrend=[True, {'tp':False, 'smi':False, 'swvl1':False, 'swvl3':False}],
@@ -206,20 +205,26 @@ def pipeline(lags, periodnames):
 
     #%%
     sst = rg.list_for_MI[0]
-    sst.load_files(rg.path_outsub1)
+    load_sst = '{}_a{}_{}_{}_{}'.format(sst._name, sst.alpha,
+                                        sst.distance_eps,
+                                        sst.min_area_in_degrees2,
+                                        ''.join(periodnames))
+    sst.load_files(rg.path_outsub1, load_sst)
     if hasattr(sst, 'corr_xr')==False:
         rg.calc_corr_maps('sst')
     sst.corr_xr['lag'] = ('lag', periodnames)
 
     #%%
     SM = rg.list_for_MI[1]
-    SM.load_files(rg.path_outsub1)
+    load_SM = '{}_a{}_{}_{}_{}'.format(SM._name, SM.alpha,
+                                       SM.distance_eps,
+                                       SM.min_area_in_degrees2,
+                                       ''.join(periodnames))
+    SM.load_files(rg.path_outsub1, load_SM)
     if hasattr(SM, 'corr_xr')==False:
         rg.calc_corr_maps('smi')
     SM.corr_xr['lag'] = ('lag', periodnames)
     #%%
-
-
 
     # sst.distance_eps = 250 ; sst.min_area_in_degrees2 = 4
     if hasattr(sst, 'prec_labels')==False:
@@ -250,8 +255,10 @@ def pipeline(lags, periodnames):
         sst.prec_labels = merge(sst, Mediterrenean_sea)
         East_Tropical_Atlantic = [330, 20, -10, 10]
         sst.prec_labels = merge(sst, East_Tropical_Atlantic)
-    rg.quick_view_labels('sst', min_detect_gc=1, save=save)
-    sst.store_netcdf(rg.path_outsub1)
+    sst.prec_labels['lag'] = ('lag', periodnames)
+    rg.quick_view_labels('sst', min_detect_gc=1, save=save,
+                         append_str=''.join(periodnames))
+    sst.store_netcdf(rg.path_outsub1, load_sst)
     #%%
     if hasattr(SM, 'prec_labels')==False:
         SM = rg.list_for_MI[1]
@@ -262,9 +269,10 @@ def pipeline(lags, periodnames):
         SM.prec_labels = merge(SM, lonlatbox)
         lonlatbox = [270, 280, 25, 45] # mid-US
         SM.prec_labels = merge(SM, lonlatbox)
-
-    rg.quick_view_labels('smi', min_detect_gc=1, save=save)
-    SM.store_netcdf(rg.path_outsub1)
+    SM.prec_labels['lag'] = ('lag', periodnames)
+    rg.quick_view_labels('smi', min_detect_gc=1, save=save,
+                         append_str=''.join(periodnames))
+    SM.store_netcdf(rg.path_outsub1, load_SM)
 #%%
 
     rg.get_ts_prec()
