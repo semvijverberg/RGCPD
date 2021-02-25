@@ -127,7 +127,7 @@ calc_ts='region mean' # pattern cov
 alpha_corr = .05
 alpha_CI = .05
 n_boot = 100
-append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}_rts'
+append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}_rts_ma3'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
@@ -163,14 +163,14 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                                 alpha=alpha_corr, FDR_control=True,
                                 kwrgs_func={},
-                                distance_eps=250, min_area_in_degrees2=6,
+                                distance_eps=250, min_area_in_degrees2=3,
                                 calc_ts=calc_ts, selbox=GlobalBox,
                                 lags=lags, group_split=True,
                                 use_coef_wghts=True),
                       BivariateMI(name='smi', func=class_BivariateMI.corr_map,
                                  alpha=alpha_corr, FDR_control=True,
                                  kwrgs_func={},
-                                 distance_eps=300, min_area_in_degrees2=6,
+                                 distance_eps=300, min_area_in_degrees2=3,
                                  calc_ts=calc_ts, selbox=USBox,
                                  lags=SM_lags, use_coef_wghts=True)]
 
