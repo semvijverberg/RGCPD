@@ -188,8 +188,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                path_outmain=path_out_main)
 
 
-    subfoldername = target_dataset+'_'.join(['', str(method),
-                                             's'+ str(seed)]) #+
+    subfoldername = target_dataset+'_'.join(['', str(method)]) #+
                                             #list(np.array(start_end_year, str)))
     subfoldername += append_pathsub
 
