@@ -71,7 +71,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 0
+i_default = 1
 
 
 def parseArguments():
@@ -601,6 +601,7 @@ for i, rg in enumerate(rg_list):
                                             kwrgs_model=kwrgs_model,
                                             fcmodel=fcmodel,
                                             transformer=None)
+
     predict, weights, models_lags = prediction_tuple
     prediction = predict.rename({predict.columns[0]:'target',
                                  lag_:fc_month}, axis=1)

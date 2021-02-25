@@ -43,7 +43,7 @@ def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
     cv : sk-learn cross-validation generator
 
     '''
-    if groups is None:
+    if groups is None and y_train.index.year != y_train.size:
         # find where there is a gap in time, indication of seperate RV period
         gapdays = (y_train.index[1:] - y_train.index[:-1]).days
         adjecent_dates = gapdays > (np.median(gapdays)+gapdays/2)
@@ -52,6 +52,9 @@ def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
         groups = np.repeat(np.arange(0,n_gr), dategroupsize)
         if groups.size != y_train.size: # else revert to keeping years together
             groups = y_train.index.year
+    else:
+        groups = y_train.index.year
+
 
     high_normal_low = y_train.groupby(groups).sum()
     high_normal_low[(high_normal_low > high_normal_low.quantile(q=.66)).values] = 1
