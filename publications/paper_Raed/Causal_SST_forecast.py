@@ -877,13 +877,6 @@ def plot_regions(rg, save=save):
                                       f'{periodnames[-1]}'+rg.figext),
                         bbox_inches='tight')
 
-
-
-for rg in rg_list:
-    plot_regions(rg, save=save)
-
-#%%
-sleep(5)
 #%%
 
 orientation = 'horizontal'
@@ -1029,6 +1022,10 @@ if save:
 
 
 #%%
+for rg in rg_list:
+    plot_regions(rg, save=save)
+
+#%% plot
 months = ['Mar', 'April', 'May', 'June','July', 'August']
 for rg in rg_list:
     last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
