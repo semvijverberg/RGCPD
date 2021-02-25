@@ -608,19 +608,12 @@ for i, rg in enumerate(rg_list):
     rg.prediction_tuple = prediction_tuple
 
 
-    # weights_norm = weights.mean(axis=0, level=1)
-    # weights_norm = weights_norm.sort_values(ascending=False, by=0)
-    # weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box', figsize=(35,5))
-    df_wgths, fig = plot_importances(models_lags)
-    fig.savefig(os.path.join(rg.path_outsub1, f'weights_{fc_month}.png'),
-                bbox_inches='tight', dpi=100)
-
     verification_tuple = fc_utils.get_scores(prediction,
                                              rg.df_data.iloc[:,-2:],
                                              score_func_list,
                                              n_boot=n_boot,
                                              blocksize=1,
-                                             rng_seed=1)
+                                             rng_seed=seed)
     df_train_m, df_test_s_m, df_test_m, df_boot = verification_tuple
 
 
@@ -674,19 +667,34 @@ for rg in rg_list:
                                            score_func_list=score_func_list,
                                            n_boot=n_boot,
                                            blocksize=1,
-                                           rng_seed=1)
+                                           rng_seed=seed)
     rg.cond_verif_tuple  = cond_verif_tuple
 
 #%%
 def df_scores_for_plot(name_object):
-    df_scores = [] ; df_boot = []
+    df_scores = [] ; df_boot = [] ; df_tests = []
     for i, rg in enumerate(rg_list):
         verification_tuple = rg.__dict__[name_object]
         df_scores.append(verification_tuple[2])
         df_boot.append(verification_tuple[3])
+        df_tests.append(verification_tuple[1])
     df_scores = pd.concat(df_scores, axis=1)
     df_boot = pd.concat(df_boot, axis=1)
-    return df_scores, df_boot
+    df_tests = pd.concat(df_tests, axis=1)
+    return df_scores, df_boot, df_tests
+
+
+df_scores, df_boot, df_tests = df_scores_for_plot(name_object='verification_tuple')
+
+df_scores_cf, df_boot_cf, df_tests_cf = df_scores_for_plot(name_object='cond_verif_tuple')
+
+d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests,
+            'df_scores_cf':df_scores_cf, 'df_boot_cf':df_boot_cf,
+            'df_tests_cf':df_tests_cf}
+filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}.h5')
+
+functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+d_dfs = functions_pp.load_hdf5(filepath_dfs)
 
 orientation = 'horizontal'
 alpha = .05
@@ -704,7 +712,7 @@ else:
 c1, c2 = '#3388BB', '#EE6666'
 for i, m in enumerate(metrics_cols):
     # normal SST
-    df_scores, df_boot = df_scores_for_plot(name_object='verification_tuple')
+
     labels = df_scores.columns.levels[0]
     ax[i].plot(labels, df_scores.reorder_levels((1,0), axis=1).loc[0][m].T,
             label='Verification on all years',
@@ -717,15 +725,15 @@ for i, m in enumerate(metrics_cols):
                         linestyle='solid', linewidth=2)
 
     # Conditional SST
-    df_scores, df_boot = df_scores_for_plot(name_object='cond_verif_tuple')
-    labels = df_scores.columns.levels[0]
-    ax[i].plot(labels, df_scores.reorder_levels((1,0), axis=1).loc[0][m].T,
+
+    labels = df_scores_cf.columns.levels[0]
+    ax[i].plot(labels, df_scores_cf.reorder_levels((1,0), axis=1).loc[0][m].T,
             label='Pronounced Pacific state years',
             color=c1,
             linestyle='solid')
     ax[i].fill_between(labels,
-                        df_boot.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                        df_boot.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                        df_boot_cf.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                        df_boot_cf.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
                         edgecolor=c1, facecolor=c1, alpha=0.3,
                         linestyle='solid', linewidth=2)
 
@@ -774,7 +782,7 @@ kwrgs_plotcorr_SM = kwrgs_plotcorr_sst.copy()
 kwrgs_plotcorr_SM.update({'aspect':2, 'hspace':0.2,
                           'wspace':0, 'size':3, 'cbar_vert':0.02})
 
-#%%
+
 
 def plot_regions(rg, save=save):
     # Get ConDepKeys
@@ -828,7 +836,7 @@ def plot_regions(rg, save=save):
                 for q, k in enumerate(CDkeys):
                     l = int(k.split('..')[1])
                     if l == 0: # pattern cov
-                        lat, lon = df_labelloc.loc[1].iloc[:2].values.round(1)
+                        lat, lon = df_labelloc.iloc[0].iloc[:2].values.round(1)
                     else:
                         lat, lon = df_labelloc.loc[l].iloc[:2].values.round(1)
                     if lon > 180: lon-360
@@ -838,7 +846,6 @@ def plot_regions(rg, save=save):
                                                    'bbox':dict(facecolor='white', alpha=0.8)}])
                 textinmap.append([(i,0), temp])
 
-        # mask = (np.isnan(CDlabels)).astype(bool)
         if ip == 0:
             kwrgs_plot = kwrgs_plotcorr_sst.copy()
         elif ip == 1:
@@ -873,5 +880,18 @@ def plot_regions(rg, save=save):
 
 for rg in rg_list:
     plot_regions(rg, save=save)
+#%%
+months = ['Mar', 'April', 'May', 'June','July', 'August']
+for rg in rg_list:
+    last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
+    fc_month = months[months.index(last_month)+1]
+    models_lags = rg.prediction_tuple[-1]
+    df_wgths, fig = plot_importances(models_lags)
+    fig.savefig(os.path.join(rg.path_outsub1, f'weights_{fc_month}.png'),
+                bbox_inches='tight', dpi=100)
 
-
+    df_test_s_m = rg.verification_tuple[1]
+    fig, ax = plt.subplots(1)
+    df_test_s_m.plot(ax=ax)
+    fig.savefig(os.path.join(rg.path_outsub1, f'CV_scores_{fc_month}.png'),
+                bbox_inches='tight', dpi=100)
