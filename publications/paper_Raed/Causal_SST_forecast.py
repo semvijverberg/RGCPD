@@ -422,7 +422,7 @@ if __name__ == '__main__':
                           ['1951-04-01', '1951-05-01'] # AM
                           ])
     periodnames_may = ['Jan', 'Mar', 'May']
-    use_vars_may = ['sst']
+    use_vars_may = ['sst', 'smi']
 
     lags_april = np.array([#['1950-09-01', '1950-10-01'],# SO
                             ['1950-11-01', '1950-12-01'],# ND
