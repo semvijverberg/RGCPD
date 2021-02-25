@@ -123,11 +123,11 @@ elif target_dataset == 'USDA_Maize':
 
 
 
-calc_ts= 'pattern cov' # 'region mean'
+calc_ts= 'region mean' # 'pattern cov'
 alpha_corr = .05
 alpha_CI = .05
 n_boot = 100
-append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}_allpc'
+append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
@@ -538,10 +538,11 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05, select_str_SM=False,
 months = ['Mar', 'April', 'May', 'June','July', 'August']
 list_verification = [] ; list_prediction = []
 for i, rg in enumerate(rg_list):
-    if rg.list_for_MI[1].calc_ts == 'pattern cov':
-        mean_vars=['sst', 'smi_sp']
-    else:
-        mean_vars=['sst', 'smi']
+    mean_vars=['sst', 'smi']
+    for i, p in enumerate(rg.list_for_MI):
+        if p.calc_ts == 'pattern cov':
+            mean_vars[i] +='_sp'
+
     df_data, keys_dict = get_df_mean_SST(rg,
                                          mean_vars=mean_vars,
                                          alpha_CI=alpha_CI,
@@ -632,12 +633,35 @@ for i, rg in enumerate(rg_list):
 
     #%% Conditional forecast
 for rg in rg_list:
-    df_mean, keys_dict = get_df_mean_SST(rg, n_strongest='all', weights=True)
-    PacSST = [k for k in df_mean.columns if '..1..sst' in k]
-    PacSST = functions_pp.get_df_test(df_mean[PacSST],
+    df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
+                                         n_strongest='all', weights=True)
+
+    weights_norm = rg.prediction_tuple[1].mean(axis=0, level=1)
+    weights_norm = weights_norm.sort_values(ascending=False, by=0)
+
+
+
+    PacAtl = []
+    df_labels = find_precursors.labels_to_df(rg.list_for_MI[0].prec_labels)
+    # dlat = df_labels['latitude'] - 29
+    # dlon = df_labels['longitude'] - 290
+    # zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
+    # Atlan = zz.query('latitude < 10 & longitude < 10')
+    # if Atlan.size > 0:
+    #     PacAtl.append(int(Atlan.index[0]))
+    PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
+    keys = [k for k in weights_norm.index if int(k.split('..')[1]) in PacAtl]
+
+
+
+    PacAtl_ts = functions_pp.get_df_test(df_mean[keys],
                                       df_splits=rg.df_splits)
-    low = PacSST < PacSST.quantile(.33)
-    high = PacSST > PacSST.quantile(.66)
+
+    weights_norm = weights_norm.div(weights_norm.loc[keys].max(axis=0))
+    PacAtl_ts = weights_norm.loc[keys].T.loc[0] * PacAtl_ts # weigths
+
+    low = PacAtl_ts < PacAtl_ts.quantile(.33)
+    high = PacAtl_ts > PacAtl_ts.quantile(.66)
     mask_anomalous = np.logical_or(low, high)
     prediction = rg.prediction_tuple[0]
     df_test = functions_pp.get_df_test(prediction,
