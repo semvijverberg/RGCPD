@@ -56,6 +56,7 @@ import func_models as fc_utils
 import functions_pp, find_precursors
 import plot_maps;
 import wrapper_PCMCI
+from stat_models import plot_importances
 
 
 target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
@@ -607,10 +608,11 @@ for i, rg in enumerate(rg_list):
     rg.prediction_tuple = prediction_tuple
 
 
-    weights_norm = weights.mean(axis=0, level=1)
-    weights_norm = weights_norm.sort_values(ascending=False, by=0)
-    weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box', figsize=(35,5))
-    plt.savefig(os.path.join(rg.path_outsub1, f'weights_{fc_month}.png'),
+    # weights_norm = weights.mean(axis=0, level=1)
+    # weights_norm = weights_norm.sort_values(ascending=False, by=0)
+    # weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box', figsize=(35,5))
+    df_wgths, fig = plot_importances(models_lags)
+    fig.savefig(os.path.join(rg.path_outsub1, f'weights_{fc_month}.png'),
                 bbox_inches='tight', dpi=100)
 
     verification_tuple = fc_utils.get_scores(prediction,
@@ -643,12 +645,12 @@ for rg in rg_list:
 
     PacAtl = []
     df_labels = find_precursors.labels_to_df(rg.list_for_MI[0].prec_labels)
-    # dlat = df_labels['latitude'] - 29
-    # dlon = df_labels['longitude'] - 290
-    # zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
-    # Atlan = zz.query('latitude < 10 & longitude < 10')
-    # if Atlan.size > 0:
-    #     PacAtl.append(int(Atlan.index[0]))
+    dlat = df_labels['latitude'] - 29
+    dlon = df_labels['longitude'] - 290
+    zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
+    Atlan = zz.query('latitude < 10 & longitude < 10')
+    if Atlan.size > 0:
+        PacAtl.append(int(Atlan.index[0]))
     PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
     keys = [k for k in weights_norm.index if int(k.split('..')[1]) in PacAtl]
 
@@ -751,7 +753,7 @@ if orientation == 'vertical':
     f.suptitle(title, y=.92, fontsize=18)
 else:
     f.suptitle(title, y=.95, fontsize=18)
-f_name = f'{method}_{seed}'
+f_name = f'{method}_{seed}_cf_PacAtl'
 fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
 if save:
     plt.savefig(fig_path, bbox_inches='tight')
