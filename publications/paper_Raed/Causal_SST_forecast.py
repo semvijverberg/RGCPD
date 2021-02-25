@@ -130,7 +130,7 @@ calc_ts= 'region mean' # 'pattern cov'
 alpha_corr = .05
 alpha_CI = .05
 n_boot = 2000
-append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}/s1/'
+append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}/s{seed}/'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
