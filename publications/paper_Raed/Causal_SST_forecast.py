@@ -127,7 +127,7 @@ calc_ts='region mean' # pattern cov
 alpha_corr = .05
 alpha_CI = .05
 n_boot = 100
-append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}_ma3'
+append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}_allsmi'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
@@ -186,8 +186,8 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
 
 
     subfoldername = target_dataset+'_'.join(['', str(method),
-                                             's'+ str(seed)] +
-                                            list(np.array(start_end_year, str)))
+                                             's'+ str(seed)]) #+
+                                            #list(np.array(start_end_year, str)))
     subfoldername += append_pathsub
 
 
@@ -430,7 +430,7 @@ if __name__ == '__main__':
                             ['1951-03-01', '1951-04-01'] # MA
                             ])
     periodnames_april = ['Dec', 'Feb', 'April']
-    use_vars_april = ['sst']
+    use_vars_april = ['sst', 'smi']
 
 
     # Run in Parallel
