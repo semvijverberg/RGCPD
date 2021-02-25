@@ -127,7 +127,7 @@ elif target_dataset == 'USDA_Maize':
 calc_ts= 'region mean' # 'pattern cov'
 alpha_corr = .05
 alpha_CI = .05
-n_boot = 100
+n_boot = 2000
 append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}'
 
 append_main = target_dataset
@@ -662,8 +662,8 @@ for rg in rg_list:
     weights_norm = weights_norm.div(weights_norm.loc[keys].max(axis=0))
     PacAtl_ts = weights_norm.loc[keys].T.loc[0] * PacAtl_ts # weigths
 
-    low = PacAtl_ts < PacAtl_ts.quantile(.33)
-    high = PacAtl_ts > PacAtl_ts.quantile(.66)
+    low = PacAtl_ts < PacAtl_ts.quantile(.25)
+    high = PacAtl_ts > PacAtl_ts.quantile(.75)
     mask_anomalous = np.logical_or(low, high)
     prediction = rg.prediction_tuple[0]
     df_test = functions_pp.get_df_test(prediction,
