@@ -64,7 +64,7 @@ from stat_models import plot_importances
 target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['ranstrat_10']
+methods = ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -996,7 +996,7 @@ for s in range(5):
             if m == 'corrcoef':
                 ax[i].set_ylim(-1,1)
             else:
-                ax[i].set_ylim(-.6,.6)
+                ax[i].set_ylim(-1,1)
             ax[i].axhline(y=0, color='black', linewidth=1)
             ax[i].tick_params(labelsize=16, pad=6)
             if i == len(metrics_cols)-1 and orientation=='vertical':
