@@ -29,6 +29,8 @@ import xarray as xr
 from joblib import Parallel, delayed
 # import sklearn.linear_model as scikitlinear
 import argparse
+from time import sleep
+import itertools, os, re
 
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
@@ -128,7 +130,7 @@ calc_ts= 'region mean' # 'pattern cov'
 alpha_corr = .05
 alpha_CI = .05
 n_boot = 2000
-append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}'
+append_pathsub = f'_ac{alpha_corr}_aCI{alpha_CI}/s1/'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
@@ -880,6 +882,98 @@ def plot_regions(rg, save=save):
 
 for rg in rg_list:
     plot_regions(rg, save=save)
+
+#%%
+sleep(5)
+#%%
+
+orientation = 'horizontal'
+alpha = .05
+metrics_cols = ['corrcoef', 'MAE', 'RMSE']
+rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
+            'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
+
+if orientation=='vertical':
+    f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
+                     sharex=True) ;
+else:
+    f, ax = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
+                     sharey=False) ;
+path = '/'.join(rg.path_outsub1.split('/')[:-1])
+
+cs = ["#a4110f","#f7911d","#fffc33","#9bcd37","#1790c4"]
+for s in range(5):
+
+    hash_str = f'scores_s{s}.h5'
+    f_name = None
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            if re.findall(f'{hash_str}', file):
+                print(f'Found file {file}')
+                f_name = file
+    if f_name is not None:
+        d_dfs = functions_pp.load_hdf5(os.path.join(path,
+                                                    f's{s}',
+                                                    f_name))
+
+
+
+        c1, c2 = '#3388BB', '#EE6666'
+        for i, m in enumerate(metrics_cols):
+            # normal SST
+
+            labels = d_dfs['df_scores'].columns.levels[0]
+            ax[i].plot(labels, d_dfs['df_scores'].reorder_levels((1,0), axis=1).loc[0][m].T,
+                    label=f'seed: {s}',
+                    color=cs[s],
+                    linestyle='solid')
+            ax[i].fill_between(labels,
+                                d_dfs['df_boot'].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                                d_dfs['df_boot'].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                                edgecolor=cs[s], facecolor=cs[s], alpha=0.3,
+                                linestyle='solid', linewidth=2)
+
+            # Conditional SST
+            # labels = d_dfs['df_scores_cf'].columns.levels[0]
+            # ax[i].plot(labels, d_dfs['df_scores_cf'].reorder_levels((1,0), axis=1).loc[0][m].T,
+            #         label='Pronounced Pacific state years',
+            #         color=c1,
+            #         linestyle='solid')
+            # ax[i].fill_between(labels,
+            #                     d_dfs['df_boot_cf'].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+            #                     d_dfs['df_boot_cf'].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+            #                     edgecolor=c1, facecolor=c1, alpha=0.3,
+            #                     linestyle='solid', linewidth=2)
+
+
+            if m == 'corrcoef':
+                ax[i].set_ylim(-.2,1)
+            else:
+                ax[i].set_ylim(-.2,.6)
+            ax[i].axhline(y=0, color='black', linewidth=1)
+            ax[i].tick_params(labelsize=16, pad=6)
+            if i == len(metrics_cols)-1 and orientation=='vertical':
+                ax[i].set_xlabel('Forecast month', fontsize=18)
+            elif orientation=='horizontal':
+                ax[i].set_xlabel('Forecast month', fontsize=18)
+            if i == 0:
+                ax[i].legend(loc='lower right', fontsize=14)
+            ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
+
+
+f.subplots_adjust(hspace=.1)
+f.subplots_adjust(wspace=.22)
+title = 'Verification Soy Yield forecast'
+if orientation == 'vertical':
+    f.suptitle(title, y=.92, fontsize=18)
+else:
+    f.suptitle(title, y=.95, fontsize=18)
+f_name = f'{method}_{seed}_PacAtl_seeds'
+fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
+if save:
+    plt.savefig(fig_path, bbox_inches='tight')
+
+
 #%%
 months = ['Mar', 'April', 'May', 'June','July', 'August']
 for rg in rg_list:
