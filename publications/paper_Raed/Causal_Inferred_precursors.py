@@ -684,13 +684,19 @@ y_true = df_test['USDA_Soy']
 forecast = df_test['causal']
 
 sst.lags = np.array([['07-01', '08-01']]) # JA
-find_precursors.spatial_mean_regions(sst,
-                                     kwrgs_load=rg.kwrgs_load,
-                                     force_reload=True)
+ts_corr = find_precursors.spatial_mean_regions(sst,
+                                               kwrgs_load=rg.kwrgs_load,
+                                               force_reload=True,
+                                               lags=['JA'])
+df_ts = pd.concat(ts_corr, keys=range(n_spl))
+
+zz = df_ts[['JA..1..sst']]
+zz = rg.df_data[['JA..1..sst']]
+
 sst.lags = corlags # restore old lags
 
 
-target_1sst = functions_pp.get_df_test(rg.df_data[['JA..1..sst']],
+target_1sst = functions_pp.get_df_test(zz,
                                    df_splits=rg.df_splits)
 # target_1sst = rg.df_data[['JA..1..sst']].mean(axis=0, level=1)
 target_1sst = (target_1sst - target_1sst.mean()) / target_1sst.std()

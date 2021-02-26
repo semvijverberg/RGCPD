@@ -608,7 +608,7 @@ def labels_to_df(prec_labels, return_mean_latlon=True):
     return df
 
 def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
-                         force_reload: bool=False):
+                         force_reload: bool=False, lags: list=None):
     '''
     Wrapper for calculating 1-d spatial mean timeseries per precursor region.
 
@@ -621,7 +621,8 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
         kwrgs to load in timeseries. See functions_pp.import_ds_timemeanbins or
         functions_pp.time_mean_period. The default is None.
     force_reload : bool, optional
-        DESCRIPTION. The default is False.
+        Force reload a different precursor array (precur_arr). The default is
+        False.
 
     Returns
     -------
@@ -636,8 +637,13 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
     corr_xr         = precur.corr_xr
     prec_labels     = precur.prec_labels
     n_spl           = corr_xr.split.size
-    lags            = precur.prec_labels.lag.values
     use_coef_wghts  = precur.use_coef_wghts
+    if lags is not None:
+        lags        = np.array(lags) # ensure lag is np.ndarray
+        corr_xr     = corr_xr.sel(lag=lags).copy()
+        prec_labels = prec_labels.sel(lag=lags).copy()
+    else:
+        lags        = prec_labels.lag.values
     dates           = pd.to_datetime(precur.precur_arr.time.values)
     oneyr = functions_pp.get_oneyr(dates)
     if oneyr.size == 1: # single val per year precursor
@@ -665,10 +671,9 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
                                           *[corr_xr, prec_labels])
 
     ts_corr = np.zeros( (n_spl), dtype=object)
-
     for s in range(n_spl):
-        corr = corr_xr.isel(split=s) # changed this from 0 to s 13-12-19
-        labels = prec_labels.isel(split=s) # changed this from 0 to s 13-12-19
+        corr = corr_xr.isel(split=s)
+        labels = prec_labels.isel(split=s)
 
         ts_list = np.zeros( (lags.size), dtype=list )
         track_names = []
@@ -688,7 +693,6 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
 
             # this array will be the time series for each feature
             ts_regions_lag_i = np.zeros((precur_arr.values.shape[0], len(regions_for_ts)))
-            # ts_regions_lag_i = []
 
             # track sign of eacht region
             sign_ts_regions = np.zeros( len(regions_for_ts) )

@@ -593,15 +593,21 @@ def parcorr_z(field, ts, z=pd.DataFrame):
     corr_vals[fieldnans] = np.nan
     return corr_vals, pvals
 
-def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
+def loop_get_spatcov(precur, precur_aggr=None, kwrgs_load: dict=None,
+                     force_reload: bool=False, lags: list=None):
 
     name            = precur.name
+    use_sign_pattern = precur.use_sign_pattern
     corr_xr         = precur.corr_xr
     prec_labels     = precur.prec_labels
     splits           = corr_xr.split
-    lags            = precur.prec_labels.lag.values
+    if lags is not None:
+        lags        = np.array(lags) # ensure lag is np.ndarray
+        corr_xr     = corr_xr.sel(lag=lags).copy()
+        prec_labels = prec_labels.sel(lag=lags).copy()
+    else:
+        lags        = prec_labels.lag.values
     dates           = pd.to_datetime(precur.precur_arr.time.values)
-    use_sign_pattern = precur.use_sign_pattern
     oneyr = functions_pp.get_oneyr(dates)
     if oneyr.size == 1: # single val per year precursor
         tfreq = 365

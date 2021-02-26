@@ -64,7 +64,7 @@ from stat_models import plot_importances
 target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_2'] # ['ranstrat_20']
+methods = ['ranstrat_5'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -353,7 +353,6 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     rg.df_pvals = pd.concat(list_pvals,axis=0)
     rg.df_corr = pd.concat(list_corr,axis=0)
 
-    # rg_list.append(rg)
     return rg
 
 
@@ -532,7 +531,7 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05, select_str_SM=False,
     return df_mean_SST, keys_dict_meansst
 
 
-#%%
+#%% Continuous forecast
 months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May'}
 list_verification = [] ; list_prediction = []
 for i, rg in enumerate(rg_list):
@@ -550,7 +549,6 @@ for i, rg in enumerate(rg_list):
     fc_month = months[last_month]
     from sklearn.linear_model import Ridge
     from stat_models_cont import ScikitModel
-
     # fcmodel = ScikitModel(RandomForestRegressor, verbosity=0)
     # kwrgs_model={'n_estimators':200,
     #             'max_depth':[2,5,7],
@@ -575,8 +573,7 @@ for i, rg in enumerate(rg_list):
                                               np.logspace(.01, 2.5, num=10)])), # large a, strong regul.
                     'normalize':False,
                     'fit_intercept':False,
-                    'kfold':5}
-
+                    'kfold':10}
 
     # target
     fc_mask = rg.df_data.iloc[:,-1].loc[0]
@@ -587,7 +584,6 @@ for i, rg in enumerate(rg_list):
     MAE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).MAE
     score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS]
     metric_names = [s.__name__ for s in score_func_list]
-
 
     lag_ = 0 ;
     prediction_tuple = rg.fit_df_data_ridge(df_data=df_data,
@@ -624,7 +620,7 @@ for i, rg in enumerate(rg_list):
     list_verification.append(verification_tuple)
     rg.verification_tuple = verification_tuple
 
-    #%% Conditional forecast
+    #%% Conditional continuous forecast
 for rg in rg_list:
     df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
                                          n_strongest='all', weights=True)
@@ -682,6 +678,86 @@ def df_scores_for_plot(name_object):
     return df_scores, df_boot, df_tests
 
 
+
+
+
+def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
+    orientation = 'horizontal'
+    alpha = .05
+    if 'BSS' in df_scores.columns.levels[1]:
+        metrics_cols = ['BSS', 'roc_auc_score']
+        rename_m = {'BSS': 'BSS', 'roc_auc_score':'ROC-AUC'}
+    else:
+        metrics_cols = ['corrcoef', 'MAE', 'RMSE']
+        rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
+                    'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
+
+
+    if orientation=='vertical':
+        f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
+                         sharex=True) ;
+    else:
+        f, ax = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
+                         sharey=False) ;
+
+    c1, c2 = '#3388BB', '#EE6666'
+    for i, m in enumerate(metrics_cols):
+        # normal SST
+
+        labels = df_scores.columns.levels[0]
+        ax[i].plot(labels, df_scores.reorder_levels((1,0), axis=1).loc[0][m].T,
+                label='Verification on all years',
+                color=c2,
+                linestyle='solid')
+        ax[i].fill_between(labels,
+                            df_boot.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                            df_boot.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                            edgecolor=c2, facecolor=c2, alpha=0.3,
+                            linestyle='solid', linewidth=2)
+
+        # Conditional SST
+        if df_scores_cf is not None:
+            labels = df_scores_cf.columns.levels[0]
+            ax[i].plot(labels, df_scores_cf.reorder_levels((1,0), axis=1).loc[0][m].T,
+                    label='Pronounced Pacific state years',
+                    color=c1,
+                    linestyle='solid')
+            ax[i].fill_between(labels,
+                                df_boot_cf.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                                df_boot_cf.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                                edgecolor=c1, facecolor=c1, alpha=0.3,
+                                linestyle='solid', linewidth=2)
+
+
+
+        if m == 'corrcoef':
+            ax[i].set_ylim(-.2,1)
+        elif m == 'roc_auc_score':
+            ax[i].set_ylim(0,1)
+        else:
+            ax[i].set_ylim(-.2,.6)
+        ax[i].axhline(y=0, color='black', linewidth=1)
+        ax[i].tick_params(labelsize=16, pad=6)
+        if i == len(metrics_cols)-1 and orientation=='vertical':
+            ax[i].set_xlabel('Forecast month', fontsize=18)
+        elif orientation=='horizontal':
+            ax[i].set_xlabel('Forecast month', fontsize=18)
+        if i == 0:
+            ax[i].legend(loc='lower right', fontsize=14)
+        ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
+
+
+    f.subplots_adjust(hspace=.1)
+    f.subplots_adjust(wspace=.2)
+    title = 'Verification high Yield forecast'
+    if orientation == 'vertical':
+        f.suptitle(title, y=.92, fontsize=18)
+    else:
+        f.suptitle(title, y=.95, fontsize=18)
+    return f
+
+#%% Plotting Continuous forecast
+
 df_scores, df_boot, df_tests = df_scores_for_plot(name_object='verification_tuple')
 
 df_scores_cf, df_boot_cf, df_tests_cf = df_scores_for_plot(name_object='cond_verif_tuple')
@@ -694,75 +770,121 @@ filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}.h5')
 functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 d_dfs = functions_pp.load_hdf5(filepath_dfs)
 
-orientation = 'horizontal'
-alpha = .05
-metrics_cols = ['corrcoef', 'MAE', 'RMSE']
-rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
-            'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
-
-if orientation=='vertical':
-    f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
-                     sharex=True) ;
-else:
-    f, ax = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
-                     sharey=False) ;
-
-c1, c2 = '#3388BB', '#EE6666'
-for i, m in enumerate(metrics_cols):
-    # normal SST
-
-    labels = df_scores.columns.levels[0]
-    ax[i].plot(labels, df_scores.reorder_levels((1,0), axis=1).loc[0][m].T,
-            label='Verification on all years',
-            color=c2,
-            linestyle='solid')
-    ax[i].fill_between(labels,
-                        df_boot.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                        df_boot.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-                        edgecolor=c2, facecolor=c2, alpha=0.3,
-                        linestyle='solid', linewidth=2)
-
-    # Conditional SST
-
-    labels = df_scores_cf.columns.levels[0]
-    ax[i].plot(labels, df_scores_cf.reorder_levels((1,0), axis=1).loc[0][m].T,
-            label='Pronounced Pacific state years',
-            color=c1,
-            linestyle='solid')
-    ax[i].fill_between(labels,
-                        df_boot_cf.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                        df_boot_cf.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-                        edgecolor=c1, facecolor=c1, alpha=0.3,
-                        linestyle='solid', linewidth=2)
-
-
-
-    if m == 'corrcoef':
-        ax[i].set_ylim(-.2,1)
-    else:
-        ax[i].set_ylim(-.2,.6)
-    ax[i].axhline(y=0, color='black', linewidth=1)
-    ax[i].tick_params(labelsize=16, pad=6)
-    if i == len(metrics_cols)-1 and orientation=='vertical':
-        ax[i].set_xlabel('Forecast month', fontsize=18)
-    elif orientation=='horizontal':
-        ax[i].set_xlabel('Forecast month', fontsize=18)
-    if i == 0:
-        ax[i].legend(loc='lower right', fontsize=14)
-    ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
-
-
-f.subplots_adjust(hspace=.1)
-f.subplots_adjust(wspace=.2)
-title = 'Verification Soy Yield forecast'
-if orientation == 'vertical':
-    f.suptitle(title, y=.92, fontsize=18)
-else:
-    f.suptitle(title, y=.95, fontsize=18)
+f = plot_scores_wrapper(df_scores, df_boot, df_scores_cf, df_boot_cf)
 f_name = f'{method}_{seed}_cf_PacAtl'
 fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
 if save:
-    plt.savefig(fig_path, bbox_inches='tight')
+    f.savefig(fig_path, bbox_inches='tight')
+
+#%% Low/High yield forecast
+
+thresholds = [.33, .66]
+for i, q in enumerate(thresholds):
+    months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May'}
+    list_verification = [] ; list_prediction = []
+    for i, rg in enumerate(rg_list):
+        mean_vars=['sst', 'smi']
+        for i, p in enumerate(rg.list_for_MI):
+            if p.calc_ts == 'pattern cov':
+                mean_vars[i] +='_sp'
+
+        df_data, keys_dict = get_df_mean_SST(rg,
+                                             mean_vars=mean_vars,
+                                             alpha_CI=alpha_CI,
+                                             n_strongest='all',
+                                             weights=True)
+        last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
+        fc_month = months[last_month]
+        from sklearn.linear_model import LogisticRegression
+        # fcmodel = ScikitModel(RandomForestRegressor, verbosity=0)
+        # kwrgs_model={'n_estimators':200,
+        #             'max_depth':[2,5,7],
+        #             'scoringCV':'neg_mean_squared_error',
+        #             'oob_score':True,
+        #             'min_samples_leaf':2,
+        #             'random_state':0,
+        #             'max_samples':.6,
+        #             'n_jobs':1}
+        fcmodel = ScikitModel(LogisticRegression, verbosity=0)
+        kwrgs_model = {'scoringCV':'neg_brier_score',
+                        'C':list(np.concatenate([[1E-20],np.logspace(-5,0, 6),
+                                                  np.logspace(.01, 1.5, num=5)])), # large a, strong regul.
+                        'random_state':1,
+                        'fit_intercept':False,
+                        'kfold':10,
+                        'max_iter':200}
+
+        # target
+        fc_mask = rg.df_data.iloc[:,-1].loc[0]
+        target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
+        target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+        if q >= 0.5:
+            target_ts = (target_ts > target_ts.quantile(q)).astype(int)
+        elif q < .5:
+            target_ts = (target_ts < target_ts.quantile(q)).astype(int)
+
+
+        # metrics
+        BSS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).BSS
+        score_func_list = [BSS, fc_utils.metrics.roc_auc_score]
+        metric_names = [s.__name__ for s in score_func_list]
+
+        lag_ = 0 ;
+        prediction_tuple = rg.fit_df_data_ridge(df_data=df_data,
+                                                keys=keys_dict,
+                                                target=target_ts,
+                                                tau_min=0, tau_max=0,
+                                                kwrgs_model=kwrgs_model,
+                                                fcmodel=fcmodel,
+                                                transformer=None)
+
+        predict, weights, models_lags = prediction_tuple
+        prediction = predict.rename({predict.columns[0]:'target',
+                                     lag_:fc_month}, axis=1)
+        prediction_tuple = (prediction, weights, models_lags)
+        list_prediction.append(prediction_tuple)
+        rg.prediction_tuple = prediction_tuple
+
+
+        verification_tuple = fc_utils.get_scores(prediction,
+                                                 rg.df_data.iloc[:,-2:],
+                                                 score_func_list,
+                                                 score_per_test=False,
+                                                 n_boot=n_boot,
+                                                 blocksize=1,
+                                                 rng_seed=seed)
+        df_train_m, df_test_s_m, df_test_m, df_boot = verification_tuple
+
+
+        m = models_lags[f'lag_{lag_}'][f'split_{0}']
+        plt.plot(kwrgs_model['C'], m.cv_results_['mean_test_score'])
+        plt.axvline(m.best_params_['C']) ; plt.show() ; plt.close()
+
+        df_test = functions_pp.get_df_test(predict.rename({lag_:'causal'}, axis=1),
+                                            df_splits=rg.df_splits)
+        list_verification.append(verification_tuple)
+        rg.verification_tuple = verification_tuple
+
+    # plot scores
+    df_scores, df_boot, df_tests = df_scores_for_plot(name_object='verification_tuple')
+
+    # df_scores_cf, df_boot_cf, df_tests_cf = df_scores_for_plot(name_object='cond_verif_tuple')
+
+    d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
+                # 'df_scores_cf':df_scores_cf, 'df_boot_cf':df_boot_cf,
+                # 'df_tests_cf':df_tests_cf}
+    filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}.h5')
+
+    functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+    d_dfs = functions_pp.load_hdf5(filepath_dfs)
+
+    f = plot_scores_wrapper(df_scores, df_boot)
+    f_name = f'{method}_{seed}_cf_PacAtl_q{q}'
+    fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
+    if save:
+        f.savefig(fig_path, bbox_inches='tight')
+
+
 
 
 #%%
