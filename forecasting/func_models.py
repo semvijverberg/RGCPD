@@ -419,7 +419,7 @@ def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=N
             testRV  = np.logical_and(~sp['TrainIsTrue'], sp['RV_mask'])
             for f in score_func_list:
                 name = f.__name__
-                if ~trainRV.all(): # training data exists
+                if (~trainRV).all()==False: # training data exists
                     train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].loc[:,col])
                 else:
                     train_score  = np.nan

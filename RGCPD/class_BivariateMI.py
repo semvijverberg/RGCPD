@@ -297,6 +297,94 @@ class BivariateMI:
         self.alpha = alpha
         self.corr_xr.mask.values = (self.pval_xr > self.alpha).values
 
+    def load_and_aggregate_precur(self, kwrgs_load):
+        '''
+        Wrapper to load in Netcdf and aggregated to n-mean bins or a period
+        mean, e.g. DJF mean (see seasonal_mode.ipynb).
+
+        Parameters
+        ----------
+        kwrgs_load : TYPE
+            dictionary passed to functions_pp.import_ds_timemeanbins or
+            to functions_pp.time_mean_periods.
+        df_splits : pd.DataFrame, optional
+            See class_RGCPD. The default is using the df_splits that was used
+            for calculating the correlation map.
+
+        Returns
+        -------
+        None.
+
+        '''
+        # precur = rg.list_for_MI[0] ; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
+        name = self.name
+        filepath = self.filepath
+
+        # for name, filepath in list_precur_pp: # loop over all variables
+            # =============================================================================
+            # Unpack non-default arguments
+            # =============================================================================
+        kwrgs = {'selbox':self.selbox, 'dailytomonths':self.dailytomonths}
+        for key, value in kwrgs_load.items():
+            if type(value) is list and name in value[1].keys():
+                kwrgs[key] = value[1][name]
+            elif type(value) is list and name not in value[1].keys():
+                kwrgs[key] = value[0] # plugging in default value
+            elif hasattr(self, key):
+                # Overwrite RGCPD parameters with MI specific parameters
+                kwrgs[key] = self.__dict__[key]
+            else:
+                kwrgs[key] = value
+        if self.lag_as_gap: kwrgs['tfreq'] = 1
+        self.kwrgs_load = kwrgs.copy()
+        #===========================================
+        # Precursor field
+        #===========================================
+        self.precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
+
+        if type(self.lags[0]) == np.ndarray:
+            tmp = functions_pp.time_mean_periods
+            self.precur_arr = tmp(self.precur_arr, self.lags,
+                                    kwrgs_load['start_end_year'])
+        return
+
+    def load_and_aggregate_ts(self, df_splits: pd.DataFrame=None):
+        if df_splits is None:
+            df_splits = self.df_splits
+        # =============================================================================
+        # Load external timeseries for partial_corr_z
+        # =============================================================================
+        kwrgs = self.kwrgs_load
+        if hasattr(self, 'kwrgs_z') == False: # copy so info remains stored
+            self.kwrgs_z = self.kwrgs_func.copy() # first time copy
+        if self.func.__name__ == 'parcorr_z':
+            print('Loading and aggregating {}'.format(self.kwrgs_z['keys_ext']))
+            f = find_precursors.import_precur_ts
+            self.df_z = f([('z', self.kwrgs_z['filepath'])],
+                          df_splits,
+                          start_end_date=kwrgs['start_end_date'],
+                          start_end_year=kwrgs['start_end_year'],
+                          start_end_TVdate=kwrgs['start_end_TVdate'],
+                          cols=self.kwrgs_z['keys_ext'],
+                          precur_aggr=kwrgs['tfreq'])
+
+            if hasattr(self.df_z.index, 'levels'): # has train-test splits
+                f = functions_pp
+                self.df_z = f.get_df_test(self.df_z.merge(df_splits,
+                                                              left_index=True,
+                                                              right_index=True)).iloc[:,:1]
+            k = list(self.kwrgs_func.keys())
+            [self.kwrgs_func.pop(k) for k in k if k in ['filepath','keys_ext']]
+            self.kwrgs_func.update({'z':self.df_z}) # overwrite kwrgs_func
+            k = [k for k in list(self.kwrgs_z.keys()) if k not in ['filepath','keys_ext']]
+
+            equal_dates = all(np.equal(self.df_z.index,
+                                       pd.to_datetime(self.precur_arr.time.values)))
+            if equal_dates==False:
+                raise ValueError('Dates of timeseries z not equal to dates of field')
+        return
+
+
     def get_prec_ts(self, precur_aggr=None, kwrgs_load=None): #, outdic_precur #TODO
         # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
         # stacked on top of each other (from lag_min to lag_max)
@@ -513,12 +601,12 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
     splits           = corr_xr.split
     lags            = precur.prec_labels.lag.values
     dates           = pd.to_datetime(precur.precur_arr.time.values)
+    use_sign_pattern = precur.use_sign_pattern
     oneyr = functions_pp.get_oneyr(dates)
     if oneyr.size == 1: # single val per year precursor
         tfreq = 365
     else:
         tfreq = (oneyr[1] - oneyr[0]).days
-    use_sign_pattern = precur.use_sign_pattern
 
 
     if precur_aggr is None:
@@ -530,29 +618,8 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
         # is already done. period used to aggregate was defined by the lag
 
     else:
-        # =============================================================================
-        # Unpack kwrgs for loading
-        # =============================================================================
-        kwrgs = {'selbox':precur.selbox, 'dailytomonths':precur.dailytomonths}
-        for key, value in kwrgs_load.items():
-            if type(value) is list and name in value[1].keys():
-                kwrgs[key] = value[1][name]
-            elif type(value) is list and name not in value[1].keys():
-                kwrgs[key] = value[0] # plugging in default value
-            elif hasattr(precur, key):
-                # Overwrite RGCPD parameters with MI specific parameters
-                kwrgs[key] = precur.__dict__[key]
-            else:
-                kwrgs[key] = value
-        if precur_aggr is None:
-            precur_aggr = tfreq
-        kwrgs['tfreq'] = precur_aggr
-
-        print('aggregating precursors to {} days '.format(kwrgs['tfreq']) + \
-              'closed on right {}'.format(kwrgs['start_end_TVdate'][-1]))
-
-        precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
-                                                         **kwrgs)
+        precur.load_and_aggregate_precur(kwrgs_load.copy())
+        precur_arr = precur.precur_arr
 
     precur.area_grid = find_precursors.get_area(precur_arr)
     if precur_arr.shape[-2:] != corr_xr.shape[-2:]:

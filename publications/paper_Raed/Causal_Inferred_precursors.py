@@ -286,7 +286,7 @@ sst.prec_labels = merge(sst, Mediterrenean_sea)
 rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst, min_detect_gc=1, save=save)
 #%%
 SM = rg.list_for_MI[1]
-SM.distance_eps = 250 ; SM.min_area_in_degrees2 = 3
+SM.distance_eps = 200 ; SM.min_area_in_degrees2 = 3
 rg.cluster_list_MI('smi')
 
 lonlatbox = [220, 250, 25, 50] # eastern US
@@ -373,71 +373,6 @@ for i, mon in enumerate(periodnames):
         list_mon.append((k, corr_val, RB))
     CondDepKeys[mon] = list_mon
 
-# select_str_SM = False
-# mean_SST = True
-# def get_df_mean_SST(mean_SST=True, select_str_SM=True, n_strongest=4, weights=True,
-#                     labels=None):
-#     # mon = 'JA' ; uniqk = '1..sst'
-#     unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
-#     if labels is not None:
-#         unique_keys = [k for k in unique_keys if k in labels]
-
-#     # dict with strongest mean parcorr over growing season
-#     mean_SST_list = []
-#     keys_dict = {s:[] for s in range(n_spl)} ;
-#     keys_dict_meansst = {s:[] for s in range(n_spl)} ;
-#     for s in range(n_spl):
-#         mean_SST_list_s = []
-#         sign_s = df_pvals[s][df_pvals[s] <= alpha_CI].dropna(axis=0, how='all')
-#         for uniqk in unique_keys:
-#             # region label (R) for each month in split (s)
-#             keys_mon = [mon+ '..'+uniqk for mon in periodnames]
-#             # significant region label (R) for each month in split (s)
-#             keys_mon_sig = [k for k in keys_mon if k in sign_s.index] # check if sig.
-#             if mean_SST and 'sst' in uniqk and len(keys_mon_sig)!=0:
-#                 # calculate mean over n strongest SST timeseries
-#                 if len(keys_mon_sig) > 1:
-#                     meanparcorr = df_corr.loc[keys_mon_sig][[s]].squeeze().sort_values()
-#                     keys_str = meanparcorr.index[-n_strongest:]
-#                 else:
-#                     keys_str  = keys_mon_sig
-#                 if weights:
-#                     df_train = functions_pp.get_df_train(rg.df_data,
-#                                                          cols=[target_dataset] + list(keys_str),
-#                                                          s=s)
-#                     kwrgs = {'alphas':[1E-20, 1E-5, 1E-2, .1, 1, 10, 50, 100]}
-#                     _m = RidgeCV(**kwrgs).fit(df_train[keys_str],
-#                                                             df_train[target_dataset])
-#                     df_mean = pd.Series(_m.predict(rg.df_data.loc[s][keys_str].copy()),
-#                                            index=target_ts.index)
-#                 else:
-#                     df_mean = rg.df_data.loc[s][keys_str].copy().mean(1)
-#                 month_strings = [k.split('..')[0] for k in keys_str]
-#                 df_mean.name = ''.join(month_strings) + '..'+uniqk
-#                 keys_dict_meansst[s].append( df_mean.name )
-#                 mean_SST_list_s.append(df_mean)
-#             elif mean_SST and 'smi' in uniqk and len(keys_mon_sig)!=0:
-#                 # use all SM timeseries (for each month)
-#                 mean_SST_list_s.append(rg.df_data.loc[s][keys_mon_sig].copy())
-#                 keys_dict_meansst[s] = keys_dict_meansst[s] + keys_mon_sig
-#             # select strongest
-#             if len(keys_mon_sig) != 0 and 'sst' in uniqk:
-#                 # appending keys_dict for plotting causal regions
-#                 df_corr.loc[keys_mon_sig].mean()
-#                 keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
-#             if select_str_SM and len(keys_mon_sig) != 0 and 'sm' in uniqk:
-#                 # use only strongest SM region
-#                 df_corr.loc[keys_mon_sig].mean()
-#                 keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
-#             elif select_str_SM==False and len(keys_mon_sig) != 0 and 'sm' in uniqk:
-#                 # use all SM region
-#                 keys_dict[s] = keys_dict[s] + keys_mon_sig
-#         df_s = pd.concat(mean_SST_list_s, axis=1)
-#         mean_SST_list.append(df_s)
-#     df_mean_SST = pd.concat(mean_SST_list, keys=range(n_spl))
-#     df_mean_SST = df_mean_SST.merge(rg.df_splits.copy(),
-#                                     left_index=True, right_index=True)
-#     return df_mean_SST, keys_dict_meansst
 from sklearn.linear_model import RidgeCV
 def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05, select_str_SM=False,
                     n_strongest='all',
@@ -748,42 +683,68 @@ fig.artists.append(ann1) ; fig.artists.append(ann2)
 y_true = df_test['USDA_Soy']
 forecast = df_test['causal']
 
+sst.lags = np.array([['07-01', '08-01']]) # JA
+find_precursors.spatial_mean_regions(sst,
+                                     kwrgs_load=rg.kwrgs_load,
+                                     force_reload=True)
+sst.lags = corlags # restore old lags
+
+
 target_1sst = functions_pp.get_df_test(rg.df_data[['JA..1..sst']],
                                    df_splits=rg.df_splits)
 # target_1sst = rg.df_data[['JA..1..sst']].mean(axis=0, level=1)
 target_1sst = (target_1sst - target_1sst.mean()) / target_1sst.std()
 
-out = rg.fit_df_data_ridge(target = target_1sst,
+outsst = rg.fit_df_data_ridge(target = target_1sst,
                            df_data=rg.df_data[['MJ..1..sst', 'TrainIsTrue', 'RV_mask']],
                            tau_min=0, tau_max=0,
                            kwrgs_model=kwrgs_model,
                            fcmodel=fcmodel,
                            transformer=None)
-predict, weights, models_lags = out
+predict, weights, models_lags = outsst
 df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(predict,
                                                        rg.df_data.iloc[:,-2:],
                                                        score_func_list,
-                                                       n_boot = n_boot,
+                                                       n_boot = 1,
                                                        blocksize=1,
                                                        rng_seed=seed)
 
 
-state_sst = functions_pp.get_df_test(predict[['JA..1..sst']].rename({lag_:'JAsst'}, axis=1),
+state_sst = functions_pp.get_df_test(predict[[0]].rename({lag_:'JAsst'}, axis=1),
                                      df_splits=rg.df_splits)
 
+#%%
+state_sst = functions_pp.get_df_test(rg.df_data[['MJ..1..sst']].rename({lag_:'JAsst'}, axis=1),
+                                     df_splits=rg.df_splits)
+
+#%%
+quantiles = [.1, .2, .3]
+for q in quantiles:
+    low = state_sst < state_sst.quantile(q)
+    high = state_sst > state_sst.quantile(1-q)
+    mask_anomalous = np.logical_or(low, high)
+
+    condfc = df_test[mask_anomalous.values]
+    cond_verif_tuple = fc_utils.get_scores(condfc,
+                                           score_func_list=score_func_list,
+                                           n_boot=1,
+                                           score_per_test=False,
+                                           blocksize=1,
+                                           rng_seed=seed)
+    df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
+    print(df_test_m)
 
 
+    # m = models_lags[f'lag_{lag_}'][f'split_{0}']
+    # np_mask = mask_anomalous.values.squeeze()
 
-m = models_lags[f'lag_{lag_}'][f'split_{0}']
-mask = state_sst.abs() > state_sst.std() ; np_mask = mask.values.squeeze()
+    # SS_normal = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).MAE(y_true, forecast)
+    # SS_strong = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).MAE(y_true[np_mask], forecast[np_mask])
+    # # print(f'Normal: {SS_normal} - Strong: {SS_strong} _ {(SS_strong-SS_normal)/SS_normal}')
 
-SS_normal = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).MAE(y_true, forecast)
-SS_strong = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).MAE(y_true[np_mask], forecast[np_mask])
-print(f'{SS_normal} - {SS_strong} _ {(SS_strong-SS_normal)/SS_normal}')
-
-SS_normal = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).RMSE(y_true, forecast)
-SS_strong = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).RMSE(y_true[np_mask], forecast[np_mask])
-print(f'{SS_normal} - {SS_strong} _ {(SS_strong-SS_normal)/SS_normal}')
+    # SS_normal = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).RMSE(y_true, forecast)
+    # SS_strong = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).RMSE(y_true[np_mask], forecast[np_mask])
+    # print(f'{SS_normal} - {SS_strong} _ {(SS_strong-SS_normal)/SS_normal}')
 #%% forecasting
 
 

@@ -41,62 +41,11 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load):
     #%%
     # precur = rg.list_for_MI[0] ; TV = rg.TV; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
 
-    name = precur.name
-    filepath = precur.filepath
-
-    # for name, filepath in list_precur_pp: # loop over all variables
-        # =============================================================================
-        # Unpack non-default arguments
-        # =============================================================================
-    kwrgs = {'selbox':precur.selbox, 'dailytomonths':precur.dailytomonths}
-    for key, value in kwrgs_load.items():
-        if type(value) is list and name in value[1].keys():
-            kwrgs[key] = value[1][name]
-        elif type(value) is list and name not in value[1].keys():
-            kwrgs[key] = value[0] # plugging in default value
-        elif hasattr(precur, key):
-            # Overwrite RGCPD parameters with MI specific parameters
-            kwrgs[key] = precur.__dict__[key]
-        else:
-            kwrgs[key] = value
-    if precur.lag_as_gap: kwrgs['tfreq'] = 1
-    #===========================================
-    # Precursor field
-    #===========================================
-    precur.precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
-
-    if type(precur.lags[0]) == np.ndarray:
-        tmp = functions_pp.time_mean_periods
-        precur.precur_arr = tmp(precur.precur_arr, precur.lags,
-                                kwrgs_load['start_end_year'])
+    precur.load_and_aggregate_precur(kwrgs_load.copy())
     # =============================================================================
     # Load external timeseries for partial_corr_z
     # =============================================================================
-    if hasattr(precur, 'kwrgs_z') == False: # copy so info remains stored
-        precur.kwrgs_z = precur.kwrgs_func.copy() # first time copy
-    if precur.func.__name__ == 'parcorr_z':
-        print('Loading and aggregating {}'.format(precur.kwrgs_z['keys_ext']))
-        precur.df_z = import_precur_ts([('z', precur.kwrgs_z['filepath'])],
-                                       df_splits,
-                                       start_end_date=kwrgs['start_end_date'],
-                                       start_end_year=kwrgs['start_end_year'],
-                                       start_end_TVdate=kwrgs['start_end_TVdate'],
-                                       cols=precur.kwrgs_z['keys_ext'],
-                                       precur_aggr=kwrgs['tfreq'])
-        if hasattr(precur.df_z.index, 'levels'): # has train-test splits
-            f = functions_pp
-            precur.df_z = f.get_df_test(precur.df_z.merge(df_splits,
-                                                          left_index=True,
-                                                          right_index=True)).iloc[:,:1]
-        k = list(precur.kwrgs_func.keys())
-        [precur.kwrgs_func.pop(k) for k in k if k in ['filepath','keys_ext']]
-        precur.kwrgs_func.update({'z':precur.df_z}) # overwrite kwrgs_func
-        k = [k for k in list(precur.kwrgs_z.keys()) if k not in ['filepath','keys_ext']]
-
-        equal_dates = all(np.equal(precur.df_z.index,
-                                   pd.to_datetime(precur.precur_arr.time.values)))
-        if equal_dates==False:
-            raise ValueError('Dates of timeseries z not equal to dates of field')
+    precur.load_and_aggregate_ts(kwrgs_load.copy())
     # =============================================================================
     # Calculate BivariateMI (correlation) map
     # =============================================================================
@@ -658,8 +607,30 @@ def labels_to_df(prec_labels, return_mean_latlon=True):
                      columns=['latitude', 'longitude', 'n_gridcells'])
     return df
 
-def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
+def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
+                         force_reload: bool=False):
+    '''
+    Wrapper for calculating 1-d spatial mean timeseries per precursor region.
+
+    Parameters
+    ----------
+    precur : class_BivariateMI instance
+    precur_aggr : int, optional
+        If None, same precur_arr is used as for the correlation maps.
+    kwrgs_load : dict, optional
+        kwrgs to load in timeseries. See functions_pp.import_ds_timemeanbins or
+        functions_pp.time_mean_period. The default is None.
+    force_reload : bool, optional
+        DESCRIPTION. The default is False.
+
+    Returns
+    -------
+    ts_corr : TYPE
+        DESCRIPTION.
+
+    '''
     #%%
+
 
     name            = precur.name
     corr_xr         = precur.corr_xr
@@ -675,7 +646,7 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
         tfreq = (oneyr[1] - oneyr[0]).days
 
 
-    if precur_aggr is None:
+    if precur_aggr is None and force_reload==False:
         precur_arr = precur.precur_arr
         if tfreq==365:
             precur_arr = precur.precur_arr
@@ -684,29 +655,8 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load=None):
         # is already done. period used to aggregate was defined by the lag
 
     else:
-        # =============================================================================
-        # Unpack kwrgs for loading
-        # =============================================================================
-        kwrgs = {'selbox':precur.selbox, 'dailytomonths':precur.dailytomonths}
-        for key, value in kwrgs_load.items():
-            if type(value) is list and name in value[1].keys():
-                kwrgs[key] = value[1][name]
-            elif type(value) is list and name not in value[1].keys():
-                kwrgs[key] = value[0] # plugging in default value
-            elif hasattr(precur, key):
-                # Overwrite RGCPD parameters with MI specific parameters
-                kwrgs[key] = precur.__dict__[key]
-            else:
-                kwrgs[key] = value
-        if precur_aggr is None:
-            precur_aggr = tfreq
-        kwrgs['tfreq'] = precur_aggr
-
-        print('aggregating precursors to {} days '.format(kwrgs['tfreq']) + \
-              'closed on right {}'.format(kwrgs['start_end_TVdate'][-1]))
-
-        precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
-                                                         **kwrgs)
+        precur.load_and_aggregate_precur(kwrgs_load.copy())
+        precur_arr = precur.precur_arr
 
     precur.area_grid = get_area(precur_arr)
     if precur_arr.shape[-2:] != corr_xr.shape[-2:]:
