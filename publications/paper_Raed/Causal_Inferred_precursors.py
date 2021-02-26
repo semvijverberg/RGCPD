@@ -124,7 +124,7 @@ elif target_dataset == 'USDA_Maize':
 
 calc_ts='region mean' # pattern cov
 alpha_corr = .05
-method     = 'ranstrat_10' ;
+method     = 'leave_5' ;
 n_boot = 2000
 
 if experiment == 'seasons':
@@ -353,6 +353,8 @@ for k in unique_keys:
 
 df_pvals = pd.concat(list_pvals,axis=0)
 df_corr = pd.concat(list_corr,axis=0)
+rg.df_pvals = df_pvals
+rg.df_corr = df_corr
 
 #%%
 
