@@ -173,7 +173,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                       BivariateMI(name='smi', func=class_BivariateMI.corr_map,
                                  alpha=alpha_corr, FDR_control=True,
                                  kwrgs_func={},
-                                 distance_eps=300, min_area_in_degrees2=3,
+                                 distance_eps=250, min_area_in_degrees2=3,
                                  calc_ts='pattern cov', selbox=USBox,
                                  lags=SM_lags, use_coef_wghts=True)]
 
