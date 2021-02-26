@@ -256,7 +256,8 @@ rg.plot_maps_corr('smi', kwrgs_plot=kwrgs_plotcorr_SM, save=save)
 
 #%%
 sst = rg.list_for_MI[0]
-sst.distance_eps = 425 ; sst.min_area_in_degrees2 = 7
+# sst.distance_eps = 425 ; sst.min_area_in_degrees2 = 7
+sst.distance_eps = 250 ; sst.min_area_in_degrees2 = 3
 rg.cluster_list_MI('sst')
 # rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst)
 
