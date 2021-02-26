@@ -141,14 +141,14 @@ USBox = (225, 300, 20, 60)
 
 save = True
 
-
-#%% run RGPD
-
 list_of_name_path = [(cluster_label, TVpath),
                        ('sst', os.path.join(path_raw, 'sst_1950-2019_1_12_monthly_1.0deg.nc')),
                       # ('z500', os.path.join(path_raw, 'z500_1950-2019_1_12_monthly_1.0deg.nc')),
                        ('smi', os.path.join(path_raw, 'SM_ownspi_gamma_2_1950-2019_1_12_monthly_1.0deg.nc'))]
-                      # ('swvl1', os.path.join(path_raw, 'swvl1_1950-2019_1_12_monthly_1.0deg.nc'))]
+
+
+#%% run RGPD
+
 
 def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     #%%

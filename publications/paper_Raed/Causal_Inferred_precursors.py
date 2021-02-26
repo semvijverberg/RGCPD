@@ -286,7 +286,7 @@ sst.prec_labels = merge(sst, Mediterrenean_sea)
 rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst, min_detect_gc=1, save=save)
 #%%
 SM = rg.list_for_MI[1]
-SM.distance_eps = 300 ; SM.min_area_in_degrees2 = 4
+SM.distance_eps = 250 ; SM.min_area_in_degrees2 = 3
 rg.cluster_list_MI('smi')
 
 lonlatbox = [220, 250, 25, 50] # eastern US
