@@ -192,7 +192,7 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                              alpha=.05, FDR_control=True,
                              kwrgs_func={},
                              distance_eps=300, min_area_in_degrees2=4,
-                             calc_ts=calc_ts, selbox=USBox,
+                             calc_ts='pattern cov', selbox=USBox,
                              lags=SM_lags, use_coef_wghts=True)]
 
 
@@ -370,50 +370,129 @@ for i, mon in enumerate(periodnames):
         list_mon.append((k, corr_val, RB))
     CondDepKeys[mon] = list_mon
 
-select_str_SM = False
-mean_SST = True
-def get_df_mean_SST(mean_SST=True, select_str_SM=True, n_strongest=4, weights=True,
-                    labels=None):
-    # mon = 'JA' ; uniqk = '1..sst'
+# select_str_SM = False
+# mean_SST = True
+# def get_df_mean_SST(mean_SST=True, select_str_SM=True, n_strongest=4, weights=True,
+#                     labels=None):
+#     # mon = 'JA' ; uniqk = '1..sst'
+#     unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
+#     if labels is not None:
+#         unique_keys = [k for k in unique_keys if k in labels]
+
+#     # dict with strongest mean parcorr over growing season
+#     mean_SST_list = []
+#     keys_dict = {s:[] for s in range(n_spl)} ;
+#     keys_dict_meansst = {s:[] for s in range(n_spl)} ;
+#     for s in range(n_spl):
+#         mean_SST_list_s = []
+#         sign_s = df_pvals[s][df_pvals[s] <= alpha_CI].dropna(axis=0, how='all')
+#         for uniqk in unique_keys:
+#             # region label (R) for each month in split (s)
+#             keys_mon = [mon+ '..'+uniqk for mon in periodnames]
+#             # significant region label (R) for each month in split (s)
+#             keys_mon_sig = [k for k in keys_mon if k in sign_s.index] # check if sig.
+#             if mean_SST and 'sst' in uniqk and len(keys_mon_sig)!=0:
+#                 # calculate mean over n strongest SST timeseries
+#                 if len(keys_mon_sig) > 1:
+#                     meanparcorr = df_corr.loc[keys_mon_sig][[s]].squeeze().sort_values()
+#                     keys_str = meanparcorr.index[-n_strongest:]
+#                 else:
+#                     keys_str  = keys_mon_sig
+#                 if weights:
+#                     df_train = functions_pp.get_df_train(rg.df_data,
+#                                                          cols=[target_dataset] + list(keys_str),
+#                                                          s=s)
+#                     kwrgs = {'alphas':[1E-20, 1E-5, 1E-2, .1, 1, 10, 50, 100]}
+#                     _m = RidgeCV(**kwrgs).fit(df_train[keys_str],
+#                                                             df_train[target_dataset])
+#                     df_mean = pd.Series(_m.predict(rg.df_data.loc[s][keys_str].copy()),
+#                                            index=target_ts.index)
+#                 else:
+#                     df_mean = rg.df_data.loc[s][keys_str].copy().mean(1)
+#                 month_strings = [k.split('..')[0] for k in keys_str]
+#                 df_mean.name = ''.join(month_strings) + '..'+uniqk
+#                 keys_dict_meansst[s].append( df_mean.name )
+#                 mean_SST_list_s.append(df_mean)
+#             elif mean_SST and 'smi' in uniqk and len(keys_mon_sig)!=0:
+#                 # use all SM timeseries (for each month)
+#                 mean_SST_list_s.append(rg.df_data.loc[s][keys_mon_sig].copy())
+#                 keys_dict_meansst[s] = keys_dict_meansst[s] + keys_mon_sig
+#             # select strongest
+#             if len(keys_mon_sig) != 0 and 'sst' in uniqk:
+#                 # appending keys_dict for plotting causal regions
+#                 df_corr.loc[keys_mon_sig].mean()
+#                 keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
+#             if select_str_SM and len(keys_mon_sig) != 0 and 'sm' in uniqk:
+#                 # use only strongest SM region
+#                 df_corr.loc[keys_mon_sig].mean()
+#                 keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
+#             elif select_str_SM==False and len(keys_mon_sig) != 0 and 'sm' in uniqk:
+#                 # use all SM region
+#                 keys_dict[s] = keys_dict[s] + keys_mon_sig
+#         df_s = pd.concat(mean_SST_list_s, axis=1)
+#         mean_SST_list.append(df_s)
+#     df_mean_SST = pd.concat(mean_SST_list, keys=range(n_spl))
+#     df_mean_SST = df_mean_SST.merge(rg.df_splits.copy(),
+#                                     left_index=True, right_index=True)
+#     return df_mean_SST, keys_dict_meansst
+from sklearn.linear_model import RidgeCV
+def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05, select_str_SM=False,
+                    n_strongest='all',
+                    weights=True, labels=None):
+
+
+    periodnames = list(rg.list_for_MI[0].corr_xr.lag.values)
+    df_pvals = rg.df_pvals.copy()
+    df_corr  = rg.df_corr.copy()
     unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
     if labels is not None:
         unique_keys = [k for k in unique_keys if k in labels]
 
     # dict with strongest mean parcorr over growing season
     mean_SST_list = []
-    keys_dict = {s:[] for s in range(n_spl)} ;
-    keys_dict_meansst = {s:[] for s in range(n_spl)} ;
-    for s in range(n_spl):
+    keys_dict = {s:[] for s in range(rg.n_spl)} ;
+    keys_dict_meansst = {s:[] for s in range(rg.n_spl)} ;
+    for s in range(rg.n_spl):
         mean_SST_list_s = []
         sign_s = df_pvals[s][df_pvals[s] <= alpha_CI].dropna(axis=0, how='all')
         for uniqk in unique_keys:
+            # uniqk = '1..smi'
             # region label (R) for each month in split (s)
             keys_mon = [mon+ '..'+uniqk for mon in periodnames]
             # significant region label (R) for each month in split (s)
             keys_mon_sig = [k for k in keys_mon if k in sign_s.index] # check if sig.
-            if mean_SST and 'sst' in uniqk and len(keys_mon_sig)!=0:
-                # calculate mean over n strongest SST timeseries
-                if len(keys_mon_sig) > 1:
-                    meanparcorr = df_corr.loc[keys_mon_sig][[s]].squeeze().sort_values()
-                    keys_str = meanparcorr.index[-n_strongest:]
-                else:
-                    keys_str  = keys_mon_sig
-                if weights:
-                    df_train = functions_pp.get_df_train(rg.df_data,
-                                                         cols=[target_dataset] + list(keys_str),
-                                                         s=s)
-                    kwrgs = {'alphas':[1E-20, 1E-5, 1E-2, .1, 1, 10, 50, 100]}
-                    _m = RidgeCV(**kwrgs).fit(df_train[keys_str],
-                                                            df_train[target_dataset])
-                    df_mean = pd.Series(_m.predict(rg.df_data.loc[s][keys_str].copy()),
-                                           index=target_ts.index)
-                else:
-                    df_mean = rg.df_data.loc[s][keys_str].copy().mean(1)
-                month_strings = [k.split('..')[0] for k in keys_str]
-                df_mean.name = ''.join(month_strings) + '..'+uniqk
-                keys_dict_meansst[s].append( df_mean.name )
-                mean_SST_list_s.append(df_mean)
-            elif mean_SST and 'smi' in uniqk and len(keys_mon_sig)!=0:
+            if uniqk.split('..')[-1] in mean_vars and len(keys_mon_sig)!=0:
+                # mean over region if they have same correlation sign
+                for sign in [1,-1]:
+                    mask = np.sign(df_corr.loc[keys_mon_sig][[s]]) == sign
+                    k_sign = np.array(keys_mon_sig)[mask.values.flatten()]
+                    if len(k_sign)==0:
+                        continue
+                    # calculate mean over n strongest SST timeseries
+                    if len(k_sign) > 1:
+                        meanparcorr = df_corr.loc[k_sign][[s]].squeeze().sort_values()
+                        if n_strongest == 'all':
+                            keys_str = meanparcorr.index
+                        else:
+                            keys_str = meanparcorr.index[-n_strongest:]
+                    else:
+                        keys_str  = k_sign
+                    if weights:
+                        df_train = functions_pp.get_df_train(rg.df_data,
+                                                              cols=[target_dataset] + list(keys_str),
+                                                              s=s)
+                        kwrgs = {'alphas':[1E-20, 1E-5, 1E-2, .1, 1, 10, 50, 100]}
+                        _m = RidgeCV(**kwrgs).fit(df_train[keys_str],
+                                                  df_train[target_dataset])
+                        df_mean = pd.Series(_m.predict(rg.df_data.loc[s][keys_str].copy()),
+                                                index=rg.df_data.loc[s].index)
+                    else:
+                        df_mean = rg.df_data.loc[s][keys_str].copy().mean(1)
+                    month_strings = [k.split('..')[0] for k in sorted(keys_str)]
+                    df_mean.name = ''.join(month_strings) + '..'+uniqk
+                    keys_dict_meansst[s].append( df_mean.name )
+                    mean_SST_list_s.append(df_mean)
+            elif uniqk.split('..')[-1] not in mean_vars and len(keys_mon_sig)!=0:
                 # use all SM timeseries (for each month)
                 mean_SST_list_s.append(rg.df_data.loc[s][keys_mon_sig].copy())
                 keys_dict_meansst[s] = keys_dict_meansst[s] + keys_mon_sig
@@ -431,10 +510,11 @@ def get_df_mean_SST(mean_SST=True, select_str_SM=True, n_strongest=4, weights=Tr
                 keys_dict[s] = keys_dict[s] + keys_mon_sig
         df_s = pd.concat(mean_SST_list_s, axis=1)
         mean_SST_list.append(df_s)
-    df_mean_SST = pd.concat(mean_SST_list, keys=range(n_spl))
+    df_mean_SST = pd.concat(mean_SST_list, keys=range(rg.n_spl))
     df_mean_SST = df_mean_SST.merge(rg.df_splits.copy(),
                                     left_index=True, right_index=True)
     return df_mean_SST, keys_dict_meansst
+
 
 CondDepKeys_strongest = {}
 for i, mon in enumerate(periodnames):
@@ -559,6 +639,8 @@ kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
                 'fit_intercept':False,
                 'kfold':5}
 
+mean_SST = True
+mean_vars = ['sst','smi']
 
 # target
 fc_mask = rg.df_data.iloc[:,-1].loc[0]
@@ -571,8 +653,11 @@ score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS]
 metric_names = [s.__name__ for s in score_func_list]
 
 if mean_SST:
-    df_data, keys_dict = get_df_mean_SST(n_strongest=3)
-    # keys_dict = keys_dict_meansst.copy()
+    df_data, keys_dict = get_df_mean_SST(rg,
+                                         mean_vars=mean_vars,
+                                         alpha_CI=alpha_CI,
+                                         n_strongest='all',
+                                         weights=True)
 else:
     df_data = rg.df_data.copy()
 

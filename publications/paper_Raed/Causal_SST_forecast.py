@@ -370,28 +370,28 @@ if __name__ == '__main__':
                           ['1951-04-01', '1951-05-01'],# AM
                           ['1951-06-01', '1951-07-01'] # JJ
                           ])
-    periodnames_july = ['jan', 'March', 'May', 'July']
+    periodnames_july = ['DJ', 'FM', 'AM', 'JJ']
 
     lags_june = np.array([['1950-11-01', '1950-12-01'],# FM
                           ['1951-01-01', '1951-02-01'],# FM
                           ['1951-03-01', '1951-04-01'],# AM
                           ['1951-05-01', '1951-06-01'] # JJ
                           ])
-    periodnames_june = ['Dec', 'Feb', 'April', 'June']
+    periodnames_june = ['ND', 'JF', 'MA', 'MJ']
 
     lags_may = np.array([['1950-10-01', '1950-11-01'],# ON
                           ['1950-12-01', '1951-01-01'],# DJ
                           ['1951-02-01', '1951-03-01'],# FM
                           ['1951-04-01', '1951-05-01'] # AM
                           ])
-    periodnames_may = ['nov', 'Jan', 'Mar', 'May']
+    periodnames_may = ['ON', 'DJ', 'FM', 'AM']
 
     lags_april = np.array([['1950-09-01', '1950-10-01'],# SO
                             ['1950-11-01', '1950-12-01'],# ND
                             ['1951-01-01', '1951-02-01'],# JF
                             ['1951-03-01', '1951-04-01'] # MA
                             ])
-    periodnames_april = ['Oct', 'Dec', 'Feb', 'April']
+    periodnames_april = ['SO', 'ND', 'JF', 'MA']
     # # =============================================================================
     # # 3 * bimonthly
     # # =============================================================================
@@ -533,7 +533,7 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05, select_str_SM=False,
 
 
 #%%
-months = ['Mar', 'April', 'May', 'June','July', 'August']
+months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May'}
 list_verification = [] ; list_prediction = []
 for i, rg in enumerate(rg_list):
     mean_vars=['sst', 'smi']
@@ -547,7 +547,7 @@ for i, rg in enumerate(rg_list):
                                          n_strongest='all',
                                          weights=True)
     last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
-    fc_month = months[months.index(last_month)+1]
+    fc_month = months[last_month]
     from sklearn.linear_model import Ridge
     from stat_models_cont import ScikitModel
 
@@ -960,7 +960,6 @@ path = '/'.join(rg.path_outsub1.split('/')[:-1])
 
 cs = ["#a4110f","#f7911d","#fffc33","#9bcd37","#1790c4"]
 for s in range(5):
-
     hash_str = f'scores_s{s}.h5'
     f_name = None
     for root, dirs, files in os.walk(path):
@@ -972,7 +971,6 @@ for s in range(5):
         d_dfs = functions_pp.load_hdf5(os.path.join(path,
                                                     f's{s}',
                                                     f_name))
-
         for i, m in enumerate(metrics_cols):
             # normal SST
             splits = d_dfs['df_tests'].index
@@ -989,7 +987,6 @@ for s in range(5):
                         linestyle='solid',
                         alpha=.5)
 
-
             if m == 'corrcoef':
                 ax[i].set_ylim(-1,1)
             else:
@@ -1002,12 +999,13 @@ for s in range(5):
                 ax[i].set_xlabel('Forecast month', fontsize=18)
             if i == 0:
                 ax[i].legend(loc='lower right', fontsize=14)
-            ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
+            ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=0)
 
 
 f.subplots_adjust(hspace=.1)
-f.subplots_adjust(wspace=.22)
-title = 'Verification Soy Yield forecast'
+f.subplots_adjust(wspace=.26)
+test_size = '/'.join(np.array(np.unique([len(a) for a in rg._get_testyrs()]),str))
+title = f'Verification for each test split (n={test_size} yrs)'
 if orientation == 'vertical':
     f.suptitle(title, y=.92, fontsize=18)
 else:
@@ -1018,15 +1016,15 @@ if save:
     plt.savefig(fig_path, bbox_inches='tight')
 
 
+
 #%%
 for rg in rg_list:
     plot_regions(rg, save=save)
 
 #%% plot
-months = ['Mar', 'April', 'May', 'June','July', 'August']
 for rg in rg_list:
     last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
-    fc_month = months[months.index(last_month)+1]
+    fc_month = months[last_month]
     models_lags = rg.prediction_tuple[-1]
     df_wgths, fig = plot_importances(models_lags)
     fig.savefig(os.path.join(rg.path_outsub1, f'weights_{fc_month}.png'),

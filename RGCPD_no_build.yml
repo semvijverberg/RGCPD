@@ -25,15 +25,15 @@ dependencies:
   - pandas
   - pip
   - python=3.7.3
-  - pytest
+#  - pytest # <- optional for pytesting
   - scikit-learn
   - scipy
   - seaborn
   - shapely
-  - spyder # <- optional Spyder IDE
+#  - spyder # <- optional Spyder IDE
   - statsmodels
   - xarray
-  - joblib
+#  - joblib # <- optional for parallel computing
 #  - esmf # <- optional packages for regridding
 #  - xesmf # <- optional packages for regridding
   - pip:
