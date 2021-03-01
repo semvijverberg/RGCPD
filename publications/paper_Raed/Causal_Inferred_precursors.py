@@ -235,7 +235,7 @@ for p in rg.list_for_MI:
 
 
 #%%
-save = False
+save = True
 kwrgs_plotcorr_sst = {'row_dim':'lag', 'col_dim':'split','aspect':4, 'hspace':0,
                   'wspace':-.15, 'size':3, 'cbar_vert':0.05,
                   'map_proj':ccrs.PlateCarree(central_longitude=220),

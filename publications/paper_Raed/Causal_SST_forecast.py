@@ -779,11 +779,9 @@ def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
 
 df_scores, df_boot, df_tests = df_scores_for_plot(name_object='verification_tuple')
 
-df_scores_cf, df_boot_cf, df_tests_cf = df_scores_for_plot(name_object='cond_verif_tuple')
+# df_scores_cf, df_boot_cf, df_tests_cf = df_scores_for_plot(name_object='cond_verif_tuple')
 
-d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests,
-            'df_scores_cf':df_scores_cf, 'df_boot_cf':df_boot_cf,
-            'df_tests_cf':df_tests_cf}
+d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
 filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}_continuous.h5')
 
 functions_pp.store_hdf_df(d_dfs, filepath_dfs)
@@ -1126,9 +1124,12 @@ def plot_regions(rg, save=save):
                 region_labels = np.unique(CDlabels[:,i].values[~np.isnan(CDlabels[:,i]).values])
                 region_labels = np.array(region_labels, dtype=int)
                 MCIv = np.repeat(MCIv, len(region_labels))
+                CDkeys = [CDkeys[0].replace('..0..', f'..{r}..') for r in region_labels]
             CDlabels[:,i] = f(CDlabels[:,i].copy(), region_labels)
             MCIstr[:,i]   = f(CDlabels[:,i].copy(), region_labels,
                               replacement_labels=MCIv)
+
+
             # get text on robustness:
             if len(CDkeys) != 0:
                 temp = []
@@ -1140,10 +1141,17 @@ def plot_regions(rg, save=save):
                     else:
                         lat, lon = df_labelloc.loc[l].iloc[:2].values.round(1)
                     if lon > 180: lon-360
-                    count = rg._df_count[k]
-                    text = f'{int(RB[q])}/{count}'
-                    temp.append([lon+10,lat+5, text, {'fontsize':15,
-                                                   'bbox':dict(facecolor='white', alpha=0.8)}])
+                    if precur.calc_ts != 'pattern cov':
+                        count = rg._df_count[k]
+                        text = f'{int(RB[q])}/{count}'
+                        temp.append([lon+10,lat+5, text, {'fontsize':15,
+                                               'bbox':dict(facecolor='white', alpha=0.8)}])
+                    elif precur.calc_ts == 'pattern cov' and q == 0:
+                        count = rg._df_count[f'{month}..0..{precur.name}_sp']
+                        text = f'{int(RB[0])}/{count}'
+                        temp.append([lon+10,lat+5, text, {'fontsize':15,
+                                               'bbox':dict(facecolor='white', alpha=0.8)}])
+
                 textinmap.append([(i,0), temp])
 
         if ip == 0:
