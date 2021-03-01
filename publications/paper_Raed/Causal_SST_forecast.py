@@ -547,6 +547,7 @@ for i, rg in enumerate(rg_list):
                                          weights=True)
     last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
     fc_month = months[last_month]
+    rg.fc_month = fc_month
     from sklearn.linear_model import Ridge
     from stat_models_cont import ScikitModel
     # fcmodel = ScikitModel(RandomForestRegressor, verbosity=0)
@@ -620,49 +621,71 @@ for i, rg in enumerate(rg_list):
     list_verification.append(verification_tuple)
     rg.verification_tuple = verification_tuple
 
-    #%% Conditional continuous forecast
-for rg in rg_list:
-    df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
-                                         n_strongest='all', weights=True)
+#%% Conditional continuous forecast
+def cond_forecast_table(rg_list):
+    df_test_m = rg_list[0].verification_tuple[2]
+    quantiles = [.1, .2, .3]
+    metrics = df_test_m.columns.levels[1]
+    cond_df = np.zeros((metrics.size, len(rg_list), len(quantiles)+1))
+    for i, met in enumerate(metrics):
+        for j, rg in enumerate(rg_list):
+            df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
+                                                 n_strongest='all', weights=True)
 
-    weights_norm = rg.prediction_tuple[1].mean(axis=0, level=1)
-    weights_norm = weights_norm.sort_values(ascending=False, by=0)
-
-
-
-    PacAtl = []
-    df_labels = find_precursors.labels_to_df(rg.list_for_MI[0].prec_labels)
-    dlat = df_labels['latitude'] - 29
-    dlon = df_labels['longitude'] - 290
-    zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
-    Atlan = zz.query('latitude < 10 & longitude < 10')
-    if Atlan.size > 0:
-        PacAtl.append(int(Atlan.index[0]))
-    PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
-    keys = [k for k in weights_norm.index if int(k.split('..')[1]) in PacAtl]
+            weights_norm = rg.prediction_tuple[1].mean(axis=0, level=1)
+            weights_norm = weights_norm.sort_values(ascending=False, by=0)
 
 
 
-    PacAtl_ts = functions_pp.get_df_test(df_mean[keys],
-                                      df_splits=rg.df_splits)
+            PacAtl = []
+            df_labels = find_precursors.labels_to_df(rg.list_for_MI[0].prec_labels)
+            dlat = df_labels['latitude'] - 29
+            dlon = df_labels['longitude'] - 290
+            zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
+            Atlan = zz.query('latitude < 10 & longitude < 10')
+            if Atlan.size > 0:
+                PacAtl.append(int(Atlan.index[0]))
+            PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
+            keys = [k for k in weights_norm.index if int(k.split('..')[1]) in PacAtl]
 
-    weights_norm = weights_norm.div(weights_norm.loc[keys].max(axis=0))
-    PacAtl_ts = weights_norm.loc[keys].T.loc[0] * PacAtl_ts # weigths
 
-    low = PacAtl_ts < PacAtl_ts.quantile(.25)
-    high = PacAtl_ts > PacAtl_ts.quantile(.75)
-    mask_anomalous = np.logical_or(low, high)
-    prediction = rg.prediction_tuple[0]
-    df_test = functions_pp.get_df_test(prediction,
-                                       df_splits=rg.df_splits)
 
-    condfc = df_test[mask_anomalous.values]
-    cond_verif_tuple = fc_utils.get_scores(condfc,
-                                           score_func_list=score_func_list,
-                                           n_boot=n_boot,
-                                           blocksize=1,
-                                           rng_seed=seed)
-    rg.cond_verif_tuple  = cond_verif_tuple
+            PacAtl_ts = functions_pp.get_df_test(df_mean[keys],
+                                              df_splits=rg.df_splits)
+
+            weights_norm = weights_norm.div(weights_norm.loc[keys].max(axis=0))
+            PacAtl_ts = weights_norm.loc[keys].T.loc[0] * PacAtl_ts # weigths
+
+            prediction = rg.prediction_tuple[0]
+            df_test = functions_pp.get_df_test(prediction,
+                                               df_splits=rg.df_splits)
+
+            df_test_m = rg.verification_tuple[2]
+            cond_df[i, j, 0] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+            for k, q in enumerate(quantiles):
+                low = PacAtl_ts < PacAtl_ts.quantile(q)
+                high = PacAtl_ts > PacAtl_ts.quantile(1-q)
+                mask_anomalous = np.logical_or(low, high)
+
+                condfc = df_test[mask_anomalous.values]
+                condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
+                cond_verif_tuple = fc_utils.get_scores(condfc,
+                                                       score_func_list=score_func_list,
+                                                       n_boot=0,
+                                                       score_per_test=False,
+                                                       blocksize=1,
+                                                       rng_seed=seed)
+                df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
+                rg.cond_verif_tuple  = cond_verif_tuple
+                cond_df[i, j, k+1] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+
+    df_cond_fc = pd.DataFrame(cond_df.reshape((len(metrics)*len(rg_list), -1)),
+                              index=pd.MultiIndex.from_product([list(metrics), [rg.fc_month for rg in rg_list]]),
+                              columns=['all']+quantiles)
+
+
+    return df_cond_fc
+
 
 #%% Functions for plotting continuous forecast
 def df_scores_for_plot(name_object):
@@ -766,12 +789,15 @@ filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}_continuous.h5')
 functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 d_dfs = functions_pp.load_hdf5(filepath_dfs)
 
-f = plot_scores_wrapper(df_scores, df_boot, df_scores_cf, df_boot_cf)
+f = plot_scores_wrapper(df_scores, df_boot)
 f_name = f'{method}_{seed}_cf_PacAtl'
 fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
 if save:
     f.savefig(fig_path, bbox_inches='tight')
 
+#%% save table conditional forecast (Continuous)
+df_cond_fc = cond_forecast_table(rg_list)
+df_cond_fc.to_excel(os.path.join(rg.path_outsub1, f'cond_fc_continuous_seed{seed}.xlsx'))
 
 #%% Collect different splits continuous forecast
 
@@ -927,8 +953,8 @@ for i, q in enumerate(thresholds):
 
 
         m = models_lags[f'lag_{lag_}'][f'split_{0}']
-        plt.plot(kwrgs_model['C'], m.cv_results_['mean_test_score'])
-        plt.axvline(m.best_params_['C']) ; plt.show() ; plt.close()
+        # plt.plot(kwrgs_model['C'], m.cv_results_['mean_test_score'])
+        # plt.axvline(m.best_params_['C']) ; plt.show() ; plt.close()
 
         df_test = functions_pp.get_df_test(predict.rename({lag_:'causal'}, axis=1),
                                             df_splits=rg.df_splits)
@@ -954,7 +980,9 @@ for i, q in enumerate(thresholds):
     if save:
         f.savefig(fig_path, bbox_inches='tight')
 
-
+    # save table conditional forecast (Continuous)
+    df_cond_fc = cond_forecast_table(rg_list)
+    df_cond_fc.to_excel(os.path.join(rg.path_outsub1, f'cond_fc_q{q}_seed{seed}.xlsx'))
 
 #%% Collect different splits high/low forecast
 

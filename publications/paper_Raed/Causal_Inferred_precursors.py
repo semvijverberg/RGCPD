@@ -683,74 +683,80 @@ fig.artists.append(ann1) ; fig.artists.append(ann2)
 y_true = df_test['USDA_Soy']
 forecast = df_test['causal']
 
-sst.lags = np.array([['07-01', '08-01']]) # JA
-ts_corr = find_precursors.spatial_mean_regions(sst,
-                                               kwrgs_load=rg.kwrgs_load,
-                                               force_reload=True,
-                                               lags=['JA'])
-df_ts = pd.concat(ts_corr, keys=range(n_spl))
+cond_lags = corlags = np.array([['02-01','03-01'],  # FM
+                                ['03-01', '04-30'], # MA
+                                ['05-01', '06-30'], # MJ
+                                ['07-01', '08-31'],
+                                ['03-01', '08-01']]) # JA
+cond_periodnames = ['FM', 'MA', 'MJ', 'JA', 'March-Aug']
 
-zz = df_ts[['JA..1..sst']]
-# zz = rg.df_data[['JA..1..sst']]
+MAE  = np.zeros( (len(cond_periodnames), 3))
+for i, l in enumerate(cond_lags):
 
-sst.lags = corlags # restore old lags
+    sst.lags = np.array([l]) # JA
+    ts_corr = find_precursors.spatial_mean_regions(sst,
+                                                   kwrgs_load=rg.kwrgs_load,
+                                                   force_reload=True,
+                                                   lags=['MJ'])
+    df_ts = pd.concat(ts_corr, keys=range(n_spl))
 
+    zz = df_ts[['MJ..1..sst']]
+    # zz = rg.df_data[['JA..1..sst']]
 
-target_1sst = functions_pp.get_df_test(zz,
-                                   df_splits=rg.df_splits)
-# target_1sst = rg.df_data[['JA..1..sst']].mean(axis=0, level=1)
-target_1sst = (target_1sst - target_1sst.mean()) / target_1sst.std()
-
-outsst = rg.fit_df_data_ridge(target = target_1sst,
-                           df_data=rg.df_data[['MJ..1..sst', 'TrainIsTrue', 'RV_mask']],
-                           tau_min=0, tau_max=0,
-                           kwrgs_model=kwrgs_model,
-                           fcmodel=fcmodel,
-                           transformer=None)
-predict, weights, models_lags = outsst
-df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(predict,
-                                                       rg.df_data.iloc[:,-2:],
-                                                       score_func_list,
-                                                       n_boot = 1,
-                                                       blocksize=1,
-                                                       rng_seed=seed)
+    state_sst = functions_pp.get_df_test(zz.rename({lag_:cond_periodnames[i]}, axis=1),
+                                         df_splits=rg.df_splits)
 
 
-state_sst = functions_pp.get_df_test(predict[[0]].rename({lag_:'JAsst'}, axis=1),
-                                     df_splits=rg.df_splits)
+    # sst.lags = corlags # restore old lags
 
+
+    # target_1sst = functions_pp.get_df_test(zz,
+    #                                    df_splits=rg.df_splits)
+    # # target_1sst = rg.df_data[['JA..1..sst']].mean(axis=0, level=1)
+    # target_1sst = (target_1sst - target_1sst.mean()) / target_1sst.std()
+
+    # outsst = rg.fit_df_data_ridge(target = target_1sst,
+    #                            df_data=rg.df_data[['MJ..1..sst', 'TrainIsTrue', 'RV_mask']],
+    #                            tau_min=0, tau_max=0,
+    #                            kwrgs_model=kwrgs_model,
+    #                            fcmodel=fcmodel,
+    #                            transformer=None)
+    # predict, weights, models_lags = outsst
+    # df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(predict,
+    #                                                        rg.df_data.iloc[:,-2:],
+    #                                                        score_func_list,
+    #                                                        n_boot = 1,
+    #                                                        blocksize=1,
+    #                                                        rng_seed=seed)
+
+
+    # state_sst = functions_pp.get_df_test(predict[[0]].rename({lag_:'JAsst'}, axis=1),
+    #                                      df_splits=rg.df_splits)
+
+    quantiles = [.1, .2, .3]
+    for j, q in enumerate(quantiles):
+        low = state_sst < state_sst.quantile(q)
+        high = state_sst > state_sst.quantile(1-q)
+        mask_anomalous = np.logical_or(low, high)
+
+        condfc = df_test[mask_anomalous.values]
+        condfc = condfc.rename({'causal':cond_periodnames[i]}, axis=1)
+        cond_verif_tuple = fc_utils.get_scores(condfc,
+                                               score_func_list=score_func_list,
+                                               n_boot=0,
+                                               score_per_test=False,
+                                               blocksize=1,
+                                               rng_seed=seed)
+        df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
+        print(df_test_m)
+        MAE[i, j] = df_test_m[cond_periodnames[i]].loc[0]['MAE']
+df_cond_fc = pd.DataFrame(MAE, index=cond_periodnames, columns=quantiles)
+
+df_cond_fc.to_excel(os.path.join(rg.path_outsub1, 'cond_fc.xlsx'))
 #%%
-state_sst = functions_pp.get_df_test(rg.df_data[['MJ..1..sst']].rename({lag_:'JAsst'}, axis=1),
-                                     df_splits=rg.df_splits)
 
-#%%
-quantiles = [.1, .2, .3]
-for q in quantiles:
-    low = state_sst < state_sst.quantile(q)
-    high = state_sst > state_sst.quantile(1-q)
-    mask_anomalous = np.logical_or(low, high)
+sys.exit()
 
-    condfc = df_test[mask_anomalous.values]
-    cond_verif_tuple = fc_utils.get_scores(condfc,
-                                           score_func_list=score_func_list,
-                                           n_boot=1,
-                                           score_per_test=False,
-                                           blocksize=1,
-                                           rng_seed=seed)
-    df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
-    print(df_test_m)
-
-
-    # m = models_lags[f'lag_{lag_}'][f'split_{0}']
-    # np_mask = mask_anomalous.values.squeeze()
-
-    # SS_normal = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).MAE(y_true, forecast)
-    # SS_strong = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).MAE(y_true[np_mask], forecast[np_mask])
-    # # print(f'Normal: {SS_normal} - Strong: {SS_strong} _ {(SS_strong-SS_normal)/SS_normal}')
-
-    # SS_normal = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).RMSE(y_true, forecast)
-    # SS_strong = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).RMSE(y_true[np_mask], forecast[np_mask])
-    # print(f'{SS_normal} - {SS_strong} _ {(SS_strong-SS_normal)/SS_normal}')
 #%% forecasting
 
 
@@ -1146,6 +1152,65 @@ target_ts = rg.TV.RV_ts
 target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 target_ts = (target_ts > target_ts.mean()).astype(int)
 
+#%%
+
+
+def plot_vs_lags(df_scores_dict, target_ts, df_boots_dict=None, rename_m: dict=None,
+                 orientation='vertical',
+                 colorlist: list=['#3388BB', '#EE6666', '#9988DD'], alpha=.05):
+
+    cropname = target_dataset.split('_')[1]
+    if (np.sum(target_ts).squeeze() / target_ts.size) < .45:
+        title = f'Skill predicting higher {cropname} yield years'
+    elif (np.sum(target_ts).squeeze() / target_ts.size) > .55:
+        title = f'Skill predicting lower {cropname} yield years'
+
+    if rename_m is None:
+        rename_m = {i:i for i in df_scores.index}
+    else:
+        rename_m = rename_m
+    metrics_cols = list(rename_m.values())
+    if orientation=='vertical':
+        f, ax_ = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
+                         sharex=True) ;
+    else:
+        f, ax_ = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
+                         sharey=False) ;
+    if type(df_scores_dict) is not dict:
+        df_scores_dict = {'forecast': [df_scores_dict, df_boots_dict]}
+
+    for i, forecast_label in enumerate(df_scores_dict):
+
+        df_scores_ = df_scores_dict[forecast_label][0]
+        df_boots_ = df_scores_dict[forecast_label][1]
+        for j, m in enumerate(metrics_cols):
+
+            ax = ax_[j]
+            ax.plot(df_scores_.columns, df_scores_.T[m],
+                    label=forecast_label,
+                    color=colorlist[i],
+                    linestyle='solid')
+            ax.set_xticks(df_scores_.columns)
+            ax.set_xticklabels(df_scores_.columns)
+            ax.set_xlabel('Month of forecast', fontsize=15)
+            ax.set_ylabel(rename_m[m], fontsize=15)
+            ax.tick_params(axis='both', which='major', labelsize=15)
+            ax.legend()
+            ax.set_ylim(0,1)
+            ax.fill_between(df_scores_.columns,
+                            df_boots_.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                            df_boots_.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                            edgecolor=colorlist[i], facecolor=colorlist[i], alpha=0.3,
+                            linestyle='solid', linewidth=2)
+
+            if m == 'corrcoef':
+                ax.set_ylim(-.3,1)
+            elif m == 'roc_auc_score':
+                ax.set_ylim(0,1)
+            else:
+                ax.set_ylim(-.2,.8)
+    f.suptitle(title, x=.5, y=1.01, fontsize=18)
+    f.tight_layout()
 
 #%% forecast Yield as function of months
 
@@ -1494,65 +1559,7 @@ df_pred_test_c = pd.concat(list_pred_test_c, axis=1)
 
 plot_vs_lags(df_scores_c, target_ts, df_boots_c)
 
-#%%
 
-
-def plot_vs_lags(df_scores_dict, target_ts, df_boots_dict=None, rename_m: dict=None,
-                 orientation='vertical',
-                 colorlist: list=['#3388BB', '#EE6666', '#9988DD'], alpha=.05):
-
-    cropname = target_dataset.split('_')[1]
-    if (np.sum(target_ts).squeeze() / target_ts.size) < .45:
-        title = f'Skill predicting higher {cropname} yield years'
-    elif (np.sum(target_ts).squeeze() / target_ts.size) > .55:
-        title = f'Skill predicting lower {cropname} yield years'
-
-    if rename_m is None:
-        rename_m = {i:i for i in df_scores.index}
-    else:
-        rename_m = rename_m
-    metrics_cols = list(rename_m.values())
-    if orientation=='vertical':
-        f, ax_ = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
-                         sharex=True) ;
-    else:
-        f, ax_ = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
-                         sharey=False) ;
-    if type(df_scores_dict) is not dict:
-        df_scores_dict = {'forecast': [df_scores_dict, df_boots_dict]}
-
-    for i, forecast_label in enumerate(df_scores_dict):
-
-        df_scores_ = df_scores_dict[forecast_label][0]
-        df_boots_ = df_scores_dict[forecast_label][1]
-        for j, m in enumerate(metrics_cols):
-
-            ax = ax_[j]
-            ax.plot(df_scores_.columns, df_scores_.T[m],
-                    label=forecast_label,
-                    color=colorlist[i],
-                    linestyle='solid')
-            ax.set_xticks(df_scores_.columns)
-            ax.set_xticklabels(df_scores_.columns)
-            ax.set_xlabel('Month of forecast', fontsize=15)
-            ax.set_ylabel(rename_m[m], fontsize=15)
-            ax.tick_params(axis='both', which='major', labelsize=15)
-            ax.legend()
-            ax.set_ylim(0,1)
-            ax.fill_between(df_scores_.columns,
-                            df_boots_.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                            df_boots_.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-                            edgecolor=colorlist[i], facecolor=colorlist[i], alpha=0.3,
-                            linestyle='solid', linewidth=2)
-
-            if m == 'corrcoef':
-                ax.set_ylim(-.3,1)
-            elif m == 'roc_auc_score':
-                ax.set_ylim(0,1)
-            else:
-                ax.set_ylim(-.2,.8)
-    f.suptitle(title, x=.5, y=1.01, fontsize=18)
-    f.tight_layout()
 
 #%%
 df_scores_dict = {'forecast':[df_scores,df_boots],
