@@ -1022,12 +1022,12 @@ for q in [.33, .5, .66]:
                     ax[i].set_xlabel('Forecast month', fontsize=18)
                 if i == 0:
                     ax[i].legend(loc='lower right', fontsize=14)
-                ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
+                ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=4)
 
 
     f.subplots_adjust(hspace=.1)
     f.subplots_adjust(wspace=.22)
-    title = 'Verification Soy Yield forecast'
+    title = f'Verification Soy Yield forecast (q={q})'
     if orientation == 'vertical':
         f.suptitle(title, y=.92, fontsize=18)
     else:
