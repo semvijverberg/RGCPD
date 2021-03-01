@@ -545,6 +545,123 @@ for ip, precur in enumerate(rg.list_for_MI):
                                   f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_MCI'+rg.figext),
                     bbox_inches='tight')
 
+#%% Plot regions with Corr value
+
+
+def plot_regions(rg, save, plot_parcorr=False):
+    # Get ConDepKeys
+    df_pvals = rg.df_pvals.copy()
+    df_corr  = rg.df_corr.copy()
+    periodnames = list(rg.list_for_MI[0].corr_xr.lag.values)
+
+    CondDepKeys = {} ;
+    for i, mon in enumerate(periodnames):
+        list_mon = []
+        _keys = [k for k in df_pvals.index if mon in k] # month
+        df_sig = df_pvals[df_pvals.loc[_keys] <= alpha_CI].dropna(axis=0, how='all') # significant
+
+        for k in df_sig.index:
+            corr_val = df_corr.loc[k].mean()
+            RB = (df_pvals.loc[k]<alpha_CI).sum()
+            list_mon.append((k, corr_val, RB))
+        CondDepKeys[mon] = list_mon
+
+    for ip, precur in enumerate(rg.list_for_MI):
+        # ip=0; precur = rg.list_for_MI[ip]
+
+        CDlabels = precur.prec_labels.copy()
+
+        if precur.group_lag:
+            CDlabels = xr.concat([CDlabels]*len(periodnames), dim='lag')
+            CDlabels['lag'] = ('lag', periodnames)
+            CDcorr = precur.corr_xr_.copy()
+        else:
+            CDcorr = precur.corr_xr.copy()
+        textinmap = []
+        MCIstr = CDlabels.copy()
+        for i, month in enumerate(CondDepKeys):
+
+            CDkeys = [k[0] for k in CondDepKeys[month] if precur.name in k[0].split('..')[-1]]
+            MCIv = [k[1] for k in CondDepKeys[month] if precur.name in k[0].split('..')[-1]]
+            RB = [k[2] for k in CondDepKeys[month] if precur.name in k[0].split('..')[-1]]
+            region_labels = [int(l.split('..')[1]) for l in CDkeys if precur.name in l.split('..')[-1]]
+            f = find_precursors.view_or_replace_labels
+            if region_labels[0] == 0:
+                region_labels = np.unique(CDlabels[:,i].values[~np.isnan(CDlabels[:,i]).values])
+                region_labels = np.array(region_labels, dtype=int)
+                MCIv = np.repeat(MCIv, len(region_labels))
+                CDkeys = [CDkeys[0].replace('..0..', f'..{r}..') for r in region_labels]
+            CDlabels[:,i] = f(CDlabels[:,i].copy(), region_labels)
+            if plot_parcorr:
+                MCIstr[:,i]   = f(CDlabels[:,i].copy(), region_labels,
+                                  replacement_labels=MCIv)
+            else:
+                MCIstr[:,i]   = CDcorr[:,i].copy()
+
+
+            # get text on robustness:
+            if len(CDkeys) != 0:
+                temp = []
+                df_labelloc = find_precursors.labels_to_df(CDlabels[:,i])
+                for q, k in enumerate(CDkeys):
+                    l = int(k.split('..')[1])
+                    if l == 0: # pattern cov
+                        lat, lon = df_labelloc.mean(0)[:2]
+                    else:
+                        lat, lon = df_labelloc.loc[l].iloc[:2].values.round(1)
+                    if lon > 180: lon-360
+                    if precur.calc_ts != 'pattern cov':
+                        count = rg._df_count[k]
+                        text = f'{int(RB[q])}/{count}'
+                        temp.append([lon+10,lat+5, text, {'fontsize':15,
+                                               'bbox':dict(facecolor='white', alpha=0.8)}])
+                    elif precur.calc_ts == 'pattern cov' and q == 0:
+                        count = rg._df_count[f'{month}..0..{precur.name}_sp']
+                        text = f'{int(RB[0])}/{count}'
+                        lon = float(CDlabels[:,i].longitude.mean())
+                        lat = float(CDlabels[:,i].latitude.mean())
+                        temp.append([lon,lat, text, {'fontsize':15,
+                                               'bbox':dict(facecolor='white', alpha=0.8)}])
+
+                textinmap.append([(i,0), temp])
+
+        if ip == 0:
+            kwrgs_plot = kwrgs_plotcorr_sst.copy()
+        elif ip == 1:
+            kwrgs_plot = kwrgs_plotcorr_SM.copy()
+        # labels plot
+        plot_maps.plot_labels(CDlabels.mean(dim='split'), kwrgs_plot=kwrgs_plot)
+        if save:
+            if method == 'pcmci':
+                dirpath = rg.path_outsub2
+            else:
+                dirpath = rg.path_outsub1
+            plt.savefig(os.path.join(dirpath,
+                                  f'{precur.name}_eps{precur.distance_eps}'
+                                  f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_labels_'
+                                  f'{periodnames[-1]}'+rg.figext),
+                         bbox_inches='tight')
+
+        # MCI values plot
+        mask_xr = np.isnan(CDlabels).mean(dim='split') < 1.
+        kwrgs_plot.update({'clevels':np.arange(-0.8, 0.9, .1),
+                           'textinmap':textinmap})
+        fig = plot_maps.plot_corr_maps(MCIstr.where(mask_xr).mean(dim='split'),
+                                       mask_xr=mask_xr,
+                                       **kwrgs_plot)
+        if save:
+            fig.savefig(os.path.join(dirpath,
+                                      f'{precur.name}_eps{precur.distance_eps}'
+                                      f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_MCI_'
+                                      f'{periodnames[-1]}'+rg.figext),
+                        bbox_inches='tight')
+
+
+plot_regions(rg, save=save, plot_parcorr=False)
+
+
+
+
 #%% Forecast with Causal Precursors
 
 from sklearn.linear_model import RidgeCV, Ridge
