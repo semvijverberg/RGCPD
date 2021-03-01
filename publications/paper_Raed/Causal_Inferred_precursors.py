@@ -691,7 +691,7 @@ ts_corr = find_precursors.spatial_mean_regions(sst,
 df_ts = pd.concat(ts_corr, keys=range(n_spl))
 
 zz = df_ts[['JA..1..sst']]
-zz = rg.df_data[['JA..1..sst']]
+# zz = rg.df_data[['JA..1..sst']]
 
 sst.lags = corlags # restore old lags
 
