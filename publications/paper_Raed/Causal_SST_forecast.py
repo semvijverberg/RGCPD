@@ -1082,7 +1082,7 @@ kwrgs_plotcorr_SM.update({'aspect':2, 'hspace':0.2,
 
 
 
-def plot_regions(rg, save=save):
+def plot_regions(rg, save, plot_parcorr=False):
     # Get ConDepKeys
     df_pvals = rg.df_pvals.copy()
     df_corr  = rg.df_corr.copy()
@@ -1126,8 +1126,11 @@ def plot_regions(rg, save=save):
                 MCIv = np.repeat(MCIv, len(region_labels))
                 CDkeys = [CDkeys[0].replace('..0..', f'..{r}..') for r in region_labels]
             CDlabels[:,i] = f(CDlabels[:,i].copy(), region_labels)
-            MCIstr[:,i]   = f(CDlabels[:,i].copy(), region_labels,
-                              replacement_labels=MCIv)
+            if plot_parcorr:
+                MCIstr[:,i]   = f(CDlabels[:,i].copy(), region_labels,
+                                  replacement_labels=MCIv)
+            else:
+                MCIstr[:,i]   = CDcorr[:,i].copy()
 
 
             # get text on robustness:
@@ -1172,10 +1175,11 @@ def plot_regions(rg, save=save):
                          bbox_inches='tight')
 
         # MCI values plot
+        mask_xr = np.isnan(CDlabels).mean(dim='split') < 1.
         kwrgs_plot.update({'clevels':np.arange(-0.8, 0.9, .1),
                            'textinmap':textinmap})
-        fig = plot_maps.plot_corr_maps(MCIstr.mean(dim='split'),
-                                       mask_xr=np.isnan(MCIstr.mean(dim='split')).astype(bool),
+        fig = plot_maps.plot_corr_maps(MCIstr.where(mask_xr).mean(dim='split'),
+                                       mask_xr=mask_xr,
                                        **kwrgs_plot)
         if save:
             fig.savefig(os.path.join(dirpath,
@@ -1188,7 +1192,24 @@ def plot_regions(rg, save=save):
 
 #%%
 for rg in rg_list:
-    plot_regions(rg, save=save)
+    plot_regions(rg, save=save, plot_parcorr=False)
+    # kwrgs_plotcorr_sst = {'row_dim':'lag', 'col_dim':'split','aspect':4, 'hspace':0,
+    #               'wspace':-.15, 'size':3, 'cbar_vert':0.05,
+    #               'map_proj':ccrs.PlateCarree(central_longitude=220),
+    #                'y_ticks':np.arange(-10,61,20), #'x_ticks':np.arange(130, 280, 25),
+    #               'title':'',
+    #               'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+    # rg.plot_maps_corr('sst', kwrgs_plot=kwrgs_plotcorr_sst, save=save)
+
+#%%
+    kwrgs_plotcorr_SM = {'row_dim':'lag', 'col_dim':'split','aspect':2, 'hspace':0.2,
+                      'wspace':0, 'size':3, 'cbar_vert':0.04,
+                      'map_proj':ccrs.PlateCarree(central_longitude=220),
+                       'y_ticks':np.arange(25,56,10), 'x_ticks':np.arange(230, 295, 15),
+                      'title':'',
+                      'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+    rg.plot_maps_corr('smi', kwrgs_plot=kwrgs_plotcorr_SM, save=save)
+
 
 #%% plot
 for rg in rg_list:
