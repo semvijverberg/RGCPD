@@ -613,8 +613,8 @@ for i, rg in enumerate(rg_list):
 
 
     m = models_lags[f'lag_{lag_}'][f'split_{0}']
-    plt.plot(kwrgs_model['alpha'], m.cv_results_['mean_test_score'])
-    plt.axvline(m.best_params_['alpha']) ; plt.show() ; plt.close()
+    # plt.plot(kwrgs_model['alpha'], m.cv_results_['mean_test_score'])
+    # plt.axvline(m.best_params_['alpha']) ; plt.show() ; plt.close()
 
     df_test = functions_pp.get_df_test(predict.rename({lag_:'causal'}, axis=1),
                                         df_splits=rg.df_splits)
@@ -906,7 +906,8 @@ for i, q in enumerate(thresholds):
                         'C':list(np.concatenate([[1E-20],np.logspace(-5,0, 6),
                                                   np.logspace(.01, 1.5, num=5)])), # large a, strong regul.
                         'random_state':seed,
-                        'fit_intercept':False,
+                        'penalty':'l2',
+                        'solver':'lbfgs',
                         'kfold':10,
                         'max_iter':200}
 
