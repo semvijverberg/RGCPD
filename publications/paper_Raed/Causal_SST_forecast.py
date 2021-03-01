@@ -64,7 +64,7 @@ from stat_models import plot_importances
 target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['random_20'] # ['ranstrat_20']
+methods = ['random_5'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -664,7 +664,7 @@ for rg in rg_list:
                                            rng_seed=seed)
     rg.cond_verif_tuple  = cond_verif_tuple
 
-#%%
+#%% Functions for plotting continuous forecast
 def df_scores_for_plot(name_object):
     df_scores = [] ; df_boot = [] ; df_tests = []
     for i, rg in enumerate(rg_list):
@@ -676,10 +676,6 @@ def df_scores_for_plot(name_object):
     df_boot = pd.concat(df_boot, axis=1)
     df_tests = pd.concat(df_tests, axis=1)
     return df_scores, df_boot, df_tests
-
-
-
-
 
 def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
     orientation = 'horizontal'
@@ -765,7 +761,7 @@ df_scores_cf, df_boot_cf, df_tests_cf = df_scores_for_plot(name_object='cond_ver
 d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests,
             'df_scores_cf':df_scores_cf, 'df_boot_cf':df_boot_cf,
             'df_tests_cf':df_tests_cf}
-filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}.h5')
+filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}_continuous.h5')
 
 functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 d_dfs = functions_pp.load_hdf5(filepath_dfs)
@@ -776,9 +772,83 @@ fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
 if save:
     f.savefig(fig_path, bbox_inches='tight')
 
+
+#%% Collect different splits continuous forecast
+
+orientation = 'horizontal'
+alpha = .05
+metrics_cols = ['corrcoef', 'MAE', 'RMSE']
+rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
+            'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
+
+if orientation=='vertical':
+    f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
+                     sharex=True) ;
+else:
+    f, ax = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
+                     sharey=False) ;
+path = '/'.join(rg.path_outsub1.split('/')[:-1])
+
+cs = ["#a4110f","#f7911d","#fffc33","#9bcd37","#1790c4"]
+for s in range(5):
+
+    hash_str = f'scores_s{s}_continuous.h5'
+    f_name = None
+    for root, dirs, files in os.walk(path):
+        for file in files:
+            if re.findall(f'{hash_str}', file):
+                print(f'Found file {file}')
+                f_name = file
+    if f_name is not None:
+        d_dfs = functions_pp.load_hdf5(os.path.join(path,
+                                                    f's{s}',
+                                                    f_name))
+
+        c1, c2 = '#3388BB', '#EE6666'
+        for i, m in enumerate(metrics_cols):
+            # normal SST
+
+            labels = d_dfs['df_scores'].columns.levels[0]
+            ax[i].plot(labels, d_dfs['df_scores'].reorder_levels((1,0), axis=1).loc[0][m].T,
+                    label=f'seed: {s}',
+                    color=cs[s],
+                    linestyle='solid')
+            ax[i].fill_between(labels,
+                                d_dfs['df_boot'].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                                d_dfs['df_boot'].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                                edgecolor=cs[s], facecolor=cs[s], alpha=0.3,
+                                linestyle='solid', linewidth=2)
+
+            if m == 'corrcoef':
+                ax[i].set_ylim(-.2,1)
+            else:
+                ax[i].set_ylim(-.2,.6)
+            ax[i].axhline(y=0, color='black', linewidth=1)
+            ax[i].tick_params(labelsize=16, pad=6)
+            if i == len(metrics_cols)-1 and orientation=='vertical':
+                ax[i].set_xlabel('Forecast month', fontsize=18)
+            elif orientation=='horizontal':
+                ax[i].set_xlabel('Forecast month', fontsize=18)
+            if i == 0:
+                ax[i].legend(loc='lower right', fontsize=14)
+            ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
+
+
+f.subplots_adjust(hspace=.1)
+f.subplots_adjust(wspace=.22)
+title = 'Verification Soy Yield forecast'
+if orientation == 'vertical':
+    f.suptitle(title, y=.92, fontsize=18)
+else:
+    f.suptitle(title, y=.95, fontsize=18)
+f_name = f'{method}_{seed}_PacAtl_seeds'
+fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
+if save:
+    plt.savefig(fig_path, bbox_inches='tight')
+
 #%% Low/High yield forecast
 
-thresholds = [.33, .66]
+thresholds = [.33, .5, .66]
 for i, q in enumerate(thresholds):
     months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May'}
     list_verification = [] ; list_prediction = []
@@ -809,7 +879,7 @@ for i, q in enumerate(thresholds):
         kwrgs_model = {'scoringCV':'neg_brier_score',
                         'C':list(np.concatenate([[1E-20],np.logspace(-5,0, 6),
                                                   np.logspace(.01, 1.5, num=5)])), # large a, strong regul.
-                        'random_state':1,
+                        'random_state':seed,
                         'fit_intercept':False,
                         'kfold':10,
                         'max_iter':200}
@@ -873,7 +943,7 @@ for i, q in enumerate(thresholds):
     d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
                 # 'df_scores_cf':df_scores_cf, 'df_boot_cf':df_boot_cf,
                 # 'df_tests_cf':df_tests_cf}
-    filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}.h5')
+    filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}_q{q}.h5')
 
     functions_pp.store_hdf_df(d_dfs, filepath_dfs)
     d_dfs = functions_pp.load_hdf5(filepath_dfs)
@@ -885,6 +955,87 @@ for i, q in enumerate(thresholds):
         f.savefig(fig_path, bbox_inches='tight')
 
 
+
+#%% Collect different splits high/low forecast
+
+orientation = 'horizontal'
+alpha = .05
+if 'BSS' in df_scores.columns.levels[1]:
+    metrics_cols = ['BSS', 'roc_auc_score']
+    rename_m = {'BSS': 'BSS', 'roc_auc_score':'ROC-AUC'}
+else:
+    metrics_cols = ['corrcoef', 'MAE', 'RMSE']
+    rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
+                'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
+
+
+for q in [.33, .5, .66]:
+    if orientation=='vertical':
+        f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
+                         sharex=True) ;
+    else:
+        f, ax = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
+                         sharey=False) ;
+    path = '/'.join(rg.path_outsub1.split('/')[:-1])
+
+    cs = ["#a4110f","#f7911d","#fffc33","#9bcd37","#1790c4"]
+    for s in range(5):
+
+        hash_str = f'scores_s{s}_q{q}.h5'
+        f_name = None
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                if re.findall(f'{hash_str}', file):
+                    print(f'Found file {file}')
+                    f_name = file
+        if f_name is not None:
+            d_dfs = functions_pp.load_hdf5(os.path.join(path,
+                                                        f's{s}',
+                                                        f_name))
+
+            c1, c2 = '#3388BB', '#EE6666'
+            for i, m in enumerate(metrics_cols):
+                # normal SST
+
+                labels = d_dfs['df_scores'].columns.levels[0]
+                ax[i].plot(labels, d_dfs['df_scores'].reorder_levels((1,0), axis=1).loc[0][m].T,
+                        label=f'seed: {s}',
+                        color=cs[s],
+                        linestyle='solid')
+                ax[i].fill_between(labels,
+                                    d_dfs['df_boot'].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                                    d_dfs['df_boot'].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                                    edgecolor=cs[s], facecolor=cs[s], alpha=0.3,
+                                    linestyle='solid', linewidth=2)
+
+                if m == 'corrcoef':
+                    ax[i].set_ylim(-.2,1)
+                elif m == 'roc_auc_score':
+                    ax[i].set_ylim(0,1)
+                else:
+                    ax[i].set_ylim(-.2,.6)
+                ax[i].axhline(y=0, color='black', linewidth=1)
+                ax[i].tick_params(labelsize=16, pad=6)
+                if i == len(metrics_cols)-1 and orientation=='vertical':
+                    ax[i].set_xlabel('Forecast month', fontsize=18)
+                elif orientation=='horizontal':
+                    ax[i].set_xlabel('Forecast month', fontsize=18)
+                if i == 0:
+                    ax[i].legend(loc='lower right', fontsize=14)
+                ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
+
+
+    f.subplots_adjust(hspace=.1)
+    f.subplots_adjust(wspace=.22)
+    title = 'Verification Soy Yield forecast'
+    if orientation == 'vertical':
+        f.suptitle(title, y=.92, fontsize=18)
+    else:
+        f.suptitle(title, y=.95, fontsize=18)
+    f_name = f'{method}_{seed}_PacAtl_seeds_q{q}'
+    fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
+    if save:
+        plt.savefig(fig_path, bbox_inches='tight')
 
 
 #%%
@@ -995,147 +1146,6 @@ def plot_regions(rg, save=save):
                                       f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_MCI_'
                                       f'{periodnames[-1]}'+rg.figext),
                         bbox_inches='tight')
-
-#%%
-
-orientation = 'horizontal'
-alpha = .05
-metrics_cols = ['corrcoef', 'MAE', 'RMSE']
-rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
-            'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
-
-if orientation=='vertical':
-    f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
-                     sharex=True) ;
-else:
-    f, ax = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
-                     sharey=False) ;
-path = '/'.join(rg.path_outsub1.split('/')[:-1])
-
-cs = ["#a4110f","#f7911d","#fffc33","#9bcd37","#1790c4"]
-for s in range(5):
-
-    hash_str = f'scores_s{s}.h5'
-    f_name = None
-    for root, dirs, files in os.walk(path):
-        for file in files:
-            if re.findall(f'{hash_str}', file):
-                print(f'Found file {file}')
-                f_name = file
-    if f_name is not None:
-        d_dfs = functions_pp.load_hdf5(os.path.join(path,
-                                                    f's{s}',
-                                                    f_name))
-
-
-
-        c1, c2 = '#3388BB', '#EE6666'
-        for i, m in enumerate(metrics_cols):
-            # normal SST
-
-            labels = d_dfs['df_scores'].columns.levels[0]
-            ax[i].plot(labels, d_dfs['df_scores'].reorder_levels((1,0), axis=1).loc[0][m].T,
-                    label=f'seed: {s}',
-                    color=cs[s],
-                    linestyle='solid')
-            ax[i].fill_between(labels,
-                                d_dfs['df_boot'].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                                d_dfs['df_boot'].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-                                edgecolor=cs[s], facecolor=cs[s], alpha=0.3,
-                                linestyle='solid', linewidth=2)
-
-            if m == 'corrcoef':
-                ax[i].set_ylim(-.2,1)
-            else:
-                ax[i].set_ylim(-.2,.6)
-            ax[i].axhline(y=0, color='black', linewidth=1)
-            ax[i].tick_params(labelsize=16, pad=6)
-            if i == len(metrics_cols)-1 and orientation=='vertical':
-                ax[i].set_xlabel('Forecast month', fontsize=18)
-            elif orientation=='horizontal':
-                ax[i].set_xlabel('Forecast month', fontsize=18)
-            if i == 0:
-                ax[i].legend(loc='lower right', fontsize=14)
-            ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
-
-
-f.subplots_adjust(hspace=.1)
-f.subplots_adjust(wspace=.22)
-title = 'Verification Soy Yield forecast'
-if orientation == 'vertical':
-    f.suptitle(title, y=.92, fontsize=18)
-else:
-    f.suptitle(title, y=.95, fontsize=18)
-f_name = f'{method}_{seed}_PacAtl_seeds'
-fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
-if save:
-    plt.savefig(fig_path, bbox_inches='tight')
-
-#%%
-if orientation=='vertical':
-    f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
-                     sharex=True) ;
-else:
-    f, ax = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
-                     sharey=False) ;
-path = '/'.join(rg.path_outsub1.split('/')[:-1])
-
-cs = ["#a4110f","#f7911d","#fffc33","#9bcd37","#1790c4"]
-for s in range(5):
-    hash_str = f'scores_s{s}.h5'
-    f_name = None
-    for root, dirs, files in os.walk(path):
-        for file in files:
-            if re.findall(f'{hash_str}', file):
-                print(f'Found file {file}')
-                f_name = file
-    if f_name is not None:
-        d_dfs = functions_pp.load_hdf5(os.path.join(path,
-                                                    f's{s}',
-                                                    f_name))
-        for i, m in enumerate(metrics_cols):
-            # normal SST
-            splits = d_dfs['df_tests'].index
-            for split in splits:
-                df_split = d_dfs['df_tests'].loc[split]
-                labels = df_split.index.levels[0]
-                if split==0:
-                    label = f'seed: {s}'
-                else:
-                    label = None
-                ax[i].plot(labels, df_split.loc[:,m],
-                        label=label,
-                        color=cs[s],
-                        linestyle='solid',
-                        alpha=.5)
-
-            if m == 'corrcoef':
-                ax[i].set_ylim(-1,1)
-            else:
-                ax[i].set_ylim(-1,1)
-            ax[i].axhline(y=0, color='black', linewidth=1)
-            ax[i].tick_params(labelsize=16, pad=6)
-            if i == len(metrics_cols)-1 and orientation=='vertical':
-                ax[i].set_xlabel('Forecast month', fontsize=18)
-            elif orientation=='horizontal':
-                ax[i].set_xlabel('Forecast month', fontsize=18)
-            if i == 0:
-                ax[i].legend(loc='lower right', fontsize=14)
-            ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=0)
-
-
-f.subplots_adjust(hspace=.1)
-f.subplots_adjust(wspace=.26)
-test_size = '/'.join(np.array(np.unique([len(a) for a in rg._get_testyrs()]),str))
-title = f'Verification for each test split (n={test_size} yrs)'
-if orientation == 'vertical':
-    f.suptitle(title, y=.92, fontsize=18)
-else:
-    f.suptitle(title, y=.95, fontsize=18)
-f_name = f'{method}_{seed}_PacAtl_seeds_splits'
-fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
-if save:
-    plt.savefig(fig_path, bbox_inches='tight')
 
 
 
