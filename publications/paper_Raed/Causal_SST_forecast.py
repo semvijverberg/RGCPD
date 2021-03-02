@@ -64,7 +64,7 @@ from stat_models import plot_importances
 target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_10'] # ['ranstrat_20']
+methods = ['leave_34'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -1120,11 +1120,12 @@ def plot_regions(rg, save, plot_parcorr=False):
             RB = [k[2] for k in CondDepKeys[month] if precur.name in k[0].split('..')[-1]]
             region_labels = [int(l.split('..')[1]) for l in CDkeys if precur.name in l.split('..')[-1]]
             f = find_precursors.view_or_replace_labels
-            if region_labels[0] == 0:
-                region_labels = np.unique(CDlabels[:,i].values[~np.isnan(CDlabels[:,i]).values])
-                region_labels = np.array(region_labels, dtype=int)
-                MCIv = np.repeat(MCIv, len(region_labels))
-                CDkeys = [CDkeys[0].replace('..0..', f'..{r}..') for r in region_labels]
+            if len(CDkeys) != 0:
+                if region_labels[0] == 0: # pattern cov
+                    region_labels = np.unique(CDlabels[:,i].values[~np.isnan(CDlabels[:,i]).values])
+                    region_labels = np.array(region_labels, dtype=int)
+                    MCIv = np.repeat(MCIv, len(region_labels))
+                    CDkeys = [CDkeys[0].replace('..0..', f'..{r}..') for r in region_labels]
             CDlabels[:,i] = f(CDlabels[:,i].copy(), region_labels)
             if plot_parcorr:
                 MCIstr[:,i]   = f(CDlabels[:,i].copy(), region_labels,
@@ -1140,7 +1141,7 @@ def plot_regions(rg, save, plot_parcorr=False):
                 for q, k in enumerate(CDkeys):
                     l = int(k.split('..')[1])
                     if l == 0: # pattern cov
-                        lat, lon = df_labelloc.iloc[0].iloc[:2].values.round(1)
+                        lat, lon = df_labelloc.mean(0)[:2]
                     else:
                         lat, lon = df_labelloc.loc[l].iloc[:2].values.round(1)
                     if lon > 180: lon-360
@@ -1152,9 +1153,10 @@ def plot_regions(rg, save, plot_parcorr=False):
                     elif precur.calc_ts == 'pattern cov' and q == 0:
                         count = rg._df_count[f'{month}..0..{precur.name}_sp']
                         text = f'{int(RB[0])}/{count}'
-                        temp.append([lon+10,lat+5, text, {'fontsize':15,
+                        lon = float(CDlabels[:,i].longitude.mean())
+                        lat = float(CDlabels[:,i].latitude.mean())
+                        temp.append([lon,lat, text, {'fontsize':15,
                                                'bbox':dict(facecolor='white', alpha=0.8)}])
-
                 textinmap.append([(i,0), temp])
 
         if ip == 0:

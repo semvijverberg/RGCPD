@@ -586,11 +586,12 @@ def plot_regions(rg, save, plot_parcorr=False):
             RB = [k[2] for k in CondDepKeys[month] if precur.name in k[0].split('..')[-1]]
             region_labels = [int(l.split('..')[1]) for l in CDkeys if precur.name in l.split('..')[-1]]
             f = find_precursors.view_or_replace_labels
-            if region_labels[0] == 0:
-                region_labels = np.unique(CDlabels[:,i].values[~np.isnan(CDlabels[:,i]).values])
-                region_labels = np.array(region_labels, dtype=int)
-                MCIv = np.repeat(MCIv, len(region_labels))
-                CDkeys = [CDkeys[0].replace('..0..', f'..{r}..') for r in region_labels]
+            if len(CDkeys) != 0:
+                if region_labels[0] == 0:
+                    region_labels = np.unique(CDlabels[:,i].values[~np.isnan(CDlabels[:,i]).values])
+                    region_labels = np.array(region_labels, dtype=int)
+                    MCIv = np.repeat(MCIv, len(region_labels))
+                    CDkeys = [CDkeys[0].replace('..0..', f'..{r}..') for r in region_labels]
             CDlabels[:,i] = f(CDlabels[:,i].copy(), region_labels)
             if plot_parcorr:
                 MCIstr[:,i]   = f(CDlabels[:,i].copy(), region_labels,
@@ -622,7 +623,6 @@ def plot_regions(rg, save, plot_parcorr=False):
                         lat = float(CDlabels[:,i].latitude.mean())
                         temp.append([lon,lat, text, {'fontsize':15,
                                                'bbox':dict(facecolor='white', alpha=0.8)}])
-
                 textinmap.append([(i,0), temp])
 
         if ip == 0:
