@@ -711,7 +711,6 @@ def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
         rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
                     'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
 
-
     if orientation=='vertical':
         f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
                          sharex=True) ;
@@ -733,7 +732,6 @@ def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
                             df_boot.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
                             edgecolor=c2, facecolor=c2, alpha=0.3,
                             linestyle='solid', linewidth=2)
-
         # Conditional SST
         if df_scores_cf is not None:
             labels = df_scores_cf.columns.levels[0]
@@ -746,8 +744,6 @@ def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
                                 df_boot_cf.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
                                 edgecolor=c1, facecolor=c1, alpha=0.3,
                                 linestyle='solid', linewidth=2)
-
-
 
         if m == 'corrcoef':
             ax[i].set_ylim(-.2,1)
@@ -764,7 +760,6 @@ def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
         if i == 0:
             ax[i].legend(loc='lower right', fontsize=14)
         ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
-
 
     f.subplots_adjust(hspace=.1)
     f.subplots_adjust(wspace=.2)
@@ -792,6 +787,13 @@ f_name = f'{method}_{seed}_cf_PacAtl'
 fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
 if save:
     f.savefig(fig_path, bbox_inches='tight')
+
+for rg in rg_list: # plotting score per test
+    df_test_s_m = rg.verification_tuple[1]
+    fig, ax = plt.subplots(1)
+    df_test_s_m.plot(ax=ax)
+    fig.savefig(os.path.join(rg.path_outsub1, f'CV_scores_{fc_month}.png'),
+                bbox_inches='tight', dpi=100)
 
 #%% save table conditional forecast (Continuous)
 df_cond_fc = cond_forecast_table(rg_list)
@@ -1222,8 +1224,3 @@ for rg in rg_list:
     fig.savefig(os.path.join(rg.path_outsub1, f'weights_{fc_month}.png'),
                 bbox_inches='tight', dpi=100)
 
-    df_test_s_m = rg.verification_tuple[1]
-    fig, ax = plt.subplots(1)
-    df_test_s_m.plot(ax=ax)
-    fig.savefig(os.path.join(rg.path_outsub1, f'CV_scores_{fc_month}.png'),
-                bbox_inches='tight', dpi=100)
