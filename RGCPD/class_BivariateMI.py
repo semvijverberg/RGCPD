@@ -409,7 +409,7 @@ class BivariateMI:
                 n_tot_regs += max([self.ts_corr[s].shape[1] for s in range(splits.size)])
         return
 
-    def store_netcdf(self, path: str=None, f_name: str=None):
+    def store_netcdf(self, path: str=None, f_name: str=None, add_hash=True):
         assert hasattr(self, 'corr_xr'), 'No MI map calculated'
         if path is None:
             path = functions_pp.get_download_path()
@@ -438,7 +438,8 @@ class BivariateMI:
         else:
             ds = xr.Dataset({'corr_xr':self.corr_xr,
                              'precur_arr':self.precur_arr})
-        f_name += f'_{hash_str}'
+        if add_hash:
+            f_name += f'_{hash_str}'
         self.filepath_experiment = os.path.join(path, f_name+ '.nc')
         ds.to_netcdf(self.filepath_experiment)
         print(f'Dataset stored with hash: {hash_str}')

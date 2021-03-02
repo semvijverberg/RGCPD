@@ -269,7 +269,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
 
     if 'sst' in use_vars:
         if loaded==False:
-            sst.store_netcdf(rg.path_outsub1, load_sst)
+            sst.store_netcdf(rg.path_outsub1, load_sst, add_hash=False)
         sst.prec_labels['lag'] = ('lag', periodnames)
         sst.corr_xr['lag'] = ('lag', periodnames)
         rg.quick_view_labels('sst', min_detect_gc=1, save=save,
@@ -286,7 +286,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         SM.prec_labels = merge(SM, lonlatbox)
     if 'smi' in use_vars:
         if loaded==False:
-            SM.store_netcdf(rg.path_outsub1, load_SM)
+            SM.store_netcdf(rg.path_outsub1, load_SM, add_hash=False)
         SM.corr_xr['lag'] = ('lag', periodnames)
         SM.prec_labels['lag'] = ('lag', periodnames)
         rg.quick_view_labels('smi', min_detect_gc=1, save=save,

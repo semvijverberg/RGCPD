@@ -692,7 +692,7 @@ kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
                                          np.logspace(.01, 2.5, num=10)])), # large a, strong regul.
                 'normalize':False,
                 'fit_intercept':False,
-                'kfold':5}
+                'kfold':10}
 
 mean_SST = True
 mean_vars = ['sst','smi']
@@ -717,29 +717,33 @@ else:
     df_data = rg.df_data.copy()
 
 lag_ = 0 ; n_boot = 0
-out = rg.fit_df_data_ridge(df_data=df_data,
-                           keys=keys_dict,
-                           target=target_ts,
-                           tau_min=0, tau_max=0,
-                           kwrgs_model=kwrgs_model,
-                           fcmodel=fcmodel,
-                           transformer=None)
+prediction_tuple = rg.fit_df_data_ridge(df_data=df_data,
+                                        keys=keys_dict,
+                                        target=target_ts,
+                                        tau_min=0, tau_max=0,
+                                        kwrgs_model=kwrgs_model,
+                                        fcmodel=fcmodel,
+                                        transformer=None)
 
-predict, weights, models_lags = out
+predict, weights, models_lags = prediction_tuple
 prediction = predict.rename({predict.columns[0]:'target',lag_:'Prediction'},
                             axis=1)
+rg.prediction_tuple=prediction_tuple
 
 
 weights_norm = weights.mean(axis=0, level=1)
 # weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box', figsize=(15,5))
 
 
-df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(prediction,
-                                                                  rg.df_data.iloc[:,-2:],
-                                                                  score_func_list,
-                                                                  n_boot = n_boot,
-                                                                  blocksize=1,
-                                                                  rng_seed=1)
+verification_tuple = fc_utils.get_scores(prediction,
+                                         rg.df_data.iloc[:,-2:],
+                                         score_func_list,
+                                         n_boot = n_boot,
+                                         blocksize=1,
+                                         rng_seed=1)
+df_train_m, df_test_s_m, df_test_m, df_boot = verification_tuple
+rg.verification_tuple = verification_tuple
+
 
 m = models_lags[f'lag_{lag_}'][f'split_{0}']
 print(m.cv_results_['mean_test_score'].mean())
@@ -796,6 +800,10 @@ ann2 = AnnotationBbox(texts_vbox2,(.21,.15),xycoords=ax0.transAxes,
                                              boxstyle='round',edgecolor='white'))
 ann1.set_figure(fig) ; ann2.set_figure(fig)
 fig.artists.append(ann1) ; fig.artists.append(ann2)
+f_name = f'{method}_{seed}'
+fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
+if save:
+    plt.savefig(fig_path, bbox_inches='tight')
 #%%
 y_true = df_test['USDA_Soy']
 forecast = df_test['causal']
@@ -807,8 +815,8 @@ cond_lags = corlags = np.array([['02-01','03-01'],  # FM
                                 ['03-01', '08-01']]) # JA
 cond_periodnames = ['FM', 'MA', 'MJ', 'JA', 'March-Aug']
 
-MAE  = np.zeros( (len(cond_periodnames), 3))
-for i, l in enumerate(cond_lags):
+cond_df  = np.zeros( (3, len(cond_periodnames), 3+1))
+for j, l in enumerate(cond_lags):
 
     sst.lags = np.array([l]) # JA
     ts_corr = find_precursors.spatial_mean_regions(sst,
@@ -820,44 +828,19 @@ for i, l in enumerate(cond_lags):
     zz = df_ts[['MJ..1..sst']]
     # zz = rg.df_data[['JA..1..sst']]
 
-    state_sst = functions_pp.get_df_test(zz.rename({lag_:cond_periodnames[i]}, axis=1),
+    state_sst = functions_pp.get_df_test(zz.rename({lag_:cond_periodnames[j]}, axis=1),
                                          df_splits=rg.df_splits)
 
-
-    # sst.lags = corlags # restore old lags
-
-
-    # target_1sst = functions_pp.get_df_test(zz,
-    #                                    df_splits=rg.df_splits)
-    # # target_1sst = rg.df_data[['JA..1..sst']].mean(axis=0, level=1)
-    # target_1sst = (target_1sst - target_1sst.mean()) / target_1sst.std()
-
-    # outsst = rg.fit_df_data_ridge(target = target_1sst,
-    #                            df_data=rg.df_data[['MJ..1..sst', 'TrainIsTrue', 'RV_mask']],
-    #                            tau_min=0, tau_max=0,
-    #                            kwrgs_model=kwrgs_model,
-    #                            fcmodel=fcmodel,
-    #                            transformer=None)
-    # predict, weights, models_lags = outsst
-    # df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(predict,
-    #                                                        rg.df_data.iloc[:,-2:],
-    #                                                        score_func_list,
-    #                                                        n_boot = 1,
-    #                                                        blocksize=1,
-    #                                                        rng_seed=seed)
-
-
-    # state_sst = functions_pp.get_df_test(predict[[0]].rename({lag_:'JAsst'}, axis=1),
-    #                                      df_splits=rg.df_splits)
-
+    df_test_m = rg.verification_tuple[2]
+    cond_df[:, j, 0] = df_test_m[df_test_m.columns[0][0]].loc[0]
     quantiles = [.1, .2, .3]
-    for j, q in enumerate(quantiles):
+    for k, q in enumerate(quantiles):
         low = state_sst < state_sst.quantile(q)
         high = state_sst > state_sst.quantile(1-q)
         mask_anomalous = np.logical_or(low, high)
 
         condfc = df_test[mask_anomalous.values]
-        condfc = condfc.rename({'causal':cond_periodnames[i]}, axis=1)
+        condfc = condfc.rename({'causal':cond_periodnames[j]}, axis=1)
         cond_verif_tuple = fc_utils.get_scores(condfc,
                                                score_func_list=score_func_list,
                                                n_boot=0,
@@ -865,11 +848,88 @@ for i, l in enumerate(cond_lags):
                                                blocksize=1,
                                                rng_seed=seed)
         df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
-        print(df_test_m)
-        MAE[i, j] = df_test_m[cond_periodnames[i]].loc[0]['MAE']
-df_cond_fc = pd.DataFrame(MAE, index=cond_periodnames, columns=quantiles)
 
-df_cond_fc.to_excel(os.path.join(rg.path_outsub1, 'cond_fc.xlsx'))
+        metrics = df_test_m.columns.levels[1]
+        for i, met in enumerate(metrics):
+            # print(df_test_m)
+            cond_df[i, j, k+1] = df_test_m[cond_periodnames[j]].loc[0][met]
+
+df_cond_fc = pd.DataFrame(cond_df.reshape((len(metrics)*len(cond_periodnames), -1)),
+                          index=pd.MultiIndex.from_product([list(metrics), cond_periodnames]),
+                          columns=['all']+quantiles)
+
+
+# df_cond_fc = pd.DataFrame(MAE, index=cond_periodnames, columns=quantiles)
+
+df_cond_fc.to_excel(os.path.join(rg.path_outsub1, 'cond_fc_per_month.xlsx'))
+#%%
+def cond_forecast_table(rg_list):
+    df_test_m = rg_list[0].verification_tuple[2]
+    quantiles = [.1, .2, .3]
+    metrics = df_test_m.columns.levels[1]
+    cond_df = np.zeros((metrics.size, len(rg_list), len(quantiles)+1))
+    for i, met in enumerate(metrics):
+        for j, rg in enumerate(rg_list):
+            df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
+                                                 n_strongest='all', weights=True)
+
+            weights_norm = rg.prediction_tuple[1].mean(axis=0, level=1)
+            weights_norm = weights_norm.sort_values(ascending=False, by=0)
+
+
+
+            PacAtl = []
+            df_labels = find_precursors.labels_to_df(rg.list_for_MI[0].prec_labels)
+            dlat = df_labels['latitude'] - 29
+            dlon = df_labels['longitude'] - 290
+            zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
+            Atlan = zz.query('latitude < 10 & longitude < 10')
+            if Atlan.size > 0:
+                PacAtl.append(int(Atlan.index[0]))
+            PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
+            keys = [k for k in weights_norm.index if int(k.split('..')[1]) in PacAtl]
+
+
+
+            PacAtl_ts = functions_pp.get_df_test(df_mean[keys],
+                                              df_splits=rg.df_splits)
+
+            weights_norm = weights_norm.div(weights_norm.loc[keys].max(axis=0))
+            PacAtl_ts = weights_norm.loc[keys].T.loc[0] * PacAtl_ts # weigths
+
+            prediction = rg.prediction_tuple[0]
+            df_test = functions_pp.get_df_test(prediction,
+                                               df_splits=rg.df_splits)
+
+            df_test_m = rg.verification_tuple[2]
+            cond_df[i, j, 0] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+            for k, q in enumerate(quantiles):
+                low = PacAtl_ts < PacAtl_ts.quantile(q)
+                high = PacAtl_ts > PacAtl_ts.quantile(1-q)
+                mask_anomalous = np.logical_or(low, high)
+
+                condfc = df_test[mask_anomalous.values]
+                condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
+                cond_verif_tuple = fc_utils.get_scores(condfc,
+                                                       score_func_list=score_func_list,
+                                                       n_boot=0,
+                                                       score_per_test=False,
+                                                       blocksize=1,
+                                                       rng_seed=seed)
+                df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
+                rg.cond_verif_tuple  = cond_verif_tuple
+                cond_df[i, j, k+1] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+
+    df_cond_fc = pd.DataFrame(cond_df.reshape((len(metrics)*len(rg_list), -1)),
+                              index=pd.MultiIndex.from_product([list(metrics), [rg.fc_month for rg in rg_list]]),
+                              columns=['all']+quantiles)
+
+
+    return df_cond_fc
+
+rg.fc_month = 'November'
+df_cond_fc = cond_forecast_table([rg])
+df_cond_fc.to_excel(os.path.join(rg.path_outsub1, 'cond_fc_sst_mean.xlsx'))
 #%%
 
 sys.exit()
