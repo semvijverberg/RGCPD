@@ -64,7 +64,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 0
+i_default = 1
 
 
 def parseArguments():
@@ -675,7 +675,7 @@ def plot_regions(rg, save, plot_parcorr=False):
             kwrgs_plot.update({'cbar_vert':0.03})
         # labels plot
         kwrgs_plot_labels = kwrgs_plot
-        kwrgs_plot_labels.pop('clevels'); kwrgs_plotlabels_sst.pop('clabels')
+        kwrgs_plot_labels.pop('clevels'); kwrgs_plot_labels.pop('clabels')
         kwrgs_plot_labels.pop('cbar_tick_dict')
         kwrgs_plot_labels['cbar_vert'] = 0
         plot_maps.plot_labels(CDlabels.mean(dim='split'), kwrgs_plot=kwrgs_plot_labels)
@@ -1107,7 +1107,8 @@ if save:
 
 #%%
 
-sys.exit()
+
+# sys.exit()
 
 #%% forecasting
 
