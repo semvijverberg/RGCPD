@@ -931,7 +931,11 @@ def cond_forecast_table(rg_list):
     for i, met in enumerate(metrics):
         for j, rg in enumerate(rg_list):
             df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
-                                                 n_strongest='all', weights=True)
+                                                 n_strongest='all',
+                                                 weights=True,
+                                                 fcmodel=fcmodel,
+                                                 kwrgs_model=kwrgs_model,
+                                                 target_ts=target_ts)
 
             weights_norm = rg.prediction_tuple[1].mean(axis=0, level=1)
             weights_norm = weights_norm.sort_values(ascending=False, by=0)

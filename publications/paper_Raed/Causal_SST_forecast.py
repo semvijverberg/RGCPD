@@ -552,8 +552,8 @@ from stat_models_cont import ScikitModel
 #             'n_jobs':1}
 fcmodel = ScikitModel(RidgeCV, verbosity=0)
 kwrgs_model = {'scoring':'neg_mean_absolute_error',
-                'alphas':np.concatenate([[1E-20],np.logspace(-5,0, 6),
-                                          np.logspace(.01, 2.5, num=10)]), # large a, strong regul.
+                'alphas':np.concatenate([[1E-20],np.logspace(-4,0, 5),
+                                          np.logspace(.2, 1.5, num=10)]), # large a, strong regul.
                 'normalize':False,
                 'fit_intercept':False,
                 # 'store_cv_values':True}
@@ -561,8 +561,8 @@ kwrgs_model = {'scoring':'neg_mean_absolute_error',
 
 fcmodel = ScikitModel(Ridge, verbosity=0)
 kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
-                'alpha':list(np.concatenate([[1E-20],np.logspace(-5,0, 6),
-                                          np.logspace(.01, 2.5, num=10)])), # large a, strong regul.
+                'alpha':list(np.concatenate([np.logspace(-4,0, 5),
+                                          np.logspace(.2, 1.5, num=8)])), # large a, strong regul.
                 'normalize':False,
                 'fit_intercept':False,
                 'kfold':10}
