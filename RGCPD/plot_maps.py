@@ -38,7 +38,8 @@ def extend_longitude(data):
 def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    col_dim='lag', clim='relaxed', hspace=-0.6, wspace=0.02,
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
-                   clevels=None, clabels=None, cticks_center=None, drawbox=None, title=None,
+                   clevels=None, clabels=None, cticks_center=None,
+                   cbar_tick_dict: dict={}, drawbox=None, title=None,
                    title_fontdict: dict=None, subtitles: np.ndarray=None,
                    subtitle_fontdict: dict=None, zoomregion=None,
                    aspect=None, n_xticks=5, n_yticks=3, x_ticks: Union[bool, np.ndarray]=None,
@@ -320,7 +321,6 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     else:
         clabel = ''
 
-
     if cticks_center is None:
         if clabels is None:
             clabels = clevels[::2]
@@ -334,6 +334,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         cbar.set_ticklabels(np.array(clevels+1, dtype=int),
                             update_ticks=True)
         cbar.update_ticks()
+    cbar_ax.tick_params(**cbar_tick_dict)
 
     if title is not None:
         if title_fontdict is None:

@@ -64,13 +64,12 @@ from stat_models import plot_importances
 target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_1'] # ['ranstrat_20']
-feature_sel = [True]
+methods = ['leave_5'] # ['ranstrat_20']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
-                                    feature_sel)).T.reshape(-1,5)
+                                    )).T.reshape(-1,4)
 i_default = 0
 
 
@@ -93,7 +92,6 @@ if __name__ == '__main__':
     seed = int(out[1])
     start_end_year = (int(out[2][:4]), int(out[2][-4:]))
     method = out[3]
-    add_previous_periods = out[4] == 'True'
     print(f'arg {args.intexper} {out}')
 else:
     out = combinations[i_default]
@@ -101,7 +99,6 @@ else:
     seed = int(out[1])
     start_end_year = (int(out[2][:4]), int(out[2][-4:]))
     method = out[3]
-    add_previous_periods = out[4] == 'True'
 
 
 if target_dataset == 'GDHY_Soy':
@@ -173,7 +170,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                       BivariateMI(name='smi', func=class_BivariateMI.corr_map,
                                  alpha=alpha_corr, FDR_control=True,
                                  kwrgs_func={},
-                                 distance_eps=250, min_area_in_degrees2=3,
+                                 distance_eps=200, min_area_in_degrees2=3,
                                  calc_ts='pattern cov', selbox=USBox,
                                  lags=SM_lags, use_coef_wghts=True)]
 
@@ -451,9 +448,11 @@ if __name__ == '__main__':
 #%%
 
 from sklearn.linear_model import RidgeCV
-def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05, select_str_SM=False,
+def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05,
                     n_strongest='all',
-                    weights=True, labels=None):
+                    weights=True, labels=None,
+                    fcmodel=None, kwrgs_model=None,
+                    target_ts=None):
 
 
     periodnames = list(rg.list_for_MI[0].corr_xr.lag.values)
@@ -465,7 +464,7 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05, select_str_SM=False,
 
     # dict with strongest mean parcorr over growing season
     mean_SST_list = []
-    keys_dict = {s:[] for s in range(rg.n_spl)} ;
+    # keys_dict = {s:[] for s in range(rg.n_spl)} ;
     keys_dict_meansst = {s:[] for s in range(rg.n_spl)} ;
     for s in range(rg.n_spl):
         mean_SST_list_s = []
@@ -477,7 +476,7 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05, select_str_SM=False,
             # significant region label (R) for each month in split (s)
             keys_mon_sig = [k for k in keys_mon if k in sign_s.index] # check if sig.
             if uniqk.split('..')[-1] in mean_vars and len(keys_mon_sig)!=0:
-                # mean over region if they have same correlation sign
+                # mean over region if they have same correlation sign across months
                 for sign in [1,-1]:
                     mask = np.sign(df_corr.loc[keys_mon_sig][[s]]) == sign
                     k_sign = np.array(keys_mon_sig)[mask.values.flatten()]
@@ -493,36 +492,44 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05, select_str_SM=False,
                     else:
                         keys_str  = k_sign
                     if weights:
-                        df_train = functions_pp.get_df_train(rg.df_data,
-                                                              cols=[target_dataset] + list(keys_str),
-                                                              s=s)
-                        kwrgs = {'alphas':[1E-20, 1E-5, 1E-2, .1, 1, 10, 50, 100]}
-                        _m = RidgeCV(**kwrgs).fit(df_train[keys_str],
-                                                  df_train[target_dataset])
-                        df_mean = pd.Series(_m.predict(rg.df_data.loc[s][keys_str].copy()),
-                                                index=rg.df_data.loc[s].index)
+                        fit_masks = rg.df_data.loc[s].iloc[:,-2:]
+                        df_d = rg.df_data.loc[s][keys_str].copy()
+                        df_d = df_d.apply(fc_utils.standardize_on_train_and_RV,
+                                          args=[fit_masks, 0])
+                        df_d = df_d.merge(fit_masks, left_index=True,right_index=True)
+                        # df_train = df_d[fit_masks['TrainIsTrue']]
+                        df_mean, model = fcmodel.fit_wrapper({'ts':target_ts},
+                                                          df_d, keys_str,
+                                                          kwrgs_model)
+
+                        # kwrgs = {'alphas':[1E-20, 1E-5, 1E-2, .1, 1, 10, 50, 100]}
+                        # _m = fcmodel.scikitmodel(**kwrgs_model).fit(df_train,
+                        #                                             target_ts)
+                        # df_mean = pd.Series(_m.predict(df_d[keys_str]),
+                        #                         index=df_d.index)
                     else:
                         df_mean = rg.df_data.loc[s][keys_str].copy().mean(1)
                     month_strings = [k.split('..')[0] for k in sorted(keys_str)]
-                    df_mean.name = ''.join(month_strings) + '..'+uniqk
-                    keys_dict_meansst[s].append( df_mean.name )
+                    df_mean = df_mean.rename({0:''.join(month_strings) + '..'+uniqk},
+                                             axis=1)
+                    keys_dict_meansst[s].append( df_mean.columns[0] )
                     mean_SST_list_s.append(df_mean)
             elif uniqk.split('..')[-1] not in mean_vars and len(keys_mon_sig)!=0:
-                # use all SM timeseries (for each month)
+                # use all timeseries (for each month)
                 mean_SST_list_s.append(rg.df_data.loc[s][keys_mon_sig].copy())
                 keys_dict_meansst[s] = keys_dict_meansst[s] + keys_mon_sig
-            # select strongest
-            if len(keys_mon_sig) != 0 and 'sst' in uniqk:
-                # appending keys_dict for plotting causal regions
-                df_corr.loc[keys_mon_sig].mean()
-                keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
-            if select_str_SM and len(keys_mon_sig) != 0 and 'sm' in uniqk:
-                # use only strongest SM region
-                df_corr.loc[keys_mon_sig].mean()
-                keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
-            elif select_str_SM==False and len(keys_mon_sig) != 0 and 'sm' in uniqk:
-                # use all SM region
-                keys_dict[s] = keys_dict[s] + keys_mon_sig
+            # # select strongest
+            # if len(keys_mon_sig) != 0 and 'sst' in uniqk:
+            #     # appending keys_dict for plotting causal regions
+            #     df_corr.loc[keys_mon_sig].mean()
+            #     keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
+            # if select_str_SM and len(keys_mon_sig) != 0 and 'sm' in uniqk:
+            #     # use only strongest SM region
+            #     df_corr.loc[keys_mon_sig].mean()
+            #     keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
+            # elif select_str_SM==False and len(keys_mon_sig) != 0 and 'sm' in uniqk:
+            #     # use all SM region
+            #     keys_dict[s] = keys_dict[s] + keys_mon_sig
         df_s = pd.concat(mean_SST_list_s, axis=1)
         mean_SST_list.append(df_s)
     df_mean_SST = pd.concat(mean_SST_list, keys=range(rg.n_spl))
@@ -532,54 +539,60 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05, select_str_SM=False,
 
 
 #%% Continuous forecast
+from sklearn.linear_model import Ridge
+from stat_models_cont import ScikitModel
+# fcmodel = ScikitModel(RandomForestRegressor, verbosity=0)
+# kwrgs_model={'n_estimators':200,
+#             'max_depth':[2,5,7],
+#             'scoringCV':'neg_mean_squared_error',
+#             'oob_score':True,
+#             'min_samples_leaf':2,
+#             'random_state':0,
+#             'max_samples':.6,
+#             'n_jobs':1}
+fcmodel = ScikitModel(RidgeCV, verbosity=0)
+kwrgs_model = {'scoring':'neg_mean_absolute_error',
+                'alphas':np.concatenate([[1E-20],np.logspace(-5,0, 6),
+                                          np.logspace(.01, 2.5, num=10)]), # large a, strong regul.
+                'normalize':False,
+                'fit_intercept':False,
+                # 'store_cv_values':True}
+                'kfold':5}
+
+fcmodel = ScikitModel(Ridge, verbosity=0)
+kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
+                'alpha':list(np.concatenate([[1E-20],np.logspace(-5,0, 6),
+                                          np.logspace(.01, 2.5, num=10)])), # large a, strong regul.
+                'normalize':False,
+                'fit_intercept':False,
+                'kfold':10}
+
 months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May'}
 list_verification = [] ; list_prediction = []
 for i, rg in enumerate(rg_list):
-    mean_vars=['sst', 'smi']
-    for i, p in enumerate(rg.list_for_MI):
-        if p.calc_ts == 'pattern cov':
-            mean_vars[i] +='_sp'
-
-    df_data, keys_dict = get_df_mean_SST(rg,
-                                         mean_vars=mean_vars,
-                                         alpha_CI=alpha_CI,
-                                         n_strongest='all',
-                                         weights=True)
-    last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
-    fc_month = months[last_month]
-    rg.fc_month = fc_month
-    from sklearn.linear_model import Ridge
-    from stat_models_cont import ScikitModel
-    # fcmodel = ScikitModel(RandomForestRegressor, verbosity=0)
-    # kwrgs_model={'n_estimators':200,
-    #             'max_depth':[2,5,7],
-    #             'scoringCV':'neg_mean_squared_error',
-    #             'oob_score':True,
-    #             'min_samples_leaf':2,
-    #             'random_state':0,
-    #             'max_samples':.6,
-    #             'n_jobs':1}
-    fcmodel = ScikitModel(RidgeCV, verbosity=0)
-    kwrgs_model = {'scoring':'neg_mean_absolute_error',
-                    'alphas':np.concatenate([[1E-20],np.logspace(-5,0, 6),
-                                              np.logspace(.01, 2.5, num=10)]), # large a, strong regul.
-                    'normalize':False,
-                    'fit_intercept':False,
-                    # 'store_cv_values':True}
-                    'kfold':5}
-
-    fcmodel = ScikitModel(Ridge, verbosity=0)
-    kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
-                    'alpha':list(np.concatenate([[1E-20],np.logspace(-5,0, 6),
-                                              np.logspace(.01, 2.5, num=10)])), # large a, strong regul.
-                    'normalize':False,
-                    'fit_intercept':False,
-                    'kfold':10}
 
     # target
     fc_mask = rg.df_data.iloc[:,-1].loc[0]
     target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
     target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+
+    mean_vars=['sst', 'smi']
+    for i, p in enumerate(rg.list_for_MI):
+        if p.calc_ts == 'pattern cov':
+            mean_vars[i] +='_sp'
+    df_data, keys_dict = get_df_mean_SST(rg,
+                                         mean_vars=mean_vars,
+                                         alpha_CI=alpha_CI,
+                                         n_strongest='all',
+                                         weights=True,
+                                         fcmodel=fcmodel,
+                                         kwrgs_model=kwrgs_model,
+                                         target_ts=target_ts)
+    last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
+    fc_month = months[last_month]
+    rg.fc_month = fc_month
+
+
     # metrics
     RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).RMSE
     MAE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).MAE
@@ -630,7 +643,11 @@ def cond_forecast_table(rg_list):
     for i, met in enumerate(metrics):
         for j, rg in enumerate(rg_list):
             df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
-                                                 n_strongest='all', weights=True)
+                                                 n_strongest='all',
+                                                 weights=True,
+                                                 fcmodel=fcmodel,
+                                                 kwrgs_model=kwrgs_model,
+                                                 target_ts=target_ts)
 
             weights_norm = rg.prediction_tuple[1].mean(axis=0, level=1)
             weights_norm = weights_norm.sort_values(ascending=False, by=0)
@@ -688,7 +705,7 @@ def cond_forecast_table(rg_list):
 
 
 #%% Functions for plotting continuous forecast
-def df_scores_for_plot(name_object):
+def df_scores_for_plot(rg_list, name_object):
     df_scores = [] ; df_boot = [] ; df_tests = []
     for i, rg in enumerate(rg_list):
         verification_tuple = rg.__dict__[name_object]
@@ -772,7 +789,7 @@ def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
 
 #%% Plotting Continuous forecast
 
-df_scores, df_boot, df_tests = df_scores_for_plot(name_object='verification_tuple')
+df_scores, df_boot, df_tests = df_scores_for_plot(rg_list, name_object='verification_tuple')
 
 # df_scores_cf, df_boot_cf, df_tests_cf = df_scores_for_plot(name_object='cond_verif_tuple')
 
@@ -873,44 +890,31 @@ if save:
     plt.savefig(fig_path, bbox_inches='tight')
 
 #%% Low/High yield forecast
+from sklearn.linear_model import LogisticRegression
+# fcmodel = ScikitModel(RandomForestRegressor, verbosity=0)
+# kwrgs_model={'n_estimators':200,
+#             'max_depth':[2,5,7],
+#             'scoringCV':'neg_mean_squared_error',
+#             'oob_score':True,
+#             'min_samples_leaf':2,
+#             'random_state':0,
+#             'max_samples':.6,
+#             'n_jobs':1}
+fcmodel = ScikitModel(LogisticRegression, verbosity=0)
+kwrgs_model = {'scoringCV':'neg_brier_score',
+                'C':list([.1,.5,.8,1,1.2,4,7,10, 20]), # large a, strong regul.
+                'random_state':seed,
+                'penalty':'l2',
+                'solver':'lbfgs',
+                'kfold':10,
+                'max_iter':200}
 
 thresholds = [.33, .5, .66]
+# thresholds = [.5]
 for i, q in enumerate(thresholds):
-    months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May'}
+    months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'SO':'hindcast'}
     list_verification = [] ; list_prediction = []
     for i, rg in enumerate(rg_list):
-        mean_vars=['sst', 'smi']
-        for i, p in enumerate(rg.list_for_MI):
-            if p.calc_ts == 'pattern cov':
-                mean_vars[i] +='_sp'
-
-        df_data, keys_dict = get_df_mean_SST(rg,
-                                             mean_vars=mean_vars,
-                                             alpha_CI=alpha_CI,
-                                             n_strongest='all',
-                                             weights=True)
-        last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
-        fc_month = months[last_month]
-        from sklearn.linear_model import LogisticRegression
-        # fcmodel = ScikitModel(RandomForestRegressor, verbosity=0)
-        # kwrgs_model={'n_estimators':200,
-        #             'max_depth':[2,5,7],
-        #             'scoringCV':'neg_mean_squared_error',
-        #             'oob_score':True,
-        #             'min_samples_leaf':2,
-        #             'random_state':0,
-        #             'max_samples':.6,
-        #             'n_jobs':1}
-        fcmodel = ScikitModel(LogisticRegression, verbosity=0)
-        kwrgs_model = {'scoringCV':'neg_brier_score',
-                        'C':list(np.concatenate([[1E-20],np.logspace(-5,0, 6),
-                                                  np.logspace(.01, 1.5, num=5)])), # large a, strong regul.
-                        'random_state':seed,
-                        'penalty':'l2',
-                        'solver':'lbfgs',
-                        'kfold':10,
-                        'max_iter':200}
-
         # target
         fc_mask = rg.df_data.iloc[:,-1].loc[0]
         target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
@@ -920,6 +924,21 @@ for i, q in enumerate(thresholds):
         elif q < .5:
             target_ts = (target_ts < target_ts.quantile(q)).astype(int)
 
+        mean_vars=['sst', 'smi']
+        for i, p in enumerate(rg.list_for_MI):
+            if p.calc_ts == 'pattern cov':
+                mean_vars[i] +='_sp'
+
+        df_data, keys_dict = get_df_mean_SST(rg,
+                                             mean_vars=mean_vars,
+                                             alpha_CI=alpha_CI,
+                                             n_strongest='all',
+                                             weights=True,
+                                             fcmodel=fcmodel,
+                                             kwrgs_model=kwrgs_model,
+                                             target_ts=target_ts)
+        last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
+        fc_month = months[last_month]
 
         # metrics
         BSS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).BSS
@@ -939,7 +958,7 @@ for i, q in enumerate(thresholds):
         prediction = predict.rename({predict.columns[0]:'target',
                                      lag_:fc_month}, axis=1)
         prediction_tuple = (prediction, weights, models_lags)
-        list_prediction.append(prediction_tuple)
+
         rg.prediction_tuple = prediction_tuple
 
 
@@ -954,16 +973,19 @@ for i, q in enumerate(thresholds):
 
 
         m = models_lags[f'lag_{lag_}'][f'split_{0}']
+        [models_lags[f'lag_{lag_}'][f'split_{s}'].best_params_ for s in range(rg.n_spl)]
         # plt.plot(kwrgs_model['C'], m.cv_results_['mean_test_score'])
         # plt.axvline(m.best_params_['C']) ; plt.show() ; plt.close()
 
         df_test = functions_pp.get_df_test(predict.rename({lag_:'causal'}, axis=1),
                                             df_splits=rg.df_splits)
-        list_verification.append(verification_tuple)
         rg.verification_tuple = verification_tuple
+        list_prediction.append(prediction_tuple)
+        list_verification.append(verification_tuple)
 
     # plot scores
-    df_scores, df_boot, df_tests = df_scores_for_plot(name_object='verification_tuple')
+    df_scores, df_boot, df_tests = df_scores_for_plot(rg_list,
+                                                      name_object='verification_tuple')
 
     # df_scores_cf, df_boot_cf, df_tests_cf = df_scores_for_plot(name_object='cond_verif_tuple')
 
@@ -1080,7 +1102,7 @@ kwrgs_plotcorr_sst = {'row_dim':'lag', 'col_dim':'split','aspect':4, 'hspace':0,
 
 kwrgs_plotcorr_SM = kwrgs_plotcorr_sst.copy()
 kwrgs_plotcorr_SM.update({'aspect':2, 'hspace':0.2,
-                          'wspace':0, 'size':3, 'cbar_vert':0.02})
+                          'wspace':0, 'size':3, 'cbar_vert':0.03})
 
 
 

@@ -189,7 +189,8 @@ class ScikitModel:
             model = GridSearchCV(model,
                       param_grid=kwrgs_gridsearch,
                       scoring=scoring, cv=cv, refit=True,
-                      return_train_score=True, verbose=self.verbosity)
+                      return_train_score=True, verbose=self.verbosity,
+                      n_jobs=3)
             model.fit(X_train, y_train.values.ravel())
             model.best_estimator_.X_pred = X_pred # add X_pred to model
             # if self.verbosity == 1:
