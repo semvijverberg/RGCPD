@@ -119,7 +119,6 @@ elif target_dataset == 'USDA_Maize':
 experiment = 'bimonthly'
 calc_ts='region mean' # pattern cov
 alpha_corr = .05
-method     = 'leave_5' ;
 n_boot = 2000
 
 if experiment == 'seasons':
