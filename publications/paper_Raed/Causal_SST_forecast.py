@@ -129,7 +129,7 @@ calc_ts= 'region mean' # 'pattern cov'
 alpha_corr = .05
 alpha_CI = .05
 n_boot = 2000
-append_pathsub = f'/{method}_s{seed}'
+append_pathsub = f'/{method}/s{seed}'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
@@ -706,8 +706,8 @@ kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
                 'fit_intercept':False,
                 'kfold':10}
 
-    months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'March',
-              'SO':'hindcast'}
+months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'March',
+          'SO':'hindcast'}
 list_verification = [] ; list_prediction = []
 for i, rg in enumerate(rg_list):
 
