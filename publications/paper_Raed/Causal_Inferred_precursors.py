@@ -919,15 +919,14 @@ df_cond_fc = pd.DataFrame(cond_df.reshape((len(metrics)*len(cond_periodnames), -
                           columns=['all']+quantiles)
 
 
-# df_cond_fc = pd.DataFrame(MAE, index=cond_periodnames, columns=quantiles)
 
 df_cond_fc.to_excel(os.path.join(rg.path_outsub1, 'cond_fc_per_month.xlsx'))
 #%%
 def cond_forecast_table(rg_list):
     df_test_m = rg_list[0].verification_tuple[2]
-    quantiles = [.1, .2, .3]
+    quantiles = [.15, .25]
     metrics = df_test_m.columns.levels[1]
-    cond_df = np.zeros((metrics.size, len(rg_list), len(quantiles)+1))
+    cond_df = np.zeros((metrics.size, len(rg_list), len(quantiles)*2))
     for i, met in enumerate(metrics):
         for j, rg in enumerate(rg_list):
             df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
@@ -965,11 +964,28 @@ def cond_forecast_table(rg_list):
             df_test = functions_pp.get_df_test(prediction,
                                                df_splits=rg.df_splits)
 
-            df_test_m = rg.verification_tuple[2]
-            cond_df[i, j, 0] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
-            for k, q in enumerate(quantiles):
+            # df_test_m = rg.verification_tuple[2]
+            # cond_df[i, j, 0] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+            for k, l in enumerate(range(0,4,2)):
+                q = quantiles[k]
                 low = PacAtl_ts < PacAtl_ts.quantile(q)
                 high = PacAtl_ts > PacAtl_ts.quantile(1-q)
+                mask_anomalous = np.logical_or(low, high)
+                # anomalous Boundary forcing
+                condfc = df_test[mask_anomalous.values]
+                condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
+                cond_verif_tuple = fc_utils.get_scores(condfc,
+                                                       score_func_list=score_func_list,
+                                                       n_boot=0,
+                                                       score_per_test=False,
+                                                       blocksize=1,
+                                                       rng_seed=seed)
+                df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
+                rg.cond_verif_tuple  = cond_verif_tuple
+                cond_df[i, j, l] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+                # mild boundary forcing
+                low = PacAtl_ts > PacAtl_ts.quantile(.5-q)
+                high = PacAtl_ts < PacAtl_ts.quantile(.5+q)
                 mask_anomalous = np.logical_or(low, high)
 
                 condfc = df_test[mask_anomalous.values]
@@ -981,19 +997,24 @@ def cond_forecast_table(rg_list):
                                                        blocksize=1,
                                                        rng_seed=seed)
                 df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
-                rg.cond_verif_tuple  = cond_verif_tuple
-                cond_df[i, j, k+1] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+                cond_df[i, j, l+1] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
 
+    columns = [[f'strong {int(q*200)}%', f'weak {int(q*200)}%'] for q in quantiles]
     df_cond_fc = pd.DataFrame(cond_df.reshape((len(metrics)*len(rg_list), -1)),
                               index=pd.MultiIndex.from_product([list(metrics), [rg.fc_month for rg in rg_list]]),
-                              columns=['all']+quantiles)
+                              columns=functions_pp.flatten(columns))
 
 
     return df_cond_fc
 
 rg.fc_month = 'November'
 df_cond_fc = cond_forecast_table([rg])
-df_cond_fc.to_excel(os.path.join(rg.path_outsub1, 'cond_fc_sst_mean.xlsx'))
+# store as .xlsc
+df_cond_fc.to_excel(os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}.xlsx'))
+# Store as .h5
+d_dfs={'df_cond_fc':df_cond_fc}
+filepath_dfs = os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}.h5')
+functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
 #%% Event Forecast with Causal Precursors
 
