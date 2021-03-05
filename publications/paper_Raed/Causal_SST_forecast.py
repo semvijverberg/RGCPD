@@ -437,6 +437,7 @@ if __name__ == '__main__':
     use_vars_june = ['sst', 'smi']
     use_vars_may = ['sst', 'smi']
     use_vars_april = ['sst', 'smi']
+    use_vars_march = ['sst', 'smi']
 
 
     # Run in Parallel
@@ -445,7 +446,7 @@ if __name__ == '__main__':
                         periodnames_may, periodnames_april,
                         periodnames_march]
     use_vars_list = [use_vars_july, use_vars_june,
-                     use_vars_may, use_vars_april]
+                     use_vars_may, use_vars_april, use_vars_march]
     futures = []
     for lags, periodnames, use_vars in zip(lag_list, periodnames_list, use_vars_list):
         # pipeline(lags, periodnames)
@@ -705,7 +706,8 @@ kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
                 'fit_intercept':False,
                 'kfold':10}
 
-months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'SO':'November'}
+    months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'March',
+              'SO':'hindcast'}
 list_verification = [] ; list_prediction = []
 for i, rg in enumerate(rg_list):
 
@@ -999,7 +1001,8 @@ kwrgs_model = {'scoringCV':'neg_brier_score',
 thresholds = [.33, .5, .66]
 # thresholds = [.5]
 for i, q in enumerate(thresholds):
-    months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'SO':'hindcast'}
+    months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
+              'SO':'hindcast'}
     list_verification = [] ; list_prediction = []
     for i, rg in enumerate(rg_list):
         # target
