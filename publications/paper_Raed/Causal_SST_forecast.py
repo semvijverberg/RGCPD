@@ -31,6 +31,8 @@ from joblib import Parallel, delayed
 import argparse
 from time import sleep
 import itertools, os, re
+from matplotlib import gridspec
+from matplotlib.offsetbox import TextArea, VPacker, AnnotationBbox
 
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
@@ -546,6 +548,134 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05,
     return df_mean_SST, keys_dict_meansst
 
 
+#%% Functions for plotting continuous forecast
+def df_scores_for_plot(rg_list, name_object):
+    df_scores = [] ; df_boot = [] ; df_tests = []
+    for i, rg in enumerate(rg_list):
+        verification_tuple = rg.__dict__[name_object]
+        df_scores.append(verification_tuple[2])
+        df_boot.append(verification_tuple[3])
+        df_tests.append(verification_tuple[1])
+    df_scores = pd.concat(df_scores, axis=1)
+    df_boot = pd.concat(df_boot, axis=1)
+    df_tests = pd.concat(df_tests, axis=1)
+    return df_scores, df_boot, df_tests
+
+def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
+    orientation = 'horizontal'
+    alpha = .05
+    if 'BSS' in df_scores.columns.levels[1]:
+        metrics_cols = ['BSS', 'roc_auc_score']
+        rename_m = {'BSS': 'BSS', 'roc_auc_score':'ROC-AUC'}
+    else:
+        metrics_cols = ['corrcoef', 'MAE', 'RMSE']
+        rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
+                    'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
+
+    if orientation=='vertical':
+        f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
+                         sharex=True) ;
+    else:
+        f, ax = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
+                         sharey=False) ;
+
+    c1, c2 = '#3388BB', '#EE6666'
+    for i, m in enumerate(metrics_cols):
+        # normal SST
+
+        labels = df_scores.columns.levels[0]
+        ax[i].plot(labels, df_scores.reorder_levels((1,0), axis=1).loc[0][m].T,
+                label='Verification on all years',
+                color=c2,
+                linestyle='solid')
+        ax[i].fill_between(labels,
+                            df_boot.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                            df_boot.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                            edgecolor=c2, facecolor=c2, alpha=0.3,
+                            linestyle='solid', linewidth=2)
+        # Conditional SST
+        if df_scores_cf is not None:
+            labels = df_scores_cf.columns.levels[0]
+            ax[i].plot(labels, df_scores_cf.reorder_levels((1,0), axis=1).loc[0][m].T,
+                    label='Pronounced Pacific state years',
+                    color=c1,
+                    linestyle='solid')
+            ax[i].fill_between(labels,
+                                df_boot_cf.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                                df_boot_cf.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                                edgecolor=c1, facecolor=c1, alpha=0.3,
+                                linestyle='solid', linewidth=2)
+
+        if m == 'corrcoef':
+            ax[i].set_ylim(-.2,1)
+        elif m == 'roc_auc_score':
+            ax[i].set_ylim(0,1)
+        else:
+            ax[i].set_ylim(-.2,.6)
+        ax[i].axhline(y=0, color='black', linewidth=1)
+        ax[i].tick_params(labelsize=16, pad=6)
+        if i == len(metrics_cols)-1 and orientation=='vertical':
+            ax[i].set_xlabel('Forecast month', fontsize=18)
+        elif orientation=='horizontal':
+            ax[i].set_xlabel('Forecast month', fontsize=18)
+        if i == 0:
+            ax[i].legend(loc='lower right', fontsize=14)
+        ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
+
+    f.subplots_adjust(hspace=.1)
+    f.subplots_adjust(wspace=.2)
+    title = 'Verification high Yield forecast'
+    if orientation == 'vertical':
+        f.suptitle(title, y=.92, fontsize=18)
+    else:
+        f.suptitle(title, y=.95, fontsize=18)
+    return f
+
+def plot_forecast_ts(df_test_m, df_test):
+    fontsize = 16
+
+    fig = plt.figure(figsize=(12, 5))
+    gs = gridspec.GridSpec(1, 1, height_ratios=None)
+    facecolor='white'
+    ax0 = plt.subplot(gs[0], facecolor=facecolor)
+    # df_test.plot(ax=ax0)
+    ax0.plot_date(df_test.index, df_test[target_dataset], ls='-',
+                  label='Observed', c='black')
+
+    ax0.plot_date(df_test.index, df_test['causal'], ls='-', c='red',
+                  label=r'Causal precursors ($\alpha=$'+f' {alpha_CI})')
+    # ax0.set_xticks()
+    # ax0.set_xticklabels(df_test.index.year,
+    ax0.set_ylabel('Standardized Soy Yield', fontsize=fontsize)
+    ax0.tick_params(labelsize=fontsize)
+    ax0.axhline(y=0, color='black', lw=1)
+    ax0.legend(fontsize=fontsize)
+
+    df_scores = df_test_m.loc[0][df_test_m.columns[0][0]]
+    Texts1 = [] ; Texts2 = [] ;
+    textprops = dict(color='black', fontsize=fontsize+4, family='serif')
+    rename_met = {'RMSE':'RMSE-SS', 'corrcoef':'Corr. Coeff.', 'MAE':'MAE-SS',
+                  'BSS':'BSS', 'roc_auc_score':'ROC-AUC'}
+    for k in df_scores.index:
+        label = rename_met[k]
+        val = round(df_scores[k], 2)
+        Texts1.append(TextArea(f'{label}',textprops=textprops))
+        Texts2.append(TextArea(f'{val}',textprops=textprops))
+    texts_vbox1 = VPacker(children=Texts1,pad=0,sep=4)
+    texts_vbox2 = VPacker(children=Texts2,pad=0,sep=4)
+
+    ann1 = AnnotationBbox(texts_vbox1,(.02,.15),xycoords=ax0.transAxes,
+                                box_alignment=(0,.5),
+                                bboxprops = dict(facecolor='white',
+                                                 boxstyle='round',edgecolor='white'))
+    ann2 = AnnotationBbox(texts_vbox2,(.21,.15),xycoords=ax0.transAxes,
+                                box_alignment=(0,.5),
+                                bboxprops = dict(facecolor='white',
+                                                 boxstyle='round',edgecolor='white'))
+    ann1.set_figure(fig) ; ann2.set_figure(fig)
+    fig.artists.append(ann1) ; fig.artists.append(ann2)
+    return
+
 #%% Continuous forecast
 from sklearn.linear_model import Ridge
 from stat_models_cont import ScikitModel
@@ -575,7 +705,7 @@ kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
                 'fit_intercept':False,
                 'kfold':10}
 
-months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May'}
+months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'SO':'November'}
 list_verification = [] ; list_prediction = []
 for i, rg in enumerate(rg_list):
 
@@ -729,88 +859,7 @@ def cond_forecast_table(rg_list):
     return df_cond_fc
 
 
-#%% Functions for plotting continuous forecast
-def df_scores_for_plot(rg_list, name_object):
-    df_scores = [] ; df_boot = [] ; df_tests = []
-    for i, rg in enumerate(rg_list):
-        verification_tuple = rg.__dict__[name_object]
-        df_scores.append(verification_tuple[2])
-        df_boot.append(verification_tuple[3])
-        df_tests.append(verification_tuple[1])
-    df_scores = pd.concat(df_scores, axis=1)
-    df_boot = pd.concat(df_boot, axis=1)
-    df_tests = pd.concat(df_tests, axis=1)
-    return df_scores, df_boot, df_tests
 
-def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
-    orientation = 'horizontal'
-    alpha = .05
-    if 'BSS' in df_scores.columns.levels[1]:
-        metrics_cols = ['BSS', 'roc_auc_score']
-        rename_m = {'BSS': 'BSS', 'roc_auc_score':'ROC-AUC'}
-    else:
-        metrics_cols = ['corrcoef', 'MAE', 'RMSE']
-        rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
-                    'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
-
-    if orientation=='vertical':
-        f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
-                         sharex=True) ;
-    else:
-        f, ax = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
-                         sharey=False) ;
-
-    c1, c2 = '#3388BB', '#EE6666'
-    for i, m in enumerate(metrics_cols):
-        # normal SST
-
-        labels = df_scores.columns.levels[0]
-        ax[i].plot(labels, df_scores.reorder_levels((1,0), axis=1).loc[0][m].T,
-                label='Verification on all years',
-                color=c2,
-                linestyle='solid')
-        ax[i].fill_between(labels,
-                            df_boot.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                            df_boot.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-                            edgecolor=c2, facecolor=c2, alpha=0.3,
-                            linestyle='solid', linewidth=2)
-        # Conditional SST
-        if df_scores_cf is not None:
-            labels = df_scores_cf.columns.levels[0]
-            ax[i].plot(labels, df_scores_cf.reorder_levels((1,0), axis=1).loc[0][m].T,
-                    label='Pronounced Pacific state years',
-                    color=c1,
-                    linestyle='solid')
-            ax[i].fill_between(labels,
-                                df_boot_cf.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                                df_boot_cf.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-                                edgecolor=c1, facecolor=c1, alpha=0.3,
-                                linestyle='solid', linewidth=2)
-
-        if m == 'corrcoef':
-            ax[i].set_ylim(-.2,1)
-        elif m == 'roc_auc_score':
-            ax[i].set_ylim(0,1)
-        else:
-            ax[i].set_ylim(-.2,.6)
-        ax[i].axhline(y=0, color='black', linewidth=1)
-        ax[i].tick_params(labelsize=16, pad=6)
-        if i == len(metrics_cols)-1 and orientation=='vertical':
-            ax[i].set_xlabel('Forecast month', fontsize=18)
-        elif orientation=='horizontal':
-            ax[i].set_xlabel('Forecast month', fontsize=18)
-        if i == 0:
-            ax[i].legend(loc='lower right', fontsize=14)
-        ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
-
-    f.subplots_adjust(hspace=.1)
-    f.subplots_adjust(wspace=.2)
-    title = 'Verification high Yield forecast'
-    if orientation == 'vertical':
-        f.suptitle(title, y=.92, fontsize=18)
-    else:
-        f.suptitle(title, y=.95, fontsize=18)
-    return f
 
 #%% Plotting Continuous forecast
 
@@ -831,6 +880,14 @@ if save:
     f.savefig(fig_path, bbox_inches='tight')
 
 for rg in rg_list: # plotting score per test
+    # plot timeseries
+    plot_forecast_ts(df_test_m, df_test)
+    f_name = f'{method}_{seed}_continuous_{fc_month}'
+    fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
+    if save:
+        plt.savefig(fig_path, bbox_inches='tight')
+    plt.close()
+
     df_test_s_m = rg.verification_tuple[1]
     fig, ax = plt.subplots(1)
     df_test_s_m.plot(ax=ax)

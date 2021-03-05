@@ -57,7 +57,7 @@ import plot_maps; import core_pp
 target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['random_14'] # ['ranstrat_20']
+methods = ['leave_1'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -834,7 +834,7 @@ def plot_forecast_ts(df_test_m, df_test):
     ax0.axhline(y=0, color='black', lw=1)
     ax0.legend(fontsize=fontsize)
 
-    df_scores = df_test_m.loc[0]['Prediction']
+    df_scores = df_test_m.loc[0][df_test_m.columns[0][0]]
     Texts1 = [] ; Texts2 = [] ;
     textprops = dict(color='black', fontsize=fontsize+4, family='serif')
     rename_met = {'RMSE':'RMSE-SS', 'corrcoef':'Corr. Coeff.', 'MAE':'MAE-SS',
