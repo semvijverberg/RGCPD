@@ -706,7 +706,7 @@ kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
                 'fit_intercept':False,
                 'kfold':10}
 
-months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'March',
+months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
           'SO':'hindcast'}
 list_verification = [] ; list_prediction = []
 for i, rg in enumerate(rg_list):
@@ -1001,8 +1001,6 @@ kwrgs_model = {'scoringCV':'neg_brier_score',
 thresholds = [.33, .5, .66]
 # thresholds = [.5]
 for i, q in enumerate(thresholds):
-    months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
-              'SO':'hindcast'}
     list_verification = [] ; list_prediction = []
     for i, rg in enumerate(rg_list):
         # target

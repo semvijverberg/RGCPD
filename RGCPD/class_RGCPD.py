@@ -790,7 +790,7 @@ class RGCPD:
                 prec_labels = pclass.prec_labels.copy()
 
             if mean:
-                n_splits = self.df_splits.index.levels[0].size
+                n_splits = prec_labels.split.size
                 min_d = round(n_splits * (1- min_detect_gc),0)
                 # 1 == non-significant, 0 == significant
                 mask = (~np.isnan(pclass.prec_labels)).sum(dim='split') > min_d
