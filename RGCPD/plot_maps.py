@@ -277,7 +277,9 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                     fake_labels = [' ' * len( str(l) ) for l in latitude_labels]
                     g.axes[row,col].set_yticklabels(fake_labels, fontsize=12)
 
-                g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3, linestyle='--')
+                if np.logical_and(y_ticks==False, x_ticks==False)==False:
+                    # if no ticks, then also no gridlines
+                    g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3, linestyle='--')
                 g.axes[row,col].set_ylabel('')
                 g.axes[row,col].set_xlabel('')
             g.axes[row,col].coastlines(color='black',
@@ -286,6 +288,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                                           linewidth=2)
             # black outline subplot
             g.axes[row,col].spines['geo'].set_edgecolor('black')
+
 
             if corr_xr.name is not None:
                 if corr_xr.name[:3] == 'sst':
@@ -662,7 +665,7 @@ def plot_labels(prec_labels,
     xrlabels.values = prec_labels.values - 0.5
     kwrgs_labels = _get_kwrgs_labels(xrlabels)
     kwrgs_labels.update(kwrgs_plot)
-    plot_corr_maps(xrlabels, **kwrgs_labels)
+    return plot_corr_maps(xrlabels, **kwrgs_labels)
 
 def plot_corr_regions(ds, var, lag, filepath,
                       mean_splits=True, cols: List=['corr','C.D.'],

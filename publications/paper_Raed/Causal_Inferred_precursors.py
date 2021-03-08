@@ -315,7 +315,17 @@ kwrgs_plotlabels_SM.pop('cbar_tick_dict')
 kwrgs_plotlabels_SM['cbar_vert'] = 0
 rg.quick_view_labels('smi', kwrgs_plot=kwrgs_plotlabels_SM,
                      min_detect_gc=min_detect_gc, save=save)
-
+#%%
+load_sst = '{}_a{}_{}_{}_{}'.format(sst._name, sst.alpha,
+                                            sst.distance_eps,
+                                            sst.min_area_in_degrees2,
+                                            periodnames[-1])
+sst.store_netcdf(rg.path_outsub1, load_sst, add_hash=False)
+load_SM = '{}_a{}_{}_{}_{}'.format(SM._name, SM.alpha,
+                                           SM.distance_eps,
+                                           SM.min_area_in_degrees2,
+                                           periodnames[-1])
+SM.store_netcdf(rg.path_outsub1, load_SM, add_hash=False)
 #%%
 
 rg.get_ts_prec()
