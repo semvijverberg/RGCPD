@@ -66,7 +66,8 @@ from stat_models import plot_importances
 target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['random_10', 'random_5', 'random_20'] # ['ranstrat_20']
+# methods = ['random_10', 'random_5', 'random_20']
+methods = ['leave_1']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
