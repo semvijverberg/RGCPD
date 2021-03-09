@@ -64,7 +64,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 1
+i_default = 0
 
 
 def parseArguments():

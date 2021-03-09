@@ -34,7 +34,7 @@ from RGCPD import BivariateMI
 import find_precursors
 
 sst = BivariateMI('sst')
-path = '/Users/semvijverberg/surfdrive/output_paper3/USDA_Soy_ranstrat_20_ac0.05_aCI0.05/s2/'
+path = '/Users/semvijverberg/Desktop/cluster/surfdrive/output_paper3/USDA_Soy/random_20/s1'
 sst.load_files(path, '8de750')
 
 
