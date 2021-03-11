@@ -283,9 +283,9 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                 g.axes[row,col].set_ylabel('')
                 g.axes[row,col].set_xlabel('')
             g.axes[row,col].coastlines(color='black',
-                                          alpha=0.3,
-                                          facecolor='grey',
-                                          linewidth=2)
+                                       alpha=0.3,
+                                       facecolor='grey',
+                                       linewidth=2)
             # black outline subplot
             g.axes[row,col].spines['geo'].set_edgecolor('black')
 
@@ -295,7 +295,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                     g.axes[row,col].add_feature(cfeature.LAND, facecolor='grey', alpha=0.3)
             if add_cfeature is not None:
                 g.axes[row,col].add_feature(cfeature.__dict__[add_cfeature],
-                                            facecolor='grey', alpha=0.2)
+                                            facecolor='grey', alpha=0.3)
 
 
             if zoomregion is not None:

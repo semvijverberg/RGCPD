@@ -211,3 +211,12 @@ ds = cl.spatial_mean_clusters(var_filename,
 f_name = 'tf{}_nc{}'.format(int(ds['ts'].tfreq), int(ds['n_clusters'].n_clusters))
 filepath = os.path.join(rg.path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
+
+#%% Check spatial correlation within clusters
+TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
+
+list_of_name_path = [(2, TVpath),
+                     ('mx2t', root_data + '/input_raw/mx2t_US_1979-2018_1_12_daily_0.25deg.nc')]
+rg = RGCPD(list_of_name_path=list_of_name_path,
+           path_outmain=path_outmain)
+rg.pp_precursors()
