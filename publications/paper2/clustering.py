@@ -117,28 +117,28 @@ plt.savefig(path_fig,
 print(f'{round(time()-t0, 2)}')
 
 #%%
-# =============================================================================
-# Clustering correlation Hierarchical Agglomerative Clustering
-# =============================================================================
-from time import time
-t0 = time()
-xrclustered, results = cl.correlation_clustering(var_filename, mask=xr_mask,
-                                               kwrgs_load={'tfreq':tfreq,
-                                                           'seldates':('06-01', '08-31'),
-                                                           'selbox':selbox},
-                                               clustermethodkey='AgglomerativeClustering',
-                                               kwrgs_clust={'n_clusters':n_clusters,
-                                                            'affinity':'correlation',
-                                                            'linkage':'average'})
+# # =============================================================================
+# # Clustering correlation Hierarchical Agglomerative Clustering
+# # =============================================================================
+# from time import time
+# t0 = time()
+# xrclustered, results = cl.correlation_clustering(var_filename, mask=xr_mask,
+#                                                kwrgs_load={'tfreq':tfreq,
+#                                                            'seldates':('06-01', '08-31'),
+#                                                            'selbox':selbox},
+#                                                clustermethodkey='AgglomerativeClustering',
+#                                                kwrgs_clust={'n_clusters':n_clusters,
+#                                                             'affinity':'correlation',
+#                                                             'linkage':'average'})
 
-plot_maps.plot_labels(xrclustered,  wspace=.05, hspace=-.2, cbar_vert=.08,
-                            row_dim='tfreq', col_dim='n_clusters')
+# plot_maps.plot_labels(xrclustered,  wspace=.05, hspace=-.2, cbar_vert=.08,
+#                             row_dim='tfreq', col_dim='n_clusters')
 
-f_name = 'clustering_correlation_{}'.format(xrclustered.attrs['hash']) + '.pdf'
-path_fig = os.path.join(rg.path_outmain, f_name)
-plt.savefig(path_fig,
-            bbox_inches='tight') # dpi auto 600
-print(f'{round(time()-t0, 2)}')
+# f_name = 'clustering_correlation_{}'.format(xrclustered.attrs['hash']) + '.pdf'
+# path_fig = os.path.join(rg.path_outmain, f_name)
+# plt.savefig(path_fig,
+#             bbox_inches='tight') # dpi auto 600
+# print(f'{round(time()-t0, 2)}')
 
 #%%
 # # =============================================================================
@@ -166,48 +166,48 @@ print(f'{round(time()-t0, 2)}')
 #%%
 
 
-t = 15 ; c=3
-xrclust = xrclustered.sel(tfreq=t, n_clusters=c)
-ds = cl.spatial_mean_clusters(var_filename,
-                          xrclust,
-                          selbox=selbox)
-q = 75
-ds[f'q{q}tail'] = cl.percentile_cluster(var_filename,
-                                      xrclust,
-                                      q=q,
-                                      tailmean=True,
-                                      selbox=selbox)
-q = 50
-ds[f'q{q}tail'] = cl.percentile_cluster(var_filename,
-                                      xrclust,
-                                      q=q,
-                                      tailmean=True,
-                                      selbox=selbox)
-q = 25
-ds[f'q{q}tail'] = cl.percentile_cluster(var_filename,
-                                      xrclust,
-                                      q=q,
-                                      tailmean=True,
-                                      selbox=selbox)
+# t = 15 ; c=3
+# xrclust = xrclustered.sel(tfreq=t, n_clusters=c)
+# ds = cl.spatial_mean_clusters(var_filename,
+#                           xrclust,
+#                           selbox=selbox)
+# q = 75
+# ds[f'q{q}tail'] = cl.percentile_cluster(var_filename,
+#                                       xrclust,
+#                                       q=q,
+#                                       tailmean=True,
+#                                       selbox=selbox)
+# q = 50
+# ds[f'q{q}tail'] = cl.percentile_cluster(var_filename,
+#                                       xrclust,
+#                                       q=q,
+#                                       tailmean=True,
+#                                       selbox=selbox)
+# q = 25
+# ds[f'q{q}tail'] = cl.percentile_cluster(var_filename,
+#                                       xrclust,
+#                                       q=q,
+#                                       tailmean=True,
+#                                       selbox=selbox)
 
 
-df_clust = functions_pp.xrts_to_df(ds['ts'])
+# df_clust = functions_pp.xrts_to_df(ds['ts'])
 
-fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False,
-                     colwrap=2, kwrgs={'AUC_cutoff':(14,30), 's':60})
-fig.suptitle('tfreq: {}, n_clusters: {}'.format(t, c), x=.5, y=.97)
+# fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False,
+#                      colwrap=2, kwrgs={'AUC_cutoff':(14,30), 's':60})
+# fig.suptitle('tfreq: {}, n_clusters: {}'.format(t, c), x=.5, y=.97)
 
-df_clust = functions_pp.xrts_to_df(ds[f'q{q}tail'])
+# df_clust = functions_pp.xrts_to_df(ds[f'q{q}tail'])
 
-fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False,
-                     colwrap=2, kwrgs={'AUC_cutoff':(14,30),'s':60})
-fig.suptitle('tfreq: {}, n_clusters: {}, q{}tail'.format(t, c, q),
-             x=.5, y=.97)
+# fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False,
+#                      colwrap=2, kwrgs={'AUC_cutoff':(14,30),'s':60})
+# fig.suptitle('tfreq: {}, n_clusters: {}, q{}tail'.format(t, c, q),
+#              x=.5, y=.97)
 #%%
-t = 15 ; c = 5
+t = 15 ; c = 3
 ds = cl.spatial_mean_clusters(var_filename,
-                         xrclustered.sel(tfreq=t, n_clusters=c),
-                         selbox=selbox)
+                             xrclustered.sel(tfreq=t, n_clusters=c),
+                             selbox=selbox)
 f_name = 'tf{}_nc{}'.format(int(ds['ts'].tfreq), int(ds['n_clusters'].n_clusters))
 filepath = os.path.join(rg.path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
