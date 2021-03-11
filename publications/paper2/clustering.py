@@ -30,7 +30,7 @@ if cluster_func not in sys.path:
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-    root_data = '/scistor/ivm/data_catalogue/reanalysis/ERA5'
+    root_data = os.path.join(user_dir, 'surfdrive/ERA5/')
 else:
     root_data = '/Users/semvijverberg/surfdrive/ERA5'
 
