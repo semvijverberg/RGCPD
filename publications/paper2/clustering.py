@@ -68,7 +68,7 @@ ds = core_pp.import_ds_lazy(var_filename)
 ds.sel(time=core_pp.get_subdates(pd.to_datetime(ds.time.values), start_end_date=('06-01', '08-31'))).mean(dim='time').plot()
 #%%
 import make_country_mask
-orography = '/Users/semvijverberg/surfdrive/ERA5/input_raw/Orography.nc'
+orography = os.path.join(user_dir, 'surfdrive/ERA5/input_raw/Orography.nc')
 selbox = (225, 300, 25, 70)
 xarray, Country = make_country_mask.create_mask(var_filename, kwrgs_load={'selbox':selbox}, level='Countries')
 mask_US_CA = np.logical_or(xarray.values == Country.US, xarray.values==Country.CA)
