@@ -5,19 +5,29 @@ Created on Wed Mar  6 16:31:58 2019
 
 @author: semvijverberg
 """
-
-
 import os, inspect, sys
 import numpy as np
 import pandas as pd
+user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-local_base_path = "/Users/semvijverberg/surfdrive/"
+local_base_path = os.path.join(user_dir, "/surfdrive/")
 local_script_dir = os.path.join(local_base_path, "Scripts/RGCPD/ECMWF_retrieval" )
 
 # cluster_base_path = "/p/projects/climber3/atm_data/"
 cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/"
 
-cluster_script_dir = "/scistor/ivm/svg460/Scripts/RGCPD/ECMWF_retrieval"
+cluster_script_dir = local_script_dir
+
+
+
+try:
+    os.chdir(local_script_dir)
+    sys.path.append(local_script_dir)
+    base_path = local_base_path
+except:
+    os.chdir(cluster_script_dir)
+    sys.path.append(cluster_script_dir)
+    base_path = cluster_base_path
 
 
 
