@@ -73,8 +73,8 @@ import make_country_mask
 orography = os.path.join(user_dir, 'surfdrive/ERA5/input_raw/Orography.nc')
 selbox = (225, 300, 25, 70)
 xarray, Country = make_country_mask.create_mask(var_filename, kwrgs_load={'selbox':selbox}, level='Countries')
-mask_US_CA = np.logical_or(xarray.values == Country.US, xarray.values==Country.CA)
-# mask_US_CA = xarray.values == Country.US
+# mask_US_CA = np.logical_or(xarray.values == Country.US, xarray.values==Country.CA)
+mask_US_CA = xarray.values == Country.US
 # xr_mask =  xarray.where(mask_US_CA)
 xr_mask = xarray.where(make_country_mask.binary_erosion(mask_US_CA))
 # xr_mask =  xarray.where(make_country_mask.binary_erosion(np.nan_to_num(xr_mask)))
@@ -112,11 +112,13 @@ xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
                                                             'n_clusters':n_clusters,
                                                             'affinity':'jaccard',
                                                             'linkage':'average'})
+
+xrclustered.attrs['hash'] +='_US'
 fig = plot_maps.plot_labels(xrclustered,
                             kwrgs_plot={'wspace':.03, 'hspace':-.35,
                                         'cbar_vert':.09,
                                         'row_dim':'n_clusters', 'col_dim':'tfreq'})
-f_name = 'clustering_dendogram_US_{}'.format(xrclustered.attrs['hash']) + '.pdf'
+f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
 path_fig = os.path.join(rg.path_outmain, f_name)
 plt.savefig(path_fig,
             bbox_inches='tight') # dpi auto 600
@@ -298,7 +300,8 @@ plot_maps.plot_corr_maps(point_corr,
                          scatter=scatter,
                          col_wrap=3,
                          cbar_vert=-.03,
-                         n_xticks=4, n_yticks=4)
+                         n_xticks=4, n_yticks=4,
+                         clevels=np.arange(-1,1.1,.2))
 f_name = 'one_point_corr_maps_t2m_{}'.format(xrclustered.attrs['hash'])
 filepath = os.path.join(rg.path_outmain, f_name)
 plt.savefig(filepath+'.pdf', bbox_inches='tight')
