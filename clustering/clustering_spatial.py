@@ -318,6 +318,21 @@ def spatial_mean_clusters(var_filename, xrclust, selbox=None):
     xrts = xr.DataArray(ts_clusters.T,
                         coords={'cluster':track_names, 'time':xarray.time},
                         dims=['cluster', 'time'])
+
+    # extract selected setting for ts
+    dims = list(xrclust.coords.keys())
+    standard_dim = ['latitude', 'longitude', 'time', 'mask', 'cluster']
+    dims = [d for d in dims if d not in standard_dim]
+    if 'n_clusters' in dims:
+        idx = dims.index('n_clusters')
+        dims[idx] = 'ncl'
+        xrclust = xrclust.rename({'n_clusters':dims[idx]}).copy()
+    var1 = int(xrclust[dims[0]])
+    var2 = int(xrclust[dims[1]])
+    dim1 = dims[0]
+    dim2 = dims[1]
+    xrts.attrs[dim1] = var1
+    xrts.attrs[dim2] = var2
     ds = xr.Dataset({'xrclustered':xrclust, 'ts':xrts})
     #%%
     return ds

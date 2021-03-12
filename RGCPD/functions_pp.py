@@ -295,21 +295,27 @@ def nc_xr_ts_to_df(filename, name_ds='ts'):
     return xrts_to_df(ds[name_ds]), ds
 
 def xrts_to_df(xarray):
+
     dims = list(xarray.coords.keys())
-    standard_dim = ['latitude', 'longitude', 'time', 'mask', 'cluster']
-    dims = [d for d in dims if d not in standard_dim]
-    if 'n_clusters' in dims:
-        idx = dims.index('n_clusters')
-        dims[idx] = 'ncl'
-        xarray = xarray.rename({'n_clusters':dims[idx]}).copy()
-    var1 = int(xarray[dims[0]])
-    var2 = int(xarray[dims[1]])
-    dim1 = dims[0]
-    dim2 = dims[1]
-    name = '{}{}_{}{}'.format(dim1, var1, dim2, var2)
-    df = xarray.drop(dim1).drop(dim2).T.to_dataframe(
-                                        name=name).unstack(level=1)
-    df = df.droplevel(0, axis=1)
+    if dims > len(xarray.dims):
+        standard_dim = ['latitude', 'longitude', 'time', 'mask', 'cluster']
+        dims = [d for d in dims if d not in standard_dim]
+        if 'n_clusters' in dims:
+            idx = dims.index('n_clusters')
+            dims[idx] = 'ncl'
+            xarray = xarray.rename({'n_clusters':dims[idx]}).copy()
+        var1 = int(xarray[dims[0]])
+        var2 = int(xarray[dims[1]])
+        dim1 = dims[0]
+        dim2 = dims[1]
+        name = '{}{}_{}{}'.format(dim1, var1, dim2, var2)
+        df = xarray.drop(dim1).drop(dim2).T.to_dataframe(
+                                            name=name).unstack(level=1)
+        df = df.droplevel(0, axis=1)
+    else:
+        attr = {k:i for k,i in xarray.attrs.items() if k != 'is_DataArray'}
+        name = '_'.join("{!s}{!r}".format(key,val) for (key,val) in attr.items())
+        df = xarray.T.to_dataframe(name=name).unstack(level=1)
     df.index.name = name
     return df
 

@@ -221,7 +221,9 @@ f_name = 'tf{}_nc{}'.format(int(t), int(c))
 filepath = os.path.join(rg.path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
+filepath += '_' + 'dendo_'+xrclustered.attrs['hash'] + '.nc'
 #%% Check spatial correlation within clusters
+
 # filepath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
 
 list_of_name_path = [(2, filepath),
@@ -237,11 +239,13 @@ xrclustered = rg.ds['xrclustered']
 #%% Get timeseries at specific points within gridcell
 import plot_maps
 ds = core_pp.import_ds_lazy(rg.list_precur_pp[0][1])
-np_array_xy = np.array([[-90, 35], [-90, 42], [-90, 50],
-                        [-119,35], [-120,45], [-110,55]])
+np_array_xy = np.array([[-92, 33], [-96, 40], [-92, 50], [-83,42],
+                        [-112,33], [-119,35], [-120,45], [-110,55]])
+size = 100
 colors = ["#22223b","#ffbe0b","#fb5607","#ff006e","#8338ec","#3a86ff"][::-1]
-scatter = [['all', [np_array_xy, {'s':100, 'zorder':2,
-                                  'color':colors[:6]}] ]]
+colors = plt.cm.tab20.colors[:np_array_xy.shape[0]]
+scatter = [['all', [np_array_xy, {'s':size, 'zorder':2,
+                                  'color':colors}] ]]
 fig = plot_maps.plot_labels(rg.ds['xrclustered'],
                       {'scatter':scatter})
 
@@ -252,8 +256,8 @@ for i, xy in enumerate(np_array_xy):
                      latitude=xy[1])
 
 df_ts = pd.DataFrame(npts.T, index=pd.to_datetime(ds.time.values),
-                     columns=['90W-42N', '90W-35N', '90W-50N',
-                              '120W-35N', '120W-45N', '110W-55N'])
+                     columns=['90W-42N', '90W-35N', '90W-50N', '83W-42N',
+                              '112W-33N', '120W-35N', '120W-45N', '110W-55N'])
 
 TVpath = os.path.join(user_dir,
                       'surfdrive/Scripts/RGCPD/publications/paper2/data/',
@@ -284,13 +288,16 @@ for point in df_ts.columns:
 point_corr = xr.concat(list_xr, dim='points')
 point_corr['points'] = ('points', list(df_ts.columns))
 #%%
-subtitles = np.array([point_corr.points]).reshape(-1, 3)
-scatter =[[(0,0), [np_array_xy[[0]], {'s':20, 'zorder':2, 'color':"dodgerblue"}] ],
-          [(0,1), [np_array_xy[[1]], {'s':20, 'zorder':2, 'color':"dodgerblue"}] ],
-           [(0,2), [np_array_xy[[2]], {'s':20, 'zorder':2, 'color':"dodgerblue"}] ],
-           [(1,0), [np_array_xy[[3]], {'s':20, 'zorder':2, 'color':"dodgerblue"}] ],
-           [(1,1), [np_array_xy[[4]], {'s':20, 'zorder':2, 'color':"dodgerblue"}] ],
-           [(1,2), [np_array_xy[[5]], {'s':20, 'zorder':2, 'color':"dodgerblue"}] ]]
+col_wrap = 4
+subtitles = np.array([point_corr.points]).reshape(-1, col_wrap)
+scatter =[[(0,0), [np_array_xy[[0]], {'s':size, 'zorder':2, 'color':colors[0]}] ],
+          [(0,1), [np_array_xy[[1]], {'s':size, 'zorder':2, 'color':colors[1]}] ],
+          [(0,2), [np_array_xy[[2]], {'s':size, 'zorder':2, 'color':colors[2]}] ],
+          [(0,3), [np_array_xy[[2]], {'s':size, 'zorder':2, 'color':colors[3]}] ],
+          [(1,0), [np_array_xy[[3]], {'s':size, 'zorder':2, 'color':colors[4]}] ],
+          [(1,1), [np_array_xy[[4]], {'s':size, 'zorder':2, 'color':colors[5]}] ],
+          [(1,2), [np_array_xy[[5]], {'s':size, 'zorder':2, 'color':colors[6]}] ],
+          [(1,3), [np_array_xy[[5]], {'s':size, 'zorder':2, 'color':colors[7]}] ]]
 
 plot_maps.plot_corr_maps(point_corr,
                          mask_xr = point_corr['mask'],
@@ -298,7 +305,7 @@ plot_maps.plot_corr_maps(point_corr,
                          aspect=1.5, hspace=.2,
                          subtitles=subtitles,
                          scatter=scatter,
-                         col_wrap=3,
+                         col_wrap=col_wrap,
                          cbar_vert=-.03,
                          n_xticks=4, n_yticks=4,
                          clevels=np.arange(-1,1.1,.2))
