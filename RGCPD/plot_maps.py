@@ -308,10 +308,11 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                     fake_labels = [' ' * len( str(l) ) for l in latitude_labels]
                     g.axes[row,col].set_yticklabels(fake_labels, fontsize=12)
 
-                if np.logical_and(y_ticks==False, x_ticks==False)==False:
-                    # if no ticks, then also no gridlines
-                    g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3,
-                                         linestyle='--', zorder=3)
+                if type(y_ticks) is bool and type(y_ticks) is bool:
+                    if np.logical_and(y_ticks==False, x_ticks==False)==False:
+                        # if no ticks, then also no gridlines
+                        g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3,
+                                             linestyle='--', zorder=3)
                 g.axes[row,col].set_ylabel('')
                 g.axes[row,col].set_xlabel('')
             g.axes[row,col].coastlines(color='black',

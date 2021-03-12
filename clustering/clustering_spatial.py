@@ -270,12 +270,14 @@ def store_netcdf(xarray, filepath=None, append_hash=None):
         name = xarray.name
     if append_hash is not None:
         filepath = filepath.split('.')[0] +'_'+ append_hash + '.nc'
+    else:
+        filepath = filepath.split('.')[0] + '.nc'
     # ensure mask
-    xarray = xarray.where(xarray.values != 0.).fillna(-9999)
-    encoding = ( {name : {'_FillValue': -9999}} )
+    # xarray = xarray.where(xarray.values != 0.).fillna(-9999)
+    # encoding = ( {name : {'_FillValue': -9999}} )
     print(f'to file:\n{filepath}')
     # save netcdf
-    xarray.to_netcdf(filepath, mode='w', encoding=encoding)
+    xarray.to_netcdf(filepath)
     return filepath
 
 
@@ -331,9 +333,9 @@ def spatial_mean_clusters(var_filename, xrclust, selbox=None):
     var2 = int(xrclust[dims[1]])
     dim1 = dims[0]
     dim2 = dims[1]
-    xrts.attrs[dim1] = var1
-    xrts.attrs[dim2] = var2
-    ds = xr.Dataset({'xrclustered':xrclust, 'ts':xrts})
+    xrts.attrs[dim1] = var1 ; xrclust.attrs[dim1] = var1
+    xrts.attrs[dim2] = var2 ; xrclust.attrs[dim2] = var2
+    ds = xr.Dataset({'xrclustered':xrclust.drop(dim1).drop(dim2), 'ts':xrts})
     #%%
     return ds
 

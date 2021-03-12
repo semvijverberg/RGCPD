@@ -297,7 +297,7 @@ def nc_xr_ts_to_df(filename, name_ds='ts'):
 def xrts_to_df(xarray):
 
     dims = list(xarray.coords.keys())
-    if dims > len(xarray.dims):
+    if len(dims) > len(xarray.dims):
         standard_dim = ['latitude', 'longitude', 'time', 'mask', 'cluster']
         dims = [d for d in dims if d not in standard_dim]
         if 'n_clusters' in dims:
