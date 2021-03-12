@@ -46,7 +46,7 @@ import df_ana
 from RGCPD import RGCPD
 from RGCPD import BivariateMI ; import class_BivariateMI
 list_of_name_path = [('fake', None),
-                     ('mx2t', root_data + '/input_raw/t2m_US_1979-2020_1_12_daily_0.25deg.nc')]
+                     ('t2m', root_data + '/input_raw/t2m_US_1979-2020_1_12_daily_0.25deg.nc')]
 rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=path_outmain)
 
@@ -220,9 +220,9 @@ filepath = os.path.join(rg.path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
 #%% Check spatial correlation within clusters
-TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
+# filepath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
 
-list_of_name_path = [(2, TVpath),
+list_of_name_path = [(2, filepath),
                      ('mx2t', root_data + '/input_raw/mx2t_US_1979-2018_1_12_daily_0.25deg.nc')]
 rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=path_outmain,
@@ -253,7 +253,9 @@ df_ts = pd.DataFrame(npts.T, index=pd.to_datetime(ds.time.values),
                      columns=['90W-42N', '90W-35N', '90W-50N',
                               '120W-35N', '120W-45N', '110W-55N'])
 
-TVpath = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2/data/df_ts_paper2_clustercorr_0ff31.h5'
+TVpath = os.path.join(user_dir,
+                      'surfdrive/Scripts/RGCPD/publications/paper2/data/',
+                      'df_ts_paper2_clustercorr_{}.h5'.format(xrclustered.attrs['hash']))
 
 functions_pp.store_hdf_df({'df_ts':df_ts}, file_path=TVpath)
 #%%
@@ -297,8 +299,9 @@ plot_maps.plot_corr_maps(point_corr,
                          col_wrap=3,
                          cbar_vert=-.03,
                          n_xticks=4, n_yticks=4)
-
-
+f_name = 'one_point_corr_maps_t2m_{}'.format(xrclustered.attrs['hash'])
+filepath = os.path.join(rg.path_outmain, f_name)
+plt.savefig(filepath+'.pdf', bbox_inches='tight')
 # np_array_xy = np.array([[-100, 40]])
 # ax = fig.axes[0]
 # ax.scatter(x=np_array_xy[:,0], y=np_array_xy[:,1],
