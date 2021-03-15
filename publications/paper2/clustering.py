@@ -37,7 +37,7 @@ else:
 
 path_outmain = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW'
 
-domain = 'US'
+domain = 'USCA'
 # In[2]:
 
 
