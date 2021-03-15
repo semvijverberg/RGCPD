@@ -14,7 +14,7 @@ else:
 
 if sys.platform == 'linux': # on cluster
     try:
-        os.system("module load CDO")
+        os.system("module load cdo")
     except:
         print('Ensure CDO is loaded')
 
