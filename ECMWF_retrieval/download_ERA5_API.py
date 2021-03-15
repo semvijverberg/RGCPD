@@ -11,6 +11,13 @@ if 'win' in sys.platform and 'dar' not in sys.platform:
 else:
     sep = '/' # Mac/Linux folder seperator
 
+
+if sys.platform == 'linux': # on cluster
+    try:
+        os.system("module load CDO")
+    except:
+        print('Ensure CDO is loaded')
+
 import os
 import numpy as np
 import pandas as pd

@@ -35,7 +35,7 @@ if sys.platform == 'linux':
 else:
     root_data = '/Users/semvijverberg/surfdrive/ERA5'
 
-path_outmain = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW'
+path_outmain = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters'
 # In[2]:
 
 
@@ -71,10 +71,10 @@ ds.sel(time=core_pp.get_subdates(pd.to_datetime(ds.time.values), start_end_date=
 
 
 #%%
-region = 'USCA'
+region = 'US'
 if region == 'US':
     selbox = (230, 300, 25, 50)
-    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_94f07_US_1979-2020.nc'
+    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf10_nc5_dendo_3e180_US.nc'
     np_array_xy = np.array([[-84, 34], [-96, 40], [-87, 42],
                             [-122,40], [-122,46], [-117,46]])
     t, c = 10, 5
@@ -85,10 +85,19 @@ elif region == 'USCA':
     np_array_xy = np.array([[-100, 33], [-95, 40], [-88, 35], [-83,40],
                             [-118,36], [-120,47], [-126,53], [-120,56]])
     t, c = 30, 7
+elif region == 'init':
+    selbox = (225, 300, 25, 60)
+    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
+    np_array_xy = np.array([[-98, 35], [-95, 45], [-85, 35], [-83,45],
+                            [-118,36], [-120,47], [-120,56], [-106,53]])
+    t, c = 15, 3
 
 ds = core_pp.import_ds_lazy(TVpath)
-xrclustered = ds['xrclusteredall'].sel(tfreq=t, n_clusters=5)
-xrclustered = xrclustered.where(xrclustered.values!=-9999)
+if region != 'init':
+    xrclustered = ds['xrclusteredall'].sel(tfreq=t, n_clusters=5)
+    xrclustered = xrclustered.where(xrclustered.values!=-9999)
+else:
+    xrclustered = ds['xrclustered']
 
 
 size = 100
@@ -147,7 +156,7 @@ TVpath = os.path.join(user_dir,
                       'df_ts_paper2_clustercorr_{}.h5'.format(xrclustered.attrs['hash']))
 
 functions_pp.store_hdf_df({'df_ts':df_ts}, file_path=TVpath)
-#%%
+#%% Calculate corr maps
 
 list_xr = []
 for point in df_ts.columns:
@@ -160,7 +169,8 @@ for point in df_ts.columns:
                list_for_MI=list_for_MI,
                path_outmain=path_outmain,
                tfreq=15,
-               start_end_TVdate=('06-01', '08-31'))
+               start_end_TVdate=('06-01', '08-31'),
+               save=False)
     rg.pp_precursors()
     rg.pp_TV(name_ds=point)
     rg.traintest(False)

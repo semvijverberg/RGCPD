@@ -21,7 +21,6 @@ cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/"
 cluster_script_dir = local_script_dir
 
 
-
 try:
     os.chdir(local_script_dir)
     sys.path.append(local_script_dir)
