@@ -36,6 +36,8 @@ else:
     root_data = '/Users/semvijverberg/surfdrive/ERA5'
 
 path_outmain = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW'
+
+domain = 'USCA'
 # In[2]:
 
 
@@ -74,8 +76,10 @@ import make_country_mask
 orography = os.path.join(user_dir, 'surfdrive/ERA5/input_raw/Orography.nc')
 
 xarray, Country = make_country_mask.create_mask(var_filename, kwrgs_load={'selbox':selbox}, level='Countries')
-# mask_US_CA = np.logical_or(xarray.values == Country.US, xarray.values==Country.CA)
-mask_US_CA = xarray.values == Country.US
+if domain == 'USCA':
+    mask_US_CA = np.logical_or(xarray.values == Country.US, xarray.values==Country.CA)
+elif domain == 'US':
+    mask_US_CA = xarray.values == Country.US
 # xr_mask =  xarray.where(mask_US_CA)
 xr_mask = xarray.where(make_country_mask.binary_erosion(mask_US_CA))
 # xr_mask =  xarray.where(make_country_mask.binary_erosion(np.nan_to_num(xr_mask)))
@@ -114,7 +118,7 @@ xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
                                                             'affinity':'jaccard',
                                                             'linkage':'average'})
 
-xrclustered.attrs['hash'] +='_US'
+xrclustered.attrs['hash'] +=f'_{domain}'
 fig = plot_maps.plot_labels(xrclustered,
                             kwrgs_plot={'wspace':.03, 'hspace':-.35,
                                         'cbar_vert':.09,
