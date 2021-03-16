@@ -33,7 +33,7 @@ import climate_indices
 import plot_maps, core_pp, df_ana
 
 west_east = 'west'
-TV = 'init'
+TV = 'USCA'
 if TV == 'init':
     TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
     if west_east == 'east':
@@ -41,21 +41,24 @@ if TV == 'init':
     elif west_east == 'west':
         cluster_label = 1
 elif TV == 'US':
-    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf10_nc5_dendo_0cbf8_US.nc'
+    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf15_nc6_dendo_0cbf8_US.nc'
+    if west_east == 'east':
+        cluster_label = 3
+    elif west_east == 'west':
+        cluster_label = 1
 elif TV == 'USCA':
-    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf10_nc5_dendo_5dbee_USCA.nc'
+    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf30_nc5_dendo_5dbee_USCA.nc'
+    if west_east == 'east':
+        cluster_label = 1
+    elif west_east == 'west':
+        cluster_label = 5
 
 if west_east == 'east':
     path_out_main = os.path.join(main_dir, 'publications/paper2/output/east/')
 elif west_east == 'west':
     path_out_main = os.path.join(main_dir, 'publications/paper2/output/west/')
 
-if west_east == 'east' and TV in ['US', 'USCA']:
-    cluster_label = 1
-elif west_east == 'west' and TV == 'US':
-    cluster_label = 3
-elif west_east == 'west' and TV == 'USCA':
-    cluster_label = 5
+
 
 
 
@@ -150,7 +153,9 @@ rg.plot_maps_corr(var='v300', save=save,
                   kwrgs_plot=kwrgs_plot,
                   min_detect_gc=min_detect_gc)
 
-
+#%%
+import matplotlib as mpl
+mpl.rcParams.update(mpl.rcParamsDefault)
 #%% Determine Rossby wave within green rectangle, become target variable for feedback
 
 # rg.list_for_MI = [BivariateMI(name='v300', func=class_BivariateMI.corr_map,
@@ -171,7 +176,7 @@ rg.plot_maps_corr(var='v300', save=save,
 
 #%% SST vs T
 list_of_name_path = [(cluster_label, TVpath),
-                     ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
+                     ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
 lags = np.array([0,2])
 
@@ -185,7 +190,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
             start_end_TVdate=start_end_TVdate,
             start_end_date=None,
-            start_end_year=None,
+            start_end_year=start_end_year,
             tfreq=tfreq,
             path_outmain=path_out_main)
 

@@ -24,13 +24,14 @@ import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import multiprocessing
 max_cpu = multiprocessing.cpu_count()
-n_threads = 2*max_cpu
+n_threads = max(25,2*max_cpu)
 
 accumulated_vars = ['total_precipitation', 'potential_evaporation', 'Runoff']
 
 # Common ERA5 variable names
 # v_component_of_wind
 # u_component_of_wind
+# geopotential
 mondict  =  {1: 'January',
              2: 'February',
              3: 'March',

@@ -41,6 +41,7 @@ path_outmain = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW/one-point-cor
 
 import functions_pp, find_precursors, core_pp
 import make_country_mask
+import clustering_spatial as cl
 import plot_maps
 import df_ana
 from RGCPD import RGCPD
@@ -77,7 +78,7 @@ ds.sel(time=core_pp.get_subdates(pd.to_datetime(ds.time.values), start_end_date=
 if region == 'US':
     selbox = (230, 300, 25, 50)
     TVpath = os.path.join(path_outmain, 'tf10_nc5_dendo_0cbf8_US.nc')
-    np_array_xy = np.array([[-96, 42], [-87, 41], [-86, 34],
+    np_array_xy = np.array([[-91, 36], [-85, 34], [-81, 38],
                             [-116,36], [-122,41], [-117,46]])
     t, c = 15, 6
 
@@ -86,7 +87,7 @@ elif region == 'USCA':
     TVpath = os.path.join(path_outmain, 'tf10_nc5_dendo_5dbee_USCA.nc')
     np_array_xy = np.array([[-98, 34], [-92, 41], [-85, 36], [-81,45],
                             [-118,36], [-120,47], [-126,53], [-120,56]])
-    t, c = 30, 7
+    t, c = 30, 5
 elif region == 'init':
     selbox = (230, 300, 25, 60)
     TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
@@ -94,12 +95,12 @@ elif region == 'init':
                             [-118,36], [-120,47], [-120,56], [-106,53]])
     t, c = 15, 3
 
-ds = core_pp.import_ds_lazy(TVpath)
+ds_cl = core_pp.import_ds_lazy(TVpath)
 if region != 'init':
-    xrclustered = ds['xrclusteredall'].sel(tfreq=t, n_clusters=5)
+    xrclustered = ds_cl['xrclusteredall'].sel(tfreq=t, n_clusters=c)
     xrclustered = xrclustered.where(xrclustered.values!=-9999)
 else:
-    xrclustered = ds['xrclustered']
+    xrclustered = ds_cl['xrclustered']
 
 
 size = 100
@@ -249,3 +250,18 @@ plot_maps.plot_corr_maps(point_corr,
 f_name = 'one_point_corr_maps_t2m_{}_{}'.format(xrclustered.attrs['hash'], region)
 filepath = os.path.join(rg.path_outmain, f_name)
 # plt.savefig(filepath+'.png', bbox_inches='tight', dpi=200)
+
+#%%
+
+if region != 'init':
+    ds_cl_ts = core_pp.get_selbox(ds_cl['xrclusteredall'].sel(tfreq=t, n_clusters=c),
+                                  selbox)
+    ds_new = cl.spatial_mean_clusters(var_filename,
+                                      ds_cl_ts,
+                                      selbox=selbox)
+    ds_new['xrclusteredall'] = xrclustered
+    f_name = 'tf{}_nc{}'.format(int(t), int(c))
+    filepath = os.path.join(rg.path_outmain, f_name)
+    cl.store_netcdf(ds_new, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
+
+    TVpath = filepath + '_' + 'dendo_'+xrclustered.attrs['hash'] + '.nc'
