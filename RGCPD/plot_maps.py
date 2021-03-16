@@ -15,6 +15,7 @@ import xarray as xr
 import pandas as pd
 # from matplotlib.colors import LinearSegmentedColormap, colors
 import matplotlib.colors as mcolors
+import matplotlib.ticker as mticker
 import cartopy.crs as ccrs
 from typing import List, Tuple, Union
 
@@ -57,7 +58,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     # clevels=None; clabels=None; cticks_center=None; cbar_tick_dict={}; map_proj=None ;
     # drawbox=None; subtitles=None; title=None; lat_labels=True; zoomregion=None
     # aspect=None; n_xticks=5; n_yticks=3; title_fontdict=None; x_ticks=None;
-    # y_ticks=None; add_cfeature=None; textinmap=None; scatter=None
+    # y_ticks=None; add_cfeature=None; textinmap=None; scatter=None; col_wrap=None
 
     if map_proj is None:
         cen_lon = int(corr_xr.longitude.mean().values)
@@ -275,7 +276,6 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                                                       y=np_array_xy[:,1],
                                                       transform=ccrs.PlateCarree(),
                                                       **kwrgs_scatter)
-
             # =============================================================================
             # Subtitles
             # =============================================================================
@@ -307,18 +307,29 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                 else:
                     fake_labels = [' ' * len( str(l) ) for l in latitude_labels]
                     g.axes[row,col].set_yticklabels(fake_labels, fontsize=12)
-
-                if type(y_ticks) is bool and type(y_ticks) is bool:
-                    if np.logical_and(y_ticks==False, x_ticks==False)==False:
+            # =============================================================================
+            # Gridlines
+            # =============================================================================
+                if type(y_ticks) is bool and type(x_ticks) is bool:
+                    if np.logical_and(y_ticks==False, x_ticks==False):
                         # if no ticks, then also no gridlines
-                        g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3,
-                                             linestyle='--', zorder=3)
+                        pass
+                    # else:
+                        # gl = g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3,
+                                             # linestyle='--', zorder=4)
+                else:
+                    gl = g.axes[row,col].gridlines(crs=ccrs.PlateCarree(),
+                                              linewidth=.5, color='black', alpha=0.15,
+                                              linestyle='--', zorder=4)
+                    gl.xlocator = mticker.FixedLocator((longitude_labels % 360 + 540) % 360 - 180)
+                    gl.ylocator = mticker.FixedLocator(latitude_labels)
+
+
                 g.axes[row,col].set_ylabel('')
                 g.axes[row,col].set_xlabel('')
-            g.axes[row,col].coastlines(color='black',
-                                       alpha=0.3,
-                                       facecolor='grey',
-                                       linewidth=2)
+
+            g.axes[row,col].coastlines(color='black', alpha=0.3,
+                                       facecolor='grey', linewidth=2)
             # black outline subplot
             g.axes[row,col].spines['geo'].set_edgecolor('black')
 
@@ -330,7 +341,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             if add_cfeature is not None:
                 g.axes[row,col].add_feature(cfeature.__dict__[add_cfeature],
                                             facecolor='grey', alpha=0.3,
-                                            zorder=0)
+                                            zorder=4)
 
 
             if zoomregion is not None:
@@ -338,8 +349,6 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             else:
                 g.axes[row,col].set_extent([lon[0], lon[-1],
                                        lat[0], lat[-1]], crs=ccrs.PlateCarree())
-
-
 
 
     # =============================================================================

@@ -32,24 +32,40 @@ import class_BivariateMI
 import climate_indices
 import plot_maps, core_pp, df_ana
 
-
-TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
-
 west_east = 'west'
+TV = 'init'
+if TV == 'init':
+    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
+    if west_east == 'east':
+        cluster_label = 2
+    elif west_east == 'west':
+        cluster_label = 1
+elif TV == 'US':
+    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf10_nc5_dendo_0cbf8_US.nc'
+elif TV == 'USCA':
+    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf10_nc5_dendo_5dbee_USCA.nc'
+
 if west_east == 'east':
     path_out_main = os.path.join(main_dir, 'publications/paper2/output/east/')
-    cluster_label = 2
 elif west_east == 'west':
     path_out_main = os.path.join(main_dir, 'publications/paper2/output/west/')
+
+if west_east == 'east' and TV in ['US', 'USCA']:
     cluster_label = 1
+elif west_east == 'west' and TV == 'US':
+    cluster_label = 3
+elif west_east == 'west' and TV == 'USCA':
+    cluster_label = 5
+
 
 
 name_ds='ts'
 start_end_TVdate = ('06-01', '08-31')
-start_end_date = ('1-1', '12-31')
-method='ran_strat10' ; seed = 1
+start_end_date = None
+method='ranstrat_10' ; seed = 1
 tfreq = 15
 min_detect_gc=.9
+start_end_year = (1979, 2018)
 
 # z500_green_bb = (140,260,20,73) #: Pacific box
 if west_east == 'east':
@@ -83,7 +99,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
             start_end_TVdate=start_end_TVdate,
             start_end_date=start_end_date,
-            start_end_year=None,
+            start_end_year=start_end_year,
             tfreq=tfreq,
             path_outmain=path_out_main)
 
@@ -155,7 +171,7 @@ rg.plot_maps_corr(var='v300', save=save,
 
 #%% SST vs T
 list_of_name_path = [(cluster_label, TVpath),
-                     ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
+                     ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
 
 lags = np.array([0,2])
 
@@ -168,7 +184,7 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
             start_end_TVdate=start_end_TVdate,
-            start_end_date=start_end_date,
+            start_end_date=None,
             start_end_year=None,
             tfreq=tfreq,
             path_outmain=path_out_main)

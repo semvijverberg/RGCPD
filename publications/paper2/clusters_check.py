@@ -40,7 +40,7 @@ path_outmain = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW/one-point-cor
 
 
 import functions_pp, find_precursors, core_pp
-import clustering_spatial as cl
+import make_country_mask
 import plot_maps
 import df_ana
 from RGCPD import RGCPD
@@ -64,6 +64,8 @@ rg.pp_precursors()
 rg.list_precur_pp
 
 var_filename = rg.list_precur_pp[0][1]
+region = 'init'
+#%%
 
 import pandas as pd
 ds = core_pp.import_ds_lazy(var_filename)
@@ -71,24 +73,24 @@ ds.sel(time=core_pp.get_subdates(pd.to_datetime(ds.time.values), start_end_date=
 
 
 #%%
-region = 'US'
+
 if region == 'US':
     selbox = (230, 300, 25, 50)
-    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf10_nc5_dendo_3e180_US.nc'
-    np_array_xy = np.array([[-84, 34], [-96, 40], [-87, 42],
-                            [-122,40], [-122,46], [-117,46]])
-    t, c = 10, 5
+    TVpath = os.path.join(path_outmain, 'tf10_nc5_dendo_0cbf8_US.nc')
+    np_array_xy = np.array([[-96, 42], [-87, 41], [-86, 34],
+                            [-116,36], [-122,41], [-117,46]])
+    t, c = 15, 6
 
 elif region == 'USCA':
-    selbox = (225, 300, 25, 60)
-    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_2f9a0_USCA_1979-2020.nc'
-    np_array_xy = np.array([[-100, 33], [-95, 40], [-88, 35], [-83,40],
+    selbox = (230, 300, 25, 70)
+    TVpath = os.path.join(path_outmain, 'tf10_nc5_dendo_5dbee_USCA.nc')
+    np_array_xy = np.array([[-98, 34], [-92, 41], [-85, 36], [-81,45],
                             [-118,36], [-120,47], [-126,53], [-120,56]])
     t, c = 30, 7
 elif region == 'init':
-    selbox = (225, 300, 25, 60)
+    selbox = (230, 300, 25, 60)
     TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
-    np_array_xy = np.array([[-98, 35], [-95, 45], [-85, 35], [-83,45],
+    np_array_xy = np.array([[-98, 35], [-95, 45], [-85, 35], [-84,45],
                             [-118,36], [-120,47], [-120,56], [-106,53]])
     t, c = 15, 3
 
@@ -110,11 +112,28 @@ if region == 'USCA':
     dic = {4:3, 3:4}
 else:
     dic = {2:3, 3:2}
-xrclustered = find_precursors.view_or_replace_labels(xrclustered, regions,
+xrclustered = find_precursors.view_or_replace_labels(xrclustered.copy(), regions,
                                                      [int(dic.get(n, n)) for n in regions])
+if region == 'USCA':
+    mask_cl = find_precursors.view_or_replace_labels(xrclustered.copy(), [1,5,3])
+    mask_cl = np.isnan(mask_cl)
+elif region =='US':
+    mask_cl = find_precursors.view_or_replace_labels(xrclustered.copy(), [1,3])
+    mask_cl = np.isnan(mask_cl)
+elif region == 'init':
+    mask_cl_e = find_precursors.view_or_replace_labels(xrclustered.copy(), [3])
+    mask_cl_e  = make_country_mask.binary_erosion(~np.isnan(mask_cl_e) )
+    mask_cl_w = ~np.isnan(find_precursors.view_or_replace_labels(xrclustered.copy(), [1]))
+    # mask_cl = find_precursors.view_or_replace_labels(xrclustered.copy(), [1])
+    mask_cl = ~np.logical_or(mask_cl_w, mask_cl_e)
+
 fig = plot_maps.plot_labels(xrclustered,
                       {'scatter':scatter,
-                       'zoomregion':selbox})
+                       'zoomregion':selbox,
+                       'mask_xr':mask_cl,
+                       'x_ticks':np.arange(240, 300, 20),
+                       'y_ticks':np.arange(0,61,10),
+                       'add_cfeature':'LAKES'}) # np.isnan(mask_cl)
 fig.set_facecolor('white')
 fig.axes[0].set_facecolor('white')
 f_name = 'scatter_clusters_t2m_{}_{}'.format(xrclustered.attrs['hash'], region)
@@ -140,7 +159,7 @@ plt.savefig(filepath+'.pdf', bbox_inches='tight')
 
 
 #%% Get timeseries at specific points within gridcell
-ds_t2m = core_pp.import_ds_lazy(rg.list_of_name_path[1][1], selbox=selbox)
+ds_t2m = core_pp.import_ds_lazy(var_filename, selbox=selbox)
 npts = np.zeros( (np_array_xy.shape[0], ds_t2m.time.size) )
 for i, xy in enumerate(np_array_xy):
     npts[i] = ds_t2m.sel(longitude=(180+(180+xy[0])),
@@ -180,33 +199,53 @@ for point in df_ts.columns:
     list_xr.append(corr_xr)
 point_corr = xr.concat(list_xr, dim='points')
 point_corr['points'] = ('points', list(df_ts.columns))
+point_corr.attrs.pop('units')
+
+mask_cl_forcorr = xr.concat([mask_cl]*np_array_xy.shape[0], dim='points')
+mask_cl_forcorr['points'] = ('points', list(df_ts.columns))
 #%%
-if region == 'USCA':
+
+
+
+
+if region == 'USCA' or region == 'init':
     col_wrap = 4
+    scatter =[[(0,0), [np_array_xy[[0]], {'s':size, 'zorder':2, 'color':colors[0], 'edgecolors':'black'}] ],
+              [(0,1), [np_array_xy[[1]], {'s':size, 'zorder':2, 'color':colors[1], 'edgecolors':'black'}] ],
+              [(0,2), [np_array_xy[[2]], {'s':size, 'zorder':2, 'color':colors[2], 'edgecolors':'black'}] ],
+              [(0,3), [np_array_xy[[3]], {'s':size, 'zorder':2, 'color':colors[3], 'edgecolors':'black'}] ],
+              [(1,0), [np_array_xy[[4]], {'s':size, 'zorder':2, 'color':colors[4], 'edgecolors':'black'}] ],
+              [(1,1), [np_array_xy[[5]], {'s':size, 'zorder':2, 'color':colors[5], 'edgecolors':'black'}] ],
+              [(1,2), [np_array_xy[[6]], {'s':size, 'zorder':2, 'color':colors[6], 'edgecolors':'black'}] ],
+              [(1,3), [np_array_xy[[7]], {'s':size, 'zorder':2, 'color':colors[7], 'edgecolors':'black'}] ]]
+    hspace=-.33 ;  cbar_vert=.08
+
 elif region == 'US':
     col_wrap = 3
+    scatter =[[(0,0), [np_array_xy[[0]], {'s':size, 'zorder':2, 'color':colors[0], 'edgecolors':'black'}] ],
+              [(0,1), [np_array_xy[[1]], {'s':size, 'zorder':2, 'color':colors[1], 'edgecolors':'black'}] ],
+              [(0,2), [np_array_xy[[2]], {'s':size, 'zorder':2, 'color':colors[2], 'edgecolors':'black'}] ],
+              [(1,0), [np_array_xy[[3]], {'s':size, 'zorder':2, 'color':colors[3], 'edgecolors':'black'}] ],
+              [(1,1), [np_array_xy[[4]], {'s':size, 'zorder':2, 'color':colors[4], 'edgecolors':'black'}] ],
+              [(1,2), [np_array_xy[[5]], {'s':size, 'zorder':2, 'color':colors[5], 'edgecolors':'black'}] ]]
+    hspace=-.5 ;  cbar_vert=.14
+
+
 subtitles = np.array([point_corr.points]).reshape(-1, col_wrap)
-# scatter =[[(0,0), [np_array_xy[[0]], {'s':size, 'zorder':2, 'color':colors[0]}] ],
-#           [(0,1), [np_array_xy[[1]], {'s':size, 'zorder':2, 'color':colors[1]}] ],
-#           [(0,2), [np_array_xy[[2]], {'s':size, 'zorder':2, 'color':colors[2]}] ],
-#           [(0,3), [np_array_xy[[2]], {'s':size, 'zorder':2, 'color':colors[3]}] ],
-#           [(1,0), [np_array_xy[[3]], {'s':size, 'zorder':2, 'color':colors[4]}] ],
-#           [(1,1), [np_array_xy[[4]], {'s':size, 'zorder':2, 'color':colors[5]}] ],
-#           [(1,2), [np_array_xy[[5]], {'s':size, 'zorder':2, 'color':colors[6]}] ],
-#           [(1,3), [np_array_xy[[5]], {'s':size, 'zorder':2, 'color':colors[7]}] ]]
-scatter = None
+# scatter = None
 plot_maps.plot_corr_maps(point_corr,
-                         mask_xr = None,
+                         mask_xr = mask_cl_forcorr,
                          col_dim='points',
-                         aspect=1.5, hspace=.2,
+                         aspect=1.5, hspace=hspace,
+                         cbar_vert=cbar_vert,
                          subtitles=subtitles,
                          scatter=scatter,
                          col_wrap=col_wrap,
-                         cbar_vert=-.03,
-                         x_ticks=np.arange(240, 301, 20),
-                         y_ticks=np.arange(0,61,15),
-                         clevels=np.arange(-1,1.1,.2),
+                         x_ticks=np.arange(240, 300, 20),
+                         y_ticks=np.arange(0,61,10),
+                         clevels=np.arange(-1,1.05,.1),
+                         cmap=plt.cm.coolwarm,
                          zoomregion=selbox)
 f_name = 'one_point_corr_maps_t2m_{}_{}'.format(xrclustered.attrs['hash'], region)
 filepath = os.path.join(rg.path_outmain, f_name)
-plt.savefig(filepath+'.pdf', bbox_inches='tight')
+# plt.savefig(filepath+'.png', bbox_inches='tight', dpi=200)
