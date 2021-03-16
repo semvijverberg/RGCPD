@@ -24,7 +24,7 @@ import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import multiprocessing
 max_cpu = multiprocessing.cpu_count()
-n_threads = max(25,2*max_cpu)
+n_threads = min(25,2*max_cpu)
 
 accumulated_vars = ['total_precipitation', 'potential_evaporation', 'Runoff']
 
