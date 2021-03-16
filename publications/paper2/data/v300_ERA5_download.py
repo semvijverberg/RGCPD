@@ -13,7 +13,7 @@ import pandas as pd
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
 local_base_path = user_dir + "/surfdrive/"
-local_script_dir = curr_dir
+local_script_dir = os.path.join(local_base_path, "Scripts/RGCPD/ECMWF_retrieval" )
 
 # cluster_base_path = "/p/projects/climber3/atm_data/"
 cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/"
