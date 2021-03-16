@@ -10,14 +10,26 @@ Created on Wed Mar  6 16:31:58 2019
 import os, inspect, sys
 import numpy as np
 import pandas as pd
+user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe())))
-local_base_path = "/Users/semvijverberg/surfdrive/"
-local_script_dir = os.path.join(local_base_path, "Scripts/RGCPD/RGCPD" )
+local_base_path = user_dir + "/surfdrive/"
+local_script_dir = os.path.join(local_base_path, "Scripts/RGCPD/ECMWF_retrieval" )
 
 # cluster_base_path = "/p/projects/climber3/atm_data/"
-cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/ERA5/"
+cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/"
 
-cluster_script_dir = "/scistor/ivm/svg460/Scripts/RGCPD/RGCPD"
+cluster_script_dir = local_script_dir
+
+
+
+try:
+    os.chdir(local_script_dir)
+    sys.path.append(local_script_dir)
+    base_path = local_base_path
+except:
+    os.chdir(cluster_script_dir)
+    sys.path.append(cluster_script_dir)
+    base_path = cluster_base_path
 
 
 
@@ -37,7 +49,7 @@ except:
 dataset   = 'era5' # choose 'era5' or 'ERAint' or era20c
 exp_folder = ''
 path_raw = os.path.join(base_path,f'Data_{dataset}/{exp_folder}')
-                        
+
 if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 
 
@@ -50,15 +62,15 @@ ex = dict(
      {'dataset'     :       dataset,
      'grid_res'     :       1.0,
      'startyear'    :       1979, # download startyear
-     'endyear'      :       2018, # download endyear
+     'endyear'      :       2020, # download endyear
      'months'       :       list(range(1,12+1)), #downoad months
      # for monthly means of daily means, choose 'moda' or 'mnth'
      # for daily means choose 'oper' or 'enda' (for accumulations)
-     'stream'       :       'oper', 
+     'stream'       :       'oper',
      'time'         :       pd.date_range(start='00:00', end='23:00',
                                 freq=(pd.Timedelta(6, unit='h'))),
      'area'         :       'global', # [North, West, South, East]. Default: global
-     'CDO_command'  :       'daymean',     
+     'CDO_command'  :       'daymean',
      'base_path'    :       base_path,
      'path_raw'     :       path_raw}
      )
