@@ -313,7 +313,7 @@ def get_selbox(ds, selbox, verbosity=0):
 def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
                         seldates=None, selbox=None, format_lon='east_west',
                         auto_detect_mask=False, detrend=True, anomaly=True,
-                        apply_fft=True, n_harmonics=6, encoding=None):
+                        apply_fft=True, n_harmonics=6, encoding={}):
     '''
     Function for preprocessing
     - Calculate anomalies (by removing seasonal cycle based on first
@@ -355,13 +355,14 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
 
     # ensure mask
     output = output.where(output.values != 0.).fillna(-9999)
-    encoding = ( {ds.name : {'_FillValue': -9999}} )
+    encoding.update({'_FillValue': -9999})
+    encoding_var = ( {ds.name : encoding} )
     mask =  (('latitude', 'longitude'), (output.values[0] != -9999) )
     output.coords['mask'] = mask
 #    xarray_plot(output[0])
 
     # save netcdf
-    output.to_netcdf(outfile, mode='w', encoding=encoding)
+    output.to_netcdf(outfile, mode='w', encoding=encoding_var)
 #    diff = output - abs(marray)
 #    diff.to_netcdf(filename.replace('.nc', 'diff.nc'))
     #%%

@@ -487,7 +487,7 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
     '''
     #%%
     # xr_or_dt = rg.fulltso.copy();verbosity=1; closed='right'
-    # start_end_date=None; start_end_year=None;
+    # start_end_date=None; start_end_year=None; verbosity=0
 
     if type(xr_or_dt) == type(xr.DataArray([0])):
         datetime = pd.to_datetime(xr_or_dt['time'].values)
@@ -514,18 +514,17 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
 
     if start_end_date is not None:
         sstartdate, senddate = start_end_date
-    if start_end_TVdate is None and start_end_date is not None:
-        start_end_TVdate = start_end_date
-
-    # check if Target variable period is crossing Dec-Jan
-    crossyr = int(start_end_TVdate[0].replace('-','')) > int(start_end_TVdate[1].replace('-',''))
-    closed_on_date = start_end_TVdate[-1]
-
     if start_end_date is None:
         d_s = datetime[0]
         d_e = datetime[-1]
         sstartdate = '{:02d}-{:02d}'.format(d_s.month, d_s.day)
         senddate   = '{:02d}-{:02d}'.format(d_e.month, d_e.day)
+    if start_end_TVdate is None:
+        start_end_TVdate = (sstartdate, senddate) # select all dates
+
+    # check if Target variable period is crossing Dec-Jan
+    crossyr = int(start_end_TVdate[0].replace('-','')) > int(start_end_TVdate[1].replace('-',''))
+    closed_on_date = start_end_TVdate[-1]
 
     sstartdate = '{}-{}'.format(startyear, sstartdate)
     if crossyr:

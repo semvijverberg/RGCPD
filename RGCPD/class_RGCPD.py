@@ -177,10 +177,43 @@ class RGCPD:
     def pp_precursors(self, loadleap=False, seldates=None,
                       selbox=None, format_lon='only_east',
                       auto_detect_mask=False,
-                      detrend=True, anomaly=True):
+                      detrend=True, anomaly=True, encoding={}):
         '''
-        in format 'only_east':
-        selbox assumes [lowest_east_lon, highest_east_lon, south_lat, north_lat]
+        Perform preprocessing on (time, lat, lon) gridded dataset
+
+        Parameters
+        ----------
+        seldates : pd.DatetimeIndex or start_end_date tuple, optional
+            subselect data, inadvisable for daily data due to rolling mean
+            needed for robust calculation of climatological mean.
+            The default is None.
+        selbox : tuple, optional
+             selbox has format of (lon_min, lon_max, lat_min, lat_max).
+             The default is None.
+        format_lon : str, optional
+            string referring to format of longitude. If 'only_east' longitude
+            ranges from 0 to 360. If 'west_east', ranges from -180 to 180.
+            The default is 'only_east'.
+        auto_detect_mask : bool, optional
+            If True: auto detect a mask if a field has a lot of the exact same
+            value (e.g. -9999). The default is False.
+        detrend : bool, optional
+            linear scipy detrending, see sp.signal.detrend docs. The default is True.
+        anomaly : bool, optional
+            remove climatolgy. For daily data, clim calculated by first apply
+            25-day rolling mean and subsequently fitting the first 6 harmonics
+            to the rolling mean climatology. For monthly data,
+            The default is True.
+        encoding : dict, optional
+            Encoding for writing post-processed netcdf, could save memory.
+            E.g. {"dtype": "int16", "scale_factor": 1E-4}
+            The default is {}.
+
+        Returns
+        -------
+        list_precur_pp is added to RGCPD instance.
+        kwrgs_load and kwrgs_pp are created.
+
         '''
         # loadleap=False;seldates=None;selbox=None;format_lon='only_east',
         # detrend=True; anomaly=True; auto_detect_mask=False
@@ -188,7 +221,8 @@ class RGCPD:
                                selbox=selbox, format_lon=format_lon)
         self.kwrgs_pp = self.kwrgs_load.copy()
         self.kwrgs_pp.update(dict(detrend=detrend, anomaly=anomaly,
-                                  auto_detect_mask=auto_detect_mask))
+                                  auto_detect_mask=auto_detect_mask,
+                                  encoding=encoding))
 
         self.kwrgs_load.update(dict(start_end_date=self.start_end_date,
                                     start_end_year=self.start_end_year,
@@ -332,6 +366,7 @@ class RGCPD:
             var = [MI.name for MI in self.list_for_MI]
         kwrgs_load = self.kwrgs_load
         for precur in self.list_for_MI:
+            precur.filepath = [l for l in self.list_precur_pp if l[0]==precur.name][0][1]
             if precur.name in var:
                 find_precursors.calculate_region_maps(precur,
                                                       self.TV,
@@ -399,13 +434,14 @@ class RGCPD:
             # need to redefined on new tfreq using the same arguments
             print(f'redefine target variable on {self.precur_aggr} day means')
             f = functions_pp
-            self.fullts, self.TV_ts = f.process_TV(self.fulltso,
-                                                tfreq=self.precur_aggr,
-                                                start_end_TVdate=start_end_TVdate,
-                                                start_end_date=self.start_end_date,
-                                                start_end_year=self.start_end_year,
-                                                RV_detrend=self.RV_detrend,
-                                                RV_anomaly=self.RV_anomaly)[:2]
+            out = f.process_TV(self.fulltso, tfreq=self.precur_aggr,
+                               start_end_TVdate=start_end_TVdate,
+                               start_end_date=self.start_end_date,
+                               start_end_year=self.start_end_year,
+                               RV_detrend=self.RV_detrend,
+                               RV_anomaly=self.RV_anomaly)
+            self.fullts, self.TV_ts, inf, self.traintestgroups = out
+            # Re-define train-test split on new time-axis
             TV, df_splits = RV_and_traintest(self.fullts,
                                              self.TV_ts,
                                              self.traintestgroups, **self.kwrgs_TV)

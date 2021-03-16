@@ -236,13 +236,15 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                 if drawbox[0] == g.axes.size or drawbox[0] == 'all':
                     g.axes[row,col].add_geometries(ring, ccrs.PlateCarree(),
                                                    facecolor='none', edgecolor='green',
-                                                   linewidth=2, linestyle='dashed')
+                                                   linewidth=2, linestyle='dashed',
+                                                   zorder=4)
                 elif type(drawbox[0]) is tuple:
                     row_box, col_box = drawbox[0]
                     if row == row_box and col == col_box:
                         g.axes[row,col].add_geometries(ring, ccrs.PlateCarree(),
                                                        facecolor='none', edgecolor='green',
-                                                       linewidth=2, linestyle='dashed')
+                                                       linewidth=2, linestyle='dashed',
+                                                       zorder=4)
             # =============================================================================
             # Add text in plot - list([ax_loc, list(tuple(lon,lat,text,kwrgs))])
             # =============================================================================

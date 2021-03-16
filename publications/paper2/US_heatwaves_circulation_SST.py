@@ -33,7 +33,7 @@ import climate_indices
 import plot_maps, core_pp, df_ana
 
 west_east = 'west'
-TV = 'USCA'
+TV = 'US'
 if TV == 'init':
     TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
     if west_east == 'east':
@@ -51,6 +51,7 @@ elif TV == 'USCA':
     if west_east == 'east':
         cluster_label = 1
     elif west_east == 'west':
+        cluster_label = 5
         cluster_label = 5
 
 if west_east == 'east':
@@ -90,7 +91,7 @@ list_for_MI   = [BivariateMI(name='v300', func=class_BivariateMI.corr_map,
                               distance_eps=600, min_area_in_degrees2=5,
                               calc_ts='pattern cov', selbox=(0,360,-10,90),
                               use_sign_pattern=True),
-                   BivariateMI(name='z500', func=class_BivariateMI.corr_map,
+                 BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                                 alpha=.05, FDR_control=True, lags=lags,
                                 distance_eps=600, min_area_in_degrees2=5,
                                 calc_ts='pattern cov', selbox=(0,360,-10,90),
@@ -130,7 +131,6 @@ matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
 
 
 
-
 title = f'$corr(z500_t, T^{west_east.capitalize()[0]}_t)$'
 subtitles = np.array([['']] )
 kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
@@ -158,21 +158,16 @@ import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
 #%% Determine Rossby wave within green rectangle, become target variable for feedback
 
-# rg.list_for_MI = [BivariateMI(name='v300', func=class_BivariateMI.corr_map,
-#                               alpha=.05, FDR_control=True,
-#                               distance_eps=600, min_area_in_degrees2=5,
-#                               calc_ts='pattern cov', selbox=v300_green_bb,
-#                               use_sign_pattern=True, lags = np.array([0])),
-#                    BivariateMI(name='z500', func=class_BivariateMI.corr_map,
-#                                 alpha=.05, FDR_control=True,
-#                                 distance_eps=600, min_area_in_degrees2=5,
-#                                 calc_ts='pattern cov', selbox=z500_green_bb,
-#                                 use_sign_pattern=True, lags = np.array([0]))]
-# rg.list_for_EOFS = None
-# rg.calc_corr_maps(['z500', 'v300'])
-# rg.cluster_list_MI(['z500'])
-# rg.get_ts_prec(precur_aggr=1)
-# rg.store_df(append_str='z500_'+'-'.join(map(str, z500_green_bb)))
+rg.list_for_MI = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
+                                alpha=.05, FDR_control=True,
+                                distance_eps=600, min_area_in_degrees2=5,
+                                calc_ts='pattern cov', selbox=z500_green_bb,
+                                use_sign_pattern=True, lags = np.array([0]))]
+rg.list_for_EOFS = None
+rg.calc_corr_maps(['z500'])
+rg.cluster_list_MI(['z500'])
+rg.get_ts_prec(precur_aggr=1)
+rg.store_df(append_str='z500_'+'-'.join(map(str, z500_green_bb))+TV)
 
 #%% SST vs T
 list_of_name_path = [(cluster_label, TVpath),
@@ -216,7 +211,7 @@ SST_green_bb = (140,235,20,59)#(170,255,11,60)
 title = r'$corr(SST_{t-lag},$'+f'$T^{west_east.capitalize()[0]}_t)$'
 subtitles = np.array([['lag 0', f'lag 2 (15-day gap)']] )
 kwrgs_plot = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
-              'wspace':-.15, 'size':3, 'cbar_vert':-.08,
+              'wspace':-.15, 'size':3, 'cbar_vert':-.1,
               'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
               'clim':(-.6,.6), 'map_proj':ccrs.PlateCarree(central_longitude=220),
               'n_yticks':6, 'x_ticks':np.arange(130, 280, 25),
@@ -225,3 +220,6 @@ rg.plot_maps_corr(var='sst', save=save,
                   min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot)
 
+#%%
+import matplotlib as mpl
+mpl.rcParams.update(mpl.rcParamsDefault)
