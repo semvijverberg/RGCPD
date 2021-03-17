@@ -81,8 +81,8 @@ elif west_east == 'west':
 
 #%% Circulation vs temperature
 list_of_name_path = [(cluster_label, TVpath),
-                     ('z500', os.path.join(path_raw, 'z500hpa_1979-2020_1_12_daily_2.5deg.nc')),
-                     ('v300', os.path.join(path_raw, 'v300hpa_1979-2020_1_12_daily_2.5deg.nc'))]
+                     ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc')),
+                     ('v300', os.path.join(path_raw, 'v300_1979-2020_1_12_daily_2.5deg.nc'))]
 
 
 lags = np.array([0])
