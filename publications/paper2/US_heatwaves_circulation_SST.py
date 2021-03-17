@@ -81,8 +81,8 @@ elif west_east == 'west':
 
 #%% Circulation vs temperature
 list_of_name_path = [(cluster_label, TVpath),
-                     ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
-                      # ('v300', os.path.join(path_raw, 'v300hpa_1979-2018_1_12_daily_2.5deg.nc')),
+                     ('z500', os.path.join(path_raw, 'z500hpa_1979-2020_1_12_daily_2.5deg.nc')),
+                     ('v300', os.path.join(path_raw, 'v300hpa_1979-2020_1_12_daily_2.5deg.nc'))]
 
 
 lags = np.array([0])
@@ -91,12 +91,12 @@ list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                                 alpha=.05, FDR_control=True, lags=lags,
                                 distance_eps=600, min_area_in_degrees2=5,
                                 calc_ts='pattern cov', selbox=(0,360,-10,90),
-                                use_sign_pattern=True)]#,
-                # BivariateMI(name='v300', func=class_BivariateMI.corr_map,
-                #                               alpha=.05, FDR_control=True, lags=lags,
-                #                               distance_eps=600, min_area_in_degrees2=5,
-                #                               calc_ts='pattern cov', selbox=(0,360,-10,90),
-                #                               use_sign_pattern=True)]
+                                use_sign_pattern=True),
+                 BivariateMI(name='v300', func=class_BivariateMI.corr_map,
+                                              alpha=.05, FDR_control=True, lags=lags,
+                                              distance_eps=600, min_area_in_degrees2=5,
+                                              calc_ts='pattern cov', selbox=(0,360,-10,90),
+                                              use_sign_pattern=True)]
 
 
 
@@ -148,11 +148,11 @@ rg.plot_maps_corr(var='z500', save=save,
 #%% Plot corr(v300, mx2t)
 
 
-# kwrgs_plot['title'] = f'$corr(v300_t, T^{west_east.capitalize()[0]}_t)$'
-# kwrgs_plot['drawbox'] = [(0,0), v300_green_bb]
-# rg.plot_maps_corr(var='v300', save=save,
-#                   kwrgs_plot=kwrgs_plot,
-#                   min_detect_gc=min_detect_gc)
+kwrgs_plot['title'] = f'$corr(v300_t, T^{west_east.capitalize()[0]}_t)$'
+kwrgs_plot['drawbox'] = [(0,0), v300_green_bb]
+rg.plot_maps_corr(var='v300', save=save,
+                  kwrgs_plot=kwrgs_plot,
+                  min_detect_gc=min_detect_gc)
 
 #%%
 import matplotlib as mpl
