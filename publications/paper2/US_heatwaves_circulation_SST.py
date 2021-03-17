@@ -172,7 +172,7 @@ mpl.rcParams.update(mpl.rcParamsDefault)
 
 #%% SST vs T
 list_of_name_path = [(cluster_label, TVpath),
-                     ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
+                     ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
 
 lags = np.array([0,2])
 

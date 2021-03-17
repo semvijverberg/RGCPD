@@ -337,7 +337,7 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
         output = np.empty( (ds.time.size,  ds.level.size, ds.latitude.size, ds.longitude.size), dtype='float32' )
         output[:] = np.nan
         for lev_idx, lev in enumerate(levels.values):
-            ds_2D = ds.sel(levels=lev)
+            ds_2D = ds.sel(level=lev)
 
             output[:,lev_idx,:,:] = detrend_xarray_ds_2D(ds_2D, detrend=detrend, anomaly=anomaly,
                                       apply_fft=apply_fft, n_harmonics=n_harmonics)
