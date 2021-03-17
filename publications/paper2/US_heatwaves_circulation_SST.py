@@ -35,19 +35,19 @@ import plot_maps, core_pp, df_ana
 west_east = 'west'
 TV = 'US'
 if TV == 'init':
-    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
+    TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
     if west_east == 'east':
         cluster_label = 2
     elif west_east == 'west':
         cluster_label = 1
 elif TV == 'US':
-    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf15_nc6_dendo_0cbf8_US.nc'
+    TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf15_nc6_dendo_0cbf8_US.nc'
     if west_east == 'east':
         cluster_label = 3
     elif west_east == 'west':
         cluster_label = 1
 elif TV == 'USCA':
-    TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf30_nc5_dendo_5dbee_USCA.nc'
+    TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf30_nc5_dendo_5dbee_USCA.nc'
     if west_east == 'east':
         cluster_label = 1
     elif west_east == 'west':
