@@ -111,7 +111,7 @@ t0 = time()
 xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
                                                kwrgs_load={'tfreq':tfreq,
                                                            'seldates':('06-01', '08-31'),
-                                                           'start_end_TVdate':('06-01', '08-31'),
+                                                           'start_end_date':('06-01', '08-31'),
                                                            'selbox':selbox},
                                                kwrgs_clust={'q':66,
                                                             'n_clusters':n_clusters,
