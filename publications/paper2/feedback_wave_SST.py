@@ -16,7 +16,7 @@ else:
     mpl.rc('font', family='serif', serif='cm10')
 
     mpl.rc('text', usetex=True)
-    mpl.rcParams['text.latex.preamble'] = [r'\boldmath']
+    mpl.rcParams['text.latex.preamble'] = r'\boldmath'
 import numpy as np
 import cartopy.crs as ccrs
 import argparse
@@ -57,7 +57,7 @@ seeds = np.array([1,2,3])
 
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
-i_default = 0#3
+i_default = 0 #3
 
 
 
@@ -84,14 +84,15 @@ else:
     seed = 0
 
 
-TVpathtemp = os.path.join(data_dir, 'tf15_nc3_dendo_0ff31.nc')
+# TVpathtemp = os.path.join(data_dir, 'tf15_nc3_dendo_0ff31.nc') # old TV
+TVpathtemp = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf30_nc5_dendo_5dbee_USCA.nc'
 if west_east == 'east':
     # TVpathRW = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
-    cluster_label = 2
+    cluster_label = 1 # 2
     z500_green_bb = (155,300,20,73) # bounding box for eastern RW
 elif west_east =='west':
     # TVpathRW = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
-    cluster_label = 1
+    cluster_label = 4 # 1
     z500_green_bb = (145,325,20,62) # bounding box for western RW
 
 
@@ -123,7 +124,7 @@ start_end_date = ('1-1', '12-31')
 
 tfreq         = 15
 min_detect_gc = 1.0
-method        = 'ran_strat10' ;
+method        = 'ranstrat_10' ;
 
 name_MCI_csv = f'strength_rPDO{remove_PDO}.csv'
 name_rob_csv = f'robustness_rPDO{remove_PDO}.csv'
@@ -136,7 +137,7 @@ name_ds = f'0..0..{name_or_cluster_label}_sp'
 
 #%% Circulation vs temperature
 list_of_name_path = [(cluster_label, TVpathtemp),
-                     ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
+                     ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
 
 list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                             alpha=.05, FDR_control=True,
@@ -167,7 +168,7 @@ rg.store_df(filename=TVpathRW)
 # mpl.rc('font', family='serif', serif='cm10')
 
 # matplotlib.rc('text', usetex=True)
-mpl.rcParams['text.latex.preamble'] = [r'\boldmath']
+mpl.rcParams['text.latex.preamble'] = r'\boldmath'
 
 
 
@@ -184,11 +185,11 @@ rg.plot_maps_corr(var='z500', save=save,
                   min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot)
 
-#%% SST vs RW
+#%% RW timeseries vs SST and RW timeseries vs RW
 TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
 list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
-                      ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc')),
-                      ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
+                      ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc')),
+                      ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
                       # ('Trop. Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
 
 
@@ -229,15 +230,17 @@ kwrgs_plot = {'row_dim':'split', 'col_dim':'lag',
               'map_proj':ccrs.PlateCarree(central_longitude=220),
               'x_ticks':np.array([]), 'y_ticks':np.array([]),
               'drawbox':[(0,0), sst_green_bb],
-              'clim':(-.6,.6)}
+              'clevels':np.arange(-.6,.61,.075),
+              'clabels':np.arange(-.6,.61,.3)}
 rg.plot_maps_corr(var='N-Pac. SST', save=save, min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot, append_str='')
-#%%
+
+#%% Plot corr map versus z500
 
 
 precur = rg.list_for_MI[0]
-subtitles = np.array([[f'lag {l}: z 500hpa vs Rossby wave ({name_or_cluster_label})'] for l in precur.lags])
-kwrgs_plot.update({'size':5, 'cbar_vert':.175, 'subtitles':subtitles,
+subtitles = np.array([[f'$corr(z500_t,\ RW^{west_east[0].capitalize()}_t)$']])
+kwrgs_plot.update({'size':5, 'cbar_vert':.19, 'subtitles':subtitles,
                     'zoomregion':(-180,360,10,80),
                     'drawbox':['all', z500_green_bb]})
 rg.plot_maps_corr(var='z500', save=save, min_detect_gc=min_detect_gc,
@@ -249,7 +252,7 @@ rg.plot_maps_corr(var='z500', save=save, min_detect_gc=min_detect_gc,
 #%% Only SST
 TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
 list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
-                      ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
+                      ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
 
 list_for_MI = [BivariateMI(name='N-Pac. SST', func=class_BivariateMI.corr_map,
                             alpha=.05, FDR_control=True,
@@ -342,12 +345,10 @@ for f in freqs[:]:
     elif f == 60:
         tau_max = 1
 
+    kwrgs_tigr = {'tau_min':0, 'tau_max':tau_max, 'max_conds_dim':10,
+                  'pc_alpha':.05, 'max_combinations':10}
     rg.PCMCI_df_data(keys=keys,
-                      pc_alpha=None,
-                      tau_min=0,
-                      tau_max=tau_max,
-                      max_conds_dim=10,
-                      max_combinations=10)
+                      kwrgs_tigr=kwrgs_tigr)
 
 
     lags = range(rg.kwrgs_tigr['tau_min'], rg.kwrgs_tigr['tau_max']+1)
@@ -363,12 +364,13 @@ for f in freqs[:]:
     cmap_nodes = ["#9d0208",
                   "#dc2f02","#e85d04","#f48c06","#faa307", "#ffba08"][::-1]
     cmap_nodes = ListedColormap(cmap_nodes)
-    rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(6,3),
+
+    rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(9,4),
                         kwrgs={'vmax_nodes':.9,
-                                'node_aspect':80,
+                                'node_aspect':150,
                                 'node_size':.008,
                                 'node_ticks':.3,
-                                'node_label_size':40,
+                                'node_label_size':50,
                                 'vmax_edges':.6,
                                 'vmin_edges':0,
                                 'cmap_edges':cmap_edges,
@@ -377,11 +379,12 @@ for f in freqs[:]:
                                 'lag_array':lags,
                                 'curved_radius':.5,
                                 'arrowhead_size':1000,
-                                'link_label_fontsize':30,
+                                'link_label_fontsize':35,
                                 'link_colorbar_label':'Link strength',
                                 'node_colorbar_label':'Auto-strength',
                                 'label_fontsize':15,
-                                'weights_squared':1.5},
+                                'weights_squared':1.5,
+                                'network_lower_bound':.25},
                         append_figpath=f'_tf{rg.precur_aggr}_{AR1SST}_rb{mlr}_taumax{tau_max}_rPDO{remove_PDO}')
     #%%
     rg.PCMCI_get_links(var=keys[1], alpha_level=.01)

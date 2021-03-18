@@ -413,18 +413,22 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
     xarray = xarray.sel(time=dates_tobin)
     one_yr = get_oneyr(dates_tobin, years[1])
 
-    # else:
-        # dates_tobin = date_time
+
+    # first year maybe of different size if data is aggregated cyclic,
+    # see timeseries_to_fit_bins
+    fp = dates_tobin[traintestgroups==1] # first period
+    sp = dates_tobin[traintestgroups==2] # second period
+
     n_years = np.unique(dates_tobin.year).size
-    if get_oneyr(dates_tobin, years[0]).size != get_oneyr(dates_tobin, years[1]).size:
+    crossyr = get_oneyr(dates_tobin, years[0]).size != get_oneyr(dates_tobin, years[1]).size
+    if crossyr and fp.size == sp.size:
         # crossyr timemeanbins,
         n_years -= 1
+    assert (dates_tobin.size-fp.size) % sp.size==0, 'check output timeseries_to_fit_bins'
 
-    firstperiod = dates_tobin[traintestgroups==1]
-    assert dates_tobin.size % firstperiod.size==0, 'check output timeseries_to_fit_bins'
-
-    fit_steps_yr = int(firstperiod.size) / tfreq
+    fit_steps_yr = int(fp.size) / tfreq
     bins = np.repeat(np.arange(0, fit_steps_yr), tfreq) # first period bins
+    fit_steps_yr = int(sp.size) / tfreq # other years fit_steps_yr
     for y in np.arange(1, n_years):
         x = np.repeat(np.arange(0, fit_steps_yr), tfreq)
         x = bins[-1]+1 + x
@@ -522,6 +526,8 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         senddate   = '{:02d}-{:02d}'.format(d_e.month, d_e.day)
     if start_end_TVdate is None:
         start_end_TVdate = (sstartdate, senddate) # select all dates
+    else:
+        senddate = start_end_TVdate[-1] # over-rule end date of start_end_date
 
     # check if Target variable period is crossing Dec-Jan
     crossyr = int(start_end_TVdate[0].replace('-','')) > int(start_end_TVdate[1].replace('-',''))
@@ -598,13 +604,14 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         leap1yr = all([dates_aggr.year.unique().size==1,
                        dates_aggr.is_leap_year[0],
                        dates_aggr[0] < pd.to_datetime(f'{startyear}-03-01')])
-        # cross-year, dates between prior and after 03-01
-        # leap2yr = all([any(dates_aggr.is_leap_year),
-        #               any(dates_aggr < pd.to_datetime(f'{startyear+1}-03-01')),
-        #               dates_aggr[-1] > pd.to_datetime(f'{startyear+1}-03-01')])
-        leap2yr = all([any(dates_aggr.is_leap_year),
-                       any(dates_aggr < pd.to_datetime(f'{startyear}-03-01')),
-                       dates_aggr[-1] > pd.to_datetime(f'{startyear}-03-01')])
+        # cross-year, one yr with dates both prior and after 03-01
+        yrs = np.unique(dates_aggr.year) ; leap2yr = []
+        for yr in yrs:
+            syr = core_pp.get_oneyr(dates_aggr, yr)
+            leap2yr.append(all([syr.is_leap_year[0],
+                           any(syr < pd.to_datetime(f'{yr}-03-01')),
+                           syr[-1] > pd.to_datetime(f'{yr}-03-01')]))
+        leap2yr = any(leap2yr)
 
 
         if leap1yr or leap2yr:
@@ -627,7 +634,7 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
 
     if input_freq == 'day' and tfreq != 1:
         if closed == 'right':
-            if start_end_date == ('1-1', '12-31') or start_end_date == None:
+            if start_end_date == None:
                 # make cyclic around closed_end_date
                 if crossyr:
                     startyear += 1 # first year full period not possible
@@ -671,13 +678,22 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
 
     #    n_oneyr = start_yr.size
     #    end_year = endyear
-    datesdt = core_pp.make_dates(start_yr, years)
-    if input_freq == 'day' and tfreq != 1 and start_end_date == ('1-1', '12-31'):
+
+    if input_freq == 'day' and tfreq != 1 and start_end_date == None:
         # make cyclic around closed_end_date
-       datesdt = start_yr.append(core_pp.make_dates(otheryrs, years[1:]))
-    n_periods = int(datesdt.size / start_yr.size)
-    traintestgroups = pd.Series(np.repeat(range(1,n_periods+1), start_yr.size),
-                             index=datesdt)
+        other_cyclic_yrs = core_pp.make_dates(otheryrs, years[1:])
+        datesdt = start_yr.append(other_cyclic_yrs)
+        groupfirstyr = np.repeat(1, start_yr.size)
+        n_periods = int(other_cyclic_yrs.size / otheryrs.size)
+        groupsotheryrs = np.repeat(range(2,n_periods+2), otheryrs.size)
+        traintestgroups = pd.Series(np.concatenate([groupfirstyr, groupsotheryrs]),
+                                 index=datesdt)
+    else: # Copy start_yr to other years
+        datesdt = core_pp.make_dates(start_yr, years)
+        n_periods = int(datesdt.size / start_yr.size)
+        traintestgroups = pd.Series(np.repeat(range(1,n_periods+1), start_yr.size),
+                                 index=datesdt)
+
     #    n_yrs = datesdt.size / n_oneyr
     if verbosity==1:
         months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
@@ -1165,6 +1181,10 @@ def load_hdf5(path_data):
 
 def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                      seed=None):
+    # RV_ts = pd.DataFrame(rg.TV_ts.values,
+    #                         index=pd.to_datetime(rg.TV_ts.time.values),
+    #                         columns=['RV']) ; traintestgroups=rg.traintestgroups
+    # test_yrs = None ; seed=1
 
     from func_models import get_cv_accounting_for_years
     from sklearn.model_selection import KFold
@@ -1216,9 +1236,16 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                                         index=index))
     df_TrainIsTrue = pd.concat(TrainIsTrue , axis=0, keys=range(kfold))
     if traintestgroups is not None:
-        one_group = df_TrainIsTrue.loc[0][groups==groups[0]]
-        RV_mask = [True if d in RV_ts.index else False for d in list(one_group.index)]
-        RV_mask = np.stack([RV_mask]*uniqgroups.size, 0).flatten()
+        # first group may be of different size then other groups
+        fg = df_TrainIsTrue.loc[0][groups==groups[0]] # first group
+        RV_maskfg = [True if d in RV_ts.index else False for d in list(fg.index)]
+        og = df_TrainIsTrue.loc[0][groups==groups[-1]] # other group size
+        RV_maskog = [True if d in RV_ts.index else False for d in list(og.index)]
+        if fg.size != og.size:
+            RVmaskog = np.stack([RV_maskog]*(uniqgroups.size-1), 0).flatten()
+            RV_mask = np.concatenate([RV_maskfg, RVmaskog])
+        else:
+            RV_mask = np.stack([RV_maskfg]*uniqgroups.size, 0).flatten()
     else:
         RV_mask = np.ones(RV_ts.size, dtype=bool)
     RV_mask = pd.concat([pd.DataFrame(RV_mask,

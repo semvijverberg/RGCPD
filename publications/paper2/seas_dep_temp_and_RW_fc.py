@@ -16,7 +16,6 @@ else:
     mpl.rc('font', family='serif', serif='cm10')
 
     mpl.rc('text', usetex=True)
-    mpl.rcParams['text.latex.preamble'] = [r'\boldmath']
 import numpy as np
 from time import time
 import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
@@ -55,7 +54,7 @@ import plot_maps; import core_pp
 # matplotlib.rc('font', family='serif', serif='cm10')
 
 # matplotlib.rc('text', usetex=True)
-matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
+matplotlib.rcParams['text.latex.preamble'] = r'\boldmath'
 
 # target = 'temperature'
 
@@ -97,7 +96,7 @@ if __name__ == '__main__':
     seed = int(out[2])
     remove_PDO = bool(int(out[3]))
     if target[-4:]=='temp':
-        tfreq = 60
+        tfreq = 15
     else:
         tfreq = 60
     print(f'arg {args.intexper} f{out}')
@@ -111,31 +110,31 @@ else:
 
 
 calc_ts='region mean' # pattern cov
+TVpath = user_dir + '/surfdrive/Scripts/RGCPD/publications/paper2/output/west/USCA_heatwave_circulation_v300_z500_SST/z500_145-325-20-62USCA.h5'
 
 if target[-4:] == 'temp':
-    TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
+    # TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
     alpha_corr = .05
-    cluster_label = 2
-    name_ds='ts'
+
     if target == 'westerntemp':
-        cluster_label = 1
+        cluster_label = 4 # 1
         corlags = np.array([0])
     elif target == 'easterntemp':
-        cluster_label = 2
+        cluster_label = 1 # 2
         corlags = np.array([2])
-        # corlags = np.array([0])
+    name_ds=f'{cluster_label}ts'
 elif target[-2:] == 'RW':
-    cluster_label = 'z500'
-    name_ds = f'0..0..{cluster_label}_sp'
+    cluster_label = '' # 'z500'
+    name_ds = target[:4]
     alpha_corr = .05
-    if target == 'easternRW':
-        TVpath = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
-    elif target == 'westernRW':
-        TVpath = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
+    # if target == 'easternRW':
+    #     TVpath = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
+    # elif target == 'westernRW':
+    #     TVpath = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
 
 precur_aggr = tfreq
-method     = 'ran_strat10' ;
-n_boot = 5000
+method     = 'ranstrat_10' ;
+n_boot = 5
 
 append_main = ''
 name_csv = f'skill_scores_tf{tfreq}.csv'
@@ -145,7 +144,7 @@ name_csv = f'skill_scores_tf{tfreq}.csv'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', '12-31')
 list_of_name_path = [(cluster_label, TVpath),
-                     ('sst', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
+                     ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
 
 list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             alpha=alpha_corr, FDR_control=True,
@@ -308,7 +307,8 @@ for month, start_end_TVdate in months.items():
                                                    standardize=False)
         fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_tf{month}')
         fig.savefig(fig_path+rg.figext, bbox_inches='tight')
-    if len(keys) != 0:
+
+    if any(rg._df_count == rg.n_spl): # at least one timeseries always present
         oneyr = functions_pp.get_oneyr(rg.df_data['RV_mask'].loc[0][rg.df_data['RV_mask'].loc[0]])
         oneyrsize = oneyr.size
         if monthkeys.index(month) >= 1:
@@ -327,7 +327,7 @@ for month, start_end_TVdate in months.items():
                                    keys=keys,
                                    tau_min=lag, tau_max=lag,
                                    kwrgs_model=kwrgs_model,
-                                   transformer=fc_utils.standardize_on_train)
+                                   transformer=None)
 
         predict, weights, models_lags = out_fit
         prediction = predict.rename({predict.columns[0]:'target',lag:'Prediction'},
@@ -341,7 +341,7 @@ for month, start_end_TVdate in months.items():
         RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=clim_mean_temp).RMSE
         MAE_SS = fc_utils.ErrorSkillScore(constant_bench=clim_mean_temp).MAE
         CRPSS = fc_utils.CRPSS_vs_constant_bench(constant_bench=clim_mean_temp).CRPSS
-        score_func_list = [RMSE_SS, fc_utils.corrcoef, CRPSS, MAE_SS]
+        score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS]
 
         df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(prediction,
                                                                  rg.df_data.iloc[:,-2:],
@@ -349,6 +349,7 @@ for month, start_end_TVdate in months.items():
                                                                  n_boot = n_boot,
                                                                  blocksize=blocksize,
                                                                  rng_seed=1)
+        df_test_m = df_test_m['Prediction'] ; df_boot = df_boot['Prediction']
         # # Benchmark prediction
 
         # observed = pd.concat(n_splits*[target_ts], keys=range(n_splits))
@@ -389,9 +390,9 @@ for month, start_end_TVdate in months.items():
     else:
         print('no precursor timeseries found, scores all 0')
         df_boot = pd.DataFrame(data=np.zeros((n_boot, len(score_func_list))),
-                            columns=['mean_squared_error', 'corrcoef'])
+                            columns=['RMSE', 'corrcoef', 'MAE'])
         df_test_m = pd.DataFrame(np.zeros((1,len(score_func_list))),
-                                 columns=['mean_squared_error', 'corrcoef'])
+                                 columns=['RMSE', 'corrcoef', 'MAE'])
 
 
     list_test_b.append(df_boot)
@@ -420,26 +421,29 @@ df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals,
 df_test_b = pd.concat(list_test_b, keys = monthkeys,axis=1)
 
 yerr = [] ; quan = [] ; alpha = .05
-# for i in range(len(monthkeys) * df_scores.columns.size):
 monmet = np.array(np.meshgrid(monthkeys,
                               df_scores.columns)).T.reshape(-1,2) ;
 for i, (mon, met) in enumerate(monmet):
     Eh = 1 - alpha/2 ; El = alpha/2
     met = rename_metrics[met]
-    _scores = df_test_b[mon]['Prediction'][met]
+    _scores = df_test_b[mon][met]
     tup = [_scores.quantile(El), _scores.quantile(Eh)]
     quan.append(tup)
     mean = df_scores.values.flatten()[i] ;
     tup = abs(mean-tup)
     yerr.append(tup)
-# _yerr = np.array(yerr).T.reshape(len(monthkeys)*2,2, order='A')
+
+
+fig, ax = plt.subplots(1,1, figsize=(10,8))
+# ax.set_facecolor('lightgrey')
+plt.style.use('ggplot')
 _yerr = np.array(yerr).reshape(df_scores.columns.size,len(monthkeys)*2,
                                order='F').reshape(df_scores.columns.size,2,len(monthkeys))
-ax = df_scores.plot.bar(rot=0, yerr=_yerr,
-                        capsize=8, error_kw=dict(capthick=1),
-                        color=['blue', 'green', 'purple'],
-                        legend=False)
-
+df_scores.plot.bar(ax=ax, rot=0, yerr=_yerr,
+                   capsize=8, error_kw=dict(capthick=1),
+                   color=['blue', 'green', 'purple'],
+                   legend=False)
+# ax.grid(color='white', lw=1.5)
 # for noinfo in no_info_fc:
 #     # first two children are not barplots
 #     idx = monthkeys.index(noinfo) + 3
@@ -450,7 +454,6 @@ ax = df_scores.plot.bar(rot=0, yerr=_yerr,
 
 
 ax.set_ylabel('Skill Score', fontsize=16, labelpad=-5)
-# ax.tick_params(labelsize=16)
 # ax.set_xticklabels(months, fontdict={'fontsize':20})
 if target[-4:] == 'temp':
     title = f'Seasonal dependence of $T^{target[0].capitalize()}$ predictions'
@@ -458,8 +461,9 @@ elif target[-2:] == 'RW':
     title = f'Seasonal dependence of {precur_aggr}-day mean RW predictions'
 ax.set_title(title,
              fontsize=16)
-ax.tick_params(axis='y', labelsize=13)
+ax.tick_params(axis='y', labelsize=16)
 ax.tick_params(axis='x', labelsize=16)
+
 
 if tfreq==15 and target=='westerntemp':
     patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
@@ -480,8 +484,8 @@ if tfreq==15 and target=='westerntemp':
     #     ax.add_artist(legend2)
 
 ax.set_ylim(-0.1, 0.6)
-plt.savefig(os.path.join(rg.path_outsub1,
-              f'skill_score_vs_months_a{alpha}+{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_ac{alpha_corr}_corlag{precur.lags}.pdf'))
+# plt.savefig(os.path.join(rg.path_outsub1,
+              # f'skill_score_vs_months_a{alpha}+{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_ac{alpha_corr}_corlag{precur.lags}.pdf'))
 
 csvfilename = os.path.join(rg.path_outmain, name_csv)
 for csvfilename, dic in [(csvfilename, dict_v)]:
@@ -501,7 +505,7 @@ for csvfilename, dic in [(csvfilename, dict_v)]:
 mpl.rcParams.update(mpl.rcParamsDefault)
 if experiment == 'adapt_corr':
 
-    corr = dm[monthkeys[0]].mean(dim='split').drop('time')
+    corr = dm[monthkeys[0]].mean(dim='split')
     list_xr = [corr.expand_dims('months', axis=0) for i in range(len(monthkeys))]
     corr = xr.concat(list_xr, dim = 'months')
     corr['months'] = ('months', monthkeys)
@@ -525,7 +529,7 @@ if experiment == 'adapt_corr':
                                 f'{experiment}_lag{corlags}_' + \
                                 f'tf{precur_aggr}_{method}'
 
-    # corr.to_netcdf(os.path.join(rg.path_outsub1, f_name+'.nc'), mode='w')
+    corr.to_netcdf(os.path.join(rg.path_outsub1, f_name+'.nc'), mode='w')
     import_ds = core_pp.import_ds_lazy
     corr = import_ds(os.path.join(rg.path_outsub1, f_name+'.nc'))[precur.name]
     # Horizontal plot
@@ -535,7 +539,7 @@ if experiment == 'adapt_corr':
     else:
         title = r'$corr(SST_{}, T^{}_t)$'.format('{'+f't-{corlags[0]}'+'}', target[0].capitalize())
         # title = '$corr(SST_{'+f't-{corlags[0]}'+'}, T^{}_t)$'.format(target[0].capitalize())
-    kwrgs_plot = {'aspect':2, 'hspace':.3,
+    kwrgs_plot = {'aspect':2, 'hspace':.35,
                   'wspace':-.4, 'size':2, 'cbar_vert':-0.1,
                   'units':'Corr. Coeff. [-]',
                   'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
@@ -561,7 +565,7 @@ if experiment == 'adapt_corr':
                                 f'tf{precur_aggr}_{method}'
     subtitles = np.array([monthkeys]).reshape(-1,1)
     kwrgs_plot = {'aspect':2, 'hspace':.3,
-                  'wspace':-.4, 'size':2, 'cbar_vert':0.07,
+                  'wspace':-.4, 'size':2, 'cbar_vert':0.06,
                   'units':'Corr. Coeff. [-]',
                   'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
                   'y_ticks':False,

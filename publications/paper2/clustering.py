@@ -48,7 +48,7 @@ import df_ana
 from RGCPD import RGCPD
 from RGCPD import BivariateMI ; import class_BivariateMI
 list_of_name_path = [('fake', None),
-                     ('t2m', root_data + '/input_raw/t2m_US_1979-2020_1_12_daily_0.25deg.nc')]
+                     ('t2m', root_data + '/input_raw/mx2t_US_1979-2020_1_12_daily_0.25deg.nc')]
 rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=path_outmain)
 
@@ -57,7 +57,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 # In[3]:
 
 
-rg.pp_precursors()
+rg.pp_precursors(encoding={'dtype':'int32', 'scale_factor':1E-5})
 
 
 # In[ ]:
