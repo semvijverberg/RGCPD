@@ -616,7 +616,7 @@ def loop_get_spatcov(precur, precur_aggr=None, kwrgs_load: dict=None,
         tfreq = (oneyr[1] - oneyr[0]).days
 
 
-    if precur_aggr is None:
+    if precur_aggr is None and force_reload==False:
         precur_arr = precur.precur_arr
         if tfreq==365:
             precur_arr = precur.precur_arr
@@ -625,6 +625,8 @@ def loop_get_spatcov(precur, precur_aggr=None, kwrgs_load: dict=None,
         # is already done. period used to aggregate was defined by the lag
 
     else:
+        if precur_aggr is not None:
+            precur.tfreq = precur_aggr
         precur.load_and_aggregate_precur(kwrgs_load.copy())
         precur_arr = precur.precur_arr
 

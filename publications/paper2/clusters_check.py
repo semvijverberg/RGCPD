@@ -85,9 +85,9 @@ if region == 'US':
 elif region == 'USCA':
     selbox = (230, 300, 25, 70)
     TVpath = os.path.join(path_outmain, 'tf10_nc5_dendo_5dbee_USCA.nc')
-    np_array_xy = np.array([[-98, 34], [-92, 41], [-85, 36], [-81,45],
-                            [-118,36], [-120,47], [-126,53], [-120,56]])
-    t, c = 30, 5
+    np_array_xy = np.array([[-100, 34], [-94, 38], [-88, 35], [-83,38],
+                            [-113,34], [-120,38], [-120,48], [-124,56]])
+    t, c = 30, 8
 elif region == 'init':
     selbox = (230, 300, 25, 60)
     TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
@@ -116,8 +116,10 @@ else:
 xrclustered = find_precursors.view_or_replace_labels(xrclustered.copy(), regions,
                                                      [int(dic.get(n, n)) for n in regions])
 if region == 'USCA':
-    mask_cl = find_precursors.view_or_replace_labels(xrclustered.copy(), [1,5,3])
-    mask_cl = np.isnan(mask_cl)
+    mask_cl_n = find_precursors.view_or_replace_labels(xrclustered.copy(), [1,5])
+    mask_cl_n  = make_country_mask.binary_erosion(~np.isnan(mask_cl_n) )
+    mask_cl_s = ~np.isnan(find_precursors.view_or_replace_labels(xrclustered.copy(), [2]))
+    mask_cl = ~np.logical_or(mask_cl_n, mask_cl_s)
 elif region =='US':
     mask_cl = find_precursors.view_or_replace_labels(xrclustered.copy(), [1,3])
     mask_cl = np.isnan(mask_cl)
@@ -125,7 +127,6 @@ elif region == 'init':
     mask_cl_e = find_precursors.view_or_replace_labels(xrclustered.copy(), [3])
     mask_cl_e  = make_country_mask.binary_erosion(~np.isnan(mask_cl_e) )
     mask_cl_w = ~np.isnan(find_precursors.view_or_replace_labels(xrclustered.copy(), [1]))
-    # mask_cl = find_precursors.view_or_replace_labels(xrclustered.copy(), [1])
     mask_cl = ~np.logical_or(mask_cl_w, mask_cl_e)
 
 fig = plot_maps.plot_labels(xrclustered,
@@ -251,8 +252,22 @@ f_name = 'one_point_corr_maps_t2m_{}_{}'.format(xrclustered.attrs['hash'], regio
 filepath = os.path.join(rg.path_outmain, f_name)
 # plt.savefig(filepath+'.png', bbox_inches='tight', dpi=200)
 
-#%%
+#%% Plot all clustering results again
+fig = plot_maps.plot_labels(ds['xrclusteredall'],
+                            kwrgs_plot={'wspace':.03, 'hspace':-.35,
+                                        'cbar_vert':.09,
+                                        'row_dim':'n_clusters',
+                                        'col_dim':'tfreq',
+                                        'x_ticks':np.arange(240, 300, 20),
+                                        'y_ticks':np.arange(0,61,10)})
+f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.png'
+path_fig = os.path.join(rg.path_outmain, f_name)
+fig.savefig(path_fig,
+            bbox_inches='tight', dpi=200) # dpi auto 600
 
+
+
+#%%
 if region != 'init':
     ds_cl_ts = core_pp.get_selbox(ds_cl['xrclusteredall'].sel(tfreq=t, n_clusters=c),
                                   selbox)

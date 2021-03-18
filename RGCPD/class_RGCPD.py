@@ -444,7 +444,8 @@ class RGCPD:
             # Re-define train-test split on new time-axis
             TV, df_splits = RV_and_traintest(self.fullts,
                                              self.TV_ts,
-                                             self.traintestgroups, **self.kwrgs_TV)
+                                             self.traintestgroups,
+                                             **self.kwrgs_TV)
         else:
             # use original TV timeseries
             start_end_TVdate = self.start_end_TVdate
@@ -522,7 +523,8 @@ class RGCPD:
             seldates = functions_pp.get_oneyr(dates, years)
         return df_data.loc[pd.MultiIndex.from_product([range(self.n_spl), seldates])]
 
-    def merge_df_on_df_data(self, df, columns: list=None):
+    def merge_df_on_df_data(self, df: pd.DataFrame, df_data: pd.DataFrame=None,
+                            columns: list=None):
         '''
         Merges self.df_data with given df[columns]. Ensures that first column
         remains target var and last (two) column(s) are TrainIsTrue, (RV_mask).
@@ -538,15 +540,16 @@ class RGCPD:
         df_data_merged.
 
         '''
-
-        if columns is None:
-            columns = list(df.columns)
+        if df_data is None:
+            df_data = self.df_data.copy()
+        if columns is None: # remove masks in line below from columns
+            columns = list(df.columns[(df.dtypes != bool).values])
         if hasattr(df.index, 'levels') == False:
             print('No traintest split in df, copying to traintest splits')
-            splits = self.df_data.index.levels[0]
+            splits = df_data.index.levels[0]
             df = pd.concat([df]*splits.size, keys=splits)
-        df_mrg = pd.merge(df, self.df_data, left_index=True, right_index=True)
-        order = list(self.df_data.columns) ; order[1:1] = columns
+        df_mrg = pd.merge(df[columns], df_data, left_index=True, right_index=True)
+        order = list(df_data.columns) ; order[1:1] = columns
         return df_mrg[order]
 
 

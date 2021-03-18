@@ -30,10 +30,10 @@ from RGCPD import BivariateMI
 from RGCPD import EOF
 import class_BivariateMI
 import climate_indices
-import plot_maps, core_pp, df_ana
+import plot_maps, core_pp, functions_pp, df_ana
 
 west_east = 'west'
-TV = 'US'
+TV = 'USCA'
 if TV == 'init':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
     if west_east == 'east':
@@ -52,7 +52,7 @@ elif TV == 'USCA':
         cluster_label = 1
     elif west_east == 'west':
         cluster_label = 5
-        cluster_label = 5
+        # cluster_label = 4
 
 if west_east == 'east':
     path_out_main = os.path.join(main_dir, 'publications/paper2/output/east/')
@@ -69,7 +69,7 @@ start_end_date = None
 method='ranstrat_10' ; seed = 1
 tfreq = 15
 min_detect_gc=.9
-start_end_year = (1979, 2018)
+start_end_year = (1979, 2020)
 
 # z500_green_bb = (140,260,20,73) #: Pacific box
 if west_east == 'east':
@@ -114,7 +114,7 @@ rg.pp_TV(name_ds=name_ds, detrend=False)
 rg.pp_precursors()
 
 rg.traintest(method=method, seed=seed,
-             subfoldername='US_heatwave_circulation_v300_z500_SST')
+             subfoldername=f'{TV}_heatwave_circulation_v300_z500_SST')
 
 
 
@@ -141,9 +141,9 @@ kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
               'clim':(-.6,.6), 'title':title, 'subtitles':subtitles}
 save = True
 rg.plot_maps_corr(var='z500', save=save,
-                  append_str=''.join(map(str, z500_green_bb)),
                   min_detect_gc=min_detect_gc,
-                  kwrgs_plot=kwrgs_plot)
+                  kwrgs_plot=kwrgs_plot,
+                  append_str=''.join(map(str, z500_green_bb))+TV+str(cluster_label))
 
 #%% Plot corr(v300, mx2t)
 
@@ -152,23 +152,64 @@ kwrgs_plot['title'] = f'$corr(v300_t, T^{west_east.capitalize()[0]}_t)$'
 kwrgs_plot['drawbox'] = [(0,0), v300_green_bb]
 rg.plot_maps_corr(var='v300', save=save,
                   kwrgs_plot=kwrgs_plot,
-                  min_detect_gc=min_detect_gc)
+                  min_detect_gc=min_detect_gc,
+                  append_str=TV+str(cluster_label))
 
-#%%
+
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
-#%% Determine Rossby wave within green rectangle, become target variable for feedback
 
-# rg.list_for_MI = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
-#                                 alpha=.05, FDR_control=True,
-#                                 distance_eps=600, min_area_in_degrees2=5,
-#                                 calc_ts='pattern cov', selbox=z500_green_bb,
-#                                 use_sign_pattern=True, lags = np.array([0]))]
-# rg.list_for_EOFS = None
-# rg.calc_corr_maps(['z500'])
-# rg.cluster_list_MI(['z500'])
-# rg.get_ts_prec(precur_aggr=1)
-# rg.store_df(append_str='z500_'+'-'.join(map(str, z500_green_bb))+TV)
+#%% Determine Rossby wave within green rectangle, become target variable for feedback SST
+if TV == 'USCA':
+    west_east_labels = [1,5,4]
+    naming = {1:'east', 5:'northwest', 4:'west'}
+elif TV == 'US' or 'init':
+    west_east_labels = [1,2]
+    naming = {1:'west', 2:'east'}
+
+i, label = 0, 1
+list_df_target = []
+for i, label in enumerate(west_east_labels):
+    list_of_name_path = [(label, TVpath),
+                         ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
+    rg.list_of_name_path = list_of_name_path
+    rg.pp_TV()
+    rg.traintest(method, seed=seed,
+                 subfoldername=f'{TV}_heatwave_circulation_v300_z500_SST')
+    if 'east' in naming[label]:
+        z500_green_bb = (155,300,20,73) #: RW box
+    elif 'west' in naming[label]:
+        z500_green_bb = (145,325,20,62)
+    rg.list_for_MI = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
+                                    alpha=.05, FDR_control=True,
+                                    distance_eps=600, min_area_in_degrees2=5,
+                                    calc_ts='pattern cov', selbox=z500_green_bb,
+                                    use_sign_pattern=True, lags = np.array([0]))]
+    rg.list_for_EOFS = None
+    rg.calc_corr_maps(['z500'])
+    rg.cluster_list_MI(['z500'])
+    rg.get_ts_prec(precur_aggr=1)
+    if i == 0:
+        df_data = rg.df_data.copy()
+        df_data = df_data.rename({'0..0..z500_sp':naming[label]}, axis=1)
+        print(df_data.columns)
+    else:
+        df_app = rg.df_data.copy().rename({'0..0..z500_sp':naming[label]},
+                                          axis=1)
+        list_df_target.append(df_app)
+        print(df_app.columns)
+        df_data = rg.merge_df_on_df_data(df_app, df_data)
+
+df_ana.plot_ts_matric(df_data, win=15, columns=df_data.columns[:-2],
+                      period='RV_mask', fontsizescaler=-5)
+filepath = os.path.join(rg.path_outsub1, 'z500_'+'-'.join(map(str, z500_green_bb))+TV)
+plt.savefig(filepath+'.png', dpi=200, bbox_inches='tight')
+#%%
+
+filepath = os.path.join(rg.path_outsub1, 'z500_'+'-'.join(map(str, z500_green_bb))+TV)
+functions_pp.store_hdf_df({'df_data':df_data}, filepath+'.h5')
+
+
 
 #%% SST vs T
 list_of_name_path = [(cluster_label, TVpath),
@@ -219,8 +260,13 @@ kwrgs_plot = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
               'subtitles':subtitles, 'title':title}
 rg.plot_maps_corr(var='sst', save=save,
                   min_detect_gc=min_detect_gc,
-                  kwrgs_plot=kwrgs_plot)
+                  kwrgs_plot=kwrgs_plot,
+                  append_str=TV+str(cluster_label))
 
-#%%
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
+
+
+
+
+    # rg.store_df(append_str='z500_'+'-'.join(map(str, z500_green_bb))+TV+str(cluster_label))

@@ -92,7 +92,7 @@ geo_surf_height = core_pp.import_ds_lazy(orography,
                                   var='z_NON_CDM', selbox=selbox) / 9.81
 geo_surf_height = geo_surf_height.drop('time').drop('realization')
 plot_maps.plot_corr_maps(geo_surf_height, cmap=plt.cm.Oranges, clevels=np.arange(0, 2600, 500))
-mask_Rockies = geo_surf_height < 1500
+mask_Rockies = geo_surf_height < 2000
 plot_maps.plot_labels(mask_Rockies)
 xr_mask = xr_mask.where(mask_Rockies)
 

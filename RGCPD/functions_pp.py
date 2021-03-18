@@ -216,7 +216,8 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
         if input_freq == 'daily':
             dates_RV = core_pp.get_subdates(pd.to_datetime(fullts.time.values),
                                             start_end_TVdate,
-                                            start_end_year)
+                                            start_end_year,
+                                            input_freq=input_freq)
         elif input_freq == 'monthly':
             dates_RV = TVmonthrange(fullts, start_end_TVdate)
         # get indices of RVdates

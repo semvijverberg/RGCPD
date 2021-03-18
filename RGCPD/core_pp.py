@@ -799,7 +799,7 @@ def make_dates(datetime, years):
     return start_yr
 
 def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
-                 returngroups=False):
+                 returngroups=False, input_freq: str=None):
     #%%
     '''
     dates is type pandas.core.indexes.datetimes.DatetimeIndex
@@ -842,8 +842,14 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
     tfreq = (dates[1] - dates[0]).days
     oneyr_dates = pd.date_range(start=sstartdate, end=senddate_,
                                     freq=pd.Timedelta(1, 'd'))
+    if input_freq is None: # educated guess on input freq
+        if tfreq in [28,29,30,31]: # monthly timeseries
+            input_freq = 'monthly'
+        else:
+            input_freq = 'daily_or_annual_or_yearly'
 
-    if tfreq in [28,29,30,31]: # monthly timeseries
+
+    if 'month' in input_freq: # monthly timeseries
         yr_mon = np.unique(np.stack([oneyr_dates.year.values,
                                      oneyr_dates.month.values]).T,
                                      axis=0)

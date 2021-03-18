@@ -661,6 +661,8 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
         # is already done. period used to aggregate was defined by the lag
 
     else:
+        if precur_aggr is not None:
+            precur.tfreq = precur_aggr
         precur.load_and_aggregate_precur(kwrgs_load.copy())
         precur_arr = precur.precur_arr
 
