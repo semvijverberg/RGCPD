@@ -32,7 +32,7 @@ import class_BivariateMI
 import climate_indices
 import plot_maps, core_pp, functions_pp, df_ana
 
-west_east = 'west'
+west_east = 'east'
 TV = 'USCA'
 if TV == 'init':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
@@ -48,11 +48,12 @@ elif TV == 'US':
         cluster_label = 1
 elif TV == 'USCA':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf30_nc5_dendo_5dbee_USCA.nc'
+    # TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf30_nc8_dendo_5dbee_USCA.nc'
     if west_east == 'east':
         cluster_label = 1
     elif west_east == 'west':
         cluster_label = 5
-        # cluster_label = 4
+        cluster_label = 4
 
 if west_east == 'east':
     path_out_main = os.path.join(main_dir, 'publications/paper2/output/east/')
@@ -171,11 +172,11 @@ i, label = 0, 1
 list_df_target = []
 for i, label in enumerate(west_east_labels):
     list_of_name_path = [(label, TVpath),
-                         ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
+                          ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
     rg.list_of_name_path = list_of_name_path
     rg.pp_TV()
     rg.traintest(method, seed=seed,
-                 subfoldername=f'{TV}_heatwave_circulation_v300_z500_SST')
+                  subfoldername=f'{TV}_heatwave_circulation_v300_z500_SST')
     if 'east' in naming[label]:
         z500_green_bb = (155,300,20,73) #: RW box
     elif 'west' in naming[label]:
@@ -204,7 +205,7 @@ df_ana.plot_ts_matric(df_data, win=15, columns=df_data.columns[:-2],
                       period='RV_mask', fontsizescaler=-5)
 filepath = os.path.join(rg.path_outsub1, 'z500_'+'-'.join(map(str, z500_green_bb))+TV)
 plt.savefig(filepath+'.png', dpi=200, bbox_inches='tight')
-#%%
+
 
 filepath = os.path.join(rg.path_outsub1, 'z500_'+'-'.join(map(str, z500_green_bb))+TV)
 functions_pp.store_hdf_df({'df_data':df_data}, filepath+'.h5')
@@ -265,6 +266,14 @@ rg.plot_maps_corr(var='sst', save=save,
 
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
+
+#%% Quick forecast from SST
+import func_models as fc_utils
+rg.cluster_list_MI()
+rg.get_ts_prec()
+predict = rg.fit_df_data_ridge(tau_min=2, tau_max=2)[0]
+df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(predict,
+                                                                  score_func_list=[fc_utils.corrcoef, fc_utils.ErrorSkillScore(0).RMSE])
 
 
 
