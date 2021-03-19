@@ -47,7 +47,7 @@ import df_ana
 from RGCPD import RGCPD
 from RGCPD import BivariateMI ; import class_BivariateMI
 list_of_name_path = [('fake', None),
-                     ('t2m', root_data + '/input_raw/t2m_US_1979-2020_1_12_daily_0.25deg.nc')]
+                     ('t2m', root_data + '/input_raw/mx2t_USfft_1979-2020_1_12_daily_0.25deg.nc')]
 rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=path_outmain)
 
@@ -65,7 +65,7 @@ rg.pp_precursors()
 rg.list_precur_pp
 
 var_filename = rg.list_precur_pp[0][1]
-region = 'init'
+region = 'USCA'
 #%%
 
 import pandas as pd
@@ -85,9 +85,12 @@ if region == 'US':
 elif region == 'USCA':
     selbox = (230, 300, 25, 70)
     TVpath = os.path.join(path_outmain, 'tf10_nc5_dendo_5dbee_USCA.nc')
+    t, c = 30, 8
     np_array_xy = np.array([[-100, 34], [-94, 38], [-88, 35], [-83,38],
                             [-113,34], [-120,38], [-120,48], [-124,56]])
-    t, c = 30, 8
+    TVpath = os.path.join(path_outmain, 'tf10_nc5_dendo_0a6f6USCA.nc')
+    t, c = 10, 5
+
 elif region == 'init':
     selbox = (230, 300, 25, 60)
     TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
@@ -108,13 +111,13 @@ colors = plt.cm.tab20.colors[:np_array_xy.shape[0]]
 scatter = [['all', [np_array_xy, {'s':size, 'zorder':2,
                                   'color':colors,
                                   'edgecolors':'black'}] ]]
-regions= list(np.unique(xrclustered)[~np.isnan(np.unique(xrclustered))])
-if region == 'USCA':
-    dic = {4:3, 3:4}
-else:
-    dic = {2:3, 3:2}
-xrclustered = find_precursors.view_or_replace_labels(xrclustered.copy(), regions,
-                                                     [int(dic.get(n, n)) for n in regions])
+# regions= list(np.unique(xrclustered)[~np.isnan(np.unique(xrclustered))])
+# if region == 'USCA':
+#     dic = {4:3, 3:4}
+# else:
+#     dic = {2:3, 3:2}
+# xrclustered = find_precursors.view_or_replace_labels(xrclustered.copy(), regions,
+#                                                      [int(dic.get(n, n)) for n in regions])
 if region == 'USCA':
     mask_cl_n = find_precursors.view_or_replace_labels(xrclustered.copy(), [1,5])
     mask_cl_n  = make_country_mask.binary_erosion(~np.isnan(mask_cl_n) )

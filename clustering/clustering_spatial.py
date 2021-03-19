@@ -20,6 +20,13 @@ import xarray as xr
 import plot_maps
 import uuid
 
+try:
+    from joblib import Parallel, delayed
+    parallel = True
+except:
+    parallel = False
+    print('Could not import joblib, no parallel processing')
+
 
 def labels_to_latlon(time_space_3d, labels, output_space_time, indices_mask, mask2d):
     xrspace = time_space_3d[0].copy()
@@ -147,6 +154,7 @@ def dendogram_clustering(var_filename, mask=None, kwrgs_load={},
         # insert fake axes
         kwrgs_loop['fake'] = [0]
     if len(kwrgs_loop) >= 1:
+
         new_coords = []
         xrclustered = xarray[0].drop('time')
         for k, list_v in kwrgs_loop.items(): # in alphabetical order
@@ -157,11 +165,15 @@ def dendogram_clustering(var_filename, mask=None, kwrgs_load={},
         results = []
         first_loop = kwrgs_loop[new_coords[0]]
         second_loop = kwrgs_loop[new_coords[1]]
-        for i, v1 in enumerate(first_loop):
-            kwrgs = kwrgs_clust.copy()
-            for j, v2 in enumerate(second_loop):
-                kwrgs = adjust_kwrgs(kwrgs_clust.copy(), new_coords, v1, v2)
-                kwrgs_l = adjust_kwrgs(kwrgs_load.copy(), new_coords, v1, v2)
+        comb = [[v1, v2] for v1, v2 in product(first_loop, second_loop)]
+        # def call_function(xarray, npmask, new_coords, kwrgs_clust, kwrgs_load, v1, v2):
+        def generator(first_loop, second_loop, new_coords, kwrgs_clust, kwrgs_load):
+            for i, v1 in enumerate(first_loop):
+                kwrgs = kwrgs_clust.copy()
+                for j, v2 in enumerate(second_loop):
+                    kwrgs = adjust_kwrgs(kwrgs_clust.copy(), new_coords, v1, v2)
+                    kwrgs_l = adjust_kwrgs(kwrgs_load.copy(), new_coords, v1, v2)
+                    yield v1, v2, kwrgs, kwrgs_l
                 print(f"\rclustering {new_coords[0]}: {v1}, {new_coords[1]}: {v2} ", end="")
                 if len(kwrgs_loop_load) != 0: # some param has been adjusted
                     xarray_ts = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_l)

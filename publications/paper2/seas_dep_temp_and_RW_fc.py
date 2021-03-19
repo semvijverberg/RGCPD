@@ -111,6 +111,8 @@ else:
 
 calc_ts='region mean' # pattern cov
 TVpath = user_dir + '/surfdrive/Scripts/RGCPD/publications/paper2/output/west/USCA_heatwave_circulation_v300_z500_SST/z500_145-325-20-62USCA.h5'
+# mx2t
+TVpath = user_dir + '/surfdrive/Scripts/RGCPD/publications/paper2/output/east/USCA_heatwave_circulation_v300_z500_SST/z500_145-325-20-620a6f6USCA.h5'
 
 if target[-4:] == 'temp':
     # TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
