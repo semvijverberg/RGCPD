@@ -113,12 +113,12 @@ xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
                                                            'seldates':('06-01', '08-31'),
                                                            'start_end_date':('06-01', '08-31'),
                                                            'selbox':selbox},
-                                               kwrgs_clust={'q':66,
+                                               kwrgs_clust={'q':85,
                                                             'n_clusters':n_clusters,
                                                             'affinity':'jaccard',
                                                             'linkage':'average'})
 
-xrclustered.attrs['hash'] +=f'_{domain}_rm'
+xrclustered.attrs['hash'] +=f'_{domain}_rm85'
 fig = plot_maps.plot_labels(xrclustered,
                             kwrgs_plot={'wspace':.03, 'hspace':-.35,
                                         'cbar_vert':.09,

@@ -176,8 +176,8 @@ class RGCPD:
 
     def pp_precursors(self, loadleap=False, seldates=None,
                       selbox=None, format_lon='only_east',
-                      auto_detect_mask=False,
-                      detrend=True, anomaly=True, encoding={}):
+                      auto_detect_mask=False, detrend=True,
+                      anomaly=True, apply_fft=False, encoding={}):
         '''
         Perform preprocessing on (time, lat, lon) gridded dataset
 
@@ -201,9 +201,13 @@ class RGCPD:
             linear scipy detrending, see sp.signal.detrend docs. The default is True.
         anomaly : bool, optional
             remove climatolgy. For daily data, clim calculated by first apply
-            25-day rolling mean and subsequently fitting the first 6 harmonics
-            to the rolling mean climatology. For monthly data,
+            25-day rolling mean if apply_fft==True, subsequently fitting the first
+            6 harmonics to the rolling mean climatology.
+            For monthly data, climatology is calculated on raw data.
             The default is True.
+        apply_fft : bool, optional
+            Apply Fast Fourier Transform to fit first 6 harmonics to rolling mean
+            climatology. See anomaly.
         encoding : dict, optional
             Encoding for writing post-processed netcdf, could save memory.
             E.g. {"dtype": "int16", "scale_factor": 1E-4}
@@ -1191,7 +1195,9 @@ def RV_and_traintest(fullts, TV_ts, traintestgroups, method=str, kwrgs_events=No
                                                       method=method,
                                                       seed=seed)
             test_yrs_set  = functions_pp.get_testyrs(df_splits)
-            assert (np.equal(test_yrs_imp, test_yrs_set)).all(), "Train test split not equal"
+            equal_test = (np.equal(np.concatenate(test_yrs_imp),
+                                   np.concatenate(test_yrs_set))).all()
+            assert equal_test, "Train test split not equal"
         else:
             method = orig_method # revert back to original train-test split
 

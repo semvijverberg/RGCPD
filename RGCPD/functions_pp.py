@@ -46,7 +46,7 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
     '''
     if argument of kwrgs_pp is list, then the first item is assumed to be the
     default argument value, the second item should be a dict contaning the
-    {varname : exception_argument}.
+    {varname : alternative_argument}.
     '''
 
     list_precur_pp = []
@@ -1218,15 +1218,21 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
         elif method[:6] == 'random':
             cv = KFold(n_splits=kfold, shuffle=True)
             testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
+    else:
+        testgroups = test_yrs
 
 
     testsetidx = np.zeros(groups.size , dtype=int) ; testsetidx[:] = -999
     for i, test_fold_idx in enumerate(testgroups):
         # convert idx to grouplabel (year or dateyrgroup)
-        test_fold = [uniqgroups[i] for i in test_fold_idx]
+        if test_yrs is None:
+            test_fold = [uniqgroups[i] for i in test_fold_idx]
+        else:
+            test_fold = test_fold_idx
         for j, gr in enumerate(groups):
             if gr in list(test_fold):
                 testsetidx[j] = i
+
     TrainIsTrue = []
     for i in np.unique(testsetidx):
         # if -999, No Train Test split, all True
@@ -1257,214 +1263,6 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
     df_splits = df_TrainIsTrue.merge(RV_mask,
                                      left_index=True, right_index=True)
     return df_splits
-
-
-def rand_traintest_years(RV, traintestgroups=None, test_yrs=None, method=str,
-                         seed=None, kwrgs_events=None, verb=0):
-    #%%
-    '''
-    possible method are:
-    random{int} : with the int(method[6:8]) determining the amount of folds
-    leave{int} : chronologically split train and test years
-    split{int} : split dataset into single train and test set
-    no_train_test_split.
-
-    if test_yrs are given, all arguments are overwritten and we return the samme
-    train test masks that are in compliance with the test yrs
-
-    traintestgroups specify which adjecent dates should be kept together. If
-    target_ts is in DJF, then you don't want to split train-test based on years.
-    '''
-
-
-    RV_ts = RV.RV_ts
-    tested_yrs = [] ;
-    all_yrs = list(np.unique(RV_ts.index.year))
-    n_yrs   = len(all_yrs)
-
-    if test_yrs is not None:
-        method = 'copied_from_import_ts'
-        n_spl  = test_yrs.shape[0]
-    if method[:6] == 'random' or method[:9] == 'ran_strat':
-        if seed is None:
-            seed = 1 # control reproducibility train/test split
-        if method[:6] == 'random':
-            n_spl = int(method.split('_')[-1])
-        else:
-             n_spl = int(method[9:])
-    elif method[:5] == 'leave':
-        n_spl = int(n_yrs / int(method.split('_')[1]) )
-        iterate = np.arange(0, n_yrs+1E-9,
-                            int(method.split('_')[1]), dtype=int)
-    elif method == 'no_train_test_split' or method==False:
-        n_spl = 1
-
-
-
-    full_time  = pd.to_datetime(RV.fullts.index)
-    RV_time  = pd.to_datetime(RV_ts.index.values)
-    RV_mask = np.array([True if d in RV_time else False for d in full_time])
-    full_years  = list(RV.fullts.index.year.values)
-    RV_years  = list(RV_ts.index.year.values)
-
-    traintest = [] ; list_splits = []
-    for s in range(n_spl):
-
-        # conditions failed initally assumed True
-        a_conditions_failed = True
-        count = 0
-
-        while a_conditions_failed == True:
-            count +=1
-            a_conditions_failed = False
-
-
-            if method[:6] == 'random' or method[:9] == 'ran_strat':
-
-
-                rng = np.random.RandomState(seed)
-                size_test  = int(np.round(n_yrs / n_spl))
-                size_train = int(n_yrs - size_test)
-
-                leave_n_years_out = size_test
-                yrs_to_draw_sample = [yr for yr in all_yrs if yr not in flatten(tested_yrs)]
-                if (len(yrs_to_draw_sample)) >= size_test:
-                    rand_test_years = rng.choice(yrs_to_draw_sample, leave_n_years_out, replace=False)
-                # if last test sample will be too small for next iteration, add test yrs to current test yrs
-                if (len(yrs_to_draw_sample)) < size_test:
-                    rand_test_years = yrs_to_draw_sample
-                check_double_test = [yr for yr in rand_test_years if yr in flatten( tested_yrs )]
-                if len(check_double_test) != 0 :
-                    a_conditions_failed = True
-                    print('test year drawn twice, redoing sampling')
-
-
-            elif method[:5] == 'leave':
-                leave_n_years_out = int(method.split('_')[1])
-                t0 = iterate[s]
-                t1 = iterate[s+1]
-                rand_test_years = all_yrs[t0: t1]
-
-            elif method[:5] == 'split':
-                size_train = int(np.percentile(range(len(all_yrs)), int(method[5:])))
-                size_test  = len(all_yrs) - size_train
-                leave_n_years_out = size_test
-                print('Using {} years to train and {} to test'.format(size_train, size_test))
-                rand_test_years = all_yrs[-size_test:]
-
-            elif method == 'no_train_test_split':
-                size_train = len(all_yrs)
-                size_test  = 0
-                leave_n_years_out = size_test
-                print('No train test split'.format(size_train, size_test))
-                rand_test_years = []
-
-            elif method == 'copied_from_import_ts':
-                size_train = len(all_yrs)
-                rand_test_years = test_yrs[s]
-                if s == 0:
-                    size_test  = len(rand_test_years)
-                leave_n_years_out = len(test_yrs[s])
-
-
-            # test duplicates
-            a_conditions_failed = np.logical_and((len(set(rand_test_years)) != leave_n_years_out),
-                                     s != n_spl-1)
-            # Update random years to be selected as test years:
-        #        initial_years = [yr for yr in initial_years if yr not in random_test_years]
-            rand_train_years = [yr for yr in all_yrs if yr not in rand_test_years]
-
-
-
-            TrainIsTrue = np.zeros( (full_time.size), dtype=bool )
-
-            Prec_train_idx = [i for i in range(len(full_years)) if full_years[i] in rand_train_years]
-            RV_train_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_train_years]
-            RV_train = RV_ts.iloc[RV_train_idx]
-
-
-            TrainIsTrue[Prec_train_idx] = True
-
-
-            if method != 'no_train_test_split':
-                Prec_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
-                RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
-                RV_test = RV_ts.iloc[RV_test_idx]
-
-                test_years = np.unique(RV_test.index.year)
-
-                if method[:9] == 'ran_strat':
-                    RV_bin = RV.RV_bin.iloc[RV_test_idx]
-                    # check if representative sample
-                    out = check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed,
-                                           s, count, seed, verb)
-                    a_conditions_failed, count, seed = out
-            else:
-                RV_test = [] ; test_years = [] ; Prec_test_idx = []
-        data = np.concatenate([TrainIsTrue[None,:], RV_mask[None,:]], axis=0)
-        list_splits.append(pd.DataFrame(data=data.T,
-                                       columns=['TrainIsTrue', 'RV_mask'],
-                                       index = full_time))
-
-        tested_yrs.append(test_years)
-
-        traintest_ = dict( { 'years'            : test_years,
-                            'RV_train'          : RV_train,
-                            'Prec_train_idx'    : Prec_train_idx,
-                            'RV_test'           : RV_test,
-                            'Prec_test_idx'     : Prec_test_idx} )
-        traintest.append(traintest_)
-
-    df_splits = pd.concat(list_splits , axis=0, keys=range(n_spl))
-
-    #%%
-    return df_splits
-
-def check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed, s, count, seed, verbosity=0):
-    #%%
-    tol_from_exp_events = 0.20
-
-    if kwrgs_events is None:
-        print('Stratified Train Test based on +1 tercile events\n')
-        kwrgs_events  =  {'event_percentile': 66,
-                          'min_dur' : 1,
-                          'max_break' : 0,
-                          'grouped' : False}
-
-    if kwrgs_events['event_percentile'] == 'std':
-        exp_events_r = 0.15
-    elif type(kwrgs_events['event_percentile']) == int:
-        exp_events_r = 1 - kwrgs_events['event_percentile']/100
-
-
-    test_years = np.unique(RV_bin.index.year)
-    n_yrs      = np.unique(RV.RV_ts.index.year).size
-    exp_events = (exp_events_r * RV.RV_ts.size / n_yrs) * test_years.size
-    tolerance  = tol_from_exp_events * exp_events
-    event_test = RV_bin
-    diff       = abs(len(event_test) - exp_events)
-
-
-    if diff > tolerance:
-        if verbosity > 1:
-            print('not a representative sample drawn, drawing new sample')
-        seed += 1 # next random sample
-        a_conditions_failed = True
-    else:
-        if verbosity > 0:
-            print('{}: test year is {}, with {} events'.format(s, test_years, len(event_test)))
-    if count == 7:
-        if verbosity > 1:
-            print(f"{s}: {count+1} attempts made, lowering tolence threshold from {tol_from_exp_events} "
-                "to 0.40 deviation from mean expected events" )
-        tol_from_exp_events = 0.40
-    if count == 10:
-        if verbosity > 1:
-            print(f"kept sample after {count+1} attempts")
-            print('{}: test year is {}, with {} events'.format(s, test_years, len(event_test)))
-        a_conditions_failed = False
-    #%%
-    return a_conditions_failed, count, seed
 
 def get_testyrs(df_splits):
     #%%
@@ -1847,3 +1645,210 @@ def check_pp_done(name, infile, kwrgs_load: dict=None, verbosity=1):
 #     weights_box = np.swapaxes(cos_box_array, 1,0)
 #     RV_fullts = (selboxmarray*weights_box).mean(dim=('latitude','longitude'))
 #     return RV_fullts
+
+# def rand_traintest_years(RV, traintestgroups=None, test_yrs=None, method=str,
+#                          seed=None, kwrgs_events=None, verb=0):
+#     #%%
+#     '''
+#     possible method are:
+#     random{int} : with the int(method[6:8]) determining the amount of folds
+#     leave{int} : chronologically split train and test years
+#     split{int} : split dataset into single train and test set
+#     no_train_test_split.
+
+#     if test_yrs are given, all arguments are overwritten and we return the samme
+#     train test masks that are in compliance with the test yrs
+
+#     traintestgroups specify which adjecent dates should be kept together. If
+#     target_ts is in DJF, then you don't want to split train-test based on years.
+#     '''
+
+
+#     RV_ts = RV.RV_ts
+#     tested_yrs = [] ;
+#     all_yrs = list(np.unique(RV_ts.index.year))
+#     n_yrs   = len(all_yrs)
+
+#     if test_yrs is not None:
+#         method = 'copied_from_import_ts'
+#         n_spl  = test_yrs.shape[0]
+#     if method[:6] == 'random' or method[:9] == 'ran_strat':
+#         if seed is None:
+#             seed = 1 # control reproducibility train/test split
+#         if method[:6] == 'random':
+#             n_spl = int(method.split('_')[-1])
+#         else:
+#              n_spl = int(method[9:])
+#     elif method[:5] == 'leave':
+#         n_spl = int(n_yrs / int(method.split('_')[1]) )
+#         iterate = np.arange(0, n_yrs+1E-9,
+#                             int(method.split('_')[1]), dtype=int)
+#     elif method == 'no_train_test_split' or method==False:
+#         n_spl = 1
+
+
+
+#     full_time  = pd.to_datetime(RV.fullts.index)
+#     RV_time  = pd.to_datetime(RV_ts.index.values)
+#     RV_mask = np.array([True if d in RV_time else False for d in full_time])
+#     full_years  = list(RV.fullts.index.year.values)
+#     RV_years  = list(RV_ts.index.year.values)
+
+#     traintest = [] ; list_splits = []
+#     for s in range(n_spl):
+
+#         # conditions failed initally assumed True
+#         a_conditions_failed = True
+#         count = 0
+
+#         while a_conditions_failed == True:
+#             count +=1
+#             a_conditions_failed = False
+
+
+#             if method[:6] == 'random' or method[:9] == 'ran_strat':
+
+
+#                 rng = np.random.RandomState(seed)
+#                 size_test  = int(np.round(n_yrs / n_spl))
+#                 size_train = int(n_yrs - size_test)
+
+#                 leave_n_years_out = size_test
+#                 yrs_to_draw_sample = [yr for yr in all_yrs if yr not in flatten(tested_yrs)]
+#                 if (len(yrs_to_draw_sample)) >= size_test:
+#                     rand_test_years = rng.choice(yrs_to_draw_sample, leave_n_years_out, replace=False)
+#                 # if last test sample will be too small for next iteration, add test yrs to current test yrs
+#                 if (len(yrs_to_draw_sample)) < size_test:
+#                     rand_test_years = yrs_to_draw_sample
+#                 check_double_test = [yr for yr in rand_test_years if yr in flatten( tested_yrs )]
+#                 if len(check_double_test) != 0 :
+#                     a_conditions_failed = True
+#                     print('test year drawn twice, redoing sampling')
+
+
+#             elif method[:5] == 'leave':
+#                 leave_n_years_out = int(method.split('_')[1])
+#                 t0 = iterate[s]
+#                 t1 = iterate[s+1]
+#                 rand_test_years = all_yrs[t0: t1]
+
+#             elif method[:5] == 'split':
+#                 size_train = int(np.percentile(range(len(all_yrs)), int(method[5:])))
+#                 size_test  = len(all_yrs) - size_train
+#                 leave_n_years_out = size_test
+#                 print('Using {} years to train and {} to test'.format(size_train, size_test))
+#                 rand_test_years = all_yrs[-size_test:]
+
+#             elif method == 'no_train_test_split':
+#                 size_train = len(all_yrs)
+#                 size_test  = 0
+#                 leave_n_years_out = size_test
+#                 print('No train test split'.format(size_train, size_test))
+#                 rand_test_years = []
+
+#             elif method == 'copied_from_import_ts':
+#                 size_train = len(all_yrs)
+#                 rand_test_years = test_yrs[s]
+#                 if s == 0:
+#                     size_test  = len(rand_test_years)
+#                 leave_n_years_out = len(test_yrs[s])
+
+
+#             # test duplicates
+#             a_conditions_failed = np.logical_and((len(set(rand_test_years)) != leave_n_years_out),
+#                                      s != n_spl-1)
+#             # Update random years to be selected as test years:
+#         #        initial_years = [yr for yr in initial_years if yr not in random_test_years]
+#             rand_train_years = [yr for yr in all_yrs if yr not in rand_test_years]
+
+
+
+#             TrainIsTrue = np.zeros( (full_time.size), dtype=bool )
+
+#             Prec_train_idx = [i for i in range(len(full_years)) if full_years[i] in rand_train_years]
+#             RV_train_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_train_years]
+#             RV_train = RV_ts.iloc[RV_train_idx]
+
+
+#             TrainIsTrue[Prec_train_idx] = True
+
+
+#             if method != 'no_train_test_split':
+#                 Prec_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
+#                 RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
+#                 RV_test = RV_ts.iloc[RV_test_idx]
+
+#                 test_years = np.unique(RV_test.index.year)
+
+#                 if method[:9] == 'ran_strat':
+#                     RV_bin = RV.RV_bin.iloc[RV_test_idx]
+#                     # check if representative sample
+#                     out = check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed,
+#                                            s, count, seed, verb)
+#                     a_conditions_failed, count, seed = out
+#             else:
+#                 RV_test = [] ; test_years = [] ; Prec_test_idx = []
+#         data = np.concatenate([TrainIsTrue[None,:], RV_mask[None,:]], axis=0)
+#         list_splits.append(pd.DataFrame(data=data.T,
+#                                        columns=['TrainIsTrue', 'RV_mask'],
+#                                        index = full_time))
+
+#         tested_yrs.append(test_years)
+
+#         traintest_ = dict( { 'years'            : test_years,
+#                             'RV_train'          : RV_train,
+#                             'Prec_train_idx'    : Prec_train_idx,
+#                             'RV_test'           : RV_test,
+#                             'Prec_test_idx'     : Prec_test_idx} )
+#         traintest.append(traintest_)
+
+#     df_splits = pd.concat(list_splits , axis=0, keys=range(n_spl))
+
+#     #%%
+#     return df_splits
+
+# def check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed, s, count, seed, verbosity=0):
+#     #%%
+#     tol_from_exp_events = 0.20
+
+#     if kwrgs_events is None:
+#         print('Stratified Train Test based on +1 tercile events\n')
+#         kwrgs_events  =  {'event_percentile': 66,
+#                           'min_dur' : 1,
+#                           'max_break' : 0,
+#                           'grouped' : False}
+
+#     if kwrgs_events['event_percentile'] == 'std':
+#         exp_events_r = 0.15
+#     elif type(kwrgs_events['event_percentile']) == int:
+#         exp_events_r = 1 - kwrgs_events['event_percentile']/100
+
+
+#     test_years = np.unique(RV_bin.index.year)
+#     n_yrs      = np.unique(RV.RV_ts.index.year).size
+#     exp_events = (exp_events_r * RV.RV_ts.size / n_yrs) * test_years.size
+#     tolerance  = tol_from_exp_events * exp_events
+#     event_test = RV_bin
+#     diff       = abs(len(event_test) - exp_events)
+
+
+#     if diff > tolerance:
+#         if verbosity > 1:
+#             print('not a representative sample drawn, drawing new sample')
+#         seed += 1 # next random sample
+#         a_conditions_failed = True
+#     else:
+#         if verbosity > 0:
+#             print('{}: test year is {}, with {} events'.format(s, test_years, len(event_test)))
+#     if count == 7:
+#         if verbosity > 1:
+#             print(f"{s}: {count+1} attempts made, lowering tolence threshold from {tol_from_exp_events} "
+#                 "to 0.40 deviation from mean expected events" )
+#         tol_from_exp_events = 0.40
+#     if count == 10:
+#         if verbosity > 1:
+#             print(f"kept sample after {count+1} attempts")
+#             print('{}: test year is {}, with {} events'.format(s, test_years, len(event_test)))
+#         a_conditions_failed = False
+#     #%%
+#     return a_conditions_failed, count, seed

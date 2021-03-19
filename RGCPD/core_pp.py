@@ -913,20 +913,3 @@ def ensmean(outfile, weights=list, name=None, *args):
     ds_mean.coords['mask'] = mask
     ds_mean.to_netcdf(outfile, mode='w', encoding=encoding)
 
-if __name__ == '__main__':
-    pass
-    # ex = {}
-    # ex['input_freq'] = 'daily'
-    # DATAFOLDER = input('give path to datafolder where raw data in folder input_raw:\n')
-    # infilename  = input('give input filename you want to preprocess:\n')
-    # infile = os.path.join(DATAFOLDER, 'input_raw', infilename)
-    # outfilename = infilename.split('.nc')[0] + '_pp.nc'
-    # output_folder = os.path.join(DATAFOLDER, 'input_pp')
-    # if os.path.isdir(output_folder) != True : os.makedirs(output_folder)
-    # outfile = os.path.join(output_folder, outfilename)
-
-    # kwargs = {'detrend':True, 'anomaly':True}
-    # try:
-    #     detrend_anom_ncdf3D(infile, outfile, ex, **kwargs)
-    # except:
-    #     print('just chilling bro, relax..')
