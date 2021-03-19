@@ -71,6 +71,7 @@ import pandas as pd
 ds = core_pp.import_ds_lazy(var_filename)
 ds.sel(time=core_pp.get_subdates(pd.to_datetime(ds.time.values), start_end_date=('06-01', '08-31'))).mean(dim='time').plot()
 selbox = (225, 300, 25, 70)
+
 #%%
 import make_country_mask
 orography = os.path.join(user_dir, 'surfdrive/ERA5/input_raw/Orography.nc')
@@ -99,12 +100,12 @@ xr_mask = xr_mask.where(mask_Rockies)
 plot_maps.plot_labels(xr_mask)
 
 
-
 # In[9]:
 # =============================================================================
 # Clustering co-occurence of anomalies
 # =============================================================================
-tfreq = [5, 10, 15, 30]
+tfreq = 30
+quantiles = [.65, .85, .90]
 n_clusters = [2,3,4,5,6,7,8]
 from time import time
 t0 = time()
@@ -114,7 +115,7 @@ xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
                                                            'seldates':('06-01', '08-31'),
                                                            'start_end_date':('06-01', '08-31'),
                                                            'selbox':selbox},
-                                               kwrgs_clust={'q':85,
+                                               kwrgs_clust={'q':quantiles,
                                                             'n_clusters':n_clusters,
                                                             'affinity':'jaccard',
                                                             'linkage':'average'})
@@ -123,7 +124,7 @@ xrclustered.attrs['hash'] +=f'{domain}rm85'
 fig = plot_maps.plot_labels(xrclustered,
                             kwrgs_plot={'wspace':.03, 'hspace':-.35,
                                         'cbar_vert':.09,
-                                        'row_dim':'n_clusters', 'col_dim':'tfreq'})
+                                        'row_dim':'n_clusters', 'col_dim':'q'})
 f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
 path_fig = os.path.join(rg.path_outmain, f_name)
 plt.savefig(path_fig,

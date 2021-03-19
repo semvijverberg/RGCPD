@@ -19,12 +19,14 @@ import find_precursors
 import xarray as xr
 import plot_maps
 import uuid
+from itertools import product
 
 try:
     from joblib import Parallel, delayed
-    parallel = True
+    import multiprocessing
+    n_cpu = multiprocessing.cpu_count() - 1
 except:
-    parallel = False
+    n_cpu = 1
     print('Could not import joblib, no parallel processing')
 
 
@@ -39,8 +41,8 @@ def labels_to_latlon(time_space_3d, labels, output_space_time, indices_mask, mas
 def skclustering(time_space_3d, mask2d=None, clustermethodkey='AgglomerativeClustering',
                  kwrgs={'n_clusters':4}):
     '''
-    Is build upon sklean clustering. Techniques available are listed in cluster.__dict__,
-    e.g. KMeans, or AgglomerativeClustering, kwrgs are techinque dependend.
+    Is build upon sklean clustering. Algorithms available are listed in cluster.__dict__,
+    e.g. KMeans, or AgglomerativeClustering, kwrgs are algorithms dependend.
     '''
     algorithm = cluster.__dict__[clustermethodkey]
 
@@ -49,7 +51,7 @@ def skclustering(time_space_3d, mask2d=None, clustermethodkey='AgglomerativeClus
     results = cluster_method.fit(space_time_vec)
     labels = results.labels_ + 1
     xrclustered = labels_to_latlon(time_space_3d, labels, output_space_time, indices_mask, mask2d)
-    return xrclustered, results
+    return xrclustered.values, results
 
 def create_vector(time_space_3d, mask2d):
     time_space_3d = time_space_3d.where(mask2d == True)
@@ -87,7 +89,13 @@ def correlation_clustering(var_filename, mask=None, kwrgs_load={},
     else:
         kwrgs_l = {}
     xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l)
-    npmask = get_spatial_ma(var_filename, mask)
+
+    if 'selbox' in kwrgs_l.keys() and mask is None:
+        npmask = np.ones_like(xarray[0].values, dtype=bool)
+    else:
+        npmask = get_spatial_ma(var_filename, mask)
+
+
     kwrgs_loop = {k:i for k, i in kwrgs_clust.items() if type(i) == list}
     [kwrgs_loop.update({k:i}) for k, i in kwrgs_load.items() if type(i) == list]
 
@@ -133,22 +141,33 @@ def correlation_clustering(var_filename, mask=None, kwrgs_load={},
 def dendogram_clustering(var_filename, mask=None, kwrgs_load={},
                          clustermethodkey='AgglomerativeClustering',
                          kwrgs_clust={'q':70, 'n_clusters':3}):
+
     if 'selbox' in kwrgs_load.keys():
         kwrgs_l = dict(selbox=kwrgs_load['selbox'])
+
     else:
         kwrgs_l = {}
     xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l)
-    npmask = get_spatial_ma(var_filename, mask)
+
+    if 'selbox' in kwrgs_l.keys() and mask is None:
+        npmask = np.ones_like(xarray[0].values, dtype=bool)
+    else:
+        npmask = get_spatial_ma(var_filename, mask)
+
 
     kwrgs_loop = {k:i for k, i in kwrgs_clust.items() if type(i) == list}
     kwrgs_loop_load = {k:i for k, i in kwrgs_load.items() if type(i) == list}
     [kwrgs_loop.update({k:i}) for k, i in kwrgs_loop_load.items()]
     q = kwrgs_clust['q']
-    if len(kwrgs_loop_load) == 0:
-        # xarray will always be the same
-        xarray_ts = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_load)
-        if type(q) is int:
-            xarray = binary_occurences_quantile(xarray_ts, q=q)
+
+    # always reload / reaggregate xarray. Joblib cannot pickle xr.DataArray as input
+    # if len(kwrgs_loop_load) == 0:
+    #     reload = False # xarray will always be the same
+    #     xarray_ts = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_load)
+    #     if type(q) is int:
+    #         xarray = binary_occurences_quantile(xarray_ts, q=q)
+    # else:
+    #     reload = True
 
     if len(kwrgs_loop) == 1:
         # insert fake axes
@@ -166,27 +185,49 @@ def dendogram_clustering(var_filename, mask=None, kwrgs_load={},
         first_loop = kwrgs_loop[new_coords[0]]
         second_loop = kwrgs_loop[new_coords[1]]
         comb = [[v1, v2] for v1, v2 in product(first_loop, second_loop)]
-        # def call_function(xarray, npmask, new_coords, kwrgs_clust, kwrgs_load, v1, v2):
-        def generator(first_loop, second_loop, new_coords, kwrgs_clust, kwrgs_load):
-            for i, v1 in enumerate(first_loop):
-                kwrgs = kwrgs_clust.copy()
-                for j, v2 in enumerate(second_loop):
-                    kwrgs = adjust_kwrgs(kwrgs_clust.copy(), new_coords, v1, v2)
-                    kwrgs_l = adjust_kwrgs(kwrgs_load.copy(), new_coords, v1, v2)
-                    yield v1, v2, kwrgs, kwrgs_l
-                print(f"\rclustering {new_coords[0]}: {v1}, {new_coords[1]}: {v2} ", end="")
-                if len(kwrgs_loop_load) != 0: # some param has been adjusted
-                    xarray_ts = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_l)
-                    if type(q) is int:
-                            xarray = binary_occurences_quantile(xarray_ts, q=q)
-                if type(q) is list:
-                    xarray = binary_occurences_quantile(xarray_ts, q=v2)
 
+        def generator(var_filename, xarray, comb, new_coords, kwrgs_clust, kwrgs_load, q):
+            for v1,v2 in comb:
+                kwrgs = adjust_kwrgs(kwrgs_clust.copy(), new_coords, v1, v2)
+                kwrgs_l = adjust_kwrgs(kwrgs_load.copy(), new_coords, v1, v2)
                 del kwrgs['q']
-                xrclustered[i,j], result = skclustering(xarray, npmask,
-                                                   clustermethodkey=clustermethodkey,
-                                                   kwrgs=kwrgs)
-                results.append(result)
+                print(f"\rclustering {new_coords[0]}: {v1}, {new_coords[1]}: {v2} ", end="")
+                yield kwrgs, kwrgs_l, v1, v2
+
+        def execute_to_dict(var_filename, npmask, v1, v2, q, clustermethodkey, kwrgs, kwrgs_l):
+
+            # if reload: # some param has been adjusted
+            xarray_ts = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_l)
+            if type(q) is int:
+                xarray = binary_occurences_quantile(xarray_ts, q=q)
+            if type(q) is list:
+                xarray = binary_occurences_quantile(xarray_ts, q=v2)
+
+            xrclusteredij, result = skclustering(xarray, npmask,
+                                                 clustermethodkey=clustermethodkey,
+                                                 kwrgs=kwrgs)
+            return {f'{v1}..{v2}': (xrclusteredij, result)}
+
+        if n_cpu > 1:
+            futures = []
+            for kwrgs, kwrgs_l, v1, v2 in generator(var_filename, xarray, comb, new_coords, kwrgs_clust, kwrgs_load, q):
+                futures.append(delayed(execute_to_dict)(var_filename, npmask, v1, v2, q, clustermethodkey, kwrgs, kwrgs_l))
+            output = Parallel(n_jobs=n_cpu, backend='loky')(futures)
+        else:
+            output = []
+            for kwrgs, kwrgs_l, v1, v2 in generator(var_filename, xarray, comb, new_coords, kwrgs_clust, kwrgs_load, q):
+                output.append(execute_to_dict(var_filename, npmask, v1, v2, q, clustermethodkey, kwrgs, kwrgs_l))
+
+        # unpack output when done loop over parameters
+        for run in output:
+            for key, out in run.items():
+                v1, v2 = float(key.split('..')[0]), float(key.split('..')[1])
+                i, j = first_loop.index(v1), second_loop.index(v2)
+                xrclustered[i,j] = xr.DataArray(out[0],
+                                                dims=['latitude', 'longitude'],
+                                                coords=[xrclustered.latitude,
+                                                        xrclustered.longitude])
+
         if 'fake' in new_coords:
             xrclustered = xrclustered.squeeze().drop('fake').copy()
     else:
@@ -242,7 +283,7 @@ def get_spatial_ma(var_filename, mask=None):
                 npmask = xrmask[var].values
         else:
             npmask = xrmask.values
-    elif type(mask) is list:
+    elif type(mask) is list or type(mask) is tuple:
         xarray = core_pp.import_ds_lazy(var_filename)
         selregion = core_pp.import_ds_lazy(var_filename, selbox=mask)
         lons_mask = list(selregion.longitude.values)
