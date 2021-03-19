@@ -191,7 +191,7 @@ def dendogram_clustering(var_filename, mask=None, kwrgs_load={},
                 kwrgs = adjust_kwrgs(kwrgs_clust.copy(), new_coords, v1, v2)
                 kwrgs_l = adjust_kwrgs(kwrgs_load.copy(), new_coords, v1, v2)
                 del kwrgs['q']
-                print(f"\rclustering {new_coords[0]}: {v1}, {new_coords[1]}: {v2} ", end="")
+                print(f"clustering {new_coords[0]}: {v1}, {new_coords[1]}: {v2}")
                 yield kwrgs, kwrgs_l, v1, v2
 
         def execute_to_dict(var_filename, npmask, v1, v2, q, clustermethodkey, kwrgs, kwrgs_l):
