@@ -118,7 +118,7 @@ xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
                                                             'affinity':'jaccard',
                                                             'linkage':'average'})
 
-xrclustered.attrs['hash'] +=f'_{domain}'
+xrclustered.attrs['hash'] +=f'_{domain}_rm'
 fig = plot_maps.plot_labels(xrclustered,
                             kwrgs_plot={'wspace':.03, 'hspace':-.35,
                                         'cbar_vert':.09,

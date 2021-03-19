@@ -34,24 +34,45 @@ import climate_indices
 import plot_maps, core_pp, df_ana
 
 
-TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
+
 
 west_east = 'east'
-
 adapt_selbox = False
+TV = 'USCA'
+
 if west_east == 'east':
     path_out_main = os.path.join(main_dir, 'publications/paper2/output/east/')
-    cluster_label = 2
 elif west_east == 'west':
     path_out_main = os.path.join(main_dir, 'publications/paper2/output/west/')
-    cluster_label = 1
+
+if TV == 'init':
+    TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
+    if west_east == 'east':
+        cluster_label = 2
+    elif west_east == 'west':
+        cluster_label = 1
+elif TV == 'US':
+    TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf15_nc6_dendo_0cbf8_US.nc'
+    if west_east == 'east':
+        cluster_label = 3
+    elif west_east == 'west':
+        cluster_label = 1
+elif TV == 'USCA':
+    TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf30_nc5_dendo_5dbee_USCA.nc'
+    # TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf30_nc8_dendo_5dbee_USCA.nc'
+    if west_east == 'east':
+        cluster_label = 1
+    elif west_east == 'west':
+        cluster_label = 5
+        cluster_label = 4
+
 
 
 name_ds='ts'
 period = 'summer_center'
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
-start_end_date = start_end_TVdate
+start_end_date = None
 method='ranstrat10' ; seed = 1
 tfreq = 15
 min_detect_gc=1.
@@ -60,8 +81,8 @@ min_detect_gc=1.
 
 #%% Circulation vs temperature
 list_of_name_path = [(cluster_label, TVpath),
-                      ('v300', os.path.join(path_raw, 'v300hpa_1979-2018_1_12_daily_2.5deg.nc')),
-                       ('z500', os.path.join(path_raw, 'z500hpa_1979-2018_1_12_daily_2.5deg.nc'))]
+                      ('v300', os.path.join(path_raw, 'v300_1979-2020_1_12_daily_2.5deg.nc')),
+                       ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
 
 
 list_import_ts = [('W-RW', os.path.join(data_dir, f'westRW_{period}_s{seed}.h5')),

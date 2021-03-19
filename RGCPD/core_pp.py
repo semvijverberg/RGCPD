@@ -557,7 +557,7 @@ def detrend_lin_longterm(ds):
     return detrended
 
 
-def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=True, n_harmonics=6):
+def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=False, n_harmonics=6):
     #%%
 
 

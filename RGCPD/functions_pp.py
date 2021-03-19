@@ -1205,7 +1205,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
     if method == 'no_train_test_split' or method==False:
         kfold = 1
         testgroups = np.array([[]])
-    else:
+    if test_yrs is None:
         kfold = int(method.split('_')[-1])
         if method[:8] == 'ranstrat':
             TVgroups = groups.loc[RV_ts.index]
@@ -1468,33 +1468,40 @@ def check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed, s, count, se
 
 def get_testyrs(df_splits):
     #%%
-    if 'RV_mask' in df_splits.columns and df_splits.loc[0]['RV_mask'].all()==False:
-        # if statement for checking if not one-val-per-yr data
-        dates = df_splits.loc[0].index
-        dates_RV = df_splits.loc[0][df_splits.loc[0]['RV_mask']].index
-        gapdays = (dates_RV[1:] - dates_RV[:-1]).days
-        adjecent_dates = gapdays > (np.median(gapdays)+gapdays/2)
-        RVgroupsize = np.argmax(adjecent_dates) + 1
-        closed_right = dates_RV[RVgroupsize-1]
-        onecyclicgroup = df_splits.loc[0].index[df_splits.loc[0].index <= closed_right]
-        traintestgroups = np.repeat(np.arange(1, int(dates.size/onecyclicgroup.size)+1),
-                               onecyclicgroup.size)
-        uniqgroups = np.unique(traintestgroups)
-        test_yrs = [] ; testgroups = []
-        splits = df_splits.index.levels[0]
-        for s in splits:
-            df_split = df_splits.loc[s]
-            TrainIsTrue_s = df_split[df_split['TrainIsTrue']==False].index
-            groups_in_s = traintestgroups[(~df_split['TrainIsTrue']).values]
-            groupset = []
-            for gr in np.unique(groups_in_s):
-                yrs = TrainIsTrue_s[groups_in_s==gr]
-                yrs = np.unique(yrs.year)
-                groupset.append(list(yrs))
-            test_yrs.append(groupset)
-            testgroups.append([list(uniqgroups).index(gr) for gr in np.unique(groups_in_s)])
-        out = (np.array(test_yrs, dtype=object), testgroups)
-    else:
+    dates = df_splits.loc[0].index
+    if 'RV_mask' in df_splits.columns and dates.size%365 != 0:
+        # if full year daily, no traintest groups with a gap that needs to be
+        # taken into account
+        if df_splits.loc[0]['RV_mask'].all()==False:
+            # if statement for checking if not one-val-per-yr data
+            dates_RV = df_splits.loc[0][df_splits.loc[0]['RV_mask']].index
+            gapdays = (dates_RV[1:] - dates_RV[:-1]).days
+            adjecent_dates = gapdays > (np.median(gapdays)+gapdays/2)
+            RVgroupsize = np.argmax(adjecent_dates) + 1
+            closed_right = dates_RV[RVgroupsize-1]
+            onecyclicgroup = df_splits.loc[0].index[df_splits.loc[0].index <= closed_right]
+            traintestgroups = np.repeat(np.arange(1, int(dates.size/onecyclicgroup.size)+1),
+                                   onecyclicgroup.size)
+            uniqgroups = np.unique(traintestgroups)
+            test_yrs = [] ; testgroups = []
+            splits = df_splits.index.levels[0]
+            for s in splits:
+                df_split = df_splits.loc[s]
+                TrainIsTrue_s = df_split[df_split['TrainIsTrue']==False].index
+                groups_in_s = traintestgroups[(~df_split['TrainIsTrue']).values]
+                groupset = []
+                for gr in np.unique(groups_in_s):
+                    yrs = TrainIsTrue_s[groups_in_s==gr]
+                    yrs = np.unique(yrs.year)
+                    groupset.append(list(yrs))
+                test_yrs.append(groupset)
+                testgroups.append([list(uniqgroups).index(gr) for gr in np.unique(groups_in_s)])
+            out = (np.array(test_yrs, dtype=object), testgroups)
+        else:
+            split_by_TrainIsTrue = True
+    elif 'TrainIsTrue' in df_splits.columns and dates.size%365 == 0:
+        split_by_TrainIsTrue = True
+    if split_by_TrainIsTrue:
         traintest_yrs = []
         splits = df_splits.index.levels[0]
         for s in splits:
@@ -1502,6 +1509,9 @@ def get_testyrs(df_splits):
             test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
             traintest_yrs.append(test_yrs)
         out = (np.array(traintest_yrs, dtype=object))
+    else:
+        print('Error: No TrainIsTrue or RV_mask found, could not extract test yrs')
+        out = None
     return out
 
 def get_download_path():
