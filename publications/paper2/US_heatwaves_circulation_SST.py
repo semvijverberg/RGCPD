@@ -32,7 +32,7 @@ import class_BivariateMI
 import climate_indices
 import plot_maps, core_pp, functions_pp, df_ana
 
-west_east = 'west'
+west_east = 'east'
 TV = 'USCAnew'
 if TV == 'init':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
@@ -46,6 +46,8 @@ elif TV == 'USCAnew':
         cluster_label = 4
     elif west_east == 'west':
         cluster_label = 5
+        cluster_label = 1
+        cluster_label = 7
 elif TV == 'USCA':
     # large eastern US, small western US and a north-western NA
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf30_nc5_dendo_5dbeeUSCA.nc'
@@ -60,10 +62,9 @@ elif TV == 'USCA':
         # cluster_label = 4
         cluster_label = 2
 
-if west_east == 'east':
-    path_out_main = os.path.join(main_dir, 'publications/paper2/output/east/')
-elif west_east == 'west':
-    path_out_main = os.path.join(main_dir, 'publications/paper2/output/west/')
+
+
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/heatwave_circulation_v300_z500_SST/{TV}_{west_east}/')
 
 
 
@@ -122,7 +123,7 @@ rg.plot_df_clust()
 rg.pp_precursors()
 
 rg.traintest(method=method, seed=seed,
-             subfoldername=f'{TV}_heatwave_circulation_v300_z500_SST')
+             subfoldername=None)
 
 
 
@@ -174,8 +175,11 @@ if TV == 'USCA':
     # if hash is 0a6f6
     west_east_labels = [1,2,5]
     naming = {1:'east', 5:'northwest', 2:'west'}
-
-elif TV == 'US' or 'init':
+elif 'USCAnew':
+    # hash fca9cUSCA1750
+    west_east_labels = [4,5,7]
+    naming = {4:'east', 5:'west', 7:'northwest'}
+elif 'init':
     west_east_labels = [1,2]
     naming = {1:'west', 2:'east'}
 
@@ -187,8 +191,8 @@ for i, label in enumerate(west_east_labels):
     rg.list_of_name_path = list_of_name_path
     rg.pp_TV()
     rg.traintest(method, seed=seed,
-                  subfoldername=f'{TV}_heatwave_circulation_v300_z500_SST')
-    if 'east' in naming[label]:
+                  subfoldername=None)
+    if 'east' in naming[label] or 'north' in naming[label]:
         z500_green_bb = (155,300,20,73) #: RW box
     elif 'west' in naming[label]:
         z500_green_bb = (145,325,20,62)
@@ -203,11 +207,12 @@ for i, label in enumerate(west_east_labels):
     rg.get_ts_prec(precur_aggr=1)
     if i == 0:
         df_data = rg.df_data.copy()
-        df_data = df_data.rename({'0..0..z500_sp':naming[label]}, axis=1)
+        df_data = df_data.rename({'0..0..z500_sp':naming[label]+'RW',
+                                  f'{label}ts':'mx2t'+naming[label]}, axis=1)
         print(df_data.columns)
     else:
-        df_app = rg.df_data.copy().rename({'0..0..z500_sp':naming[label]},
-                                          axis=1)
+        df_app = rg.df_data.copy().rename({'0..0..z500_sp':naming[label]+'RW',
+                                           f'{label}ts':'mx2t'+naming[label]}, axis=1)
         list_df_target.append(df_app)
         print(df_app.columns)
         df_data = rg.merge_df_on_df_data(df_app, df_data)
@@ -235,10 +240,11 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                                 calc_ts='pattern cov', selbox=(120,260,-10,90))]
 
 
+# start_end_TVdate = ('07-01', '08-31')
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
             start_end_TVdate=start_end_TVdate,
-            start_end_date=None,
+            start_end_date=('03-01', '08-31'),
             start_end_year=start_end_year,
             tfreq=tfreq,
             path_outmain=path_out_main)
@@ -246,7 +252,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 
 rg.pp_TV(name_ds=name_ds, detrend=False)
 rg.traintest(method, seed=seed,
-             subfoldername='US_heatwave_circulation_v300_z500_SST')
+             subfoldername=None)
 rg.pp_precursors()
 rg.calc_corr_maps()
 
@@ -280,12 +286,26 @@ mpl.rcParams.update(mpl.rcParamsDefault)
 
 #%% Quick forecast from SST
 import func_models as fc_utils
+
+sst = rg.list_for_MI[0]
+sst.calc_ts = 'region mean'
 rg.cluster_list_MI()
 rg.get_ts_prec()
-predict = rg.fit_df_data_ridge(tau_min=2, tau_max=2)[0]
+#%%
+fc_mask = rg.df_data.iloc[:,-1].loc[0]#.shift(lag, fill_value=False)
+# rg.df_data = rg._replace_RV_mask(rg.df_data, replace_RV_mask=(fc_mask))
+target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
+target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+alphas = np.append(np.logspace(.1, 1.5, num=25), [250])
+kwrgs_model = {'scoring':'neg_mean_squared_error',
+               'alphas':alphas, # large a, strong regul.
+               'normalize':False}
+out_fit = rg.fit_df_data_ridge(tau_min=2, tau_max=2,
+                               kwrgs_model=kwrgs_model)
+predict, weights, models_lags = out_fit
 df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(predict,
                                                                   score_func_list=[fc_utils.corrcoef, fc_utils.ErrorSkillScore(0).RMSE])
-
+print(df_test_m)
 
 
 

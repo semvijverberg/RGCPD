@@ -108,23 +108,30 @@ else:
     remove_PDO = False
     seed = 1
 
-
+mainpath_df = os.path.join(main_dir, f'publications/paper2/output/heatwave_circulation_v300_z500_SST/USCAnew_east/')
 calc_ts='region mean' # pattern cov
-TVpath = user_dir + '/surfdrive/Scripts/RGCPD/publications/paper2/output/west/USCA_heatwave_circulation_v300_z500_SST/z500_145-325-20-62USCA.h5'
+# t2m
+TVpath = 'z500_145-325-20-62USCA.h5'
 # mx2t
-TVpath = user_dir + '/surfdrive/Scripts/RGCPD/publications/paper2/output/east/USCA_heatwave_circulation_v300_z500_SST/z500_145-325-20-620a6f6USCA.h5'
+TVpath = 'z500_145-325-20-620a6f6USCA.h5'
+# mx2t 30-daymean
+TVpath = 'z500_155-300-20-73fca9cUSCA1750.h5'
+
+TVpath  = os.path.join(mainpath_df, TVpath)
+
+
 
 if target[-4:] == 'temp':
     # TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
     alpha_corr = .05
 
     if target == 'westerntemp':
-        cluster_label = 4 # 1
+        cluster_label = 'mx2twest' #4 # 1
         corlags = np.array([0])
     elif target == 'easterntemp':
-        cluster_label = 1 # 2
+        cluster_label = 'mx2teast' # 2
         corlags = np.array([2])
-    name_ds=f'{cluster_label}ts'
+    name_ds=f'{cluster_label}'
 elif target[-2:] == 'RW':
     cluster_label = '' # 'z500'
     name_ds = target[:4]
@@ -266,7 +273,7 @@ list_test_b = []
 no_info_fc = []
 dm = {} # dictionairy months
 for month, start_end_TVdate in months.items():
-    # month, start_end_TVdate = list(months.items())[0]
+    # month, start_end_TVdate = list(months.items())[3]
     if experiment == 'fixed_corr':
         # overwrite RV_mask
         rg.get_ts_prec(precur_aggr=precur_aggr,
