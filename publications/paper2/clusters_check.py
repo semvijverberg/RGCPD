@@ -75,8 +75,8 @@ ds.sel(time=core_pp.get_subdates(pd.to_datetime(ds.time.values), start_end_date=
 
 #%%
 
-if region == 'US':
-    selbox = (230, 300, 25, 50)
+if region == 'USCAnew':
+    selbox = (230, 300, 25, 70)
     TVpath = os.path.join(path_outmain, 'tf10_nc5_dendo_0cbf8_US.nc')
     np_array_xy = np.array([[-91, 36], [-85, 34], [-81, 38],
                             [-116,36], [-122,41], [-117,46]])
