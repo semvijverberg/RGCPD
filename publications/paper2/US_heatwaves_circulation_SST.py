@@ -33,26 +33,26 @@ import climate_indices
 import plot_maps, core_pp, functions_pp, df_ana
 
 west_east = 'west'
-TV = 'USCA'
+TV = 'USCAnew'
 if TV == 'init':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
     if west_east == 'east':
         cluster_label = 2
     elif west_east == 'west':
         cluster_label = 1
-elif TV == 'US':
-    TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf15_nc6_dendo_0cbf8_US.nc'
+elif TV == 'USCAnew':
+    TVpath = '/Users/semvijverberg/Desktop/cluster/surfdrive/output_RGCPD/circulation_US_HW/q85_nc8_dendo_fca9cUSCA1750.nc'
     if west_east == 'east':
-        cluster_label = 3
+        cluster_label = 4
     elif west_east == 'west':
-        cluster_label = 1
+        cluster_label = 5
 elif TV == 'USCA':
     # large eastern US, small western US and a north-western NA
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf30_nc5_dendo_5dbeeUSCA.nc'
     # smaller south-eastern US, small western US and a north-western NA
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf30_nc8_dendo_5dbeeUSCA.nc'
     # mx2t small western US, large eastern US
-    TVpath = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf10_nc5_dendo_0a6f6USCA.nc'
+    # TVpath = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf10_nc5_dendo_0a6f6USCA.nc'
     if west_east == 'east':
         cluster_label = 1
     elif west_east == 'west':
