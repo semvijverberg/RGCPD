@@ -136,7 +136,7 @@ plot_maps.plot_labels(xr_mask)
 # =============================================================================
 tfreq = 30
 quantiles = [65, 85, 90]
-n_clusters = [3,4,5,6,7,8,9]
+n_clusters = [4,5,6,7,8,9,10]
 from time import time
 t0 = time()
 
