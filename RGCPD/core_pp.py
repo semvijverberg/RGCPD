@@ -352,7 +352,7 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
     output = xr.DataArray(output, name=ds.name, dims=ds.dims, coords=ds.coords)
     # copy original attributes to xarray
     output.attrs = ds.attrs
-    pp_dict = {'anomaly':str(anomaly), 'fft':apply_fft, 'n_harmonics':n_harmonics,
+    pp_dict = {'anomaly':str(anomaly), 'fft':str(apply_fft), 'n_harmonics':n_harmonics,
                'detrend':str(detrend)}
     output.attrs.update(pp_dict)
     # ensure mask
