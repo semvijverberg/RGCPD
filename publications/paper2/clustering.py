@@ -105,30 +105,30 @@ plot_maps.plot_labels(xr_mask)
 # =============================================================================
 # Clustering co-occurence of anomalies different tfreqs
 # =============================================================================
-tfreq = [5, 10, 15, 30]
-n_clusters = [2,3,4,5,6,7,8]
-from time import time
-t0 = time()
-xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
-                                               kwrgs_load={'tfreq':tfreq,
-                                                           'seldates':('06-01', '08-31'),
-                                                           'start_end_date':('06-01', '08-31'),
-                                                           'selbox':selbox},
-                                               kwrgs_clust={'q':66,
-                                                            'n_clusters':n_clusters,
-                                                            'affinity':'jaccard',
-                                                            'linkage':'average'})
+# tfreq = [5, 10, 15, 30]
+# n_clusters = [2,3,4,5,6,7,8]
+# from time import time
+# t0 = time()
+# xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
+#                                                kwrgs_load={'tfreq':tfreq,
+#                                                            'seldates':('06-01', '08-31'),
+#                                                            'start_end_date':('06-01', '08-31'),
+#                                                            'selbox':selbox},
+#                                                kwrgs_clust={'q':66,
+#                                                             'n_clusters':n_clusters,
+#                                                             'affinity':'jaccard',
+#                                                             'linkage':'average'})
 
-xrclustered.attrs['hash'] +=f'{domain}'
-fig = plot_maps.plot_labels(xrclustered,
-                            kwrgs_plot={'wspace':.03, 'hspace':-.35,
-                                        'cbar_vert':.09,
-                                        'row_dim':'n_clusters', 'col_dim':'q'})
-f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
-path_fig = os.path.join(rg.path_outmain, f_name)
-plt.savefig(path_fig,
-            bbox_inches='tight') # dpi auto 600
-print(f'{round(time()-t0, 2)}')
+# xrclustered.attrs['hash'] +=f'{domain}'
+# fig = plot_maps.plot_labels(xrclustered,
+#                             kwrgs_plot={'wspace':.03, 'hspace':-.35,
+#                                         'cbar_vert':.09,
+#                                         'row_dim':'n_clusters', 'col_dim':'q'})
+# f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
+# path_fig = os.path.join(rg.path_outmain, f_name)
+# plt.savefig(path_fig,
+#             bbox_inches='tight') # dpi auto 600
+# print(f'{round(time()-t0, 2)}')
 #%%
 # =============================================================================
 # Clustering co-occurence of anomalies
