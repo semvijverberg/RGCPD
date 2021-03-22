@@ -64,13 +64,14 @@ rg.pp_precursors(encoding={'dtype':'int32', 'scale_factor':1E-5})
 
 
 rg.list_precur_pp
-
+selbox = (225, 300, 25, 70)
 var_filename = rg.list_precur_pp[0][1]
 
-import pandas as pd
-ds = core_pp.import_ds_lazy(var_filename)
-ds.sel(time=core_pp.get_subdates(pd.to_datetime(ds.time.values), start_end_date=('06-01', '08-31'))).mean(dim='time').plot()
-selbox = (225, 300, 25, 70)
+#%%
+# import pandas as pd
+# ds = core_pp.import_ds_lazy(var_filename)
+# ds.sel(time=core_pp.get_subdates(pd.to_datetime(ds.time.values), start_end_date=('06-01', '08-31'))).mean(dim='time').plot()
+
 
 #%%
 import make_country_mask
@@ -102,10 +103,38 @@ plot_maps.plot_labels(xr_mask)
 
 # In[9]:
 # =============================================================================
+# Clustering co-occurence of anomalies different tfreqs
+# =============================================================================
+tfreq = [5, 10, 15, 30]
+n_clusters = [2,3,4,5,6,7,8]
+from time import time
+t0 = time()
+xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
+                                               kwrgs_load={'tfreq':tfreq,
+                                                           'seldates':('06-01', '08-31'),
+                                                           'start_end_date':('06-01', '08-31'),
+                                                           'selbox':selbox},
+                                               kwrgs_clust={'q':66,
+                                                            'n_clusters':n_clusters,
+                                                            'affinity':'jaccard',
+                                                            'linkage':'average'})
+
+xrclustered.attrs['hash'] +=f'{domain}'
+fig = plot_maps.plot_labels(xrclustered,
+                            kwrgs_plot={'wspace':.03, 'hspace':-.35,
+                                        'cbar_vert':.09,
+                                        'row_dim':'n_clusters', 'col_dim':'q'})
+f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
+path_fig = os.path.join(rg.path_outmain, f_name)
+plt.savefig(path_fig,
+            bbox_inches='tight') # dpi auto 600
+print(f'{round(time()-t0, 2)}')
+#%%
+# =============================================================================
 # Clustering co-occurence of anomalies
 # =============================================================================
 tfreq = 30
-quantiles = [.65, .85, .90]
+quantiles = [65, 85, 90]
 n_clusters = [2,3,4,5,6,7,8]
 from time import time
 t0 = time()
@@ -222,18 +251,31 @@ print(f'{round(time()-t0, 2)}')
 # TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_94f07_US.nc'
 # ds = core_pp.import_ds_lazy(TVpath)
 # xrclustered = ds['xrclusteredall']
-#%%
+#%% Old clustering over different temporal aggregations (tfreq)
 
-t = 10 ; c = 5
+# t = 10 ; c = 5
+# ds = cl.spatial_mean_clusters(var_filename,
+#                              xrclustered.sel(tfreq=t, n_clusters=c),
+#                              selbox=selbox)
+# ds['xrclusteredall'] = xrclustered
+# f_name = 'tf{}_nc{}'.format(int(t), int(c))
+# filepath = os.path.join(rg.path_outmain, f_name)
+# cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
+
+# TVpath = filepath + '_' + 'dendo_'+xrclustered.attrs['hash'] + '.nc'
+t = 10 ; q = 5
 ds = cl.spatial_mean_clusters(var_filename,
-                             xrclustered.sel(tfreq=t, n_clusters=c),
+                             xrclustered.sel(tfreq=t, q=q),
                              selbox=selbox)
 ds['xrclusteredall'] = xrclustered
-f_name = 'tf{}_nc{}'.format(int(t), int(c))
+f_name = 'tf{}_nc{}'.format(int(t), int(q))
 filepath = os.path.join(rg.path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
 TVpath = filepath + '_' + 'dendo_'+xrclustered.attrs['hash'] + '.nc'
+
+
+
 # #%% Check spatial correlation within clusters
 
 # # TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
