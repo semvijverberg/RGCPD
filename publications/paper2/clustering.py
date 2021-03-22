@@ -94,7 +94,8 @@ geo_surf_height = core_pp.import_ds_lazy(orography,
                                   var='z_NON_CDM', selbox=selbox) / 9.81
 geo_surf_height = geo_surf_height.drop('time').drop('realization')
 plot_maps.plot_corr_maps(geo_surf_height, cmap=plt.cm.Oranges, clevels=np.arange(0, 2600, 500))
-mask_Rockies = geo_surf_height < 1500
+max_height = 1750
+mask_Rockies = geo_surf_height < max_height
 plot_maps.plot_labels(mask_Rockies)
 xr_mask = xr_mask.where(mask_Rockies)
 
@@ -149,11 +150,14 @@ xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
                                                             'affinity':'jaccard',
                                                             'linkage':'average'})
 
-xrclustered.attrs['hash'] +=f'{domain}rm85'
+xrclustered.attrs['hash'] +=f'{domain}{max_height}'
 fig = plot_maps.plot_labels(xrclustered,
                             kwrgs_plot={'wspace':.03, 'hspace':-.35,
                                         'cbar_vert':.09,
-                                        'row_dim':'n_clusters', 'col_dim':'q'})
+                                        'row_dim':'n_clusters',
+                                        'col_dim':'q',
+                                        'x_ticks':np.arange(240, 300, 20),
+                                        'y_ticks':np.arange(0,61,10)})
 f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
 path_fig = os.path.join(rg.path_outmain, f_name)
 plt.savefig(path_fig,
@@ -263,124 +267,15 @@ print(f'{round(time()-t0, 2)}')
 # cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
 # TVpath = filepath + '_' + 'dendo_'+xrclustered.attrs['hash'] + '.nc'
-t = 10 ; q = 5
+q = 85 ; c = 8
 ds = cl.spatial_mean_clusters(var_filename,
-                             xrclustered.sel(tfreq=t, q=q),
+                             xrclustered.sel(q=q, n_clusters=c),
                              selbox=selbox)
 ds['xrclusteredall'] = xrclustered
-f_name = 'tf{}_nc{}'.format(int(t), int(q))
+f_name = 'q{}_nc{}'.format(int(q), int(c))
 filepath = os.path.join(rg.path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
 TVpath = filepath + '_' + 'dendo_'+xrclustered.attrs['hash'] + '.nc'
 
 
-
-# #%% Check spatial correlation within clusters
-
-# # TVpath = '/Users/semvijverberg/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
-# selbox = (230, 300, 25, 50)
-# list_of_name_path = [(5, TVpath),
-#                      ('mx2t', root_data + '/input_raw/mx2t_US_1979-2018_1_12_daily_0.25deg.nc')]
-# rg = RGCPD(list_of_name_path=list_of_name_path,
-#            path_outmain=path_outmain,
-#            tfreq=15,
-#            start_end_TVdate=('06-01', '08-31'))
-# rg.pp_precursors()
-# rg.pp_TV()
-# rg.get_clust()
-# xrclustered = rg.ds['xrclustered'].where(xrclustered!=-9999)
-# #%% Get timeseries at specific points within gridcell
-# import plot_maps
-
-# ds = core_pp.import_ds_lazy(rg.list_precur_pp[0][1], selbox=selbox)
-# np_array_xy = np.array([[-84, 34], [-96, 40], [-87, 42],# , [-80,37],
-#                         [-122,40], [-122,46], [-117,46]])
-# # np_array_xy = np.array([[-95, 35], [-89, 33], [-83, 36],# [-83,42],
-# #                         [-120,36], [-122,40], [-120,46]])
-# size = 100
-# colors = ["#22223b","#ffbe0b","#fb5607","#ff006e","#8338ec","#3a86ff"][::-1]
-# colors = plt.cm.tab20.colors[:np_array_xy.shape[0]][::-1]
-# scatter = [['all', [np_array_xy, {'s':size, 'zorder':2,
-#                                   'color':colors,
-#                                   'edgecolors':'black'}] ]]
-# regions= list(np.unique(xrclustered)[~np.isnan(np.unique(xrclustered))])
-# dic = {2:3, 3:2}
-# xrclustered = find_precursors.view_or_replace_labels(xrclustered, regions,
-#                                                      [int(dic.get(n, n)) for n in regions])
-# fig = plot_maps.plot_labels(xrclustered,
-#                       {'scatter':scatter,
-#                        'zoomregion':selbox})
-# fig.set_facecolor('white')
-# fig.axes[0].set_facecolor('white')
-# f_name = 'scatter_clusters_t2m_{}_t{}_c{}'.format(xrclustered.attrs['hash'], t, c)
-# filepath = os.path.join(rg.path_outmain, f_name)
-
-# plt.savefig(filepath+'.pdf', bbox_inches='tight')
-
-# #%%
-# npts = np.zeros( (np_array_xy.shape[0], ds.time.size) )
-# for i, xy in enumerate(np_array_xy):
-#     npts[i] = ds.sel(longitude=(180+(180+xy[0])),
-#                      latitude=xy[1])
-
-
-# columns = [f'{abs(c[0])}W-{c[1]}N' for c in np_array_xy]
-# df_ts = pd.DataFrame(npts.T, index=pd.to_datetime(ds.time.values),
-#                      columns=columns)
-
-# TVpath = os.path.join(user_dir,
-#                       'surfdrive/Scripts/RGCPD/publications/paper2/data/',
-#                       'df_ts_paper2_clustercorr_{}.h5'.format(xrclustered.attrs['hash']))
-
-# functions_pp.store_hdf_df({'df_ts':df_ts}, file_path=TVpath)
-# #%%
-
-# list_xr = []
-# for point in df_ts.columns:
-#     list_of_name_path = [(point, TVpath),
-#                          ('mx2t', root_data + '/input_raw/mx2t_US_1979-2018_1_12_daily_0.25deg.nc')]
-#     list_for_MI   = [BivariateMI(name='mx2t', func=class_BivariateMI.corr_map,
-#                                   alpha=.05, FDR_control=True, lags=np.array([0]))]
-
-#     rg = RGCPD(list_of_name_path=list_of_name_path,
-#                list_for_MI=list_for_MI,
-#                path_outmain=path_outmain,
-#                tfreq=15,
-#                start_end_TVdate=('06-01', '08-31'))
-#     rg.pp_precursors()
-#     rg.pp_TV(name_ds=point)
-#     rg.traintest(False)
-#     rg.calc_corr_maps()
-#     precur = rg.list_for_MI[0]
-#     corr_xr = precur.corr_xr[0,0]
-#     list_xr.append(corr_xr)
-# point_corr = xr.concat(list_xr, dim='points')
-# point_corr['points'] = ('points', list(df_ts.columns))
-# #%%
-# col_wrap = 3
-# subtitles = np.array([point_corr.points]).reshape(-1, col_wrap)
-# # scatter =[[(0,0), [np_array_xy[[0]], {'s':size, 'zorder':2, 'color':colors[0]}] ],
-# #           [(0,1), [np_array_xy[[1]], {'s':size, 'zorder':2, 'color':colors[1]}] ],
-# #           [(0,2), [np_array_xy[[2]], {'s':size, 'zorder':2, 'color':colors[2]}] ],
-# #           [(0,3), [np_array_xy[[2]], {'s':size, 'zorder':2, 'color':colors[3]}] ],
-# #           [(1,0), [np_array_xy[[3]], {'s':size, 'zorder':2, 'color':colors[4]}] ],
-# #           [(1,1), [np_array_xy[[4]], {'s':size, 'zorder':2, 'color':colors[5]}] ],
-# #           [(1,2), [np_array_xy[[5]], {'s':size, 'zorder':2, 'color':colors[6]}] ],
-# #           [(1,3), [np_array_xy[[5]], {'s':size, 'zorder':2, 'color':colors[7]}] ]]
-# scatter = None
-# plot_maps.plot_corr_maps(point_corr,
-#                          mask_xr = point_corr['mask'],
-#                          col_dim='points',
-#                          aspect=1.5, hspace=.2,
-#                          subtitles=subtitles,
-#                          scatter=scatter,
-#                          col_wrap=col_wrap,
-#                          cbar_vert=-.03,
-#                          x_ticks=np.arange(240, 301, 20),
-#                          y_ticks=np.arange(0,61,15),
-#                          clevels=np.arange(-1,1.1,.2),
-#                          zoomregion=selbox)
-# f_name = 'one_point_corr_maps_t2m_{}'.format(xrclustered.attrs['hash'])
-# filepath = os.path.join(rg.path_outmain, f_name)
-# plt.savefig(filepath+'.pdf', bbox_inches='tight')

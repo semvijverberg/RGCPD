@@ -260,7 +260,7 @@ fig = plot_maps.plot_labels(ds['xrclusteredall'],
                             kwrgs_plot={'wspace':.03, 'hspace':-.35,
                                         'cbar_vert':.09,
                                         'row_dim':'n_clusters',
-                                        'col_dim':'tfreq',
+                                        'col_dim':'q',
                                         'x_ticks':np.arange(240, 300, 20),
                                         'y_ticks':np.arange(0,61,10)})
 f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.png'
