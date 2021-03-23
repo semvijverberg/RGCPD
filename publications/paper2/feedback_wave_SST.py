@@ -85,14 +85,15 @@ else:
 
 
 # TVpathtemp = os.path.join(data_dir, 'tf15_nc3_dendo_0ff31.nc') # old TV
-TVpathtemp = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf30_nc5_dendo_5dbee_USCA.nc'
+TVpathtemp = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/q85_nc9_dendo_9ad1eUSCA1500.nc'
+TVpathtemp = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/q85_nc8_dendo_9ad1eUSCA1500.nc'
 if west_east == 'east':
     # TVpathRW = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
     cluster_label = 1 # 2
     z500_green_bb = (155,300,20,73) # bounding box for eastern RW
 elif west_east =='west':
     # TVpathRW = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
-    cluster_label = 4 # 1
+    cluster_label = 3 # 1
     z500_green_bb = (145,325,20,62) # bounding box for western RW
 
 
@@ -123,14 +124,14 @@ start_end_date = ('1-1', '12-31')
 # start_end_date = ('03-01', start_end_TVdatet2mvsRW[-1])
 
 tfreq         = 15
-min_detect_gc = 1.0
+min_detect_gc = 0.9
 method        = 'ranstrat_10' ;
 
 name_MCI_csv = f'strength_rPDO{remove_PDO}.csv'
 name_rob_csv = f'robustness_rPDO{remove_PDO}.csv'
 
 if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
-if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
+if tfreq <= 15: sst_green_bb = (140,235,25,59) # same as for West
 
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
@@ -283,12 +284,12 @@ rg.quick_view_labels(min_detect_gc=min_detect_gc)
 
 
 #%%
-def append_MCI(rg, dict_v, dict_rb):
+def append_MCI(rg, dict_v, dict_rb, alpha_level=.05):
     dkeys = [f'{f}-d', f'{f}-d SST->RW', f'{f}-d RW->SST']
 
-    rg.PCMCI_get_links(var=keys[0], alpha_level=.01) # links toward RW
+    rg.PCMCI_get_links(var=keys[0], alpha_level=alpha_level) # links toward RW
     SSTtoRW = rg.df_MCIc.mean(0,level=1).loc[keys[1]].iloc[1:].max().round(3) # select SST
-    rg.PCMCI_get_links(var=keys[1], alpha_level=.01) # links toward SST
+    rg.PCMCI_get_links(var=keys[1], alpha_level=alpha_level) # links toward SST
     RWtoSST = rg.df_MCIc.mean(0,level=1).loc[keys[0]].iloc[1:].max().round(3) # select RW
     lag0 = rg.df_MCIc.mean(0,level=1).loc[keys[0]]['coeff l0'].round(3)
     append_dict = {dkeys[0]:lag0, dkeys[1]:SSTtoRW, dkeys[2]:RWtoSST}
@@ -313,6 +314,7 @@ if remove_PDO:
 else:
     keys_ext = None
 
+alpha_level = .01
 dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
 freqs = [1, 5, 10, 15, 30, 60]
@@ -346,7 +348,7 @@ for f in freqs[:]:
         tau_max = 1
 
     kwrgs_tigr = {'tau_min':0, 'tau_max':tau_max, 'max_conds_dim':10,
-                  'pc_alpha':.05, 'max_combinations':10}
+                  'pc_alpha':None, 'max_combinations':10}
     rg.PCMCI_df_data(keys=keys,
                       kwrgs_tigr=kwrgs_tigr)
 
@@ -354,7 +356,7 @@ for f in freqs[:]:
     lags = range(rg.kwrgs_tigr['tau_min'], rg.kwrgs_tigr['tau_max']+1)
     lags = np.array([l*f for i, l in enumerate(lags)])
     mlr=5
-    SSTtoRW, rbRWtoSST, rbSSTtoRW = append_MCI(rg, dict_v, dict_rb)
+    SSTtoRW, rbRWtoSST, rbSSTtoRW = append_MCI(rg, dict_v, dict_rb, alpha_level)
     AR1SST = rg.df_MCIc.mean(0,level=1).loc[keys[1]]['coeff l1'].round(2)
 
     # my_cmap = matplotlib.colors.ListedColormap(
@@ -387,7 +389,7 @@ for f in freqs[:]:
                                 'network_lower_bound':.25},
                         append_figpath=f'_tf{rg.precur_aggr}_{AR1SST}_rb{mlr}_taumax{tau_max}_rPDO{remove_PDO}')
     #%%
-    rg.PCMCI_get_links(var=keys[1], alpha_level=.01)
+    rg.PCMCI_get_links(var=keys[1], alpha_level=alpha_level)
     rg.df_links.astype(int).sum(0, level=1)
     MCI_ALL = rg.df_MCIc.mean(0, level=1)
 #%%

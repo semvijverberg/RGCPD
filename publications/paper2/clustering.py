@@ -94,7 +94,7 @@ geo_surf_height = core_pp.import_ds_lazy(orography,
                                   var='z_NON_CDM', selbox=selbox) / 9.81
 geo_surf_height = geo_surf_height.drop('time').drop('realization')
 plot_maps.plot_corr_maps(geo_surf_height, cmap=plt.cm.Oranges, clevels=np.arange(0, 2600, 500))
-max_height = 1750
+max_height = 1500
 mask_Rockies = geo_surf_height < max_height
 plot_maps.plot_labels(mask_Rockies)
 xr_mask = xr_mask.where(mask_Rockies)
@@ -135,8 +135,8 @@ plot_maps.plot_labels(xr_mask)
 # Clustering co-occurence of anomalies
 # =============================================================================
 tfreq = 30
-quantiles = [65, 85, 90]
-n_clusters = [4,5,6,7,8,9,10]
+quantiles = [65, 80, 90]
+n_clusters = [6,7,8,9,10,11,12]
 from time import time
 t0 = time()
 
@@ -267,7 +267,7 @@ print(f'{round(time()-t0, 2)}')
 # cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
 # TVpath = filepath + '_' + 'dendo_'+xrclustered.attrs['hash'] + '.nc'
-q = 90 ; c =10
+c = 8 ; q = 85
 ds = cl.spatial_mean_clusters(var_filename,
                              xrclustered.sel(q=q, n_clusters=c),
                              selbox=selbox)

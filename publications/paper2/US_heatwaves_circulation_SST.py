@@ -32,7 +32,7 @@ import class_BivariateMI
 import climate_indices
 import plot_maps, core_pp, functions_pp, df_ana
 
-west_east = 'east'
+west_east = 'northwest'
 TV = 'USCAnew'
 if TV == 'init':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
@@ -41,13 +41,15 @@ if TV == 'init':
     elif west_east == 'west':
         cluster_label = 1
 elif TV == 'USCAnew':
-    TVpath = '/Users/semvijverberg/Desktop/cluster/surfdrive/output_RGCPD/circulation_US_HW/q85_nc8_dendo_fca9cUSCA1750.nc'
+    # mx2t 25N-70N
+    TVpath = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/q85_nc9_dendo_9ad1eUSCA1500.nc'
     if west_east == 'east':
         cluster_label = 4
     elif west_east == 'west':
-        cluster_label = 5
-        cluster_label = 1
-        cluster_label = 7
+        cluster_label = 3
+    elif west_east == 'northwest':
+        cluster_label = 8
+
 elif TV == 'USCA':
     # large eastern US, small western US and a north-western NA
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf30_nc5_dendo_5dbeeUSCA.nc'
@@ -79,7 +81,7 @@ min_detect_gc=.9
 start_end_year = (1979, 2020)
 
 # z500_green_bb = (140,260,20,73) #: Pacific box
-if west_east == 'east':
+if west_east == 'east' or west_east == 'northwest':
     z500_green_bb = (155,300,20,73) #: RW box
     v300_green_bb = (170,359,23,73)
 elif west_east == 'west':
@@ -172,13 +174,10 @@ mpl.rcParams.update(mpl.rcParamsDefault)
 if TV == 'USCA':
     west_east_labels = [1,5,4]
     naming = {1:'east', 5:'northwest', 4:'west'}
-    # if hash is 0a6f6
-    west_east_labels = [1,2,5]
-    naming = {1:'east', 5:'northwest', 2:'west'}
 elif 'USCAnew':
-    # hash fca9cUSCA1750
-    west_east_labels = [4,5,7]
-    naming = {4:'east', 5:'west', 7:'northwest'}
+    # hash 9ad1eUSCA1500
+    west_east_labels = [4,3,8]
+    naming = {4:'east', 3:'west', 8:'northwest'}
 elif 'init':
     west_east_labels = [1,2]
     naming = {1:'west', 2:'east'}
@@ -203,6 +202,7 @@ for i, label in enumerate(west_east_labels):
                                     use_sign_pattern=True, lags = np.array([0]))]
     rg.list_for_EOFS = None
     rg.calc_corr_maps(['z500'])
+    rg.plot_maps_corr(save=True)
     rg.cluster_list_MI(['z500'])
     rg.get_ts_prec(precur_aggr=1)
     if i == 0:
@@ -217,13 +217,20 @@ for i, label in enumerate(west_east_labels):
         print(df_app.columns)
         df_data = rg.merge_df_on_df_data(df_app, df_data)
 
-df_ana.plot_ts_matric(df_data, win=15, columns=df_data.columns[:-2],
-                      period='RV_mask', fontsizescaler=-5)
-filepath = os.path.join(rg.path_outsub1, 'z500_'+'-'.join(map(str, z500_green_bb))+rg.hash)
+
+cols = ['eastRW', 'westRW', 'northwestRW', 'mx2teast', 'mx2twest', 'mx2tnorthwest' ]
+df_ana.plot_ts_matric(df_data, win=15, columns=cols,
+                      period='RV_mask', plot_sign_stars=False, fontsizescaler=-8)
+filepath = os.path.join(rg.path_outsub1, '15d_z500_'+'-'.join(map(str, z500_green_bb))+rg.hash)
+plt.savefig(filepath+'.png', dpi=200, bbox_inches='tight')
+
+df_ana.plot_ts_matric(df_data, win=30, columns=cols,
+                      period='RV_mask', plot_sign_stars=False, fontsizescaler=-8)
+filepath = os.path.join(rg.path_outsub1, '30d_z500_'+'-'.join(map(str, z500_green_bb))+rg.hash)
 plt.savefig(filepath+'.png', dpi=200, bbox_inches='tight')
 
 
-filepath = os.path.join(rg.path_outsub1, 'z500_'+'-'.join(map(str, z500_green_bb))+rg.hash)
+filepath = os.path.join(path_out_main, 'z500_'+'-'.join(map(str, z500_green_bb))+rg.hash)
 functions_pp.store_hdf_df({'df_data':df_data}, filepath+'.h5')
 
 
@@ -300,7 +307,13 @@ alphas = np.append(np.logspace(.1, 1.5, num=25), [250])
 kwrgs_model = {'scoring':'neg_mean_squared_error',
                'alphas':alphas, # large a, strong regul.
                'normalize':False}
-out_fit = rg.fit_df_data_ridge(tau_min=2, tau_max=2,
+
+keys = [k for k in rg.df_data.columns[:-2] if k not in [rg.TV.name, 'PDO']]
+keys = [k for k in keys if int(k.split('..')[0]) in [2]]
+keys = [k for k in keys if int(k.split('..')[1]) in [1,3]]
+
+out_fit = rg.fit_df_data_ridge(target=target_ts,tau_min=2, tau_max=2,
+                               keys=keys,
                                kwrgs_model=kwrgs_model)
 predict, weights, models_lags = out_fit
 df_train_m, df_test_s_m, df_test_m, df_boot = fc_utils.get_scores(predict,

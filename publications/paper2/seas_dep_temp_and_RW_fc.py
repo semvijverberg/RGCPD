@@ -114,8 +114,8 @@ calc_ts='region mean' # pattern cov
 TVpath = 'z500_145-325-20-62USCA.h5'
 # mx2t
 TVpath = 'z500_145-325-20-620a6f6USCA.h5'
-# mx2t 30-daymean
-TVpath = 'z500_155-300-20-73fca9cUSCA1750.h5'
+# mx2t 25N-70N
+TVpath = 'z500_155-300-20-739ad1eUSCA1500.h5'
 
 TVpath  = os.path.join(mainpath_df, TVpath)
 
