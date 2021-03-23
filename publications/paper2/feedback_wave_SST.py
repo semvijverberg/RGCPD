@@ -86,7 +86,7 @@ else:
 
 # TVpathtemp = os.path.join(data_dir, 'tf15_nc3_dendo_0ff31.nc') # old TV
 TVpathtemp = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/q85_nc9_dendo_9ad1eUSCA1500.nc'
-TVpathtemp = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/q85_nc8_dendo_9ad1eUSCA1500.nc'
+TVpathtemp = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/q65_nc11_dendo_49ae8USCA1500.nc'
 if west_east == 'east':
     # TVpathRW = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
     cluster_label = 1 # 2
@@ -314,7 +314,7 @@ if remove_PDO:
 else:
     keys_ext = None
 
-alpha_level = .01
+alpha_level = .05
 dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
 freqs = [1, 5, 10, 15, 30, 60]

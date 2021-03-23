@@ -267,7 +267,7 @@ print(f'{round(time()-t0, 2)}')
 # cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
 # TVpath = filepath + '_' + 'dendo_'+xrclustered.attrs['hash'] + '.nc'
-c = 8 ; q = 85
+c = 11 ; q = 65
 ds = cl.spatial_mean_clusters(var_filename,
                              xrclustered.sel(q=q, n_clusters=c),
                              selbox=selbox)
