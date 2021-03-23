@@ -93,7 +93,7 @@ if west_east == 'east':
     z500_green_bb = (155,300,20,73) # bounding box for eastern RW
 elif west_east =='west':
     # TVpathRW = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
-    cluster_label = 3 # 1
+    cluster_label = 10 # 1
     z500_green_bb = (145,325,20,62) # bounding box for western RW
 
 
