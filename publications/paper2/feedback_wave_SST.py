@@ -97,7 +97,7 @@ elif west_east =='west':
     z500_green_bb = (145,325,20,62) # bounding box for western RW
 
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb/')
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb_pcalphaNone/')
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
     start_end_TVdatet2mvsRW = start_end_TVdate
@@ -157,7 +157,9 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 
 rg.pp_TV(detrend=False)
 rg.pp_precursors()
-rg.traintest(method=method, seed=seed)
+RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
+subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range, method, seed)
+rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
 rg.calc_corr_maps()
 rg.cluster_list_MI(['z500'])
 rg.get_ts_prec(precur_aggr=1)
@@ -182,7 +184,7 @@ kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
               'clim':(-.6,.6), 'title':title, 'subtitles':subtitles}
 save = True
 rg.plot_maps_corr(var='z500', save=save,
-                  append_str=''.join(map(str, z500_green_bb)),
+                  append_str='vsT'+''.join(map(str, z500_green_bb)),
                   min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot)
 
@@ -348,7 +350,7 @@ for f in freqs[:]:
         tau_max = 1
 
     kwrgs_tigr = {'tau_min':0, 'tau_max':tau_max, 'max_conds_dim':10,
-                  'pc_alpha':0.05, 'max_combinations':10}
+                  'pc_alpha':None, 'max_combinations':10}
     rg.PCMCI_df_data(keys=keys,
                       kwrgs_tigr=kwrgs_tigr)
 
