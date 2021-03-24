@@ -108,7 +108,7 @@ else:
     remove_PDO = False
     seed = 1
 
-mainpath_df = os.path.join(main_dir, f'publications/paper2/output/heatwave_circulation_v300_z500_SST/USCAnew_east/')
+mainpath_df = os.path.join(main_dir, 'publications/paper2/output/heatwave_circulation_v300_z500_SST/USCAnew_east/')
 calc_ts='region mean' # pattern cov
 # t2m
 TVpath = 'z500_145-325-20-62USCA.h5'
