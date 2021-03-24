@@ -97,7 +97,7 @@ elif west_east =='west':
     z500_green_bb = (145,325,25,62) # bounding box for western RW
 
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb_25NRW_20NSST/')
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb_25NRW_20NSST_pcNone/')
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
     start_end_TVdatet2mvsRW = start_end_TVdate
@@ -351,7 +351,7 @@ for f in freqs[:]:
         tau_max = 1
 
     kwrgs_tigr = {'tau_min':0, 'tau_max':tau_max, 'max_conds_dim':10,
-                  'pc_alpha':.05, 'max_combinations':10}
+                  'pc_alpha':None, 'max_combinations':10}
     rg.PCMCI_df_data(keys=keys,
                       kwrgs_tigr=kwrgs_tigr)
 
