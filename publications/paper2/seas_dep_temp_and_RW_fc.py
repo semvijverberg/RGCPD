@@ -493,8 +493,8 @@ if tfreq==15 and target=='westerntemp':
     #     ax.add_artist(legend2)
 
 ax.set_ylim(-0.1, 0.6)
-# plt.savefig(os.path.join(rg.path_outsub1,
-              # f'skill_score_vs_months_a{alpha}+{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_ac{alpha_corr}_corlag{precur.lags}.pdf'))
+plt.savefig(os.path.join(rg.path_outsub1,
+               f'skill_score_vs_months_a{alpha}+{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_ac{alpha_corr}_corlag{precur.lags}.pdf'))
 
 csvfilename = os.path.join(rg.path_outmain, name_csv)
 for csvfilename, dic in [(csvfilename, dict_v)]:
