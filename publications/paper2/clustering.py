@@ -108,7 +108,7 @@ plot_maps.plot_labels(xr_mask)
 # =============================================================================
 q = 66
 tfreq = [5, 10, 15, 30]
-n_clusters = [2,3,4,5,6,7,8]
+n_clusters = [4,5,6,7,8,9,10]
 from time import time
 t0 = time()
 xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
@@ -125,8 +125,10 @@ xrclustered.attrs['hash'] +=f'{domain}'
 fig = plot_maps.plot_labels(xrclustered,
                             kwrgs_plot={'wspace':.03, 'hspace':-.35,
                                         'cbar_vert':.09,
-                                        'row_dim':'n_clusters', 'col_dim':'q'})
-f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
+                                        'row_dim':'n_clusters', 'col_dim':'tfreq',
+                                        'x_ticks':np.arange(240, 300, 20),
+                                        'y_ticks':np.arange(0,61,10)})
+f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.png'
 path_fig = os.path.join(rg.path_outmain, f_name)
 plt.savefig(path_fig,
             bbox_inches='tight') # dpi auto 600
