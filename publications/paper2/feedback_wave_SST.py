@@ -97,7 +97,7 @@ elif west_east =='west':
     z500_green_bb = (145,325,25,62) # bounding box for western RW
 
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb_25N/')
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb_25NRW_20NSST/')
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
     start_end_TVdatet2mvsRW = start_end_TVdate
@@ -131,7 +131,7 @@ name_MCI_csv = f'strength_rPDO{remove_PDO}.csv'
 name_rob_csv = f'robustness_rPDO{remove_PDO}.csv'
 
 if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
-if tfreq <= 15: sst_green_bb = (140,235,25,59) # same as for West
+if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
 
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
