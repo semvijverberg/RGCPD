@@ -1202,24 +1202,25 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
 
     uniqgroups = np.unique(groups)
 
-    if method == 'no_train_test_split' or method==False:
+    if method == 'no_train_test_split':
         kfold = 1
         testgroups = np.array([[]])
-    if test_yrs is None:
-        kfold = int(method.split('_')[-1])
-        if method[:8] == 'ranstrat':
-            TVgroups = groups.loc[RV_ts.index]
-            cv = get_cv_accounting_for_years(RV_ts, kfold, seed, TVgroups)
-            testgroups = cv.uniqgroups
-        elif method[:5] == 'leave':
-            kfold = int(uniqgroups.size / int(method.split('_')[-1]))
-            cv = KFold(n_splits=kfold, shuffle=False)
-            testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
-        elif method[:6] == 'random':
-            cv = KFold(n_splits=kfold, shuffle=True)
-            testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
     else:
-        testgroups = test_yrs
+        if test_yrs is None:
+            kfold = int(method.split('_')[-1])
+            if method[:8] == 'ranstrat':
+                TVgroups = groups.loc[RV_ts.index]
+                cv = get_cv_accounting_for_years(RV_ts, kfold, seed, TVgroups)
+                testgroups = cv.uniqgroups
+            elif method[:5] == 'leave':
+                kfold = int(uniqgroups.size / int(method.split('_')[-1]))
+                cv = KFold(n_splits=kfold, shuffle=False)
+                testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
+            elif method[:6] == 'random':
+                cv = KFold(n_splits=kfold, shuffle=True)
+                testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
+        else:
+            testgroups = test_yrs
 
 
     testsetidx = np.zeros(groups.size , dtype=int) ; testsetidx[:] = -999

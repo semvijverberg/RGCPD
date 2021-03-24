@@ -106,63 +106,64 @@ plot_maps.plot_labels(xr_mask)
 # =============================================================================
 # Clustering co-occurence of anomalies different tfreqs
 # =============================================================================
-# tfreq = [5, 10, 15, 30]
-# n_clusters = [2,3,4,5,6,7,8]
-# from time import time
-# t0 = time()
-# xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
-#                                                kwrgs_load={'tfreq':tfreq,
-#                                                            'seldates':('06-01', '08-31'),
-#                                                            'start_end_date':('06-01', '08-31'),
-#                                                            'selbox':selbox},
-#                                                kwrgs_clust={'q':66,
-#                                                             'n_clusters':n_clusters,
-#                                                             'affinity':'jaccard',
-#                                                             'linkage':'average'})
-
-# xrclustered.attrs['hash'] +=f'{domain}'
-# fig = plot_maps.plot_labels(xrclustered,
-#                             kwrgs_plot={'wspace':.03, 'hspace':-.35,
-#                                         'cbar_vert':.09,
-#                                         'row_dim':'n_clusters', 'col_dim':'q'})
-# f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
-# path_fig = os.path.join(rg.path_outmain, f_name)
-# plt.savefig(path_fig,
-#             bbox_inches='tight') # dpi auto 600
-# print(f'{round(time()-t0, 2)}')
-#%%
-# =============================================================================
-# Clustering co-occurence of anomalies
-# =============================================================================
-tfreq = 30
-quantiles = [65, 80, 90]
-n_clusters = [6,7,8,9,10,11,12]
+q = 66
+tfreq = [5, 10, 15, 30]
+n_clusters = [2,3,4,5,6,7,8]
 from time import time
 t0 = time()
-
 xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
-                                               kwrgs_load={'tfreq':tfreq,
-                                                           'seldates':('06-01', '08-31'),
-                                                           'start_end_date':('06-01', '08-31'),
-                                                           'selbox':selbox},
-                                               kwrgs_clust={'q':quantiles,
+                                                kwrgs_load={'tfreq':tfreq,
+                                                            'seldates':('06-01', '08-31'),
+                                                            'start_end_date':('06-01', '08-31'),
+                                                            'selbox':selbox},
+                                                kwrgs_clust={'q':q,
                                                             'n_clusters':n_clusters,
                                                             'affinity':'jaccard',
                                                             'linkage':'average'})
 
-xrclustered.attrs['hash'] +=f'{domain}{max_height}'
+xrclustered.attrs['hash'] +=f'{domain}'
 fig = plot_maps.plot_labels(xrclustered,
                             kwrgs_plot={'wspace':.03, 'hspace':-.35,
                                         'cbar_vert':.09,
-                                        'row_dim':'n_clusters',
-                                        'col_dim':'q',
-                                        'x_ticks':np.arange(240, 300, 20),
-                                        'y_ticks':np.arange(0,61,10)})
+                                        'row_dim':'n_clusters', 'col_dim':'q'})
 f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
 path_fig = os.path.join(rg.path_outmain, f_name)
 plt.savefig(path_fig,
             bbox_inches='tight') # dpi auto 600
 print(f'{round(time()-t0, 2)}')
+#%%
+# =============================================================================
+# Clustering co-occurence of anomalies different quantiles
+# =============================================================================
+# tfreq = 30
+# quantiles = [65, 80, 90]
+# n_clusters = [6,7,8,9,10,11,12]
+# from time import time
+# t0 = time()
+
+# xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
+#                                                kwrgs_load={'tfreq':tfreq,
+#                                                            'seldates':('06-01', '08-31'),
+#                                                            'start_end_date':('06-01', '08-31'),
+#                                                            'selbox':selbox},
+#                                                kwrgs_clust={'q':quantiles,
+#                                                             'n_clusters':n_clusters,
+#                                                             'affinity':'jaccard',
+#                                                             'linkage':'average'})
+
+# xrclustered.attrs['hash'] +=f'{domain}{max_height}'
+# fig = plot_maps.plot_labels(xrclustered,
+#                             kwrgs_plot={'wspace':.03, 'hspace':-.35,
+#                                         'cbar_vert':.09,
+#                                         'row_dim':'n_clusters',
+#                                         'col_dim':'q',
+#                                         'x_ticks':np.arange(240, 300, 20),
+#                                         'y_ticks':np.arange(0,61,10)})
+# f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
+# path_fig = os.path.join(rg.path_outmain, f_name)
+# plt.savefig(path_fig,
+#             bbox_inches='tight') # dpi auto 600
+# print(f'{round(time()-t0, 2)}')
 
 #%%
 # # =============================================================================
@@ -267,12 +268,22 @@ print(f'{round(time()-t0, 2)}')
 # cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
 # TVpath = filepath + '_' + 'dendo_'+xrclustered.attrs['hash'] + '.nc'
-c = 11 ; q = 65
-ds = cl.spatial_mean_clusters(var_filename,
-                             xrclustered.sel(q=q, n_clusters=c),
-                             selbox=selbox)
+if type(tfreq) is list:
+    t = 15 ; c = 4
+    ds = cl.spatial_mean_clusters(var_filename,
+                                 xrclustered.sel(tfreq=t, n_clusters=c),
+                                 selbox=selbox)
+    f_name = 'tfreq{}_nc{}'.format(int(t), int(c))
+else:
+    c = 11 ; q = 65
+    ds = cl.spatial_mean_clusters(var_filename,
+                                 xrclustered.sel(q=q, n_clusters=c),
+                                 selbox=selbox)
+    f_name = 'q{}_nc{}'.format(int(q), int(c))
+
+
+
 ds['xrclusteredall'] = xrclustered
-f_name = 'q{}_nc{}'.format(int(q), int(c))
 filepath = os.path.join(rg.path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 

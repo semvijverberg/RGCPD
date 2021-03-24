@@ -47,7 +47,7 @@ import df_ana
 from RGCPD import RGCPD
 from RGCPD import BivariateMI ; import class_BivariateMI
 list_of_name_path = [('fake', None),
-                     ('t2m', root_data + '/input_raw/mx2t_USfft_1979-2020_1_12_daily_0.25deg.nc')]
+                     ('t2m', root_data + '/input_raw/mx2t_US_1979-2020_1_12_daily_0.25deg.nc')]
 rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=path_outmain)
 
@@ -65,7 +65,8 @@ rg.pp_precursors()
 rg.list_precur_pp
 
 var_filename = rg.list_precur_pp[0][1]
-region = 'USCA'
+region = 'USCAnew'
+
 #%%
 
 import pandas as pd
@@ -77,10 +78,12 @@ ds.sel(time=core_pp.get_subdates(pd.to_datetime(ds.time.values), start_end_date=
 
 if region == 'USCAnew':
     selbox = (230, 300, 25, 70)
-    TVpath = os.path.join(path_outmain, 'tf10_nc5_dendo_0cbf8_US.nc')
-    np_array_xy = np.array([[-91, 36], [-85, 34], [-81, 38],
+    TVpath = os.path.join(path_outmain, 'q85_nc8_dendo_9ad1eUSCA1500.nc')
+    np_array_xy = np.array([[-97, 39], [-89, 39], [-82, 40],
                             [-116,36], [-122,41], [-117,46]])
-    t, c = 15, 6
+    np_array_xy = np.array([[-98, 35], [-94, 42], [-88, 35], [-83,43],
+                            [-116,36], [-122,39], [-121,46], [-117,48]])
+    q, c = 65, 4
 
 elif region == 'USCA':
     selbox = (230, 300, 25, 70)
@@ -100,7 +103,7 @@ elif region == 'init':
 
 ds_cl = core_pp.import_ds_lazy(TVpath)
 if region != 'init':
-    xrclustered = ds_cl['xrclusteredall'].sel(tfreq=t, n_clusters=c)
+    xrclustered = ds_cl['xrclusteredall'].sel(q=q, n_clusters=c)
     xrclustered = xrclustered.where(xrclustered.values!=-9999)
 else:
     xrclustered = ds_cl['xrclustered']
@@ -123,8 +126,8 @@ if region == 'USCA':
     mask_cl_n  = make_country_mask.binary_erosion(~np.isnan(mask_cl_n) )
     mask_cl_s = ~np.isnan(find_precursors.view_or_replace_labels(xrclustered.copy(), [2]))
     mask_cl = ~np.logical_or(mask_cl_n, mask_cl_s)
-elif region =='US':
-    mask_cl = find_precursors.view_or_replace_labels(xrclustered.copy(), [1,3])
+elif region =='USCAnew':
+    mask_cl = find_precursors.view_or_replace_labels(xrclustered.copy(), [1,4])
     mask_cl = np.isnan(mask_cl)
 elif region == 'init':
     mask_cl_e = find_precursors.view_or_replace_labels(xrclustered.copy(), [3])
@@ -213,7 +216,7 @@ mask_cl_forcorr['points'] = ('points', list(df_ts.columns))
 
 
 
-if region == 'USCA' or region == 'init':
+if region == 'USCA' or region == 'init' or region == 'USCAnew':
     col_wrap = 4
     scatter =[[(0,0), [np_array_xy[[0]], {'s':size, 'zorder':2, 'color':colors[0], 'edgecolors':'black'}] ],
               [(0,1), [np_array_xy[[1]], {'s':size, 'zorder':2, 'color':colors[1], 'edgecolors':'black'}] ],
@@ -223,7 +226,7 @@ if region == 'USCA' or region == 'init':
               [(1,1), [np_array_xy[[5]], {'s':size, 'zorder':2, 'color':colors[5], 'edgecolors':'black'}] ],
               [(1,2), [np_array_xy[[6]], {'s':size, 'zorder':2, 'color':colors[6], 'edgecolors':'black'}] ],
               [(1,3), [np_array_xy[[7]], {'s':size, 'zorder':2, 'color':colors[7], 'edgecolors':'black'}] ]]
-    hspace=-.33 ;  cbar_vert=.08
+    hspace=-.25 ;  cbar_vert=.06
 
 elif region == 'US':
     col_wrap = 3
@@ -239,7 +242,7 @@ elif region == 'US':
 subtitles = np.array([point_corr.points]).reshape(-1, col_wrap)
 # scatter = None
 plot_maps.plot_corr_maps(point_corr,
-                         mask_xr = mask_cl_forcorr,
+                         mask_xr = point_corr['mask'],
                          col_dim='points',
                          aspect=1.5, hspace=hspace,
                          cbar_vert=cbar_vert,
@@ -272,7 +275,7 @@ fig.savefig(path_fig,
 
 #%%
 if region != 'init':
-    ds_cl_ts = core_pp.get_selbox(ds_cl['xrclusteredall'].sel(tfreq=t, n_clusters=c),
+    ds_cl_ts = core_pp.get_selbox(ds_cl['xrclusteredall'].sel(q=q, n_clusters=c),
                                   selbox)
     ds_new = cl.spatial_mean_clusters(var_filename,
                                       ds_cl_ts,
