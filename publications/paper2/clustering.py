@@ -271,7 +271,7 @@ print(f'{round(time()-t0, 2)}')
 
 # TVpath = filepath + '_' + 'dendo_'+xrclustered.attrs['hash'] + '.nc'
 if type(tfreq) is list:
-    t = 15 ; c = 4
+    t = 15 ; c = 7
     ds = cl.spatial_mean_clusters(var_filename,
                                  xrclustered.sel(tfreq=t, n_clusters=c),
                                  selbox=selbox)

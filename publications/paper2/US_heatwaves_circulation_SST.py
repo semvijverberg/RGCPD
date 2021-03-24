@@ -32,7 +32,7 @@ import class_BivariateMI
 import climate_indices
 import plot_maps, core_pp, functions_pp, df_ana
 
-west_east = 'northwest'
+west_east = 'east'
 TV = 'USCAnew'
 if TV == 'init':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
@@ -42,13 +42,13 @@ if TV == 'init':
         cluster_label = 1
 elif TV == 'USCAnew':
     # mx2t 25N-70N
-    TVpath = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/q85_nc9_dendo_9ad1eUSCA1500.nc'
+    TVpath = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tfreq15_nc7_dendo_57db0USCA.nc'
     if west_east == 'east':
         cluster_label = 4
     elif west_east == 'west':
-        cluster_label = 3
+        cluster_label = 1
     elif west_east == 'northwest':
-        cluster_label = 8
+        cluster_label = 7
 
 elif TV == 'USCA':
     # large eastern US, small western US and a north-western NA
@@ -176,8 +176,8 @@ if TV == 'USCA':
     naming = {1:'east', 5:'northwest', 4:'west'}
 elif 'USCAnew':
     # hash 9ad1eUSCA1500
-    west_east_labels = [4,3,8]
-    naming = {4:'east', 3:'west', 8:'northwest'}
+    west_east_labels = [4,1,7]
+    naming = {4:'east', 1:'west', 7:'northwest'}
 elif 'init':
     west_east_labels = [1,2]
     naming = {1:'west', 2:'east'}
@@ -310,7 +310,7 @@ kwrgs_model = {'scoring':'neg_mean_squared_error',
 
 keys = [k for k in rg.df_data.columns[:-2] if k not in [rg.TV.name, 'PDO']]
 keys = [k for k in keys if int(k.split('..')[0]) in [2]]
-keys = [k for k in keys if int(k.split('..')[1]) in [1,3]]
+# keys = [k for k in keys if int(k.split('..')[1]) in [1,3]]
 
 out_fit = rg.fit_df_data_ridge(target=target_ts,tau_min=2, tau_max=2,
                                keys=keys,
