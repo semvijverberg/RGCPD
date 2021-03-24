@@ -90,14 +90,14 @@ TVpathtemp = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-cor
 if west_east == 'east':
     # TVpathRW = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
     cluster_label = 1 # 2
-    z500_green_bb = (155,300,20,73) # bounding box for eastern RW
+    z500_green_bb = (155,300,25,73) # bounding box for eastern RW
 elif west_east =='west':
     # TVpathRW = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
     cluster_label = 10 # 1
-    z500_green_bb = (145,325,20,62) # bounding box for western RW
+    z500_green_bb = (145,325,25,62) # bounding box for western RW
 
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb_20N/')
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb_25N/')
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
     start_end_TVdatet2mvsRW = start_end_TVdate
@@ -131,7 +131,7 @@ name_MCI_csv = f'strength_rPDO{remove_PDO}.csv'
 name_rob_csv = f'robustness_rPDO{remove_PDO}.csv'
 
 if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
-if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
+if tfreq <= 15: sst_green_bb = (140,235,25,59) # same as for West
 
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
@@ -156,6 +156,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 
 
 rg.pp_TV(detrend=False)
+rg.plot_df_clust(save=True)
 rg.pp_precursors()
 RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
 subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range, method, seed)
@@ -184,7 +185,7 @@ kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
               'clim':(-.6,.6), 'title':title, 'subtitles':subtitles}
 save = True
 rg.plot_maps_corr(var='z500', save=save,
-                  append_str='vsT'+''.join(map(str, z500_green_bb)),
+                  append_str=f'vs{cluster_label}T'+''.join(map(str, z500_green_bb)),
                   min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot)
 
