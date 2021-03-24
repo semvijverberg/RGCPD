@@ -275,13 +275,22 @@ fig.savefig(path_fig,
 
 #%%
 if region != 'init':
-    ds_cl_ts = core_pp.get_selbox(ds_cl['xrclusteredall'].sel(q=q, n_clusters=c),
+    try:
+        ds_cl_ts = core_pp.get_selbox(ds_cl['xrclusteredall'].sel(q=q, n_clusters=c),
                                   selbox)
-    ds_new = cl.spatial_mean_clusters(var_filename,
+        ds_new = cl.spatial_mean_clusters(var_filename,
                                       ds_cl_ts,
                                       selbox=selbox)
-    ds_new['xrclusteredall'] = xrclustered
-    f_name = 'tf{}_nc{}'.format(int(t), int(c))
+        ds_new['xrclusteredall'] = xrclustered
+        f_name = 'q{}_nc{}'.format(int(q), int(c))
+    except:
+        ds_cl_ts = core_pp.get_selbox(ds_cl['xrclusteredall'].sel(tfreq=t, n_clusters=c),
+                                  selbox)
+        ds_new = cl.spatial_mean_clusters(var_filename,
+                                      ds_cl_ts,
+                                      selbox=selbox)
+        ds_new['xrclusteredall'] = xrclustered
+        f_name = 'tf{}_nc{}'.format(int(t), int(c))
     filepath = os.path.join(rg.path_outmain, f_name)
     cl.store_netcdf(ds_new, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
