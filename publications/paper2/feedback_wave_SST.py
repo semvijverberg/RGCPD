@@ -87,14 +87,14 @@ else:
 # TVpathtemp = os.path.join(data_dir, 'tf15_nc3_dendo_0ff31.nc') # old TV
 TVpathtemp = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/q85_nc9_dendo_9ad1eUSCA1500.nc'
 TVpathtemp = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/q65_nc11_dendo_49ae8USCA1500.nc'
-TVpathtemp = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/q65_nc11_dendo_49ae8USCA1500.nc'
+TVpathtemp = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/q65_nc4_dendo_9ad1eUSCA1500.nc'
 if west_east == 'east':
     # TVpathRW = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
     cluster_label = 1 # 2
     z500_green_bb = (155,300,25,73) # bounding box for eastern RW
 elif west_east =='west':
     # TVpathRW = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
-    cluster_label = 10 # 1
+    cluster_label = 4 # 1
     z500_green_bb = (145,325,25,62) # bounding box for western RW
 
 
