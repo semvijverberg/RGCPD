@@ -143,7 +143,7 @@ elif target[-2:] == 'RW':
 
 precur_aggr = tfreq
 method     = 'ranstrat_10' ;
-n_boot = 5
+n_boot = 2000
 
 append_main = ''
 name_csv = f'skill_scores_tf{tfreq}.csv'

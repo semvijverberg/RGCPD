@@ -73,12 +73,6 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         if mask_xr is not None and col_dim not in mask_xr.dims:
             mask_xr = mask_xr.expand_dims(col_dim, 0)
 
-    # if col_wrap is not None:
-    #     n_rows = round((corr_xr[col_dim].size / col_wrap)+.49)
-    #     list_xr = [corr_xr.expand_dims(row_dim, axis=0) for i in range(n_rows)]
-    #     new_xr = xr.concat(list_xr, dim = row_dim)
-
-
     var_n   = corr_xr.name
     rows    = corr_xr[row_dim].values
     cols    = corr_xr[col_dim].values
@@ -193,11 +187,11 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                     if p_nans != 100:
                         plotmask.plot.contour(ax=g.axes[row,col],
                                               transform=ccrs.PlateCarree(),
-                                          # subplot_kws={'projection': map_proj},
-                                          colors=['black'],
-                                          linewidths=np.round(zonal_width/150, 1)+0.3,
-                                          levels=[float(vmin),float(vmax)],
-                                          add_colorbar=False)
+                                              linestyles=['solid'],
+                                              colors=['black'],
+                                              linewidths=np.round(zonal_width/150, 1)+0.3,
+                                              levels=[float(vmin),float(vmax)],
+                                              add_colorbar=False)
         #                try:
         #                    im = plotdata.plot.contourf(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
         #                                        center=0,

@@ -15,6 +15,7 @@ curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe(
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import xarray as xr
 import functions_pp
 import plot_maps
 import find_precursors
@@ -791,6 +792,20 @@ class RGCPD:
             fig_path = os.path.join(self.path_outsub1, 'RV_clusters')
             plt.savefig(fig_path+self.figext, bbox_inches='tight')
 
+    def _get_sign_splits_masked(xr_in: xr.DataArray, min_detect=.5,
+                                mask: xr.DataArray=None):
+
+        n_splits = xr_in.split.size
+        min_d = round(n_splits * (1- min_detect),0)
+        # 1 == non-significant, 0 == significant
+        if mask is None:
+            mask = ~np.isnan(xr_in)
+        mask = (mask).sum(dim='split') > min_d
+        xr_in = xr_in.mean(dim='split')
+        if min_detect<.1 or min_detect>1.:
+            raise ValueError( 'give value between .1 en 1.0')
+        return xr_in, mask
+
     def quick_view_labels(self, var=None, mean=True, save=False,
                           kwrgs_plot: dict={}, min_detect_gc: float=.5,
                           append_str: str=None, region_labels=None,
@@ -833,13 +848,8 @@ class RGCPD:
                 prec_labels = pclass.prec_labels.copy()
 
             if mean:
-                n_splits = prec_labels.split.size
-                min_d = round(n_splits * (1- min_detect_gc),0)
-                # 1 == non-significant, 0 == significant
-                mask = (~np.isnan(pclass.prec_labels)).sum(dim='split') > min_d
-                prec_labels = prec_labels.mean(dim='split')
-                if min_detect_gc<.1 or min_detect_gc>1.:
-                    raise ValueError( 'give value between .1 en 1.0')
+                prec_labels, mask = RGCPD._get_sign_splits_masked(prec_labels,
+                                                                 min_detect_gc)
                 prec_labels = prec_labels.where(mask)
                 cbar_vert = -0.1
             else:
@@ -912,18 +922,12 @@ class RGCPD:
                 xrmask = (pclass.corr_xr['mask'] + mask_xr).astype(bool)
             else:
                 xrmask = pclass.corr_xr['mask']
-            if mean==False:
-                xrvals = pclass.corr_xr.sel(lag=plotlags)
-                xrmask = xrmask.sel(lag=plotlags)
-            else:
-                xrvals = pclass.corr_xr.mean(dim='split').sel(lag=plotlags)
-                if min_detect_gc<.1 or min_detect_gc>1.:
-                    raise ValueError( 'give value between .1 en 1.0')
-                n_splits = self.df_splits.index.levels[0].size
-                min_d = round(n_splits * (1- min_detect_gc),0)
-                # 1 == non-significant, 0 == significant
-                xrmask = xrmask.sel(lag=plotlags).sum(dim='split') > min_d
-
+            xrvals = pclass.corr_xr.sel(lag=plotlags)
+            xrmask = xrmask.sel(lag=plotlags)
+            if mean:
+                xrvals, xrmask = RGCPD._get_sign_splits_masked(xrvals,
+                                                               min_detect_gc,
+                                                               xrmask)
 
             plot_maps.plot_corr_maps(xrvals,
                                      mask_xr=xrmask, **kwrgs_plot)

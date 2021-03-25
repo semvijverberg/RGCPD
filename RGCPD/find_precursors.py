@@ -586,7 +586,7 @@ def view_or_replace_labels(xarr: xr.DataArray, regions: Union[int,list],
         replacement_labels = [replacement_labels]
     xarr = xarr.copy() # avoid replacement of init prec_labels xarray
     shape = xarr.shape
-    df = pd.Series(xarr.values.flatten(), dtype=float)
+    df = pd.Series(np.round(xarr.values.flatten(), 0), dtype=float)
     d = dict(zip(regions, replacement_labels))
     out = df.map(d).values
     xarr.values = out.reshape(shape)

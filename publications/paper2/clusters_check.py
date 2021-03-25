@@ -15,6 +15,7 @@ import os, inspect, sys
 import numpy as np
 import matplotlib.pyplot as plt
 import xarray as xr
+import cartopy.crs as ccrs
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-2])
@@ -78,12 +79,12 @@ ds.sel(time=core_pp.get_subdates(pd.to_datetime(ds.time.values), start_end_date=
 
 if region == 'USCAnew':
     selbox = (230, 300, 25, 70)
-    TVpath = os.path.join(path_outmain, 'q85_nc8_dendo_9ad1eUSCA1500.nc')
-    np_array_xy = np.array([[-97, 39], [-89, 39], [-82, 40],
-                            [-116,36], [-122,41], [-117,46]])
-    np_array_xy = np.array([[-98, 35], [-94, 42], [-88, 35], [-83,43],
-                            [-116,36], [-122,39], [-121,46], [-117,48]])
-    q, c = 65, 4
+    TVpath = os.path.join(path_outmain, 'tfreq15_nc7_dendo_57db0USCA.nc')
+    # np_array_xy = np.array([[-97, 39], [-89, 39], [-82, 40],
+    #                        [-116,36], [-122,41], [-117,46]])
+    np_array_xy = np.array([[-96, 36], [-92, 41], [-84, 35], [-84,41],
+                            [-114,36], [-120,36], [-122,44], [-118,48]])
+    t, c = 15, 7
 
 elif region == 'USCA':
     selbox = (230, 300, 25, 70)
@@ -103,10 +104,15 @@ elif region == 'init':
 
 ds_cl = core_pp.import_ds_lazy(TVpath)
 if region != 'init':
-    xrclustered = ds_cl['xrclusteredall'].sel(q=q, n_clusters=c)
+    # try:
+    xrclustered = ds_cl['xrclusteredall'].sel(tfreq=t, n_clusters=c)
+    # except:
+    #     xrclustered = ds_cl['xrclusteredall'].sel(q=q, n_clusters=c)
     xrclustered = xrclustered.where(xrclustered.values!=-9999)
 else:
     xrclustered = ds_cl['xrclustered']
+
+
 
 
 size = 100
@@ -135,13 +141,16 @@ elif region == 'init':
     mask_cl_w = ~np.isnan(find_precursors.view_or_replace_labels(xrclustered.copy(), [1]))
     mask_cl = ~np.logical_or(mask_cl_w, mask_cl_e)
 
+title = np.array([['Clustered simultaneous high temperature events']])
 fig = plot_maps.plot_labels(xrclustered,
-                      {'scatter':scatter,
+                      {'size':3,
+                       'scatter':scatter,
                        'zoomregion':selbox,
                        'mask_xr':mask_cl,
-                       'x_ticks':np.arange(240, 300, 20),
+                       'x_ticks':np.arange(235, 310, 15),
                        'y_ticks':np.arange(0,61,10),
-                       'add_cfeature':'LAKES'}) # np.isnan(mask_cl)
+                       'add_cfeature':'LAKES',
+                       'subtitles':title}) # np.isnan(mask_cl)
 fig.set_facecolor('white')
 fig.axes[0].set_facecolor('white')
 f_name = 'scatter_clusters_t2m_{}_{}'.format(xrclustered.attrs['hash'], region)
@@ -241,56 +250,61 @@ elif region == 'US':
 
 subtitles = np.array([point_corr.points]).reshape(-1, col_wrap)
 # scatter = None
-plot_maps.plot_corr_maps(point_corr,
-                         mask_xr = point_corr['mask'],
-                         col_dim='points',
-                         aspect=1.5, hspace=hspace,
-                         cbar_vert=cbar_vert,
-                         subtitles=subtitles,
-                         scatter=scatter,
-                         col_wrap=col_wrap,
-                         x_ticks=np.arange(240, 300, 20),
-                         y_ticks=np.arange(0,61,10),
-                         clevels=np.arange(-1,1.05,.1),
-                         cmap=plt.cm.coolwarm,
-                         zoomregion=selbox)
+fig = plot_maps.plot_corr_maps(point_corr,
+                               mask_xr = point_corr['mask'],
+                               col_dim='points',
+                               aspect=1.5, hspace=hspace,
+                               cbar_vert=cbar_vert,
+                               subtitles=subtitles,
+                               scatter=scatter,
+                               col_wrap=col_wrap,
+                               x_ticks=np.arange(235, 310, 15),
+                               y_ticks=np.arange(0,61,10),
+                               wspace=.07,
+                               clevels=np.arange(-1,1.05,.1),
+                               cmap=plt.cm.coolwarm,
+                               zoomregion=selbox)
+for ax in fig.axes[:-1]:
+    ax.contour(mask_cl.longitude, mask_cl.latitude,
+               mask_cl, transform=ccrs.PlateCarree(),
+               levels=[0, 2], linewidths=1, linestyles=['solid'], colors=['purple'])
 f_name = 'one_point_corr_maps_t2m_{}_{}'.format(xrclustered.attrs['hash'], region)
 filepath = os.path.join(rg.path_outmain, f_name)
-# plt.savefig(filepath+'.png', bbox_inches='tight', dpi=200)
+plt.savefig(filepath+'.pdf', bbox_inches='tight')
 
 #%% Plot all clustering results again
-fig = plot_maps.plot_labels(ds['xrclusteredall'],
+fig = plot_maps.plot_labels(ds_cl['xrclusteredall'],
                             kwrgs_plot={'wspace':.03, 'hspace':-.35,
                                         'cbar_vert':.09,
                                         'row_dim':'n_clusters',
-                                        'col_dim':'q',
+                                        'col_dim':'tfreq',
                                         'x_ticks':np.arange(240, 300, 20),
                                         'y_ticks':np.arange(0,61,10)})
-f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.png'
+f_name = 'clustering_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
 path_fig = os.path.join(rg.path_outmain, f_name)
 fig.savefig(path_fig,
-            bbox_inches='tight', dpi=200) # dpi auto 600
+            bbox_inches='tight') # dpi auto 600
 
 
 
 #%%
 if region != 'init':
-    try:
-        ds_cl_ts = core_pp.get_selbox(ds_cl['xrclusteredall'].sel(q=q, n_clusters=c),
-                                  selbox)
-        ds_new = cl.spatial_mean_clusters(var_filename,
-                                      ds_cl_ts,
-                                      selbox=selbox)
-        ds_new['xrclusteredall'] = xrclustered
-        f_name = 'q{}_nc{}'.format(int(q), int(c))
-    except:
-        ds_cl_ts = core_pp.get_selbox(ds_cl['xrclusteredall'].sel(tfreq=t, n_clusters=c),
-                                  selbox)
-        ds_new = cl.spatial_mean_clusters(var_filename,
-                                      ds_cl_ts,
-                                      selbox=selbox)
-        ds_new['xrclusteredall'] = xrclustered
-        f_name = 'tf{}_nc{}'.format(int(t), int(c))
+    # try:
+        # ds_cl_ts = core_pp.get_selbox(ds_cl['xrclusteredall'].sel(q=q, n_clusters=c),
+        #                           selbox)
+        # ds_new = cl.spatial_mean_clusters(var_filename,
+        #                               ds_cl_ts,
+        #                               selbox=selbox)
+        # ds_new['xrclusteredall'] = xrclustered
+        # f_name = 'q{}_nc{}'.format(int(q), int(c))
+    # except:
+    ds_cl_ts = core_pp.get_selbox(ds_cl['xrclusteredall'].sel(tfreq=t, n_clusters=c),
+                              selbox)
+    ds_new = cl.spatial_mean_clusters(var_filename,
+                                  ds_cl_ts,
+                                  selbox=selbox)
+    ds_new['xrclusteredall'] = xrclustered
+    f_name = 'tf{}_nc{}'.format(int(t), int(c))
     filepath = os.path.join(rg.path_outmain, f_name)
     cl.store_netcdf(ds_new, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 

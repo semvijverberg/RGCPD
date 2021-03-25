@@ -24,6 +24,7 @@ import csv
 
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+curr_dir = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2'
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
@@ -57,7 +58,7 @@ seeds = np.array([1,2,3])
 
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
-i_default = 3 #3
+i_default = 3
 
 
 
@@ -91,11 +92,11 @@ TVpathtemp = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/one-point-cor
 if west_east == 'east':
     # TVpathRW = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
     cluster_label = 4 # 2
-    z500_green_bb = (155,300,25,73) # bounding box for eastern RW
+    z500_green_bb = (155,300,20,73) # bounding box for eastern RW
 elif west_east =='west':
     # TVpathRW = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
     cluster_label = 1 # 1
-    z500_green_bb = (145,325,25,62) # bounding box for western RW
+    z500_green_bb = (145,325,20,62) # bounding box for western RW
 
 
 path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb/')
@@ -140,6 +141,9 @@ name_ds = f'0..0..{name_or_cluster_label}_sp'
 #%% Circulation vs temperature
 list_of_name_path = [(cluster_label, TVpathtemp),
                      ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
+
+# Adjusted box:
+# z500_green_bb = (155,255,20,73) #: RW box
 
 list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                             alpha=.05, FDR_control=True,
@@ -233,10 +237,11 @@ kwrgs_plot = {'row_dim':'split', 'col_dim':'lag',
               'aspect':2, 'hspace':-.57, 'wspace':-.22, 'size':2.5, 'cbar_vert':-.02,
               'subtitles':subtitles, 'units':units, 'zoomregion':(130,260,-10,60),
               'map_proj':ccrs.PlateCarree(central_longitude=220),
-              'x_ticks':np.array([]), 'y_ticks':np.array([]),
+              'x_ticks':np.array([]), 'n_yticks':6,
               'drawbox':[(0,0), sst_green_bb],
               'clevels':np.arange(-.6,.61,.075),
-              'clabels':np.arange(-.6,.61,.3)}
+              'clabels':np.arange(-.6,.61,.3),
+              'subtitle_fontdict':{'x':0.5, 'y':2}}
 rg.plot_maps_corr(var='N-Pac. SST', save=save, min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot, append_str='')
 
@@ -371,9 +376,9 @@ for f in freqs[:]:
                   "#dc2f02","#e85d04","#f48c06","#faa307", "#ffba08"][::-1]
     cmap_nodes = ListedColormap(cmap_nodes)
 
-    rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(9,4),
+    rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(10.5,4),
                         kwrgs={'vmax_nodes':.9,
-                                'node_aspect':150,
+                                'node_aspect':130,
                                 'node_size':.008,
                                 'node_ticks':.3,
                                 'node_label_size':50,
@@ -384,7 +389,7 @@ for f in freqs[:]:
                                 'edge_ticks':.2,
                                 'lag_array':lags,
                                 'curved_radius':.5,
-                                'arrowhead_size':1000,
+                                'arrowhead_size':100000,
                                 'link_label_fontsize':35,
                                 'link_colorbar_label':'Link strength',
                                 'node_colorbar_label':'Auto-strength',
@@ -396,6 +401,7 @@ for f in freqs[:]:
     rg.PCMCI_get_links(var=keys[1], alpha_level=alpha_level)
     rg.df_links.astype(int).sum(0, level=1)
     MCI_ALL = rg.df_MCIc.mean(0, level=1)
+
 #%%
 # write MCI strength and robustness to csv
 
