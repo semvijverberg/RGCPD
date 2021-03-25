@@ -24,7 +24,7 @@ import csv
 
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-curr_dir = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper2'
+curr_dir = user_dir + '/surfdrive/Scripts/RGCPD/publications/paper2'
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
