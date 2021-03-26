@@ -39,10 +39,10 @@ from func_models import standardize_on_train
 
 
 
-expers = np.array(['parcorr', 'parcorrtime', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
+expers = np.array(['parcorr', 'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 1
+i_default = 2
 
 def parseArguments():
     # Create argument parser
@@ -172,9 +172,13 @@ if exper == 'parcorr':
 elif exper == 'corr':
     func = corr_map
     kwrgs_func = {}
-elif exper == 'parcorrtime':
+elif 'parcorrtime' in exper:
+    if exper.split('_')[1] == 'target':
+        kwrgs_func = {'precursor':False, 'target':True}
+    elif exper.split('_')[1] == 'precur':
+        kwrgs_func = {'precursor':True, 'target':False}
     func = parcorr_map_time
-    kwrgs_func = {'precursor':False, 'target':True}
+
 
 
 
@@ -211,7 +215,7 @@ matplotlib.rc('font', family='serif', serif='cm10')
 
 matplotlib.rc('text', usetex=True)
 matplotlib.rcParams['text.latex.preamble'] = r'\boldmath'
-min_detect_gc = .1
+min_detect_gc = 0.5
 save = True
 # Plot lag 0 and 1
 subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
