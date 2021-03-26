@@ -45,7 +45,7 @@ def calculate_region_maps(precur, TV, df_splits, kwrgs_load):
     # =============================================================================
     # Load external timeseries for partial_corr_z
     # =============================================================================
-    precur.load_and_aggregate_ts(kwrgs_load.copy())
+    precur.load_and_aggregate_ts(df_splits)
     # =============================================================================
     # Calculate BivariateMI (correlation) map
     # =============================================================================

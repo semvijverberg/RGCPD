@@ -32,7 +32,7 @@ import class_BivariateMI
 import climate_indices
 import plot_maps, core_pp, functions_pp, df_ana, find_precursors
 
-west_east = 'east'
+west_east = 'west'
 TV = 'USCAnew'
 if TV == 'init':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
@@ -43,10 +43,11 @@ if TV == 'init':
 elif TV == 'USCAnew':
     # mx2t 25N-70N
     TVpath = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tfreq15_nc7_dendo_57db0USCA.nc'
+    TVpath = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf15_nc8_dendo_57db0USCA.nc'
     if west_east == 'east':
         cluster_label = 4
     elif west_east == 'west':
-        cluster_label = 1
+        cluster_label = 8
     elif west_east == 'northwest':
         cluster_label = 7
 

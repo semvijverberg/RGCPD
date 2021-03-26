@@ -1265,10 +1265,36 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                                      left_index=True, right_index=True)
     return df_splits
 
-def get_testyrs(df_splits):
+def get_testyrs(df_splits: pd.DataFrame):
+    '''
+    Extracts test years if both:
+        - TrainIsTrue mask present
+        - More then 1 level (then train-test split is not False)
+    Takes into account adjecent groups of dates to define a training group.
+
+    Parameters
+    ----------
+    df_splits : pd.DataFrame
+        Dataframe with TrainIsTrue mask Response Variable mask.
+
+    Returns
+    -------
+    out : np.ndarray or None
+        shape (train-test index, list of test years).
+
+    '''
     #%%
-    dates = df_splits.loc[0].index
-    if 'RV_mask' in df_splits.columns and dates.size%365 != 0:
+    split_by_TrainIsTrue = False # if True, do not account for adjecent groups
+    # of dates (needed for accounting for auto-correlation for good seperate
+    # train-test splits)
+    out = None
+    if hasattr(df_splits.index, 'levels'):
+        dates = df_splits.loc[0].index ;
+        if df_splits.index.levels[0].size > 1:
+            levels=True
+        else:
+            levels=False
+    if 'RV_mask' in df_splits.columns and dates.size%365 != 0 and levels:
         # if full year daily, no traintest groups with a gap that needs to be
         # taken into account
         if df_splits.loc[0]['RV_mask'].all()==False:
@@ -1298,7 +1324,7 @@ def get_testyrs(df_splits):
             out = (np.array(test_yrs, dtype=object), testgroups)
         else:
             split_by_TrainIsTrue = True
-    elif 'TrainIsTrue' in df_splits.columns and dates.size%365 == 0:
+    elif 'TrainIsTrue' in df_splits.columns and dates.size%365 == 0 and levels==False:
         split_by_TrainIsTrue = True
     if split_by_TrainIsTrue:
         traintest_yrs = []
@@ -1308,9 +1334,9 @@ def get_testyrs(df_splits):
             test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
             traintest_yrs.append(test_yrs)
         out = (np.array(traintest_yrs, dtype=object))
-    else:
-        print('Error: No TrainIsTrue or RV_mask found, could not extract test yrs')
-        out = None
+    elif split_by_TrainIsTrue==False and out is None:
+        print('Note: No Train-test split found, could not extract test yrs')
+
     return out
 
 def get_download_path():

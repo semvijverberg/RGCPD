@@ -371,8 +371,8 @@ class BivariateMI:
             if hasattr(self.df_z.index, 'levels'): # has train-test splits
                 f = functions_pp
                 self.df_z = f.get_df_test(self.df_z.merge(df_splits,
-                                                              left_index=True,
-                                                              right_index=True)).iloc[:,:1]
+                                                          left_index=True,
+                                                          right_index=True)).iloc[:,:1]
             k = list(self.kwrgs_func.keys())
             [self.kwrgs_func.pop(k) for k in k if k in ['filepath','keys_ext']]
             self.kwrgs_func.update({'z':self.df_z}) # overwrite kwrgs_func
@@ -493,7 +493,6 @@ def check_NaNs(field, ts):
     '''
     t = functions_pp.get_oneyr(field).size # threshold NaNs allowed.
     field = np.reshape(field.values, (field.shape[0],-1))
-    # for i in range(t):
     i = 0 ; # check NaNs in first year
     if bool(np.isnan(field[i]).all()):
         i+=1
@@ -544,7 +543,6 @@ def parcorr_map_time(field, ts, lag=1, target=True, precursor=True):
 
     # if more then one year is filled with NaNs -> no corr value calculated.
     field, ts = check_NaNs(field, ts)
-    field = np.reshape(field.values, (field.shape[0],-1))
     x = np.ma.zeros(field.shape[1])
     corr_vals = np.array(x)
     pvals = np.array(x)
@@ -573,9 +571,8 @@ def parcorr_map_time(field, ts, lag=1, target=True, precursor=True):
 
 def parcorr_z(field, ts, z=pd.DataFrame):
     # if more then one year is filled with NaNs -> no corr value calculated.
-    field, ts = check_NaNs(field, ts)
     dates = pd.to_datetime(field.time.values)
-    field = np.reshape(field.values, (field.shape[0],-1))
+    field, ts = check_NaNs(field, ts)
     x = np.ma.zeros(field.shape[1])
     corr_vals = np.array(x)
     pvals = np.array(x)
