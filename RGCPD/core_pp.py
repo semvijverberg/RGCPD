@@ -91,7 +91,9 @@ def import_ds_lazy(filepath: str, loadleap: bool=False,
 
     ds = xr.open_dataset(filepath, decode_cf=True, decode_coords=True, decode_times=False)
 
-    if len(ds.dims.keys()) > 1: # more then 1-d
+    lats = any([True if 'lat' in k else False for k in list(ds.dims.keys())])
+    lons = any([True if 'lon' in k else False for k in list(ds.dims.keys())])
+    if np.logical_and(lats, lons): # lat,lon coords in dataset
         multi_dims = True
     else:
         multi_dims = False
