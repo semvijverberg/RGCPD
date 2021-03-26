@@ -325,7 +325,7 @@ else:
 alpha_level = .05
 dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
-freqs = [1, 5, 10, 15, 30, 60, 90]
+freqs = [1, 5, 10, 15, 30, 60, 45, 90]
 for f in freqs[:]:
     rg.get_ts_prec(precur_aggr=f, keys_ext=keys_ext)
     keys = [f'$RW^{west_east[0].capitalize()}$',
