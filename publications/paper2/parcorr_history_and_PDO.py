@@ -108,7 +108,7 @@ filepath_df_PDOs = os.path.join(path_data, 'df_PDOs.h5')
 
 #%% Get PDO and apply low-pass filter
 
-SST_pp_filepath = '/Users/semvijverberg/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_1jan_31dec_daily_1.0deg.nc'
+SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_1jan_31dec_daily_1.0deg.nc'
 
 if 'df_PDOsplit' not in globals():
     df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
