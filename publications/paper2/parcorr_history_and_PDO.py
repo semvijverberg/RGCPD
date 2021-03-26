@@ -160,7 +160,7 @@ list_of_name_path = [(name_or_cluster_label, TVpath),
                        ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
 
 # exper = 'parcorr'
-
+lowpass = 0
 if exper == 'parcorr':
     lowpass = 2
     func = parcorr_z
@@ -171,7 +171,7 @@ if exper == 'parcorr':
                   'keys_ext':keys_ext}
 elif exper == 'corr':
     func = corr_map
-    kwrgs_func = {}
+    kwrgs_func = {} ;
 elif 'parcorrtime' in exper:
     if exper.split('_')[1] == 'target':
         kwrgs_func = {'precursor':False, 'target':True}
