@@ -226,7 +226,7 @@ if exper == 'parcorr' and west_east == 'east':
 elif exper == 'corr' and west_east == 'east':
     title = '$corr(SST_{t-1},\ RW^E_t)$'
     append_str='' ; fontsize = 14
-elif exper == 'parcorrtime' and west_east == 'east':
+elif 'parcorrtime' in exper and west_east == 'east':
     if kwrgs_func['target'] == False and kwrgs_func['precursor'] == True:
         title = r'$parcorr(SST_{t-lag}, $'+'$RW^E_t\ |\ $'+r'$SST_{t-lag-1}$)'
     elif kwrgs_func['target'] == True and kwrgs_func['precursor'] == False:
@@ -277,7 +277,8 @@ mpl.rcParams.update(mpl.rcParamsDefault)
 
 #%%
 # remove PDO df
-os.remove(os.path.join(path_data, 'df_PDOs.h5'))
+if exper == 'parcorr':
+    os.remove(os.path.join(path_data, 'df_PDOs.h5'))
 
 #%%
 # #%% Store data
