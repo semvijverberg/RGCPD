@@ -107,18 +107,18 @@ def load_TV(list_of_name_path, name_ds='ts'):
     elif filename.split('.')[-1] == 'h5':
         dict_df = load_hdf5(filename)
         df = dict_df[list(dict_df.keys())[0]]
-
+        based_on_test = True
         if hasattr(df.index, 'levels'):
             splits = df.index.levels[0]
-            if splits.size > 1:
-                based_on_test = True
-                print('calculate mean of different train-test folds')
-            else:
+            if splits.size == 1:
                 based_on_test = False
                 df = df.loc[0]
             if based_on_test:
+                print('Get test timeseries of target pd.DataFrame')
+                df = get_df_test(df)
+            else:
                 df = df.mean(axis=0, level=1)
-                # df = get_df_test(df)
+                print('calculate mean of different train-test folds')
         df = df[[name_ds]] ; df.index.name = 'time'
         fulltso = df.to_xarray().to_array(name=name_ds).squeeze()
     hashh = filename.split('_')[-1].split('.')[0]

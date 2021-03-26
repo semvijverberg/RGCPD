@@ -98,7 +98,7 @@ elif west_east =='west':
     z500_green_bb = (145,325,20,62) # bounding box for western RW
 
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb/')
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb_90/')
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
     start_end_TVdatet2mvsRW = start_end_TVdate
@@ -325,7 +325,7 @@ else:
 alpha_level = .05
 dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
-freqs = [1, 5, 10, 15, 30, 60]
+freqs = [1, 5, 10, 15, 30, 60, 90]
 for f in freqs[:]:
     rg.get_ts_prec(precur_aggr=f, keys_ext=keys_ext)
     keys = [f'$RW^{west_east[0].capitalize()}$',

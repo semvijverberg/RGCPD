@@ -107,51 +107,52 @@ start_end_date = ('1-1', '12-31')
 filepath_df_PDOs = os.path.join(path_data, 'df_PDOs.h5')
 
 #%% Get PDO and apply low-pass filter
+if exper == 'parcorr':
+    SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_1jan_31dec_daily_1.0deg.nc'
 
-SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_1jan_31dec_daily_1.0deg.nc'
+    if 'df_PDOsplit' not in globals():
+        df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
+                                                   None) #rg.df_splits)
+        # summerdates = core_pp.get_subdates(dates, start_end_TVdate)
+        df_PDOsplit = df_PDO.loc[0]#.loc[summerdates]
+        # standardize = preprocessing.StandardScaler()
+        # standardize.fit(df_PDOsplit[df_PDOsplit['TrainIsTrue'].values].values.reshape(-1,1))
+        # df_PDOsplit = pd.DataFrame(standardize.transform(df_PDOsplit['PDO'].values.reshape(-1,1)),
+        #                 index=df_PDOsplit.index, columns=['PDO'])
+    df_PDOsplit = df_PDOsplit[['PDO']].apply(standardize_on_train,
+                         args=[df_PDO.loc[0]['TrainIsTrue']],
+                         result_type='broadcast')
 
-if 'df_PDOsplit' not in globals():
-    df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
-                                               None) #rg.df_splits)
-    # summerdates = core_pp.get_subdates(dates, start_end_TVdate)
-    df_PDOsplit = df_PDO.loc[0]#.loc[summerdates]
-    # standardize = preprocessing.StandardScaler()
-    # standardize.fit(df_PDOsplit[df_PDOsplit['TrainIsTrue'].values].values.reshape(-1,1))
-    # df_PDOsplit = pd.DataFrame(standardize.transform(df_PDOsplit['PDO'].values.reshape(-1,1)),
-    #                 index=df_PDOsplit.index, columns=['PDO'])
-df_PDOsplit = df_PDOsplit[['PDO']].apply(standardize_on_train,
-                     args=[df_PDO.loc[0]['TrainIsTrue']],
-                     result_type='broadcast')
+    # Butter Lowpass
+    dates = df_PDOsplit.index
+    freqraw = (dates[1] - dates[0]).days
+    ls = ['solid', 'dotted', 'dashdot']
+    fig, ax = plt.subplots(1,1)
+    list_dfPDO = []
+    lowpass_yrs = [.5, 1, 2]
+    for i, yr in enumerate(lowpass_yrs):
+        window = int(yr*functions_pp.get_oneyr(dates).size) # 2 year
+        if i ==0:
+            ax.plot_date(dates, df_PDOsplit.values, label=f'Raw ({freqraw} day means)',
+                      alpha=.3, linestyle='solid', marker=None)
+        df_PDObw = pd.Series(filters.lowpass(df_PDOsplit, period=window).squeeze(),
+                             index=dates, name=f'PDO{yr}bw')
+        ax.plot_date(dates, df_PDObw, label=f'Butterworth {yr}-year low-pass',
+                color='red',linestyle=ls[i], linewidth=1, marker=None)
+        df_PDOrm = df_PDOsplit.rolling(window=window, closed='right', min_periods=window).mean()
+        df_PDOrm = df_PDOrm.rename({'PDO':f'PDO{yr}rm'}, axis=1)
+        ax.plot_date(dates, df_PDOrm,
+                     label=f'Rolling mean {yr}-year low-pass (closed right)', color='green',linestyle=ls[i],
+                     linewidth=1, marker=None)
+        list_dfPDO.append(df_PDObw) ; list_dfPDO.append(df_PDOrm)
+        ax.legend()
 
-# Butter Lowpass
-dates = df_PDOsplit.index
-freqraw = (dates[1] - dates[0]).days
-ls = ['solid', 'dotted', 'dashdot']
-fig, ax = plt.subplots(1,1)
-list_dfPDO = []
-for i, yr in enumerate([1]):
-    window = int(yr*functions_pp.get_oneyr(dates).size) # 2 year
-    if i ==0:
-        ax.plot_date(dates, df_PDOsplit.values, label=f'Raw ({freqraw} day means)',
-                  alpha=.3, linestyle='solid', marker=None)
-    df_PDObw = pd.Series(filters.lowpass(df_PDOsplit, period=window).squeeze(),
-                         index=dates, name=f'PDO{yr}bw')
-    ax.plot_date(dates, df_PDObw, label=f'Butterworth {yr}-year low-pass',
-            color='red',linestyle=ls[i], linewidth=1, marker=None)
-    df_PDOrm = df_PDOsplit.rolling(window=window, closed='right', min_periods=window).mean()
-    df_PDOrm = df_PDOrm.rename({'PDO':f'PDO{yr}rm'}, axis=1)
-    ax.plot_date(dates, df_PDOrm,
-                 label=f'Rolling mean {yr}-year low-pass (closed right)', color='green',linestyle=ls[i],
-                 linewidth=1, marker=None)
-    list_dfPDO.append(df_PDObw) ; list_dfPDO.append(df_PDOrm)
-    ax.legend()
-
-filepath = os.path.join(path_out_main, 'Low-pass_filter.pdf')
-plt.savefig(filepath, bbox_inches='tight')
-#%%
-df_PDOs = pd.concat(list_dfPDO,axis=1)
-functions_pp.store_hdf_df({'df_data':df_PDOs},
-                          file_path=filepath_df_PDOs)
+    filepath = os.path.join(path_out_main, 'Low-pass_filter.pdf')
+    plt.savefig(filepath, bbox_inches='tight')
+    #%%
+    df_PDOs = pd.concat(list_dfPDO,axis=1)
+    functions_pp.store_hdf_df({'df_data':df_PDOs},
+                              file_path=filepath_df_PDOs)
 
 #%% Only SST (Parcorrtime and parcorr on PDO)
 
@@ -161,11 +162,11 @@ list_of_name_path = [(name_or_cluster_label, TVpath),
 # exper = 'parcorr'
 
 if exper == 'parcorr':
-    lowpass = '1y'
+    lowpass = 2
     func = parcorr_z
     # z_filepath = os.path.join(path_data, 'PDO_ENSO34_ERA5_1979_2018.h5')
     z_filepath = filepath_df_PDOs
-    keys_ext = ['PDO1rm']
+    keys_ext = [f'PDO{lowpass}rm']
     kwrgs_func = {'filepath':z_filepath,
                   'keys_ext':keys_ext}
 elif exper == 'corr':
@@ -189,7 +190,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
             start_end_TVdate=start_end_TVdate,
             start_end_date=start_end_date,
-            start_end_year=(1980, 2020),
+            start_end_year=(1979+int(lowpass), 2020),
             tfreq=tfreq,
             path_outmain=path_out_main,
             append_pathsub='_' + exper)
@@ -209,8 +210,8 @@ import matplotlib
 matplotlib.rc('font', family='serif', serif='cm10')
 
 matplotlib.rc('text', usetex=True)
-matplotlib.rcParams['text.latex.preamble'] = [r'\boldmath']
-min_detect_gc = 1
+matplotlib.rcParams['text.latex.preamble'] = r'\boldmath'
+min_detect_gc = .1
 save = True
 # Plot lag 0 and 1
 subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
@@ -234,7 +235,7 @@ elif exper == 'parcorrtime' and west_east == 'east':
 
 
 kwrgs_plot = {'row_dim':'lag', 'col_dim':'split',
-              'aspect':2,  'hspace':.2, 'size':2.5, 'cbar_vert':.0,
+              'aspect':2,  'hspace':.2, 'size':2.5, 'cbar_vert':-.02,
               'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
               'map_proj':ccrs.PlateCarree(central_longitude=220),
               'y_ticks':np.array([-10,10,30,50]),
