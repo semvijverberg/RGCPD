@@ -107,7 +107,7 @@ start_end_date = ('1-1', '12-31')
 filepath_df_PDOs = os.path.join(path_data, 'df_PDOs.h5')
 
 #%% Get PDO and apply low-pass filter
-if exper == 'parcorr':
+if 'parcorr__' in exper:
     SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_1jan_31dec_daily_1.0deg.nc'
 
     if 'df_PDOsplit' not in globals():
