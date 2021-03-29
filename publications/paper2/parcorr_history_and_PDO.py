@@ -162,7 +162,7 @@ list_of_name_path = [(name_or_cluster_label, TVpath),
 # exper = 'parcorr'
 lowpass = 0
 if exper == 'parcorr':
-    lowpass = 1
+    lowpass = 0.5
     func = parcorr_z
     # z_filepath = os.path.join(path_data, 'PDO_ENSO34_ERA5_1979_2018.h5')
     z_filepath = filepath_df_PDOs
