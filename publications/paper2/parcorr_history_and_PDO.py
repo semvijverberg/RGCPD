@@ -85,6 +85,8 @@ TVpath = 'z500_155-300-20-7357db0USCA.h5'
 
 TVpath  = os.path.join(mainpath_df, TVpath)
 
+TVpath = os.path.join(main_dir, 'publications/paper2/data/eastRW_summer_center_s1.h5')
+
 period = 'summer'
 if period == 'spring':
     start_end_TVdate = ('03-01', '05-31')
@@ -102,8 +104,10 @@ path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_
 if os.path.isdir(path_out_main) != True:
     os.makedirs(path_out_main)
 cluster_label = '' # 'z500'
-name_or_cluster_label = ''
-name_ds = west_east + 'RW' # f'0..0..{name_or_cluster_label}_sp'
+# name_or_cluster_label = ''
+# name_ds = west_east + 'RW' # f'0..0..{name_or_cluster_label}_sp'
+name_or_cluster_label = 'z500'
+name_ds = f'0..0..{name_or_cluster_label}_sp'
 start_end_date = ('1-1', start_end_TVdate[-1])
 filepath_df_PDOs = os.path.join(path_data, 'df_PDOs.h5')
 
@@ -130,7 +134,7 @@ if 'parcorr__' in exper:
     ls = ['solid', 'dotted', 'dashdot']
     fig, ax = plt.subplots(1,1)
     list_dfPDO = []
-    lowpass_yrs = [.5, 1.0, 2.0]
+    lowpass_yrs = [.25, .5, 1.0, 2.0]
     for i, yr in enumerate(lowpass_yrs):
         window = int(yr*functions_pp.get_oneyr(dates).size) # 2 year
         if i ==0:
