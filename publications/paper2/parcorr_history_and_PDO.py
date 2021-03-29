@@ -93,7 +93,7 @@ if period == 'spring':
     tfreq = 60
     lags = np.array([0,1])
 elif period == 'summer':
-    start_end_TVdate = ('06-01', '08-31')
+    start_end_TVdate = ('07-01', '08-31')
     # start_end_TVdate = ('05-01', '09-15')
     tfreq = 60
     lags = np.array([0,1])
