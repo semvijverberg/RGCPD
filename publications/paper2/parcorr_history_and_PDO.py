@@ -129,7 +129,7 @@ if 'parcorr__' in exper:
     ls = ['solid', 'dotted', 'dashdot']
     fig, ax = plt.subplots(1,1)
     list_dfPDO = []
-    lowpass_yrs = [.5, 1, 2]
+    lowpass_yrs = [.5, 1.0, 2.0]
     for i, yr in enumerate(lowpass_yrs):
         window = int(yr*functions_pp.get_oneyr(dates).size) # 2 year
         if i ==0:
