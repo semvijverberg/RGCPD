@@ -162,7 +162,7 @@ list_of_name_path = [(name_or_cluster_label, TVpath),
 # exper = 'parcorr'
 lowpass = 0
 if exper == 'parcorr':
-    lowpass = 2
+    lowpass = 1
     func = parcorr_z
     # z_filepath = os.path.join(path_data, 'PDO_ENSO34_ERA5_1979_2018.h5')
     z_filepath = filepath_df_PDOs
@@ -248,10 +248,17 @@ kwrgs_plot = {'row_dim':'lag', 'col_dim':'split',
               'clabels':np.arange(-.6,.61,.3), 'title':title,
               'subtitles':subtitles, 'subtitle_fontdict':{'fontsize':14},
               'title_fontdict':{'fontsize':fontsize, 'fontweight':'bold'}}
-rg.plot_maps_corr(var='sst', save=save,
-                  kwrgs_plot=kwrgs_plot,
-                  min_detect_gc=min_detect_gc,
-                  append_str=append_str)
+if sys.platform == 'linux':
+    for min_detect_gc in [.5,.6,.7,.8,.9,1.]:
+        rg.plot_maps_corr(var='sst', save=save,
+                          kwrgs_plot=kwrgs_plot,
+                          min_detect_gc=min_detect_gc,
+                          append_str=append_str)
+else:
+    rg.plot_maps_corr(var='sst', save=save,
+                      kwrgs_plot=kwrgs_plot,
+                      min_detect_gc=min_detect_gc,
+                      append_str=append_str)
 #%% plot lag 1
 if exper == 'parcorrtime' and west_east == 'east':
     if kwrgs_func['target'] == False and kwrgs_func['precursor'] == True:
@@ -265,10 +272,17 @@ kwrgs_plot['subtitles'] = np.array([['']])
 kwrgs_plot['cbar_vert'] = -.1
 kwrgs_plot['title'] = title
 kwrgs_plot['title_fontdict'] = {'y':1,'fontsize':fontsize, 'fontweight':'bold'}
-rg.plot_maps_corr(var='sst', plotlags=[1], save=save,
-                  kwrgs_plot=kwrgs_plot,
-                  min_detect_gc=min_detect_gc,
-                  append_str=append_str)
+if sys.platform == 'linux':
+    for min_detect_gc in [.5,.6,.7,.8,.9,1.]:
+        rg.plot_maps_corr(var='sst', plotlags=[1], save=save,
+                          kwrgs_plot=kwrgs_plot,
+                          min_detect_gc=min_detect_gc,
+                          append_str=append_str+'Lag1')
+else:
+    rg.plot_maps_corr(var='sst', plotlags=[1], save=save,
+                      kwrgs_plot=kwrgs_plot,
+                      min_detect_gc=min_detect_gc,
+                      append_str=append_str+'Lag1')
 
 #%%
 import matplotlib as mpl
