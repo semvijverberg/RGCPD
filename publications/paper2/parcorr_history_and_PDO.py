@@ -194,7 +194,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
             start_end_TVdate=start_end_TVdate,
             start_end_date=start_end_date,
-            start_end_year=(1979+int(lowpass), 2020),
+            start_end_year=(1979+int(round(lowpass+0.49)), 2020),
             tfreq=tfreq,
             path_outmain=path_out_main,
             append_pathsub='_' + exper)
