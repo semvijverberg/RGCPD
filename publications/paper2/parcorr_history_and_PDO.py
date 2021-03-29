@@ -12,6 +12,7 @@ import cartopy.crs as ccrs ;
 import matplotlib.pyplot as plt
 import pandas as pd
 import argparse
+from time import sleep
 
 user_dir = os.path.expanduser('~')
 # curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
@@ -91,7 +92,7 @@ if period == 'spring':
     lags = np.array([0,1])
 elif period == 'summer':
     start_end_TVdate = ('06-01', '08-31')
-    start_end_TVdate = ('05-01', '09-15')
+    # start_end_TVdate = ('05-01', '09-15')
     tfreq = 60
     lags = np.array([0,1])
 
@@ -293,6 +294,7 @@ mpl.rcParams.update(mpl.rcParamsDefault)
 #%%
 # remove PDO df
 if 'parcorr__' in exper:
+    sleep(90)
     os.remove(os.path.join(path_data, 'df_PDOs.h5'))
 
 #%%
