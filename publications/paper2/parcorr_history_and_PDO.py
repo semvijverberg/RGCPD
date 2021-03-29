@@ -44,7 +44,7 @@ expers = np.array(['parcorr__0.25', 'parcorr__0.5', 'parcorr__1', 'parcorr__2',
                    'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 1
+i_default = 0
 
 def parseArguments():
     # Create argument parser
@@ -131,7 +131,7 @@ if 'parcorr__' in exper:
     # Butter Lowpass
     dates = df_PDOsplit.index
     freqraw = (dates[1] - dates[0]).days
-    ls = ['solid', 'dotted', 'dashdot']
+    ls = ['solid', 'dotted', 'dashdot', 'dashed']
     fig, ax = plt.subplots(1,1)
     list_dfPDO = []
     lowpass_yrs = [.25, .5, 1.0, 2.0]
