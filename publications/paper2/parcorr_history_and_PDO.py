@@ -206,7 +206,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             append_pathsub='_' + exper)
 
 
-rg.pp_TV(name_ds=name_ds, detrend=False)
+rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=True)
 
 rg.pp_precursors()
 
@@ -296,10 +296,10 @@ mpl.rcParams.update(mpl.rcParamsDefault)
 
 
 #%%
-# remove PDO df
-if 'parcorr__' in exper:
-    sleep(90)
-    os.remove(os.path.join(path_data, 'df_PDOs.h5'))
+# # remove PDO df
+# if 'parcorr__' in exper:
+#     sleep(90)
+#     os.remove(os.path.join(path_data, 'df_PDOs.h5'))
 
 #%%
 # #%% Store data
