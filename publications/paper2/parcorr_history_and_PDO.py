@@ -91,13 +91,13 @@ if period == 'spring':
     lags = np.array([0,1])
 elif period == 'summer':
     start_end_TVdate = ('06-01', '08-31')
-    # start_end_TVdate = ('05-01', '09-15')
+    start_end_TVdate = ('05-01', '09-15')
     tfreq = 60
     lags = np.array([0,1])
 
 
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_parcorrmaps/')
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_parcorrmaps_0915/')
 if os.path.isdir(path_out_main) != True:
     os.makedirs(path_out_main)
 cluster_label = '' # 'z500'
