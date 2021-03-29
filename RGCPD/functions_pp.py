@@ -129,8 +129,9 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=False, RV_anomaly=False,
                ext_annual_to_mon=True, TVdates_aggr: bool=False,
                verbosity=1):    #%%
-    # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1;ext_annual_to_mon=False
-    # start_end_date=None; TVdates_aggr=False
+    # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1;
+    # ext_annual_to_mon=False;TVdates_aggr=False; start_end_date=None; start_end_year=None
+
 
     dates = pd.to_datetime(fullts.time.values)
     # start_end_year selection done on fulltso in func above

@@ -39,10 +39,11 @@ from func_models import standardize_on_train
 
 
 
-expers = np.array(['parcorr', 'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
+expers = np.array(['parcorr__0.5', 'parcorr__1', 'parcorr__2',
+                   'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 0
+i_default = 1
 
 def parseArguments():
     # Create argument parser
@@ -86,12 +87,11 @@ TVpath  = os.path.join(mainpath_df, TVpath)
 period = 'summer'
 if period == 'spring':
     start_end_TVdate = ('03-01', '05-31')
-    lag = 1
     tfreq = 60
     lags = np.array([0,1])
 elif period == 'summer':
     start_end_TVdate = ('06-01', '08-31')
-    lag = 1
+    # start_end_TVdate = ('05-01', '09-15')
     tfreq = 60
     lags = np.array([0,1])
 
@@ -160,8 +160,9 @@ list_of_name_path = [(name_or_cluster_label, TVpath),
                        ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
 
 # exper = 'parcorr'
-if exper == 'parcorr':
-    lowpass = 1.0
+lowpass = 0
+if 'parcorr__' in exper:
+    lowpass = float(exper.split('__')[1])
     func = parcorr_z
     # z_filepath = os.path.join(path_data, 'PDO_ENSO34_ERA5_1979_2018.h5')
     z_filepath = filepath_df_PDOs
@@ -220,7 +221,7 @@ save = True
 # Plot lag 0 and 1
 subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
 
-if exper == 'parcorr' and west_east == 'east':
+if 'parcorr__' in exper and west_east == 'east':
     title = r'$parcorr(SST_{t-1}, $'+r'$RW^E_t\ |\ \overline{PDO_{t-1}}$)'
     append_str=f'PDO_{lowpass}' ; fontsize = 14
 elif exper == 'corr' and west_east == 'east':
@@ -291,7 +292,7 @@ mpl.rcParams.update(mpl.rcParamsDefault)
 
 #%%
 # remove PDO df
-if exper == 'parcorr':
+if 'parcorr__' in exper:
     os.remove(os.path.join(path_data, 'df_PDOs.h5'))
 
 #%%

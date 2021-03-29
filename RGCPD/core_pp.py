@@ -844,6 +844,11 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
 
 
     tfreq = (dates[1] - dates[0]).days
+    if dates.is_leap_year[0]:
+        leapday = pd.to_datetime([f'{dates[1].year}-02-29'])
+        if dates[1] >= leapday and dates[0] < leapday:
+            tfreq -= 1 # adjust leapday when calc difference in days
+
     oneyr_dates = pd.date_range(start=sstartdate, end=senddate_,
                                     freq=pd.Timedelta(1, 'd'))
     if input_freq is None: # educated guess on input freq
