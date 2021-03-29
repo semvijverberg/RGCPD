@@ -40,7 +40,7 @@ from func_models import standardize_on_train
 
 
 
-expers = np.array(['parcorr__0.5', 'parcorr__1', 'parcorr__2',
+expers = np.array(['parcorr__0.25', 'parcorr__0.5', 'parcorr__1', 'parcorr__2',
                    'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
@@ -93,7 +93,7 @@ if period == 'spring':
     tfreq = 60
     lags = np.array([0,1])
 elif period == 'summer':
-    start_end_TVdate = ('07-01', '08-31')
+    start_end_TVdate = ('06-01', '08-31')
     # start_end_TVdate = ('05-01', '09-15')
     tfreq = 60
     lags = np.array([0,1])
