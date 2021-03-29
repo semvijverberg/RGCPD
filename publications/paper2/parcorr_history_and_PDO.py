@@ -42,7 +42,7 @@ from func_models import standardize_on_train
 expers = np.array(['parcorr', 'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 2
+i_default = 0
 
 def parseArguments():
     # Create argument parser
@@ -160,7 +160,6 @@ list_of_name_path = [(name_or_cluster_label, TVpath),
                        ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
 
 # exper = 'parcorr'
-lowpass = 0
 if exper == 'parcorr':
     lowpass = 0.5
     func = parcorr_z
@@ -168,7 +167,8 @@ if exper == 'parcorr':
     z_filepath = filepath_df_PDOs
     keys_ext = [f'PDO{lowpass}rm']
     kwrgs_func = {'filepath':z_filepath,
-                  'keys_ext':keys_ext}
+                  'keys_ext':keys_ext,
+                  'lag_z':1}
 elif exper == 'corr':
     func = corr_map
     kwrgs_func = {} ;

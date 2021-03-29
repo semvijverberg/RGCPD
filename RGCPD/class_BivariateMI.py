@@ -539,8 +539,33 @@ def corr_map(field, ts):
 
     return corr_vals, pvals
 
-def parcorr_map_time(field, ts, lag=1, target=True, precursor=True):
+def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag=1,
+                     target=True, precursor=True):
+    '''
+    Only works for subseasonal data (more then 1 datapoint per year).
+    Lag must be >= 1
 
+    Parameters
+    ----------
+    field : xr.DataArray
+        (time, lat, lon) field.
+    ts : np.ndarray
+        Target timeseries.
+    lag : int, optional
+        DESCRIPTION. The default is 1.
+    target : TYPE, optional
+        DESCRIPTION. The default is True.
+    precursor : TYPE, optional
+        DESCRIPTION. The default is True.
+
+    Returns
+    -------
+    corr_vals : np.ndarray
+    pvals : np.ndarray
+
+    '''
+
+    assert lag>0, 'Lag must be >= 1'
     # if more then one year is filled with NaNs -> no corr value calculated.
     field, ts = check_NaNs(field, ts)
     x = np.ma.zeros(field.shape[1])
@@ -562,14 +587,35 @@ def parcorr_map_time(field, ts, lag=1, target=True, precursor=True):
         elif precursor==False and target:
             z = zy
         field_i = np.expand_dims(field[lag:,i], axis=1)
-        a, b = cond_ind_test.run_test_raw(y, field_i, z)
+        a, b = cond_ind_test.run_test_raw(field_i, y, z)
         corr_vals[i] = a
         pvals[i] = b
     # restore original nans
     corr_vals[fieldnans] = np.nan
     return corr_vals, pvals
 
-def parcorr_z(field, ts, z=pd.DataFrame):
+def parcorr_z(field: xr.DataArray, ts: np.ndarray, z: pd.DataFrame, lag_z: int=0):
+    '''
+    Regress out influence of 1-d timeseries z. if lag_z==0, dates of z will match
+    dates of field. Note, lag_z >= 1 probably only makes sense when using
+    subseasonal data (more then 1 value per year).
+
+    Parameters
+    ----------
+    field : xr.DataArray
+        (time, lat, lon) field.
+    ts : np.ndarray
+        Target timeseries.
+    z : pd.DataFrame
+        1-d timeseries.
+
+    Returns
+    -------
+    corr_vals : np.ndarray
+    pvals : np.ndarray
+
+    '''
+
     # if more then one year is filled with NaNs -> no corr value calculated.
     dates = pd.to_datetime(field.time.values)
     field, ts = check_NaNs(field, ts)
@@ -579,12 +625,17 @@ def parcorr_z(field, ts, z=pd.DataFrame):
     fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
     nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
 
-    ts = np.expand_dims(ts[:], axis=1) # adjust to shape (samples, dimension)
+    # ts = np.expand_dims(ts[:], axis=1)
+    # adjust to shape (samples, dimension) and remove first datapoints if
+    # lag_z != 0.
+    y = np.expand_dims(ts[lag_z:], axis=1)
     z = np.expand_dims(z.loc[dates].values.squeeze(), axis=1)
+    if lag_z >= 1:
+        z = z[:-lag_z] # last values are 'removed'
     for i in nonans_gc:
         cond_ind_test = ParCorr()
-        x = np.expand_dims(field[:,i], axis=1)
-        a, b = cond_ind_test.run_test_raw(x, ts, z)
+        field_i = np.expand_dims(field[lag_z:,i], axis=1)
+        a, b = cond_ind_test.run_test_raw(field_i, y, z)
         corr_vals[i] = a
         pvals[i] = b
     # restore original nans
