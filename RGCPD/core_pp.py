@@ -872,7 +872,7 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
             sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
 
         start_yr = remove_leapdays(pd.date_range(start=sstartdate, end=senddate,
-                                    freq=(dates[1] - dates[0])))
+                                    freq=pd.Timedelta(tfreq, unit='day')))
 
     datessubset = make_dates(start_yr, np.arange(startyr, endyr+1))
     if tfreq == 1: # only check for daily data
