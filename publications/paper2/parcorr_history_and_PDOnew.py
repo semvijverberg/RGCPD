@@ -45,7 +45,7 @@ expers = np.array(['parcorr__0.25', 'parcorr__0.5', 'parcorr__1', 'parcorr__2',
                    'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 6
+i_default = 5
 
 def parseArguments():
     # Create argument parser
@@ -97,7 +97,7 @@ elif period == 'summer':
     start_end_TVdate = ('06-01', '08-31')
     # start_end_TVdate = ('05-01', '09-15')
     tfreq = 60
-    lags = np.array([1])
+    lags = np.array([0, 1])
 
 
 
@@ -257,9 +257,9 @@ elif exper == 'corr':
     kwrgs_func = {} ;
 elif 'parcorrtime' in exper:
     if exper.split('_')[1] == 'target':
-        kwrgs_func = {'precursor':False, 'target':True}
+        kwrgs_func = {'lag_y':[1,2,3]}
     elif exper.split('_')[1] == 'precur':
-        kwrgs_func = {'precursor':True, 'target':False}
+        kwrgs_func = {'lag_x':[1,2,3]}
     func = parcorr_map_time
 
 
@@ -314,14 +314,15 @@ elif exper == 'corr' and west_east == 'east':
     title = '$corr(SST_{t-1},\ RW^E_t)$'
     append_str='' ; fontsize = 14
 elif 'parcorrtime' in exper and west_east == 'east':
-    if kwrgs_func['target'] == False and kwrgs_func['precursor'] == True:
+    if 'lag_y' not in list(kwrgs_func.keys()) and 'lag_x' in list(kwrgs_func.keys()):
         title = r'$parcorr(SST_{t-lag}, $'+'$RW^E_t\ |\ $'+r'$SST_{t-lag-1}$)'
-    elif kwrgs_func['target'] == True and kwrgs_func['precursor'] == False:
+    elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' not in list(kwrgs_func.keys()):
         title = r'$parcorr(SST_{t-lag}, RW^E_t\ |\ $'+r'$RW^E_{t-1})$'
     else:
         title = r'$parcorr(SST_{t-lag}, $'+'$RW^E_t\ |\ $'+r'$SST_{t-lag-1},$'+'$RW^E_{t-1})$'
-    kw = ''.join(list(kwrgs_func.keys())) + ''.join(np.array(list(kwrgs_func.values())).astype(str))
-    append_str='parcorrtime_{}_'.format(period) + kw
+    # kw = ''.join(list(kwrgs_func.keys())) + ''.join(np.array(list(kwrgs_func.values())).astype(str))
+    # append_str='parcorrtime_{}_'.format(period) + kw
+    append_str = 'parcorrtime_'
     fontsize = 12
 
 
@@ -385,6 +386,10 @@ s = 0
 X_pred = out[2]['lag_1'][f'split_{s}'].X_pred
 X_pred.index = df_prec.loc[s].index
 df = X_pred.merge(df_prec.loc[s], left_index=True, right_index=True)
+df = df.merge(PDO1.loc[s], left_index=True, right_index=True)
+df = rg.TV.RV_ts.merge(df, left_index=True, right_index=True)
+
+
 
 #%%
 # # remove PDO df

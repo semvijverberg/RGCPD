@@ -545,7 +545,7 @@ def corr_map(field, ts):
 
     return corr_vals, pvals
 
-def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag_y=None, lag_x=None):
+def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag_y=0, lag_x=0):
     '''
     Only works for subseasonal data (more then 1 datapoint per year).
     Lag must be >= 1
@@ -569,13 +569,15 @@ def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag_y=None, lag_x=None
     pvals : np.ndarray
 
     '''
+    # field = precur_train.sel(time=dates_lag) ; ts = RV_ts.values.squeeze()
 
     if type(lag_y) is int:
         lag_y = [lag_y]
     if type(lag_x) is int:
         lag_x = [lag_x]
 
-    assert max(max(lag_y), max(lag_x))>0, 'Lag must be >= 1'
+    max_lag = max(max(lag_y), max(lag_x))
+    assert max_lag>0, 'lag_x or lag_y must be >= 1'
     # if more then one year is filled with NaNs -> no corr value calculated.
     field, ts = check_NaNs(field, ts)
     x = np.ma.zeros(field.shape[1])
@@ -587,20 +589,22 @@ def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag_y=None, lag_x=None
 
 
     if max(lag_y) > 0:
-        zy = [np.expand_dims(ts[max(lag_y)-l:-l], axis=1) for l in lag_y if l != 0]
+        zy = [np.expand_dims(ts[max_lag-l:-l], axis=1) for l in lag_y if l != 0]
         zy = np.concatenate(zy, axis=1)
 
-    y = np.expand_dims(ts[max(lag_y):], axis=1)
+    y = np.expand_dims(ts[max_lag:], axis=1)
     for i in nonans_gc:
         cond_ind_test = ParCorr()
-        if lag_x > 0 and lag_y > 0:
-            z2 = np.expand_dims(field[:-lag_x, i], axis=1)
-            z = np.concatenate((zy,z2), axis=1)
-        elif lag_x > 0 and lag_y == 0:
-            z = np.expand_dims(field[:-lag_x, i], axis=1)
-        elif lag_x == 0 and lag_y > 0:
+        if max(lag_x) > 0:
+            zx = [np.expand_dims(field[max_lag-l:-l, i], axis=1) for l in lag_x if l != 0]
+            zx = np.concatenate(zx, axis=1)
+        if max(lag_x) > 0 and max(lag_y) > 0: # both zy and zx defined
+            z = np.concatenate((zy,zx), axis=1)
+        elif max(lag_x) > 0 and max(lag_y) == 0: # only zx defined
+            z = zx
+        elif max(lag_x) == 0 and max(lag_y) > 0:
             z = zy
-        field_i = np.expand_dims(field[lag_x:,i], axis=1)
+        field_i = np.expand_dims(field[max_lag:,i], axis=1)
         a, b = cond_ind_test.run_test_raw(field_i, y, z)
         corr_vals[i] = a
         pvals[i] = b
