@@ -380,6 +380,34 @@ class CRPSS_vs_constant_bench:
 def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=None,
                score_per_test=True, n_boot: int=1, blocksize: int=1,
                rng_seed=1):
+    '''
+
+
+    Parameters
+    ----------
+    prediction : TYPE
+        DESCRIPTION.
+    df_splits : pd.DataFrame, optional
+        DESCRIPTION. The default is None.
+    score_func_list : list, optional
+        DESCRIPTION. The default is None.
+    score_per_test : TYPE, optional
+        DESCRIPTION. The default is True.
+    n_boot : int, optional
+        DESCRIPTION. The default is 1.
+    blocksize : int, optional
+        DESCRIPTION. The default is 1.
+    rng_seed : TYPE, optional
+        DESCRIPTION. The default is 1.
+
+    Returns
+    -------
+    pd.DataFrames format:
+    index [opt. splits]
+    Multi-index columns [lag, metric name]
+    df_trains, df_test_s, df_tests, df_boots.
+
+    '''
     #%%
     if df_splits is None:
         # assuming all is test data

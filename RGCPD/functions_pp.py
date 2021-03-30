@@ -1024,6 +1024,7 @@ def anom1D(da):
     if (stepsyr.day== 1).all() == True or int(da.time.size / 365) >= 120:
         print('\nHandling time series longer then 120 day or monthly data, no smoothening applied')
         data_smooth = da.values
+        window_s = None
 
     elif (stepsyr.day== 1).all() == False and int(da.time.size / 365) < 120:
         window_s = max(min(25,int(stepsyr.size / 12)), 1)
@@ -1040,14 +1041,26 @@ def anom1D(da):
     # Plotting
     fig, ax = plt.subplots(figsize=(3,3))
     ts = da
-    rawdayofyear = ts.groupby('time.dayofyear').mean('time').sel(dayofyear=np.arange(365)+1)
+    tfreq = (dates[1] - dates[0]).days
+    if tfreq in [28,29,30,31]: # monthly timeseries
+        input_freq = 'monthly'
+    else:
+        input_freq = 'daily_or_annual_or_yearly'
+    if input_freq == 'monthly':
+        rawdayofyear = ts.groupby('time.month').mean('time').sel(month=np.arange(12)+1)
+    else:
+        rawdayofyear = ts.groupby('time.dayofyear').mean('time').sel(dayofyear=np.arange(365)+1)
 
-    ax.set_title(f'Raw and est. clim')
+    ax.set_title('Raw and est. clim')
     for yr in np.unique(dates.year):
         singleyeardates = get_oneyr(dates, yr)
         ax.plot(ts.sel(time=singleyeardates), alpha=.1, color='purple')
+    if window_s is None:
+        label = 'clim based on raw data'
+    else:
+         label = f'clim {window_s}-day rm'
     ax.plot(output_clim, color='green', linewidth=2,
-         label=f'clim {window_s}-day rm')
+         label=label)
     ax.plot(rawdayofyear, color='black', alpha=.6,
                label='clim mean dayofyear')
     output = da - np.tile(output_clim, (int(dates.size/stepsyr.size)))
@@ -1305,9 +1318,16 @@ def get_testyrs(df_splits: pd.DataFrame):
             adjecent_dates = gapdays > (np.median(gapdays)+gapdays/2)
             RVgroupsize = np.argmax(adjecent_dates) + 1
             closed_right = dates_RV[RVgroupsize-1]
-            onecyclicgroup = df_splits.loc[0].index[df_splits.loc[0].index <= closed_right]
-            traintestgroups = np.repeat(np.arange(1, int(dates.size/onecyclicgroup.size)+1),
-                                   onecyclicgroup.size)
+            firstcyclicgroup = dates[dates <= closed_right]
+            # middle years, first year might be cut-off due to limiting dates
+            closed_right_yr2 = closed_right + date_dt(years=1)
+            secondcyclic = dates[np.logical_and(dates > closed_right,
+                                                dates <= closed_right_yr2)]
+            firstgroup = np.repeat(1, firstcyclicgroup.size)
+            secgroup = np.arange(2, int((dates.size-firstgroup.size)/secondcyclic.size+2))
+            traintestgroups = np.repeat(secgroup,
+                                        secondcyclic.size)
+            traintestgroups = np.concatenate([firstgroup, traintestgroups])
             uniqgroups = np.unique(traintestgroups)
             test_yrs = [] ; testgroups = []
             splits = df_splits.index.levels[0]

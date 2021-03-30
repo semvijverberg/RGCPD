@@ -37,6 +37,7 @@ from class_BivariateMI import parcorr_z
 from class_BivariateMI import parcorr_map_time
 import climate_indices, filters, functions_pp
 from func_models import standardize_on_train
+import func_models as fc_utils
 
 
 
@@ -44,7 +45,7 @@ expers = np.array(['parcorr__0.25', 'parcorr__0.5', 'parcorr__1', 'parcorr__2',
                    'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 0
+i_default = 6
 
 def parseArguments():
     # Create argument parser
@@ -96,7 +97,7 @@ elif period == 'summer':
     start_end_TVdate = ('06-01', '08-31')
     # start_end_TVdate = ('05-01', '09-15')
     tfreq = 60
-    lags = np.array([0,1])
+    lags = np.array([1])
 
 
 
@@ -113,56 +114,74 @@ filepath_df_PDOs = os.path.join(path_data, 'df_PDOs.h5')
 
 #%% Get PDO and apply low-pass filter
 if 'parcorr__' in exper:
-    SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_1jan_31dec_daily_1.0deg.nc'
+    try:
+        df_PDOs = functions_pp.load_hdf5(filepath_df_PDOs)['df_data']
+    except:
 
-    if 'df_PDOsplit' not in globals():
-        df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
-                                                   None) #rg.df_splits)
-        # summerdates = core_pp.get_subdates(dates, start_end_TVdate)
-        df_PDOsplit = df_PDO.loc[0]#.loc[summerdates]
-        # standardize = preprocessing.StandardScaler()
-        # standardize.fit(df_PDOsplit[df_PDOsplit['TrainIsTrue'].values].values.reshape(-1,1))
-        # df_PDOsplit = pd.DataFrame(standardize.transform(df_PDOsplit['PDO'].values.reshape(-1,1)),
-        #                 index=df_PDOsplit.index, columns=['PDO'])
-    df_PDOsplit = df_PDOsplit[['PDO']].apply(standardize_on_train,
-                         args=[df_PDO.loc[0]['TrainIsTrue']],
-                         result_type='broadcast')
+        SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_jan_dec_monthly_1.0deg.nc'
 
-    # Butter Lowpass
-    dates = df_PDOsplit.index
-    freqraw = (dates[1] - dates[0]).days
-    ls = ['solid', 'dotted', 'dashdot', 'dashed']
-    fig, ax = plt.subplots(1,1)
-    list_dfPDO = []
-    lowpass_yrs = [.25, .5, 1.0, 2.0]
-    for i, yr in enumerate(lowpass_yrs):
-        window = int(yr*functions_pp.get_oneyr(dates).size) # 2 year
-        if i ==0:
-            ax.plot_date(dates, df_PDOsplit.values, label=f'Raw ({freqraw} day means)',
-                      alpha=.3, linestyle='solid', marker=None)
-        df_PDObw = pd.Series(filters.lowpass(df_PDOsplit, period=window).squeeze(),
-                             index=dates, name=f'PDO{yr}bw')
-        ax.plot_date(dates, df_PDObw, label=f'Butterworth {yr}-year low-pass',
-                color='red',linestyle=ls[i], linewidth=1, marker=None)
-        df_PDOrm = df_PDOsplit.rolling(window=window, closed='right', min_periods=window).mean()
-        df_PDOrm = df_PDOrm.rename({'PDO':f'PDO{yr}rm'}, axis=1)
-        ax.plot_date(dates, df_PDOrm,
-                     label=f'Rolling mean {yr}-year low-pass (closed right)', color='green',linestyle=ls[i],
-                     linewidth=1, marker=None)
-        list_dfPDO.append(df_PDObw) ; list_dfPDO.append(df_PDOrm)
-        ax.legend()
+        if 'df_PDOsplit' not in globals():
+            df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
+                                                       None) #rg.df_splits)
+            # summerdates = core_pp.get_subdates(dates, start_end_TVdate)
+            df_PDOsplit = df_PDO.loc[0]#.loc[summerdates]
+            # standardize = preprocessing.StandardScaler()
+            # standardize.fit(df_PDOsplit[df_PDOsplit['TrainIsTrue'].values].values.reshape(-1,1))
+            # df_PDOsplit = pd.DataFrame(standardize.transform(df_PDOsplit['PDO'].values.reshape(-1,1)),
+            #                 index=df_PDOsplit.index, columns=['PDO'])
+        df_PDOsplit = df_PDOsplit[['PDO']].apply(standardize_on_train,
+                             args=[df_PDO.loc[0]['TrainIsTrue']],
+                             result_type='broadcast')
 
-    filepath = os.path.join(path_out_main, 'Low-pass_filter.pdf')
-    plt.savefig(filepath, bbox_inches='tight')
+        # Butter Lowpass
+        dates = df_PDOsplit.index
+        freqraw = (dates[1] - dates[0]).days
+        ls = ['solid', 'dotted', 'dashdot', 'dashed']
+        fig, ax = plt.subplots(1,1, figsize=(10,5))
+        list_dfPDO = [df_PDOsplit]
+        lowpass_yrs = [.25, .5, 1.0, 2.0]
+        for i, yr in enumerate(lowpass_yrs):
+            window = int(yr*functions_pp.get_oneyr(dates).size) # 2 year
+            if i ==0:
+                ax.plot_date(dates, df_PDOsplit.values, label=f'Raw ({freqraw} day means)',
+                          alpha=.3, linestyle='solid', marker=None)
+            df_PDObw = pd.Series(filters.lowpass(df_PDOsplit, period=window).squeeze(),
+                                 index=dates, name=f'PDO{yr}bw')
+            ax.plot_date(dates, df_PDObw, label=f'Butterworth {yr}-year low-pass',
+                    color='red',linestyle=ls[i], linewidth=1, marker=None)
+            df_PDOrm = df_PDOsplit.rolling(window=window, closed='right', min_periods=window).mean()
+            df_PDOrm = df_PDOrm.rename({'PDO':f'PDO{yr}rm'}, axis=1)
+            ax.plot_date(dates, df_PDOrm,
+                         label=f'Rolling mean {yr}-year low-pass (closed right)', color='green',linestyle=ls[i],
+                         linewidth=1, marker=None)
+            list_dfPDO.append(df_PDObw) ; list_dfPDO.append(df_PDOrm)
+            ax.legend()
+
+        filepath = os.path.join(path_out_main, 'Low-pass_filter.pdf')
+        plt.savefig(filepath, bbox_inches='tight')
+        df_PDOs = pd.concat(list_dfPDO,axis=1)
     #%%
-    df_PDOs = pd.concat(list_dfPDO,axis=1)
+
     functions_pp.store_hdf_df({'df_data':df_PDOs},
                               file_path=filepath_df_PDOs)
 
 #%% Only SST (Parcorrtime and parcorr on PDO)
 
 list_of_name_path = [(name_or_cluster_label, TVpath),
-                       ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
+                       ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_monthly_1.0deg.nc'))]
+
+def get_lagged_ts(df_data, lag, keys=None):
+    if keys is None:
+        keys = df_data.columns[df_data.dtypes != bool]
+    df_lagmask = []
+    for s in df_data.index.levels[0]:
+        lagmask = fc_utils.apply_shift_lag(df_data.loc[s][['TrainIsTrue', 'RV_mask']], lag)
+        df_lagmask.append(lagmask)
+    df_lagmask = pd.concat(df_lagmask, keys=df_data.index.levels[0])
+    # persPDO = functions_pp.get_df_test(rgPDO.df_data[keys_ext+['TrainIsTrue']])[keys_ext]
+    df_lag = df_data[df_lagmask['x_fit']]
+    df_lag.index = df_data[df_lagmask['y_fit']].index
+    return df_lag[keys].rename({k:k+f'_{lag}' for k in keys}, axis=1), df_lagmask
 
 # exper = 'parcorr'
 lowpass = 0
@@ -175,6 +194,64 @@ if 'parcorr__' in exper:
     kwrgs_func = {'filepath':z_filepath,
                   'keys_ext':keys_ext,
                   'lag_z':1}
+
+    lowpass = 0 #!!!
+    keys_ext = ['PDO']
+    rgPDO = RGCPD(list_of_name_path=list_of_name_path,
+                  list_import_ts=[('PDO', z_filepath)],
+                  start_end_TVdate=('05-01', '08-01'),
+                  start_end_date=None,
+                  start_end_year=(1979+int(round(lowpass+0.49)), 2020),
+                  tfreq=2,
+                  path_outmain=path_out_main,
+                  append_pathsub='_' + exper)
+    rgPDO.pp_TV(name_ds, anomaly=True, kwrgs_core_pp_time={'dailytomonths':True})
+
+    rgPDO.pp_precursors()
+
+    rgPDO.traintest('random_10')
+    rgPDO.get_ts_prec()
+    # Predicting PDO at lag 1 vs start_end_data of RW
+    PDO1, df_lagmask1 = get_lagged_ts(rgPDO.df_data.copy() , 1, keys_ext)
+    target = functions_pp.get_df_test(PDO1,
+                                      df_splits=rgPDO.df_data[['TrainIsTrue']].loc[PDO1.index])
+    PDO2, df_lagmask2 = get_lagged_ts(rgPDO.df_data.copy() , 2, keys_ext)
+    PDO3, df_lagmask3 = get_lagged_ts(rgPDO.df_data.copy() , 3, keys_ext)
+    PDO4, df_lagmask4 = get_lagged_ts(rgPDO.df_data.copy() , 4, keys_ext)
+    PDO5, df_lagmask5 = get_lagged_ts(rgPDO.df_data.copy() , 5, keys_ext)
+    df_prec = PDO2.merge(PDO3, left_index=True, right_index=True)
+    df_prec = df_prec.merge(PDO4, left_index=True, right_index=True)
+    df_prec = df_prec.merge(PDO5, left_index=True, right_index=True)
+
+
+    out = rgPDO.fit_df_data_ridge(target=target,
+                                  df_data = df_prec,
+                                  tau_min=0, tau_max=0,
+                                  kwrgs_model={'alphas':np.array([.01,.1,1,5,10])})
+    predict = out[0].rename({0:'AR3'}, axis=1)
+
+    lowPDO, df_lagmask = get_lagged_ts(rgPDO.df_data.copy(), 2, ['PDO1.0rm'])
+    # perPDO = rgPDO.df_data[keys_ext][persmask['x_fit']]
+    # persPDO[persmask['x_fit']] = persPDO[persmask['x_fit']]
+    # perPDO.index = rgPDO.df_data[rgPDO.df_data['RV_mask']].index
+    perPDO = lowPDO.rename({'PDO1.0rm_2':'persistence'}, axis=1)
+    perPDO = perPDO.loc[df_prec.index]
+    predict = predict.merge(perPDO, left_index=True, right_index=True)
+
+    test = fc_utils.get_scores(predict,
+                               score_func_list=[fc_utils.corrcoef,
+                                                fc_utils.metrics.mean_squared_error])[2]
+    df_test = functions_pp.get_df_test(predict,
+                                       df_splits=rgPDO.df_data.loc[predict.index][['TrainIsTrue', 'RV_mask']])
+    df_z = df_test[['AR3']]
+    df_z = functions_pp.get_df_test(df_prec,
+                                    df_splits=rgPDO.df_data.loc[predict.index][['TrainIsTrue', 'RV_mask']])
+    years = functions_pp.get_oneyr(df_z, *list(range(1980, 2020+1)))
+    df_z = df_z.loc[years]
+    years = functions_pp.get_oneyr(df_lagmask1.loc[0], *list(range(1980, 2020+1)))
+    df_z.index = df_lagmask1.loc[0].loc[years][df_lagmask1.loc[0]['x_pred'].loc[years]].index
+    kwrgs_func = {'filepath':df_z,
+                  'lag_z':0}
 elif exper == 'corr':
     func = corr_map
     kwrgs_func = {} ;
@@ -186,7 +263,10 @@ elif 'parcorrtime' in exper:
     func = parcorr_map_time
 
 
-
+#%%
+if 'parcorr__' in exper:
+    kwrgs_func = {'filepath':df_z,
+                  'lag_z':0}
 
 list_for_MI   = [BivariateMI(name='sst', func=func,
                             alpha=.05, FDR_control=True,
@@ -200,13 +280,14 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
             start_end_TVdate=start_end_TVdate,
             start_end_date=start_end_date,
-            start_end_year=(1979+int(round(lowpass+0.49)), 2020),
-            tfreq=tfreq,
+            start_end_year=(1980, 2020),
+            tfreq=2,
             path_outmain=path_out_main,
             append_pathsub='_' + exper)
 
 
-rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=True)
+rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=True,
+         kwrgs_core_pp_time={'dailytomonths':True})
 
 rg.pp_precursors()
 
@@ -254,6 +335,7 @@ kwrgs_plot = {'row_dim':'lag', 'col_dim':'split',
               'clabels':np.arange(-.6,.61,.3), 'title':title,
               'subtitles':subtitles, 'subtitle_fontdict':{'fontsize':14},
               'title_fontdict':{'fontsize':fontsize, 'fontweight':'bold'}}
+#%%
 if sys.platform == 'linux':
     for min_detect_gc in [.5,.6,.7,.8,.9,1.]:
         rg.plot_maps_corr(var='sst', save=save,
@@ -279,7 +361,7 @@ kwrgs_plot['cbar_vert'] = -.1
 kwrgs_plot['title'] = title
 kwrgs_plot['title_fontdict'] = {'y':1,'fontsize':fontsize, 'fontweight':'bold'}
 if sys.platform == 'linux':
-    for min_detect_gc in [.5,.6,.7,.8,.9,1.]:
+    for min_detect_gc in [.1,.5,.6,.7,.8,.9,1.]:
         rg.plot_maps_corr(var='sst', plotlags=[1], save=save,
                           kwrgs_plot=kwrgs_plot,
                           min_detect_gc=min_detect_gc,
@@ -293,7 +375,16 @@ else:
 #%%
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
+#%%
 
+
+rg.cluster_list_MI() ; rg.get_ts_prec() ;
+out = rg.fit_df_data_ridge()
+
+s = 0
+X_pred = out[2]['lag_1'][f'split_{s}'].X_pred
+X_pred.index = df_prec.loc[s].index
+df = X_pred.merge(df_prec.loc[s], left_index=True, right_index=True)
 
 #%%
 # # remove PDO df

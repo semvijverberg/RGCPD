@@ -358,30 +358,36 @@ class BivariateMI:
         if hasattr(self, 'kwrgs_z') == False: # copy so info remains stored
             self.kwrgs_z = self.kwrgs_func.copy() # first time copy
         if self.func.__name__ == 'parcorr_z':
-            print('Loading and aggregating {}'.format(self.kwrgs_z['keys_ext']))
-            f = find_precursors.import_precur_ts
-            self.df_z = f([('z', self.kwrgs_z['filepath'])],
-                          df_splits,
-                          start_end_date=kwrgs['start_end_date'],
-                          start_end_year=kwrgs['start_end_year'],
-                          start_end_TVdate=kwrgs['start_end_TVdate'],
-                          cols=self.kwrgs_z['keys_ext'],
-                          precur_aggr=kwrgs['tfreq'])
+            if type(self.kwrgs_z['filepath']) is str:
+                print('Loading and aggregating {}'.format(self.kwrgs_z['keys_ext']))
+                f = find_precursors.import_precur_ts
+                self.df_z = f([('z', self.kwrgs_z['filepath'])],
+                              df_splits,
+                              start_end_date=kwrgs['start_end_date'],
+                              start_end_year=kwrgs['start_end_year'],
+                              start_end_TVdate=kwrgs['start_end_TVdate'],
+                              cols=self.kwrgs_z['keys_ext'],
+                              precur_aggr=kwrgs['tfreq'])
 
-            if hasattr(self.df_z.index, 'levels'): # has train-test splits
-                f = functions_pp
-                self.df_z = f.get_df_test(self.df_z.merge(df_splits,
-                                                          left_index=True,
-                                                          right_index=True)).iloc[:,:1]
-            k = list(self.kwrgs_func.keys())
-            [self.kwrgs_func.pop(k) for k in k if k in ['filepath','keys_ext']]
-            self.kwrgs_func.update({'z':self.df_z}) # overwrite kwrgs_func
-            k = [k for k in list(self.kwrgs_z.keys()) if k not in ['filepath','keys_ext']]
+                if hasattr(self.df_z.index, 'levels'): # has train-test splits
+                    f = functions_pp
+                    self.df_z = f.get_df_test(self.df_z.merge(df_splits,
+                                                              left_index=True,
+                                                              right_index=True)).iloc[:,:1]
+                k = list(self.kwrgs_func.keys())
+                [self.kwrgs_func.pop(k) for k in k if k in ['filepath','keys_ext']]
+                self.kwrgs_func.update({'z':self.df_z}) # overwrite kwrgs_func
+                k = [k for k in list(self.kwrgs_z.keys()) if k not in ['filepath','keys_ext']]
 
-            equal_dates = all(np.equal(self.df_z.index,
-                                       pd.to_datetime(self.precur_arr.time.values)))
-            if equal_dates==False:
-                raise ValueError('Dates of timeseries z not equal to dates of field')
+                equal_dates = all(np.equal(self.df_z.index,
+                                           pd.to_datetime(self.precur_arr.time.values)))
+                if equal_dates==False:
+                    raise ValueError('Dates of timeseries z not equal to dates of field')
+            elif type(self.kwrgs_z['filepath']) is pd.DataFrame:
+                self.df_z = self.kwrgs_z['filepath']
+                k = list(self.kwrgs_func.keys())
+                [self.kwrgs_func.pop(k) for k in k if k in ['filepath','keys_ext']]
+                self.kwrgs_func.update({'z':self.df_z}) # overwrite kwrgs_func
         return
 
 
@@ -539,8 +545,7 @@ def corr_map(field, ts):
 
     return corr_vals, pvals
 
-def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag=1,
-                     target=True, precursor=True):
+def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag_y=None, lag_x=None):
     '''
     Only works for subseasonal data (more then 1 datapoint per year).
     Lag must be >= 1
@@ -565,7 +570,12 @@ def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag=1,
 
     '''
 
-    assert lag>0, 'Lag must be >= 1'
+    if type(lag_y) is int:
+        lag_y = [lag_y]
+    if type(lag_x) is int:
+        lag_x = [lag_x]
+
+    assert max(max(lag_y), max(lag_x))>0, 'Lag must be >= 1'
     # if more then one year is filled with NaNs -> no corr value calculated.
     field, ts = check_NaNs(field, ts)
     x = np.ma.zeros(field.shape[1])
@@ -574,19 +584,23 @@ def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag=1,
 
     fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
     nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
-    if target:
-        zy = np.expand_dims(ts[:-lag], axis=1)
-    y = np.expand_dims(ts[lag:], axis=1)
+
+
+    if max(lag_y) > 0:
+        zy = [np.expand_dims(ts[max(lag_y)-l:-l], axis=1) for l in lag_y if l != 0]
+        zy = np.concatenate(zy, axis=1)
+
+    y = np.expand_dims(ts[max(lag_y):], axis=1)
     for i in nonans_gc:
         cond_ind_test = ParCorr()
-        if precursor and target:
-            z2 = np.expand_dims(field[:-lag, i], axis=1)
+        if lag_x > 0 and lag_y > 0:
+            z2 = np.expand_dims(field[:-lag_x, i], axis=1)
             z = np.concatenate((zy,z2), axis=1)
-        elif precursor and target==False:
-            z = np.expand_dims(field[:-lag, i], axis=1)
-        elif precursor==False and target:
+        elif lag_x > 0 and lag_y == 0:
+            z = np.expand_dims(field[:-lag_x, i], axis=1)
+        elif lag_x == 0 and lag_y > 0:
             z = zy
-        field_i = np.expand_dims(field[lag:,i], axis=1)
+        field_i = np.expand_dims(field[lag_x:,i], axis=1)
         a, b = cond_ind_test.run_test_raw(field_i, y, z)
         corr_vals[i] = a
         pvals[i] = b
@@ -629,7 +643,10 @@ def parcorr_z(field: xr.DataArray, ts: np.ndarray, z: pd.DataFrame, lag_z: int=0
     # adjust to shape (samples, dimension) and remove first datapoints if
     # lag_z != 0.
     y = np.expand_dims(ts[lag_z:], axis=1)
-    z = np.expand_dims(z.loc[dates].values.squeeze(), axis=1)
+    if len(z.values.squeeze().shape)==1:
+        z = np.expand_dims(z.loc[dates].values.squeeze(), axis=1)
+    else:
+        z = z.loc[dates].values.squeeze()
     if lag_z >= 1:
         z = z[:-lag_z] # last values are 'removed'
     for i in nonans_gc:

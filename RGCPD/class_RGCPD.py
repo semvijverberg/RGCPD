@@ -1049,14 +1049,23 @@ class RGCPD:
 
         '''
         # df_data=None;keys=None;target=None;tau_min=1;tau_max=1;transformer=None
-        # kwrgs_model={'scoring':'neg_mean_squared_error'}
+        # kwrgs_model={'scoring':'neg_mean_squared_error'};match_lag_region_to_lag_fc=False
         if df_data is None:
             df_data = self.df_data.copy()
         lags = range(tau_min, tau_max+1)
         if keys is None:
             keys = df_data.columns[df_data.dtypes != bool]
         splits = df_data.index.levels[0]
-        # data_new_s   = np.zeros( (splits.size) , dtype=object)
+
+        if 'TrainIsTrue' not in df_data.columns:
+            TrainIsTrue = pd.DataFrame(np.ones( (df_data.index.size), dtype=bool),
+                                       index=df_data.index, columns=['TrainIsTrue'])
+            df_data = df_data.merge(TrainIsTrue, left_index=True, right_index=True)
+
+        if 'RV_mask' not in df_data.columns:
+            RV_mask = pd.DataFrame(np.ones( (df_data.index.size), dtype=bool),
+                                   index=df_data.index, columns=['RV_mask'])
+            df_data = df_data.merge(RV_mask, left_index=True, right_index=True)
 
         RV_mask = df_data.loc[0]['RV_mask'] # not changing
         if target is None: # not changing
