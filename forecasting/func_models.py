@@ -431,7 +431,7 @@ def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=N
 
     # score on train and per test split
     if score_func_list is None:
-        score_func_list = [metrics.mean_squared_error]
+        score_func_list = [metrics.mean_squared_error, corrcoef]
     splits = pred.index.levels[0]
     columns = prediction.columns[1:]
     df_trains = np.zeros( (columns.size), dtype=object)

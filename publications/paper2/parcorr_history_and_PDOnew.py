@@ -35,17 +35,17 @@ from RGCPD import BivariateMI
 from class_BivariateMI import corr_map
 from class_BivariateMI import parcorr_z
 from class_BivariateMI import parcorr_map_time
-import climate_indices, filters, functions_pp
+import climate_indices, filters, functions_pp, core_pp
 from func_models import standardize_on_train
 import func_models as fc_utils
 
 
 
-expers = np.array(['parcorr__0.25', 'parcorr__0.5', 'parcorr__1', 'parcorr__2',
+expers = np.array(['parcorr',
                    'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 5
+i_default = 0
 
 def parseArguments():
     # Create argument parser
@@ -113,7 +113,7 @@ start_end_date = ('1-1', start_end_TVdate[-1])
 filepath_df_PDOs = os.path.join(path_data, 'df_PDOs.h5')
 
 #%% Get PDO and apply low-pass filter
-if 'parcorr__' in exper:
+if 'parcorr' == exper:
     try:
         df_PDOs = functions_pp.load_hdf5(filepath_df_PDOs)['df_data']
     except:
@@ -160,7 +160,6 @@ if 'parcorr__' in exper:
         filepath = os.path.join(path_out_main, 'Low-pass_filter.pdf')
         plt.savefig(filepath, bbox_inches='tight')
         df_PDOs = pd.concat(list_dfPDO,axis=1)
-    #%%
 
     functions_pp.store_hdf_df({'df_data':df_PDOs},
                               file_path=filepath_df_PDOs)
@@ -185,8 +184,8 @@ def get_lagged_ts(df_data, lag, keys=None):
 
 # exper = 'parcorr'
 lowpass = 0
-if 'parcorr__' in exper:
-    lowpass = float(exper.split('__')[1])
+if 'parcorr' == exper:
+    # lowpass = float(exper.split('__')[1])
     func = parcorr_z
     # z_filepath = os.path.join(path_data, 'PDO_ENSO34_ERA5_1979_2018.h5')
     z_filepath = filepath_df_PDOs
@@ -212,16 +211,17 @@ if 'parcorr__' in exper:
     rgPDO.traintest('random_10')
     rgPDO.get_ts_prec()
     # Predicting PDO at lag 1 vs start_end_data of RW
-    PDO1, df_lagmask1 = get_lagged_ts(rgPDO.df_data.copy() , 1, keys_ext)
+    PDO1, df_lagmask1 = get_lagged_ts(rgPDO.df_data.copy() , 0, keys_ext)
     target = functions_pp.get_df_test(PDO1,
                                       df_splits=rgPDO.df_data[['TrainIsTrue']].loc[PDO1.index])
     PDO2, df_lagmask2 = get_lagged_ts(rgPDO.df_data.copy() , 2, keys_ext)
     PDO3, df_lagmask3 = get_lagged_ts(rgPDO.df_data.copy() , 3, keys_ext)
-    PDO4, df_lagmask4 = get_lagged_ts(rgPDO.df_data.copy() , 4, keys_ext)
-    PDO5, df_lagmask5 = get_lagged_ts(rgPDO.df_data.copy() , 5, keys_ext)
-    df_prec = PDO2.merge(PDO3, left_index=True, right_index=True)
-    df_prec = df_prec.merge(PDO4, left_index=True, right_index=True)
-    df_prec = df_prec.merge(PDO5, left_index=True, right_index=True)
+    # PDO4, df_lagmask4 = get_lagged_ts(rgPDO.df_data.copy() , 4, keys_ext)
+    # PDO5, df_lagmask5 = get_lagged_ts(rgPDO.df_data.copy() , 5, keys_ext)
+    df_prec = PDO2 # AR1 model to predict PDO at lag 1 vs RW
+    df_prec = df_prec.merge(PDO3, left_index=True, right_index=True)
+    # df_prec = df_prec.merge(PDO4, left_index=True, right_index=True)
+    # df_prec = df_prec.merge(PDO5, left_index=True, right_index=True)
 
 
     out = rgPDO.fit_df_data_ridge(target=target,
@@ -238,16 +238,28 @@ if 'parcorr__' in exper:
     perPDO = perPDO.loc[df_prec.index]
     predict = predict.merge(perPDO, left_index=True, right_index=True)
 
+    dates = core_pp.get_subdates(rgPDO.dates_TV, start_end_year=(1980,2020))
+    predict = predict.loc[pd.IndexSlice[:, dates], :]
     test = fc_utils.get_scores(predict,
                                score_func_list=[fc_utils.corrcoef,
                                                 fc_utils.metrics.mean_squared_error])[2]
     df_test = functions_pp.get_df_test(predict,
                                        df_splits=rgPDO.df_data.loc[predict.index][['TrainIsTrue', 'RV_mask']])
     df_z = df_test[['AR3']]
-    df_z = functions_pp.get_df_test(df_prec,
-                                    df_splits=rgPDO.df_data.loc[predict.index][['TrainIsTrue', 'RV_mask']])
-    years = functions_pp.get_oneyr(df_z, *list(range(1980, 2020+1)))
-    df_z = df_z.loc[years]
+    # df_z = functions_pp.get_df_test(df_prec,
+    #                                 df_splits=rgPDO.df_data.loc[predict.index][['TrainIsTrue', 'RV_mask']])
+    # years = functions_pp.get_oneyr(df_z, *list(range(1980, 2020+1)))
+    # df_z = df_z.loc[years]
+
+    kwrgs_func = {'filepath':df_z,
+                  'lag_z':0}
+
+
+
+#%%
+if 'parcorr' == exper:
+    lags = np.array([1])
+    PDO1, df_lagmask1 = get_lagged_ts(rgPDO.df_data.copy() , lags[0], keys_ext)
     years = functions_pp.get_oneyr(df_lagmask1.loc[0], *list(range(1980, 2020+1)))
     df_z.index = df_lagmask1.loc[0].loc[years][df_lagmask1.loc[0]['x_pred'].loc[years]].index
     kwrgs_func = {'filepath':df_z,
@@ -262,12 +274,6 @@ elif 'parcorrtime' in exper:
         kwrgs_func = {'lag_x':[1,2,3]}
     func = parcorr_map_time
 
-
-#%%
-if 'parcorr__' in exper:
-    kwrgs_func = {'filepath':df_z,
-                  'lag_z':0}
-
 list_for_MI   = [BivariateMI(name='sst', func=func,
                             alpha=.05, FDR_control=True,
                             kwrgs_func=kwrgs_func,
@@ -278,7 +284,7 @@ list_for_MI   = [BivariateMI(name='sst', func=func,
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
-            start_end_TVdate=start_end_TVdate,
+            start_end_TVdate=('05-01', '08-01'),
             start_end_date=start_end_date,
             start_end_year=(1980, 2020),
             tfreq=2,
@@ -305,21 +311,33 @@ matplotlib.rcParams['text.latex.preamble'] = r'\boldmath'
 min_detect_gc = 0.5
 save = True
 # Plot lag 0 and 1
-subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
+# subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
+title = ''
 
-if 'parcorr__' in exper and west_east == 'east':
+if 'parcorr' == exper and west_east == 'east':
     title = r'$parcorr(SST_{t-1}, $'+r'$RW^E_t\ |\ \overline{PDO_{t-1}}$)'
+    subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
     append_str=f'PDO_{lowpass}' ; fontsize = 14
 elif exper == 'corr' and west_east == 'east':
     title = '$corr(SST_{t-1},\ RW^E_t)$'
     append_str='' ; fontsize = 14
 elif 'parcorrtime' in exper and west_east == 'east':
     if 'lag_y' not in list(kwrgs_func.keys()) and 'lag_x' in list(kwrgs_func.keys()):
-        title = r'$parcorr(SST_{t-lag}, $'+'$RW^E_t\ |\ $'+r'$SST_{t-lag-1}$)'
+        # regress out past precursor
+        z_ts = ', '.join([f'$SST_{{t-{l}}}$' for l in kwrgs_func['lag_x']])
+        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts + ')'
+        z_ts = ', '.join([f'$SST_{{t-{l}}}$' for l in kwrgs_func['lag_x']])
+        title1 = r'$parcorr(SST_{t-1}, $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        subtitles = np.array([[title0],[title1]])
     elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' not in list(kwrgs_func.keys()):
-        title = r'$parcorr(SST_{t-lag}, RW^E_t\ |\ $'+r'$RW^E_{t-1})$'
-    else:
-        title = r'$parcorr(SST_{t-lag}, $'+'$RW^E_t\ |\ $'+r'$SST_{t-lag-1},$'+'$RW^E_{t-1})$'
+        # regress out past target variable
+        z_ts = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
+        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts + ')'
+        z_ts = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
+        title1 = r'$parcorr(SST_{t-1}, $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        subtitles = np.array([[title0],[title1]])
+    # else:
+    #     title = r'$parcorr(SST_{t-lag}, $'+'$RW^E_t\ |\ $'+r'$SST_{t-lag-1},$'+'$RW^E_{t-1})$'
     # kw = ''.join(list(kwrgs_func.keys())) + ''.join(np.array(list(kwrgs_func.values())).astype(str))
     # append_str='parcorrtime_{}_'.format(period) + kw
     append_str = 'parcorrtime_'
@@ -327,14 +345,14 @@ elif 'parcorrtime' in exper and west_east == 'east':
 
 
 kwrgs_plot = {'row_dim':'lag', 'col_dim':'split',
-              'aspect':2,  'hspace':.2, 'size':2.5, 'cbar_vert':-.02,
+              'aspect':2,  'hspace':.4, 'size':2.5, 'cbar_vert':-.02,
               'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
               'map_proj':ccrs.PlateCarree(central_longitude=220),
               'y_ticks':np.array([-10,10,30,50]),
               'x_ticks':np.arange(130, 280, 25),
               'clevels':np.arange(-.6,.61,.075),
               'clabels':np.arange(-.6,.61,.3), 'title':title,
-              'subtitles':subtitles, 'subtitle_fontdict':{'fontsize':14},
+              'subtitles':subtitles, 'subtitle_fontdict':{'fontsize':13},
               'title_fontdict':{'fontsize':fontsize, 'fontweight':'bold'}}
 #%%
 if sys.platform == 'linux':

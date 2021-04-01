@@ -840,7 +840,7 @@ def cond_forecast_table(rg_list):
                 # mild boundary forcing
                 low = PacAtl_ts > PacAtl_ts.quantile(.5-q)
                 high = PacAtl_ts < PacAtl_ts.quantile(.5+q)
-                mask_anomalous = np.logical_or(low, high)
+                mask_anomalous = np.logical_or(low, high) !!! Should be and?
 
                 condfc = df_test[mask_anomalous.values]
                 condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
