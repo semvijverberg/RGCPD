@@ -23,7 +23,7 @@ import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 import numpy as np
 import matplotlib
-from sklearn import metrics
+# from sklearn import metrics
 import pandas as pd
 import xarray as xr
 import csv
@@ -128,7 +128,7 @@ elif period == 'JJA_center':
     start_end_TVdate = ('07-01', '08-31')
 
 precur_aggr = tfreq
-method     = 'ranstrat_10' ;
+method     = 'ranstrat_10' ; seed = 2
 n_boot = 5000
 min_detect_gc = 0.9
 append_main = ''
@@ -157,7 +157,7 @@ list_import_ts = None #[('PDO', os.path.join(data_dir, f'PDO_2y_rm_25-09-20_15hr
 list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={}, group_split='together',
-                            distance_eps=500, min_area_in_degrees2=10,
+                            distance_eps=500, min_area_in_degrees2=min_area_in_degrees2,
                             calc_ts=calc_ts, selbox=(130,260,-10,60),
                             lags=lags)]
 
@@ -299,11 +299,17 @@ def merge_lagged_wrapper(df_data, lags, keys):
 
     return pd.concat(df_data_l, axis=1)
 
-def cond_forecast_table(df_test, df_forcings, score_func_list):
+def cond_forecast_table(df_test, df_forcings, score_func_list, n_boot=0):
     quantiles = [.15, .25]
     metricsused = np.array([m.__name__ for m in score_func_list])
     forcings = df_forcings.columns
-    cond_df = np.zeros((metricsused.size, forcings.size, len(quantiles)*2))
+    if forcings.size > 1: # loop over forcings
+        n_boot = 0
+        index_level1 = forcings
+
+    else:
+        index_level1 = np.arange(n_boot)
+    cond_df = np.zeros((metricsused.size, index_level1.size, len(quantiles)*2))
     name_fc = 'test'
     for i, met in enumerate(metricsused):
         # j = 0
@@ -320,13 +326,16 @@ def cond_forecast_table(df_test, df_forcings, score_func_list):
                 condfc = condfc.rename({'causal':name_fc}, axis=1)
                 cond_verif_tuple = fc_utils.get_scores(condfc,
                                                        score_func_list=score_func_list,
-                                                       n_boot=0,
+                                                       n_boot=n_boot,
                                                        score_per_test=False,
                                                        blocksize=1,
                                                        rng_seed=seed)
                 df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
                 rg.cond_verif_tuple  = cond_verif_tuple
-                cond_df[i, j, l] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+                if forcings.size > 1:
+                    cond_df[i, j, l] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+                else:
+                    cond_df[i, :, l] = df_boot[df_boot.columns[0][0]][met]
                 # mild boundary forcing
                 larger_low = df_forcing > df_forcing.quantile(.5-q)
                 smaller_high = df_forcing < df_forcing.quantile(.5+q)
@@ -336,16 +345,19 @@ def cond_forecast_table(df_test, df_forcings, score_func_list):
                 condfc = condfc.rename({'causal':name_fc}, axis=1)
                 cond_verif_tuple = fc_utils.get_scores(condfc,
                                                        score_func_list=score_func_list,
-                                                       n_boot=0,
+                                                       n_boot=n_boot,
                                                        score_per_test=False,
                                                        blocksize=1,
                                                        rng_seed=seed)
                 df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
-                cond_df[i, j, l+1] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+                if forcings.size > 1:
+                    cond_df[i, j, l+1] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+                else:
+                    cond_df[i, :, l+1] = df_boot[df_boot.columns[0][0]][met]
 
     columns = [[f'strong {int(q*200)}%', f'weak {int(q*200)}%'] for q in quantiles]
-    df_cond_fc = pd.DataFrame(cond_df.reshape((len(metricsused)*forcings.size, -1)),
-                              index=pd.MultiIndex.from_product([list(metricsused), forcings]),
+    df_cond_fc = pd.DataFrame(cond_df.reshape((len(metricsused)*index_level1.size, -1)),
+                              index=pd.MultiIndex.from_product([list(metricsused), index_level1]),
                               columns=functions_pp.flatten(columns))
 
 
@@ -356,7 +368,7 @@ def prediction_wrapper(df_data, lags, target_ts=None, keys: list=None, match_lag
                        n_boot: int=1):
 
     alphas = np.append(np.logspace(.1, 1.5, num=25), [250])
-    kwrgs_model = {'scoring':'neg_mean_squared_error',
+    kwrgs_model = {'scoring':'neg_mean_absolute_error',
                    'alphas':alphas, # large a, strong regul.
                    'normalize':False}
 
@@ -420,85 +432,168 @@ rename_labels_d = {'1..1..sst': 'mid-Pacific (label 1)',
 
 
 
-for match_lag in [True]:#[False, True]: #
-    print(f'match lag {match_lag}')
-    lags = np.array([0,1,2,3,4,5]) ;
-    lags = np.array([3]) ;
 
-    y_keys = [k for k in rg.df_data.columns[:-2] if k not in df_PDOs.columns]
-    y_keys = [k for k in y_keys if k not in [rg.TV.name]] # also remove LFV from target?
-    if match_lag==False: # only keep regions of lag=0
-        y_keys = [k for k in y_keys if k.split('..')[0] == str(0)]
-    keys = [k for k in y_keys if k not in [rg.TV.name]] # not use target as precursor
-    keys = [k for k in y_keys if int(k.split('..')[1]) in region_labels]
+lags = np.array([0,1,2,3,4,5]) ;
+lags = np.array([3]) ;
 
-    # remove PDO low-pass
-    df_data_r2PDO = rg.df_data.copy()
-    # df_data_r2PDO = df_data_r2PDO.rename(rename_labels_d, axis=1) ; y_keys = list(rename_labels_d.values())
-    df_data_r2PDO[y_keys], fig = wPCMCI.df_data_remove_z(df_data_r2PDO,
-                                                       z=[f'PDO{lowpass}{lwp_method}'],
-                                                       keys=y_keys,
-                                                       standardize=False)
-    fig_path = os.path.join(rg.path_outsub1,
-                            f'{sst._name}_r{lowpass}PDO_{period}_match{match_lag}_{append_str}')
-    fig.savefig(fig_path+rg.figext, bbox_inches='tight')
-    # df_data_r2PDO.loc[0][keys].corrwith(rg.df_data.loc[0][keys]).plot(kind='bar')
+y_keys = [k for k in rg.df_data.columns[:-2] if k not in df_PDOs.columns]
+y_keys = [k for k in y_keys if k not in [rg.TV.name]] # also remove LFV from target?
+
+keys = [k for k in y_keys if k not in [rg.TV.name]] # not use target as precursor
+keys = [k for k in y_keys if int(k.split('..')[1]) in region_labels]
+
+# remove PDO low-pass
+# df_data_r2PDO = rg.df_data.copy()
+# # df_data_r2PDO = df_data_r2PDO.rename(rename_labels_d, axis=1) ; y_keys = list(rename_labels_d.values())
+# df_data_r2PDO[y_keys], fig = wPCMCI.df_data_remove_z(df_data_r2PDO,
+#                                                    z=[f'PDO{lowpass}{lwp_method}'],
+#                                                    keys=y_keys,
+#                                                    standardize=False)
+# fig_path = os.path.join(rg.path_outsub1,
+#                         f'{sst._name}_r{lowpass}PDO_{period}_match{match_lag}_{append_str}')
+# fig.savefig(fig_path+rg.figext, bbox_inches='tight')
+# df_data_r2PDO.loc[0][keys].corrwith(rg.df_data.loc[0][keys]).plot(kind='bar')
 
 
-    # =============================================================================
-    # Predictions
-    # =============================================================================
-    # out_regr2PDO = prediction_wrapper(df_data_r2PDO.copy(), keys=keys,
-    #                                  match_lag=match_lag, n_boot=n_boot)
-    dates = core_pp.get_subdates(rg.dates_TV, start_end_year=(1980,2020))
-    target_ts_temp = rg.TV.RV_ts.loc[dates]
-    clim_mean_temp = float(target_ts_temp.mean())
-    RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=clim_mean_temp).RMSE
-    MAE_SS = fc_utils.ErrorSkillScore(constant_bench=clim_mean_temp).MAE
-    score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS]
-    # predictions temp using SST regions
-    df_prec = merge_lagged_wrapper(rg.df_data.copy() , [1,2], keys)
+# =============================================================================
+# Predictions
+# =============================================================================
+# out_regr2PDO = prediction_wrapper(df_data_r2PDO.copy(), keys=keys,
+#                                  match_lag=match_lag, n_boot=n_boot)
+dates = core_pp.get_subdates(rg.dates_TV, start_end_year=(1980,2020))
+target_ts_temp = rg.TV.RV_ts.loc[dates]
+clim_mean_temp = float(target_ts_temp.mean())
+RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=clim_mean_temp).RMSE
+MAE_SS = fc_utils.ErrorSkillScore(constant_bench=clim_mean_temp).MAE
+score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS, fc_utils.metrics.mean_absolute_error]
+# predictions temp using SST regions
+df_prec = merge_lagged_wrapper(rg.df_data.copy() , [1,2], keys)
 
-    df_prec = df_prec.loc[pd.IndexSlice[:, dates], :]
-    df_prec = df_prec.merge(rg.df_splits.loc[pd.IndexSlice[:, dates], :], left_index=True, right_index=True)
-    out = prediction_wrapper(df_prec, lags=np.array([0]),
-                             target_ts=target_ts_temp, keys=None,
-                             match_lag=False, n_boot=n_boot)
+df_prec = df_prec.loc[pd.IndexSlice[:, dates], :]
+df_prec = df_prec.merge(rg.df_splits.loc[pd.IndexSlice[:, dates], :], left_index=True, right_index=True)
+out = prediction_wrapper(df_prec, lags=np.array([0]),
+                         target_ts=target_ts_temp, keys=None,
+                         match_lag=False, n_boot=n_boot)
 
-    # predictions temp using PDO
-    df_precPDOs = merge_lagged_wrapper(rg.df_data.copy() , [1,2], ['PDO'])
-    dates = core_pp.get_subdates(rg.dates_TV, start_end_year=(1980,2020))
-    df_precPDOs = df_precPDOs.loc[pd.IndexSlice[:, dates], :]
-    df_precPDOs = df_precPDOs.merge(rg.df_splits.loc[pd.IndexSlice[:, dates], :], left_index=True, right_index=True)
-    outPDO = prediction_wrapper(df_precPDOs, lags=np.array([0]),
-                             target_ts=rg.TV.RV_ts.loc[dates], keys=None,
-                             match_lag=False, n_boot=n_boot)
+# predictions temp using PDO
+df_precPDOs = merge_lagged_wrapper(rg.df_data.copy() , [1,2], ['PDO'])
+dates = core_pp.get_subdates(rg.dates_TV, start_end_year=(1980,2020))
+df_precPDOs = df_precPDOs.loc[pd.IndexSlice[:, dates], :]
+df_precPDOs = df_precPDOs.merge(rg.df_splits.loc[pd.IndexSlice[:, dates], :], left_index=True, right_index=True)
+outPDOtemp = prediction_wrapper(df_precPDOs, lags=np.array([0]),
+                                target_ts=rg.TV.RV_ts.loc[dates], keys=None,
+                                match_lag=False, n_boot=n_boot)
 
-    # predictions PDO using PDO
-    target_PDO = functions_pp.get_df_test(rg.df_data.copy()[['PDO', 'TrainIsTrue']])[['PDO']]
-    df_precPDOs = merge_lagged_wrapper(rg.df_data.copy() , [1], ['PDO'])
-    dates = core_pp.get_subdates(rg.dates_TV, start_end_year=(1980,2020))
-    df_precPDOs = df_precPDOs.loc[pd.IndexSlice[:, dates], :]
-    df_precPDOs = df_precPDOs.merge(rg.df_splits.loc[pd.IndexSlice[:, dates], :], left_index=True, right_index=True)
-    outPDO = prediction_wrapper(df_precPDOs, lags=np.array([0]),
-                             target_ts=target_PDO.loc[dates], keys=None,
-                             match_lag=False, n_boot=n_boot)
+# predictions PDO using PDO
+target_PDO = functions_pp.get_df_test(rg.df_data.copy()[['PDO', 'TrainIsTrue']])[['PDO']]
+df_precPDOs = merge_lagged_wrapper(rg.df_data.copy() , [1], ['PDO0.5rm'])
+dates = core_pp.get_subdates(rg.dates_TV, start_end_year=(1980,2020))
+df_precPDOs = df_precPDOs.loc[pd.IndexSlice[:, dates], :]
+df_precPDOs = df_precPDOs.merge(rg.df_splits.loc[pd.IndexSlice[:, dates], :], left_index=True, right_index=True)
+outPDO = prediction_wrapper(df_precPDOs, lags=np.array([0]),
+                         target_ts=target_PDO.loc[dates], keys=None,
+                         match_lag=False, n_boot=n_boot)
 
 
-    # Conditional forecast
-    df_forcings = merge_lagged_wrapper(rg.df_data, [1], df_PDOs.columns)
-    df_forcings = df_forcings.loc[pd.IndexSlice[:, dates], :]
-    df_forcings = functions_pp.get_df_test(df_forcings,
-                                           df_splits=rg.df_splits.loc[pd.IndexSlice[:, dates], :])
-    df_forcings = outPDO[1].rename({0:'PDO_1fc'}, axis=1).merge(df_forcings, left_index=True, right_index=True)
-    df_cond = cond_forecast_table(out[1], df_forcings,
-                                  score_func_list)
+# Conditional forecast
+df_forcings = merge_lagged_wrapper(rg.df_data, [1], df_PDOs.columns)
+df_forcings = df_forcings.loc[pd.IndexSlice[:, dates], :]
+df_forcings = functions_pp.get_df_test(df_forcings,
+                                       df_splits=rg.df_splits.loc[pd.IndexSlice[:, dates], :])
+df_forcings = outPDO[1].rename({0:'PDO_1fc'}, axis=1).merge(df_forcings, left_index=True, right_index=True)
+df_forcings = out[1][[0]].rename({0:'sst_fc'}, axis=1).merge(df_forcings, left_index=True, right_index=True)
+df_cond_all = cond_forecast_table(out[1], df_forcings,
+                              score_func_list, n_boot=0)
+
 
     # [rg.df_data.copy().loc[s].loc[:,['0..1..sst', '1..1..sst', '2..1..sst', '3..1..sst']].corr() for s in range(10)]
 
     # =============================================================================
     # Plot
     # =============================================================================
+    #%%
+
+df_cond = cond_forecast_table(out[1], df_forcings[['PDO_1fc']],
+                              score_func_list, n_boot=200)
+#%%
+plot_cols = ['strong 30%', 'weak 30%']
+rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
+            'MAE':'MAE-SS', 'mean_absolute_error':'Mean Absolute Error'}
+metrics = ['mean_absolute_error', 'MAE']
+
+seeds = [1,2,3,4]
+seed_legend = False
+if seed_legend:
+    markers = ['*', '^', 's', 'o']
+else:
+    markers = ['s'] * len(seeds)
+CV_legend = False
+add_boxplot = False
+
+
+metric = metrics[0]
+
+f, axes = plt.subplots(1,len(metrics), figsize=(5*len(metrics), 4),
+                       sharex=True)
+
+percentages = []
+for iax, metric in enumerate(metrics):
+    ax = axes[iax]
+    # ax.set_facecolor('white')
+    data = df_cond.loc[metric][plot_cols]
+
+
+    perc_incr = (data[plot_cols[0]].mean() - data[plot_cols[1]].mean()) / data[plot_cols[1]].mean()
+
+    nlabels = plot_cols.copy() ; widths=(.5,.5)
+    nlabels = [l.split(' ')[0] for l in nlabels]
+    nlabels = [l.capitalize() + ' PDO' for l in nlabels]
+
+    boxprops = dict(linewidth=2.0, color='black')
+    whiskerprops = dict(linestyle='-',linewidth=2.0, color='black')
+    medianprops = dict(linestyle='-', linewidth=2, color='red')
+    ax.boxplot(data, labels=nlabels,
+               widths=widths, whis=.95, boxprops=boxprops, whiskerprops=whiskerprops,
+               medianprops=medianprops, showmeans=True)
+
+    text = f'{int(100*perc_incr)}%'
+    if perc_incr > 0: text = '+'+text
+    ax.text(0.98, 0.98,text,
+            horizontalalignment='right',
+            verticalalignment='top',
+            transform = ax.transAxes,
+            fontsize=15)
+
+    if metric == 'corrcoef':
+        ax.set_ylim(0,1) ; steps = 1
+        yticks = np.round(np.arange(0,1.01,.2), 2)
+        ax.set_yticks(yticks[::steps])
+        ax.set_yticks(yticks, minor=True)
+        ax.tick_params(which='minor', length=0)
+        ax.set_yticklabels(yticks[::steps])
+    elif metric == 'mean_absolute_error':
+        yticks = np.round(np.arange(0,1.61,.2), 1)
+        ax.set_ylim(0,1.6) ; steps = 1
+        ax.set_yticks(yticks[::steps])
+        ax.set_yticks(yticks, minor=True)
+        ax.tick_params(which='minor', length=0)
+        ax.set_yticklabels(yticks[::steps])
+    else:
+        yticks = np.round(np.arange(-.4,1.1,.2), 1)
+        ax.set_ylim(-.4,1) ; steps = 1
+        ax.set_yticks(yticks[::steps])
+        ax.set_yticks(yticks, minor=True)
+        ax.tick_params(which='minor', length=0)
+        ax.set_yticklabels(yticks[::steps])
+        ax.axhline(y=0, color='black', linewidth=1)
+
+    ax.tick_params(which='both', grid_ls='-', grid_lw=1,width=1,
+                   labelsize=16, pad=6, color='black')
+    ax.grid(which='both', ls='--')
+    ax.set_ylabel(rename_m[metric], fontsize=18, labelpad=2)
+f.subplots_adjust(wspace=.3)
+filepath = os.path.join(rg.path_outsub1, 'Conditional forecast')
+f.savefig(filepath + rg.figext)
     #%%
     orientation = 'horizontal'
     alpha = .05
@@ -579,6 +674,7 @@ for match_lag in [True]:#[False, True]: #
     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
 
     f.savefig(fig_path, bbox_inches='tight')
+
 #%%
 import matplotlib.patches as mpatches
 from matplotlib.lines import Line2D
