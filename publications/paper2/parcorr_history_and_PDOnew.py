@@ -183,7 +183,7 @@ def get_lagged_ts(df_data, lag, keys=None):
     return df_lag[keys].rename({k:k+f'_{lag}' for k in keys}, axis=1), df_lagmask
 
 # exper = 'parcorr'
-lowpass = 0
+lowpass = 0.5
 if 'parcorr' == exper:
     # lowpass = float(exper.split('__')[1])
     func = parcorr_z
@@ -194,8 +194,8 @@ if 'parcorr' == exper:
                   'keys_ext':keys_ext,
                   'lag_z':1}
 
-    lowpass = 0.5 #!!!
-    keys_ext = ['PDO']
+    # lowpass = 0.5 #!!!
+    # keys_ext = ['PDO']
     rgPDO = RGCPD(list_of_name_path=list_of_name_path,
                   list_import_ts=[('PDO', z_filepath)],
                   start_end_TVdate=('05-01', '08-01'),
@@ -421,15 +421,15 @@ mpl.rcParams.update(mpl.rcParamsDefault)
 #%%
 
 
-rg.cluster_list_MI() ; rg.get_ts_prec() ;
-out = rg.fit_df_data_ridge()
+# rg.cluster_list_MI() ; rg.get_ts_prec() ;
+# out = rg.fit_df_data_ridge()
 
-s = 0
-X_pred = out[2]['lag_1'][f'split_{s}'].X_pred
-X_pred.index = df_prec.loc[s].index
-df = X_pred.merge(df_prec.loc[s], left_index=True, right_index=True)
-df = df.merge(PDO1.loc[s], left_index=True, right_index=True)
-df = rg.TV.RV_ts.merge(df, left_index=True, right_index=True)
+# s = 0
+# X_pred = out[2]['lag_1'][f'split_{s}'].X_pred
+# X_pred.index = df_prec.loc[s].index
+# df = X_pred.merge(df_prec.loc[s], left_index=True, right_index=True)
+# df = df.merge(PDO1.loc[s], left_index=True, right_index=True)
+# df = rg.TV.RV_ts.merge(df, left_index=True, right_index=True)
 
 
 
