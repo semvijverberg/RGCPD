@@ -316,7 +316,7 @@ min_detect_gc = 0.5
 save = True
 # Plot lag 0 and 1
 # subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
-title = '' ; hspace = .4
+title = '' ; hspace = .2
 if 'parcorr' == exper and west_east == 'east':
     z_ts = '$\overline{PDO_{t-1}}$'
     # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
@@ -335,7 +335,7 @@ elif exper == 'corr' and west_east == 'east':
     title0 = '\ \n\ ' + r'$corr(SST_{t},\ $'+'$RW^E_t\ )$'
     title1 = '\ \n\ ' + r'$corr(SST_{t-1},\ $'+'$RW^E_t\ )$'
     subtitles = np.array([[title0],[title1]])
-    append_str='' ; fontsize = 14 ; hspace = .4
+    append_str='' ; fontsize = 14 ; hspace = .2
 elif 'parcorrtime' in exper and west_east == 'east':
     if 'lag_y' not in list(kwrgs_func.keys()) and 'lag_x' in list(kwrgs_func.keys()):
         # regress out past precursor
