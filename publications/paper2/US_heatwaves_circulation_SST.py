@@ -43,11 +43,11 @@ if TV == 'init':
 elif TV == 'USCAnew':
     # mx2t 25N-70N
     TVpath = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tfreq15_nc7_dendo_57db0USCA.nc'
-    TVpath = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf15_nc8_dendo_57db0USCA.nc'
+    # TVpath = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW/one-point-corr_maps_clusters/tf15_nc8_dendo_57db0USCA.nc'
     if west_east == 'east':
         cluster_label = 4
     elif west_east == 'west':
-        cluster_label = 8
+        cluster_label = 1 # 8
     elif west_east == 'northwest':
         cluster_label = 7
 

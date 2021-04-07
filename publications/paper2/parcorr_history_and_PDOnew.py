@@ -42,7 +42,7 @@ import func_models as fc_utils
 
 
 expers = np.array(['parcorr',
-                   'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
+                   'parcorrtime_target', 'parcorrtime_precur', 'parcorrtime_both', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
 i_default = 0
@@ -194,7 +194,7 @@ if 'parcorr' == exper:
                   'keys_ext':keys_ext,
                   'lag_z':1}
 
-    lowpass = 0 #!!!
+    lowpass = 0.5 #!!!
     keys_ext = ['PDO']
     rgPDO = RGCPD(list_of_name_path=list_of_name_path,
                   list_import_ts=[('PDO', z_filepath)],
@@ -215,11 +215,11 @@ if 'parcorr' == exper:
     target = functions_pp.get_df_test(PDO1,
                                       df_splits=rgPDO.df_data[['TrainIsTrue']].loc[PDO1.index])
     PDO2, df_lagmask2 = get_lagged_ts(rgPDO.df_data.copy() , 2, keys_ext)
-    PDO3, df_lagmask3 = get_lagged_ts(rgPDO.df_data.copy() , 3, keys_ext)
+    # PDO3, df_lagmask3 = get_lagged_ts(rgPDO.df_data.copy() , 3, keys_ext)
     # PDO4, df_lagmask4 = get_lagged_ts(rgPDO.df_data.copy() , 4, keys_ext)
     # PDO5, df_lagmask5 = get_lagged_ts(rgPDO.df_data.copy() , 5, keys_ext)
     df_prec = PDO2 # AR1 model to predict PDO at lag 1 vs RW
-    df_prec = df_prec.merge(PDO3, left_index=True, right_index=True)
+    # df_prec = df_prec.merge(PDO3, left_index=True, right_index=True)
     # df_prec = df_prec.merge(PDO4, left_index=True, right_index=True)
     # df_prec = df_prec.merge(PDO5, left_index=True, right_index=True)
 
@@ -228,9 +228,9 @@ if 'parcorr' == exper:
                                   df_data = df_prec,
                                   tau_min=0, tau_max=0,
                                   kwrgs_model={'alphas':np.array([.01,.1,1,5,10])})
-    predict = out[0].rename({0:'AR3'}, axis=1)
+    predict = out[0].rename({0:'AR1'}, axis=1)
 
-    lowPDO, df_lagmask = get_lagged_ts(rgPDO.df_data.copy(), 2, ['PDO1.0rm'])
+    lowPDO, df_lagmask = get_lagged_ts(rgPDO.df_data.copy(), 1, ['PDO0.5rm'])
     # perPDO = rgPDO.df_data[keys_ext][persmask['x_fit']]
     # persPDO[persmask['x_fit']] = persPDO[persmask['x_fit']]
     # perPDO.index = rgPDO.df_data[rgPDO.df_data['RV_mask']].index
@@ -245,7 +245,8 @@ if 'parcorr' == exper:
                                                 fc_utils.metrics.mean_squared_error])[2]
     df_test = functions_pp.get_df_test(predict,
                                        df_splits=rgPDO.df_data.loc[predict.index][['TrainIsTrue', 'RV_mask']])
-    df_z = df_test[['AR3']]
+    df_z = df_test[['AR1']]
+    df_z = lowPDO
     # df_z = functions_pp.get_df_test(df_prec,
     #                                 df_splits=rgPDO.df_data.loc[predict.index][['TrainIsTrue', 'RV_mask']])
     # years = functions_pp.get_oneyr(df_z, *list(range(1980, 2020+1)))
@@ -258,20 +259,23 @@ if 'parcorr' == exper:
 
 #%%
 if 'parcorr' == exper:
-    lags = np.array([1])
-    PDO1, df_lagmask1 = get_lagged_ts(rgPDO.df_data.copy() , lags[0], keys_ext)
-    years = functions_pp.get_oneyr(df_lagmask1.loc[0], *list(range(1980, 2020+1)))
-    df_z.index = df_lagmask1.loc[0].loc[years][df_lagmask1.loc[0]['x_pred'].loc[years]].index
-    kwrgs_func = {'filepath':df_z,
-                  'lag_z':0}
+    # lags = np.array([1])
+    # PDO1, df_lagmask1 = get_lagged_ts(rgPDO.df_data.copy() , lags[0], keys_ext)
+    # years = functions_pp.get_oneyr(df_lagmask1.loc[0], *list(range(1980, 2020+1)))
+    # df_z.index = df_lagmask1.loc[0].loc[years][df_lagmask1.loc[0]['x_pred'].loc[years]].index
+    kwrgs_func = {'filepath':filepath_df_PDOs,
+                  'keys_ext':['PDO0.5rm'],
+                  'lag_z':1}
 elif exper == 'corr':
     func = corr_map
     kwrgs_func = {} ;
 elif 'parcorrtime' in exper:
     if exper.split('_')[1] == 'target':
-        kwrgs_func = {'lag_y':[1,2,3]}
+        kwrgs_func = {'lag_y':[1,2]}
     elif exper.split('_')[1] == 'precur':
-        kwrgs_func = {'lag_x':[1,2,3]}
+        kwrgs_func = {'lag_x':[1,2]}
+    elif exper.split('_')[1] == 'both':
+        kwrgs_func = {'lag_y':[1,2], 'lag_x':[1,2]}
     func = parcorr_map_time
 
 list_for_MI   = [BivariateMI(name='sst', func=func,
@@ -312,40 +316,59 @@ min_detect_gc = 0.5
 save = True
 # Plot lag 0 and 1
 # subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
-title = ''
-
+title = '' ; hspace = .4
 if 'parcorr' == exper and west_east == 'east':
-    title = r'$parcorr(SST_{t-1}, $'+r'$RW^E_t\ |\ \overline{PDO_{t-1}}$)'
+    title = r'$parcorr(SST_{t-1},\ $'+r'$RW^E_t\ |\ \overline{PDO_{t-1}}$)'
     subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
-    append_str=f'PDO_{lowpass}' ; fontsize = 14
+
+    tscol = ''.join(kwrgs_func['z'].columns)
+    kw = [k for k in kwrgs_func.keys() if k != 'z']
+    val = ''.join([str(kwrgs_func[k]) for k in kw])
+    append_str='parcorr_{}_{}_'.format(tscol, period) + ''.join(kw) + val
+    fontsize = 14
+
+
 elif exper == 'corr' and west_east == 'east':
-    title = '$corr(SST_{t-1},\ RW^E_t)$'
-    append_str='' ; fontsize = 14
+    title0 = '\ \n\ ' + r'$corr(SST_{t},\ $'+'$RW^E_t\ )$'
+    title1 = '\ \n\ ' + r'$corr(SST_{t-1},\ $'+'$RW^E_t\ )$'
+    subtitles = np.array([[title0],[title1]])
+    append_str='' ; fontsize = 14 ; hspace = .4
 elif 'parcorrtime' in exper and west_east == 'east':
     if 'lag_y' not in list(kwrgs_func.keys()) and 'lag_x' in list(kwrgs_func.keys()):
         # regress out past precursor
         z_ts = ', '.join([f'$SST_{{t-{l}}}$' for l in kwrgs_func['lag_x']])
-        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts + ')'
-        z_ts = ', '.join([f'$SST_{{t-{l}}}$' for l in kwrgs_func['lag_x']])
-        title1 = r'$parcorr(SST_{t-1}, $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        z_ts = ', '.join([f'$SST_{{t-{l+1}}}$' for l in kwrgs_func['lag_x']])
+        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
         subtitles = np.array([[title0],[title1]])
     elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' not in list(kwrgs_func.keys()):
         # regress out past target variable
         z_ts = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
-        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts + ')'
+        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
         z_ts = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
-        title1 = r'$parcorr(SST_{t-1}, $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        subtitles = np.array([[title0],[title1]])
+    elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' in list(kwrgs_func.keys()):
+        # regress out past target variable
+        z_tsy = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
+        z_tsx = ', '.join([f'$SST_{{t-{l}}}$' for l in kwrgs_func['lag_x']])
+        z_ts = z_tsy + ', ' + z_tsx
+        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        z_tsy = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
+        z_tsx = ', '.join([f'$SST_{{t-{l+1}}}$' for l in kwrgs_func['lag_x']])
+        z_ts = z_tsy + ', ' + z_tsx
+        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
         subtitles = np.array([[title0],[title1]])
     # else:
     #     title = r'$parcorr(SST_{t-lag}, $'+'$RW^E_t\ |\ $'+r'$SST_{t-lag-1},$'+'$RW^E_{t-1})$'
-    # kw = ''.join(list(kwrgs_func.keys())) + ''.join(np.array(list(kwrgs_func.values())).astype(str))
-    # append_str='parcorrtime_{}_'.format(period) + kw
-    append_str = 'parcorrtime_'
+    kw = [k for k in kwrgs_func.keys() if k != 'z']
+    val = ''.join([str(kwrgs_func[k]) for k in kwrgs_func.keys()])
+    append_str='parcorrtime_{}_'.format(period) + ''.join(kw) + val
     fontsize = 12
 
 
 kwrgs_plot = {'row_dim':'lag', 'col_dim':'split',
-              'aspect':2,  'hspace':.4, 'size':2.5, 'cbar_vert':-.02,
+              'aspect':2,  'hspace':hspace, 'size':2.5, 'cbar_vert':-.02,
               'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
               'map_proj':ccrs.PlateCarree(central_longitude=220),
               'y_ticks':np.array([-10,10,30,50]),
@@ -366,6 +389,7 @@ else:
                       kwrgs_plot=kwrgs_plot,
                       min_detect_gc=min_detect_gc,
                       append_str=append_str)
+
 #%% plot lag 1
 if exper == 'parcorrtime' and west_east == 'east':
     if kwrgs_func['target'] == False and kwrgs_func['precursor'] == True:

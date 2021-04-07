@@ -88,9 +88,9 @@ if __name__ == '__main__':
     seed = int(out[2])
     # remove_PDO = bool(int(out[3]))
     if target[-4:]=='temp':
-        tfreq = 15
+        tfreq = 2
     else:
-        tfreq = 60
+        tfreq = 2
     print(f'arg {args.intexper} f{out}')
 
 
@@ -173,17 +173,17 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            tfreq=tfreq,
            path_outmain=path_out_main)
 if rg.list_for_MI[0]._name == 'sst_corr_map':
-    title = r'$corr(SST_{t_{gap}}$' + f'$, T^{target[0].capitalize()}_t)$'
+    title = r'$corr(SST_{t-1}$' + f'$, T^{target[0].capitalize()}_t)$'
 else:
     title = r'$parcorr(SST_{t-lag}, mx2t_t\ |\ SST_{t-1},mx2t_{t-1})$'
-subtitles = np.array([[f'gap = {(l-1)*tfreq} days' for l in rg.list_for_MI[0].lags]]) #, f'lag 2 (15 day lead)']] )
-subtitles[0][0] = 'No gap'
+# subtitles = np.array([[f'gap = {(l-1)*tfreq} days' for l in rg.list_for_MI[0].lags]]) #, f'lag 2 (15 day lead)']] )
+# subtitles[0][0] = 'No gap'
 kwrgs_plotcorr = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
               'wspace':-.15, 'size':3, 'cbar_vert':-.1,
               'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
               'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
               'y_ticks':np.arange(-10,61,20), 'x_ticks':np.arange(140, 280, 25),
-              'subtitles':subtitles, 'title':title,
+              'title':title,
               'title_fontdict':{'fontsize':20, 'fontweight':'bold', 'y':1.07}}
 sst = rg.list_for_MI[0]
 
@@ -301,71 +301,6 @@ def merge_lagged_wrapper(df_data, lags, keys):
 
     return pd.concat(df_data_l, axis=1)
 
-def cond_forecast_table(df_test, df_forcings, score_func_list, n_boot=0):
-    quantiles = [.15, .25]
-    metricsused = np.array([m.__name__ for m in score_func_list])
-    forcings = df_forcings.columns
-    if forcings.size > 1: # loop over forcings
-        n_boot = 0
-        index_level1 = forcings
-
-    else:
-        index_level1 = np.arange(n_boot)
-    cond_df = np.zeros((metricsused.size, index_level1.size, len(quantiles)*2))
-    name_fc = 'test'
-    for i, met in enumerate(metricsused):
-        # j = 0
-        for j, col_forc in enumerate(forcings):
-            df_forcing = df_forcings[col_forc]
-
-            for k, l in enumerate(range(0,4,2)):
-                q = quantiles[k]
-                low = df_forcing < df_forcing.quantile(q)
-                high = df_forcing > df_forcing.quantile(1-q)
-                mask_anomalous = np.logical_or(low, high)
-                # anomalous Boundary forcing
-                condfc = df_test[mask_anomalous.values]
-                condfc = condfc.rename({'causal':name_fc}, axis=1)
-                cond_verif_tuple = fc_utils.get_scores(condfc,
-                                                       score_func_list=score_func_list,
-                                                       n_boot=n_boot,
-                                                       score_per_test=False,
-                                                       blocksize=1,
-                                                       rng_seed=seed)
-                df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
-                rg.cond_verif_tuple  = cond_verif_tuple
-                if forcings.size > 1:
-                    cond_df[i, j, l] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
-                else:
-                    cond_df[i, :, l] = df_boot[df_boot.columns[0][0]][met]
-                # mild boundary forcing
-                larger_low = df_forcing > df_forcing.quantile(.5-q)
-                smaller_high = df_forcing < df_forcing.quantile(.5+q)
-                mask_mild = np.logical_and(larger_low, smaller_high)
-
-                condfc = df_test[mask_mild.values]
-                condfc = condfc.rename({'causal':name_fc}, axis=1)
-                cond_verif_tuple = fc_utils.get_scores(condfc,
-                                                       score_func_list=score_func_list,
-                                                       n_boot=n_boot,
-                                                       score_per_test=False,
-                                                       blocksize=1,
-                                                       rng_seed=seed)
-                df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
-                if forcings.size > 1:
-                    cond_df[i, j, l+1] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
-                else:
-                    cond_df[i, :, l+1] = df_boot[df_boot.columns[0][0]][met]
-
-    columns = [[f'strong {int(q*200)}%', f'weak {int(q*200)}%'] for q in quantiles]
-    df_cond_fc = pd.DataFrame(cond_df.reshape((len(metricsused)*index_level1.size, -1)),
-                              index=pd.MultiIndex.from_product([list(metricsused), index_level1]),
-                              columns=functions_pp.flatten(columns))
-
-
-    return df_cond_fc
-
-
 def prediction_wrapper(df_data, lags, target_ts=None, keys: list=None, match_lag: bool=False,
                        n_boot: int=1):
 
@@ -438,7 +373,7 @@ keys = [k for k in y_keys if int(k.split('..')[1]) in region_labels]
 # =============================================================================
 # out_regr2PDO = prediction_wrapper(df_data_r2PDO.copy(), keys=keys,
 #                                  match_lag=match_lag, n_boot=n_boot)
-dates = core_pp.get_subdates(rg.dates_TV, start_end_year=(1979,2020))
+dates = core_pp.get_subdates(rg.dates_TV, start_end_year=(1980,2020))
 target_ts_temp = rg.TV.RV_ts.loc[dates]
 clim_mean_temp = float(target_ts_temp.mean())
 RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=clim_mean_temp).RMSE
@@ -462,7 +397,43 @@ SST2 = prediction_wrapper(df_prec, lags=np.array([0]),
                           match_lag=False, n_boot=n_boot)
 
 keys3 = core_pp.flatten([[k+f'_{l}' for l in [1,2,3] for k in keys]])
-SST3 = prediction_wrapper(df_prec, lags=np.array([0,1]),
+SST3 = prediction_wrapper(df_prec, lags=np.array([0]),
+                          target_ts=target_ts_temp,
+                          keys=keys3,
+                          match_lag=False, n_boot=n_boot)
+
+
+#%%
+# =============================================================================
+# PDO predictions
+# =============================================================================
+keys = ['PDO']
+
+dates = core_pp.get_subdates(rg.dates_TV, start_end_year=(1980,2020))
+target_ts_temp = rg.TV.RV_ts.loc[dates]
+clim_mean_temp = float(target_ts_temp.mean())
+RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=clim_mean_temp).RMSE
+MAE_SS = fc_utils.ErrorSkillScore(constant_bench=clim_mean_temp).MAE
+score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS, fc_utils.metrics.mean_absolute_error]
+# predictions temp using SST regions
+df_prec = merge_lagged_wrapper(rg.df_data.copy() , [1,2,3], keys)
+df_prec = df_prec.loc[pd.IndexSlice[:, dates], :]
+df_prec = df_prec.merge(rg.df_splits.loc[pd.IndexSlice[:, dates], :], left_index=True, right_index=True)
+
+keys1 = core_pp.flatten([[k+f'_{l}' for l in [1] for k in keys]])
+PDO1 = prediction_wrapper(df_prec, lags=np.array([0]),
+                          target_ts=target_ts_temp,
+                          keys=keys1,
+                          match_lag=False, n_boot=n_boot)
+
+keys2 = core_pp.flatten([[k+f'_{l}' for l in [1,2] for k in keys]])
+PDO2 = prediction_wrapper(df_prec, lags=np.array([0]),
+                          target_ts=target_ts_temp,
+                          keys=keys2,
+                          match_lag=False, n_boot=n_boot)
+
+keys3 = core_pp.flatten([[k+f'_{l}' for l in [1,2,3] for k in keys]])
+PDO3 = prediction_wrapper(df_prec, lags=np.array([0]),
                           target_ts=target_ts_temp,
                           keys=keys3,
                           match_lag=False, n_boot=n_boot)
