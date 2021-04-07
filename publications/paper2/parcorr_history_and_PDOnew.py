@@ -271,11 +271,11 @@ elif exper == 'corr':
     kwrgs_func = {} ;
 elif 'parcorrtime' in exper:
     if exper.split('_')[1] == 'target':
-        kwrgs_func = {'lag_y':[1,2]}
+        kwrgs_func = {'lag_y':[1]}
     elif exper.split('_')[1] == 'precur':
-        kwrgs_func = {'lag_x':[1,2]}
+        kwrgs_func = {'lag_x':[1]}
     elif exper.split('_')[1] == 'both':
-        kwrgs_func = {'lag_y':[1,2], 'lag_x':[1,2]}
+        kwrgs_func = {'lag_y':[1], 'lag_x':[1]}
     func = parcorr_map_time
 
 list_for_MI   = [BivariateMI(name='sst', func=func,
