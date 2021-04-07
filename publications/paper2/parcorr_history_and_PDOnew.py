@@ -304,7 +304,7 @@ rg.pp_precursors()
 rg.traintest('random_10')
 
 rg.calc_corr_maps()
-
+precur = rg.list_for_MI[0]
 #%%
 import matplotlib
 # Optionally set font to Computer Modern to avoid common missing font errors
@@ -318,11 +318,14 @@ save = True
 # subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
 title = '' ; hspace = .4
 if 'parcorr' == exper and west_east == 'east':
-    title = r'$parcorr(SST_{t-1},\ $'+r'$RW^E_t\ |\ \overline{PDO_{t-1}}$)'
-    subtitles = np.array([['lag 0'], [f'lag 1 ({1*rg.tfreq} days)']] )
-
-    tscol = ''.join(kwrgs_func['z'].columns)
-    kw = [k for k in kwrgs_func.keys() if k != 'z']
+    z_ts = '$\overline{PDO_{t-1}}$'
+    # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+    title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+    z_ts = '$\overline{PDO_{t-2}}$'
+    title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+    subtitles = np.array([[title0],[title1]])
+    tscol = ''.join(precur.kwrgs_func['z'].columns)
+    kw = [k for k in precur.kwrgs_func.keys() if k != 'z']
     val = ''.join([str(kwrgs_func[k]) for k in kw])
     append_str='parcorr_{}_{}_'.format(tscol, period) + ''.join(kw) + val
     fontsize = 14
@@ -337,27 +340,30 @@ elif 'parcorrtime' in exper and west_east == 'east':
     if 'lag_y' not in list(kwrgs_func.keys()) and 'lag_x' in list(kwrgs_func.keys()):
         # regress out past precursor
         z_ts = ', '.join([f'$SST_{{t-{l}}}$' for l in kwrgs_func['lag_x']])
-        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
         z_ts = ', '.join([f'$SST_{{t-{l+1}}}$' for l in kwrgs_func['lag_x']])
-        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
         subtitles = np.array([[title0],[title1]])
     elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' not in list(kwrgs_func.keys()):
         # regress out past target variable
         z_ts = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
-        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
         z_ts = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
-        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
         subtitles = np.array([[title0],[title1]])
     elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' in list(kwrgs_func.keys()):
         # regress out past target variable
         z_tsy = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
         z_tsx = ', '.join([f'$SST_{{t-{l}}}$' for l in kwrgs_func['lag_x']])
         z_ts = z_tsy + ', ' + z_tsx
-        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
         z_tsy = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
         z_tsx = ', '.join([f'$SST_{{t-{l+1}}}$' for l in kwrgs_func['lag_x']])
         z_ts = z_tsy + ', ' + z_tsx
-        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
         subtitles = np.array([[title0],[title1]])
     # else:
     #     title = r'$parcorr(SST_{t-lag}, $'+'$RW^E_t\ |\ $'+r'$SST_{t-lag-1},$'+'$RW^E_{t-1})$'
@@ -391,15 +397,15 @@ else:
                       append_str=append_str)
 
 #%% plot lag 1
-if exper == 'parcorrtime' and west_east == 'east':
-    if kwrgs_func['target'] == False and kwrgs_func['precursor'] == True:
-        title = r'$parcorr(SST_{t-1},\ RW^E_t\ |\ SST_{t-2})$'
-    elif kwrgs_func['target'] == True and kwrgs_func['precursor'] == False:
-        title = r'$parcorr(SST_{t-1},\ RW^E_t\ |\ RW^E_{t-1})$'
-    else:
-        title = r'$parcorr(SST_{t-1},\ RW^E_t\ |\ SST_{t-2}, RW^E_{t-1})$'
+# if exper == 'parcorrtime' and west_east == 'east':
+#     if kwrgs_func['target'] == False and kwrgs_func['precursor'] == True:
+#         title = r'$parcorr(SST_{t-1},\ RW^E_t\ |\ SST_{t-2})$'
+#     elif kwrgs_func['target'] == True and kwrgs_func['precursor'] == False:
+#         title = r'$parcorr(SST_{t-1},\ RW^E_t\ |\ RW^E_{t-1})$'
+#     else:
+#         title = r'$parcorr(SST_{t-1},\ RW^E_t\ |\ SST_{t-2}, RW^E_{t-1})$'
 
-kwrgs_plot['subtitles'] = np.array([['']])
+kwrgs_plot['subtitles'] = subtitles[[1]]
 kwrgs_plot['cbar_vert'] = -.1
 kwrgs_plot['title'] = title
 kwrgs_plot['title_fontdict'] = {'y':1,'fontsize':fontsize, 'fontweight':'bold'}
