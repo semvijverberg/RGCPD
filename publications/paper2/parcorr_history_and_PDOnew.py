@@ -110,7 +110,7 @@ cluster_label = '' # 'z500'
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 start_end_date = ('1-1', start_end_TVdate[-1])
-filepath_df_PDOs = os.path.join(path_data, 'df_PDOs.h5')
+filepath_df_PDOs = os.path.join(path_data, 'df_PDOs_monthly.h5')
 
 #%% Get PDO and apply low-pass filter
 if 'parcorr' == exper:
