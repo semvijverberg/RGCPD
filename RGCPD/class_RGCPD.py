@@ -302,11 +302,6 @@ class RGCPD:
         self.dates_or  = pd.to_datetime(self.fulltso.time.values)
         self.dates_all = pd.to_datetime(self.fullts.time.values)
         self.dates_TV = pd.to_datetime(self.TV_ts.time.values)
-        # if self.start_end_date is None and self.input_freq != 'annual':
-        #     self.start_end_date = ('{}-{}'.format(self.dates_or.month[0],
-        #                                          self.dates_or[0].day),
-        #                            '{}-{}'.format(self.dates_or.month[-1],
-        #                                          self.dates_or[-1].day))
         if self.start_end_year is None:
             self.start_end_year = (self.dates_or.year[0],
                                    self.dates_or.year[-1])
@@ -799,8 +794,9 @@ class RGCPD:
         min_d = round(n_splits * (1- min_detect),0)
         # 1 == non-significant, 0 == significant
         if mask is None:
-            mask = ~np.isnan(xr_in)
-        mask = (mask).sum(dim='split') > min_d
+            mask = np.isnan(xr_in) # NaN = True = 1 = non-sign
+        # if vals == n_splits, never significant. Only vals below min_d sign
+        mask = (mask).sum(dim='split') < min_d
         xr_in = xr_in.mean(dim='split')
         if min_detect<.1 or min_detect>1.:
             raise ValueError( 'give value between .1 en 1.0')

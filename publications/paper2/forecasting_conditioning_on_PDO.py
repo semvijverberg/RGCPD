@@ -130,7 +130,7 @@ elif period == 'JJA_center':
 
 precur_aggr = tfreq
 method     = 'ranstrat_10' ;
-n_boot = 5000
+n_boot = 2000
 min_detect_gc = 0.9
 append_main = ''
 # name_csv = f'skill_scores_tf{tfreq}.csv'
@@ -327,14 +327,14 @@ def cond_forecast_table(df_test, df_forcings, score_func_list, n_boot=0):
                 # anomalous Boundary forcing
                 condfc = df_test[mask_anomalous.values]
                 condfc = condfc.rename({'causal':name_fc}, axis=1)
-                cond_verif_tuple = fc_utils.get_scores(condfc,
+                cond_verif_tuple_ano = fc_utils.get_scores(condfc,
                                                        score_func_list=score_func_list,
                                                        n_boot=n_boot,
                                                        score_per_test=False,
                                                        blocksize=1,
                                                        rng_seed=seed)
-                df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
-                rg.cond_verif_tuple  = cond_verif_tuple
+                df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple_ano
+                rg.cond_verif_tuple_ano  = cond_verif_tuple_ano
                 if forcings.size > 1:
                     cond_df[i, j, l] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
                 else:
@@ -346,13 +346,14 @@ def cond_forecast_table(df_test, df_forcings, score_func_list, n_boot=0):
 
                 condfc = df_test[mask_mild.values]
                 condfc = condfc.rename({'causal':name_fc}, axis=1)
-                cond_verif_tuple = fc_utils.get_scores(condfc,
+                cond_verif_tuple_mild = fc_utils.get_scores(condfc,
                                                        score_func_list=score_func_list,
                                                        n_boot=n_boot,
                                                        score_per_test=False,
                                                        blocksize=1,
                                                        rng_seed=seed)
-                df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
+                df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple_mild
+                rg.cond_verif_tuple_mild = cond_verif_tuple_mild
                 if forcings.size > 1:
                     cond_df[i, j, l+1] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
                 else:
@@ -489,7 +490,7 @@ outPDOtemp = prediction_wrapper(df_precPDOs, lags=np.array([0]),
 
 # predictions PDO using PDO
 target_PDO = functions_pp.get_df_test(rg.df_data.copy()[['PDO', 'TrainIsTrue']])[['PDO']]
-df_precPDOs = merge_lagged_wrapper(rg.df_data.copy() , [1], ['PDO0.5rm'])
+df_precPDOs = merge_lagged_wrapper(rg.df_data.copy() , [1], ['PDO'])
 dates = core_pp.get_subdates(rg.dates_TV, start_end_year=(1980,2020))
 df_precPDOs = df_precPDOs.loc[pd.IndexSlice[:, dates], :]
 df_precPDOs = df_precPDOs.merge(rg.df_splits.loc[pd.IndexSlice[:, dates], :], left_index=True, right_index=True)
@@ -507,7 +508,8 @@ df_forcings = outPDO[1].rename({0:'PDO_1fc'}, axis=1).merge(df_forcings, left_in
 df_forcings = out[1][[0]].rename({0:'sst_fc'}, axis=1).merge(df_forcings, left_index=True, right_index=True)
 
 
-
+df_cond_all = cond_forecast_table(out[1], df_forcings,
+                              score_func_list, n_boot=0)
 
 
 #%%
@@ -536,7 +538,10 @@ def boxplot_cond_fc(df_cond, col, composites = 30):
 
         nlabels = plot_cols.copy() ; widths=(.5,.5)
         nlabels = [l.split(' ')[0] for l in nlabels]
-        nlabels = [l.capitalize() + ' PDO' for l in nlabels]
+        if col == 'PDO0.5rm':
+            nlabels = [l.capitalize() + '\nwinter PDO' for l in nlabels]
+        else:
+            nlabels = [l.capitalize() + ' \nPDO state' for l in nlabels]
 
         boxprops = dict(linewidth=2.0, color='black')
         whiskerprops = dict(linestyle='-',linewidth=2.0, color='black')
@@ -582,21 +587,35 @@ def boxplot_cond_fc(df_cond, col, composites = 30):
         ax.set_ylabel(rename_m[metric], fontsize=18, labelpad=2)
     f.subplots_adjust(wspace=.3)
     filepath = os.path.join(rg.path_outsub1, f'Conditional_forecast_{col}_{composites}')
-    f.savefig(filepath + rg.figext)
+    f.savefig(filepath + rg.figext, bbox_inches='tight')
 
 #%% PDO_1fc forecast
 col = 'PDO_1fc'
 df_cond = cond_forecast_table(out[1], df_forcings[[col]],
                               score_func_list, n_boot=2000)
 boxplot_cond_fc(df_cond, col, composites = 30)
+boxplot_cond_fc(df_cond, col, composites = 50)
 #%% PDO half year rolling mean
 col = 'PDO0.5rm'
 df_rm = df_PDOs[[col]][df_PDOs.index.month == 6]
 df_rm = df_rm.loc[core_pp.get_oneyr(df_rm, *list(range(1980,2021)))]
-df_cond = cond_forecast_table(out[1], df_rm,
+df_cond_rm = cond_forecast_table(out[1], df_rm,
                               score_func_list, n_boot=2000)
-boxplot_cond_fc(df_cond, col, composites = 50)
+boxplot_cond_fc(df_cond_rm, col, composites = 30)
+boxplot_cond_fc(df_cond_rm, col, composites = 50)
+#%%
 
+col = 'PDO_1'
+df_cond = cond_forecast_table(out[1], df_forcings[[col]],
+                              score_func_list, n_boot=2000)
+boxplot_cond_fc(df_cond, col, composites = 30)
+boxplot_cond_fc(df_cond, col, composites = 50)
+#%%
+col = 'sst_fc'
+df_cond = cond_forecast_table(out[1], df_forcings[[col]],
+                              score_func_list, n_boot=2000)
+boxplot_cond_fc(df_cond, col, composites = 30)
+boxplot_cond_fc(df_cond, col, composites = 50)
     #%%
 
 

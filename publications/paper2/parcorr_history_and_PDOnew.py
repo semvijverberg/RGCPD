@@ -45,7 +45,7 @@ expers = np.array(['parcorr',
                    'parcorrtime_target', 'parcorrtime_precur', 'parcorrtime_both', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 0
+i_default = 1
 
 def parseArguments():
     # Create argument parser
@@ -347,20 +347,20 @@ elif 'parcorrtime' in exper and west_east == 'east':
         subtitles = np.array([[title0],[title1]])
     elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' not in list(kwrgs_func.keys()):
         # regress out past target variable
-        z_ts = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
+        z_ts = ', '.join([f'$RW^E_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
         # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
         title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
-        z_ts = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
+        z_ts = ', '.join([f'$RW^E_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
         title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
         subtitles = np.array([[title0],[title1]])
     elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' in list(kwrgs_func.keys()):
         # regress out past target variable
-        z_tsy = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
+        z_tsy = ', '.join([f'$RW^E_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
         z_tsx = ', '.join([f'$SST_{{t-{l}}}$' for l in kwrgs_func['lag_x']])
         z_ts = z_tsy + ', ' + z_tsx
         # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
         title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
-        z_tsy = ', '.join([f'$RW_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
+        z_tsy = ', '.join([f'$RW^E_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
         z_tsx = ', '.join([f'$SST_{{t-{l+1}}}$' for l in kwrgs_func['lag_x']])
         z_ts = z_tsy + ', ' + z_tsx
         title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'

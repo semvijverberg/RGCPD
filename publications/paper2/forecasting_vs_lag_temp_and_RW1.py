@@ -60,9 +60,9 @@ import wrapper_PCMCI as wPCMCI
 
 
 # if region == 'eastern':
-targets = ['easterntemp', 'westerntemp']
+targets = ['easterntemp']#, 'westerntemp']
 
-periods = ['JA_center', 'JA_shiftright', 'JA_shiftleft', 'JJA_center']
+periods = ['JA_center']#, 'JA_shiftright', 'JA_shiftleft', 'JJA_center']
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, periods, seeds)).T.reshape(-1,3)
 
@@ -128,8 +128,8 @@ elif period == 'JJA_center':
     start_end_TVdate = ('07-01', '08-31')
 
 precur_aggr = tfreq
-method     = 'ranstrat_10' ; seed = 1
-n_boot = 5000
+method     = 'ranstrat_10' ;
+n_boot = 0
 min_detect_gc = 0.9
 append_main = ''
 # name_csv = f'skill_scores_tf{tfreq}.csv'
@@ -198,7 +198,7 @@ if len(kwrgs_MI) != 0:
 rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=True, kwrgs_core_pp_time={'dailytomonths':True})
 
 subfoldername = '_'.join(['vs_lags',rg.hash, period,
-                      str(precur_aggr), str(alpha_corr), method,
+                      str(precur_aggr), str(alpha_corr).split('.')[1], method,
                       str(seed)])
 
 rg.pp_precursors()
@@ -337,6 +337,11 @@ def prediction_wrapper(df_data, lags, target_ts=None, keys: list=None, match_lag
                                                              n_boot = n_boot,
                                                              blocksize=blocksize,
                                                              rng_seed=1)
+    index = np.unique(core_pp.flatten([k.split('_') for k in  keys]))
+    AR = [l for l in index if '..' not in l]
+    AR = [l for l in AR if 'PDO' not in l]
+    index = [k for k in index if k not in AR]
+    df_test_m.index = ['AR' + ''.join(AR) +'_'+'_'.join(index)]
     n_splits = df_data.index.levels[0].size # test for high alpha
     for col in df_test_m.columns.levels[0]:
         cvfitalpha = [models_lags[f'lag_{col}'][f'split_{s}'].alpha_ for s in range(n_splits)]
@@ -356,10 +361,7 @@ def prediction_wrapper(df_data, lags, target_ts=None, keys: list=None, match_lag
 
 
 no_info_fc = []
-if precur_aggr <= 15:
-    blocksize=2
-else:
-    blocksize=1
+blocksize=1
 
 region_labels = [1, 2]
 rename_labels_d = {'1..1..sst': 'mid-Pacific (label 1)',
@@ -438,289 +440,305 @@ PDO3 = prediction_wrapper(df_prec, lags=np.array([0]),
                           keys=keys3,
                           match_lag=False, n_boot=n_boot)
 
-    #%%
-orientation = 'horizontal'
-alpha = .05
-metrics_cols = ['corrcoef', 'RMSE']
+df_sum = pd.concat([SST1[2], SST2[2], SST3[2],
+                    PDO1[2], PDO2[2], PDO3[2]])[0]
+
 rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
             'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
-if orientation=='vertical':
-    f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
-                     sharex=True) ;
-else:
-    f, ax = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
-                     sharey=False) ;
-c1, c2 = '#3388BB', '#EE6666'
-for i, m in enumerate(metrics_cols):
-    labels = [str((l-1)*tfreq) if l != 0 else 'No gap' for l in lags]
-    # normal SST
-    ax[i].plot(labels, SST1[2].reorder_levels((1,0), axis=1).loc[0][m].T,
-            label=f'${target[7].capitalize()}^{target[0].capitalize()}:$'+r'$ SST_{t-1}$',
-            color=c2,
-            linestyle='solid')
-    ax[i].fill_between(labels,
-                    SST1[3].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                    SST1[3].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-                    edgecolor=c2, facecolor=c2, alpha=0.3,
-                    linestyle='solid', linewidth=2)
-    # Regress out PDO 2yr
-    ax[i].plot(labels, scores_rPDO2.reorder_levels((1,0), axis=1).loc[0][m].T,
-            label=f'${target[7].capitalize()}^{target[0].capitalize()}:$'+r' $SST$ $\vert$ $\overline{PDO}$',#'\ \left(2yr \right)$',
-            color=c1,
-            linestyle='-.') ;
-    ax[i].fill_between(labels,
-                    out_regr2PDO[3].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                    out_regr2PDO[3].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-                    edgecolor=c1, facecolor=c1, alpha=0.3,
-                    linestyle='dashed', linewidth=2)
-    # low-pass filtered SST timeseries
-    # ax[i].plot(labels, out_lwp[2].reorder_levels((1,0), axis=1).loc[0][m].T,
-    #         label=f'${target[7].capitalize()}^{target[0].capitalize()}:$'+r' $\overline{SST}_{lowpass\ seasonal}$',
-    #         color='green',
-    #         linestyle='dashed') ;
-    # ax[i].fill_between(labels,
-    #                 out_lwp[3].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-    #                 out_lwp[3].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-    #                 edgecolor='grey', facecolor='grey', alpha=0.3,
-    #                 linestyle='solid', linewidth=2)
+df_sum = df_sum.rename(rename_m, axis=1)
+
+csv_filename = os.path.join(rg.path_outsub1, 'AR_models.csv')
+df_sum.to_csv(csv_filename)
 
 
-    if m == 'corrcoef':
-        ax[i].set_ylim(-.3,.6)
-    else:
-        ax[i].set_ylim(-.15,.35)
-    ax[i].axhline(y=0, color='black', linewidth=1)
-    ax[i].tick_params(labelsize=16)
-    if i == len(metrics_cols)-1 and orientation=='vertical':
-        ax[i].set_xlabel('Lead time defined as gap [days]', fontsize=18)
-    else:
-        ax[i].set_xlabel('Lead time defined as gap [days]', fontsize=18)
-    if i == 0:
-        ax[i].legend(loc='lower right', fontsize=14)
-    if target == 'westerntemp' or orientation == 'horizontal':
-        ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
+
+#     #%%
+# orientation = 'horizontal'
+# alpha = .05
+# metrics_cols = ['corrcoef', 'RMSE']
 
 
-f.subplots_adjust(hspace=.1)
-f.subplots_adjust(wspace=.2)
-title = f'{precur_aggr}-day mean ${target[7].capitalize()}^{target[0].capitalize()}$ prediction'
-if orientation == 'vertical':
-    f.suptitle(title, y=.92, fontsize=18)
-else:
-    f.suptitle(title, y=.95, fontsize=18)
-f_name = 'fc_{}_a{}'.format(sst._name,
-                              sst.alpha) + '_' + \
-                             f'matchlag{match_lag}_nb{n_boot}' + \
-                             f'{method}_{append_str}_{lwp_method}_{lowpass}'
-fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
-
-f.savefig(fig_path, bbox_inches='tight')
-
-#%%
-import matplotlib.patches as mpatches
-from matplotlib.lines import Line2D
-from matplotlib import gridspec
-# import datetime
 
 
-def plot_date_years(ax, dates, years, fontsize=12):
-    minor = np.arange(len(y_true.dropna()))
-    step = int(dates.year.size /np.unique(dates.year).size)
-    major = [i for i in minor[::step] if dates[i].year in years]
-    ax.set_xticks(np.arange(len(dates)), minor=True)
-    ax.set_xticks(major)
-    ax.set_xticklabels(years, fontsize=fontsize);
+# if orientation=='vertical':
+#     f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
+#                      sharex=True) ;
+# else:
+#     f, ax = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
+#                      sharey=False) ;
+# c1, c2 = '#3388BB', '#EE6666'
+# for i, m in enumerate(metrics_cols):
+#     labels = [str((l-1)*tfreq) if l != 0 else 'No gap' for l in lags]
+#     # normal SST
+#     ax[i].plot(labels, SST1[2].reorder_levels((1,0), axis=1).loc[0][m].T,
+#             label=f'${target[7].capitalize()}^{target[0].capitalize()}:$'+r'$ SST_{t-1}$',
+#             color=c2,
+#             linestyle='solid')
+#     ax[i].fill_between(labels,
+#                     SST1[3].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+#                     SST1[3].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+#                     edgecolor=c2, facecolor=c2, alpha=0.3,
+#                     linestyle='solid', linewidth=2)
+#     # Regress out PDO 2yr
+#     ax[i].plot(labels, scores_rPDO2.reorder_levels((1,0), axis=1).loc[0][m].T,
+#             label=f'${target[7].capitalize()}^{target[0].capitalize()}:$'+r' $SST$ $\vert$ $\overline{PDO}$',#'\ \left(2yr \right)$',
+#             color=c1,
+#             linestyle='-.') ;
+#     ax[i].fill_between(labels,
+#                     out_regr2PDO[3].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+#                     out_regr2PDO[3].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+#                     edgecolor=c1, facecolor=c1, alpha=0.3,
+#                     linestyle='dashed', linewidth=2)
+#     # low-pass filtered SST timeseries
+#     # ax[i].plot(labels, out_lwp[2].reorder_levels((1,0), axis=1).loc[0][m].T,
+#     #         label=f'${target[7].capitalize()}^{target[0].capitalize()}:$'+r' $\overline{SST}_{lowpass\ seasonal}$',
+#     #         color='green',
+#     #         linestyle='dashed') ;
+#     # ax[i].fill_between(labels,
+#     #                 out_lwp[3].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+#     #                 out_lwp[3].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+#     #                 edgecolor='grey', facecolor='grey', alpha=0.3,
+#     #                 linestyle='solid', linewidth=2)
 
 
-lag = 3
-normal = out[1][lag]
-fc_lwp = out_lwp[1][lag]
-y_true = out_lwp[1]['2ts']
-df_PDOraw = df_PDOsplit[['PDO']].copy()
-df_PDOraw['year'] = df_PDOraw.index.year
-_d = y_true.index
-# nonsummer_d = rg.df_data.loc[0]['RV_mask'][~rg.df_data.loc[0]['RV_mask']]
-lowpass_cond_fc = 1
+#     if m == 'corrcoef':
+#         ax[i].set_ylim(-.3,.6)
+#     else:
+#         ax[i].set_ylim(-.15,.35)
+#     ax[i].axhline(y=0, color='black', linewidth=1)
+#     ax[i].tick_params(labelsize=16)
+#     if i == len(metrics_cols)-1 and orientation=='vertical':
+#         ax[i].set_xlabel('Lead time defined as gap [days]', fontsize=18)
+#     else:
+#         ax[i].set_xlabel('Lead time defined as gap [days]', fontsize=18)
+#     if i == 0:
+#         ax[i].legend(loc='lower right', fontsize=14)
+#     if target == 'westerntemp' or orientation == 'horizontal':
+#         ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
 
 
-df_PDOplotlw = df_PDOs[f'PDO{lowpass_cond_fc}bw'].loc[_d - pd.Timedelta('0d')]
-# df_PDOnonsummer = df_PDOs[f'PDO{lowpass_cond_fc}bw'].loc[nonsummer_d.index]
-df_PDOnonsummer = df_PDOs[f'PDO{lowpass_cond_fc}bw']
-# yrmeanPDO = df_PDOnonsummer.groupby(df_PDOnonsummer.index.year).mean()
-yrmeanPDO = df_PDOraw.shift(-184-30).dropna().groupby('year').mean()
-yrmeanPDO.index = yrmeanPDO.index.astype(int)
-years = yrmeanPDO.abs() > yrmeanPDO.std()
-dates_strPDO = pd.to_datetime([d for d in _d if bool(years.loc[d.year].values)])
-mask = pd.Series(np.zeros(_d.size), index=_d, dtype=bool)
-mask.loc[dates_strPDO] = True
+# f.subplots_adjust(hspace=.1)
+# f.subplots_adjust(wspace=.2)
+# title = f'{precur_aggr}-day mean ${target[7].capitalize()}^{target[0].capitalize()}$ prediction'
+# if orientation == 'vertical':
+#     f.suptitle(title, y=.92, fontsize=18)
+# else:
+#     f.suptitle(title, y=.95, fontsize=18)
+# f_name = 'fc_{}_a{}'.format(sst._name,
+#                               sst.alpha) + '_' + \
+#                              f'matchlag{match_lag}_nb{n_boot}' + \
+#                              f'{method}_{append_str}_{lwp_method}_{lowpass}'
+# fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
+
+# f.savefig(fig_path, bbox_inches='tight')
 
 
-c1, c2 = '#3388BB', '#EE6666'
-# f, ax = plt.subplots(2,1, figsize=(10, 8), sharex=False,
-#                      width_ratios=[3,5],
-#                      height_ratios=[1,1])
-fig = plt.figure(figsize=(10, 8))
-gs = gridspec.GridSpec(2, 1, height_ratios=[3, 5])
-facecolor='grey'
-ax0 = plt.subplot(gs[1], facecolor=facecolor)
-ax0.patch.set_alpha(0.2)
-ax1 = plt.subplot(gs[0], facecolor=facecolor)
-ax1.patch.set_alpha(0.2)
-ax0.plot(normal.values, color=c2, linestyle='--', lw=2.5,
-         label=f'${target[7].capitalize()}^{target[0].capitalize()}:\ SST$')
-ax0.plot(y_true.values, color='black', linestyle='solid', lw=1,
-         label=f'${target[7].capitalize()}^{target[0].capitalize()}$ observed', alpha=.8)
-# ax0.plot(fc_lwp.values, color='green',linestyle='dashed',
-#          label=f'${target[0].capitalize()}$-${target[7].capitalize()}:$'+r' $\overline{SST}_{lowpass\ seasonal}$')
-ax0.fill_between(range(y_true.index.size), normal.values,
-                   where=mask, color='lightblue', alpha=1)
-legend1 = ax0.legend(loc='lower left', fontsize=14, frameon=True)
-ax0.add_artist(legend1)
-ax0.set_ylim(-3,3)
-ax0.margins(x=.05) ; ax1.margins(x=.05)
 
-# skill score 1
-SS_normal = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).MAE(y_true, normal)
-SS_strong = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).MAE(y_true[mask], normal[mask])
-patch = mpatches.Patch(edgecolor=c2, facecolor='lightblue',linewidth=2, linestyle='dashed',
-                           label='MAE-SS {:.2f}'.format(SS_strong))
-line = Line2D([0], [0], color=c2, lw=2,ls='dashed',
-                  label='MAE-SS {:.2f}'.format(SS_normal))
-legend2 = ax0.legend(loc='upper center', handles=[patch, line], fontsize=14,
-                     frameon=True)
+# #%%
+# import matplotlib.patches as mpatches
+# from matplotlib.lines import Line2D
+# from matplotlib import gridspec
+# # import datetime
+
+
+# def plot_date_years(ax, dates, years, fontsize=12):
+#     minor = np.arange(len(y_true.dropna()))
+#     step = int(dates.year.size /np.unique(dates.year).size)
+#     major = [i for i in minor[::step] if dates[i].year in years]
+#     ax.set_xticks(np.arange(len(dates)), minor=True)
+#     ax.set_xticks(major)
+#     ax.set_xticklabels(years, fontsize=fontsize);
+
+
+# lag = 3
+# normal = out[1][lag]
+# fc_lwp = out_lwp[1][lag]
+# y_true = out_lwp[1]['2ts']
+# df_PDOraw = df_PDOsplit[['PDO']].copy()
+# df_PDOraw['year'] = df_PDOraw.index.year
+# _d = y_true.index
+# # nonsummer_d = rg.df_data.loc[0]['RV_mask'][~rg.df_data.loc[0]['RV_mask']]
+# lowpass_cond_fc = 1
+
+
+# df_PDOplotlw = df_PDOs[f'PDO{lowpass_cond_fc}bw'].loc[_d - pd.Timedelta('0d')]
+# # df_PDOnonsummer = df_PDOs[f'PDO{lowpass_cond_fc}bw'].loc[nonsummer_d.index]
+# df_PDOnonsummer = df_PDOs[f'PDO{lowpass_cond_fc}bw']
+# # yrmeanPDO = df_PDOnonsummer.groupby(df_PDOnonsummer.index.year).mean()
+# yrmeanPDO = df_PDOraw.shift(-184-30).dropna().groupby('year').mean()
+# yrmeanPDO.index = yrmeanPDO.index.astype(int)
+# years = yrmeanPDO.abs() > yrmeanPDO.std()
+# dates_strPDO = pd.to_datetime([d for d in _d if bool(years.loc[d.year].values)])
+# mask = pd.Series(np.zeros(_d.size), index=_d, dtype=bool)
+# mask.loc[dates_strPDO] = True
+
+
+# c1, c2 = '#3388BB', '#EE6666'
+# # f, ax = plt.subplots(2,1, figsize=(10, 8), sharex=False,
+# #                      width_ratios=[3,5],
+# #                      height_ratios=[1,1])
+# fig = plt.figure(figsize=(10, 8))
+# gs = gridspec.GridSpec(2, 1, height_ratios=[3, 5])
+# facecolor='grey'
+# ax0 = plt.subplot(gs[1], facecolor=facecolor)
+# ax0.patch.set_alpha(0.2)
+# ax1 = plt.subplot(gs[0], facecolor=facecolor)
+# ax1.patch.set_alpha(0.2)
+# ax0.plot(normal.values, color=c2, linestyle='--', lw=2.5,
+#          label=f'${target[7].capitalize()}^{target[0].capitalize()}:\ SST$')
+# ax0.plot(y_true.values, color='black', linestyle='solid', lw=1,
+#          label=f'${target[7].capitalize()}^{target[0].capitalize()}$ observed', alpha=.8)
+# # ax0.plot(fc_lwp.values, color='green',linestyle='dashed',
+# #          label=f'${target[0].capitalize()}$-${target[7].capitalize()}:$'+r' $\overline{SST}_{lowpass\ seasonal}$')
+# ax0.fill_between(range(y_true.index.size), normal.values,
+#                    where=mask, color='lightblue', alpha=1)
+# legend1 = ax0.legend(loc='lower left', fontsize=14, frameon=True)
+# ax0.add_artist(legend1)
+# ax0.set_ylim(-3,3)
+# ax0.margins(x=.05) ; ax1.margins(x=.05)
+
+# # skill score 1
+# SS_normal = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).MAE(y_true, normal)
+# SS_strong = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).MAE(y_true[mask], normal[mask])
+# patch = mpatches.Patch(edgecolor=c2, facecolor='lightblue',linewidth=2, linestyle='dashed',
+#                            label='MAE-SS {:.2f}'.format(SS_strong))
+# line = Line2D([0], [0], color=c2, lw=2,ls='dashed',
+#                   label='MAE-SS {:.2f}'.format(SS_normal))
+# legend2 = ax0.legend(loc='upper center', handles=[patch, line], fontsize=14,
+#                      frameon=True)
+# # ax0.add_artist(legend2)
+# # skill score 2
+# SS_normal = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).RMSE(y_true, normal)
+# SS_strong = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).RMSE(y_true[mask], normal[mask])
+# patch = mpatches.Patch(edgecolor=c2, facecolor='lightblue',linewidth=2, linestyle='dashed',
+#                            label='RMSE-SS {:.2f}'.format(SS_strong))
+# line = Line2D([0], [0], color=c2, lw=2,ls='dashed',
+#                   label='RMSE-SS {:.2f}'.format(SS_normal))
+# legend2 = ax0.legend(loc='upper right', handles=[patch, line], fontsize=14,
+#                      frameon=True)
+# ax0.add_artist(legend1)
 # ax0.add_artist(legend2)
-# skill score 2
-SS_normal = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).RMSE(y_true, normal)
-SS_strong = fc_utils.ErrorSkillScore(constant_bench=float(y_true.mean())).RMSE(y_true[mask], normal[mask])
-patch = mpatches.Patch(edgecolor=c2, facecolor='lightblue',linewidth=2, linestyle='dashed',
-                           label='RMSE-SS {:.2f}'.format(SS_strong))
-line = Line2D([0], [0], color=c2, lw=2,ls='dashed',
-                  label='RMSE-SS {:.2f}'.format(SS_normal))
-legend2 = ax0.legend(loc='upper right', handles=[patch, line], fontsize=14,
-                     frameon=True)
-ax0.add_artist(legend1)
-ax0.add_artist(legend2)
 
 
-ax1.plot(df_PDOraw.loc[y_true.index].values, color='blue', ls='dashed')
-ax1.plot(df_PDOplotlw.values, color='blue', alpha=.5)
-ax1.fill_between(range(y_true.index.size), df_PDOplotlw.values,
-                   where=mask, color='lightblue', alpha=1)
-plt.subplots_adjust(right=1)
-ax1.axhline(y=0, color='black', lw=1)
-ax1.set_ylim(-3.5,3.5)
-plot_date_years(ax0, dates=y_true.index, years = np.arange(1980, 2021, 5))
-plot_date_years(ax1, dates=y_true.index, years = np.arange(1980, 2021, 5))
-ax0.tick_params(labelsize=14)
-ax1.tick_params(labelsize=14)
+# ax1.plot(df_PDOraw.loc[y_true.index].values, color='blue', ls='dashed')
+# ax1.plot(df_PDOplotlw.values, color='blue', alpha=.5)
+# ax1.fill_between(range(y_true.index.size), df_PDOplotlw.values,
+#                    where=mask, color='lightblue', alpha=1)
+# plt.subplots_adjust(right=1)
+# ax1.axhline(y=0, color='black', lw=1)
+# ax1.set_ylim(-3.5,3.5)
+# plot_date_years(ax0, dates=y_true.index, years = np.arange(1980, 2021, 5))
+# plot_date_years(ax1, dates=y_true.index, years = np.arange(1980, 2021, 5))
+# ax0.tick_params(labelsize=14)
+# ax1.tick_params(labelsize=14)
 
-patch = mpatches.Patch(edgecolor=c2, color='lightblue',
-                           label='Anomalous PDO: strong boundary condition forcing',
-                           alpha=1)
-line = Line2D([0], [0], color='blue', lw=2, ls='dashed',
-                  label='$PDO$')
-linelwp = Line2D([0], [0], color='blue', lw=2, alpha=.5,
-                  label=r'$\overline{PDO}$')
-legend1 = ax1.legend(loc='upper left', handles=[line, linelwp], fontsize=13,
-                     frameon=True)
-legend2 = ax1.legend(loc='lower right', handles=[patch], fontsize=13)
-ax1.add_artist(legend1)
-ax1.add_artist(legend2)
-f_name = f'conditional_forecast_lag{lag}_lwp{lowpass_cond_fc}'
-fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
-fig.savefig(fig_path, bbox_inches='tight')
-
-#%%
-plt.scatter(df_PDOraw.loc[y_true.index][~mask].abs(),
-            fc_utils.CRPSS_vs_constant_bench(constant_bench=float(y_true.mean()),
-                                             return_mean=False).CRPSS(y_true[~mask], fc_lwp[~mask]),
-            color=c2);
-plt.scatter(df_PDOraw.loc[y_true.index][mask].abs(),
-            fc_utils.CRPSS_vs_constant_bench(constant_bench=float(y_true.mean()),
-                                             return_mean=False).CRPSS(y_true[mask], fc_lwp[mask]),
-            color='lightblue');
-plt.ylim(-.5,1)
-
-#%%
-# remove PDO df
-os.remove(os.path.join(data_dir, 'df_PDOs.h5'))
-
-#%%
-# if experiment == 'adapt_corr':
-
-#     corr = dm[monthkeys[0]].mean(dim='split').drop('time')
-#     list_xr = [corr.expand_dims('months', axis=0) for i in range(len(monthkeys))]
-#     corr = xr.concat(list_xr, dim = 'months')
-#     corr['months'] = ('months', monthkeys)
-
-#     np_data = np.zeros_like(corr.values)
-#     np_mask = np.zeros_like(corr.values)
-#     for i, f in enumerate(monthkeys):
-#         corr_xr = dm[f]
-#         vals = corr_xr.mean(dim='split').values
-#         np_data[i] = vals
-#         mask = corr_xr.mask.mean(dim='split')
-#         np_mask[i] = mask
-
-#     corr.values = np_data
-#     mask = (('months', 'lag', 'latitude', 'longitude'), np_mask )
-#     corr.coords['mask'] = mask
-
-#     precur = rg.list_for_MI[0]
-#     f_name = 'corr_{}_a{}'.format(precur.name,
-#                                 precur.alpha) + '_' + \
-#                                 f'{experiment}_lag{lag}_' + \
-#                                 f'tf{precur_aggr}_{method}'
-
-#     corr.to_netcdf(os.path.join(rg.path_outsub1, f_name+'.nc'), mode='w')
-#     import_ds = core_pp.import_ds_lazy
-#     corr = import_ds(os.path.join(rg.path_outsub1, f_name+'.nc'))[precur.name]
-#     subtitles = np.array([monthkeys])
-#     kwrgs_plot = {'aspect':2, 'hspace':.3,
-#                   'wspace':-.4, 'size':1.25, 'cbar_vert':-0.1,
-#                   'units':'Corr. Coeff. [-]',
-#                   'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
-#                   'y_ticks':False,
-#                   'x_ticks':False,
-#                   'subtitles':subtitles}
-
-#     fig = plot_maps.plot_corr_maps(corr, mask_xr=corr.mask, col_dim='months',
-#                                    row_dim=corr.dims[1],
-#                                    **kwrgs_plot)
-
-#     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
-# #%%
-#     plt.savefig(fig_path, bbox_inches='tight')
-
-
-#%%
-
-# df = df_test_b.stack().reset_index(level=1)
-# dfx = df.groupby(['level_1'])
-# axes = dfx.boxplot()
-# axes[0].set_ylim(-0.5, 1)
-#%%
-# import seaborn as sns
-# df_ap = pd.concat(list_test_b, axis=0, ignore_index=True)
-# df_ap['months'] = np.repeat(monthkeys, list_test_b[0].index.size)
-# # df_ap.boxplot(by='months')
-# ax = sns.boxplot(x=df_ap['months'], y=df_ap['mean_squared_error'])
-# ax.set_ylim(-0.5, 1)
-# plt.figure()
-# ax = sns.boxplot(x=df_ap['months'], y=df_ap['corrcoef'])
-# ax.set_ylim(-0.5, 1)
+# patch = mpatches.Patch(edgecolor=c2, color='lightblue',
+#                            label='Anomalous PDO: strong boundary condition forcing',
+#                            alpha=1)
+# line = Line2D([0], [0], color='blue', lw=2, ls='dashed',
+#                   label='$PDO$')
+# linelwp = Line2D([0], [0], color='blue', lw=2, alpha=.5,
+#                   label=r'$\overline{PDO}$')
+# legend1 = ax1.legend(loc='upper left', handles=[line, linelwp], fontsize=13,
+#                      frameon=True)
+# legend2 = ax1.legend(loc='lower right', handles=[patch], fontsize=13)
+# ax1.add_artist(legend1)
+# ax1.add_artist(legend2)
+# f_name = f'conditional_forecast_lag{lag}_lwp{lowpass_cond_fc}'
+# fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
+# fig.savefig(fig_path, bbox_inches='tight')
 
 # #%%
-# columns_my_order = monthkeys
-# fig, ax = plt.subplots()
-# for position, column in enumerate(columns_my_order):
-#     ax.boxplot(df_test_b.loc[column], positions=[position,position+.25])
+# plt.scatter(df_PDOraw.loc[y_true.index][~mask].abs(),
+#             fc_utils.CRPSS_vs_constant_bench(constant_bench=float(y_true.mean()),
+#                                              return_mean=False).CRPSS(y_true[~mask], fc_lwp[~mask]),
+#             color=c2);
+# plt.scatter(df_PDOraw.loc[y_true.index][mask].abs(),
+#             fc_utils.CRPSS_vs_constant_bench(constant_bench=float(y_true.mean()),
+#                                              return_mean=False).CRPSS(y_true[mask], fc_lwp[mask]),
+#             color='lightblue');
+# plt.ylim(-.5,1)
 
-# ax.set_xticks(range(position+1))
-# ax.set_xticklabels(columns_my_order)
-# ax.set_xlim(xmin=-0.5)
-# plt.show()
+# #%%
+# # remove PDO df
+# os.remove(os.path.join(data_dir, 'df_PDOs.h5'))
+
+# #%%
+# # if experiment == 'adapt_corr':
+
+# #     corr = dm[monthkeys[0]].mean(dim='split').drop('time')
+# #     list_xr = [corr.expand_dims('months', axis=0) for i in range(len(monthkeys))]
+# #     corr = xr.concat(list_xr, dim = 'months')
+# #     corr['months'] = ('months', monthkeys)
+
+# #     np_data = np.zeros_like(corr.values)
+# #     np_mask = np.zeros_like(corr.values)
+# #     for i, f in enumerate(monthkeys):
+# #         corr_xr = dm[f]
+# #         vals = corr_xr.mean(dim='split').values
+# #         np_data[i] = vals
+# #         mask = corr_xr.mask.mean(dim='split')
+# #         np_mask[i] = mask
+
+# #     corr.values = np_data
+# #     mask = (('months', 'lag', 'latitude', 'longitude'), np_mask )
+# #     corr.coords['mask'] = mask
+
+# #     precur = rg.list_for_MI[0]
+# #     f_name = 'corr_{}_a{}'.format(precur.name,
+# #                                 precur.alpha) + '_' + \
+# #                                 f'{experiment}_lag{lag}_' + \
+# #                                 f'tf{precur_aggr}_{method}'
+
+# #     corr.to_netcdf(os.path.join(rg.path_outsub1, f_name+'.nc'), mode='w')
+# #     import_ds = core_pp.import_ds_lazy
+# #     corr = import_ds(os.path.join(rg.path_outsub1, f_name+'.nc'))[precur.name]
+# #     subtitles = np.array([monthkeys])
+# #     kwrgs_plot = {'aspect':2, 'hspace':.3,
+# #                   'wspace':-.4, 'size':1.25, 'cbar_vert':-0.1,
+# #                   'units':'Corr. Coeff. [-]',
+# #                   'clim':(-.60,.60), 'map_proj':ccrs.PlateCarree(central_longitude=220),
+# #                   'y_ticks':False,
+# #                   'x_ticks':False,
+# #                   'subtitles':subtitles}
+
+# #     fig = plot_maps.plot_corr_maps(corr, mask_xr=corr.mask, col_dim='months',
+# #                                    row_dim=corr.dims[1],
+# #                                    **kwrgs_plot)
+
+# #     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
+# # #%%
+# #     plt.savefig(fig_path, bbox_inches='tight')
 
 
-#%%
+# #%%
+
+# # df = df_test_b.stack().reset_index(level=1)
+# # dfx = df.groupby(['level_1'])
+# # axes = dfx.boxplot()
+# # axes[0].set_ylim(-0.5, 1)
+# #%%
+# # import seaborn as sns
+# # df_ap = pd.concat(list_test_b, axis=0, ignore_index=True)
+# # df_ap['months'] = np.repeat(monthkeys, list_test_b[0].index.size)
+# # # df_ap.boxplot(by='months')
+# # ax = sns.boxplot(x=df_ap['months'], y=df_ap['mean_squared_error'])
+# # ax.set_ylim(-0.5, 1)
+# # plt.figure()
+# # ax = sns.boxplot(x=df_ap['months'], y=df_ap['corrcoef'])
+# # ax.set_ylim(-0.5, 1)
+
+# # #%%
+# # columns_my_order = monthkeys
+# # fig, ax = plt.subplots()
+# # for position, column in enumerate(columns_my_order):
+# #     ax.boxplot(df_test_b.loc[column], positions=[position,position+.25])
+
+# # ax.set_xticks(range(position+1))
+# # ax.set_xticklabels(columns_my_order)
+# # ax.set_xlim(xmin=-0.5)
+# # plt.show()
+
+
+# #%%
 

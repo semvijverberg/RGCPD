@@ -72,7 +72,7 @@ remove_PDOyesno = np.array([0])
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, expers, seeds, remove_PDOyesno)).T.reshape(-1,4)
 
-i_default = 3
+i_default = 0
 
 
 
@@ -106,7 +106,6 @@ else:
     experiment = 'fixed_corr'
     experiment = 'adapt_corr'
     remove_PDO = False
-    seed = 2
 
 mainpath_df = os.path.join(main_dir, 'publications/paper2/output/heatwave_circulation_v300_z500_SST/57db0USCA/')
 calc_ts='region mean' # pattern cov
@@ -158,7 +157,7 @@ list_of_name_path = [(cluster_label, TVpath),
 list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             alpha=alpha_corr, FDR_control=True,
                             kwrgs_func={},
-                            distance_eps=1200, min_area_in_degrees2=3,
+                            distance_eps=1700, min_area_in_degrees2=3,
                             calc_ts=calc_ts, selbox=(130,260,-10,60),
                             lags=corlags)]
 if calc_ts == 'region mean':
@@ -243,13 +242,14 @@ if remove_PDO:
     lowpass = '2y'
     rg.list_import_ts = [('PDO', os.path.join(data_dir, f'PDO_{lowpass}_rm_25-09-20_15hr.h5'))]
 
-if precur_aggr == 15:
-    blocksize=2
-    lag = 2
-elif precur_aggr==2:
-    blocksize=1
-    lag = 1
 
+blocksize=1
+lag = 1
+# only needed such that score_func_list exists
+RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=0).RMSE
+MAE_SS = fc_utils.ErrorSkillScore(constant_bench=0).MAE
+CRPSS = fc_utils.CRPSS_vs_constant_bench(constant_bench=0).CRPSS
+score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS]
 
 dict_v = {'target':target, 'lag':lag,'rmPDO':str(remove_PDO), 'exper':experiment,
           'Seed':f's{seed}'}
@@ -259,6 +259,7 @@ list_test = []
 list_test_b = []
 no_info_fc = []
 dm = {} # dictionairy months
+dmc = {} # dictionairy months clusters
 for month, start_end_TVdate in months.items():
     # month, start_end_TVdate = list(months.items())[3]
     if experiment == 'fixed_corr':
@@ -285,15 +286,16 @@ for month, start_end_TVdate in months.items():
         # plotting corr_map
         rg.plot_maps_corr(var='sst', save=True,
                           kwrgs_plot=kwrgs_plotcorr,
-                          min_detect_gc=1.0,
+                          min_detect_gc=0.9,
                           append_str=append_str+'_'+month)
         dm[month] = rg.list_for_MI[0].corr_xr.copy()
+        dmc[month] = rg.list_for_MI[0].prec_labels.copy()
 
-    alphas = np.append(np.logspace(.1, 1.5, num=25), [250])
+    alphas = np.append([1E-3, 1E-2, 1E-1], np.logspace(.1, 2, num=25))
     kwrgs_model = {'scoring':'neg_mean_squared_error',
                    'alphas':alphas, # large a, strong regul.
                    'normalize':False}
-
+    print('\n', month, '\n')
     keys = [k for k in rg.df_data.columns[:-2] if k not in [rg.TV.name, 'PDO']]
     if target == 'easterntemp':
         keys = [k for k in keys if int(k.split('..')[1]) in [1,2]]
@@ -323,7 +325,7 @@ for month, start_end_TVdate in months.items():
                                    keys=keys,
                                    tau_min=lag, tau_max=lag,
                                    kwrgs_model=kwrgs_model,
-                                   transformer=False)
+                                   transformer=None)
 
         predict, weights, models_lags = out_fit
         prediction = predict.rename({predict.columns[0]:'target',lag:'Prediction'},
@@ -370,7 +372,7 @@ for month, start_end_TVdate in months.items():
         #                                         bench_MSE
         n_splits = rg.df_data.index.levels[0].size
         cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_splits)]
-        print('mean alpha {:.0f}'.format(np.mean(cvfitalpha)))
+        print('mean alpha {:.2f}'.format(np.mean(cvfitalpha)))
         maxalpha_c = list(cvfitalpha).count(alphas[-1])
         if maxalpha_c > n_splits/3:
             print(f'\n{month} alpha {int(np.mean(cvfitalpha))}')
@@ -411,7 +413,7 @@ MAE_SS_vals = [test.values[0,-1] for test in list_test]
 rename_metrics = {'RMSE-SS':'RMSE',
                   'Corr. Coef.':'corrcoef',
                   'MAE-SS':'MAE'}
-df_scores = pd.DataFrame({'MAE-SS':MAE_SS_vals,
+df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals,
                           'Corr. Coef.':corrvals},
                           # 'MAE-SS':MAE_SS_vals},
                          index=monthkeys)
@@ -450,25 +452,25 @@ df_scores.plot.bar(ax=ax, rot=0, yerr=_yerr,
 
 
 
-ax.set_ylabel('Skill Score', fontsize=16, labelpad=0)
+ax.set_ylabel('Skill Score', fontsize=20, labelpad=0)
 # ax.set_xticklabels(months, fontdict={'fontsize':20})
 if target[-4:] == 'temp':
     title = f'Seasonal dependence of $T^{target[0].capitalize()}$ predictions'
 elif target[-2:] == 'RW':
     title = f'Seasonal dependence of {precur_aggr}-day mean RW predictions'
 ax.set_title(title,
-             fontsize=16)
-ax.tick_params(axis='y', labelsize=16)
-ax.tick_params(axis='x', labelsize=16)
+             fontsize=20)
+ax.tick_params(axis='y', labelsize=18)
+ax.tick_params(axis='x', labelsize=18)
 
 
 if target=='westerntemp':
-    patch1 = mpatches.Patch(color='blue', label='MAE-SS')
+    patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
     patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
     # patch3 = mpatches.Patch(color='purple', label='MAE-SS')
     handles = [patch1, patch2]
     legend1 = ax.legend(handles=handles,
-              fontsize=16, frameon=True, facecolor='grey',
+              fontsize=20, frameon=True, facecolor='grey',
               framealpha=.5)
     ax.add_artist(legend1)
 
@@ -499,7 +501,7 @@ for csvfilename, dic in [(csvfilename, dict_v)]:
         writer = csv.DictWriter(csvfile, list(dic.keys()))
         writer.writerows([dic])
 #%%
-
+min_detect_gc = .6
 mpl.rcParams.update(mpl.rcParamsDefault)
 if experiment == 'adapt_corr':
 
@@ -511,14 +513,11 @@ if experiment == 'adapt_corr':
     np_data = np.zeros_like(corr.values)
     np_mask = np.zeros_like(corr.values)
     for i, f in enumerate(monthkeys):
-        corr_xr = dm[f]
-        corr_, mask_ = RGCPD._get_sign_splits_masked(xr_in=corr_xr, min_detect=.9,
-                                                     mask=corr_xr.mask)
-        vals = corr_.values
+        corr_xr = dm[f].copy()
+        corr_, mask_ = RGCPD._get_sign_splits_masked(xr_in=corr_xr, min_detect=min_detect_gc,
+                                                     mask=dm[f].mask)
         np_data[i] = corr_.values
-
-        # mask = corr_xr.mask.mean(dim='split') == 0 # only when in all trainsets
-        np_mask[i] = mask_
+        np_mask[i] = mask_.values
 
     corr.values = np_data
     mask = (('months', 'lag', 'latitude', 'longitude'), np_mask )
@@ -528,13 +527,14 @@ if experiment == 'adapt_corr':
     f_name = 'corr_{}_a{}'.format(precur.name,
                                 precur.alpha) + '_' + \
                                 f'{experiment}_lag{corlags}_' + \
-                                f'tf{precur_aggr}_{method}'
-
-    corr.to_netcdf(os.path.join(rg.path_outsub1, f_name+'.nc'), mode='w')
-    import_ds = core_pp.import_ds_lazy
-    corr = import_ds(os.path.join(rg.path_outsub1, f_name+'.nc'))[precur.name]
+                                f'tf{precur_aggr}_{method}_gc{min_detect_gc}'
+    # ncdf_filepath = os.path.join(rg.path_outsub1, f_name+'.nc')
+    # if os.path.isfile(ncdf_filepath): os.remove(ncdf_filepath)
+    # corr.to_netcdf(ncdf_filepath, mode='w')
+    # import_ds = core_pp.import_ds_lazy
+    # corr = import_ds(os.path.join(rg.path_outsub1, f_name+'.nc'))[precur.name]
     # Horizontal plot
-    subtitles = np.array([monthkeys])
+    subtitles = np.array([['$t=$'+k+' mean' for k in monthkeys]])
     if corlags[0] == 0:
         title = r'$corr(SST_t, T^{}_t)$'.format('{'+f'{target[0].capitalize()}'+'}')
     else:
@@ -555,17 +555,16 @@ if experiment == 'adapt_corr':
     fig = plot_maps.plot_corr_maps(corr, mask_xr=corr.mask, col_dim='months',
                                    row_dim=corr.dims[1],
                                    **kwrgs_plot)
-
     fig_path = os.path.join(rg.path_outsub1, f_name+'hor')+rg.figext
-
     plt.savefig(fig_path, bbox_inches='tight')
     # %%
     # vertical plot
     f_name = 'corr_{}_a{}'.format(precur.name,
                                 precur.alpha) + '_' + \
                                 f'{experiment}_lag{corlags}_' + \
-                                f'tf{precur_aggr}_{method}'
-    subtitles = np.array([monthkeys]).reshape(-1,1)
+                                f'tf{precur_aggr}_{method}_gc{min_detect_gc}'
+    subtitles = np.array([['$t=$'+k+' mean' for k in monthkeys]])
+    subtitles = subtitles.reshape(-1,1)
     kwrgs_plot = {'aspect':2, 'hspace':.3,
                   'wspace':-.4, 'size':2, 'cbar_vert':0.06,
                   'units':'Corr. Coeff. [-]',
@@ -576,7 +575,7 @@ if experiment == 'adapt_corr':
                   'x_ticks':False,
                   'subtitles':subtitles,
                   'title':title,
-                  'title_fontdict':{'y':0.94, 'fontsize':20}}
+                  'title_fontdict':{'y':0.96, 'fontsize':20}}
     fig = plot_maps.plot_corr_maps(corr, mask_xr=corr.mask, col_dim=corr.dims[1],
                                    row_dim='months',
                                    **kwrgs_plot)
@@ -584,9 +583,83 @@ if experiment == 'adapt_corr':
     fig_path = os.path.join(rg.path_outsub1, f_name+'vert')+rg.figext
     plt.savefig(fig_path, bbox_inches='tight')
 #%%
+mpl.rcParams.update(mpl.rcParamsDefault)
+if experiment == 'adapt_corr':
 
+    labels = dmc[monthkeys[0]][0]
+    list_xr = [labels.expand_dims('months', axis=0) for i in range(len(monthkeys))]
+    labels = xr.concat(list_xr, dim = 'months')
+    labels['months'] = ('months', monthkeys)
 
+    np_data = np.zeros_like(labels.values)
+    np_mask = np.zeros_like(labels.values) ; np_mask[:] = np.nan
+    for i, f in enumerate(monthkeys):
+        labels_xr = dmc[f].copy()
+        labels_, mask_ = RGCPD._get_sign_splits_masked(xr_in=labels_xr, min_detect=min_detect_gc)
 
+        labels_ = labels_.where(mask_)
+
+        vals = labels_.values
+        np_data[i] = labels_.values
+        np_mask[i] = mask_.values
+
+    labels.values = np_data
+    mask = (('months', 'lag', 'latitude', 'longitude'), np_mask )
+    labels.coords['mask'] = mask
+
+    precur = rg.list_for_MI[0]
+    f_name = 'labels_{}_a{}'.format(precur.name,
+                                precur.alpha) + '_' + \
+                                f'{experiment}_lag{corlags}_' + \
+                                f'tf{precur_aggr}_{method}'
+
+    labels.to_netcdf(os.path.join(rg.path_outsub1, f_name+'.nc'), mode='w')
+    # import_ds = core_pp.import_ds_lazy
+    # labels = import_ds(os.path.join(rg.path_outsub1, f_name+'.nc'))[precur.name+'_labels_init']
+    # Horizontal plot
+    subtitles = np.array([monthkeys])
+
+    title = 'Clusters of correlating regions'
+    kwrgs_plot = {'aspect':2, 'hspace':.35,
+                  'wspace':-.35, 'size':2, 'cbar_vert':-0.1,
+                  'units':'Corr. Coeff. [-]',
+                  'map_proj':ccrs.PlateCarree(central_longitude=220),
+                  'y_ticks':False,
+                  'x_ticks':False,
+                  'subtitles':subtitles,
+                  'title':title,
+                  'title_fontdict':{'y':1.2, 'fontsize':20},
+                  'col_dim':'months', 'row_dim':labels.dims[1]}
+
+    fig = plot_maps.plot_labels(labels, kwrgs_plot=kwrgs_plot)
+
+    fig_path = os.path.join(rg.path_outsub1, f_name+'hor')+rg.figext
+
+    plt.savefig(fig_path, bbox_inches='tight')
+    # %%
+    # vertical plot
+    title = 'Clusters of \ncorrelating regions'
+    f_name = 'labels_{}_a{}'.format(precur.name,
+                                precur.alpha) + '_' + \
+                                f'{experiment}_lag{corlags}_' + \
+                                f'tf{precur_aggr}_{method}'
+    subtitles = np.array([monthkeys]).reshape(-1,1)
+    kwrgs_plot = {'aspect':2, 'hspace':.3,
+                  'wspace':-.4, 'size':2, 'cbar_vert':0.06,
+                  'units':'Corr. Coeff. [-]',
+                  'map_proj':ccrs.PlateCarree(central_longitude=220),
+                  'y_ticks':False,
+                  'x_ticks':False,
+                  'subtitles':subtitles,
+                  'title':title,
+                  'title_fontdict':{'y':0.96, 'fontsize':18},
+                  'col_dim':labels.dims[1], 'row_dim':'months'}
+    fig = plot_maps.plot_labels(labels, kwrgs_plot=kwrgs_plot)
+
+    fig_path = os.path.join(rg.path_outsub1, f_name+'vert')+rg.figext
+    plt.savefig(fig_path, bbox_inches='tight')
+
+#%%%
 # df = df_test_b.stack().reset_index(level=1)
 # dfx = df.groupby(['level_1'])
 # axes = dfx.boxplot()
