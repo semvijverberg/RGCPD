@@ -98,7 +98,7 @@ elif west_east =='west':
     z500_green_bb = (145,325,20,62) # bounding box for western RW
 
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb_upd/')
+path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb_doublecheck/')
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
     start_end_TVdatet2mvsRW = start_end_TVdate
