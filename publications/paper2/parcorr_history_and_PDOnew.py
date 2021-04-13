@@ -45,7 +45,7 @@ expers = np.array(['parcorr',
                    'parcorrtime_target', 'parcorrtime_precur', 'parcorrtime_both', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 1
+i_default = 4
 
 def parseArguments():
     # Create argument parser
@@ -424,8 +424,20 @@ else:
 #%%
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
-#%%
+#%% get Correlation between pattern and PDO
 
+rg.list_for_MI[0].calc_ts = 'pattern cov'
+rg.cluster_list_MI()
+rg.get_ts_prec()
+
+df_test = functions_pp.get_df_test(rg.df_data)
+
+df_PDO_and_SST = df_PDOs.merge(df_test, left_index=True, right_index=True)[['PDO', '1..0..sst_sp']]
+
+
+RV_mask = fc_utils.apply_shift_lag(rg.df_splits, 1)['x_pred'].loc[0]
+df_PDO_and_SST = df_PDO_and_SST[RV_mask.values]
+df_PDO_and_SST.corr()
 
 # rg.cluster_list_MI() ; rg.get_ts_prec() ;
 # out = rg.fit_df_data_ridge()

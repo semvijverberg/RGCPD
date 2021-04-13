@@ -155,9 +155,36 @@ fig.set_facecolor('white')
 fig.axes[0].set_facecolor('white')
 f_name = 'scatter_clusters_t2m_{}_{}'.format(xrclustered.attrs['hash'], region)
 filepath = os.path.join(rg.path_outmain, f_name)
-
 plt.savefig(filepath+'.pdf', bbox_inches='tight')
 
+# Without scatter points
+fig = plot_maps.plot_labels(xrclustered,
+                      {'size':3,
+                       'zoomregion':selbox,
+                       'mask_xr':mask_cl,
+                       'x_ticks':np.arange(235, 310, 15),
+                       'y_ticks':np.arange(0,61,10),
+                       'add_cfeature':'LAKES',
+                       'subtitles':title}) # np.isnan(mask_cl)
+# fig.set_facecolor('white')
+# fig.axes[0].set_facecolor('white')
+f_name = 'clusters_t2m_{}_{}'.format(xrclustered.attrs['hash'], region)
+filepath = os.path.join(rg.path_outmain, f_name)
+plt.savefig(filepath+'.pdf', bbox_inches='tight')
+
+# Without scatter points, no contour lines clusters
+fig = plot_maps.plot_labels(xrclustered,
+                      {'size':3,
+                       'zoomregion':selbox,
+                       'x_ticks':np.arange(235, 310, 15),
+                       'y_ticks':np.arange(0,61,10),
+                       'add_cfeature':'LAKES',
+                       'subtitles':title}) # np.isnan(mask_cl)
+# fig.set_facecolor('white')
+# fig.axes[0].set_facecolor('white')
+f_name = 'clusters_t2m_no_contour_{}_{}'.format(xrclustered.attrs['hash'], region)
+filepath = os.path.join(rg.path_outmain, f_name)
+plt.savefig(filepath+'.pdf', bbox_inches='tight')
 
 #%% Check spatial correlation within clusters
 

@@ -64,10 +64,10 @@ targets = ['easterntemp', 'westerntemp']
 targets = ['easterntemp']
 
 periods = ['JA_center']
-seeds = np.array([1,2,3])
+seeds = np.array([1,2,3,4,5])
 combinations = np.array(np.meshgrid(targets, periods, seeds)).T.reshape(-1,3)
 
-i_default = 2 #8
+i_default = 1 #8
 
 def parseArguments():
     # Create argument parser
@@ -539,7 +539,7 @@ def boxplot_cond_fc(df_cond, col, composites = 30):
         nlabels = plot_cols.copy() ; widths=(.5,.5)
         nlabels = [l.split(' ')[0] for l in nlabels]
         if col == 'PDO0.5rm':
-            nlabels = [l.capitalize() + '\nwinter PDO' for l in nlabels]
+            nlabels = [l.capitalize() + '\nwinter/spring\nPDO' for l in nlabels]
         else:
             nlabels = [l.capitalize() + ' \nPDO state' for l in nlabels]
 
@@ -597,7 +597,7 @@ boxplot_cond_fc(df_cond, col, composites = 30)
 boxplot_cond_fc(df_cond, col, composites = 50)
 #%% PDO half year rolling mean
 col = 'PDO0.5rm'
-df_rm = df_PDOs[[col]][df_PDOs.index.month == 6]
+df_rm = df_PDOs[[col]][df_PDOs.index.month == 5]
 df_rm = df_rm.loc[core_pp.get_oneyr(df_rm, *list(range(1980,2021)))]
 df_cond_rm = cond_forecast_table(out[1], df_rm,
                               score_func_list, n_boot=2000)
