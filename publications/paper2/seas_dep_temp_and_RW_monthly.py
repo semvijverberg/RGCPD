@@ -72,7 +72,7 @@ remove_PDOyesno = np.array([0])
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, expers, seeds, remove_PDOyesno)).T.reshape(-1,4)
 
-i_default = 0
+i_default = 1
 
 
 
@@ -227,8 +227,7 @@ def append_dict(month, df_test_m):
     dict_v.update(append_dict)
     return
 
-months = {'April-May'    : ('04-01', '05-31'),
-          'May-June'    : ('05-01', '06-30'),
+months = {'May-June'    : ('05-01', '06-30'),
           'June-July'   : ('06-01', '07-30'),
            'July-Aug'    : ('07-01', '08-31'),
            'Aug-Sept'    : ('08-01', '09-30'),
@@ -501,7 +500,7 @@ for csvfilename, dic in [(csvfilename, dict_v)]:
         writer = csv.DictWriter(csvfile, list(dic.keys()))
         writer.writerows([dic])
 #%%
-min_detect_gc = .6
+min_detect_gc = .9
 mpl.rcParams.update(mpl.rcParamsDefault)
 if experiment == 'adapt_corr':
 

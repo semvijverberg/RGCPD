@@ -32,7 +32,7 @@ import class_BivariateMI
 import climate_indices
 import plot_maps, core_pp, functions_pp, df_ana, find_precursors
 
-west_east = 'west'
+west_east = 'east'
 TV = 'USCAnew'
 if TV == 'init':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
@@ -68,7 +68,7 @@ elif TV == 'USCA':
 
 
 path_out_main = os.path.join(main_dir,
-                             'RGCPD/publications/paper2/output/heatwave_circulation_v300_z500_SST/{}'.format(TVpath.split('_')[-1][:-3]))
+                             'publications/paper2/output/heatwave_circulation_v300_z500_SST/{}'.format(TVpath.split('_')[-1][:-3]))
 
 
 
@@ -176,7 +176,15 @@ filename = os.path.join(rg.path_outsub1, 'z500vsmx2t_'+
 
 fig.savefig(filename + rg.figext, bbox_inches='tight')
 
-
+#%% upon request of reviewer, using a smaller bounding box plot
+# kwrgs_plot.update({'drawbox':[(0,0), (155,300,20,73)]})
+# fig = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
+# fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
+#            np.isnan(xrclustered), transform=ccrs.PlateCarree(),
+#            levels=[0, 2], linewidths=1, linestyles=['solid'], colors=['white'])
+# filename = os.path.join(rg.path_outsub1, 'z500vsmx2t_'+
+#                         rg.hash+'_'+str(cluster_label)+'small_box')
+# fig.savefig(filename + rg.figext, bbox_inches='tight')
 
 #%% Plot corr(v300, mx2t)
 

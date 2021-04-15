@@ -126,12 +126,6 @@ class Var_ECMWF_download():
 
 def retrieve_field(cls):
 
-
-
-
-    #    paramid = np.logical_and(any(char.isdigit() for char in cls.var_cf_code),
-    #                                '.' in cls.var_cf_code )
-    #    assert (paramid==False), ('Please insert variable name instead of paramid')
     #%%
     file_path = os.path.join(cls.path_raw, cls.filename)
     if cls.stream == 'moda':
@@ -159,8 +153,6 @@ def retrieve_field(cls):
         #         daily data
         # =============================================================================
         if cls.stream == 'oper' or cls.stream == 'enda':
-
-
             download_targets = []
             for year in cls.years:
                 # specifies the output file name
@@ -170,29 +162,17 @@ def retrieve_field(cls):
                     print('Output file: ', target)
                     download_targets.append((year, target))
 
-#            pool = ThreadPoolExecutor(8)
             with ThreadPoolExecutor(max_workers=n_threads) as pool:
                 futures = [pool.submit(retrieval_yr, cls.var_cf_code, cls.time,
                            cls.months, cls.days,
                            cls.grid, cls.area, cls.lvllist,
                            cls.levtype, year, target) for year, target in download_targets]
-#            results = [future.result() for future in futures]
-#                    retrieval_yr(cls, year, target)
+
 
 
 
             if cls.var_cf_code in accumulated_vars:
-
-    #                cat  = 'cdo -O -b F64 mergetime {}/*.nc {}'.format(cls.tmp_folder, file_path_raw)
-    #                if os.path.isfile(file_path_raw) == False:
-    #                    kornshell_with_input([cat], cls)
-    #                if os.path.getsize(file_path_raw) / 1E9 > 0.3:
-    #                    # check if size is reasonably large
-    #                    rm_tmp = 'rm -r {}/'.format(cls.tmp_folder)
-    #                    kornshell_with_input([rm_tmp], cls)
-
                 acc_to_daysum = 'cdo -b 32 settime,00:00 -daysum -shifttime,-1hour -mergetime {}/*.nc {}'.format(cls.tmp_folder, file_path)
-    #                day_sum   =  'cdo -b 32 daysum {} {}'.format(tmp_shift, file_path)
 
                 args = [acc_to_daysum]
 
@@ -206,9 +186,6 @@ def retrieve_field(cls):
                 args = [ana_to_day]
 
             kornshell_with_input(args, cls)
-
-
-
 
         # =============================================================================
         # monthly mean of daily means

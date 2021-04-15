@@ -58,7 +58,7 @@ seeds = np.array([1,2,3])
 
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
-i_default = 9
+i_default = 0
 
 
 
@@ -127,7 +127,7 @@ start_end_date = ('1-1', '12-31')
 tfreq         = 15
 min_detect_gc = 0.9
 method        = 'ranstrat_10' ;
-
+use_sign_pattern_z500 = True
 name_MCI_csv = f'strength_rPDO{remove_PDO}.csv'
 name_rob_csv = f'robustness_rPDO{remove_PDO}.csv'
 
@@ -141,14 +141,17 @@ name_ds = f'0..0..{name_or_cluster_label}_sp'
 list_of_name_path = [(cluster_label, TVpathtemp),
                      ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
 
-# Adjusted box:
+
+# Adjusted box upon request Reviewer 1:
 # z500_green_bb = (155,255,20,73) #: RW box
+# use_sign_pattern_z500 = False
 
 list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                             alpha=.05, FDR_control=True,
                             distance_eps=600, min_area_in_degrees2=5,
                             calc_ts='pattern cov', selbox=z500_green_bb,
-                            use_sign_pattern=True, lags = np.array([0]))]
+                            use_sign_pattern=use_sign_pattern_z500,
+                            lags = np.array([0]))]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
@@ -325,7 +328,7 @@ else:
 alpha_level = .05
 dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
-freqs = [1, 5, 10, 15, 30, 60, 45, 90]
+freqs = [1, 5, 10, 15, 30, 60, 90]
 for f in freqs[:]:
     rg.get_ts_prec(precur_aggr=f, keys_ext=keys_ext)
     keys = [f'$RW^{west_east[0].capitalize()}$',

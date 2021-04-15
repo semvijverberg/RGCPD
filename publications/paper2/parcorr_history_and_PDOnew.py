@@ -35,7 +35,7 @@ from RGCPD import BivariateMI
 from class_BivariateMI import corr_map
 from class_BivariateMI import parcorr_z
 from class_BivariateMI import parcorr_map_time
-import climate_indices, filters, functions_pp, core_pp
+import climate_indices, filters, functions_pp, core_pp, plot_maps
 from func_models import standardize_on_train
 import func_models as fc_utils
 
@@ -122,7 +122,20 @@ if 'parcorr' == exper:
 
         if 'df_PDOsplit' not in globals():
             df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
-                                                       None) #rg.df_splits)
+                                                       None)
+            PDO_plot_kwrgs = {'units':'[-]', 'cbar_vert':-.1,
+                              # 'zoomregion':(130,260,20,60),
+                              'map_proj':ccrs.PlateCarree(central_longitude=220),
+                              'y_ticks':np.array([25,40,50,60]),
+                              'x_ticks':np.arange(130, 280, 25),
+                              'clevels':np.arange(-.6,.61,.075),
+                              'clabels':np.arange(-.6,.61,.3),
+                              'subtitles':np.array([['PDO loading pattern']])}
+            fig = plot_maps.plot_corr_maps(PDO_patterns[0], **PDO_plot_kwrgs)
+            filepath = os.path.join(path_out_main, 'PDO_pattern')
+            fig.savefig(filepath + '.pdf', bbox_inches='tight')
+            fig.savefig(filepath + '.png', bbox_inches='tight')
+
             # summerdates = core_pp.get_subdates(dates, start_end_TVdate)
             df_PDOsplit = df_PDO.loc[0]#.loc[summerdates]
             # standardize = preprocessing.StandardScaler()
