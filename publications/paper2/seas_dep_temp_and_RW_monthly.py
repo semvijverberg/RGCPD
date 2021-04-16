@@ -540,7 +540,7 @@ if experiment == 'adapt_corr':
         title = r'$corr(SST_{}, T^{}_t)$'.format('{'+f't-{corlags[0]}'+'}', target[0].capitalize())
         # title = '$corr(SST_{'+f't-{corlags[0]}'+'}, T^{}_t)$'.format(target[0].capitalize())
     kwrgs_plot = {'aspect':2, 'hspace':.35,
-                  'wspace':-.35, 'size':2, 'cbar_vert':-0.1,
+                  'wspace':-.32, 'size':2, 'cbar_vert':-0.1,
                   'units':'Corr. Coeff. [-]',
                   'map_proj':ccrs.PlateCarree(central_longitude=220),
                   'clevels':np.arange(-.6,.61,.075),
@@ -620,7 +620,7 @@ if experiment == 'adapt_corr':
 
     title = 'Clusters of correlating regions'
     kwrgs_plot = {'aspect':2, 'hspace':.35,
-                  'wspace':-.35, 'size':2, 'cbar_vert':-0.1,
+                  'wspace':-.32, 'size':2, 'cbar_vert':-0.1,
                   'units':'Corr. Coeff. [-]',
                   'map_proj':ccrs.PlateCarree(central_longitude=220),
                   'y_ticks':False,

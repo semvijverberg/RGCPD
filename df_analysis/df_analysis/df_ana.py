@@ -14,7 +14,7 @@ import matplotlib.dates as mdates
 flatten = lambda l: [item for sublist in l for item in sublist]
 from typing import List, Tuple, Union
 
-from functions_pp import time_mean_bins
+from functions_pp import time_mean_bins, get_oneyr
 
 
 
@@ -476,7 +476,10 @@ def plot_ts_matric(df_init, win: int=None, lag=0, columns: list=None, rename: di
 
     # bin means
     if win is not None:
-        df_test = time_mean_bins(df_test, win)[0]
+        oneyr = get_oneyr(df_test.index)
+        start_end_date = (f'{oneyr[0].month:02d}-{oneyr[0].day:02d}',
+                          f'{oneyr[-1].month:02d}-{oneyr[-1].day:02d}')
+        df_test = time_mean_bins(df_test, win, start_end_date=start_end_date)[0]
 
 
     if period=='fullyear':

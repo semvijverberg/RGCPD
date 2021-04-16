@@ -811,7 +811,7 @@ def import_precur_ts(list_import_ts : List[tuple],
     # df_splits = rg.df_splits
 
     splits = df_splits.index.levels[0]
-    orig_traintest = functions_pp.get_testyrs(df_splits)[0]
+    orig_traintest = functions_pp.get_testyrs(df_splits)
     df_data_ext_s   = np.zeros( (splits.size) , dtype=object)
     counter = 0
     for i, (name, path_data) in enumerate(list_import_ts):
@@ -839,7 +839,7 @@ def import_precur_ts(list_import_ts : List[tuple],
             _c = [k for k in df_splits.columns if k in ['TrainIsTrue', 'RV_mask']]
             # check if traintest split is correct
             ext_traintest = functions_pp.get_testyrs(df_data_e_all[_c])
-            _check_traintest = all(np.equal(orig_traintest.flatten(), ext_traintest.flatten()))
+            _check_traintest = all(np.equal(core_pp.flatten(ext_traintest), core_pp.flatten(orig_traintest)))
             assert _check_traintest, ('Train test years of df_splits are not the '
                                       'same as imported timeseries')
 

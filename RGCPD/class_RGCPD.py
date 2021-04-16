@@ -1176,7 +1176,7 @@ def RV_and_traintest(fullts, TV_ts, traintestgroups, method=str, kwrgs_events=No
         df_ext = functions_pp.load_hdf5(path_data)['df_data'].loc[:,:]
         if 'TrainIsTrue' in df_ext.columns:
             print('Retrieve same train test split as imported ts')
-            orig_method = method
+            orig_method = method ; orig_seed = seed
             method = 'from_import' ; seed = ''
 
     if method[:9] == 'ran_strat' and kwrgs_events is None and method != 'from_import':
@@ -1209,6 +1209,8 @@ def RV_and_traintest(fullts, TV_ts, traintestgroups, method=str, kwrgs_events=No
             assert equal_test, "Train test split not equal"
         else:
             method = orig_method # revert back to original train-test split
+            seed = orig_seed
+            print(f'Train-test splits reverts back to {method} with seed {seed}')
 
     if method != 'from_import':
         df_splits = functions_pp.cross_validation(df_RV_ts,

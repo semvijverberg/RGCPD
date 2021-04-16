@@ -510,7 +510,8 @@ df_forcings = out[1][[0]].rename({0:'sst_fc'}, axis=1).merge(df_forcings, left_i
 
 df_cond_all = cond_forecast_table(out[1], df_forcings,
                               score_func_list, n_boot=0)
-
+csv_filename = os.path.join(rg.path_outsub1, 'df_cond_all.csv')
+df_cond_all.to_csv(csv_filename)
 
 #%%
 def boxplot_cond_fc(df_cond, col, composites = 30):
@@ -593,6 +594,8 @@ def boxplot_cond_fc(df_cond, col, composites = 30):
 col = 'PDO_1fc'
 df_cond = cond_forecast_table(out[1], df_forcings[[col]],
                               score_func_list, n_boot=2000)
+csv_filename = os.path.join(rg.path_outsub1, 'df_cond_PDOAR1.csv')
+df_cond.to_csv(csv_filename)
 boxplot_cond_fc(df_cond, col, composites = 30)
 boxplot_cond_fc(df_cond, col, composites = 50)
 #%% PDO half year rolling mean
@@ -601,21 +604,23 @@ df_rm = df_PDOs[[col]][df_PDOs.index.month == 5]
 df_rm = df_rm.loc[core_pp.get_oneyr(df_rm, *list(range(1980,2021)))]
 df_cond_rm = cond_forecast_table(out[1], df_rm,
                               score_func_list, n_boot=2000)
+csv_filename = os.path.join(rg.path_outsub1, 'df_cond_PDO_DJFMAMmean.csv')
+df_cond_rm.to_csv(csv_filename)
 boxplot_cond_fc(df_cond_rm, col, composites = 30)
 boxplot_cond_fc(df_cond_rm, col, composites = 50)
 #%%
 
-col = 'PDO_1'
-df_cond = cond_forecast_table(out[1], df_forcings[[col]],
-                              score_func_list, n_boot=2000)
-boxplot_cond_fc(df_cond, col, composites = 30)
-boxplot_cond_fc(df_cond, col, composites = 50)
-#%%
-col = 'sst_fc'
-df_cond = cond_forecast_table(out[1], df_forcings[[col]],
-                              score_func_list, n_boot=2000)
-boxplot_cond_fc(df_cond, col, composites = 30)
-boxplot_cond_fc(df_cond, col, composites = 50)
+# col = 'PDO_1'
+# df_cond = cond_forecast_table(out[1], df_forcings[[col]],
+#                               score_func_list, n_boot=2000)
+# boxplot_cond_fc(df_cond, col, composites = 30)
+# boxplot_cond_fc(df_cond, col, composites = 50)
+# #%%
+# col = 'sst_fc'
+# df_cond = cond_forecast_table(out[1], df_forcings[[col]],
+#                               score_func_list, n_boot=2000)
+# boxplot_cond_fc(df_cond, col, composites = 30)
+# boxplot_cond_fc(df_cond, col, composites = 50)
     #%%
 
 

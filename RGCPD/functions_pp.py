@@ -1308,46 +1308,47 @@ def get_testyrs(df_splits: pd.DataFrame):
             levels=True
         else:
             levels=False
-    if 'RV_mask' in df_splits.columns and dates.size%365 != 0 and levels:
-        # if full year daily, no traintest groups with a gap that needs to be
-        # taken into account
-        if df_splits.loc[0]['RV_mask'].all()==False:
-            # if statement for checking if not one-val-per-yr data
-            dates_RV = df_splits.loc[0][df_splits.loc[0]['RV_mask']].index
-            gapdays = (dates_RV[1:] - dates_RV[:-1]).days
-            adjecent_dates = gapdays > (np.median(gapdays)+gapdays/2)
-            RVgroupsize = np.argmax(adjecent_dates) + 1
-            closed_right = dates_RV[RVgroupsize-1]
-            firstcyclicgroup = dates[dates <= closed_right]
-            # middle years, first year might be cut-off due to limiting dates
-            closed_right_yr2 = closed_right + date_dt(years=1)
-            secondcyclic = dates[np.logical_and(dates > closed_right,
-                                                dates <= closed_right_yr2)]
-            firstgroup = np.repeat(1, firstcyclicgroup.size)
-            secgroup = np.arange(2, int((dates.size-firstgroup.size)/secondcyclic.size+2))
-            traintestgroups = np.repeat(secgroup,
-                                        secondcyclic.size)
-            traintestgroups = np.concatenate([firstgroup, traintestgroups])
-            uniqgroups = np.unique(traintestgroups)
-            test_yrs = [] ; testgroups = []
-            splits = df_splits.index.levels[0]
-            for s in splits:
-                df_split = df_splits.loc[s]
-                TrainIsTrue_s = df_split[df_split['TrainIsTrue']==False].index
-                groups_in_s = traintestgroups[(~df_split['TrainIsTrue']).values]
-                groupset = []
-                for gr in np.unique(groups_in_s):
-                    yrs = TrainIsTrue_s[groups_in_s==gr]
-                    yrs = np.unique(yrs.year)
-                    groupset.append(list(yrs))
-                test_yrs.append(groupset)
-                testgroups.append([list(uniqgroups).index(gr) for gr in np.unique(groups_in_s)])
-            out = (np.array(test_yrs, dtype=object), testgroups)
-        else:
-            split_by_TrainIsTrue = True
-    elif 'TrainIsTrue' in df_splits.columns and dates.size%365 == 0 and levels==False:
+    RV_mask_ = 'RV_mask' in df_splits.columns
+    # if full year daily, no traintest groups with a gap that needs to be
+    # taken into account
+    fullyear = dates.size%365 == 0
+    # checking if not one-val-per-yr data
+    multipletargetdatesperyr = df_splits.loc[0]['RV_mask'].all()==False
+    if RV_mask_ and fullyear==False and multipletargetdatesperyr:
+        dates_RV = df_splits.loc[0][df_splits.loc[0]['RV_mask']].index
+        gapdays = (dates_RV[1:] - dates_RV[:-1]).days
+        adjecent_dates = gapdays > (np.median(gapdays)+gapdays/2)
+        RVgroupsize = np.argmax(adjecent_dates) + 1
+        closed_right = dates_RV[RVgroupsize-1]
+        firstcyclicgroup = dates[dates <= closed_right]
+        # middle years, first year might be cut-off due to limiting dates
+        closed_right_yr2 = closed_right + date_dt(years=1)
+        secondcyclic = dates[np.logical_and(dates > closed_right,
+                                            dates <= closed_right_yr2)]
+        firstgroup = np.repeat(1, firstcyclicgroup.size)
+        secgroup = np.arange(2, int((dates.size-firstgroup.size)/secondcyclic.size+2))
+        traintestgroups = np.repeat(secgroup,
+                                    secondcyclic.size)
+        traintestgroups = np.concatenate([firstgroup, traintestgroups])
+        uniqgroups = np.unique(traintestgroups)
+        test_yrs = [] ; testgroups = []
+        splits = df_splits.index.levels[0]
+        for s in splits:
+            df_split = df_splits.loc[s]
+            TrainIsTrue_s = df_split[df_split['TrainIsTrue']==False].index
+            groups_in_s = traintestgroups[(~df_split['TrainIsTrue']).values]
+            groupset = []
+            for gr in np.unique(groups_in_s):
+                yrs = TrainIsTrue_s[groups_in_s==gr]
+                yrs = np.unique(yrs.year)
+                groupset.append(list(yrs))
+            test_yrs.append(groupset)
+            testgroups.append([list(uniqgroups).index(gr) for gr in np.unique(groups_in_s)])
+        out = (np.array(test_yrs, dtype=object), testgroups)
+    elif 'TrainIsTrue' in df_splits.columns:
         split_by_TrainIsTrue = True
-    if split_by_TrainIsTrue:
+
+    if split_by_TrainIsTrue and levels:
         traintest_yrs = []
         splits = df_splits.index.levels[0]
         for s in splits:

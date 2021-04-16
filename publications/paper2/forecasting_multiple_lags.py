@@ -304,7 +304,8 @@ def merge_lagged_wrapper(df_data, lags, keys):
 def prediction_wrapper(df_data, lags, target_ts=None, keys: list=None, match_lag: bool=False,
                        n_boot: int=1):
 
-    alphas = np.append(np.logspace(.1, 1.5, num=25), [250])
+    # alphas = np.append(np.logspace(.1, 1.5, num=25), [250])
+    alphas = np.logspace(.1, 1.5, num=25)
     kwrgs_model = {'scoring':'neg_mean_absolute_error',
                    'alphas':alphas, # large a, strong regul.
                    'normalize':False}

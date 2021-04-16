@@ -220,36 +220,47 @@ if west_east == 'east':
         west_east_labels = [1,2]
         naming = {1:'west', 2:'east'}
 
-    i, label = 0, 1
+    # i, label = 0, 1
     list_df_target = []
     for i, label in enumerate(west_east_labels):
         list_of_name_path = [(label, TVpath),
-                              ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
+                     ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc')),
+                     ('v300', os.path.join(path_raw, 'v300_1979-2020_1_12_daily_2.5deg.nc'))]
         rg.list_of_name_path = list_of_name_path
+
         rg.pp_TV()
         rg.traintest(method, seed=seed,
                       subfoldername=None)
         if 'east' in naming[label] or 'north' in naming[label]:
             z500_green_bb = (155,300,20,73) #: RW box
+            v300_green_bb = (170,359,23,73)
         elif 'west' in naming[label]:
             z500_green_bb = (145,325,20,62)
+            v300_green_bb = (100,330,24,70)
         rg.list_for_MI = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                                         alpha=.05, FDR_control=True,
                                         distance_eps=600, min_area_in_degrees2=5,
                                         calc_ts='pattern cov', selbox=z500_green_bb,
-                                        use_sign_pattern=True, lags = np.array([0]))]
+                                        use_sign_pattern=True, lags = np.array([0])),
+                          BivariateMI(name='v300', func=class_BivariateMI.corr_map,
+                                              alpha=.05, FDR_control=True,
+                                              distance_eps=600, min_area_in_degrees2=5,
+                                              calc_ts='pattern cov', selbox=v300_green_bb,
+                                              use_sign_pattern=True, lags=np.array([0]))]
         rg.list_for_EOFS = None
-        rg.calc_corr_maps(['z500'])
+        rg.calc_corr_maps()
         rg.plot_maps_corr(save=True)
-        rg.cluster_list_MI(['z500'])
+        rg.cluster_list_MI()
         rg.get_ts_prec(precur_aggr=1)
         if i == 0:
             df_data = rg.df_data.copy()
             df_data = df_data.rename({'0..0..z500_sp':naming[label]+'RW',
+                                      '0..0..v300_sp':naming[label]+'RWv300',
                                       f'{label}ts':'mx2t'+naming[label]}, axis=1)
             print(df_data.columns)
         else:
             df_app = rg.df_data.copy().rename({'0..0..z500_sp':naming[label]+'RW',
+                                               '0..0..v300_sp':naming[label]+'RWv300',
                                                f'{label}ts':'mx2t'+naming[label]}, axis=1)
             list_df_target.append(df_app)
             print(df_app.columns)

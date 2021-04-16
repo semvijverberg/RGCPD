@@ -129,8 +129,7 @@ class EOF:
                                                 tfreq=tfreq_ts,
                                                 selbox=self.selbox,
                                                 start_end_date=self.start_end_date,
-                                                start_end_year=self.start_end_year,
-                                                closed_on_date=self.start_end_date[-1])
+                                                start_end_year=self.start_end_year)
         df_data_s   = np.zeros( (splits.size) , dtype=object)
         dates = pd.to_datetime(ds['time'].values)
         for s in splits:
