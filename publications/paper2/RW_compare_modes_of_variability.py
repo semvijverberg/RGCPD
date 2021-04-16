@@ -94,12 +94,12 @@ list_of_name_path = [(cluster_label, TVpath),
 list_import_ts = None #[('W-RW', os.path.join(data_dir, f'westRW_{period}_s{seed}.h5')),
                    # ('E-RW', os.path.join(data_dir, f'eastRW_{period}_s{seed}.h5'))]
 
-list_for_MI   = [BivariateMI(name='v300', func=class_BivariateMI.corr_map,
-                                alpha=.05, FDR_control=True,
-                                distance_eps=600, min_area_in_degrees2=1,
-                                calc_ts='pattern cov', selbox=z500_green_bb,
-                                use_sign_pattern=True,
-                                lags=np.array([0]))]
+list_for_MI   = None # [BivariateMI(name='v300', func=class_BivariateMI.corr_map,
+                                # alpha=.05, FDR_control=True,
+                                # distance_eps=600, min_area_in_degrees2=1,
+                                # calc_ts='pattern cov', selbox=z500_green_bb,
+                                # use_sign_pattern=True,
+                                # lags=np.array([0]))]
 
 # list_for_EOFS = [EOF(name='u', neofs=1, selbox=[120, 255, 0, 87.5],
 #                      n_cpu=1, start_end_date=('01-12', '02-28'))]
@@ -175,17 +175,20 @@ for west_east in ['west', 'east', 'combine']:
     kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
                   'hspace':0.0, 'cbar_vert':-.02, 'units':'Corr. Coeff. [-]',
                   'zoomregion':(-180,360,10,80), 'drawbox':[(0,0), z500_green_bb],
-                  'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6,
-                  'clim':(-.6,.6), 'subtitles':np.array([['']])}
+                  'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6}
 
     for eof, name, selbox in [(z500EOF, namez500, z500_green_bb), (v300EOF, namev300, v300_green_bb)]:
         eofs = eof.mean(dim='split') # mean over training sets
-        subtitles = f'{name} - 1st EOF loading pattern'
+        subtitles = np.array([[f'{name} - 1st EOF loading pattern']])
         kwrgs_plotEOF = kwrgs_plot.copy()
-        kwrgs_plotEOF.update({'clim':None, 'units':None, 'title':subtitles,
+        kwrgs_plotEOF.update({'clim':None, 'units':None, 'subtitles':subtitles,
                               'y_ticks':np.array([10,30,50,70])})
-        if kwrgs_plotEOF==False and namev300=='v-wind 300 hPa':
-            kwrgs_plotEOF.update({'drawbox':None})
+        if name=='v-wind 300 hPa':
+            kwrgs_plotEOF.update({'drawbox':None, 'clevels':np.arange(-3.5,3.6,.1),
+                                  'clabels':np.arange(-3.5,3.6,1)})
+        else:
+            kwrgs_plotEOF.update({'clevels':np.arange(-350,360,25),
+                                  'clabels':np.arange(-350,360,100)})
         plot_maps.plot_corr_maps(eofs[0] , **kwrgs_plotEOF)
         plt.savefig(os.path.join(rg.path_outsub1,
                                  eofs.eof.values[0].split('..')[-1]+'1.pdf'),

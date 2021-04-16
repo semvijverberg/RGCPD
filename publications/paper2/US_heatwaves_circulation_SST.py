@@ -203,6 +203,7 @@ fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
                     np.isnan(xrclustered), transform=ccrs.PlateCarree(),
                     levels=[0, 2], linewidths=1, linestyles=['solid'],
                     colors=['white'])
+
 #%%
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
