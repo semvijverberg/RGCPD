@@ -307,10 +307,10 @@ def get_selbox(ds, selbox, verbosity=0):
             e_lon =east_lon
         elif east_lon > 180:
             e_lon = east_lon - 360
-        ds = zz.sel(longitude=slice(e_lon, west_lon), method='nearest')
+        ds = zz.sel(longitude=slice(e_lon, west_lon))
     else:
-        ds = ds.sel(longitude=slice(east_lon, west_lon), method='nearest')
-    ds = ds.sel(latitude=slice_lat, method='nearest')
+        ds = ds.sel(longitude=slice(east_lon, west_lon))
+    ds = ds.sel(latitude=slice_lat)
     return ds
 
 def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
