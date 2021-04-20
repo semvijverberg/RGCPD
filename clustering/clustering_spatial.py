@@ -290,7 +290,9 @@ def get_spatial_ma(var_filename, mask=None):
         lon_mask  = [True if l in lons_mask else False for l in xarray.longitude]
         lats_mask = list(selregion.latitude.values)
         lat_mask  = [True if l in lats_mask else False for l in xarray.latitude]
-        npmask = np.meshgrid(lon_mask, lat_mask)[0]
+        npmasklon = np.meshgrid(lon_mask, lat_mask)[0]
+        npmasklat = np.meshgrid(lon_mask, lat_mask)[1]
+        npmask = np.logical_and(npmasklon, npmasklat)
     elif type(mask) is type(xr.DataArray([0])):
         # lo_min = float(mask.longitude.min()); lo_max = float(mask.longitude.max())
         # la_min = float(mask.latitude.min()); la_max = float(mask.latitude.max())
