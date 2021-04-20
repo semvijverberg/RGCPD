@@ -104,10 +104,10 @@ list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                                 calc_ts='pattern cov', selbox=(0,360,-10,90),
                                 use_sign_pattern=True),
                  BivariateMI(name='v300', func=class_BivariateMI.corr_map,
-                                              alpha=.05, FDR_control=True, lags=lags,
-                                              distance_eps=600, min_area_in_degrees2=5,
-                                              calc_ts='pattern cov', selbox=(0,360,-10,90),
-                                              use_sign_pattern=True)]
+                                alpha=.05, FDR_control=True, lags=lags,
+                                distance_eps=600, min_area_in_degrees2=5,
+                                calc_ts='pattern cov', selbox=(0,360,20,90),
+                                use_sign_pattern=True)]
 
 
 
@@ -191,7 +191,8 @@ fig.savefig(filename + rg.figext, bbox_inches='tight')
 
 kwrgs_plot['title'] = f'$corr(v300_t, T^{west_east.capitalize()[0]}_t)$'
 kwrgs_plot['drawbox'] = [(0,0), v300_green_bb]
-
+kwrgs_plot['zoomregion'] = (-180,360,20,90)
+kwrgs_plot['cbar_vert'] = -0.025
 
 v200 = rg.list_for_MI[1]
 xrvals, xrmask = RGCPD._get_sign_splits_masked(v200.corr_xr,
@@ -203,7 +204,27 @@ fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
                     np.isnan(xrclustered), transform=ccrs.PlateCarree(),
                     levels=[0, 2], linewidths=1, linestyles=['solid'],
                     colors=['white'])
+filename = os.path.join(rg.path_outsub1, 'v300vsmx2t_'+
+                        rg.hash+'_'+str(cluster_label))
 
+fig.savefig(filename + rg.figext, bbox_inches='tight')
+
+
+
+kwrgs_plot['drawbox'] = None
+xrvals, xrmask = RGCPD._get_sign_splits_masked(v200.corr_xr,
+                                               min_detect_gc,
+                                               v200.corr_xr['mask'])
+fig = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
+
+fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
+                    np.isnan(xrclustered), transform=ccrs.PlateCarree(),
+                    levels=[0, 2], linewidths=1, linestyles=['solid'],
+                    colors=['white'])
+filename = os.path.join(rg.path_outsub1, 'v300vsmx2t_nobox'+
+                        rg.hash+'_'+str(cluster_label))
+
+fig.savefig(filename + rg.figext, bbox_inches='tight')
 #%%
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)

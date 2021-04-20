@@ -72,7 +72,7 @@ remove_PDOyesno = np.array([0])
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, expers, seeds, remove_PDOyesno)).T.reshape(-1,4)
 
-i_default = 1
+i_default = 0
 
 
 
@@ -260,7 +260,7 @@ no_info_fc = []
 dm = {} # dictionairy months
 dmc = {} # dictionairy months clusters
 for month, start_end_TVdate in months.items():
-    # month, start_end_TVdate = list(months.items())[3]
+    month, start_end_TVdate = list(months.items())[1]
     if experiment == 'fixed_corr':
         # overwrite RV_mask
         rg.get_ts_prec(precur_aggr=precur_aggr,
@@ -412,9 +412,9 @@ MAE_SS_vals = [test.values[0,-1] for test in list_test]
 rename_metrics = {'RMSE-SS':'RMSE',
                   'Corr. Coef.':'corrcoef',
                   'MAE-SS':'MAE'}
-df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals,
-                          'Corr. Coef.':corrvals},
-                          # 'MAE-SS':MAE_SS_vals},
+df_scores = pd.DataFrame({'MAE-SS':MAE_SS_vals,'Corr. Coef.':corrvals,
+                          # 'RMSE-SS':MSE_SS_vals,
+                           },
                          index=monthkeys)
 df_test_b = pd.concat(list_test_b, keys = monthkeys,axis=1)
 
@@ -464,10 +464,10 @@ ax.tick_params(axis='x', labelsize=18)
 
 
 if target=='westerntemp':
-    patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
+    # patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
     patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
-    # patch3 = mpatches.Patch(color='purple', label='MAE-SS')
-    handles = [patch1, patch2]
+    patch3 = mpatches.Patch(color='blue', label='MAE-SS')
+    handles = [patch2, patch3]
     legend1 = ax.legend(handles=handles,
               fontsize=20, frameon=True, facecolor='grey',
               framealpha=.5)
@@ -618,10 +618,10 @@ if experiment == 'adapt_corr':
     # Horizontal plot
     subtitles = np.array([monthkeys])
 
-    title = 'Clusters of correlating regions'
+    title = 'Clusters of correlating regions [from $corr(SST_{t-1},$'+f'$\ T_t^{target[0].capitalize()})$]'
     kwrgs_plot = {'aspect':2, 'hspace':.35,
                   'wspace':-.32, 'size':2, 'cbar_vert':-0.1,
-                  'units':'Corr. Coeff. [-]',
+                  'units':'',
                   'map_proj':ccrs.PlateCarree(central_longitude=220),
                   'y_ticks':False,
                   'x_ticks':False,

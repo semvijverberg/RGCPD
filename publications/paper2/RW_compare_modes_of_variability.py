@@ -36,7 +36,7 @@ import plot_maps, core_pp, df_ana, functions_pp
 
 
 
-west_east = 'west'
+west_east = 'combine'
 adapt_selbox = False
 TV = 'USCAnew'
 
@@ -104,7 +104,7 @@ list_for_MI   = None # [BivariateMI(name='v300', func=class_BivariateMI.corr_map
 # list_for_EOFS = [EOF(name='u', neofs=1, selbox=[120, 255, 0, 87.5],
 #                      n_cpu=1, start_end_date=('01-12', '02-28'))]
 
-list_for_EOFS = [EOF(name='v300', neofs=1, selbox=[-180, 360, 10, 80],
+list_for_EOFS = [EOF(name='v300', neofs=1, selbox=[-180, 360, 20, 90],
                     n_cpu=1, start_end_date=start_end_TVdate)]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
@@ -143,13 +143,19 @@ PNA = PNA.rename({'PNA':'PNAliu'},axis=1)
 # From Climate Explorer
 # https://climexp.knmi.nl/getindices.cgi?WMO=NCEPData/cpc_pna_daily&STATION=PNA&TYPE=i&id=someone@somewhere&NPERYEAR=366
 # on 20-07-2020
-PNA_cpc = core_pp.import_ds_lazy(main_dir+'/publications/paper2/data/icpc_pna_daily.nc',
-                                 start_end_year=(1979, 2018),
+PNA_cpc = core_pp.import_ds_lazy(main_dir+'/publications/paper2/data/icpc_pna_daily_1980-2020.nc',
+                                 start_end_year=(1979, 2020),
                                  seldates=start_end_TVdate).to_dataframe('PNAcpc')
 PNA_cpc.index.name = None
 #%%
+import matplotlib
+# Optionally set font to Computer Modern to avoid common missing font errors
+matplotlib.rc('font', family='serif', serif='cm10')
 
+matplotlib.rc('text', usetex=True)
+# matplotlib.rcParams['text.latex.preamble'] = r'\boldmath'
 
+matplotlib.rcParams['axes.labelweight']=100
 
 
 
@@ -174,15 +180,16 @@ for west_east in ['west', 'east', 'combine']:
     z500EOF = z500EOFcl.eofs
     kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
                   'hspace':0.0, 'cbar_vert':-.02, 'units':'Corr. Coeff. [-]',
-                  'zoomregion':(-180,360,10,80), 'drawbox':[(0,0), z500_green_bb],
+                  'drawbox':[(0,0), z500_green_bb], #'zoomregion':(-180,360,10,80),
                   'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6}
 
     for eof, name, selbox in [(z500EOF, namez500, z500_green_bb), (v300EOF, namev300, v300_green_bb)]:
         eofs = eof.mean(dim='split') # mean over training sets
+        eofs[0] *= -1 # switch sign
         subtitles = np.array([[f'{name} - 1st EOF loading pattern']])
         kwrgs_plotEOF = kwrgs_plot.copy()
         kwrgs_plotEOF.update({'clim':None, 'units':None, 'subtitles':subtitles,
-                              'y_ticks':np.array([10,30,50,70])})
+                              'y_ticks':np.array([10,30,50,70,90])})
         if name=='v-wind 300 hPa':
             kwrgs_plotEOF.update({'drawbox':None, 'clevels':np.arange(-3.5,3.6,.1),
                                   'clabels':np.arange(-3.5,3.6,1)})
@@ -218,11 +225,11 @@ for west_east in ['west', 'east', 'combine']:
     # [df_data.pop(pk) for pk in popkeys]
     df_data.pop('TrainIsTrue') ; df_data.pop('RV_mask')
 
-    df_all = df_data.rename({'2ts_y':'$T^E$', '1ts':'W-T',
-                             '0..0..z500_sp_x':'W-RW', '0..0..z500_sp_y':'E-RW',
+    df_all = df_data.rename({'mx2teast':'$T^E$', 'mx2twest':'$T^W$',
+                             'westRW':'$RW^W$', 'eastRW':'$RW^E$',
                              'EOF0_z500':'z500-EOF1', 'EOF1_z500':'z500-EOF2',
-                             '0..1..EOF_v300':'v300-EOF1', '0..2..EOF_v300':'v300-EOF2'},axis=1)
-
+                             '0..1..EOF_v300':'$v300$-$EOF1$', '0..2..EOF_v300':'v300-EOF2'},axis=1)
+    # PNA_cpc = PNA_cpc.rename({'PNAcpc':'$PNAcpc$'},axis=1)
     df_c = df_all.merge(PNA,left_index=True, right_index=True)
     df_c = df_c.merge(PNA_cpc.loc[df_all.index], left_index=True, right_index=True)
     if west_east == 'east':
@@ -230,8 +237,8 @@ for west_east in ['west', 'east', 'combine']:
     elif west_east == 'west':
         columns = ['W-RW', 'v300-EOF1']
     elif west_east == 'combine':
-        columns = ['E-RW', 'W-RW', 'v300-EOF1','PNAcpc']
-    df_ana.plot_ts_matric(df_c[columns], win=15, plot_sign_stars=False,
-                          fontsizescaler=0)
+        columns = ['$RW^E$', '$RW^W$', '$v300$-$EOF1$','PNAcpc']
+    df_ana.plot_ts_matric(df_c[columns], win=15, plot_sign_stars=False, fontsizescaler=0)
+
     filename = os.path.join(rg.path_outsub1, f'cross_corr_{west_east}_15d_selbox{adapt_selbox}.pdf')
     plt.savefig(filename, bbox_inches='tight')

@@ -67,7 +67,7 @@ periods = ['JA_center']
 seeds = np.array([1,2,3,4,5])
 combinations = np.array(np.meshgrid(targets, periods, seeds)).T.reshape(-1,3)
 
-i_default = 1 #8
+i_default = 0 #8
 
 def parseArguments():
     # Create argument parser
@@ -148,7 +148,6 @@ list_of_name_path = [(cluster_label, TVpath),
                      ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_monthly_1.0deg.nc'))]
                      # ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
 
-lags=np.array([0,1,2,3,4,5])
 lags=np.array([1])
 tfreq = 2
 min_area_in_degrees2=3 #10
@@ -563,7 +562,7 @@ def boxplot_cond_fc(df_cond, col, composites = 30):
         whiskerprops = dict(linestyle='-',linewidth=2.0, color='black')
         medianprops = dict(linestyle='-', linewidth=2, color='red')
         ax.boxplot(data, labels=nlabels,
-                   widths=widths, whis=.95, boxprops=boxprops, whiskerprops=whiskerprops,
+                   widths=widths, whis=[2.5, 97.5], boxprops=boxprops, whiskerprops=whiskerprops,
                    medianprops=medianprops, showmeans=True)
 
         text = f'{int(100*perc_incr)}%'

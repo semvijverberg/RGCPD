@@ -72,7 +72,7 @@ remove_PDOyesno = np.array([0])
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, expers, seeds, remove_PDOyesno)).T.reshape(-1,4)
 
-i_default = 1
+i_default = 0
 
 
 
@@ -108,7 +108,7 @@ else:
     remove_PDO = False
     seed = 1
 
-mainpath_df = os.path.join(main_dir, 'publications/paper2/output/heatwave_circulation_v300_z500_SST/USCAnew_east/')
+mainpath_df = os.path.join(main_dir, 'publications/paper2/output/heatwave_circulation_v300_z500_SST/57db0USCA/')
 calc_ts='region mean' # pattern cov
 # t2m
 TVpath = 'z500_145-325-20-62USCA.h5'
@@ -121,13 +121,14 @@ TVpath  = os.path.join(mainpath_df, TVpath)
 
 
 
+
 if target[-4:] == 'temp':
     # TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
     alpha_corr = .05
 
     if target == 'westerntemp':
         cluster_label = 'mx2twest' #4 # 1
-        corlags = np.array([0])
+        corlags = np.array([2])
     elif target == 'easterntemp':
         cluster_label = 'mx2teast' # 2
         corlags = np.array([2])
@@ -256,12 +257,13 @@ if remove_PDO:
     lowpass = '2y'
     rg.list_import_ts = [('PDO', os.path.join(data_dir, f'PDO_{lowpass}_rm_25-09-20_15hr.h5'))]
 
-if precur_aggr == 15:
-    blocksize=2
-    lag = 2
-elif precur_aggr==60:
-    blocksize=1
-    lag = 1
+blocksize=1
+lag = 1
+# only needed such that score_func_list exists
+RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=0).RMSE
+MAE_SS = fc_utils.ErrorSkillScore(constant_bench=0).MAE
+CRPSS = fc_utils.CRPSS_vs_constant_bench(constant_bench=0).CRPSS
+score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS]
 
 
 dict_v = {'target':target, 'lag':lag,'rmPDO':str(remove_PDO), 'exper':experiment,
@@ -415,7 +417,8 @@ for month, start_end_TVdate in months.items():
 
 
 #%%
-
+import matplotlib as mpl
+mpl.rcParams.update(mpl.rcParamsDefault)
 import matplotlib.patches as mpatches
 corrvals = [test.values[0,1] for test in list_test]
 MSE_SS_vals = [test.values[0,0] for test in list_test]
@@ -423,9 +426,9 @@ MAE_SS_vals = [test.values[0,-1] for test in list_test]
 rename_metrics = {'RMSE-SS':'RMSE',
                   'Corr. Coef.':'corrcoef',
                   'MAE-SS':'MAE'}
-df_scores = pd.DataFrame({'RMSE-SS':MSE_SS_vals,
-                          'Corr. Coef.':corrvals},
-                          # 'MAE-SS':MAE_SS_vals},
+df_scores = pd.DataFrame({'MAE-SS':MAE_SS_vals,'Corr. Coef.':corrvals,
+                          # 'RMSE-SS':MSE_SS_vals,
+                           },
                          index=monthkeys)
 df_test_b = pd.concat(list_test_b, keys = monthkeys,axis=1)
 
@@ -445,7 +448,7 @@ for i, (mon, met) in enumerate(monmet):
 
 fig, ax = plt.subplots(1,1, figsize=(10,8))
 # ax.set_facecolor('lightgrey')
-plt.style.use('ggplot')
+plt.style.use('seaborn')
 _yerr = np.array(yerr).reshape(df_scores.columns.size,len(monthkeys)*2,
                                order='F').reshape(df_scores.columns.size,2,len(monthkeys))
 df_scores.plot.bar(ax=ax, rot=0, yerr=_yerr,
@@ -462,25 +465,25 @@ df_scores.plot.bar(ax=ax, rot=0, yerr=_yerr,
 
 
 
-ax.set_ylabel('Skill Score', fontsize=16, labelpad=-5)
+ax.set_ylabel('Skill Score', fontsize=20, labelpad=0)
 # ax.set_xticklabels(months, fontdict={'fontsize':20})
 if target[-4:] == 'temp':
     title = f'Seasonal dependence of $T^{target[0].capitalize()}$ predictions'
 elif target[-2:] == 'RW':
     title = f'Seasonal dependence of {precur_aggr}-day mean RW predictions'
 ax.set_title(title,
-             fontsize=16)
-ax.tick_params(axis='y', labelsize=16)
-ax.tick_params(axis='x', labelsize=16)
+             fontsize=20)
+ax.tick_params(axis='y', labelsize=18)
+ax.tick_params(axis='x', labelsize=18)
 
 
-if tfreq==15 and target=='westerntemp':
-    patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
+if target=='westerntemp':
+    # patch1 = mpatches.Patch(color='blue', label='RMSE-SS')
     patch2 = mpatches.Patch(color='green', label='Corr. Coef.')
-    # patch3 = mpatches.Patch(color='purple', label='MAE-SS')
-    handles = [patch1, patch2]
+    patch3 = mpatches.Patch(color='blue', label='MAE-SS')
+    handles = [patch2, patch3]
     legend1 = ax.legend(handles=handles,
-              fontsize=16, frameon=True, facecolor='grey',
+              fontsize=20, frameon=True, facecolor='grey',
               framealpha=.5)
     ax.add_artist(legend1)
 
@@ -492,9 +495,10 @@ if tfreq==15 and target=='westerntemp':
     #           framealpha=.5)
     #     ax.add_artist(legend2)
 
-ax.set_ylim(-0.1, 0.6)
+ax.set_ylim(-0.1, 1.0)
 plt.savefig(os.path.join(rg.path_outsub1,
-               f'skill_score_vs_months_a{alpha}+{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_ac{alpha_corr}_corlag{precur.lags}.pdf'))
+           f'skill_score_vs_months_a{alpha}+{precur_aggr}tf_lag{lag}_nb{n_boot}_blsz{blocksize}_ac{alpha_corr}_corlag{precur.lags}.pdf'),
+            bbox_inches='tight')
 
 csvfilename = os.path.join(rg.path_outmain, name_csv)
 for csvfilename, dic in [(csvfilename, dict_v)]:
@@ -509,6 +513,7 @@ for csvfilename, dic in [(csvfilename, dict_v)]:
     with open(csvfilename, 'a', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, list(dic.keys()))
         writer.writerows([dic])
+#%%
 #%%
 
 mpl.rcParams.update(mpl.rcParamsDefault)
