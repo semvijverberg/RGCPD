@@ -3,7 +3,8 @@
 Introduction
 =====
 
-RG-CPD is a framework to process 3-dimensional climate data, such that relationships based on correlation can be tested for conditional independence, i.e. causality. 
+RG-CPD is a framework to process 3-dimensional climate data, such that relationships based on correlation can be tested for conditional dependence, i.e. causality. These causal teleconnections can be used to forecast a target variable of interest.
+
 
 Causal inference frameworks have been proven valuable by going beyond defining a relationship based upon correlation. Autocorrelation, common drivers and indirect drivers are very common in the climate system, and they lead to spurious (significant) correlations. Tigramite has been successfully applied to 1 dimensional time series in climate science (Kretschmer et al. 2016 https://doi.org/10.1175/JCLI-D-15-0654.1), in order to filter out these spurious correlations using conditional indepence tests (Runge et al. 2017 http://arxiv.org/abs/1702.07007).
 
@@ -23,7 +24,7 @@ The final step is the same, where the 1-d time series are processed by Tigramite
 - Tigramite (Causal discovery and inference)
 - Scikit-learn models + optional GridSearch for tuning
 - flexible forecast verification metrics
-- (basic) plotting functions with cartopy
+- (basic) plotting functions with Cartopy
 - ECMWF_retrieval with a download python wrapper to get data from the Climate Data Store ERA-5 dataset
 \
 Have a look at **subseasonal.ipynb** and **seasonal.ipynb** for an overview of the core functionality.
@@ -53,9 +54,6 @@ If you did not have ecmwfapi installed before, you need to create an ecmwf accou
     "key"   : <your key>,\
     "email" : <your emailadress>\
 }
-
-
-
 
 
 ### Installing CDO (only needed when you want to download from ECWMF)
