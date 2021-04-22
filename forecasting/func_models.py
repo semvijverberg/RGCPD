@@ -43,7 +43,10 @@ def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
     cv : sk-learn cross-validation generator
 
     '''
-    if groups is None:
+    # if dealing with subseasonal data, there is a lot of autocorrelation.
+    # it is best practice to keep the groups of target dates within a year well
+    # seperated, therefore:
+    if groups is None and np.unique(y_train.index.year).size != y_train.size:
         # find where there is a gap in time, indication of seperate RV period
         gapdays = (y_train.index[1:] - y_train.index[:-1]).days
         adjecent_dates = gapdays > (np.median(gapdays)+gapdays/2)
@@ -52,6 +55,9 @@ def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
         groups = np.repeat(np.arange(0,n_gr), dategroupsize)
         if groups.size != y_train.size: # else revert to keeping years together
             groups = y_train.index.year
+    else:
+        groups = y_train.index.year # annual data, no autocorrelation groups
+
 
     high_normal_low = y_train.groupby(groups).sum()
     high_normal_low[(high_normal_low > high_normal_low.quantile(q=.66)).values] = 1
@@ -71,12 +77,13 @@ def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
                                random_state=seed)
     test_gr = []
     for i, j in cv_strat.split(X=freq.index, y=freq.values):
-        test_gr.append(freq.index[j].values)
+        test_gr.append(j)
+        # test_gr.append(freq.index[j].values)
 
     label_test = np.zeros( y_train.size , dtype=int)
     for i, test_fold in enumerate(test_gr):
         for j, gr in enumerate(groups):
-            if gr in list(test_fold):
+            if j in list(test_fold):
                 label_test[j] = i
 
     cv = PredefinedSplit(label_test)
@@ -370,17 +377,61 @@ class CRPSS_vs_constant_bench:
             return (bench - fc_score) / bench
 
 
-def get_scores(prediction, df_splits, score_func_list: list=None,
-               score_per_test=True,
-               n_boot: int=1, blocksize: int=1, rng_seed=1):
+def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=None,
+               score_per_test=True, n_boot: int=1, blocksize: int=1,
+               rng_seed=1):
+    '''
+
+
+    Parameters
+    ----------
+    prediction : TYPE
+        DESCRIPTION.
+    df_splits : pd.DataFrame, optional
+        DESCRIPTION. The default is None.
+    score_func_list : list, optional
+        DESCRIPTION. The default is None.
+    score_per_test : TYPE, optional
+        DESCRIPTION. The default is True.
+    n_boot : int, optional
+        DESCRIPTION. The default is 1.
+    blocksize : int, optional
+        DESCRIPTION. The default is 1.
+    rng_seed : TYPE, optional
+        DESCRIPTION. The default is 1.
+
+    Returns
+    -------
+    pd.DataFrames format:
+    index [opt. splits]
+    Multi-index columns [lag, metric name]
+    df_trains, df_test_s, df_tests, df_boots.
+
+    '''
     #%%
+    if df_splits is None:
+        # assuming all is test data
+        TrainIsTrue = np.zeros((prediction.index.size, 1))
+        RV_mask  = np.ones((prediction.index.size, 1))
+        df_splits = pd.DataFrame(np.concatenate([TrainIsTrue,RV_mask], axis=1),
+                                   index=prediction.index,
+                                   dtype=bool,
+                                   columns=['TrainIsTrue', 'RV_mask'])
+
+    # add empty multi-index to maintain same data format
+    if hasattr(df_splits .index, 'levels')==False:
+        df_splits = pd.concat([df_splits], keys=[0])
+
+    if hasattr(prediction.index, 'levels')==False:
+        prediction = pd.concat([prediction], keys=[0])
+
     pred = prediction.merge(df_splits,
                             left_index=True,
                             right_index=True)
 
     # score on train and per test split
     if score_func_list is None:
-        score_func_list = [metrics.mean_squared_error]
+        score_func_list = [metrics.mean_squared_error, corrcoef]
     splits = pred.index.levels[0]
     columns = prediction.columns[1:]
     df_trains = np.zeros( (columns.size), dtype=object)
@@ -396,7 +447,10 @@ def get_scores(prediction, df_splits, score_func_list: list=None,
             testRV  = np.logical_and(~sp['TrainIsTrue'], sp['RV_mask'])
             for f in score_func_list:
                 name = f.__name__
-                train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].loc[:,col])
+                if (~trainRV).all()==False: # training data exists
+                    train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].loc[:,col])
+                else:
+                    train_score  = np.nan
                 if score_per_test and testRV.any():
                     test_score = f(sp[testRV].iloc[:,0], sp[testRV].loc[:,col])
                 else:
@@ -434,7 +488,8 @@ def get_scores(prediction, df_splits, score_func_list: list=None,
             old_index = range(0,len(y_true),1)
             n_bl = blocksize
             chunks = [old_index[n_bl*i:n_bl*(i+1)] for i in range(int(len(old_index)/n_bl))]
-            score_list = _bootstrap(pred_test.iloc[:,[0,c+1]], n_boot, chunks, score_func_list,
+            score_list = _bootstrap(pred_test.iloc[:,[0,c+1]], n_boot, chunks,
+                                    score_func_list,
                                     rng_seed=rng_seed)
             df_boot = pd.DataFrame(score_list,
                                    columns=[f.__name__ for f in score_func_list])

@@ -15,6 +15,7 @@ import xarray as xr
 import pandas as pd
 # from matplotlib.colors import LinearSegmentedColormap, colors
 import matplotlib.colors as mcolors
+import matplotlib.ticker as mticker
 import cartopy.crs as ccrs
 from typing import List, Tuple, Union
 
@@ -38,11 +39,13 @@ def extend_longitude(data):
 def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    col_dim='lag', clim='relaxed', hspace=-0.6, wspace=0.02,
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
-                   clevels=None, cticks_center=None, drawbox=None, title=None,
+                   clevels=None, clabels=None, cticks_center=None,
+                   cbar_tick_dict: dict={}, drawbox=None, title=None,
                    title_fontdict: dict=None, subtitles: np.ndarray=None,
                    subtitle_fontdict: dict=None, zoomregion=None,
                    aspect=None, n_xticks=5, n_yticks=3, x_ticks: Union[bool, np.ndarray]=None,
                    y_ticks: Union[bool, np.ndarray]=None, add_cfeature: str=None,
+                   scatter: np.ndarray=None, col_wrap: int=None,
                    textinmap: list=None):
 
     '''
@@ -50,12 +53,12 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     '''
     #%%
     # default parameters
-    # mask_xr=None ; row_dim='split'; col_dim='lag'; clim='relaxed';
+    # mask_xr=None ; row_dim='split'; col_dim='lag'; clim='relaxed'; wspace=.03;
     # size=2.5; cbar_vert=-0.01; units='units'; cmap=None; hspace=-0.6;
-    # clevels=None; cticks_center=None; map_proj=None ; wspace=.03;
+    # clevels=None; clabels=None; cticks_center=None; cbar_tick_dict={}; map_proj=None ;
     # drawbox=None; subtitles=None; title=None; lat_labels=True; zoomregion=None
     # aspect=None; n_xticks=5; n_yticks=3; title_fontdict=None; x_ticks=None;
-    # y_ticks=None; add_cfeature=None; textinmap=None
+    # y_ticks=None; add_cfeature=None; textinmap=None; scatter=None; col_wrap=None
 
     if map_proj is None:
         cen_lon = int(corr_xr.longitude.mean().values)
@@ -74,7 +77,6 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     rows    = corr_xr[row_dim].values
     cols    = corr_xr[col_dim].values
 
-
     rename_dims = {row_dim:'row', col_dim:'col'}
     rename_dims_inv = {'row':row_dim, 'col':col_dim}
     plot_xr = corr_xr.rename(rename_dims)
@@ -90,11 +92,17 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     if aspect is None:
         aspect = (lon.size) / lat.size
 
-
-    g = xr.plot.FacetGrid(plot_xr, col='col', row='row',
-                          subplot_kws={'projection': map_proj},
-                          sharex=True, sharey=True,
-                          aspect=aspect, size=size)
+    if col_wrap is None:
+        g = xr.plot.FacetGrid(plot_xr, col='col', row='row',
+                              subplot_kws={'projection': map_proj},
+                              sharex=True, sharey=True,
+                              aspect=aspect, size=size)
+    else:
+        g = xr.plot.FacetGrid(plot_xr, col='col',
+                      subplot_kws={'projection': map_proj},
+                      sharex=True, sharey=True,
+                      aspect=aspect, size=size,
+                      col_wrap=col_wrap)
     figheight = g.fig.get_figheight()
 
     # =============================================================================
@@ -136,14 +144,12 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
         vmin = np.round(float(vmin_),decimals=2) ; vmax = np.round(float(vmax_),decimals=2)
         clevels = np.linspace(-max(abs(vmin),vmax),max(abs(vmin),vmax),17) # choose uneven number for # steps
-        norm = MidpointNormalize(midpoint=0, vmin=clevels[0],vmax=clevels[-1])
-        ticksteps = 4
+
     else:
         vmin_ = np.nanpercentile(plot_xr, 1) ; vmax_ = np.nanpercentile(plot_xr, 99)
         vmin = np.round(float(vmin_),decimals=2) ; vmax = np.round(float(vmax_),decimals=2)
         clevels=clevels
-        norm=None
-        ticksteps = 1
+
 
     if cmap is None:
         cmap = plt.cm.RdBu_r
@@ -158,6 +164,10 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
 
         for row, r_label in enumerate(rows):
+            if col_wrap is not None:
+                row = np.repeat(list(range(g.axes.shape[0])), g.axes.shape[1])[col]
+                col = (list(range(col_wrap))*g.axes.shape[0])[col]
+
             print(f"\rPlotting Corr maps {var_n}, {row_dim} {r_label}, {col_dim} {c_label}", end="\n")
             plotdata = xrdatavar.sel(row=r_label).rename(rename_subs).squeeze()
 
@@ -177,11 +187,11 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                     if p_nans != 100:
                         plotmask.plot.contour(ax=g.axes[row,col],
                                               transform=ccrs.PlateCarree(),
-                                          # subplot_kws={'projection': map_proj},
-                                          colors=['black'],
-                                          linewidths=np.round(zonal_width/150, 1)+0.3,
-                                          levels=[float(vmin),float(vmax)],
-                                          add_colorbar=False)
+                                              linestyles=['solid'],
+                                              colors=['black'],
+                                              linewidths=np.round(zonal_width/150, 1)+0.3,
+                                              levels=[float(vmin),float(vmax)],
+                                              add_colorbar=False)
         #                try:
         #                    im = plotdata.plot.contourf(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
         #                                        center=0,
@@ -220,15 +230,17 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                 if drawbox[0] == g.axes.size or drawbox[0] == 'all':
                     g.axes[row,col].add_geometries(ring, ccrs.PlateCarree(),
                                                    facecolor='none', edgecolor='green',
-                                                   linewidth=2, linestyle='dashed')
+                                                   linewidth=2, linestyle='dashed',
+                                                   zorder=4)
                 elif type(drawbox[0]) is tuple:
                     row_box, col_box = drawbox[0]
                     if row == row_box and col == col_box:
                         g.axes[row,col].add_geometries(ring, ccrs.PlateCarree(),
                                                        facecolor='none', edgecolor='green',
-                                                       linewidth=2, linestyle='dashed')
+                                                       linewidth=2, linestyle='dashed',
+                                                       zorder=4)
             # =============================================================================
-            # Add text in plot - list([location, list(tuple(lon,lat,text,kwrgs))])
+            # Add text in plot - list([ax_loc, list(tuple(lon,lat,text,kwrgs))])
             # =============================================================================
             if textinmap is not None:
                 for list_t in textinmap:
@@ -238,14 +250,28 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                         row_text, col_text = list_t[0]
                     if type(list_t[1]) is not list:
                         list_t[1] = [list_t[1]]
-                    for t in list_t[1]:
+                    for t in list_t[1]: # loop if multiple textboxes per plot
                         lontext, lattext, text, kwrgs = t # lon in degrees west-east
                         kwrgs.update(dict(horizontalalignment='center',
                                          transform=ccrs.Geodetic())) # standard settings
                         g.axes[row_text,col_text].text(int(lontext), int(lattext),
                                                        text, **kwrgs)
-
-
+            # =============================================================================
+            # Add scatter points list([[ax_loc, list(np_array_xy, kwrgs)]])
+            # =============================================================================
+            if scatter is not None:
+                for list_s in scatter:
+                    loc_ax = list_s[0]
+                    if loc_ax == g.axes.size or loc_ax == 'all': # ax_loc
+                        row_text, col_text = row, col
+                    else:
+                        row_text, col_text = loc_ax
+                    np_array_xy = list_s[1][0] # lon, lat coords - shape=(points, 2)
+                    kwrgs_scatter = list_s[1][1]
+                    g.axes[row_text,col_text].scatter(x=np_array_xy[:,0],
+                                                      y=np_array_xy[:,1],
+                                                      transform=ccrs.PlateCarree(),
+                                                      **kwrgs_scatter)
             # =============================================================================
             # Subtitles
             # =============================================================================
@@ -277,23 +303,41 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                 else:
                     fake_labels = [' ' * len( str(l) ) for l in latitude_labels]
                     g.axes[row,col].set_yticklabels(fake_labels, fontsize=12)
+            # =============================================================================
+            # Gridlines
+            # =============================================================================
+                if type(y_ticks) is bool and type(x_ticks) is bool:
+                    if np.logical_and(y_ticks==False, x_ticks==False):
+                        # if no ticks, then also no gridlines
+                        pass
+                    # else:
+                        # gl = g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3,
+                                             # linestyle='--', zorder=4)
+                else:
+                    gl = g.axes[row,col].gridlines(crs=ccrs.PlateCarree(),
+                                              linewidth=.5, color='black', alpha=0.15,
+                                              linestyle='--', zorder=4)
+                    gl.xlocator = mticker.FixedLocator((longitude_labels % 360 + 540) % 360 - 180)
+                    gl.ylocator = mticker.FixedLocator(latitude_labels)
 
-                g.axes[row,col].grid(linewidth=1, color='black', alpha=0.3, linestyle='--')
+
                 g.axes[row,col].set_ylabel('')
                 g.axes[row,col].set_xlabel('')
-            g.axes[row,col].coastlines(color='black',
-                                          alpha=0.3,
-                                          facecolor='grey',
-                                          linewidth=2)
+
+            g.axes[row,col].coastlines(color='black', alpha=0.3,
+                                       facecolor='grey', linewidth=2)
             # black outline subplot
             g.axes[row,col].spines['geo'].set_edgecolor('black')
 
+
             if corr_xr.name is not None:
                 if corr_xr.name[:3] == 'sst':
-                    g.axes[row,col].add_feature(cfeature.LAND, facecolor='grey', alpha=0.3)
+                    g.axes[row,col].add_feature(cfeature.LAND, facecolor='grey',
+                                                alpha=0.3, zorder=0)
             if add_cfeature is not None:
                 g.axes[row,col].add_feature(cfeature.__dict__[add_cfeature],
-                                            facecolor='grey', alpha=0.2)
+                                            facecolor='grey', alpha=0.3,
+                                            zorder=4)
 
 
             if zoomregion is not None:
@@ -303,10 +347,8 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                                        lat[0], lat[-1]], crs=ccrs.PlateCarree())
 
 
-
-
     # =============================================================================
-    # lay out settings FacetGrid and colorbar
+    # lay-out settings FacetGrid and colorbar
     # =============================================================================
 
     # height colorbor 1/10th of height of subfigure
@@ -322,22 +364,21 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     else:
         clabel = ''
 
-
     if cticks_center is None:
+        if clabels is None:
+            clabels = clevels[::2]
         plt.colorbar(im, cax=cbar_ax , orientation='horizontal', # norm=norm,
-                 label=clabel, ticks=clevels[::ticksteps], extend='neither')
+                 label=clabel, ticks=clabels, extend='neither')
     else:
-        # norm = mcolors.BoundaryNorm(boundaries=clevels, ncolors=256)
         cbar = plt.colorbar(im, cbar_ax,
                             orientation='horizontal', extend='neither',
                             label=clabel)
         cbar.set_ticks(clevels + 0.5)
-        ticklabels = np.array(clevels+1, dtype=int)
-        cbar.set_ticklabels(ticklabels, update_ticks=True)
+        cbar.set_ticklabels(np.array(clevels+1, dtype=int),
+                            update_ticks=True)
         cbar.update_ticks()
+    cbar_ax.tick_params(**cbar_tick_dict)
 
-        # ax.set_xlim(zoomregion[:2])
-        # ax.set_ylim(zoomregion[:2])
     if title is not None:
         if title_fontdict is None:
             title_fontdict = dict({'fontsize'     : 18,
@@ -664,7 +705,7 @@ def plot_labels(prec_labels,
     xrlabels.values = prec_labels.values - 0.5
     kwrgs_labels = _get_kwrgs_labels(xrlabels)
     kwrgs_labels.update(kwrgs_plot)
-    plot_corr_maps(xrlabels, **kwrgs_labels)
+    return plot_corr_maps(xrlabels, **kwrgs_labels)
 
 def plot_corr_regions(ds, var, lag, filepath,
                       mean_splits=True, cols: List=['corr','C.D.'],

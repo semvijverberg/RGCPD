@@ -46,7 +46,7 @@ def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
     '''
     if argument of kwrgs_pp is list, then the first item is assumed to be the
     default argument value, the second item should be a dict contaning the
-    {varname : exception_argument}.
+    {varname : alternative_argument}.
     '''
 
     list_precur_pp = []
@@ -107,18 +107,18 @@ def load_TV(list_of_name_path, name_ds='ts'):
     elif filename.split('.')[-1] == 'h5':
         dict_df = load_hdf5(filename)
         df = dict_df[list(dict_df.keys())[0]]
-
+        based_on_test = True
         if hasattr(df.index, 'levels'):
             splits = df.index.levels[0]
-            if splits.size > 1:
-                based_on_test = True
-                print('calculate mean of different train-test folds')
-            else:
+            if splits.size == 1:
                 based_on_test = False
                 df = df.loc[0]
             if based_on_test:
+                print('Get test timeseries of target pd.DataFrame')
+                df = get_df_test(df)
+            else:
                 df = df.mean(axis=0, level=1)
-                # df = get_df_test(df)
+                print('calculate mean of different train-test folds')
         df = df[[name_ds]] ; df.index.name = 'time'
         fulltso = df.to_xarray().to_array(name=name_ds).squeeze()
     hashh = filename.split('_')[-1].split('.')[0]
@@ -129,12 +129,15 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=False, RV_anomaly=False,
                ext_annual_to_mon=True, TVdates_aggr: bool=False,
                verbosity=1):    #%%
-    # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1;ext_annual_to_mon=False
-    # start_end_date=None; TVdates_aggr=False
+    # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1;
+    # ext_annual_to_mon=False;TVdates_aggr=False; start_end_date=None; start_end_year=None
+
+
     dates = pd.to_datetime(fullts.time.values)
-    fullts.sel(time=core_pp.get_subdates(dates=dates,
-                                         start_end_date=None,
-                                         start_end_year=start_end_year))
+    # start_end_year selection done on fulltso in func above
+    # fullts.sel(time=core_pp.get_subdates(dates=dates,
+    #                                      start_end_date=None,
+    #                                      start_end_year=start_end_year))
     if RV_detrend: # do detrending on all timesteps
         fullts = core_pp.detrend_lin_longterm(fullts)
     if RV_anomaly: # do anomaly on complete timeseries (rolling mean applied!)
@@ -214,7 +217,8 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
         if input_freq == 'daily':
             dates_RV = core_pp.get_subdates(pd.to_datetime(fullts.time.values),
                                             start_end_TVdate,
-                                            start_end_year)
+                                            start_end_year,
+                                            input_freq=input_freq)
         elif input_freq == 'monthly':
             dates_RV = TVmonthrange(fullts, start_end_TVdate)
         # get indices of RVdates
@@ -260,6 +264,31 @@ def get_df_test(df, cols: list=None, df_splits: pd.DataFrame=None):
         df = df[cols]
     return df
 
+def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0):
+    '''
+    Parameters
+    ----------
+    df : pd.DataFrame
+        df with train-test splits on the multi-index.
+    cols : list, optional
+        return sub df based on columns. The default is None.
+    df_splits : pd.DataFrame
+        seperate df with TrainIsTrue column specifying the train-test data
+
+    Returns
+    -------
+    Returns only the data at which TrainIsTrue.
+
+    '''
+    if df_splits is None:
+        TrainIsTrue = df['TrainIsTrue']
+    else:
+        TrainIsTrue = df_splits['TrainIsTrue']
+    df_train = df.loc[s][TrainIsTrue.loc[s].values]
+    if cols is not None:
+        df_train = df_train[cols]
+    return df_train
+
 def nc_xr_ts_to_df(filename, name_ds='ts'):
     if filename.split('.')[-1] == 'nc':
         ds = core_pp.import_ds_lazy(filename)
@@ -268,21 +297,27 @@ def nc_xr_ts_to_df(filename, name_ds='ts'):
     return xrts_to_df(ds[name_ds]), ds
 
 def xrts_to_df(xarray):
+
     dims = list(xarray.coords.keys())
-    standard_dim = ['latitude', 'longitude', 'time', 'mask', 'cluster']
-    dims = [d for d in dims if d not in standard_dim]
-    if 'n_clusters' in dims:
-        idx = dims.index('n_clusters')
-        dims[idx] = 'ncl'
-        xarray = xarray.rename({'n_clusters':dims[idx]}).copy()
-    var1 = int(xarray[dims[0]])
-    var2 = int(xarray[dims[1]])
-    dim1 = dims[0]
-    dim2 = dims[1]
-    name = '{}{}_{}{}'.format(dim1, var1, dim2, var2)
-    df = xarray.drop(dim1).drop(dim2).T.to_dataframe(
-                                        name=name).unstack(level=1)
-    df = df.droplevel(0, axis=1)
+    if len(dims) > len(xarray.dims):
+        standard_dim = ['latitude', 'longitude', 'time', 'mask', 'cluster']
+        dims = [d for d in dims if d not in standard_dim]
+        if 'n_clusters' in dims:
+            idx = dims.index('n_clusters')
+            dims[idx] = 'ncl'
+            xarray = xarray.rename({'n_clusters':dims[idx]}).copy()
+        var1 = int(xarray[dims[0]])
+        var2 = int(xarray[dims[1]])
+        dim1 = dims[0]
+        dim2 = dims[1]
+        name = '{}{}_{}{}'.format(dim1, var1, dim2, var2)
+        df = xarray.drop(dim1).drop(dim2).T.to_dataframe(
+                                            name=name).unstack(level=1)
+        df = df.droplevel(0, axis=1)
+    else:
+        attr = {k:i for k,i in xarray.attrs.items() if k != 'is_DataArray'}
+        name = '_'.join("{!s}{!r}".format(key,val) for (key,val) in attr.items())
+        df = xarray.T.to_dataframe(name=name).unstack(level=1)
     df.index.name = name
     return df
 
@@ -379,18 +414,22 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
     xarray = xarray.sel(time=dates_tobin)
     one_yr = get_oneyr(dates_tobin, years[1])
 
-    # else:
-        # dates_tobin = date_time
+
+    # first year maybe of different size if data is aggregated cyclic,
+    # see timeseries_to_fit_bins
+    fp = dates_tobin[traintestgroups==1] # first period
+    sp = dates_tobin[traintestgroups==2] # second period
+
     n_years = np.unique(dates_tobin.year).size
-    if get_oneyr(dates_tobin, years[0]).size != get_oneyr(dates_tobin, years[1]).size:
+    crossyr = get_oneyr(dates_tobin, years[0]).size != get_oneyr(dates_tobin, years[1]).size
+    if crossyr and fp.size == sp.size:
         # crossyr timemeanbins,
         n_years -= 1
+    assert (dates_tobin.size-fp.size) % sp.size==0, 'check output timeseries_to_fit_bins'
 
-    firstperiod = dates_tobin[traintestgroups==1]
-    assert dates_tobin.size % firstperiod.size==0, 'check output timeseries_to_fit_bins'
-
-    fit_steps_yr = int(firstperiod.size) / tfreq
+    fit_steps_yr = int(fp.size) / tfreq
     bins = np.repeat(np.arange(0, fit_steps_yr), tfreq) # first period bins
+    fit_steps_yr = int(sp.size) / tfreq # other years fit_steps_yr
     for y in np.arange(1, n_years):
         x = np.repeat(np.arange(0, fit_steps_yr), tfreq)
         x = bins[-1]+1 + x
@@ -454,7 +493,7 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
     '''
     #%%
     # xr_or_dt = rg.fulltso.copy();verbosity=1; closed='right'
-    # start_end_date=None; start_end_year=None;
+    # start_end_date=None; start_end_year=None; verbosity=0
 
     if type(xr_or_dt) == type(xr.DataArray([0])):
         datetime = pd.to_datetime(xr_or_dt['time'].values)
@@ -481,18 +520,19 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
 
     if start_end_date is not None:
         sstartdate, senddate = start_end_date
-    if start_end_TVdate is None and start_end_date is not None:
-        start_end_TVdate = start_end_date
-
-    # check if Target variable period is crossing Dec-Jan
-    crossyr = int(start_end_TVdate[0].replace('-','')) > int(start_end_TVdate[1].replace('-',''))
-    closed_on_date = start_end_TVdate[-1]
-
     if start_end_date is None:
         d_s = datetime[0]
         d_e = datetime[-1]
         sstartdate = '{:02d}-{:02d}'.format(d_s.month, d_s.day)
         senddate   = '{:02d}-{:02d}'.format(d_e.month, d_e.day)
+    if start_end_TVdate is None:
+        start_end_TVdate = (sstartdate, senddate) # select all dates
+    else:
+        senddate = start_end_TVdate[-1] # over-rule end date of start_end_date
+
+    # check if Target variable period is crossing Dec-Jan
+    crossyr = int(start_end_TVdate[0].replace('-','')) > int(start_end_TVdate[1].replace('-',''))
+    closed_on_date = start_end_TVdate[-1]
 
     sstartdate = '{}-{}'.format(startyear, sstartdate)
     if crossyr:
@@ -565,13 +605,14 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         leap1yr = all([dates_aggr.year.unique().size==1,
                        dates_aggr.is_leap_year[0],
                        dates_aggr[0] < pd.to_datetime(f'{startyear}-03-01')])
-        # cross-year, dates between prior and after 03-01
-        # leap2yr = all([any(dates_aggr.is_leap_year),
-        #               any(dates_aggr < pd.to_datetime(f'{startyear+1}-03-01')),
-        #               dates_aggr[-1] > pd.to_datetime(f'{startyear+1}-03-01')])
-        leap2yr = all([any(dates_aggr.is_leap_year),
-                       any(dates_aggr < pd.to_datetime(f'{startyear}-03-01')),
-                       dates_aggr[-1] > pd.to_datetime(f'{startyear}-03-01')])
+        # cross-year, one yr with dates both prior and after 03-01
+        yrs = np.unique(dates_aggr.year) ; leap2yr = []
+        for yr in yrs:
+            syr = core_pp.get_oneyr(dates_aggr, yr)
+            leap2yr.append(all([syr.is_leap_year[0],
+                           any(syr < pd.to_datetime(f'{yr}-03-01')),
+                           syr[-1] > pd.to_datetime(f'{yr}-03-01')]))
+        leap2yr = any(leap2yr)
 
 
         if leap1yr or leap2yr:
@@ -594,7 +635,7 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
 
     if input_freq == 'day' and tfreq != 1:
         if closed == 'right':
-            if start_end_date == ('1-1', '12-31') or start_end_date == None:
+            if start_end_date == None:
                 # make cyclic around closed_end_date
                 if crossyr:
                     startyear += 1 # first year full period not possible
@@ -638,13 +679,22 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
 
     #    n_oneyr = start_yr.size
     #    end_year = endyear
-    datesdt = core_pp.make_dates(start_yr, years)
-    if input_freq == 'day' and tfreq != 1 and start_end_date == ('1-1', '12-31'):
+
+    if input_freq == 'day' and tfreq != 1 and start_end_date == None:
         # make cyclic around closed_end_date
-       datesdt = start_yr.append(core_pp.make_dates(otheryrs, years[1:]))
-    n_periods = int(datesdt.size / start_yr.size)
-    traintestgroups = pd.Series(np.repeat(range(1,n_periods+1), start_yr.size),
-                             index=datesdt)
+        other_cyclic_yrs = core_pp.make_dates(otheryrs, years[1:])
+        datesdt = start_yr.append(other_cyclic_yrs)
+        groupfirstyr = np.repeat(1, start_yr.size)
+        n_periods = int(other_cyclic_yrs.size / otheryrs.size)
+        groupsotheryrs = np.repeat(range(2,n_periods+2), otheryrs.size)
+        traintestgroups = pd.Series(np.concatenate([groupfirstyr, groupsotheryrs]),
+                                 index=datesdt)
+    else: # Copy start_yr to other years
+        datesdt = core_pp.make_dates(start_yr, years)
+        n_periods = int(datesdt.size / start_yr.size)
+        traintestgroups = pd.Series(np.repeat(range(1,n_periods+1), start_yr.size),
+                                 index=datesdt)
+
     #    n_yrs = datesdt.size / n_oneyr
     if verbosity==1:
         months = dict( {1:'jan',2:'feb',3:'mar',4:'apr',5:'may',6:'jun',7:'jul',
@@ -677,8 +727,8 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
         input timeseries with dimension 'time'.
     start_end_periods : tuple or np.ndarray
         tuple of start- and enddate for target variable in
-        format ('mm-dd', 'mm-dd'). If start_end_periods[0] date is after
-        start_end_periods[1], then ('startyear-mm-dd', 'startyear+1-mm-dd').
+        format ('mm-dd', 'mm-dd'). If the first entry date of a period is after
+        the last entry date, then ('startyear-mm-dd', 'startyear+1-mm-dd').
     start_end_year : tuple, optional
 
 
@@ -691,7 +741,6 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
 
     if np.array(start_end_periods).shape == (2,):
         start_end_periods = np.array([start_end_periods])
-
 
     types = [type(xr.Dataset()), type(xr.DataArray([0])), type(pd.DataFrame([0]))]
 
@@ -714,18 +763,23 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
     date_time = pd.to_datetime(xarray['time'].values)
     if start_end_year is None:
         start_end_year = (date_time.year[0], date_time.year[-1])
-    offset_startyear = check_crossyr_periods(start_end_periods)
+    upd_start_end_years = check_crossyr_periods(start_end_periods, start_end_year)
     xrgr = np.zeros(start_end_periods.shape[0], dtype=object)
     for i,p in enumerate(start_end_periods):
-        offset = offset_startyear[i]
-        s_e_y = (start_end_year[0]+offset, start_end_year[-1])
+        # check format for of offset yr is given '{offsetyr}-{mm}-{dd}'
+        p = ( '-'.join(p[0].split('-')[-2:]), '-'.join(p[-1].split('-')[-2:]) )
+        s_e_y = upd_start_end_years[i]
+        print(s_e_y, p)
         xrgr[i] = time_mean_single_period(xarray, p, s_e_y)
 
-    xrgr = [x.expand_dims('lag', axis=1) for x in xrgr]
+    # use time-index of last lag given
+    time_index = ('time', pd.to_datetime([f'{y}-01-01' for y in xrgr[i]['time'].values]))
+    for i in range(len(xrgr)):
+        xrgr[i]['time'] = time_index
+        xrgr[i].expand_dims('lag', axis=1)
+
     xarray = xr.concat(xrgr, dim='lag')
     xarray['lag'] = ('lag', np.arange(start_end_periods.shape[0]))
-    time_index = ('time', pd.to_datetime([f'{y}-01-01' for y in xrgr[i]['time'].values]))
-    xarray['time'] = time_index
     xarray = xarray.transpose('time', 'lag', 'latitude', 'longitude', # ensure order dims
                               transpose_coords=True)
 
@@ -765,22 +819,53 @@ def time_mean_single_period(xarray, period: tuple, start_end_year: tuple=None):
         xrgr['time'] = ('time', groups)
     return xrgr
 
-def check_crossyr_periods(start_end_periods):
+def check_crossyr_periods(start_end_periods, start_end_year):
     ''' If some start_end_periods are cross yr, start year is aligned such that
     all aggregations have same start year (startyr of data + 1) '''
-    offset_startyear = np.zeros(start_end_periods.shape[0], dtype=int)
-    crossyrlags = np.zeros(start_end_periods.shape[0], dtype=bool)
-    for i, p in enumerate(start_end_periods):
-        sd = pd.to_datetime(f'2000-'+p[0])
-        ed = pd.to_datetime(f'2000-'+p[-1])
-        crossyrlags[i] = sd > ed
-    if crossyrlags.all() and ~crossyrlags.any():
-        pass
-    if crossyrlags.any():
-        offset_startyear[~crossyrlags] = 1
-    else:
-        pass # or all crossyr or no crossyr at all.
-    return offset_startyear
+
+    startyr, endyr = start_end_year
+
+    dateyears = np.zeros( (start_end_periods.shape[0],2), dtype=int)
+    upd_start_end_years = np.zeros_like(dateyears)
+    if len(start_end_periods[0][0].split('-')) >= 3: # offset explicitly given
+
+        for i, sep in enumerate(start_end_periods):
+            syp = int(sep[0].split('-')[0]) # start year period
+            eyp = int('-'.join(sep[-1].split('-')[:-2])) # end year period
+            dateyears[i] = [syp, eyp]
+
+        for i, d in enumerate(dateyears):
+            if np.unique(dateyears).size > 1: # varying startyr
+                if d[0] == startyr and d[-1] == startyr:
+                    upd_start_end_years[i] = (startyr, endyr-1)
+                elif d[0] == startyr and d[-1] == startyr+1:
+                    upd_start_end_years[i] = (startyr, endyr)
+                else:
+                    upd_start_end_years[i] = (startyr+1, endyr)
+            else:
+                # use given start yr
+                upd_start_end_years[i] = (np.unique(dateyears)[0],
+                                          endyr)
+
+    else: # check for crossyr within periods
+        crossyrlags = np.zeros(start_end_periods.shape[0], dtype=bool)
+        for i, p in enumerate(start_end_periods):
+            sd = pd.to_datetime('2000-'+p[0])
+            ed = pd.to_datetime('2000-'+p[-1])
+            crossyrlags[i] = sd > ed
+        if crossyrlags.all() and ~crossyrlags.any():
+            pass
+        if crossyrlags.any():
+            for i, crossyr in enumerate(crossyrlags):
+                if crossyr:
+                    upd_start_end_years[i] = (startyr, endyr)
+                else:
+                    upd_start_end_years[i] = (startyr+1, endyr)
+        else:
+            # or all crossyr or no crossyr at all.
+            for i, crossyr in enumerate(crossyrlags):
+                upd_start_end_years[i] = (startyr, endyr)
+    return upd_start_end_years
 
 
 def extend_annual_ts(fullts, tfreq: int, start_end_TVdate: tuple,
@@ -939,6 +1024,7 @@ def anom1D(da):
     if (stepsyr.day== 1).all() == True or int(da.time.size / 365) >= 120:
         print('\nHandling time series longer then 120 day or monthly data, no smoothening applied')
         data_smooth = da.values
+        window_s = None
 
     elif (stepsyr.day== 1).all() == False and int(da.time.size / 365) < 120:
         window_s = max(min(25,int(stepsyr.size / 12)), 1)
@@ -955,14 +1041,26 @@ def anom1D(da):
     # Plotting
     fig, ax = plt.subplots(figsize=(3,3))
     ts = da
-    rawdayofyear = ts.groupby('time.dayofyear').mean('time').sel(dayofyear=np.arange(365)+1)
+    tfreq = (dates[1] - dates[0]).days
+    if tfreq in [28,29,30,31]: # monthly timeseries
+        input_freq = 'monthly'
+    else:
+        input_freq = 'daily_or_annual_or_yearly'
+    if input_freq == 'monthly':
+        rawdayofyear = ts.groupby('time.month').mean('time').sel(month=np.arange(12)+1)
+    else:
+        rawdayofyear = ts.groupby('time.dayofyear').mean('time').sel(dayofyear=np.arange(365)+1)
 
-    ax.set_title(f'Raw and est. clim')
+    ax.set_title('Raw and est. clim')
     for yr in np.unique(dates.year):
         singleyeardates = get_oneyr(dates, yr)
         ax.plot(ts.sel(time=singleyeardates), alpha=.1, color='purple')
+    if window_s is None:
+        label = 'clim based on raw data'
+    else:
+         label = f'clim {window_s}-day rm'
     ax.plot(output_clim, color='green', linewidth=2,
-         label=f'clim {window_s}-day rm')
+         label=label)
     ax.plot(rawdayofyear, color='black', alpha=.6,
                label='clim mean dayofyear')
     output = da - np.tile(output_clim, (int(dates.size/stepsyr.size)))
@@ -1097,6 +1195,10 @@ def load_hdf5(path_data):
 
 def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                      seed=None):
+    # RV_ts = pd.DataFrame(rg.TV_ts.values,
+    #                         index=pd.to_datetime(rg.TV_ts.time.values),
+    #                         columns=['RV']) ; traintestgroups=rg.traintestgroups
+    # test_yrs = None ; seed=1
 
     from func_models import get_cv_accounting_for_years
     from sklearn.model_selection import KFold
@@ -1114,30 +1216,38 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
 
     uniqgroups = np.unique(groups)
 
-    if method == 'no_train_test_split' or method==False:
+    if method == 'no_train_test_split':
         kfold = 1
         testgroups = np.array([[]])
     else:
-        kfold = int(method.split('_')[-1])
-        if method[:8] == 'ranstrat':
-            cv = get_cv_accounting_for_years(RV_ts, kfold, seed)
-            testgroups = cv.uniqgroups
-        elif method[:5] == 'leave':
-            n_splits = int(uniqgroups.size / int(method.split('_')[1]) )
-            cv = KFold(n_splits=n_splits, shuffle=False)
-            testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
-        elif method[:6] == 'random':
-            cv = KFold(n_splits=int(method.split('_')[-1]), shuffle=True)
-            testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
+        if test_yrs is None:
+            kfold = int(method.split('_')[-1])
+            if method[:8] == 'ranstrat':
+                TVgroups = groups.loc[RV_ts.index]
+                cv = get_cv_accounting_for_years(RV_ts, kfold, seed, TVgroups)
+                testgroups = cv.uniqgroups
+            elif method[:5] == 'leave':
+                kfold = int(uniqgroups.size / int(method.split('_')[-1]))
+                cv = KFold(n_splits=kfold, shuffle=False)
+                testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
+            elif method[:6] == 'random':
+                cv = KFold(n_splits=kfold, shuffle=True)
+                testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
+        else:
+            testgroups = test_yrs
 
 
     testsetidx = np.zeros(groups.size , dtype=int) ; testsetidx[:] = -999
     for i, test_fold_idx in enumerate(testgroups):
         # convert idx to grouplabel (year or dateyrgroup)
-        test_fold = [uniqgroups[i] for i in test_fold_idx]
+        if test_yrs is None:
+            test_fold = [uniqgroups[i] for i in test_fold_idx]
+        else:
+            test_fold = test_fold_idx
         for j, gr in enumerate(groups):
             if gr in list(test_fold):
                 testsetidx[j] = i
+
     TrainIsTrue = []
     for i in np.unique(testsetidx):
         # if -999, No Train Test split, all True
@@ -1147,9 +1257,16 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                                         index=index))
     df_TrainIsTrue = pd.concat(TrainIsTrue , axis=0, keys=range(kfold))
     if traintestgroups is not None:
-        one_group = df_TrainIsTrue.loc[0][groups==groups[0]]
-        RV_mask = [True if d in RV_ts.index else False for d in list(one_group.index)]
-        RV_mask = np.stack([RV_mask]*uniqgroups.size, 0).flatten()
+        # first group may be of different size then other groups
+        fg = df_TrainIsTrue.loc[0][groups==groups[0]] # first group
+        RV_maskfg = [True if d in RV_ts.index else False for d in list(fg.index)]
+        og = df_TrainIsTrue.loc[0][groups==groups[-1]] # other group size
+        RV_maskog = [True if d in RV_ts.index else False for d in list(og.index)]
+        if fg.size != og.size:
+            RVmaskog = np.stack([RV_maskog]*(uniqgroups.size-1), 0).flatten()
+            RV_mask = np.concatenate([RV_maskfg, RVmaskog])
+        else:
+            RV_mask = np.stack([RV_maskfg]*uniqgroups.size, 0).flatten()
     else:
         RV_mask = np.ones(RV_ts.size, dtype=bool)
     RV_mask = pd.concat([pd.DataFrame(RV_mask,
@@ -1162,251 +1279,86 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                                      left_index=True, right_index=True)
     return df_splits
 
+def get_testyrs(df_splits: pd.DataFrame):
+    '''
+    Extracts test years if both:
+        - TrainIsTrue mask present
+        - More then 1 level (then train-test split is not False)
+    Takes into account adjecent groups of dates to define a training group.
 
-def rand_traintest_years(RV, traintestgroups=None, test_yrs=None, method=str,
-                         seed=None, kwrgs_events=None, verb=0):
+    Parameters
+    ----------
+    df_splits : pd.DataFrame
+        Dataframe with TrainIsTrue mask Response Variable mask.
+
+    Returns
+    -------
+    out : np.ndarray or None
+        shape (train-test index, list of test years).
+
+    '''
     #%%
-    '''
-    possible method are:
-    random{int} : with the int(method[6:8]) determining the amount of folds
-    leave{int} : chronologically split train and test years
-    split{int} : split dataset into single train and test set
-    no_train_test_split.
-
-    if test_yrs are given, all arguments are overwritten and we return the samme
-    train test masks that are in compliance with the test yrs
-
-    traintestgroups specify which adjecent dates should be kept together. If
-    target_ts is in DJF, then you don't want to split train-test based on years.
-    '''
-
-
-    RV_ts = RV.RV_ts
-    tested_yrs = [] ;
-    all_yrs = list(np.unique(RV_ts.index.year))
-    n_yrs   = len(all_yrs)
-
-    if test_yrs is not None:
-        method = 'copied_from_import_ts'
-        n_spl  = test_yrs.shape[0]
-    if method[:6] == 'random' or method[:9] == 'ran_strat':
-        if seed is None:
-            seed = 1 # control reproducibility train/test split
-        if method[:6] == 'random':
-            n_spl = int(method.split('_')[-1])
+    split_by_TrainIsTrue = False # if True, do not account for adjecent groups
+    # of dates (needed for accounting for auto-correlation for good seperate
+    # train-test splits)
+    out = None
+    if hasattr(df_splits.index, 'levels'):
+        dates = df_splits.loc[0].index ;
+        if df_splits.index.levels[0].size > 1:
+            levels=True
         else:
-             n_spl = int(method[9:])
-    elif method[:5] == 'leave':
-        n_spl = int(n_yrs / int(method.split('_')[1]) )
-        iterate = np.arange(0, n_yrs+1E-9,
-                            int(method.split('_')[1]), dtype=int)
-    elif method == 'no_train_test_split' or method==False:
-        n_spl = 1
+            levels=False
+    RV_mask_ = 'RV_mask' in df_splits.columns
+    # if full year daily, no traintest groups with a gap that needs to be
+    # taken into account
+    fullyear = dates.size%365 == 0
+    # checking if not one-val-per-yr data
+    multipletargetdatesperyr = df_splits.loc[0]['RV_mask'].all()==False
+    if RV_mask_ and fullyear==False and multipletargetdatesperyr:
+        dates_RV = df_splits.loc[0][df_splits.loc[0]['RV_mask']].index
+        gapdays = (dates_RV[1:] - dates_RV[:-1]).days
+        adjecent_dates = gapdays > (np.median(gapdays)+gapdays/2)
+        RVgroupsize = np.argmax(adjecent_dates) + 1
+        closed_right = dates_RV[RVgroupsize-1]
+        firstcyclicgroup = dates[dates <= closed_right]
+        # middle years, first year might be cut-off due to limiting dates
+        closed_right_yr2 = closed_right + date_dt(years=1)
+        secondcyclic = dates[np.logical_and(dates > closed_right,
+                                            dates <= closed_right_yr2)]
+        firstgroup = np.repeat(1, firstcyclicgroup.size)
+        secgroup = np.arange(2, int((dates.size-firstgroup.size)/secondcyclic.size+2))
+        traintestgroups = np.repeat(secgroup,
+                                    secondcyclic.size)
+        traintestgroups = np.concatenate([firstgroup, traintestgroups])
+        uniqgroups = np.unique(traintestgroups)
+        test_yrs = [] ; testgroups = []
+        splits = df_splits.index.levels[0]
+        for s in splits:
+            df_split = df_splits.loc[s]
+            TrainIsTrue_s = df_split[df_split['TrainIsTrue']==False].index
+            groups_in_s = traintestgroups[(~df_split['TrainIsTrue']).values]
+            groupset = []
+            for gr in np.unique(groups_in_s):
+                yrs = TrainIsTrue_s[groups_in_s==gr]
+                yrs = np.unique(yrs.year)
+                groupset.append(list(yrs))
+            test_yrs.append(groupset)
+            testgroups.append([list(uniqgroups).index(gr) for gr in np.unique(groups_in_s)])
+        out = (np.array(test_yrs, dtype=object), testgroups)
+    elif 'TrainIsTrue' in df_splits.columns:
+        split_by_TrainIsTrue = True
 
-
-
-    full_time  = pd.to_datetime(RV.fullts.index)
-    RV_time  = pd.to_datetime(RV_ts.index.values)
-    RV_mask = np.array([True if d in RV_time else False for d in full_time])
-    full_years  = list(RV.fullts.index.year.values)
-    RV_years  = list(RV_ts.index.year.values)
-
-    traintest = [] ; list_splits = []
-    for s in range(n_spl):
-
-        # conditions failed initally assumed True
-        a_conditions_failed = True
-        count = 0
-
-        while a_conditions_failed == True:
-            count +=1
-            a_conditions_failed = False
-
-
-            if method[:6] == 'random' or method[:9] == 'ran_strat':
-
-
-                rng = np.random.RandomState(seed)
-                size_test  = int(np.round(n_yrs / n_spl))
-                size_train = int(n_yrs - size_test)
-
-                leave_n_years_out = size_test
-                yrs_to_draw_sample = [yr for yr in all_yrs if yr not in flatten(tested_yrs)]
-                if (len(yrs_to_draw_sample)) >= size_test:
-                    rand_test_years = rng.choice(yrs_to_draw_sample, leave_n_years_out, replace=False)
-                # if last test sample will be too small for next iteration, add test yrs to current test yrs
-                if (len(yrs_to_draw_sample)) < size_test:
-                    rand_test_years = yrs_to_draw_sample
-                check_double_test = [yr for yr in rand_test_years if yr in flatten( tested_yrs )]
-                if len(check_double_test) != 0 :
-                    a_conditions_failed = True
-                    print('test year drawn twice, redoing sampling')
-
-
-            elif method[:5] == 'leave':
-                leave_n_years_out = int(method.split('_')[1])
-                t0 = iterate[s]
-                t1 = iterate[s+1]
-                rand_test_years = all_yrs[t0: t1]
-
-            elif method[:5] == 'split':
-                size_train = int(np.percentile(range(len(all_yrs)), int(method[5:])))
-                size_test  = len(all_yrs) - size_train
-                leave_n_years_out = size_test
-                print('Using {} years to train and {} to test'.format(size_train, size_test))
-                rand_test_years = all_yrs[-size_test:]
-
-            elif method == 'no_train_test_split':
-                size_train = len(all_yrs)
-                size_test  = 0
-                leave_n_years_out = size_test
-                print('No train test split'.format(size_train, size_test))
-                rand_test_years = []
-
-            elif method == 'copied_from_import_ts':
-                size_train = len(all_yrs)
-                rand_test_years = test_yrs[s]
-                if s == 0:
-                    size_test  = len(rand_test_years)
-                leave_n_years_out = len(test_yrs[s])
-
-
-            # test duplicates
-            a_conditions_failed = np.logical_and((len(set(rand_test_years)) != leave_n_years_out),
-                                     s != n_spl-1)
-            # Update random years to be selected as test years:
-        #        initial_years = [yr for yr in initial_years if yr not in random_test_years]
-            rand_train_years = [yr for yr in all_yrs if yr not in rand_test_years]
-
-
-
-            TrainIsTrue = np.zeros( (full_time.size), dtype=bool )
-
-            Prec_train_idx = [i for i in range(len(full_years)) if full_years[i] in rand_train_years]
-            RV_train_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_train_years]
-            RV_train = RV_ts.iloc[RV_train_idx]
-
-
-            TrainIsTrue[Prec_train_idx] = True
-
-
-            if method != 'no_train_test_split':
-                Prec_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
-                RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
-                RV_test = RV_ts.iloc[RV_test_idx]
-
-                test_years = np.unique(RV_test.index.year)
-
-                if method[:9] == 'ran_strat':
-                    RV_bin = RV.RV_bin.iloc[RV_test_idx]
-                    # check if representative sample
-                    out = check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed,
-                                           s, count, seed, verb)
-                    a_conditions_failed, count, seed = out
-            else:
-                RV_test = [] ; test_years = [] ; Prec_test_idx = []
-        data = np.concatenate([TrainIsTrue[None,:], RV_mask[None,:]], axis=0)
-        list_splits.append(pd.DataFrame(data=data.T,
-                                       columns=['TrainIsTrue', 'RV_mask'],
-                                       index = full_time))
-
-        tested_yrs.append(test_years)
-
-        traintest_ = dict( { 'years'            : test_years,
-                            'RV_train'          : RV_train,
-                            'Prec_train_idx'    : Prec_train_idx,
-                            'RV_test'           : RV_test,
-                            'Prec_test_idx'     : Prec_test_idx} )
-        traintest.append(traintest_)
-
-    df_splits = pd.concat(list_splits , axis=0, keys=range(n_spl))
-
-    #%%
-    return df_splits
-
-def check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed, s, count, seed, verbosity=0):
-    #%%
-    tol_from_exp_events = 0.20
-
-    if kwrgs_events is None:
-        print('Stratified Train Test based on +1 tercile events\n')
-        kwrgs_events  =  {'event_percentile': 66,
-                          'min_dur' : 1,
-                          'max_break' : 0,
-                          'grouped' : False}
-
-    if kwrgs_events['event_percentile'] == 'std':
-        exp_events_r = 0.15
-    elif type(kwrgs_events['event_percentile']) == int:
-        exp_events_r = 1 - kwrgs_events['event_percentile']/100
-
-
-    test_years = np.unique(RV_bin.index.year)
-    n_yrs      = np.unique(RV.RV_ts.index.year).size
-    exp_events = (exp_events_r * RV.RV_ts.size / n_yrs) * test_years.size
-    tolerance  = tol_from_exp_events * exp_events
-    event_test = RV_bin
-    diff       = abs(len(event_test) - exp_events)
-
-
-    if diff > tolerance:
-        if verbosity > 1:
-            print('not a representative sample drawn, drawing new sample')
-        seed += 1 # next random sample
-        a_conditions_failed = True
-    else:
-        if verbosity > 0:
-            print('{}: test year is {}, with {} events'.format(s, test_years, len(event_test)))
-    if count == 7:
-        if verbosity > 1:
-            print(f"{s}: {count+1} attempts made, lowering tolence threshold from {tol_from_exp_events} "
-                "to 0.40 deviation from mean expected events" )
-        tol_from_exp_events = 0.40
-    if count == 10:
-        if verbosity > 1:
-            print(f"kept sample after {count+1} attempts")
-            print('{}: test year is {}, with {} events'.format(s, test_years, len(event_test)))
-        a_conditions_failed = False
-    #%%
-    return a_conditions_failed, count, seed
-
-def get_testyrs(df_splits):
-    #%%
-    if 'RV_mask' in df_splits.columns:
-        # check if not one-val-per-yr data
-        if df_splits.loc[0]['RV_mask'].all()==False:
-            dates = df_splits.loc[0].index
-            dates_RV = df_splits.loc[0][df_splits.loc[0]['RV_mask']].index
-            gapdays = (dates_RV[1:] - dates_RV[:-1]).days
-            adjecent_dates = gapdays > (np.median(gapdays)+gapdays/2)
-            RVgroupsize = np.argmax(adjecent_dates) + 1
-            closed_right = dates_RV[RVgroupsize-1]
-            onecyclicgroup = df_splits.loc[0].index[df_splits.loc[0].index <= closed_right]
-            traintestgroups = np.repeat(np.arange(1, int(dates.size/onecyclicgroup.size)+1),
-                                   onecyclicgroup.size)
-            uniqgroups = np.unique(traintestgroups)
-            test_yrs = [] ; testgroups = []
-            splits = df_splits.index.levels[0]
-            for s in splits:
-                df_split = df_splits.loc[s]
-                TrainIsTrue_s = df_split[df_split['TrainIsTrue']==False].index
-                groups_in_s = traintestgroups[(~df_split['TrainIsTrue']).values]
-                groupset = []
-                for gr in np.unique(groups_in_s):
-                    yrs = TrainIsTrue_s[groups_in_s==gr]
-                    yrs = np.unique(yrs.year)
-                    groupset.append(list(yrs))
-                test_yrs.append(groupset)
-                testgroups.append([list(uniqgroups).index(gr) for gr in np.unique(groups_in_s)])
-            out = (np.array(test_yrs), testgroups)
-    else:
+    if split_by_TrainIsTrue and levels:
         traintest_yrs = []
         splits = df_splits.index.levels[0]
         for s in splits:
             df_split = df_splits.loc[s]
             test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
             traintest_yrs.append(test_yrs)
-        out = (np.array(test_yrs))
+        out = (np.array(traintest_yrs, dtype=object))
+    elif split_by_TrainIsTrue==False and out is None:
+        print('Note: No Train-test split found, could not extract test yrs')
+
     return out
 
 def get_download_path():
@@ -1742,3 +1694,210 @@ def check_pp_done(name, infile, kwrgs_load: dict=None, verbosity=1):
 #     weights_box = np.swapaxes(cos_box_array, 1,0)
 #     RV_fullts = (selboxmarray*weights_box).mean(dim=('latitude','longitude'))
 #     return RV_fullts
+
+# def rand_traintest_years(RV, traintestgroups=None, test_yrs=None, method=str,
+#                          seed=None, kwrgs_events=None, verb=0):
+#     #%%
+#     '''
+#     possible method are:
+#     random{int} : with the int(method[6:8]) determining the amount of folds
+#     leave{int} : chronologically split train and test years
+#     split{int} : split dataset into single train and test set
+#     no_train_test_split.
+
+#     if test_yrs are given, all arguments are overwritten and we return the samme
+#     train test masks that are in compliance with the test yrs
+
+#     traintestgroups specify which adjecent dates should be kept together. If
+#     target_ts is in DJF, then you don't want to split train-test based on years.
+#     '''
+
+
+#     RV_ts = RV.RV_ts
+#     tested_yrs = [] ;
+#     all_yrs = list(np.unique(RV_ts.index.year))
+#     n_yrs   = len(all_yrs)
+
+#     if test_yrs is not None:
+#         method = 'copied_from_import_ts'
+#         n_spl  = test_yrs.shape[0]
+#     if method[:6] == 'random' or method[:9] == 'ran_strat':
+#         if seed is None:
+#             seed = 1 # control reproducibility train/test split
+#         if method[:6] == 'random':
+#             n_spl = int(method.split('_')[-1])
+#         else:
+#              n_spl = int(method[9:])
+#     elif method[:5] == 'leave':
+#         n_spl = int(n_yrs / int(method.split('_')[1]) )
+#         iterate = np.arange(0, n_yrs+1E-9,
+#                             int(method.split('_')[1]), dtype=int)
+#     elif method == 'no_train_test_split' or method==False:
+#         n_spl = 1
+
+
+
+#     full_time  = pd.to_datetime(RV.fullts.index)
+#     RV_time  = pd.to_datetime(RV_ts.index.values)
+#     RV_mask = np.array([True if d in RV_time else False for d in full_time])
+#     full_years  = list(RV.fullts.index.year.values)
+#     RV_years  = list(RV_ts.index.year.values)
+
+#     traintest = [] ; list_splits = []
+#     for s in range(n_spl):
+
+#         # conditions failed initally assumed True
+#         a_conditions_failed = True
+#         count = 0
+
+#         while a_conditions_failed == True:
+#             count +=1
+#             a_conditions_failed = False
+
+
+#             if method[:6] == 'random' or method[:9] == 'ran_strat':
+
+
+#                 rng = np.random.RandomState(seed)
+#                 size_test  = int(np.round(n_yrs / n_spl))
+#                 size_train = int(n_yrs - size_test)
+
+#                 leave_n_years_out = size_test
+#                 yrs_to_draw_sample = [yr for yr in all_yrs if yr not in flatten(tested_yrs)]
+#                 if (len(yrs_to_draw_sample)) >= size_test:
+#                     rand_test_years = rng.choice(yrs_to_draw_sample, leave_n_years_out, replace=False)
+#                 # if last test sample will be too small for next iteration, add test yrs to current test yrs
+#                 if (len(yrs_to_draw_sample)) < size_test:
+#                     rand_test_years = yrs_to_draw_sample
+#                 check_double_test = [yr for yr in rand_test_years if yr in flatten( tested_yrs )]
+#                 if len(check_double_test) != 0 :
+#                     a_conditions_failed = True
+#                     print('test year drawn twice, redoing sampling')
+
+
+#             elif method[:5] == 'leave':
+#                 leave_n_years_out = int(method.split('_')[1])
+#                 t0 = iterate[s]
+#                 t1 = iterate[s+1]
+#                 rand_test_years = all_yrs[t0: t1]
+
+#             elif method[:5] == 'split':
+#                 size_train = int(np.percentile(range(len(all_yrs)), int(method[5:])))
+#                 size_test  = len(all_yrs) - size_train
+#                 leave_n_years_out = size_test
+#                 print('Using {} years to train and {} to test'.format(size_train, size_test))
+#                 rand_test_years = all_yrs[-size_test:]
+
+#             elif method == 'no_train_test_split':
+#                 size_train = len(all_yrs)
+#                 size_test  = 0
+#                 leave_n_years_out = size_test
+#                 print('No train test split'.format(size_train, size_test))
+#                 rand_test_years = []
+
+#             elif method == 'copied_from_import_ts':
+#                 size_train = len(all_yrs)
+#                 rand_test_years = test_yrs[s]
+#                 if s == 0:
+#                     size_test  = len(rand_test_years)
+#                 leave_n_years_out = len(test_yrs[s])
+
+
+#             # test duplicates
+#             a_conditions_failed = np.logical_and((len(set(rand_test_years)) != leave_n_years_out),
+#                                      s != n_spl-1)
+#             # Update random years to be selected as test years:
+#         #        initial_years = [yr for yr in initial_years if yr not in random_test_years]
+#             rand_train_years = [yr for yr in all_yrs if yr not in rand_test_years]
+
+
+
+#             TrainIsTrue = np.zeros( (full_time.size), dtype=bool )
+
+#             Prec_train_idx = [i for i in range(len(full_years)) if full_years[i] in rand_train_years]
+#             RV_train_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_train_years]
+#             RV_train = RV_ts.iloc[RV_train_idx]
+
+
+#             TrainIsTrue[Prec_train_idx] = True
+
+
+#             if method != 'no_train_test_split':
+#                 Prec_test_idx = [i for i in range(len(full_years)) if full_years[i] in rand_test_years]
+#                 RV_test_idx = [i for i in range(len(RV_years)) if RV_years[i] in rand_test_years]
+#                 RV_test = RV_ts.iloc[RV_test_idx]
+
+#                 test_years = np.unique(RV_test.index.year)
+
+#                 if method[:9] == 'ran_strat':
+#                     RV_bin = RV.RV_bin.iloc[RV_test_idx]
+#                     # check if representative sample
+#                     out = check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed,
+#                                            s, count, seed, verb)
+#                     a_conditions_failed, count, seed = out
+#             else:
+#                 RV_test = [] ; test_years = [] ; Prec_test_idx = []
+#         data = np.concatenate([TrainIsTrue[None,:], RV_mask[None,:]], axis=0)
+#         list_splits.append(pd.DataFrame(data=data.T,
+#                                        columns=['TrainIsTrue', 'RV_mask'],
+#                                        index = full_time))
+
+#         tested_yrs.append(test_years)
+
+#         traintest_ = dict( { 'years'            : test_years,
+#                             'RV_train'          : RV_train,
+#                             'Prec_train_idx'    : Prec_train_idx,
+#                             'RV_test'           : RV_test,
+#                             'Prec_test_idx'     : Prec_test_idx} )
+#         traintest.append(traintest_)
+
+#     df_splits = pd.concat(list_splits , axis=0, keys=range(n_spl))
+
+#     #%%
+#     return df_splits
+
+# def check_test_split(RV, RV_bin, kwrgs_events, a_conditions_failed, s, count, seed, verbosity=0):
+#     #%%
+#     tol_from_exp_events = 0.20
+
+#     if kwrgs_events is None:
+#         print('Stratified Train Test based on +1 tercile events\n')
+#         kwrgs_events  =  {'event_percentile': 66,
+#                           'min_dur' : 1,
+#                           'max_break' : 0,
+#                           'grouped' : False}
+
+#     if kwrgs_events['event_percentile'] == 'std':
+#         exp_events_r = 0.15
+#     elif type(kwrgs_events['event_percentile']) == int:
+#         exp_events_r = 1 - kwrgs_events['event_percentile']/100
+
+
+#     test_years = np.unique(RV_bin.index.year)
+#     n_yrs      = np.unique(RV.RV_ts.index.year).size
+#     exp_events = (exp_events_r * RV.RV_ts.size / n_yrs) * test_years.size
+#     tolerance  = tol_from_exp_events * exp_events
+#     event_test = RV_bin
+#     diff       = abs(len(event_test) - exp_events)
+
+
+#     if diff > tolerance:
+#         if verbosity > 1:
+#             print('not a representative sample drawn, drawing new sample')
+#         seed += 1 # next random sample
+#         a_conditions_failed = True
+#     else:
+#         if verbosity > 0:
+#             print('{}: test year is {}, with {} events'.format(s, test_years, len(event_test)))
+#     if count == 7:
+#         if verbosity > 1:
+#             print(f"{s}: {count+1} attempts made, lowering tolence threshold from {tol_from_exp_events} "
+#                 "to 0.40 deviation from mean expected events" )
+#         tol_from_exp_events = 0.40
+#     if count == 10:
+#         if verbosity > 1:
+#             print(f"kept sample after {count+1} attempts")
+#             print('{}: test year is {}, with {} events'.format(s, test_years, len(event_test)))
+#         a_conditions_failed = False
+#     #%%
+#     return a_conditions_failed, count, seed

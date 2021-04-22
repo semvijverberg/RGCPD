@@ -176,6 +176,8 @@ def PDO(filepath, df_splits=None, n_jobs=1):
 
     ds = core_pp.import_ds_lazy(filepath, **kwrgs_pp)
     ds_monthly = ds.resample(time='M',restore_coord_dims=False).mean(dim='time', skipna=True)
+    # ds_global = core_pp.import_ds_lazy(filepath)
+    # ds.mean(dim=('latitude','longitude')) # global mean SST anomaly each timestep
 
     if df_splits is None:
         print('No train-test split')

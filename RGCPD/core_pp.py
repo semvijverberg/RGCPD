@@ -91,7 +91,9 @@ def import_ds_lazy(filepath: str, loadleap: bool=False,
 
     ds = xr.open_dataset(filepath, decode_cf=True, decode_coords=True, decode_times=False)
 
-    if len(ds.dims.keys()) > 1: # more then 1-d
+    lats = any([True if 'lat' in k else False for k in list(ds.dims.keys())])
+    lons = any([True if 'lon' in k else False for k in list(ds.dims.keys())])
+    if np.logical_and(lats, lons): # lat,lon coords in dataset
         multi_dims = True
     else:
         multi_dims = False
@@ -292,7 +294,7 @@ def get_selbox(ds, selbox, verbosity=0):
         slice_lat = slice(max(selbox[2:]), min(selbox[2:]))
     else:
         slice_lat = slice(min(selbox[2:]), max(selbox[2:]))
-    ds = ds.sel(latitude=slice_lat)
+
     east_lon = selbox[0]
     west_lon = selbox[1]
     if (east_lon > west_lon and east_lon > 180) or (east_lon < 0 and east_lon!=-180):
@@ -308,12 +310,13 @@ def get_selbox(ds, selbox, verbosity=0):
         ds = zz.sel(longitude=slice(e_lon, west_lon))
     else:
         ds = ds.sel(longitude=slice(east_lon, west_lon))
+    ds = ds.sel(latitude=slice_lat)
     return ds
 
 def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
                         seldates=None, selbox=None, format_lon='east_west',
                         auto_detect_mask=False, detrend=True, anomaly=True,
-                        apply_fft=True, n_harmonics=6, encoding=None):
+                        apply_fft=True, n_harmonics=6, encoding={}):
     '''
     Function for preprocessing
     - Calculate anomalies (by removing seasonal cycle based on first
@@ -337,7 +340,7 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
         output = np.empty( (ds.time.size,  ds.level.size, ds.latitude.size, ds.longitude.size), dtype='float32' )
         output[:] = np.nan
         for lev_idx, lev in enumerate(levels.values):
-            ds_2D = ds.sel(levels=lev)
+            ds_2D = ds.sel(level=lev)
 
             output[:,lev_idx,:,:] = detrend_xarray_ds_2D(ds_2D, detrend=detrend, anomaly=anomaly,
                                       apply_fft=apply_fft, n_harmonics=n_harmonics)
@@ -352,16 +355,19 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
     output = xr.DataArray(output, name=ds.name, dims=ds.dims, coords=ds.coords)
     # copy original attributes to xarray
     output.attrs = ds.attrs
-
+    pp_dict = {'anomaly':str(anomaly), 'fft':str(apply_fft), 'n_harmonics':n_harmonics,
+               'detrend':str(detrend)}
+    output.attrs.update(pp_dict)
     # ensure mask
     output = output.where(output.values != 0.).fillna(-9999)
-    encoding = ( {ds.name : {'_FillValue': -9999}} )
+    encoding.update({'_FillValue': -9999})
+    encoding_var = ( {ds.name : encoding} )
     mask =  (('latitude', 'longitude'), (output.values[0] != -9999) )
     output.coords['mask'] = mask
 #    xarray_plot(output[0])
 
     # save netcdf
-    output.to_netcdf(outfile, mode='w', encoding=encoding)
+    output.to_netcdf(outfile, mode='w', encoding=encoding_var)
 #    diff = output - abs(marray)
 #    diff.to_netcdf(filename.replace('.nc', 'diff.nc'))
     #%%
@@ -556,7 +562,7 @@ def detrend_lin_longterm(ds):
     return detrended
 
 
-def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=True, n_harmonics=6):
+def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=False, n_harmonics=6):
     #%%
 
 
@@ -798,7 +804,7 @@ def make_dates(datetime, years):
     return start_yr
 
 def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
-                 returngroups=False):
+                 returngroups=False, input_freq: str=None):
     #%%
     '''
     dates is type pandas.core.indexes.datetimes.DatetimeIndex
@@ -839,10 +845,21 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
 
 
     tfreq = (dates[1] - dates[0]).days
+    if dates.is_leap_year[0]:
+        leapday = pd.to_datetime([f'{dates[1].year}-02-29'])
+        if dates[1] >= leapday and dates[0] < leapday:
+            tfreq -= 1 # adjust leapday when calc difference in days
+
     oneyr_dates = pd.date_range(start=sstartdate, end=senddate_,
                                     freq=pd.Timedelta(1, 'd'))
+    if input_freq is None: # educated guess on input freq
+        if tfreq in [28,29,30,31]: # monthly timeseries
+            input_freq = 'monthly'
+        else:
+            input_freq = 'daily_or_annual_or_yearly'
 
-    if tfreq in [28,29,30,31]: # monthly timeseries
+
+    if 'month' in input_freq: # monthly timeseries
         yr_mon = np.unique(np.stack([oneyr_dates.year.values,
                                      oneyr_dates.month.values]).T,
                                      axis=0)
@@ -856,7 +873,7 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
             sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
 
         start_yr = remove_leapdays(pd.date_range(start=sstartdate, end=senddate,
-                                    freq=(dates[1] - dates[0])))
+                                    freq=pd.Timedelta(tfreq, unit='day')))
 
     datessubset = make_dates(start_yr, np.arange(startyr, endyr+1))
     if tfreq == 1: # only check for daily data
@@ -906,20 +923,3 @@ def ensmean(outfile, weights=list, name=None, *args):
     ds_mean.coords['mask'] = mask
     ds_mean.to_netcdf(outfile, mode='w', encoding=encoding)
 
-if __name__ == '__main__':
-    pass
-    # ex = {}
-    # ex['input_freq'] = 'daily'
-    # DATAFOLDER = input('give path to datafolder where raw data in folder input_raw:\n')
-    # infilename  = input('give input filename you want to preprocess:\n')
-    # infile = os.path.join(DATAFOLDER, 'input_raw', infilename)
-    # outfilename = infilename.split('.nc')[0] + '_pp.nc'
-    # output_folder = os.path.join(DATAFOLDER, 'input_pp')
-    # if os.path.isdir(output_folder) != True : os.makedirs(output_folder)
-    # outfile = os.path.join(output_folder, outfilename)
-
-    # kwargs = {'detrend':True, 'anomaly':True}
-    # try:
-    #     detrend_anom_ncdf3D(infile, outfile, ex, **kwargs)
-    # except:
-    #     print('just chilling bro, relax..')

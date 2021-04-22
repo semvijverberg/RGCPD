@@ -297,6 +297,100 @@ class BivariateMI:
         self.alpha = alpha
         self.corr_xr.mask.values = (self.pval_xr > self.alpha).values
 
+    def load_and_aggregate_precur(self, kwrgs_load):
+        '''
+        Wrapper to load in Netcdf and aggregated to n-mean bins or a period
+        mean, e.g. DJF mean (see seasonal_mode.ipynb).
+
+        Parameters
+        ----------
+        kwrgs_load : TYPE
+            dictionary passed to functions_pp.import_ds_timemeanbins or
+            to functions_pp.time_mean_periods.
+        df_splits : pd.DataFrame, optional
+            See class_RGCPD. The default is using the df_splits that was used
+            for calculating the correlation map.
+
+        Returns
+        -------
+        None.
+
+        '''
+        # precur = rg.list_for_MI[0] ; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
+        name = self.name
+        filepath = self.filepath
+
+        # for name, filepath in list_precur_pp: # loop over all variables
+            # =============================================================================
+            # Unpack non-default arguments
+            # =============================================================================
+        kwrgs = {'selbox':self.selbox, 'dailytomonths':self.dailytomonths}
+        for key, value in kwrgs_load.items():
+            if type(value) is list and name in value[1].keys():
+                kwrgs[key] = value[1][name]
+            elif type(value) is list and name not in value[1].keys():
+                kwrgs[key] = value[0] # plugging in default value
+            elif hasattr(self, key):
+                # Overwrite RGCPD parameters with MI specific parameters
+                kwrgs[key] = self.__dict__[key]
+            else:
+                kwrgs[key] = value
+        if self.lag_as_gap: kwrgs['tfreq'] = 1
+        self.kwrgs_load = kwrgs.copy()
+        #===========================================
+        # Precursor field
+        #===========================================
+        self.precur_arr = functions_pp.import_ds_timemeanbins(filepath, **kwrgs)
+
+        if type(self.lags[0]) == np.ndarray:
+            tmp = functions_pp.time_mean_periods
+            self.precur_arr = tmp(self.precur_arr, self.lags,
+                                    kwrgs_load['start_end_year'])
+        return
+
+    def load_and_aggregate_ts(self, df_splits: pd.DataFrame=None):
+        if df_splits is None:
+            df_splits = self.df_splits
+        # =============================================================================
+        # Load external timeseries for partial_corr_z
+        # =============================================================================
+        kwrgs = self.kwrgs_load
+        if hasattr(self, 'kwrgs_z') == False: # copy so info remains stored
+            self.kwrgs_z = self.kwrgs_func.copy() # first time copy
+        if self.func.__name__ == 'parcorr_z':
+            if type(self.kwrgs_z['filepath']) is str:
+                print('Loading and aggregating {}'.format(self.kwrgs_z['keys_ext']))
+                f = find_precursors.import_precur_ts
+                self.df_z = f([('z', self.kwrgs_z['filepath'])],
+                              df_splits,
+                              start_end_date=kwrgs['start_end_date'],
+                              start_end_year=kwrgs['start_end_year'],
+                              start_end_TVdate=kwrgs['start_end_TVdate'],
+                              cols=self.kwrgs_z['keys_ext'],
+                              precur_aggr=kwrgs['tfreq'])
+
+                if hasattr(self.df_z.index, 'levels'): # has train-test splits
+                    f = functions_pp
+                    self.df_z = f.get_df_test(self.df_z.merge(df_splits,
+                                                              left_index=True,
+                                                              right_index=True)).iloc[:,:1]
+                k = list(self.kwrgs_func.keys())
+                [self.kwrgs_func.pop(k) for k in k if k in ['filepath','keys_ext']]
+                self.kwrgs_func.update({'z':self.df_z}) # overwrite kwrgs_func
+                k = [k for k in list(self.kwrgs_z.keys()) if k not in ['filepath','keys_ext']]
+
+                equal_dates = all(np.equal(self.df_z.index,
+                                           pd.to_datetime(self.precur_arr.time.values)))
+                if equal_dates==False:
+                    raise ValueError('Dates of timeseries z not equal to dates of field')
+            elif type(self.kwrgs_z['filepath']) is pd.DataFrame:
+                self.df_z = self.kwrgs_z['filepath']
+                k = list(self.kwrgs_func.keys())
+                [self.kwrgs_func.pop(k) for k in k if k in ['filepath','keys_ext']]
+                self.kwrgs_func.update({'z':self.df_z}) # overwrite kwrgs_func
+        return
+
+
     def get_prec_ts(self, precur_aggr=None, kwrgs_load=None): #, outdic_precur #TODO
         # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
         # stacked on top of each other (from lag_min to lag_max)
@@ -321,53 +415,75 @@ class BivariateMI:
                 n_tot_regs += max([self.ts_corr[s].shape[1] for s in range(splits.size)])
         return
 
-    def store_netcdf(self, path: str=None, f_name: str=None):
+    def store_netcdf(self, path: str=None, f_name: str=None, add_hash=True):
         assert hasattr(self, 'corr_xr'), 'No MI map calculated'
         if path is None:
             path = functions_pp.get_download_path()
         hash_str  = uuid.uuid4().hex[:6]
-        f_name = '{}_a{}'.format(self._name, self.alpha)
+        if f_name is None:
+            f_name = '{}_a{}'.format(self._name, self.alpha)
         self.corr_xr.attrs['alpha'] = self.alpha
         self.corr_xr.attrs['FDR_control'] = int(self.FDR_control)
         self.corr_xr['lag'] = ('lag', range(self.lags.shape[0]))
+        if 'mask' in self.precur_arr.coords:
+                self.precur_arr = self.precur_arr.drop('mask')
+        # self.precur_arr.attrs['_tfreq'] = int(self._tfreq)
         if hasattr(self, 'prec_labels'):
             self.prec_labels['lag'] = self.corr_xr['lag'] # must be same
             self.prec_labels.attrs['distance_eps'] = self.distance_eps
             self.prec_labels.attrs['min_area_in_degrees2'] = self.min_area_in_degrees2
             self.prec_labels.attrs['group_lag'] = int(self.group_lag)
             self.prec_labels.attrs['group_split'] = int(self.group_split)
-            f_name += '_{}_{}'.format(self.distance_eps,
-                                      self.min_area_in_degrees2)
+            if f_name is None:
+                f_name += '_{}_{}'.format(self.distance_eps,
+                                          self.min_area_in_degrees2)
+
             ds = xr.Dataset({'corr_xr':self.corr_xr,
                              'prec_labels':self.prec_labels,
-                             'precur_arr':self.precur_arr.drop('mask')})
+                             'precur_arr':self.precur_arr})
         else:
             ds = xr.Dataset({'corr_xr':self.corr_xr,
-                             'precur_arr':self.precur_arr.drop('mask')})
-        f_name += f'_{hash_str}'
-        filepath = os.path.join(path, f_name+ '.nc')
-        ds.to_netcdf(filepath)
+                             'precur_arr':self.precur_arr})
+        if add_hash:
+            f_name += f'_{hash_str}'
+        self.filepath_experiment = os.path.join(path, f_name+ '.nc')
+        ds.to_netcdf(self.filepath_experiment)
         print(f'Dataset stored with hash: {hash_str}')
 
-    def load_files(self, path_hashfile=str, hash_str=str):
+    def load_files(self, path_hashfile=str, hash_str: str=None):
         #%%
+        if hash_str is None:
+            hash_str = '{}_a{}_{}_{}'.format(self._name, self.alpha,
+                                           self.distance_eps,
+                                           self.min_area_in_degrees2)
+        if path_hashfile is None:
+            path_hashfile = functions_pp.get_download_path()
+        f_name = None
         for root, dirs, files in os.walk(path_hashfile):
             for file in files:
                 if re.findall(f'{hash_str}', file):
-                    print(file)
+                    print(f'Found file {file}')
                     f_name = file
-        filepath = os.path.join(path_hashfile, f_name)
-        self.ds = core_pp.import_ds_lazy(filepath)
-        self.corr_xr = self.ds['corr_xr']
-        self.alpha = self.corr_xr.attrs['alpha']
-        self.FDR_control = bool(self.corr_xr.attrs['FDR_control'])
-        self.precur_arr = self.ds['precur_arr']
-        if 'prec_labels' in self.ds.variables.keys():
-            self.prec_labels = self.ds['prec_labels']
-            self.distance_eps = self.prec_labels.attrs['distance_eps']
-            self.min_area_in_degrees2 = self.prec_labels.attrs['min_area_in_degrees2']
-            self.group_lag = bool(self.prec_labels.attrs['group_lag'])
-            self.group_split = bool(self.prec_labels.attrs['group_split'])
+        if f_name is not None:
+            filepath = os.path.join(path_hashfile, f_name)
+            self.ds = core_pp.import_ds_lazy(filepath)
+            self.corr_xr = self.ds['corr_xr']
+            self.alpha = self.corr_xr.attrs['alpha']
+            self.FDR_control = bool(self.corr_xr.attrs['FDR_control'])
+            self.precur_arr = self.ds['precur_arr']
+            # self._tfreq = self.precur_arr.attrs['_tfreq']
+            if 'prec_labels' in self.ds.variables.keys():
+                self.prec_labels = self.ds['prec_labels']
+                self.distance_eps = self.prec_labels.attrs['distance_eps']
+                self.min_area_in_degrees2 = self.prec_labels.attrs['min_area_in_degrees2']
+                self.group_lag = bool(self.prec_labels.attrs['group_lag'])
+                self.group_split = bool(self.prec_labels.attrs['group_split'])
+            loaded = True
+        else:
+            print('No file that matches the hash_str or instance settings in '
+                  f'folder {path_hashfile}')
+            loaded = False
+        return loaded
 
 
         #%%
@@ -383,7 +499,6 @@ def check_NaNs(field, ts):
     '''
     t = functions_pp.get_oneyr(field).size # threshold NaNs allowed.
     field = np.reshape(field.values, (field.shape[0],-1))
-    # for i in range(t):
     i = 0 ; # check NaNs in first year
     if bool(np.isnan(field[i]).all()):
         i+=1
@@ -430,106 +545,161 @@ def corr_map(field, ts):
 
     return corr_vals, pvals
 
-def parcorr_map_time(field, ts, lag=1, target=True, precursor=True):
+def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag_y=0, lag_x=0):
+    '''
+    Only works for subseasonal data (more then 1 datapoint per year).
+    Lag must be >= 1
 
+    Parameters
+    ----------
+    field : xr.DataArray
+        (time, lat, lon) field.
+    ts : np.ndarray
+        Target timeseries.
+    lag : int, optional
+        DESCRIPTION. The default is 1.
+    target : TYPE, optional
+        DESCRIPTION. The default is True.
+    precursor : TYPE, optional
+        DESCRIPTION. The default is True.
+
+    Returns
+    -------
+    corr_vals : np.ndarray
+    pvals : np.ndarray
+
+    '''
+    # field = precur_train.sel(time=dates_lag) ; ts = RV_ts.values.squeeze()
+
+    if type(lag_y) is int:
+        lag_y = [lag_y]
+    if type(lag_x) is int:
+        lag_x = [lag_x]
+
+    max_lag = max(max(lag_y), max(lag_x))
+    assert max_lag>0, 'lag_x or lag_y must be >= 1'
     # if more then one year is filled with NaNs -> no corr value calculated.
     field, ts = check_NaNs(field, ts)
-    field = np.reshape(field.values, (field.shape[0],-1))
     x = np.ma.zeros(field.shape[1])
     corr_vals = np.array(x)
     pvals = np.array(x)
 
     fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
     nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
-    if target:
-        zy = np.expand_dims(ts[:-lag], axis=1)
-    y = np.expand_dims(ts[lag:], axis=1)
+
+
+    if max(lag_y) > 0:
+        zy = [np.expand_dims(ts[max_lag-l:-l], axis=1) for l in lag_y if l != 0]
+        zy = np.concatenate(zy, axis=1)
+
+    y = np.expand_dims(ts[max_lag:], axis=1)
     for i in nonans_gc:
         cond_ind_test = ParCorr()
-        if precursor and target:
-            z2 = np.expand_dims(field[:-lag, i], axis=1)
-            z = np.concatenate((zy,z2), axis=1)
-        elif precursor and target==False:
-            z = np.expand_dims(field[:-lag, i], axis=1)
-        elif precursor==False and target:
+        if max(lag_x) > 0:
+            zx = [np.expand_dims(field[max_lag-l:-l, i], axis=1) for l in lag_x if l != 0]
+            zx = np.concatenate(zx, axis=1)
+        if max(lag_x) > 0 and max(lag_y) > 0: # both zy and zx defined
+            z = np.concatenate((zy,zx), axis=1)
+        elif max(lag_x) > 0 and max(lag_y) == 0: # only zx defined
+            z = zx
+        elif max(lag_x) == 0 and max(lag_y) > 0:
             z = zy
-        field_i = np.expand_dims(field[lag:,i], axis=1)
-        a, b = cond_ind_test.run_test_raw(y, field_i, z)
+        field_i = np.expand_dims(field[max_lag:,i], axis=1)
+        a, b = cond_ind_test.run_test_raw(field_i, y, z)
         corr_vals[i] = a
         pvals[i] = b
     # restore original nans
     corr_vals[fieldnans] = np.nan
     return corr_vals, pvals
 
-def parcorr_z(field, ts, z=pd.DataFrame):
+def parcorr_z(field: xr.DataArray, ts: np.ndarray, z: pd.DataFrame, lag_z: int=0):
+    '''
+    Regress out influence of 1-d timeseries z. if lag_z==0, dates of z will match
+    dates of field. Note, lag_z >= 1 probably only makes sense when using
+    subseasonal data (more then 1 value per year).
+
+    Parameters
+    ----------
+    field : xr.DataArray
+        (time, lat, lon) field.
+    ts : np.ndarray
+        Target timeseries.
+    z : pd.DataFrame
+        1-d timeseries.
+
+    Returns
+    -------
+    corr_vals : np.ndarray
+    pvals : np.ndarray
+
+    '''
+
     # if more then one year is filled with NaNs -> no corr value calculated.
-    field, ts = check_NaNs(field, ts)
     dates = pd.to_datetime(field.time.values)
-    field = np.reshape(field.values, (field.shape[0],-1))
+    field, ts = check_NaNs(field, ts)
     x = np.ma.zeros(field.shape[1])
     corr_vals = np.array(x)
     pvals = np.array(x)
     fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
     nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
 
-    ts = np.expand_dims(ts[:], axis=1) # adjust to shape (samples, dimension)
-    z = np.expand_dims(z.loc[dates].values.squeeze(), axis=1)
+    # ts = np.expand_dims(ts[:], axis=1)
+    # adjust to shape (samples, dimension) and remove first datapoints if
+    # lag_z != 0.
+    y = np.expand_dims(ts[lag_z:], axis=1)
+    if len(z.values.squeeze().shape)==1:
+        z = np.expand_dims(z.loc[dates].values.squeeze(), axis=1)
+    else:
+        z = z.loc[dates].values.squeeze()
+    if lag_z >= 1:
+        z = z[:-lag_z] # last values are 'removed'
     for i in nonans_gc:
         cond_ind_test = ParCorr()
-        x = np.expand_dims(field[:,i], axis=1)
-        a, b = cond_ind_test.run_test_raw(x, ts, z)
+        field_i = np.expand_dims(field[lag_z:,i], axis=1)
+        a, b = cond_ind_test.run_test_raw(field_i, y, z)
         corr_vals[i] = a
         pvals[i] = b
     # restore original nans
     corr_vals[fieldnans] = np.nan
     return corr_vals, pvals
 
-def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
+def loop_get_spatcov(precur, precur_aggr=None, kwrgs_load: dict=None,
+                     force_reload: bool=False, lags: list=None):
 
     name            = precur.name
+    use_sign_pattern = precur.use_sign_pattern
     corr_xr         = precur.corr_xr
     prec_labels     = precur.prec_labels
-    df_splits       = precur.df_splits
-    splits          = df_splits.index.levels[0]
-    lags            = precur.corr_xr.lag.values
-    use_sign_pattern= precur.use_sign_pattern
-    tfreq           = precur.tfreq
-
-    if precur_aggr is None and (tfreq != 365 and len(lags)==1):
-        # use precursor array with temporal aggregation that was used to create
-        # correlation map. When tfreq=365 and lag>1, reaggregate months precur_arr
-        precur_arr = precur.precur_arr
+    splits           = corr_xr.split
+    if lags is not None:
+        lags        = np.array(lags) # ensure lag is np.ndarray
+        corr_xr     = corr_xr.sel(lag=lags).copy()
+        prec_labels = prec_labels.sel(lag=lags).copy()
     else:
-        # =============================================================================
-        # Unpack kwrgs for loading
-        # =============================================================================
-        kwrgs = {'selbox':precur.selbox, 'dailytomonths':precur.dailytomonths}
-        for key, value in kwrgs_load.items():
-            if type(value) is list and name in value[1].keys():
-                kwrgs[key] = value[1][name]
-            elif type(value) is list and name not in value[1].keys():
-                kwrgs[key] = value[0] # plugging in default value
-            elif hasattr(precur, key):
-                # Overwrite RGCPD parameters with MI specific parameters
-                kwrgs[key] = precur.__dict__[key]
-            else:
-                kwrgs[key] = value
-        if precur_aggr is None:
-            precur_aggr = tfreq
-        kwrgs['tfreq'] = precur_aggr
+        lags        = prec_labels.lag.values
+    dates           = pd.to_datetime(precur.precur_arr.time.values)
+    oneyr = functions_pp.get_oneyr(dates)
+    if oneyr.size == 1: # single val per year precursor
+        tfreq = 365
+    else:
+        tfreq = (oneyr[1] - oneyr[0]).days
 
-        if tfreq == 365:
-            # create seperate xarray with monthly means, of which grouped
-            # means will be calculated defined by lag, lag=[1,2,3]=JFM mean
-            precur_months = functions_pp.import_ds_timemeanbins(precur.filepath,
-                                                         **kwrgs)
-        else:
-            print('aggregating precursors to {} days '.format(kwrgs['tfreq']) + \
-                  'closed on right {}'.format(kwrgs['closed_on_date']))
 
-            precur_arr = functions_pp.import_ds_timemeanbins(precur.filepath,
-                                                         **kwrgs)
+    if precur_aggr is None and force_reload==False:
+        precur_arr = precur.precur_arr
+        if tfreq==365:
+            precur_arr = precur.precur_arr
+        # use precursor array with temporal aggregation that was used to create
+        # correlation map. When tfreq=365, aggregation (one-value-per-year)
+        # is already done. period used to aggregate was defined by the lag
 
+    else:
+        if precur_aggr is not None:
+            precur.tfreq = precur_aggr
+        precur.load_and_aggregate_precur(kwrgs_load.copy())
+        precur_arr = precur.precur_arr
+
+    precur.area_grid = find_precursors.get_area(precur_arr)
     if precur_arr.shape[-2:] != corr_xr.shape[-2:]:
         print('shape loaded precur_arr != corr map, matching coords')
         corr_xr, prec_labels = functions_pp.match_coords_xarrays(precur_arr,
@@ -541,17 +711,9 @@ def loop_get_spatcov(precur, precur_aggr, kwrgs_load):
         track_names = []
         for il,lag in enumerate(lags):
 
-            # if lag represents months to aggregate:
-            if type(lag) is np.str_: # aggr. over months
-                months = [int(l) for l in lag.split('.')[:-1]]
-                precur_arr = precur_months.sel(time=
-                                            np.in1d(precur_months['time.month'],
-                                            months))
-                precur_arr = precur_arr.groupby('time.year',
-                                            restore_coord_dims=True).mean()
-                d = pd.to_datetime([f'{Y}-01-01' for Y in precur_arr.year.values])
-                precur_arr = precur_arr.rename({'year':'time'}).assign_coords(
-                                                {'time':d})
+            # if lag represents aggregation period:
+            if type(precur.lags[il]) is np.ndarray and precur_aggr is None:
+                precur_arr = precur.precur_arr.sel(lag=il)
 
             corr_vals = corr_xr.sel(split=s).isel(lag=il)
             mask = prec_labels.sel(split=s).isel(lag=il)

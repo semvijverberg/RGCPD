@@ -14,7 +14,7 @@ import matplotlib.dates as mdates
 flatten = lambda l: [item for sublist in l for item in sublist]
 from typing import List, Tuple, Union
 
-
+from functions_pp import time_mean_bins, get_oneyr
 
 
 
@@ -448,7 +448,8 @@ def plot_ts_matric(df_init, win: int=None, lag=0, columns: list=None, rename: di
     period = ['fullyear', 'summer60days', 'pre60days']
     '''
     if columns is None:
-        columns = df_init.columns
+        columns = list(df_init.columns[(df_init.dtypes != bool).values])
+
 
     df_cols = df_init[columns]
 
@@ -475,12 +476,15 @@ def plot_ts_matric(df_init, win: int=None, lag=0, columns: list=None, rename: di
 
     # bin means
     if win is not None:
-        df_test = df_test.resample(f'{win}D').mean()
+        oneyr = get_oneyr(df_test.index)
+        start_end_date = (f'{oneyr[0].month:02d}-{oneyr[0].day:02d}',
+                          f'{oneyr[-1].month:02d}-{oneyr[-1].day:02d}')
+        df_test = time_mean_bins(df_test, win, start_end_date=start_end_date)[0]
 
 
     if period=='fullyear':
         dates_sel = dates_full_orig.strftime('%Y-%m-%d')
-    if 'RV_mask' in df_test.columns:
+    if 'RV_mask' in df_init.columns:
         if period == 'RV_mask':
             dates_sel = dates_RV_orig.strftime('%Y-%m-%d')
         elif period == 'RM_mask_lag60':
@@ -533,10 +537,6 @@ def plot_ts_matric(df_init, win: int=None, lag=0, columns: list=None, rename: di
                                                'fontsize':20+fontsizescaler})
     ax.set_yticklabels(corr.index, fontdict={'fontweight':'bold',
                                                'fontsize':20+fontsizescaler}, rotation=0)
-    b, t = ax.get_ylim()
-    b += 0.5 # Add 0.5 to the bottom
-    t -= 0.5 # Subtract 0.5 from the top
-    ax.set_ylim(b, t)
     #%%
     return
 

@@ -1,4 +1,4 @@
-name: RGCPD1
+name: RGCPD
 channels:
   - conda-forge
   - defaults
@@ -25,18 +25,20 @@ dependencies:
   - pandas
   - pip
   - python=3.7.3
-  - pytest
+#  - pytest # <- optional for pytesting
   - scikit-learn
   - scipy
   - seaborn
   - shapely
-  - spyder # <- optional Spyder IDE
+#  - spyder # <- optional Spyder IDE
   - statsmodels
   - xarray
+#  - joblib # <- optional for parallel computing
 #  - esmf # <- optional packages for regridding
 #  - xesmf # <- optional packages for regridding
   - pip:
     - properscoring
+    - tigramite
 prefix: /Users/semvijverberg/miniconda3/envs/RGCPD
 # conda env create -f RGCPD_no_build.yml
 # to install spyder later: conda install -c conda-forge spyder=4

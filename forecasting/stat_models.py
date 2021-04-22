@@ -444,10 +444,10 @@ def _get_importances(models_splits_lags, lag=0):
             keys_s = list(model.X_pred.columns[(model.X_pred.dtypes != bool)])
             if hasattr(model, 'feature_importances_'): # for GBR
                 name_values = 'Relative Feature Importance'
-                importances = model.feature_importances_
+                importances = model.feature_importances_.reshape(-1)
             elif hasattr(model, 'coef_'):
                 name_values = 'Coefficients'
-                importances = model.coef_
+                importances = model.coef_.reshape(-1)
 
             if k not in feature_importances.keys():
                 feature_importances[k] = []

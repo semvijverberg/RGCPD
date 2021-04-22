@@ -8,12 +8,8 @@ Created on Wed Oct  2 15:03:31 2019
 
 import pandas as pd
 import numpy as np
-# import sklearn.linear_model as scikitlinear
 from sklearn.linear_model import RidgeCV
 from sklearn.model_selection import GridSearchCV
-
-
-
 
 import func_models as utils
 
@@ -193,7 +189,8 @@ class ScikitModel:
             model = GridSearchCV(model,
                       param_grid=kwrgs_gridsearch,
                       scoring=scoring, cv=cv, refit=True,
-                      return_train_score=True, verbose=self.verbosity)
+                      return_train_score=True, verbose=self.verbosity,
+                      n_jobs=3)
             model.fit(X_train, y_train.values.ravel())
             model.best_estimator_.X_pred = X_pred # add X_pred to model
             # if self.verbosity == 1:
