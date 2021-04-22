@@ -179,10 +179,15 @@ fig = plot_maps.plot_labels(xrclustered,
                        'x_ticks':np.arange(235, 310, 15),
                        'y_ticks':np.arange(0,61,10),
                        'add_cfeature':'LAKES',
-                       'subtitles':title}) # np.isnan(mask_cl)
+                       'cbar_vert':-0.02,
+                       'subtitles':title})
+for ax in fig.axes[:-1]:
+    ax.contour(mask_cl.longitude, mask_cl.latitude,
+               mask_cl, transform=ccrs.PlateCarree(),
+               levels=[0, 2], linewidths=2, linestyles=['solid'], colors=['purple'])
 # fig.set_facecolor('white')
 # fig.axes[0].set_facecolor('white')
-f_name = 'clusters_t2m_no_contour_{}_{}'.format(xrclustered.attrs['hash'], region)
+f_name = 'clusters_t2m_no_scatter_{}_{}'.format(xrclustered.attrs['hash'], region)
 filepath = os.path.join(rg.path_outmain, f_name)
 plt.savefig(filepath+'.pdf', bbox_inches='tight')
 

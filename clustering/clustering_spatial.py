@@ -80,7 +80,7 @@ def adjust_kwrgs(kwrgs_o, new_coords, v1, v2):
         kwrgs_o[new_coords[1]] = v2
     return kwrgs_o
 
-def correlation_clustering(var_filename, mask=None, kwrgs_load={},
+def sklearn_clustering(var_filename, mask=None, kwrgs_load={},
                            clustermethodkey='DBSCAN',
                            kwrgs_clust={'eps':600}):
 
@@ -138,9 +138,33 @@ def correlation_clustering(var_filename, mask=None, kwrgs_load={},
         xrclustered.attrs['hash']   = uuid.uuid4().hex[:5]
     return xrclustered, results
 
-def dendogram_clustering(var_filename, mask=None, kwrgs_load={},
+def dendogram_clustering(var_filename=str, mask=None, kwrgs_load={},
                          clustermethodkey='AgglomerativeClustering',
                          kwrgs_clust={'q':70, 'n_clusters':3}):
+    '''
+
+
+    Parameters
+    ----------
+    var_filename : str
+        path to pre-processed Netcdf file.
+    mask : [xr.DataArray, path to netcdf file with mask, list or tuple], optional
+        See get_spatial_ma?. The default is None.
+    kwrgs_load : TYPE, optional
+        See functions_pp.import_ds_timemeanbins? for parameters. The default is {}.
+    clustermethodkey : TYPE, optional
+        See cluster.cluster.__dict__ for all sklean cluster algorithms.
+        The default is 'AgglomerativeClustering'.
+    kwrgs_clust : dict, optional
+        Note that q is in percentiles, i.e. 50 refers to the median.
+        The default is {'q':70, 'n_clusters':3}.
+
+    Yields
+    ------
+    xrclustered : xr.DataArray
+    results : list of sklearn cluster method instances.
+
+    '''
 
     if 'selbox' in kwrgs_load.keys():
         kwrgs_l = dict(selbox=kwrgs_load['selbox'])
@@ -159,15 +183,6 @@ def dendogram_clustering(var_filename, mask=None, kwrgs_load={},
     kwrgs_loop_load = {k:i for k, i in kwrgs_load.items() if type(i) == list}
     [kwrgs_loop.update({k:i}) for k, i in kwrgs_loop_load.items()]
     q = kwrgs_clust['q']
-
-    # always reload / reaggregate xarray. Joblib cannot pickle xr.DataArray as input
-    # if len(kwrgs_loop_load) == 0:
-    #     reload = False # xarray will always be the same
-    #     xarray_ts = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_load)
-    #     if type(q) is int:
-    #         xarray = binary_occurences_quantile(xarray_ts, q=q)
-    # else:
-    #     reload = True
 
     if len(kwrgs_loop) == 1:
         # insert fake axes
