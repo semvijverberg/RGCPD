@@ -1160,7 +1160,7 @@ class RGCPD:
 
 def RV_and_traintest(fullts, TV_ts, traintestgroups, method=str, kwrgs_events=None,
                      precursor_ts=None, seed: int=1, verbosity=1):
-    # fullts = rg.fullts ; TV_ts = rg.TV_ts
+    # fullts = rg.fullts ; TV_ts = rg.TV_ts ; traintestgroups=rg.traintestgroups
     # method='random_10'; kwrgs_events=None; precursor_ts=rg.list_import_ts; seed=1; verbosity=1
 
     # Define traintest:

@@ -55,8 +55,10 @@ def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
         groups = np.repeat(np.arange(0,n_gr), dategroupsize)
         if groups.size != y_train.size: # else revert to keeping years together
             groups = y_train.index.year
-    else:
+    elif groups is None and np.unique(y_train.index.year).size == y_train.size:
         groups = y_train.index.year # annual data, no autocorrelation groups
+    else:
+        pass
 
 
     high_normal_low = y_train.groupby(groups).sum()

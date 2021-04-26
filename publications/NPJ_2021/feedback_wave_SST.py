@@ -129,7 +129,11 @@ elif period == 'winter_shiftright':
     start_end_TVdate = ('12-08', '03-07')
     start_end_TVdatet2mvsRW = ('06-08', '09-06')
 
-start_end_date = ('1-1', '12-31')
+if period.split('_') == 'winter':
+    start_end_date = None
+else:
+    start_end_date = ('01-01', '12-31')
+
 # =============================================================================
 # CHANGE SED
 # =============================================================================
