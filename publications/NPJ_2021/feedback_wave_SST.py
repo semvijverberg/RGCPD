@@ -24,12 +24,12 @@ import csv
 
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-curr_dir = user_dir + '/surfdrive/Scripts/RGCPD/publications/paper2'
+curr_dir = user_dir + '/surfdrive/Scripts/RGCPD/publications/NPJ_2021'
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-data_dir = os.path.join(main_dir,'publications/paper2/data')
+data_dir = os.path.join(main_dir,'publications/NPJ_2021/data')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -47,6 +47,8 @@ import functions_pp
 
 periods = ['summer_center', 'summer_shiftright', 'summer_shiftleft',
            'spring_center', 'spring_shiftleft', 'spring_shiftright']
+
+periods = ['winter_center', 'winter_shiftright', 'winter_shiftleft']
 
 # periods = ['summer_shiftleft']
 remove_PDO = False
@@ -98,7 +100,7 @@ elif west_east =='west':
     z500_green_bb = (145,325,20,62) # bounding box for western RW
 
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_fb_doublecheck/')
+path_out_main = os.path.join(main_dir, f'publications/NPJ_2021/output/{west_east}_fb_doublecheck/')
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
     start_end_TVdatet2mvsRW = start_end_TVdate
@@ -116,6 +118,15 @@ elif period == 'spring_shiftleft':
     start_end_TVdatet2mvsRW = ('05-25', '08-24')
 elif period == 'spring_shiftright':
     start_end_TVdate = ('02-08', '06-06')
+    start_end_TVdatet2mvsRW = ('06-08', '09-06')
+elif period == 'winter_center':
+    start_end_TVdate = ('12-01', '02-28')
+    start_end_TVdatet2mvsRW = ('06-01', '08-31') # always focus on RW in summer
+elif period == 'winter_shiftleft':
+    start_end_TVdate = ('11-25', '02-24')
+    start_end_TVdatet2mvsRW = ('05-25', '08-24')
+elif period == 'winter_shiftright':
+    start_end_TVdate = ('12-08', '03-07')
     start_end_TVdatet2mvsRW = ('06-08', '09-06')
 
 start_end_date = ('1-1', '12-31')
