@@ -16,7 +16,7 @@ main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-data_dir = os.path.join(main_dir,'publications/paper2/data')
+data_dir = os.path.join(main_dir,'publications/NPJ_2021/data')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -31,7 +31,7 @@ from RGCPD import BivariateMI
 import class_BivariateMI
 import plot_maps, functions_pp, df_ana, find_precursors
 
-west_east = 'east'
+west_east = 'west'
 TV = 'USCAnew'
 if TV == 'USCAnew':
     # mx2t 25N-70N
@@ -66,7 +66,7 @@ if TV == 'USCAnew':
 
 
 path_out_main = os.path.join(main_dir,
-                             'publications/paper2/output/heatwave_circulation_v300_z500_SST/{}'.format(TVpath.split('_')[-1][:-3]))
+                             'publications/NPJ_2021/output/heatwave_circulation_v300_z500_SST/{}'.format(TVpath.split('_')[-1][:-3]))
 
 
 
@@ -168,7 +168,7 @@ xrclustered = find_precursors.view_or_replace_labels(rg.ds['xrclustered'],
                                                      cluster_label)
 fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
            np.isnan(xrclustered), transform=ccrs.PlateCarree(),
-           levels=[0, 2], linewidths=1, linestyles=['solid'], colors=['white'])
+           levels=[0, 2], linewidths=2, linestyles=['solid'], colors=['white'])
 filename = os.path.join(rg.path_outsub1, 'z500vsmx2t_'+
                         rg.hash+'_'+str(cluster_label))
 
@@ -217,7 +217,7 @@ fig = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
 
 fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
                     np.isnan(xrclustered), transform=ccrs.PlateCarree(),
-                    levels=[0, 2], linewidths=1, linestyles=['solid'],
+                    levels=[0, 2], linewidths=2, linestyles=['solid'],
                     colors=['white'])
 filename = os.path.join(rg.path_outsub1, 'v300vsmx2t_nobox'+
                         rg.hash+'_'+str(cluster_label))

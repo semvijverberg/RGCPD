@@ -22,7 +22,7 @@ main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 df_ana_func =  os.path.join(main_dir, 'df_analysis/df_analysis/')
-path_data = os.path.join(main_dir, 'publications/paper2/data/')
+path_data = os.path.join(main_dir, 'publications/NPJ_2021/data/')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -38,7 +38,7 @@ else:
     root_data = '/Users/semvijverberg/surfdrive/ERA5'
 
 path_outmain = os.path.join(main_dir,
-                            'publications/paper2/circulation_US_HW/one-point-corr_maps_clusters')
+                            'publications/NPJ_2021/circulation_US_HW/one-point-corr_maps_clusters')
 # In[2]:
 
 
@@ -81,7 +81,7 @@ ds.sel(time=core_pp.get_subdates(pd.to_datetime(ds.time.values), start_end_date=
 
 if region == 'USCAnew':
     selbox = (230, 300, 25, 70)
-    TVpath = os.path.join(path_outmain, 'tfreq15_nc7_dendo_57db0USCA.nc')
+    TVpath = os.path.join(path_data, 'tfreq15_nc7_dendo_57db0USCA.nc')
     # np_array_xy = np.array([[-97, 39], [-89, 39], [-82, 40],
     #                        [-116,36], [-122,41], [-117,46]])
     np_array_xy = np.array([[-96, 36], [-92, 41], [-84, 35], [-84,41],
@@ -221,7 +221,7 @@ df_ts = pd.DataFrame(npts.T, index=pd.to_datetime(ds_t2m.time.values),
                      columns=columns)
 
 TVpath = os.path.join(user_dir,
-                      'surfdrive/Scripts/RGCPD/publications/paper2/data/',
+                      'surfdrive/Scripts/RGCPD/publications/NPJ_2021/data/',
                       'df_ts_paper2_clustercorr_{}.h5'.format(xrclustered.attrs['hash']))
 
 functions_pp.store_hdf_df({'df_ts':df_ts}, file_path=TVpath)
