@@ -437,8 +437,8 @@ for f in freqs[:]:
         larger_low = df_rm > df_rm.quantile(.5-q)
         smaller_high = df_rm < df_rm.quantile(.5+q)
         mask_mild = np.logical_and(larger_low, smaller_high)
-        strong_yrs = mask_mild[mask_mild.values].index.year
-        subdates = core_pp.get_oneyr(rg.df_data.index.levels[1], *list(strong_yrs))
+        weak_yrs = mask_mild[mask_mild.values].index.year
+        subdates = core_pp.get_oneyr(rg.df_data.index.levels[1], *list(weak_yrs))
 
 
 
@@ -520,6 +520,12 @@ for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]
         writer = csv.DictWriter(csvfile, list(dic.keys()))
         writer.writerows([dic])
 #%%
+import matplotlib as mpl
+mpl.rcParams.update(mpl.rcParamsDefault)
+#%%
+
+
+
 # s = 0
 # tig = rg.pcmci_dict[s]
 # functions_pp.get_oneyr(rg.dates_all) # dp per yr

@@ -134,10 +134,10 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
 
 
     dates = pd.to_datetime(fullts.time.values)
-    # start_end_year selection done on fulltso in func above
-    # fullts.sel(time=core_pp.get_subdates(dates=dates,
-    #                                      start_end_date=None,
-    #                                      start_end_year=start_end_year))
+    # start_end_year selection done on fulltso in func above, but not when re-aggregating
+    fullts = fullts.sel(time=core_pp.get_subdates(dates=dates,
+                                          start_end_date=None,
+                                          start_end_year=start_end_year))
     if RV_detrend: # do detrending on all timesteps
         fullts = core_pp.detrend_lin_longterm(fullts)
     if RV_anomaly: # do anomaly on complete timeseries (rolling mean applied!)
@@ -152,7 +152,7 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
     # align fullts with precursor import_ds_lazy()
     fullts = fullts.sel(time=core_pp.get_subdates(dates=dates,
                                                   start_end_date=start_end_date,
-                                                  start_end_year=None))
+                                                  start_end_year=start_end_year))
 
     timestep_days = (dates[1] - dates[0]).days
     # if type(tfreq) == int: # timemeanbins between start_end_date
