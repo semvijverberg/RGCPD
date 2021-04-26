@@ -29,6 +29,7 @@ def get_oneyr(dt_pdf_pds_xr, *args):
     if type(dt_pdf_pds_xr) == xr.DataArray:
         pddatetime = pd.to_datetime(dt_pdf_pds_xr.time.values)
 
+
     dates = []
     pddatetime = pd.to_datetime(pddatetime)
     year = pddatetime.year[0]

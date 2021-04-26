@@ -37,7 +37,7 @@ RGCPD_func = os.path.join(main_dir, 'RGCPD')
 assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-data_dir = os.path.join(main_dir,'publications/paper2/data')
+data_dir = os.path.join(main_dir,'publications/NPJ_2021/data')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -162,7 +162,7 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             calc_ts=calc_ts, selbox=(130,260,-10,60),
                             lags=lags)]
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}{append_main}/')
+path_out_main = os.path.join(main_dir, f'publications/NPJ_2021/output/{target}{append_main}/')
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
