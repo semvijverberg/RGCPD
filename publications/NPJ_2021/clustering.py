@@ -35,7 +35,8 @@ if sys.platform == 'linux':
 else:
     root_data = '/Users/semvijverberg/surfdrive/ERA5'
 
-path_outmain = user_dir+'/surfdrive/output_RGCPD/circulation_US_HW'
+path_outmain = os.path.join(main_dir,
+                            'publications/NPJ_2021/circulation_US_HW/one-point-corr_maps_clusters')
 
 domain = 'USCA'
 # In[2]:

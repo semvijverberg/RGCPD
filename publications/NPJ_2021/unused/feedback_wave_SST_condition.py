@@ -315,8 +315,6 @@ from func_models import standardize_on_train
 filepath_df_PDOs = os.path.join(data_dir, 'df_PDOs_daily.h5')
 
 
-
-
 try:
     df_PDOs = functions_pp.load_hdf5(filepath_df_PDOs)['df_data']
 except:

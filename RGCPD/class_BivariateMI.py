@@ -633,7 +633,10 @@ def parcorr_z(field: xr.DataArray, ts: np.ndarray, z: pd.DataFrame, lag_z: int=0
     pvals : np.ndarray
 
     '''
+    if type(lag_z) is int:
+        lag_z = [lag_z]
 
+    max_lag = max(lag_z)
     # if more then one year is filled with NaNs -> no corr value calculated.
     dates = pd.to_datetime(field.time.values)
     field, ts = check_NaNs(field, ts)
@@ -646,16 +649,25 @@ def parcorr_z(field: xr.DataArray, ts: np.ndarray, z: pd.DataFrame, lag_z: int=0
     # ts = np.expand_dims(ts[:], axis=1)
     # adjust to shape (samples, dimension) and remove first datapoints if
     # lag_z != 0.
-    y = np.expand_dims(ts[lag_z:], axis=1)
+    y = np.expand_dims(ts[max_lag:], axis=1)
     if len(z.values.squeeze().shape)==1:
         z = np.expand_dims(z.loc[dates].values.squeeze(), axis=1)
     else:
-        z = z.loc[dates].values.squeeze()
-    if lag_z >= 1:
-        z = z[:-lag_z] # last values are 'removed'
+        z = z.loc[dates].values.squeeze() # lag_z shifted wrt precursor dates
+
+    list_z = []
+    if 0 in lag_z:
+        list_z = [z[max_lag:]]
+
+    if max(lag_z) > 0:
+        [list_z.append(z[max_lag-l:-l]) for l in lag_z if l != 0]
+        z = np.concatenate(list_z, axis=1)
+
+    # if lag_z >= 1:
+        # z = z[:-lag_z] # last values are 'removed'
     for i in nonans_gc:
         cond_ind_test = ParCorr()
-        field_i = np.expand_dims(field[lag_z:,i], axis=1)
+        field_i = np.expand_dims(field[max_lag:,i], axis=1)
         a, b = cond_ind_test.run_test_raw(field_i, y, z)
         corr_vals[i] = a
         pvals[i] = b
