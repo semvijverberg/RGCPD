@@ -400,12 +400,15 @@ def spatial_mean_clusters(var_filename, xrclust, selbox=None):
         dims[idx] = 'ncl'
         xrclust = xrclust.rename({'n_clusters':dims[idx]}).copy()
     var1 = int(xrclust[dims[0]])
-    var2 = int(xrclust[dims[1]])
     dim1 = dims[0]
-    dim2 = dims[1]
     xrts.attrs[dim1] = var1 ; xrclust.attrs[dim1] = var1
-    xrts.attrs[dim2] = var2 ; xrclust.attrs[dim2] = var2
-    ds = xr.Dataset({'xrclustered':xrclust.drop(dim1).drop(dim2), 'ts':xrts})
+    xrclust = xrclust.drop(dim1)
+    if len(dims) == 2:
+        var2 = int(xrclust[dims[1]])
+        dim2 = dims[1]
+        xrts.attrs[dim2] = var2 ; xrclust.attrs[dim2] = var2
+        xrclust = xrclust.drop(dim2)
+    ds = xr.Dataset({'xrclustered':xrclust, 'ts':xrts})
     #%%
     return ds
 
