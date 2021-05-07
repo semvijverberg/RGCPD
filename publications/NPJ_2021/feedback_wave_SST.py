@@ -374,7 +374,7 @@ for f in freqs[:]:
         tau_max = 1
 
     kwrgs_tigr = {'tau_min':0, 'tau_max':tau_max, 'max_conds_dim':10,
-                  'pc_alpha':None, 'max_combinations':10}
+                  'pc_alpha':0.05, 'max_combinations':10} # pc_alpha=None
     rg.PCMCI_df_data(keys=keys,
                       kwrgs_tigr=kwrgs_tigr)
 
