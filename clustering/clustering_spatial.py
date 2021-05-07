@@ -48,6 +48,9 @@ def skclustering(time_space_3d, mask2d=None, clustermethodkey='AgglomerativeClus
 
     cluster_method = algorithm(**kwrgs)
     space_time_vec, output_space_time, indices_mask = create_vector(time_space_3d, mask2d)
+    
+    space_time_vec[np.isnan(space_time_vec)] = -32767.0 #replace nans
+    print(space_time_vec)
     results = cluster_method.fit(space_time_vec)
     labels = results.labels_ + 1
     xrclustered = labels_to_latlon(time_space_3d, labels, output_space_time, indices_mask, mask2d)
@@ -89,7 +92,7 @@ def sklearn_clustering(var_filename, mask=None, kwrgs_load={},
     else:
         kwrgs_l = {}
     xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l)
-
+    
     if 'selbox' in kwrgs_l.keys() and mask is None:
         npmask = np.ones_like(xarray[0].values, dtype=bool)
     else:
@@ -300,7 +303,7 @@ def get_spatial_ma(var_filename, mask=None):
             npmask = xrmask.values
     elif type(mask) is list or type(mask) is tuple:
         xarray = core_pp.import_ds_lazy(var_filename)
-        selregion = core_pp.import_ds_lazy(var_filename, selbox=mask)
+        selregion = core_pp.import_ds_lazy(var_filename, selbox = mask, format_lon = 'west_east')
         lons_mask = list(selregion.longitude.values)
         lon_mask  = [True if l in lons_mask else False for l in xarray.longitude]
         lats_mask = list(selregion.latitude.values)
