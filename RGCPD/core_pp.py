@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Fri May 17 16:31:11 2019
@@ -527,20 +526,22 @@ def detrend_lin_longterm(ds):
         fig, ax = plt.subplots(3, figsize=(8,8))
         for i, lalo in enumerate(tuples):
             ts = ds[:,lalo[0],lalo[1]]
+            la = lalo[0]
+            lo = lalo[1]
             while bool(np.isnan(ts).all()):
-                lalo[1] += 5
-                ts = ds[:,lalo[0],lalo[1]]
-            lat = int(ds.latitude[lalo[0]])
-            lon = int(ds.longitude[lalo[1]])
+                lo += 5
+                ts = ds[:,la,lo]
+            lat = int(ds.latitude[la])
+            lon = int(ds.longitude[lo])
             print(f"\rVisual test latlon {lat} {lon}", end="")
 
             ax[i].set_title(f'latlon coord {lat} {lon}')
             ax[i].plot(ts)
-            ax[i].plot(detrended[:,lalo[0],lalo[1]])
-            trend1d = ts - detrended[:,lalo[0],lalo[1]]
+            ax[i].plot(detrended[:,la,lo])
+            trend1d = ts - detrended[:,la,lo]
             linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
             linregab = np.insert(linregab, 2, float(trend1d[-1] - trend1d[0]))
-            ax[i].plot(trend1d+offset_clim[lalo[0],lalo[1]])
+            ax[i].plot(trend1d+offset_clim[la,lo])
             ax[i].text(.05, .05,
             'y = {:.2g}x + {:.2g}, max diff: {:.2g}'.format(*linregab),
             transform=ax[i].transAxes)
