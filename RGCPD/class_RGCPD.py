@@ -162,10 +162,13 @@ class RGCPD:
         self.start_end_TVdate   = start_end_TVdate
         self.start_end_date     = start_end_date
         self.start_end_year     = start_end_year
-
+        self.tfreq              = tfreq
+        self.kwrgs_datehandling = dict(start_end_date=start_end_date,
+                                       start_end_year=start_end_year,
+                                       start_end_TVdate=start_end_TVdate,
+                                       tfreq=tfreq)
 
         self.verbosity          = verbosity
-        self.tfreq              = tfreq
         self.path_outmain       = path_outmain
         self.append_pathsub     = append_pathsub
         self.figext             = '.pdf'
@@ -228,11 +231,7 @@ class RGCPD:
         self.kwrgs_pp.update(dict(detrend=detrend, anomaly=anomaly,
                                   auto_detect_mask=auto_detect_mask,
                                   encoding=encoding))
-
-        self.kwrgs_load.update(dict(start_end_date=self.start_end_date,
-                                    start_end_year=self.start_end_year,
-                                    start_end_TVdate=self.start_end_TVdate,
-                                    tfreq=self.tfreq))
+        self.kwrgs_load.update(self.kwrgs_datehandling)
 
         self.list_precur_pp = functions_pp.perform_post_processing(self.list_of_name_path,
                                              kwrgs_pp=self.kwrgs_pp,
@@ -285,17 +284,12 @@ class RGCPD:
         f = functions_pp
         self.fulltso, self.hash = f.load_TV(self.list_of_name_path,
                                             name_ds=self.name_TVds)
-        from core_pp import xr_core_pp_time
-        self.fulltso = xr_core_pp_time(self.fulltso, **kwrgs_core_pp_time)
-        out = f.process_TV(self.fulltso,
-                            tfreq=self.tfreq,
-                            start_end_TVdate=self.start_end_TVdate,
-                            start_end_date=self.start_end_date,
-                            start_end_year=self.start_end_year,
-                            RV_detrend=self.RV_detrend,
-                            RV_anomaly=self.RV_anomaly,
-                            ext_annual_to_mon=ext_annual_to_mon,
-                            TVdates_aggr=TVdates_aggr)
+        self.kwrgs_pp_TV = self.kwrgs_datehandling.copy()
+        self.kwrgs_pp_TV.update(kwrgs_core_pp_time)
+        self.kwrgs_pp_TV.update({'RV_detrend':detrend, 'RV_anomaly':anomaly,
+                                 'ext_annual_to_mon':ext_annual_to_mon,
+                                 'TVdates_aggr':TVdates_aggr})
+        out = f.process_TV(self.fulltso, **self.kwrgs_pp_TV)
         self.fullts, self.TV_ts, inf, self.traintestgroups = out
 
         self.input_freq = inf
@@ -332,16 +326,16 @@ class RGCPD:
 
         if method is None or method is False:
             method = 'no_train_test_split'
-        self.kwrgs_TV = dict(method=method,
-                    seed=seed,
-                    kwrgs_events=kwrgs_events,
-                    precursor_ts=self.list_import_ts)
+        self.kwrgs_traintest = dict(method=method,
+                             seed=seed,
+                             kwrgs_events=kwrgs_events,
+                             precursor_ts=self.list_import_ts)
 
         self.TV, self.df_splits = RV_and_traintest(self.fullts,
                                                    self.TV_ts,
                                                    self.traintestgroups,
                                                    verbosity=self.verbosity,
-                                                   **self.kwrgs_TV)
+                                                   **self.kwrgs_traintest)
         self.n_spl = self.df_splits.index.levels[0].size
         if subfoldername is None:
             RV_name_range = '{}-{}_'.format(*list(self.start_end_TVdate))
@@ -434,18 +428,13 @@ class RGCPD:
             # need to redefined on new tfreq using the same arguments
             print(f'redefine target variable on {self.precur_aggr} day means')
             f = functions_pp
-            out = f.process_TV(self.fulltso, tfreq=self.precur_aggr,
-                               start_end_TVdate=start_end_TVdate,
-                               start_end_date=self.start_end_date,
-                               start_end_year=self.start_end_year,
-                               RV_detrend=self.RV_detrend,
-                               RV_anomaly=self.RV_anomaly)
+            out = f.process_TV(self.fulltso, **self.kwrgs_pp_TV)
             self.fullts, self.TV_ts, inf, self.traintestgroups = out
             # Re-define train-test split on new time-axis
             TV, df_splits = RV_and_traintest(self.fullts,
                                              self.TV_ts,
                                              self.traintestgroups,
-                                             **self.kwrgs_TV)
+                                             **self.kwrgs_traintest)
         else:
             # use original TV timeseries
             start_end_TVdate = self.start_end_TVdate

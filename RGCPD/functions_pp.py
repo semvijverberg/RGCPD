@@ -128,31 +128,36 @@ def load_TV(list_of_name_path, name_ds='ts'):
 def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=False, RV_anomaly=False,
                ext_annual_to_mon=True, TVdates_aggr: bool=False,
-               verbosity=1):    #%%
+               dailytomonths: bool=False, verbosity=1):
     # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1;
-    # ext_annual_to_mon=False;TVdates_aggr=False; start_end_date=None; start_end_year=None
+    # ext_annual_to_mon=False;TVdates_aggr=False; start_end_date=None; start_end_year=None,
+    # dailytomonths=False
+
+    # For some incredibly inexplicable reason, fullts was not pickle, even after
+    # copy or deepcopying the object. So I recreate the object now:
+    fullts = xr.DataArray(fullts.values, dims=fullts.dims, coords=fullts.coords,
+                          name=fullts.name)
 
 
-    dates = pd.to_datetime(fullts.time.values)
     # start_end_year selection done on fulltso in func above, but not when re-aggregating
-    # fullts = fullts.sel(time=core_pp.get_subdates(dates=dates,
-    #                                       start_end_date=None,
-    #                                       start_end_year=start_end_year))
+    fullts = core_pp.xr_core_pp_time(fullts, start_end_year=start_end_year,
+                                     dailytomonths=dailytomonths)
+
     if RV_detrend: # do detrending on all timesteps
         fullts = core_pp.detrend_lin_longterm(fullts)
     if RV_anomaly: # do anomaly on complete timeseries (rolling mean applied!)
         fullts = anom1D(fullts)
 
-
+    dates = pd.to_datetime(fullts.time.values)
     startyear = dates.year[0]
     endyear = dates.year[-1]
     n_timesteps = dates.size
     n_yrs       = (endyear - startyear) + 1
 
     # align fullts with precursor import_ds_lazy()
-    fullts = fullts.sel(time=core_pp.get_subdates(dates=dates,
-                                                  start_end_date=start_end_date))
-                                                  # start_end_year=start_end_year))
+    fullts = core_pp.xr_core_pp_time(fullts, seldates=start_end_date)
+    # fullts = fullts.sel(time=core_pp.get_subdates(dates=dates,
+    #                                               start_end_date=start_end_date))
 
     timestep_days = (dates[1] - dates[0]).days
     # if type(tfreq) == int: # timemeanbins between start_end_date
