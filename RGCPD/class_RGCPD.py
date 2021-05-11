@@ -497,7 +497,8 @@ class RGCPD:
         allkeys = [list(self.df_data.loc[s].dropna(axis=1).columns[1:-2]) for s in range(self.n_spl)]
         allkeys = functions_pp.flatten(allkeys)
         {k:allkeys.count(k) for k in allkeys}
-        self._df_count = pd.Series({k:allkeys.count(k) for k in allkeys})
+        self._df_count = pd.Series({k:allkeys.count(k) for k in allkeys},
+                                   dtype=object)
 
     def get_subdates_df(self, df_data: pd.DataFrame=None,
                         start_end_date: tuple=None,
@@ -755,9 +756,10 @@ class RGCPD:
         self.path_df_data = filename
 
     def get_clust(self, name_ds='ts'):
-        f = functions_pp
-        self.df_clust, self.ds = f.nc_xr_ts_to_df(self.list_of_name_path[0][1],
-                                                  name_ds=name_ds)
+        # f = functions_pp
+        self.ds = core_pp.import_ds_lazy('/Users/semvijverberg/surfdrive/Scripts/RGCPD/data/tf5_nc5_dendo_80d77.nc')
+        # self.df_clust, self.ds = f.nc_xr_ts_to_df(self.list_of_name_path[0][1],
+        #                                           name_ds=name_ds)
 
     def apply_df_ana_plot(self, df=None, name_ds='ts', func=None, kwrgs_func={},
                           colwrap=2):

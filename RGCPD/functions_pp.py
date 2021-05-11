@@ -299,10 +299,11 @@ def nc_xr_ts_to_df(filename, name_ds='ts'):
         ds = core_pp.import_ds_lazy(filename)
     else:
         print('not a NetCDF file')
-    return xrts_to_df(ds[name_ds]), ds
+    return 1, ds #xrts_to_df(ds[name_ds]), ds
 
 def xrts_to_df(xarray):
-
+    # xarray = xr.DataArray(xarray.values, coords=xarray.coords,
+    #                       dims=xarray.dims, name=xarray.name)
     dims = list(xarray.coords.keys())
     if len(dims) > len(xarray.dims):
         standard_dim = ['latitude', 'longitude', 'time', 'mask', 'cluster']

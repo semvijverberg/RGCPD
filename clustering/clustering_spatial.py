@@ -243,16 +243,20 @@ def dendogram_clustering(var_filename=str, mask=None, kwrgs_load={},
                 i, j = first_loop.index(v1), second_loop.index(v2)
                 xrclustered[i,j] = xr.DataArray(out[0],
                                                 dims=['latitude', 'longitude'],
-                                                coords=[xrclustered.latitude,
-                                                        xrclustered.longitude])
+                                                coords=[xarray.latitude,
+                                                        xarray.longitude])
 
         if 'fake' in new_coords:
             xrclustered = xrclustered.squeeze().drop('fake').copy()
     else:
         del kwrgs_clust['q']
-        xrclustered, results = skclustering(xarray, npmask,
+        npclustered, results = skclustering(xarray, npmask,
                                             clustermethodkey=clustermethodkey,
                                             kwrgs=kwrgs_clust)
+        xrclustered = xr.DataArray(npclustered,
+                                   dims=['latitude', 'longitude'],
+                                   coords=[xarray.latitude,
+                                           xarray.longitude])
     print('\n')
     xrclustered.attrs['method'] = clustermethodkey
     xrclustered.attrs['kwrgs'] = str(kwrgs_clust)

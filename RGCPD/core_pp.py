@@ -159,10 +159,10 @@ def import_ds_lazy(filepath: str, loadleap: bool=False,
             ds = get_selbox(ds, selbox, verbosity)
 
 
-    if type(ds) == type(xr.DataArray(data=[0])):
-        ds.attrs['is_DataArray'] = 1
-    else:
-        ds.attrs['is_DataArray'] = 0
+    # if type(ds) == type(xr.DataArray(data=[0])):
+    #     ds.attrs['is_DataArray'] = 1
+    # else:
+    #     ds.attrs['is_DataArray'] = 0
     return ds
 
 def xr_core_pp_time(ds, seldates: Union[tuple, pd.DatetimeIndex]=None,
