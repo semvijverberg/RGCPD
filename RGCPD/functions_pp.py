@@ -151,7 +151,7 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
 
     # align fullts with precursor import_ds_lazy()
     fullts = fullts.sel(time=core_pp.get_subdates(dates=dates,
-                                                  start_end_date=start_end_date)
+                                                  start_end_date=start_end_date))
                                                   # start_end_year=start_end_year))
 
     timestep_days = (dates[1] - dates[0]).days
