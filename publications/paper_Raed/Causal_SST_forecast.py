@@ -13,7 +13,7 @@ if sys.platform == 'linux':
     mpl.use('Agg')
     n_cpu = 5
 else:
-    n_cpu = 2
+    n_cpu = 3
 # else:
 #     # Optionally set font to Computer Modern to avoid common missing font errors
 #     mpl.rc('font', family='serif', serif='cm10')
@@ -67,7 +67,7 @@ target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 # methods = ['random_10', 'random_5', 'random_20']
-methods = ['no_train_test_split']
+methods = ['random_5']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
@@ -647,7 +647,7 @@ def plot_forecast_ts(df_test_m, df_test):
     ax0.plot_date(df_test.index, df_test[target_dataset], ls='-',
                   label='Observed', c='black')
 
-    ax0.plot_date(df_test.index, df_test['causal'], ls='-', c='red',
+    ax0.plot_date(df_test.index, df_test.iloc[:,1], ls='-', c='red',
                   label=r'Causal precursors ($\alpha=$'+f' {alpha_CI})')
     # ax0.set_xticks()
     # ax0.set_xticklabels(df_test.index.year,
@@ -681,102 +681,6 @@ def plot_forecast_ts(df_test_m, df_test):
     fig.artists.append(ann1) ; fig.artists.append(ann2)
     return
 
-#%% Continuous forecast
-from sklearn.linear_model import Ridge
-from stat_models_cont import ScikitModel
-# fcmodel = ScikitModel(RandomForestRegressor, verbosity=0)
-# kwrgs_model={'n_estimators':200,
-#             'max_depth':[2,5,7],
-#             'scoringCV':'neg_mean_squared_error',
-#             'oob_score':True,
-#             'min_samples_leaf':2,
-#             'random_state':0,
-#             'max_samples':.6,
-#             'n_jobs':1}
-fcmodel = ScikitModel(RidgeCV, verbosity=0)
-kwrgs_model = {'scoring':'neg_mean_absolute_error',
-                'alphas':np.concatenate([[1E-20],np.logspace(-4,0, 5),
-                                          np.logspace(.2, 1.5, num=10)]), # large a, strong regul.
-                'normalize':False,
-                'fit_intercept':False,
-                # 'store_cv_values':True}
-                'kfold':5}
-
-fcmodel = ScikitModel(Ridge, verbosity=0)
-kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
-                'alpha':list(np.concatenate([np.logspace(-4,0, 5),
-                                          np.logspace(.2, 1.5, num=8)])), # large a, strong regul.
-                'normalize':False,
-                'fit_intercept':False,
-                'kfold':10}
-
-months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
-          'SO':'hindcast'}
-list_verification = [] ; list_prediction = []
-for i, rg in enumerate(rg_list):
-
-    # target
-    fc_mask = rg.df_data.iloc[:,-1].loc[0]
-    target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
-    target_ts = (target_ts - target_ts.mean()) / target_ts.std()
-
-    mean_vars=['sst', 'smi']
-    for i, p in enumerate(rg.list_for_MI):
-        if p.calc_ts == 'pattern cov':
-            mean_vars[i] +='_sp'
-    df_data, keys_dict = get_df_mean_SST(rg,
-                                         mean_vars=mean_vars,
-                                         alpha_CI=alpha_CI,
-                                         n_strongest='all',
-                                         weights=True,
-                                         fcmodel=fcmodel,
-                                         kwrgs_model=kwrgs_model,
-                                         target_ts=target_ts)
-    last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
-    fc_month = months[last_month]
-    rg.fc_month = fc_month
-
-
-    # metrics
-    RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).RMSE
-    MAE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).MAE
-    score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS]
-    metric_names = [s.__name__ for s in score_func_list]
-
-    lag_ = 0 ;
-    prediction_tuple = rg.fit_df_data_ridge(df_data=df_data,
-                                            keys=keys_dict,
-                                            target=target_ts,
-                                            tau_min=0, tau_max=0,
-                                            kwrgs_model=kwrgs_model,
-                                            fcmodel=fcmodel,
-                                            transformer=None)
-
-    predict, weights, models_lags = prediction_tuple
-    prediction = predict.rename({predict.columns[0]:'target',
-                                 lag_:fc_month}, axis=1)
-    prediction_tuple = (prediction, weights, models_lags)
-    list_prediction.append(prediction_tuple)
-    rg.prediction_tuple = prediction_tuple
-
-
-    verification_tuple = fc_utils.get_scores(prediction,
-                                             rg.df_data.iloc[:,-2:],
-                                             score_func_list,
-                                             n_boot=n_boot,
-                                             blocksize=1,
-                                             rng_seed=seed)
-    df_train_m, df_test_s_m, df_test_m, df_boot = verification_tuple
-
-
-    m = models_lags[f'lag_{lag_}'][f'split_{0}']
-    # plt.plot(kwrgs_model['alpha'], m.cv_results_['mean_test_score'])
-    # plt.axvline(m.best_params_['alpha']) ; plt.show() ; plt.close()
-
-    df_test = functions_pp.get_df_test(predict.rename({lag_:'causal'}, axis=1),
-                                        df_splits=rg.df_splits)
-    list_verification.append(verification_tuple)
-    rg.verification_tuple = verification_tuple
 
 #%% Conditional continuous forecast
 def cond_forecast_table(rg_list):
@@ -865,7 +769,101 @@ def cond_forecast_table(rg_list):
     return df_cond_fc
 
 
+#%% Continuous forecast
+from sklearn.linear_model import Ridge
+from stat_models_cont import ScikitModel
+# fcmodel = ScikitModel(RandomForestRegressor, verbosity=0)
+# kwrgs_model={'n_estimators':200,
+#             'max_depth':[2,5,7],
+#             'scoringCV':'neg_mean_squared_error',
+#             'oob_score':True,
+#             'min_samples_leaf':2,
+#             'random_state':0,
+#             'max_samples':.6,
+#             'n_jobs':1}
+fcmodel = ScikitModel(RidgeCV, verbosity=0)
+kwrgs_model = {'scoring':'neg_mean_absolute_error',
+                'alphas':np.concatenate([[1E-20],np.logspace(-4,0, 5),
+                                          np.logspace(.2, 1.5, num=10)]), # large a, strong regul.
+                'normalize':False,
+                'fit_intercept':False,
+                # 'store_cv_values':True}
+                'kfold':5}
 
+fcmodel = ScikitModel(Ridge, verbosity=0)
+kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
+                'alpha':list(np.concatenate([np.logspace(-4,0, 5),
+                                          np.logspace(.2, 1.5, num=8)])), # large a, strong regul.
+                'normalize':False,
+                'fit_intercept':False,
+                'kfold':10}
+
+months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
+          'SO':'hindcast'}
+list_verification = [] ; list_prediction = []
+for i, rg in enumerate(rg_list):
+
+    # target
+    fc_mask = rg.df_data.iloc[:,-1].loc[0]
+    target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
+    target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+
+    mean_vars=['sst', 'smi']
+    for i, p in enumerate(rg.list_for_MI):
+        if p.calc_ts == 'pattern cov':
+            mean_vars[i] +='_sp'
+    df_data, keys_dict = get_df_mean_SST(rg,
+                                         mean_vars=mean_vars,
+                                         alpha_CI=alpha_CI,
+                                         n_strongest='all',
+                                         weights=True,
+                                         fcmodel=fcmodel,
+                                         kwrgs_model=kwrgs_model,
+                                         target_ts=target_ts)
+    last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
+    fc_month = months[last_month]
+    rg.fc_month = fc_month
+
+
+    # metrics
+    RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).RMSE
+    MAE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).MAE
+    score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS]
+    metric_names = [s.__name__ for s in score_func_list]
+
+    lag_ = 0 ;
+    prediction_tuple = rg.fit_df_data_ridge(df_data=df_data,
+                                            keys=keys_dict,
+                                            target=target_ts,
+                                            tau_min=0, tau_max=0,
+                                            kwrgs_model=kwrgs_model,
+                                            fcmodel=fcmodel,
+                                            transformer=None)
+
+    predict, weights, models_lags = prediction_tuple
+    prediction = predict.rename({predict.columns[0]:target_dataset,
+                                 lag_:fc_month}, axis=1)
+    prediction_tuple = (prediction, weights, models_lags)
+    list_prediction.append(prediction_tuple)
+    rg.prediction_tuple = prediction_tuple
+
+
+    verification_tuple = fc_utils.get_scores(prediction,
+                                             rg.df_data.iloc[:,-2:],
+                                             score_func_list,
+                                             n_boot=n_boot,
+                                             blocksize=1,
+                                             rng_seed=seed)
+    df_train_m, df_test_s_m, df_test_m, df_boot = verification_tuple
+
+
+    m = models_lags[f'lag_{lag_}'][f'split_{0}']
+    # plt.plot(kwrgs_model['alpha'], m.cv_results_['mean_test_score'])
+    # plt.axvline(m.best_params_['alpha']) ; plt.show() ; plt.close()
+
+
+    list_verification.append(verification_tuple)
+    rg.verification_tuple = verification_tuple
 
 #%% Plotting Continuous forecast
 
@@ -887,8 +885,12 @@ if save:
 
 for rg in rg_list: # plotting score per test
     # plot timeseries
+    predict = rg.prediction_tuple[0]
+    df_test = functions_pp.get_df_test(predict.rename({lag_:'causal'}, axis=1),
+                                       df_splits=rg.df_splits)
+    df_test_m = rg.verification_tuple[2]
     plot_forecast_ts(df_test_m, df_test)
-    f_name = f'{method}_{seed}_continuous_{fc_month}'
+    f_name = f'ts_forecast_{method}_{seed}_continuous_{rg.fc_month}'
     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
     if save:
         plt.savefig(fig_path, bbox_inches='tight')
@@ -897,7 +899,7 @@ for rg in rg_list: # plotting score per test
     df_test_s_m = rg.verification_tuple[1]
     fig, ax = plt.subplots(1)
     df_test_s_m.plot(ax=ax)
-    fig.savefig(os.path.join(rg.path_outsub1, f'CV_scores_{fc_month}.png'),
+    fig.savefig(os.path.join(rg.path_outsub1, f'CV_scores_{rg.fc_month}.png'),
                 bbox_inches='tight', dpi=100)
 
 #%% save table conditional forecast (Continuous)
@@ -1095,6 +1097,21 @@ for i, q in enumerate(thresholds):
     if save:
         f.savefig(fig_path, bbox_inches='tight')
 
+
+    # plot timeseries
+    plot_forecast_ts(df_test_m, df_test)
+    f_name = f'ts_forecast_{method}_{seed}_{q}_{rg.fc_month}'
+    fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
+    if save:
+        plt.savefig(fig_path, bbox_inches='tight')
+    plt.close()
+
+    df_test_s_m = rg.verification_tuple[1]
+    fig, ax = plt.subplots(1)
+    df_test_s_m.plot(ax=ax)
+    fig.savefig(os.path.join(rg.path_outsub1, f'CV_scores_{q}_{rg.fc_month}.png'),
+                bbox_inches='tight', dpi=100)
+
     # save table conditional forecast (Continuous)
     df_cond_fc = cond_forecast_table(rg_list)
     # store as .xlsc
@@ -1104,7 +1121,7 @@ for i, q in enumerate(thresholds):
     filepath_dfs = os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}_{q}.h5')
     functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
-#%% Collect different splits high/low forecast
+#%% Collect different splits high/low forecast for plotting
 
 orientation = 'horizontal'
 alpha = .05
@@ -1147,14 +1164,12 @@ for q in [.33, .5, .66]:
 
                 labels = d_dfs['df_scores'].columns.levels[0]
                 ax[i].plot(labels, d_dfs['df_scores'].reorder_levels((1,0), axis=1).loc[0][m].T,
-                        label=f'seed: {s}',
-                        color=cs[s],
-                        linestyle='solid')
+                           label=f'seed: {s}', color=cs[s], linestyle='solid')
                 ax[i].fill_between(labels,
-                                    d_dfs['df_boot'].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                                    d_dfs['df_boot'].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-                                    edgecolor=cs[s], facecolor=cs[s], alpha=0.3,
-                                    linestyle='solid', linewidth=2)
+                                   d_dfs['df_boot'].reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                                   d_dfs['df_boot'].reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                                   edgecolor=cs[s], facecolor=cs[s], alpha=0.3,
+                                   linestyle='solid', linewidth=2)
 
                 if m == 'corrcoef':
                     ax[i].set_ylim(-.2,1)
@@ -1191,11 +1206,11 @@ for q in [.33, .5, .66]:
 # Plot Causal Links
 # =============================================================================
 kwrgs_plotcorr_sst = {'row_dim':'lag', 'col_dim':'split','aspect':4, 'hspace':0,
-                  'wspace':-.15, 'size':3, 'cbar_vert':0.05,
-                  'map_proj':ccrs.PlateCarree(central_longitude=220),
-                   'y_ticks':np.arange(-10,61,20), #'x_ticks':np.arange(130, 280, 25),
-                  'title':'',
-                  'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
+                      'wspace':-.15, 'size':3, 'cbar_vert':0.05,
+                      'map_proj':ccrs.PlateCarree(central_longitude=220),
+                      'y_ticks':np.arange(-10,61,20), #'x_ticks':np.arange(130, 280, 25),
+                      'title':'',
+                      'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
 
 kwrgs_plotcorr_SM = kwrgs_plotcorr_sst.copy()
 kwrgs_plotcorr_SM.update({'aspect':2, 'hspace':0.2,

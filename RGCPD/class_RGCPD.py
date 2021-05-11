@@ -174,8 +174,8 @@ class RGCPD:
         self.figext             = '.pdf'
         self.save               = save
         self.orig_stdout        = sys.stdout
-        if self.save == True and os.path.isdir(path_outmain) != True:
-            os.makedirs(path_outmain)
+        if self.save == True:
+            os.makedirs(path_outmain, exist_ok=True)
         return
 
     def pp_precursors(self, loadleap=False, seldates=None,
@@ -350,8 +350,8 @@ class RGCPD:
             if self.append_pathsub is not None:
                 subfoldername += '_' + self.append_pathsub
         self.path_outsub1 = os.path.join(self.path_outmain, subfoldername)
-        if self.save and os.path.isdir(self.path_outsub1)==False:
-            os.makedirs(self.path_outsub1)
+        if self.save:
+            os.makedirs(self.path_outsub1, exist_ok=True)
 
     def calc_corr_maps(self, var: Union[str, list]=None):
 
@@ -597,8 +597,7 @@ class RGCPD:
         else:
             self.path_outsub2 = path_txtoutput
         if self.save:
-            if os.path.isdir(self.path_outsub2)==False:
-                os.makedirs(self.path_outsub2)
+            os.makedirs(self.path_outsub2, exist_ok=True)
             path_outsub2 = self.path_outsub2
         else:
             path_outsub2 = False # not textfile written
