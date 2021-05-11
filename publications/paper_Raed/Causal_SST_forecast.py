@@ -841,9 +841,9 @@ def cond_forecast_table(rg_list):
                 rg.cond_verif_tuple  = cond_verif_tuple
                 cond_df[i, j, l] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
                 # mild boundary forcing
-                low = PacAtl_ts > PacAtl_ts.quantile(.5-q)
-                high = PacAtl_ts < PacAtl_ts.quantile(.5+q)
-                mask_anomalous = np.logical_or(low, high) !!! Should be and?
+                higher_low = PacAtl_ts > PacAtl_ts.quantile(.5-q)
+                lower_high = PacAtl_ts < PacAtl_ts.quantile(.5+q)
+                mask_anomalous = np.logical_and(higher_low, lower_high) # changed 11-5-21
 
                 condfc = df_test[mask_anomalous.values]
                 condfc = condfc.rename({'causal':periodnames[i]}, axis=1)

@@ -215,8 +215,8 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
 
 
     if input_freq == 'annual':
-        TV_ts = fullts
-        traintestgroups = pd.Series(np.arange(1, TV_ts.size+1),
+        RV_ts = fullts
+        traintestgroups = pd.Series(np.arange(1, RV_ts.size+1),
                                     index=pd.to_datetime(fullts.time.values))
     else:
         if input_freq == 'daily':
@@ -230,9 +230,16 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
         string_RV = list(dates_RV.strftime('%Y-%m-%d'))
         string_full = list(pd.to_datetime(fullts.time.values).strftime('%Y-%m-%d'))
         RV_period = [string_full.index(date) for date in string_full if date in string_RV]
-        TV_ts = fullts[RV_period]
+        RV_ts = fullts[RV_period]
 
-    return fullts, TV_ts, input_freq, traintestgroups
+    # convert to dataframe
+    df_fullts = pd.DataFrame(fullts.values,
+                         index=pd.to_datetime(fullts.time.values),
+                         columns=[fullts.name])
+    df_RV_ts = pd.DataFrame(RV_ts.values,
+                                 index=pd.to_datetime(RV_ts.time.values),
+                                 columns=['RV'+fullts.name])
+    return df_fullts, df_RV_ts, input_freq, traintestgroups
 
 def get_df_test(df, cols: list=None, df_splits: pd.DataFrame=None):
     '''
@@ -299,11 +306,10 @@ def nc_xr_ts_to_df(filename, name_ds='ts'):
         ds = core_pp.import_ds_lazy(filename)
     else:
         print('not a NetCDF file')
-    return 1, ds #xrts_to_df(ds[name_ds]), ds
+    return xrts_to_df(ds[name_ds]), ds
 
 def xrts_to_df(xarray):
-    # xarray = xr.DataArray(xarray.values, coords=xarray.coords,
-    #                       dims=xarray.dims, name=xarray.name)
+
     dims = list(xarray.coords.keys())
     if len(dims) > len(xarray.dims):
         standard_dim = ['latitude', 'longitude', 'time', 'mask', 'cluster']
@@ -356,6 +362,10 @@ def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
     # check if no axis has length 0:
     assert 0 not in ds.shape, ('loaded ds has a dimension of length 0'
                                f', shape {ds.shape}')
+
+    # masks in xr.DataArray are not pickable, which will cause _thread.lock
+    # error when parallizing an analysis pipeline.
+    ds = ds.drop('mask')
     return ds
 
 def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None,

@@ -71,73 +71,56 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='random_5',
                save=True)
 
     # if TVpath contains the xr.DataArray xrclustered, we can have a look at the spatial regions.
-    rg.get_clust()
+    rg.plot_df_clust()
 
-    # rg.pp_precursors(detrend=True, anomaly=True, selbox=None)
+    rg.pp_precursors(detrend=True, anomaly=True, selbox=None)
 
 
     # ### Post-processing Target Variable
-    # rg.pp_TV(TVdates_aggr=TVdates_aggr,
-    #          kwrgs_core_pp_time={'dailytomonths':dailytomonths,
-    #                              'start_end_year':start_end_yr_target})
+    rg.pp_TV(TVdates_aggr=TVdates_aggr,
+              kwrgs_core_pp_time={'dailytomonths':dailytomonths,
+                                  'start_end_year':start_end_yr_target})
 
 
-    # rg.traintest(method=method)
+    rg.traintest(method=method)
 
-    # # check
-    # if TVdates_aggr==False:
-    #     check_dates_RV(rg.df_splits, rg.traintestgroups, start_end_TVdate)
+    # check
+    if TVdates_aggr==False:
+        check_dates_RV(rg.df_splits, rg.traintestgroups, start_end_TVdate)
 
-    # rg.kwrgs_load['start_end_year'] = start_end_yr_precur
+    rg.kwrgs_load['start_end_year'] = start_end_yr_precur
 
-    # rg.calc_corr_maps()
-    # precur = rg.list_for_MI[0]
+    rg.calc_corr_maps()
+    precur = rg.list_for_MI[0]
 
-    # rg.plot_maps_corr()
+    rg.plot_maps_corr()
 
-    # rg.cluster_list_MI()
+    rg.cluster_list_MI()
 
-    # # rg.quick_view_labels(mean=False)
+    # rg.quick_view_labels(mean=False)
 
-    # rg.get_ts_prec()
-    # try:
-    #     import wrapper_PCMCI as wPCMCI
-    #     if rg.df_data.columns.size <= 3:
-    #         print('Skipping causal inference step')
-    #     else:
-    #         rg.PCMCI_df_data()
+    rg.get_ts_prec()
+    try:
+        import wrapper_PCMCI as wPCMCI
+        if rg.df_data.columns.size <= 3:
+            print('Skipping causal inference step')
+        else:
+            rg.PCMCI_df_data()
 
-    #         rg.PCMCI_get_links(var=rg.TV.name, alpha_level=.05)
-    #         rg.df_links
+            rg.PCMCI_get_links(var=rg.TV.name, alpha_level=.05)
+            rg.df_links
 
-    #         rg.store_df_PCMCI()
-    # except:
-    #     # raise(ModuleNotFoundError)
-    #     print('Not able to load in Tigramite modules, to enable causal inference '
-    #       'features, install Tigramite from '
-    #       'https://github.com/jakobrunge/tigramite/')
+            rg.store_df_PCMCI()
+    except:
+        # raise(ModuleNotFoundError)
+        print('Not able to load in Tigramite modules, to enable causal inference '
+          'features, install Tigramite from '
+          'https://github.com/jakobrunge/tigramite/')
     #%%
     return rg
 
 test = test_subseas_US_t2m_tigramite
 
-#%% test parallizing pipeline
-
-try:
-    from joblib import Parallel, delayed
-
-except:
-    # raise(ModuleNotFoundError)
-    print('Not able to load in joblib module or test parallization failed')
-
-tfreq_list = [10, 20]
-futures = []
-for tfreq in tfreq_list:
-     # pipeline(lags, periodnames)
-     futures.append(delayed(test)(0.05, tfreq))
-
-
-out = Parallel(n_jobs=2, backend='loky')(futures)
 
 #%%
 # =============================================================================
@@ -192,7 +175,6 @@ rg = test(alpha=.2,
           start_end_TVdate=('06-01', '08-31'),
           lags=np.array([['10-01', '05-31']]),
           start_end_yr_target=(1980,2018))
-
 
 
 
@@ -302,7 +284,7 @@ except ImportError as e:
     print('Not able to load in Tigramite modules, to enable causal inference '
           'features, install Tigramite from '
           'https://github.com/jakobrunge/tigramite/')
-	# remove created output folders
+ 	# remove created output folders
     shutil.rmtree(rg.path_outsub1)
     shutil.rmtree(os.path.join(main_dir, 'data', 'preprocessed'))
     raise(e)
@@ -311,6 +293,24 @@ from class_fc import fcev
 import valid_plots as dfplots
 
 if __name__ == '__main__':
+
+    #%% test parallizing pipeline
+
+    try:
+        from joblib import Parallel, delayed
+    except:
+        print('Not able to load in joblib module or test parallization failed')
+
+    tfreq_list = [10, 20]
+    futures = []
+    for tfreq in tfreq_list:
+         # pipeline(lags, periodnames)
+         futures.append(delayed(test)(0.05, tfreq))
+
+    with Parallel(n_jobs=2, backend="loky", timeout=25) as loky:
+        out = loky(futures)
+
+
 
     fc = fcev(path_data=path_df_data, n_cpu=1, causal=True)
     fc.get_TV(kwrgs_events=None)

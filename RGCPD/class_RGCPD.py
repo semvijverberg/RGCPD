@@ -282,23 +282,24 @@ class RGCPD:
         self.RV_anomaly = anomaly
         self.RV_detrend = detrend
         f = functions_pp
-        self.fulltso, self.hash = f.load_TV(self.list_of_name_path,
+        fulltso, self.hash = f.load_TV(self.list_of_name_path,
                                             name_ds=self.name_TVds)
         self.kwrgs_pp_TV = self.kwrgs_datehandling.copy()
         self.kwrgs_pp_TV.update(kwrgs_core_pp_time)
         self.kwrgs_pp_TV.update({'RV_detrend':detrend, 'RV_anomaly':anomaly,
                                  'ext_annual_to_mon':ext_annual_to_mon,
                                  'TVdates_aggr':TVdates_aggr})
-        out = f.process_TV(self.fulltso, **self.kwrgs_pp_TV)
-        self.fullts, self.TV_ts, inf, self.traintestgroups = out
+        out = f.process_TV(fulltso, **self.kwrgs_pp_TV)
+        self.df_fullts, self.df_RV_ts, inf, self.traintestgroups = out
+
 
         self.input_freq = inf
-        self.dates_or  = pd.to_datetime(self.fulltso.time.values)
-        self.dates_all = pd.to_datetime(self.fullts.time.values)
-        self.dates_TV = pd.to_datetime(self.TV_ts.time.values)
+        self.dates_or  = pd.to_datetime(fulltso.time.values)
+        self.dates_all = pd.to_datetime(self.df_fullts.index)
+        self.dates_TV = pd.to_datetime(self.df_RV_ts.index)
         if self.start_end_year is None:
             self.start_end_year = (self.dates_or.year[0],
-                                   self.dates_or.year[-1])
+                                    self.dates_or.year[-1])
 
 
     def traintest(self, method: Union[str, bool]=None, seed=1,
@@ -331,8 +332,8 @@ class RGCPD:
                              kwrgs_events=kwrgs_events,
                              precursor_ts=self.list_import_ts)
 
-        self.TV, self.df_splits = RV_and_traintest(self.fullts,
-                                                   self.TV_ts,
+        self.TV, self.df_splits = RV_and_traintest(self.df_fullts,
+                                                   self.df_RV_ts,
                                                    self.traintestgroups,
                                                    verbosity=self.verbosity,
                                                    **self.kwrgs_traintest)
@@ -341,7 +342,7 @@ class RGCPD:
             RV_name_range = '{}-{}_'.format(*list(self.start_end_TVdate))
             var = '_'.join([np[0] for np in self.list_of_name_path[1:]])
             # Creating a folder for the specific target, RV period and traintest set
-            part1 = os.path.join(self.fulltso.name \
+            part1 = os.path.join(self.df_fullts.columns[0] \
                                  +'_' +self.hash +'_'+RV_name_range \
                                  +var)
             subfoldername = part1 + '_'.join(['', self.TV.method \
@@ -428,11 +429,13 @@ class RGCPD:
             # need to redefined on new tfreq using the same arguments
             print(f'redefine target variable on {self.precur_aggr} day means')
             f = functions_pp
-            out = f.process_TV(self.fulltso, **self.kwrgs_pp_TV)
-            self.fullts, self.TV_ts, inf, self.traintestgroups = out
+            fulltso, self.hash = f.load_TV(self.list_of_name_path,
+                                           name_ds=self.name_TVds)
+            out = f.process_TV(fulltso, **self.kwrgs_pp_TV)
+            self.df_fullts, self.df_TV_ts, inf, self.traintestgroups = out
             # Re-define train-test split on new time-axis
-            TV, df_splits = RV_and_traintest(self.fullts,
-                                             self.TV_ts,
+            TV, df_splits = RV_and_traintest(self.df_fullts,
+                                             self.df_RV_ts,
                                              self.traintestgroups,
                                              **self.kwrgs_traintest)
         else:
@@ -756,10 +759,10 @@ class RGCPD:
         self.path_df_data = filename
 
     def get_clust(self, name_ds='ts'):
-        # f = functions_pp
-        self.ds = core_pp.import_ds_lazy('/Users/semvijverberg/surfdrive/Scripts/RGCPD/data/tf5_nc5_dendo_80d77.nc')
-        # self.df_clust, self.ds = f.nc_xr_ts_to_df(self.list_of_name_path[0][1],
-        #                                           name_ds=name_ds)
+        f = functions_pp
+        self.df_clust, ds = f.nc_xr_ts_to_df(self.list_of_name_path[0][1],
+                                                  name_ds=name_ds)
+        return ds
 
     def apply_df_ana_plot(self, df=None, name_ds='ts', func=None, kwrgs_func={},
                           colwrap=2):
@@ -772,8 +775,8 @@ class RGCPD:
                              colwrap=colwrap, hspace=.5, kwrgs=kwrgs_func)
 
     def plot_df_clust(self, save=False):
-        self.get_clust()
-        plot_maps.plot_labels(self.ds['xrclustered'])
+        ds = self.get_clust()
+        plot_maps.plot_labels(ds['xrclustered'])
         if save and hasattr(self, 'path_sub1'):
             fig_path = os.path.join(self.path_outsub1, 'RV_clusters')
             plt.savefig(fig_path+self.figext, bbox_inches='tight')
@@ -1149,19 +1152,12 @@ class RGCPD:
 
 
 
-def RV_and_traintest(fullts, TV_ts, traintestgroups, method=str, kwrgs_events=None,
+def RV_and_traintest(df_fullts, df_RV_ts, traintestgroups, method=str, kwrgs_events=None,
                      precursor_ts=None, seed: int=1, verbosity=1):
-    # fullts = rg.fullts ; TV_ts = rg.TV_ts ; traintestgroups=rg.traintestgroups
+    # fullts = rg.df_fullts ; df_RV_ts = rg.df_RV_ts ; traintestgroups=rg.traintestgroups
     # method='random_10'; kwrgs_events=None; precursor_ts=rg.list_import_ts; seed=1; verbosity=1
 
     # Define traintest:
-    df_fullts = pd.DataFrame(fullts.values,
-                            index=pd.to_datetime(fullts.time.values),
-                            columns=[fullts.name])
-    df_RV_ts = pd.DataFrame(TV_ts.values,
-                            index=pd.to_datetime(TV_ts.time.values),
-                            columns=['RV'+fullts.name])
-
     if precursor_ts is not None:
         path_data = ''.join(precursor_ts[0][1])
         df_ext = functions_pp.load_hdf5(path_data)['df_data'].loc[:,:]
