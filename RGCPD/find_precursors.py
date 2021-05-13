@@ -474,7 +474,9 @@ def split_region_by_lonlat(prec_labels, label=int, plot_s=0,
                            plot_l=0, kwrgs_mask_latlon={} ):
 
     # before:
-    plot_maps.plot_labels(prec_labels.isel(split=plot_s, lag=plot_l))
+    plot_maps.plot_labels(prec_labels.isel(split=plot_s, lag=plot_l),
+                          kwrgs_plot={'size':1.5, 
+                                      'subtitles':np.array([['old']])})
     splits = list(prec_labels.split.values)
     lags   = list(prec_labels.lag.values)
     copy_labels = prec_labels.copy()
@@ -500,7 +502,9 @@ def split_region_by_lonlat(prec_labels, label=int, plot_s=0,
         np_labels[i_s, i_l] = single.values
     copy_labels.values = np_labels
     # after
-    plot_maps.plot_labels(copy_labels.isel(split=plot_s, lag=plot_l))
+    plot_maps.plot_labels(copy_labels.isel(split=plot_s, lag=plot_l), 
+                          kwrgs_plot={'size':1.5, 
+                                      'subtitles':np.array([['new']])})
     return copy_labels, max(orig_labels) + 1
 
 def manual_relabel(prec_labels, replace_label: int=None, with_label: int=None):

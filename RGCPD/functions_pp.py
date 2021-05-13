@@ -1247,7 +1247,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                 cv = KFold(n_splits=kfold, shuffle=False)
                 testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
             elif method[:6] == 'random':
-                cv = KFold(n_splits=kfold, shuffle=True)
+                cv = KFold(n_splits=kfold, shuffle=True, random_state=seed)
                 testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
         else:
             testgroups = test_yrs

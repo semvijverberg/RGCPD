@@ -1062,7 +1062,6 @@ class RGCPD:
 
 
         models_lags = dict()
-
         for il, lag in enumerate(lags):
             preds = np.zeros( (splits.size), dtype=object)
             wghts = np.zeros( (splits.size) , dtype=object)
@@ -1145,8 +1144,6 @@ class RGCPD:
                               left_index=True, right_index=True)
             models_lags[f'lag_{lag}'] = models_splits_lags
 
-        # weights_norm = weights.mean(axis=0, level=1)
-        # weights_norm.div(weights_norm.max(axis=0)).T.plot(kind='box')
         return predict, weights, models_lags
 
 
