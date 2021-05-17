@@ -50,7 +50,6 @@ def skclustering(time_space_3d, mask2d=None, clustermethodkey='AgglomerativeClus
     space_time_vec, output_space_time, indices_mask = create_vector(time_space_3d, mask2d)
 
     space_time_vec[np.isnan(space_time_vec)] = -32767.0 #replace nans
-    print(space_time_vec)
     results = cluster_method.fit(space_time_vec)
     labels = results.labels_ + 1
     xrclustered = labels_to_latlon(time_space_3d, labels, output_space_time, indices_mask, mask2d)
@@ -88,15 +87,15 @@ def sklearn_clustering(var_filename, mask=None, kwrgs_load={},
                            kwrgs_clust={'eps':600}):
 
     if 'selbox' in kwrgs_load.keys():
-        kwrgs_l = dict(selbox=kwrgs_load['selbox'])
-    else:
-        kwrgs_l = {}
-    xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l)
+        mask = kwrgs_load.pop('selbox')
+        print('mask overwritten with selbox list. Both selbox and mask are given.'
+              'Both adapt the domain over which to cluster')
+    kwrgs_l_spatial = {} # kwrgs affecting spatial extent/format
+    if 'format_lon' in kwrgs_load.keys():
+        kwrgs_l_spatial['format_lon'] = kwrgs_load['format_lon']
 
-    if 'selbox' in kwrgs_l.keys() and mask is None:
-        npmask = np.ones_like(xarray[0].values, dtype=bool)
-    else:
-        npmask = get_spatial_ma(var_filename, mask)
+    xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l_spatial)
+    npmask = get_spatial_ma(var_filename, mask, kwrgs_l_spatial=kwrgs_l_spatial)
 
 
     kwrgs_loop = {k:i for k, i in kwrgs_clust.items() if type(i) == list}
@@ -143,7 +142,7 @@ def sklearn_clustering(var_filename, mask=None, kwrgs_load={},
 
 def dendogram_clustering(var_filename=str, mask=None, kwrgs_load={},
                          clustermethodkey='AgglomerativeClustering',
-                         kwrgs_clust={'q':70, 'n_clusters':3}):
+                         kwrgs_clust={'q':70, 'n_clusters':3}, n_cpu=None):
     '''
 
 
@@ -168,19 +167,19 @@ def dendogram_clustering(var_filename=str, mask=None, kwrgs_load={},
     results : list of sklearn cluster method instances.
 
     '''
+    if n_cpu is None:
+        n_cpu = multiprocessing.cpu_count() - 1
 
     if 'selbox' in kwrgs_load.keys():
-        kwrgs_l = dict(selbox=kwrgs_load['selbox'])
+        mask = kwrgs_load.pop('selbox')
+        print('mask overwritten because both selbox and mask are given.'
+              'both adapt the domain over which to cluster')
+    kwrgs_l_spatial = {} # kwrgs affecting spatial extent/format
+    if 'format_lon' in kwrgs_load.keys():
+        kwrgs_l_spatial['format_lon'] = kwrgs_load['format_lon']
 
-    else:
-        kwrgs_l = {}
-    xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l)
-
-    if 'selbox' in kwrgs_l.keys() and mask is None:
-        npmask = np.ones_like(xarray[0].values, dtype=bool)
-    else:
-        npmask = get_spatial_ma(var_filename, mask, kwrgs_l=kwrgs_l)
-
+    xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l_spatial)
+    npmask = get_spatial_ma(var_filename, mask, kwrgs_l_spatial=kwrgs_l_spatial)
 
     kwrgs_loop = {k:i for k, i in kwrgs_clust.items() if type(i) == list}
     kwrgs_loop_load = {k:i for k, i in kwrgs_load.items() if type(i) == list}
@@ -279,7 +278,7 @@ def binary_occurences_quantile(xarray, q=95):
     indic.values[indic.values > 0 ] = 1
     return indic
 
-def get_spatial_ma(var_filename, mask=None, kwrgs_l: dict={}):
+def get_spatial_ma(var_filename, mask=None, kwrgs_l_spatial: dict={}):
     '''
     var_filename must be 3d netcdf file with only one variable
     mask can be nc file containing only a mask, or a latlon box in format
@@ -288,13 +287,13 @@ def get_spatial_ma(var_filename, mask=None, kwrgs_l: dict={}):
     e.g. KMeans, or AgglomerativeClustering, kwrgs are techinque dependend, see sklearn docs.
     '''
     if mask is None:
-        xarray = core_pp.import_ds_lazy(var_filename, kwrgs_l=kwrgs_l)
+        xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l_spatial)
         lons = xarray.longitude.values
         lats = xarray.latitude.values
         mask = [min(lons), max(lons), min(lats), max(lats)]
         print(f'no mask given, entire array of box {mask} will be clustered')
     if type(mask) is str:
-        xrmask = core_pp.import_ds_lazy(mask, kwrgs_l=kwrgs_l)
+        xrmask = core_pp.import_ds_lazy(mask, **kwrgs_l_spatial)
         if xrmask.attrs['is_DataArray'] == False:
             variables = list(xrmask.variables.keys())
             strvars = [' {} '.format(var) for var in variables]
@@ -306,7 +305,7 @@ def get_spatial_ma(var_filename, mask=None, kwrgs_l: dict={}):
         else:
             npmask = xrmask.values
     elif type(mask) is list or type(mask) is tuple:
-        xarray = core_pp.import_ds_lazy(var_filename, kwrgs_l=kwrgs_l)
+        xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l_spatial)
         selregion = core_pp.import_ds_lazy(var_filename, selbox=mask)
         lons_mask = list(selregion.longitude.values)
         lon_mask  = [True if l in lons_mask else False for l in xarray.longitude]
