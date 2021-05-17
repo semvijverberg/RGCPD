@@ -328,8 +328,6 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     regress_autocorr_SM = False
     unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
     # select the causal regions from analysys in Causal Inferred Precursors
-
-
     print('Start Causal Inference')
     list_pvals = [] ; list_corr = []
     for k in unique_keys:
@@ -517,11 +515,7 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05,
                                                           df_d, keys_str,
                                                           kwrgs_model)
 
-                        # kwrgs = {'alphas':[1E-20, 1E-5, 1E-2, .1, 1, 10, 50, 100]}
-                        # _m = fcmodel.scikitmodel(**kwrgs_model).fit(df_train,
-                        #                                             target_ts)
-                        # df_mean = pd.Series(_m.predict(df_d[keys_str]),
-                        #                         index=df_d.index)
+
                     else:
                         df_mean = rg.df_data.loc[s][keys_str].copy().mean(1)
                     month_strings = [k.split('..')[0] for k in sorted(keys_str)]
@@ -551,6 +545,8 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05,
     df_mean_SST = df_mean_SST.merge(rg.df_splits.copy(),
                                     left_index=True, right_index=True)
     return df_mean_SST, keys_dict_meansst
+#%% Get Combined Lead-time models
+
 
 
 #%% Functions for plotting continuous forecast

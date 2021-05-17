@@ -179,7 +179,7 @@ def dendogram_clustering(var_filename=str, mask=None, kwrgs_load={},
     if 'selbox' in kwrgs_l.keys() and mask is None:
         npmask = np.ones_like(xarray[0].values, dtype=bool)
     else:
-        npmask = get_spatial_ma(var_filename, mask)
+        npmask = get_spatial_ma(var_filename, mask, kwrgs_l=kwrgs_l)
 
 
     kwrgs_loop = {k:i for k, i in kwrgs_clust.items() if type(i) == list}
@@ -279,7 +279,7 @@ def binary_occurences_quantile(xarray, q=95):
     indic.values[indic.values > 0 ] = 1
     return indic
 
-def get_spatial_ma(var_filename, mask=None):
+def get_spatial_ma(var_filename, mask=None, kwrgs_l: dict={}):
     '''
     var_filename must be 3d netcdf file with only one variable
     mask can be nc file containing only a mask, or a latlon box in format
@@ -288,13 +288,13 @@ def get_spatial_ma(var_filename, mask=None):
     e.g. KMeans, or AgglomerativeClustering, kwrgs are techinque dependend, see sklearn docs.
     '''
     if mask is None:
-        xarray = core_pp.import_ds_lazy(var_filename)
+        xarray = core_pp.import_ds_lazy(var_filename, kwrgs_l=kwrgs_l)
         lons = xarray.longitude.values
         lats = xarray.latitude.values
         mask = [min(lons), max(lons), min(lats), max(lats)]
         print(f'no mask given, entire array of box {mask} will be clustered')
     if type(mask) is str:
-        xrmask = core_pp.import_ds_lazy(mask)
+        xrmask = core_pp.import_ds_lazy(mask, kwrgs_l=kwrgs_l)
         if xrmask.attrs['is_DataArray'] == False:
             variables = list(xrmask.variables.keys())
             strvars = [' {} '.format(var) for var in variables]
@@ -306,7 +306,7 @@ def get_spatial_ma(var_filename, mask=None):
         else:
             npmask = xrmask.values
     elif type(mask) is list or type(mask) is tuple:
-        xarray = core_pp.import_ds_lazy(var_filename)
+        xarray = core_pp.import_ds_lazy(var_filename, kwrgs_l=kwrgs_l)
         selregion = core_pp.import_ds_lazy(var_filename, selbox=mask)
         lons_mask = list(selregion.longitude.values)
         lon_mask  = [True if l in lons_mask else False for l in xarray.longitude]
