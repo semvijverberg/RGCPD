@@ -67,7 +67,7 @@ target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 # methods = ['random_10', 'random_5', 'random_20']
-methods = ['leave_1']
+methods = ['random_5']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
@@ -193,8 +193,8 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     subfoldername += append_pathsub
 
 
-    rg.pp_precursors(detrend=[True, {'tp':False, 'smi':False, 'swvl1':False, 'swvl3':False}],
-                     anomaly=[True, {'tp':False, 'smi':False, 'swvl1':False, 'swvl3':False}],
+    rg.pp_precursors(detrend=[True, {'tp':False, 'smi':False}],
+                     anomaly=[True, {'tp':False, 'smi':False}],
                      auto_detect_mask=[False, {'swvl1':True, 'swvl2':True}])
     if crossyr:
         TV_start_end_year = (1951, 2019)
@@ -204,7 +204,11 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     kwrgs_core_pp_time = {'start_end_year': TV_start_end_year}
     rg.pp_TV(name_ds=name_ds, detrend=True, ext_annual_to_mon=False,
              kwrgs_core_pp_time=kwrgs_core_pp_time)
-    rg.traintest(method, seed=seed, subfoldername=subfoldername)
+    if method.split('_')[0]=='leave':
+        rg.traintest(method, gap_prior=1, gap_after=1, seed=seed,
+                     subfoldername=subfoldername)
+    else:
+        rg.traintest(method, seed=seed, subfoldername=subfoldername)
 
     #%%
     sst = rg.list_for_MI[0]
@@ -545,7 +549,6 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05,
     df_mean_SST = df_mean_SST.merge(rg.df_splits.copy(),
                                     left_index=True, right_index=True)
     return df_mean_SST, keys_dict_meansst
-#%% Get Combined Lead-time models
 
 
 
@@ -569,9 +572,11 @@ def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
         metrics_cols = ['BSS', 'roc_auc_score']
         rename_m = {'BSS': 'BSS', 'roc_auc_score':'ROC-AUC'}
     else:
-        metrics_cols = ['corrcoef', 'MAE', 'RMSE']
+        metrics_cols = ['corrcoef', 'MAE', 'RMSE', 'r2_score',
+                        'mean_absolute_percentage_error']
         rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
-                    'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
+                    'MAE':'MAE-SS', 'CRPSS':'CRPSS', 'r2_score':'$R^2$',
+                    'mean_absolute_percentage_error':'MAPE'}
 
     if orientation=='vertical':
         f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
@@ -583,8 +588,9 @@ def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
     c1, c2 = '#3388BB', '#EE6666'
     for i, m in enumerate(metrics_cols):
         # normal SST
-
-        labels = df_scores.columns.levels[0]
+        # columns.levels auto-sorts order of labels, to avoid:
+        steps = df_scores.columns.levels[1].size
+        labels = [t[0] for t in df_scores.columns][::steps]
         ax[i].plot(labels, df_scores.reorder_levels((1,0), axis=1).loc[0][m].T,
                 label='Verification on all years',
                 color=c2,
@@ -624,7 +630,7 @@ def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
         ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
 
     f.subplots_adjust(hspace=.1)
-    f.subplots_adjust(wspace=.2)
+    f.subplots_adjust(wspace=.25)
     title = 'Verification high Yield forecast'
     if orientation == 'vertical':
         f.suptitle(title, y=.92, fontsize=18)
@@ -656,7 +662,8 @@ def plot_forecast_ts(df_test_m, df_test):
     Texts1 = [] ; Texts2 = [] ;
     textprops = dict(color='black', fontsize=fontsize+4, family='serif')
     rename_met = {'RMSE':'RMSE-SS', 'corrcoef':'Corr. Coeff.', 'MAE':'MAE-SS',
-                  'BSS':'BSS', 'roc_auc_score':'ROC-AUC'}
+                  'BSS':'BSS', 'roc_auc_score':'ROC-AUC', 'r2_score':'$r^2$',
+                  'mean_absolute_percentage_error':'MAPE'}
     for k in df_scores.index:
         label = rename_met[k]
         val = round(df_scores[k], 2)
@@ -799,7 +806,7 @@ months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
 list_verification = [] ; list_prediction = []
 for i, rg in enumerate(rg_list):
 
-    # target
+    # target timeseries
     fc_mask = rg.df_data.iloc[:,-1].loc[0]
     target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
     target_ts = (target_ts - target_ts.mean()) / target_ts.std()
@@ -824,7 +831,8 @@ for i, rg in enumerate(rg_list):
     # metrics
     RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).RMSE
     MAE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).MAE
-    score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS]
+    score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS,
+                       fc_utils.metrics.r2_score, fc_utils.metrics.mean_absolute_percentage_error]
     metric_names = [s.__name__ for s in score_func_list]
 
     lag_ = 0 ;
@@ -911,9 +919,10 @@ functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
 orientation = 'horizontal'
 alpha = .05
-metrics_cols = ['corrcoef', 'MAE', 'RMSE']
+metrics_cols = ['corrcoef', 'MAE', 'RMSE', 'r2_score', 'mean_absolute_percentage_error']
 rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
-            'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
+            'MAE':'MAE-SS', 'CRPSS':'CRPSS', 'r2_score':'$R^2$',
+            'mean_absolute_percentage_error':'MAPE'}
 
 if orientation=='vertical':
     f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
@@ -1125,9 +1134,10 @@ if 'BSS' in df_scores.columns.levels[1]:
     metrics_cols = ['BSS', 'roc_auc_score']
     rename_m = {'BSS': 'BSS', 'roc_auc_score':'ROC-AUC'}
 else:
-    metrics_cols = ['corrcoef', 'MAE', 'RMSE']
+    metrics_cols = ['corrcoef', 'MAE', 'RMSE', 'r2_score', 'mean_absolute_percentage_error']
     rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
-                'MAE':'MAE-SS', 'CRPSS':'CRPSS'}
+                'MAE':'MAE-SS', 'CRPSS':'CRPSS', 'r2_score':'$r^2$',
+                'mean_absolute_percentage_error':'MAPE'}
 
 
 for q in [.33, .5, .66]:

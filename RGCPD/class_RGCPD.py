@@ -303,7 +303,8 @@ class RGCPD:
 
 
     def traintest(self, method: Union[str, bool]=None, seed=1,
-                  kwrgs_events=None, subfoldername=None):
+                  gap_prior: int=None, gap_after: int=None, kwrgs_events=None,
+                  subfoldername=None):
         ''' Splits the training and test dates, either via cross-validation or
         via a simple single split.
 
@@ -315,11 +316,17 @@ class RGCPD:
         kwrgs_events : dict, optional
             Kwrgs needed to create binary event timeseries, which was used to
             create stratified folds. See func_fc.Ev_timeseries? for more info.
+        gap_prior : int, optional
+            Possibility to exclude an integer number of datapoints prior to the
+            test datapoints to avoid train-test leakage.
+        gap_after : int, optional
+            Possibility to exclude an integer number of datapoints after to the
+            test datapoints to avoid train-test leakage.
 
         Options for method:
         (1) random_{int}   :   with the int(ex['method'][6:8]) determining the amount of folds
-        (2) ranstrat_{int}:   random stratified folds, stratified based upon events,
-                              requires kwrgs_events.
+        (2) ranstrat_{int} :   random stratified folds, stratified based upon events,
+                               requires kwrgs_events.
         (3) leave_{int}    :   chronologically split train and test years.
         (4) split_{int}    :   (should be updated) split dataset into single train and test set
         (5) no_train_test_split or False
@@ -328,9 +335,11 @@ class RGCPD:
         if method is None or method is False:
             method = 'no_train_test_split'
         self.kwrgs_traintest = dict(method=method,
-                             seed=seed,
-                             kwrgs_events=kwrgs_events,
-                             precursor_ts=self.list_import_ts)
+                                    seed=seed,
+                                    kwrgs_events=kwrgs_events,
+                                    precursor_ts=self.list_import_ts,
+                                    gap_prior=gap_prior,
+                                    gap_after=gap_after)
 
         self.TV, self.df_splits = RV_and_traintest(self.df_fullts,
                                                    self.df_RV_ts,
@@ -1149,9 +1158,11 @@ class RGCPD:
 
 
 def RV_and_traintest(df_fullts, df_RV_ts, traintestgroups, method=str, kwrgs_events=None,
-                     precursor_ts=None, seed: int=1, verbosity=1):
+                     gap_prior=None, gap_after=None, precursor_ts=None, seed: int=1,
+                     verbosity=1):
     # fullts = rg.df_fullts ; df_RV_ts = rg.df_RV_ts ; traintestgroups=rg.traintestgroups
     # method='random_10'; kwrgs_events=None; precursor_ts=rg.list_import_ts; seed=1; verbosity=1
+    # gap_prior=1; gap_after=1 ; test_yrs_imp=None
 
     # Define traintest:
     if precursor_ts is not None:
@@ -1185,7 +1196,9 @@ def RV_and_traintest(df_fullts, df_RV_ts, traintestgroups, method=str, kwrgs_eve
             df_splits = functions_pp.cross_validation(df_RV_ts,
                                                       test_yrs=test_yrs_imp,
                                                       method=method,
-                                                      seed=seed)
+                                                      seed=seed,
+                                                      gap_prior=gap_prior,
+                                                      gap_after=gap_after)
             test_yrs_set  = functions_pp.get_testyrs(df_splits)
             equal_test = (np.equal(np.concatenate(test_yrs_imp),
                                    np.concatenate(test_yrs_set))).all()
@@ -1199,7 +1212,9 @@ def RV_and_traintest(df_fullts, df_RV_ts, traintestgroups, method=str, kwrgs_eve
         df_splits = functions_pp.cross_validation(df_RV_ts,
                                                   traintestgroups=traintestgroups,
                                                   method=method,
-                                                  seed=seed)
+                                                  seed=seed,
+                                                  gap_prior=gap_prior,
+                                                  gap_after=gap_after)
     TV.method = method
     TV.seed   = seed
     return TV, df_splits
