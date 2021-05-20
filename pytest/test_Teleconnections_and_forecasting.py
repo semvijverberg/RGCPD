@@ -82,7 +82,7 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='random_5',
                                   'start_end_year':start_end_yr_target})
 
 
-    rg.traintest(method=method)
+    rg.traintest(method=method, gap_prior=1)
 
     # check
     if TVdates_aggr==False:

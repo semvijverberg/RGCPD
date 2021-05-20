@@ -1391,13 +1391,13 @@ def get_testyrs(df_splits: pd.DataFrame):
         for s in splits:
             df_split = df_splits.loc[s]
             TrainIsTrue_s = df_split[df_split['TrainIsTrue']==False].index
-            groups_in_s = traintestgroups[(~df_split['TrainIsTrue']).values]
+            groups_in_s = traintestgroups[(df_split['TrainIsTrue']==False).values]
             groupset = []
             for gr in np.unique(groups_in_s):
                 yrs = TrainIsTrue_s[groups_in_s==gr]
                 yrs = np.unique(yrs.year)
                 groupset.append(list(yrs))
-            test_yrs.append(groupset)
+            test_yrs.append(flatten(groupset)) # changed to flatten() 20-05-21
             testgroups.append([list(uniqgroups).index(gr) for gr in np.unique(groups_in_s)])
         out = (np.array(test_yrs, dtype=object), testgroups)
     elif 'TrainIsTrue' in df_splits.columns:
