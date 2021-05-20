@@ -207,7 +207,7 @@ def apply_shift_lag(fit_masks, lag_i):
     fit_masks.loc[:,'y_pred'] = y_pred
     fit_masks = fit_masks.drop(['RV_mask'], axis=1)
     fit_masks = fit_masks.drop(['fit_model_mask'], axis=1)
-    return fit_masks.astype(bool)
+    return fit_masks
 
 def get_masks(df_norm):
     '''
@@ -219,24 +219,24 @@ def get_masks(df_norm):
     '''
     TrainIsTrue = df_norm['TrainIsTrue']
     if 'x_fit' in df_norm.columns:
-        x_fit_mask = np.logical_and(TrainIsTrue, df_norm['x_fit'])
+        x_fit_mask = np.logical_and(TrainIsTrue==True, df_norm['x_fit']==True)
     else:
         x_fit_mask = TrainIsTrue
     if 'y_fit' in df_norm.columns:
-        y_dates = df_norm['y_fit'][df_norm['y_fit']].index
+        y_dates = df_norm['y_fit'][df_norm['y_fit']==True].index
         TrainIsTrue_yfit = TrainIsTrue.loc[y_dates]
-        y_fit_mask = np.logical_and(TrainIsTrue_yfit, df_norm['y_fit'].loc[y_dates])
+        y_fit_mask = np.logical_and(TrainIsTrue_yfit==True, df_norm['y_fit'].loc[y_dates]==True)
         y_fit_mask = y_fit_mask
 
     else:
         y_fit_mask = TrainIsTrue
     if 'x_pred' in df_norm.columns:
-        x_pred_mask = df_norm['x_pred']
+        x_pred_mask = df_norm['x_pred']==True
     else:
         x_pred_mask = pd.Series(np.repeat(True, x_fit_mask.size),
                                 index=x_fit_mask.index)
     if 'y_pred' in df_norm.columns:
-        y_pred_dates = df_norm['y_pred'][df_norm['y_pred']].index
+        y_pred_dates = df_norm['y_pred'][df_norm['y_pred']==True].index
         y_pred_mask = df_norm['y_pred'].loc[y_pred_dates]
     else:
         y_pred_mask = None
@@ -251,24 +251,24 @@ def _standardize_sklearn(c, TrainIsTrue):
 #                      index=c.index, name=c.columns[0])
 
 def standardize_on_train(c, TrainIsTrue):
-    return ((c - c[TrainIsTrue.values].mean()) \
-            / c[TrainIsTrue.values].std()).squeeze()
+    return ((c - c[TrainIsTrue.values==True].mean()) \
+            / c[TrainIsTrue.values==True].std()).squeeze()
 
 def standardize_on_train_and_RV(c, df_splits_s, lag, mask='x_fit'):
     fit_masks = apply_shift_lag(df_splits_s, lag)
     TrainIsTrue = fit_masks['TrainIsTrue']
     x_fit = df_splits_s[mask]
-    TrainRVmask = np.logical_and(TrainIsTrue, x_fit)
+    TrainRVmask = np.logical_and(TrainIsTrue==True, x_fit==True)
     return ((c - c[TrainRVmask.values].mean()) \
             / c[TrainRVmask.values].std()).squeeze()
 
 def robustscaling_on_train(c, TrainIsTrue):
-    return (c - c[TrainIsTrue.values].quantile(q=.25)) \
-            / (c[TrainIsTrue.values].quantile(q=.75) - c[TrainIsTrue.values].quantile(q=.25))
+    return (c - c[TrainIsTrue.values==True].quantile(q=.25)) \
+            / (c[TrainIsTrue.values==True].quantile(q=.75) - c[TrainIsTrue.values==True].quantile(q=.25))
 
 def minmaxscaler_on_train(c, TrainIsTrue):
-    return (c - c[TrainIsTrue.values].min()) \
-            / (c[TrainIsTrue.values].max() - c[TrainIsTrue.values].min())
+    return (c - c[TrainIsTrue.values==True].min()) \
+            / (c[TrainIsTrue.values==True].max() - c[TrainIsTrue.values==True].min())
 
 def corrcoef(y_true, y_pred):
     return np.corrcoef(y_true, y_pred)[0][1]
@@ -445,8 +445,8 @@ def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=N
                             columns=[f.__name__ for f in score_func_list])
         for s in splits:
             sp = pred.loc[s]
-            trainRV = np.logical_and(sp['TrainIsTrue'], sp['RV_mask'])
-            testRV  = np.logical_and(~sp['TrainIsTrue'], sp['RV_mask'])
+            trainRV = np.logical_and(sp['TrainIsTrue']==True, sp['RV_mask']==True)
+            testRV  = np.logical_and(sp['TrainIsTrue']==False, sp['RV_mask']==True)
             for f in score_func_list:
                 name = f.__name__
                 if (~trainRV).all()==False: # training data exists

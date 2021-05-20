@@ -42,16 +42,16 @@ def init_pcmci(df_data, significance='analytic', mask_type='y',
     for s in range(splits.size):
 
         TrainIsTrue = df_data['TrainIsTrue'].loc[s]
-        df_data_s = df_data.loc[s][TrainIsTrue.values]
+        df_data_s = df_data.loc[s][TrainIsTrue==True]
         df_data_s = df_data_s.dropna(axis=1, how='all')
         if any(df_data_s.isna().values.flatten()):
             if verbosity > 0:
                 print('Warnning: nans detected')
 #        print(np.unique(df_data_s.isna().values))
-        var_names = list(df_data_s.columns[(df_data_s.dtypes != bool)])
+        var_names = [k for k in df_data_s.columns if k not in ['TrainIsTrue', 'RV_mask']]
         df_data_s = df_data_s.loc[:,var_names]
         data = df_data_s.values
-        data_mask = ~RV_mask.loc[s][TrainIsTrue.values].values
+        data_mask = ~RV_mask.loc[s][TrainIsTrue==True].values
         # indices with mask == False are used (with mask_type 'y')
         data_mask = np.repeat(data_mask, data.shape[1]).reshape(data.shape)
 

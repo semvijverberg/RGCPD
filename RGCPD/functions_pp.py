@@ -296,7 +296,7 @@ def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0):
         TrainIsTrue = df['TrainIsTrue']
     else:
         TrainIsTrue = df_splits['TrainIsTrue']
-    df_train = df.loc[s][TrainIsTrue.loc[s].values]
+    df_train = df.loc[s][TrainIsTrue.loc[s].values==False]
     if cols is not None:
         df_train = df_train[cols]
     return df_train
@@ -1211,10 +1211,8 @@ def load_hdf5(path_data):
 
 def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                      seed=None, gap_prior: int=None, gap_after: int=None):
-    # RV_ts = pd.DataFrame(rg.TV_ts.values,
-    #                         index=pd.to_datetime(rg.TV_ts.time.values),
-    #                         columns=['RV']) ; traintestgroups=rg.traintestgroups
-    # test_yrs = None ; seed=1
+    # RV_ts = rg.df_RV_ts ; traintestgroups=rg.traintestgroups
+    # test_yrs = None ; seed=1 ; gap_prior=None ; gap_after=None
 
     from func_models import get_cv_accounting_for_years
     from sklearn.model_selection import KFold
@@ -1294,26 +1292,36 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
 
     def gap_train_test(df_TrainIsTrue, gap):
         # Account for autocorrelation in climate by creating 'distance' between
-        # training and test
+        # training and test.
         def shift(df_s, gap):
             if np.sign(gap) == -1:
                 gaps = list(-np.arange(1,abs(gap)+1))
             elif np.sign(gap) == 1:
                 gaps = list(range(1,gap+1))
             df_list = []
+            # below loop is needed because of boundary issues with .shift()
             for i, g in enumerate(gaps):
                 d = df_s.shift(g, fill_value=True)
-                d = d.rename({'TrainIsTrue':f'TrainIsTrue{g}'}, axis=1)
+                # d = d.rename({'TrainIsTrue':f'TrainIsTrue{g}'}, axis=1)
+                d = d.replace(to_replace=False, value=-1)
+                d = -np.logical_and(d.values==-1, df_s.values==True).astype(int)
+                d = pd.DataFrame(d, index=df_s.index, columns=[f'TrainIsTrue{g}'])
                 df_list.append(d)
-            return pd.DataFrame(pd.concat(df_list, axis=1).sum(axis=1)==abs(gap),
-                                columns=['TrainIsTrue'])
+            return pd.DataFrame(pd.concat(df_list, axis=1).min(axis=1),
+                                columns=[f'TrainIsTrue_{gap}'])
 
         TrainIsTrue_upd = []# TrainIsTrue updated
         for s in range(kfold):
             df_s = df_TrainIsTrue.loc[s]
             df_s = shift(df_s, gap)
-            df_s, df_ = df_s.align(df_TrainIsTrue.loc[s])
-            TrainIsTrue_upd.append(np.logical_and(df_s, df_TrainIsTrue.loc[s]))
+            df_TIT = df_TrainIsTrue.loc[s].copy() # new df_TrainIsTrue
+            shifted = df_TIT[(df_s==-1).values]
+            # shifted_notest = shifted[shifted.values.squeeze()]
+            shifted_notest = shifted[shifted['TrainIsTrue']==True]
+            df_TIT.loc[shifted_notest.index] = -1
+            # df_s, df_ = df_s.align(df_TrainIsTrue.loc[s])
+            # TrainIsTrue_upd.append(np.logical_and(df_s, df_TrainIsTrue.loc[s]))
+            TrainIsTrue_upd.append(df_TIT)
         return pd.concat(TrainIsTrue_upd, axis=0, keys=range(kfold))
 
     if gap_prior is not None:

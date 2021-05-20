@@ -156,7 +156,7 @@ class ScikitModel:
 
         # y_ts dates may no longer align with x_fit  y_fit masks
         y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
-        y_train = RV_fit[y_fit_mask].squeeze()
+        y_train = RV_fit[y_fit_mask == True].squeeze()
 
         # if y_pred_mask is not None:
         #     y_dates = RV_fit[y_pred_mask.values].index

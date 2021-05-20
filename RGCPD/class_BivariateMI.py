@@ -262,13 +262,13 @@ class BivariateMI:
             # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']
             # =============================================================================
             RV_train_mask = np.logical_and(RV_mask, df_splits.loc[s]['TrainIsTrue'])
-            RV_ts = RV.fullts[RV_train_mask.values]
+            RV_ts = RV.fullts[RV_train_mask.values==True]
             TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values
             if self.lag_as_gap: # no clue why selecting all datapoints, changed 26-01-2021
                 train_dates = df_splits.loc[s]['TrainIsTrue'][TrainIsTrue].index
                 precur_train = precur_arr.sel(time=train_dates)
             else:
-                precur_train = precur_arr[TrainIsTrue] # only train data
+                precur_train = precur_arr[TrainIsTrue==True] # only train data
 
             dates_RV = RV_ts.index
             n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )

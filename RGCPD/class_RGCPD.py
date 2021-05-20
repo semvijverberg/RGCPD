@@ -1052,7 +1052,7 @@ class RGCPD:
             df_data = self.df_data.copy()
         lags = range(tau_min, tau_max+1)
         if keys is None:
-            keys = df_data.columns[df_data.dtypes != bool]
+            keys = [k for k in df_data.columns if k not in ['TrainIsTrue', 'RV_mask']]
         splits = df_data.index.levels[0]
 
         if 'TrainIsTrue' not in df_data.columns:
