@@ -38,7 +38,7 @@ def check_dates_RV(df_splits, traintestgroups, start_end_TVdate):
     assert ed >= endTVdate, 'Selected date not in RV window'
     print(startTVdate, endTVdate)
 
-def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='leave_10',
+def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
                                   start_end_TVdate=('07-01', '08-31'),
                                   dailytomonths=False,
                                   TVdates_aggr=False,

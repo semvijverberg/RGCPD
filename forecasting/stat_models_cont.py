@@ -59,7 +59,7 @@ def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):
     # leakage.
 
     # y_ts dates may no longer align with x_fit  y_fit masks
-    y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
+    y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values==1
     y_train = RV_fit[y_fit_mask].squeeze()
 
     # if y_pred_mask is not None:
@@ -155,8 +155,8 @@ class ScikitModel:
         # leakage.
 
         # y_ts dates may no longer align with x_fit  y_fit masks
-        y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
-        y_train = RV_fit[y_fit_mask == True].squeeze()
+        y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values==1
+        y_train = RV_fit[y_fit_mask].squeeze()
 
         # if y_pred_mask is not None:
         #     y_dates = RV_fit[y_pred_mask.values].index

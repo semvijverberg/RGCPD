@@ -202,8 +202,8 @@ def apply_shift_lag(fit_masks, lag_i):
     y_fit.loc[dates_no_X_info] = False
 
 
-    fit_masks.loc[:,'x_fit'] = x_fit
-    fit_masks.loc[:,'y_fit'] = y_fit
+    fit_masks.loc[:,'x_fit'] = x_fit == 1
+    fit_masks.loc[:,'y_fit'] = y_fit == 1
     fit_masks.loc[:,'x_pred'] = x_pred
     fit_masks.loc[:,'y_pred'] = y_pred
     fit_masks = fit_masks.drop(['RV_mask'], axis=1)
@@ -218,9 +218,9 @@ def get_masks(df_norm):
     if these are not given, then model x_fit, y_fit, x_pred & y_pred are
     fitted according to TrainIsTrue at lag=0.
     '''
-    TrainIsTrue = df_norm['TrainIsTrue']
+    TrainIsTrue = df_norm['TrainIsTrue']==1
     if 'x_fit' in df_norm.columns:
-        x_fit_mask = np.logical_and(TrainIsTrue==True, df_norm['x_fit']==True)
+        x_fit_mask = np.logical_and(TrainIsTrue, df_norm['x_fit']==True)
     else:
         x_fit_mask = TrainIsTrue
     if 'y_fit' in df_norm.columns:
@@ -228,7 +228,6 @@ def get_masks(df_norm):
         TrainIsTrue_yfit = TrainIsTrue.loc[y_dates]
         y_fit_mask = np.logical_and(TrainIsTrue_yfit==True, df_norm['y_fit'].loc[y_dates]==True)
         y_fit_mask = y_fit_mask
-
     else:
         y_fit_mask = TrainIsTrue
     if 'x_pred' in df_norm.columns:
@@ -446,8 +445,8 @@ def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=N
                             columns=[f.__name__ for f in score_func_list])
         for s in splits:
             sp = pred.loc[s]
-            trainRV = np.logical_and(sp['TrainIsTrue']==True, sp['RV_mask']==True)
-            testRV  = np.logical_and(sp['TrainIsTrue']==False, sp['RV_mask']==True)
+            trainRV = np.logical_and(sp['TrainIsTrue']==1, sp['RV_mask']==True)
+            testRV  = np.logical_and(sp['TrainIsTrue']==0, sp['RV_mask']==True)
             for f in score_func_list:
                 name = f.__name__
                 if (~trainRV).all()==False: # training data exists

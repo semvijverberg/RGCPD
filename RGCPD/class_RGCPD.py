@@ -329,14 +329,20 @@ class RGCPD:
             when using k-fold type of CV.
 
         Options for method:
-        (1) random_{int}   :   random k-fold CV, {int} determines the # of folds
-        (2) ranstrat_{int} :   Stratified k-fold, stratified based upon events,
-                               requires kwrgs_events.
-        (3) leave_{int}    :   Leave_n_out CV. Chronologically split train and
-                               test years.
-        (4) split_{int}    :   (should be updated) split dataset into single
-                                train and test set
-        (5) False          :   No train test split.
+        (1) random_{int:
+            Random k-fold CV, {int} determines the # of folds.
+        (2) ranstrat_{int} :
+            Stratified k-fold, stratified based upon events, requires
+            kwrgs_events.
+        (3) leave_{int}:
+            Leave_n_out CV. Chronologically split train and test years.
+        (4) split_{int:
+            (should be updated) split dataset into single train and test set
+        (5) timeseriessplit_{int}:
+            Also known as one-step-ahead CV. Always uses training data of the
+            past.
+        (6) False:
+            No train test split.
         '''
 
         if method is None or method is False:

@@ -60,9 +60,9 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_model=None):
     if kwrgs_model == None:
         # use Bram settings
         kwrgs_model = { 'class_weight':{ 0:1, 1:1},
-                'scoring':'neg_brier_score',
-                'penalty':'l2',
-                'solver':'lbfgs'}
+                       'scoring':'neg_brier_score',
+                       'penalty':'l2',
+                       'solver':'lbfgs'}
 
 
     # find parameters for gridsearch optimization
@@ -85,7 +85,7 @@ def logit_skl(y_ts, df_norm, keys=None, kwrgs_model=None):
 
     RV_bin_fit = y_ts['bin']
     # y_ts dates no longer align with x_fit  y_fit masks
-    y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
+    y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values==1
     y_train = RV_bin_fit[y_fit_mask].squeeze()
 
     # if y_pred_mask is not None:
@@ -168,7 +168,7 @@ def GBC(y_ts, df_norm, keys, kwrgs_GBM=None, verbosity=0):
 
     RV_bin_fit = y_ts['bin']
     # y_ts dates no longer align with x_fit  y_fit masks
-    y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
+    y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values==1
     y_train = RV_bin_fit[y_fit_mask].squeeze()
 
     # if y_pred_mask is not None:
@@ -257,7 +257,7 @@ def logit(y_ts, df_norm, keys):
 
     RV_bin_fit = y_ts['bin']
     # y_ts dates no longer align with x_fit  y_fit masks
-    y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values==True
+    y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values==1
     y_train = RV_bin_fit[y_fit_mask].squeeze()
 
 

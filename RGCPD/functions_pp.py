@@ -328,7 +328,7 @@ def xrts_to_df(xarray):
             name += '_{}{}'.format(dim2, var2)
             xarray = xarray.drop(dim2)
         df = xarray.T.to_dataframe(name=name).unstack(level=1)
-        
+
         df = df.droplevel(0, axis=1)
     else:
         attr = {k:i for k,i in xarray.attrs.items() if k != 'is_DataArray'}
@@ -1219,7 +1219,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
     # test_yrs = None ; seed=1 ; gap_prior=None ; gap_after=None
 
     from func_models import get_cv_accounting_for_years
-    from sklearn.model_selection import KFold
+    from sklearn.model_selection import KFold, TimeSeriesSplit
 
     if test_yrs is not None:
         method = 'copied_from_import_ts'
@@ -1251,6 +1251,10 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
             elif method[:6] == 'random':
                 cv = KFold(n_splits=kfold, shuffle=True, random_state=seed)
                 testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
+            elif method[:15] == 'TimeSeriesSplit':
+                cv = TimeSeriesSplit(max_train_size=None, n_splits=kfold,
+                                     test_size=1)
+                testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
         else:
             testgroups = test_yrs
 
@@ -1281,15 +1285,19 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
 
     if gap_prior is not None:
         ignprior = gap_traintest(testsetidx, groups, -gap_prior)
-
-
     if gap_after is not None:
         ignafter = gap_traintest(testsetidx, groups, gap_after)
 
     TrainIsTrue = []
     for f, i in enumerate(np.unique(testsetidx)):
         # if -999, No Train Test split, all True
-        mask = np.logical_or(testsetidx!=i, testsetidx==-999)
+        if method[:15] == 'TimeSeriesSplit':
+            if i == -999:
+                continue
+            mask = np.array(testsetidx < i, dtype=int)
+            mask[testsetidx>i] = -1
+        else:
+            mask = np.logical_or(testsetidx!=i, testsetidx==-999)
         if gap_prior is not None:
             # if gap_prior, mask values will become -1 for unused (training) data
             mask = np.array(mask, dtype=int) ; mask[ignprior[f]] = -1
