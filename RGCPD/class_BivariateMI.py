@@ -208,7 +208,7 @@ class BivariateMI:
                 if type(lag) is np.int16 and self.lag_as_gap==False:
                     # dates_lag = functions_pp.func_dates_min_lag(dates_RV, self._tfreq*lag)[1]
                     m = apply_shift_lag(self.df_splits.loc[s], lag)
-                    dates_lag = m[np.logical_and(m['TrainIsTrue'], m['x_fit'])].index
+                    dates_lag = m[np.logical_and(m['TrainIsTrue']==True, m['x_fit'])].index
                     corr_val, pval = self.func(precur_train.sel(time=dates_lag),
                                                RV_ts.values.squeeze(),
                                                **self.kwrgs_func)

@@ -38,7 +38,7 @@ def check_dates_RV(df_splits, traintestgroups, start_end_TVdate):
     assert ed >= endTVdate, 'Selected date not in RV window'
     print(startTVdate, endTVdate)
 
-def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='random_5',
+def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='leave_10',
                                   start_end_TVdate=('07-01', '08-31'),
                                   dailytomonths=False,
                                   TVdates_aggr=False,
@@ -48,7 +48,7 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='random_5',
     #%%
     # define input: list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
     # start_end_yr_target=None; start_end_yr_precur = None; lags = np.array([1]); TVdates_aggr=False; dailytomonths=False;
-    # alpha=0.05; tfreq=10; method='random_5';start_end_TVdate=('07-01', '08-31');
+    # alpha=0.05; tfreq=10; method='leave_10';start_end_TVdate=('07-01', '08-31');
 
     curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
     main_dir = sep.join(curr_dir.split(sep)[:-1])
@@ -271,7 +271,7 @@ elif prediction == 'continuous':
               'MAE {:.2f}\n'.format(df_train_m.mean(0).loc[lag]['MAE']),
               'corrcoef {:.2f}'.format(df_train_m.mean(0).loc[lag]['corrcoef']))
 
-
+#%%
 # # Forecasting pipeline 2
 # Used for paper https://doi.org/10.1175/MWR-D-19-0409.1
 #

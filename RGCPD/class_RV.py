@@ -188,7 +188,7 @@ class RV_class:
         y_prob_clim = y_prob_clim.rename(columns={'RV_binary':'prob_clim'})
         for s in splits:
             RV_train_mask = TrainIsTrue[s][RV_mask_s[s]]
-            y_b_train = self.RV_bin[RV_train_mask]
+            y_b_train = self.RV_bin[RV_train_mask==True]
             y_b_test  = self.RV_bin[RV_train_mask==False]
 
             clim_prevail = y_b_train.sum() / y_b_train.size

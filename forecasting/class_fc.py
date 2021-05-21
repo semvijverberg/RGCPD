@@ -737,7 +737,7 @@ class fcev():
 
                 if lag == lags_i[0]:
                     # ensure that RV timeseries matches y_pred
-                    TrainRV = (df_norm['TrainIsTrue'])[df_norm['y_pred']]
+                    TrainRV = (df_norm['TrainIsTrue'])[df_norm['y_pred']]==True
                     RV_bin_train = RV.RV_bin[TrainRV.values] # index no longer align 20-2-10
 
                     # predicting RV might not be possible
@@ -867,7 +867,8 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
     # Select features / variables
     # =============================================================================
     if keys is None:
-        keys = np.array(df_split.dtypes.index[df_split.dtypes != bool], dtype='object')
+        keys = np.array([k for k in df_split.columns if k not in ['TrainIsTrue', 'RV_mask']], 
+                        dtype='object')
 
     RV_name = df_split.columns[0]
     df_RV = df_split[RV_name]

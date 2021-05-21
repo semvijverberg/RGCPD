@@ -60,7 +60,7 @@ class RGCPD:
                  start_end_date: Tuple[str, str]=None,
                  start_end_year: Tuple[int, int]=None,
                  path_outmain: str=None,
-                 append_pathsub='', save: bool=True,
+                 append_pathsub=None, save: bool=True,
                  verbosity: int=1):
         '''
         Class to study teleconnections of a Response Variable* of interest.
@@ -305,8 +305,11 @@ class RGCPD:
     def traintest(self, method: Union[str, bool]=None, seed=1,
                   gap_prior: int=None, gap_after: int=None, kwrgs_events=None,
                   subfoldername=None):
-        ''' Splits the training and test dates, either via cross-validation or
-        via a simple single split.
+        '''
+        Splits the training and test dates. Only training data will be used
+        for any analysis/model tuning including correlation maps, causal
+        inference, transforming data, fitting sk-lean models. Only
+        pre-processing (detrending/anomaly) is done on entire dataset.
 
         method : str or bool, optional
             Referring to method to split train test, see options for method below.
@@ -317,19 +320,23 @@ class RGCPD:
             Kwrgs needed to create binary event timeseries, which was used to
             create stratified folds. See func_fc.Ev_timeseries? for more info.
         gap_prior : int, optional
-            Possibility to exclude an integer number of datapoints prior to the
-            test datapoints to avoid train-test leakage.
+            Possibility to exclude years (or train-test groups) prior to the
+            test datapoints to avoid train-test leakage. Note, not advisable
+            when using k-fold type of CV.
         gap_after : int, optional
-            Possibility to exclude an integer number of datapoints after to the
-            test datapoints to avoid train-test leakage.
+            Possibility to exclude years (or train-test groups) after to the
+            test datapoints to avoid train-test leakage. Note, not advisable
+            when using k-fold type of CV.
 
         Options for method:
-        (1) random_{int}   :   with the int(ex['method'][6:8]) determining the amount of folds
-        (2) ranstrat_{int} :   random stratified folds, stratified based upon events,
+        (1) random_{int}   :   random k-fold CV, {int} determines the # of folds
+        (2) ranstrat_{int} :   Stratified k-fold, stratified based upon events,
                                requires kwrgs_events.
-        (3) leave_{int}    :   chronologically split train and test years.
-        (4) split_{int}    :   (should be updated) split dataset into single train and test set
-        (5) no_train_test_split or False
+        (3) leave_{int}    :   Leave_n_out CV. Chronologically split train and
+                               test years.
+        (4) split_{int}    :   (should be updated) split dataset into single
+                                train and test set
+        (5) False          :   No train test split.
         '''
 
         if method is None or method is False:
@@ -356,6 +363,10 @@ class RGCPD:
                                  +var)
             subfoldername = part1 + '_'.join(['', self.TV.method \
                                   + 's'+ str(self.TV.seed)])
+            if gap_prior is not None:
+                subfoldername += f'_gap_p{gap_prior}'
+            if gap_after is not None:
+                subfoldername += f'_gap_a{gap_after}'
             if self.append_pathsub is not None:
                 subfoldername += '_' + self.append_pathsub
         self.path_outsub1 = os.path.join(self.path_outmain, subfoldername)
