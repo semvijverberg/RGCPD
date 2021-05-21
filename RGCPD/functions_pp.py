@@ -1262,14 +1262,42 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
             if gr in list(test_fold):
                 testsetidx[j] = i
 
+    def gap_traintest(testsetidx, groups, gap):
+        ign = np.zeros((np.unique(testsetidx).size, testsetidx.size))
+        for f, i in enumerate(np.unique(testsetidx)):
+            test_fold = testsetidx==i
+            roll_account_traintest_gr = gap*groups[groups==groups[-1]].size
+            ign[f] = np.roll(test_fold, roll_account_traintest_gr).astype(float)
+            ign[f] = (ign[f] - test_fold) == 1 # everything prior to test
+            if np.sign(gap) == -1:
+                ign[f][roll_account_traintest_gr:] = False
+            elif np.sign(gap) == 1:
+                ign[f][:roll_account_traintest_gr] = False
+        return ign.astype(bool)
+
+    if gap_prior is not None:
+        ignprior = gap_traintest(testsetidx, groups, -gap_prior)
+
+
+    if gap_after is not None:
+        ignafter = gap_traintest(testsetidx, groups, gap_after)
+
     TrainIsTrue = []
-    for i in np.unique(testsetidx):
+    for f, i in enumerate(np.unique(testsetidx)):
         # if -999, No Train Test split, all True
         mask = np.logical_or(testsetidx!=i, testsetidx==-999)
+        if gap_prior is not None:
+            # if gap_prior, mask values will become -1 for unused (training) data
+            mask = np.array(mask, dtype=int) ; mask[ignprior[f]] = -1
+        if gap_after is not None:
+            # same as above for gap_after.
+            mask = np.array(mask, dtype=int) ; mask[ignafter[f]] = -1
+
         TrainIsTrue.append(pd.DataFrame(data=mask.T,
                                         columns=['TrainIsTrue'],
                                         index=index))
     df_TrainIsTrue = pd.concat(TrainIsTrue , axis=0, keys=range(kfold))
+
     if traintestgroups is not None:
         # first group may be of different size then other groups
         fg = df_TrainIsTrue.loc[0][groups==groups[0]] # first group
@@ -1289,47 +1317,6 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                         keys=range(kfold))
     # weird pandas bug due to non-unique indices
     RV_mask.index = df_TrainIsTrue.index
-
-    def gap_train_test(df_TrainIsTrue, gap):
-        # Account for autocorrelation in climate by creating 'distance' between
-        # training and test.
-        def shift(df_s, gap):
-            if np.sign(gap) == -1:
-                gaps = list(-np.arange(1,abs(gap)+1))
-            elif np.sign(gap) == 1:
-                gaps = list(range(1,gap+1))
-            df_list = []
-            # below loop is needed because of boundary issues with .shift()
-            for i, g in enumerate(gaps):
-                d = df_s.shift(g, fill_value=True)
-                # d = d.rename({'TrainIsTrue':f'TrainIsTrue{g}'}, axis=1)
-                d = d.replace(to_replace=False, value=-1)
-                d = -np.logical_and(d.values==-1, df_s.values==True).astype(int)
-                d = pd.DataFrame(d, index=df_s.index, columns=[f'TrainIsTrue{g}'])
-                df_list.append(d)
-            return pd.DataFrame(pd.concat(df_list, axis=1).min(axis=1),
-                                columns=[f'TrainIsTrue_{gap}'])
-
-        TrainIsTrue_upd = []# TrainIsTrue updated
-        for s in range(kfold):
-            df_s = df_TrainIsTrue.loc[s]
-            df_s = shift(df_s, gap)
-            df_TIT = df_TrainIsTrue.loc[s].copy() # new df_TrainIsTrue
-            shifted = df_TIT[(df_s==-1).values]
-            # shifted_notest = shifted[shifted.values.squeeze()]
-            shifted_notest = shifted[shifted['TrainIsTrue']==True]
-            df_TIT.loc[shifted_notest.index] = -1
-            # df_s, df_ = df_s.align(df_TrainIsTrue.loc[s])
-            # TrainIsTrue_upd.append(np.logical_and(df_s, df_TrainIsTrue.loc[s]))
-            TrainIsTrue_upd.append(df_TIT)
-        return pd.concat(TrainIsTrue_upd, axis=0, keys=range(kfold))
-
-    if gap_prior is not None:
-        df_TrainIsTrue = gap_train_test(df_TrainIsTrue, -gap_prior)
-    if gap_after is not None:
-        df_TrainIsTrue = gap_train_test(df_TrainIsTrue, gap_after)
-
-
     df_splits = df_TrainIsTrue.merge(RV_mask,
                                      left_index=True, right_index=True)
     return df_splits

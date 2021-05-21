@@ -257,7 +257,7 @@ def logit(y_ts, df_norm, keys):
 
     RV_bin_fit = y_ts['bin']
     # y_ts dates no longer align with x_fit  y_fit masks
-    y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values
+    y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values==True
     y_train = RV_bin_fit[y_fit_mask].squeeze()
 
 

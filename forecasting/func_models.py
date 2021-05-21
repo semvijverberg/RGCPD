@@ -155,6 +155,7 @@ def apply_shift_lag(fit_masks, lag_i):
     only shifting the boolean masks, Traintest split info is contained
     in the TrainIsTrue mask.
     '''
+    fit_masks = fit_masks.copy() # make copy of potential slice of df
     if 'fit_model_mask' not in fit_masks.columns:
         fit_masks.loc[:,'fit_model_mask'] = fit_masks['RV_mask'].copy()
 
@@ -257,7 +258,7 @@ def standardize_on_train(c, TrainIsTrue):
 def standardize_on_train_and_RV(c, df_splits_s, lag, mask='x_fit'):
     fit_masks = apply_shift_lag(df_splits_s, lag)
     TrainIsTrue = fit_masks['TrainIsTrue']
-    x_fit = df_splits_s[mask]
+    x_fit = fit_masks[mask]
     TrainRVmask = np.logical_and(TrainIsTrue==True, x_fit==True)
     return ((c - c[TrainRVmask.values].mean()) \
             / c[TrainRVmask.values].std()).squeeze()
