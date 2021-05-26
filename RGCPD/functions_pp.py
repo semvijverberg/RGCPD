@@ -83,6 +83,10 @@ def load_TV(list_of_name_path, name_ds='ts'):
         it tries to import the variable {TVname}
     if TVpath refers to .nc file:
         it tries to import the timeseries of cluster {TVname}.
+    if TVpath is pd.DataFrame:
+        fulltso becomes first colummn of DataFrame. Index should be correct
+        pd.DatetimeIndex.
+
 
 
     returns:
@@ -90,38 +94,43 @@ def load_TV(list_of_name_path, name_ds='ts'):
     '''
     name = list_of_name_path[0][0]
     filename = list_of_name_path[0][1]
-
-    if filename.split('.')[-1] == 'npy':
-        fulltso = load_npy(filename, name=name)
-    elif filename.split('.')[-1] == 'nc':
-        ds = core_pp.import_ds_lazy(filename)
-        if len(ds.dims) > 1:
-            fulltso = ds[name_ds].sel(cluster=name)
-        else:
-            if type(ds) is xr.Dataset:
-                fulltso = ds.to_array(name=name_ds)
+    if type(filename) is str:
+        if filename.split('.')[-1] == 'npy':
+            fulltso = load_npy(filename, name=name)
+        elif filename.split('.')[-1] == 'nc':
+            ds = core_pp.import_ds_lazy(filename)
+            if len(ds.dims) > 1:
+                fulltso = ds[name_ds].sel(cluster=name)
             else:
-                fulltso = ds
-            fulltso = fulltso.squeeze()
-
-    elif filename.split('.')[-1] == 'h5':
-        dict_df = load_hdf5(filename)
-        df = dict_df[list(dict_df.keys())[0]]
-        based_on_test = True
-        if hasattr(df.index, 'levels'):
-            splits = df.index.levels[0]
-            if splits.size == 1:
-                based_on_test = False
-                df = df.loc[0]
-            if based_on_test:
-                print('Get test timeseries of target pd.DataFrame')
-                df = get_df_test(df)
-            else:
-                df = df.mean(axis=0, level=1)
-                print('calculate mean of different train-test folds')
-        df = df[[name_ds]] ; df.index.name = 'time'
-        fulltso = df.to_xarray().to_array(name=name_ds).squeeze()
-    hashh = filename.split('_')[-1].split('.')[0]
+                if type(ds) is xr.Dataset:
+                    fulltso = ds.to_array(name=name_ds)
+                else:
+                    fulltso = ds
+                fulltso = fulltso.squeeze()
+        elif filename.split('.')[-1] == 'h5':
+            dict_df = load_hdf5(filename)
+            df = dict_df[list(dict_df.keys())[0]]
+            based_on_test = True
+            if hasattr(df.index, 'levels'):
+                splits = df.index.levels[0]
+                if splits.size == 1:
+                    based_on_test = False
+                    df = df.loc[0]
+                if based_on_test:
+                    print('Get test timeseries of target pd.DataFrame')
+                    df = get_df_test(df)
+                else:
+                    df = df.mean(axis=0, level=1)
+                    print('calculate mean of different train-test folds')
+            df = df[[name_ds]] ; df.index.name = 'time'
+            fulltso = df.to_xarray().to_array(name=name_ds).squeeze()
+        hashh = filename.split('_')[-1].split('.')[0]
+    elif type(filename) is pd.DataFrame:
+        df_fulltso = filename.iloc[:,[0]] ; name_ds = df_fulltso.columns[0] ;
+        df_fulltso.index.name = 'time' ; hashh = None
+        fulltso = df_fulltso.to_xarray().to_array(name=name_ds).squeeze()
+    else:
+        print('Not a valid datatype for TV path. See functions_pp.load_TV?')
     fulltso.name = str(list_of_name_path[0][0])+name_ds
     return fulltso, hashh
 
@@ -1443,7 +1452,7 @@ def load_npy(filename, name=None):
             pass
     return fullts
 
-def csv_to_df(path:str, sep=','):
+def load_csv(path:str, sep=','):
    '''
    convert csv timeseries to hdf5 (.h5) format. Assumes column order:
     year, month, day, ts1, ts2, ..., ...,

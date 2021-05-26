@@ -164,7 +164,7 @@ cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['h
 
 #%% Soy bean USDA
 
-raw_filename = os.path.join('/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/usda_soy.nc')
+raw_filename = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/usda_soy.nc'
 
 ds = core_pp.import_ds_lazy(raw_filename)['variable'].rename({'z':'time'})
 ds.name = 'Soy_Yield'
@@ -174,9 +174,9 @@ ds.attrs['dataset'] = 'USDA'
 ds.attrs['planting_months'] = 'May/June'
 ds.attrs['harvest_months'] = 'October'
 
-ts = functions_pp.area_weighted(ds).mean(dim=('latitude', 'longitude'))
+ts = functions_pp.area_weighted(ds).mean(dim=('latitude', 'longitude')) # old, but silly to do area-weighted mean
 cl.store_netcdf(ts, filepath=
-                os.path.join('/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/usda_soy_spatial_mean_ts.nc'))
+                '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/usda_soy_spatial_mean_ts.nc')
 #%% Maize yield USDA
 
 raw_filename = os.path.join('/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/usda_maize.nc')

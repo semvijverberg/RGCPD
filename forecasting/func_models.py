@@ -380,7 +380,7 @@ class CRPSS_vs_constant_bench:
 
 
 def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=None,
-               score_per_test=True, n_boot: int=1, blocksize: int=1,
+               score_per_test=False, n_boot: int=1, blocksize: int=1,
                rng_seed=1):
     '''
 

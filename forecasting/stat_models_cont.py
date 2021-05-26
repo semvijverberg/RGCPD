@@ -179,13 +179,6 @@ class ScikitModel:
             model = scikitmodel(**kwrgs)
 
         if len(kwrgs_gridsearch) != 0:
-            # get cross-validation splitter
-            # if 'kfold' in kwrgs.keys():
-            #     kfold = kwrgs.pop('kfold')
-            # else:
-            #     kfold = 5
-            # cv = utils.get_cv_accounting_for_years(y_train, kfold, seed=1)
-
             model = GridSearchCV(model,
                       param_grid=kwrgs_gridsearch,
                       scoring=scoring, cv=cv, refit=True,
@@ -193,6 +186,7 @@ class ScikitModel:
                       n_jobs=3)
             model.fit(X_train, y_train.values.ravel())
             model.best_estimator_.X_pred = X_pred # add X_pred to model
+            model.df_norm = df_norm # add df_norm to model for easy reproduction
             # if self.verbosity == 1:
             #     results = model.cv_results_
             #     scores = results['mean_test_score']
@@ -204,12 +198,13 @@ class ScikitModel:
         else:
             model.fit(X_train, y_train.values.ravel())
             model.X_pred = X_pred # add X_pred to model
+            model.df_norm = df_norm # add df_norm to model for easy reproduction
 
         if np.unique(y_train).size < 5:
             y_pred = model.predict_proba(X_pred)[:,1] # prob. event prediction
         else:
             y_pred = model.predict(X_pred)
 
-        prediction = pd.DataFrame(y_pred, index=y_pred_mask.index, columns=[0])
+        prediction = pd.DataFrame(y_pred, index=x_pred_mask.index, columns=[0])
         #%%
         return prediction, model

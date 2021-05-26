@@ -67,7 +67,7 @@ target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 # methods = ['random_10', 'random_5', 'random_20']
-methods = ['leave_20']
+methods = ['random_10']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
@@ -104,6 +104,12 @@ else:
     method = out[3]
 
 
+def read_csv_Raed(path):
+    orig = pd.read_csv(path)
+    orig = orig.drop('Unnamed: 0', axis=1)
+    orig.index = pd.to_datetime([f'{y}-01-01' for y in orig.Year])
+    return orig.drop('Year', 1)
+
 if target_dataset == 'GDHY_Soy':
     # GDHY dataset 1980 - 2015
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/q50_nc4_dendo_707fb.nc')
@@ -114,8 +120,9 @@ elif target_dataset == 'USDA_Soy':
     # USDA dataset 1950 - 2019
     TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts.nc')
     name_ds='Soy_Yield' ; cluster_label = ''
+    TVpath = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/ts_spatial_avg.csv'
+    TVpath = read_csv_Raed(TVpath)
     # TVpath = '/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/ts_spatial_avg_midwest.h5'
-    # TVpath = '/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/ts_spatial_avg.h5'
     # name_ds='USDA_Soy'
     # start_end_year = (1950, 2019)
 elif target_dataset == 'USDA_Maize':
@@ -130,7 +137,7 @@ calc_ts= 'region mean' # 'pattern cov'
 alpha_corr = .05
 alpha_CI = .05
 n_boot = 2000
-append_pathsub = f'/{method}/s{seed}'
+append_pathsub = f'/{method}_csv_target/s{seed}'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
@@ -565,6 +572,19 @@ def df_scores_for_plot(rg_list, name_object):
     df_tests = pd.concat(df_tests, axis=1)
     return df_scores, df_boot, df_tests
 
+def df_predictions_for_plot(rg_list):
+    df_preds = []
+    for i, rg in enumerate(rg_list):
+        if i == 0:
+            prediction = rg.prediction_tuple[0]
+        else:
+            prediction = rg.prediction_tuple[0].iloc[:,[1]]
+        df_preds.append(prediction)
+        if i+1 == len(rg_list):
+            df_preds.append(rg.df_splits)
+    df_preds  = pd.concat(df_preds, axis=1)
+    return df_preds
+
 def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
     orientation = 'horizontal'
     alpha = .05
@@ -824,8 +844,7 @@ for i, rg in enumerate(rg_list):
                                          kwrgs_model=kwrgs_model,
                                          target_ts=target_ts)
     last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
-    fc_month = months[last_month]
-    rg.fc_month = fc_month
+    fc_month = months[last_month] ; rg.fc_month = fc_month
 
 
     # metrics
@@ -870,6 +889,11 @@ for i, rg in enumerate(rg_list):
     rg.verification_tuple = verification_tuple
 
 #%% Plotting Continuous forecast
+
+df_preds_save = df_predictions_for_plot(rg_list)
+d_dfs={'df_predictions':df_preds_save}
+filepath_dfs = os.path.join(rg.path_outsub1, f'predictions_s{seed}_continuous.h5')
+functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
 df_scores, df_boot, df_tests = df_scores_for_plot(rg_list, name_object='verification_tuple')
 
