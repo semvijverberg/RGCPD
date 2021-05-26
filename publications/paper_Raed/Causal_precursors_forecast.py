@@ -120,7 +120,7 @@ elif target_dataset == 'USDA_Soy':
     # USDA dataset 1950 - 2019
     TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts.nc')
     name_ds='Soy_Yield' ; cluster_label = ''
-    TVpath = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/ts_spatial_avg.csv'
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/data/ts_spatial_avg.csv')
     TVpath = read_csv_Raed(TVpath)
     # TVpath = '/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/ts_spatial_avg_midwest.h5'
     # name_ds='USDA_Soy'
