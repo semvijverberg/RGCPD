@@ -118,10 +118,13 @@ if target_dataset == 'GDHY_Soy':
     # start_end_year = (1980, 2015)
 elif target_dataset == 'USDA_Soy':
     # USDA dataset 1950 - 2019
-    TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts.nc')
+    # TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts.nc')
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts_allways_data.nc')
     name_ds='Soy_Yield' ; cluster_label = ''
-    TVpath = os.path.join(main_dir, 'publications/paper_Raed/data/ts_spatial_avg.csv')
-    TVpath = read_csv_Raed(TVpath)
+    # TVpath = os.path.join(main_dir, 'publications/paper_Raed/data/ts_spatial_avg.csv')
+    # TVpath = read_csv_Raed(TVpath)
+
+
     # TVpath = '/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/ts_spatial_avg_midwest.h5'
     # name_ds='USDA_Soy'
     # start_end_year = (1950, 2019)
@@ -137,7 +140,7 @@ calc_ts= 'region mean' # 'pattern cov'
 alpha_corr = .05
 alpha_CI = .05
 n_boot = 2000
-append_pathsub = f'/{method}_csv_target/s{seed}'
+append_pathsub = f'/{method}_always_data_mask/s{seed}'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')

@@ -194,6 +194,12 @@ cl.store_netcdf(ts, filepath=
                 os.path.join('/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/usda_maize_spatial_mean_ts.nc'))
 
 #%%
+
+allways_data_mask = np.isnan(ds).mean(dim='time')==0
+ts_mask = ds.where(allways_data_mask).mean(dim=('latitude', 'longitude'))
+cl.store_netcdf(ts_mask, filepath=
+                '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/usda_soy_spatial_mean_ts_allways_data.nc')
+#%%
 ano = ds - ds.mean(dim='time')
 plot_maps.plot_corr_maps(ano.isel(time=range(0,40,5)), row_dim='time', cbar_vert=.09)
 
