@@ -171,9 +171,10 @@ def dendogram_clustering(var_filename=str, mask=None, kwrgs_load={},
         n_cpu = multiprocessing.cpu_count() - 1
 
     if 'selbox' in kwrgs_load.keys():
-        mask = kwrgs_load.pop('selbox')
-        print('mask overwritten because both selbox and mask are given.'
-              'both adapt the domain over which to cluster')
+        if kwrgs_load['selbox'] is not None:
+            mask = kwrgs_load.pop('selbox')
+            print('mask overwritten because both selbox and mask are given.'
+                  'both adapt the domain over which to cluster')
     kwrgs_l_spatial = {} # kwrgs affecting spatial extent/format
     if 'format_lon' in kwrgs_load.keys():
         kwrgs_l_spatial['format_lon'] = kwrgs_load['format_lon']
@@ -369,9 +370,15 @@ def get_download_path():
     else:
         return os.path.join(os.path.expanduser('~'), 'Downloads')
 
-def spatial_mean_clusters(var_filename, xrclust, selbox=None):
+def spatial_mean_clusters(var_filename, xrclust, kwrgs_load: dict={}):
     #%%
-    xarray = core_pp.import_ds_lazy(var_filename, selbox=selbox)
+    if type(var_filename) is str:
+        xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_load)
+    elif type(var_filename) is xr.DataArray:
+        xarray = var_filename
+    else:
+        raise TypeError('Give var_filename as str or xr.DataArray')
+
     labels = xrclust.values
     nparray = xarray.values
     track_names = []

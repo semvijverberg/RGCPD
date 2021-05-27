@@ -284,6 +284,7 @@ class RGCPD:
         f = functions_pp
         fulltso, self.hash = f.load_TV(self.list_of_name_path,
                                             name_ds=self.name_TVds)
+        self.df_fulltso = fulltso.to_dataframe(name='raw_target')
         self.kwrgs_pp_TV = self.kwrgs_datehandling.copy()
         self.kwrgs_pp_TV.update(kwrgs_core_pp_time)
         self.kwrgs_pp_TV.update({'RV_detrend':detrend, 'RV_anomaly':anomaly,
@@ -1068,8 +1069,6 @@ class RGCPD:
         if df_data is None:
             df_data = self.df_data.copy()
         lags = range(tau_min, tau_max+1)
-        if keys is None:
-            keys = [k for k in df_data.columns if k not in ['TrainIsTrue', 'RV_mask']]
         splits = df_data.index.levels[0]
 
         if 'TrainIsTrue' not in df_data.columns:
@@ -1085,6 +1084,11 @@ class RGCPD:
         RV_mask = df_data.loc[0]['RV_mask'] # not changing
         if target is None: # not changing
             target_ts = df_data.loc[0].iloc[:,[0]][RV_mask]
+
+        if keys is None:
+            keys = [k for k in df_data.columns if k not in ['TrainIsTrue', 'RV_mask']]
+            # remove col with same name as target_ts
+            keys = [k for k in keys if k != keys.columns[0]]
 
 
         models_lags = dict()

@@ -53,11 +53,16 @@ import func_models as fc_utils
 import functions_pp, df_ana, climate_indices, find_precursors
 import plot_maps; import core_pp
 
+All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
+              'MARYLAND', 'MINNESOTA', 'MISSOURI', 'NEW JERSEY', 'NEW YORK',
+              'NORTH CAROLINA', 'NORTH DAKOTA', 'OHIO', 'PENNSYLVANIA',
+              'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
-target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
+
+target_datasets = All_states# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_1'] # ['ranstrat_20']
+methods = ['random_10'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -94,6 +99,22 @@ else:
     start_end_year = (int(out[2][:4]), int(out[2][-4:]))
     method = out[3]
 
+def read_csv_Raed(path):
+    orig = pd.read_csv(path)
+    orig = orig.drop('Unnamed: 0', axis=1)
+    orig.index = pd.to_datetime([f'{y}-01-01' for y in orig.Year])
+    orig.index.name = 'time'
+    return orig.drop('Year', 1)
+
+
+
+def read_csv_State(path, State: str=None, col='obs_yield'):
+    orig = read_csv_Raed(path)
+    orig = orig.set_index('State', append=True)
+    orig = orig.pivot_table(index='time', columns='State')[col]
+    if State is None:
+        State = orig.columns
+    return orig[State]
 
 if target_dataset == 'GDHY_Soy':
     # GDHY dataset 1980 - 2015
@@ -105,15 +126,24 @@ elif target_dataset == 'USDA_Soy':
     # USDA dataset 1950 - 2019
     TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts.nc')
     name_ds='Soy_Yield' ; cluster_label = ''
-    # TVpath = '/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/ts_spatial_avg_midwest.h5'
-    # TVpath = '/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/ts_spatial_avg.h5'
-    # name_ds='USDA_Soy'
-    # start_end_year = (1950, 2019)
+elif target_dataset == 'USDA_Soy_always_data':
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts_allways_data.nc')
+    name_ds='Soy_Yield' ; cluster_label = ''
+elif target_dataset == 'USDA_Soy_csv_midwest':
+    path = os.path.join(main_dir, 'publications/paper_Raed/data/ts_spatial_avg_midwest.csv')
+    TVpath = read_csv_Raed(path)
+elif target_dataset == 'USDA_Soy_clusters':
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/q60_nc4_dendo_cdb62.nc')
+    cluster_label = 3 ; name_ds = 'ts'
 elif target_dataset == 'USDA_Maize':
     # USDA dataset 1950 - 2019
     TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_maize_spatial_mean_ts.nc')
     name_ds='Maize_Yield' ; cluster_label = None
-    # start_end_year = (1950, 2019)
+else:
+    path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
+    TVpath = read_csv_State(path, State=target_dataset, col='obs_yield')
+    TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=[TVpath.name])
+    name_ds='Soy_Yield' ; cluster_label = ''
 
 
 experiment = 'bimonthly'
@@ -200,9 +230,8 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=path_out_main)
 precur = rg.list_for_MI[0] ; lag = precur.lags[0]
 
-subfoldername = target_dataset+'_'.join(['', experiment, str(method),
-                                         's'+ str(seed)] +
-                                        list(np.array(start_end_year, str)))
+subfoldername = target_dataset+'_hindcast/'+'_'.join([experiment, str(method),
+                                         's'+ str(seed)])
 
 
 rg.pp_precursors(detrend=[True, {'tp':False, 'smi':False, 'swvl1':False, 'swvl3':False}],
@@ -265,7 +294,7 @@ rg.plot_maps_corr('smi', kwrgs_plot=kwrgs_plotcorr_SM, save=save,
 #%%
 sst = rg.list_for_MI[0]
 # sst.distance_eps = 425 ; sst.min_area_in_degrees2 = 7
-sst.distance_eps = 250 ; sst.min_area_in_degrees2 = 3
+sst.distance_eps = 200 ; sst.min_area_in_degrees2 = 3
 rg.cluster_list_MI('sst')
 # rg.quick_view_labels('sst', kwrgs_plot=kwrgs_plotcorr_sst)
 
@@ -282,11 +311,11 @@ rg.cluster_list_MI('sst')
 #                                                       kwrgs_mask_latlon={'bottom_left':(95,15)})
 
 # Ensure that what is in Atlantic is one precursor region
-lonlatbox = [260, 350, 17, 40]
+lonlatbox = [260, 330, 20, 40]
 merge = find_precursors.merge_labels_within_lonlatbox
 sst.prec_labels = merge(sst, lonlatbox)
-Indonesia_oceans = [110, 150, 0, 10]
-sst.prec_labels = merge(sst, Indonesia_oceans)
+# Indonesia_oceans = [110, 150, 0, 10]
+# sst.prec_labels = merge(sst, Indonesia_oceans)
 Japanese_sea = [100, 130, 30, 50]
 sst.prec_labels = merge(sst, Japanese_sea)
 Mediterrenean_sea = [0, 45, 30, 50]
@@ -326,6 +355,9 @@ load_SM = '{}_a{}_{}_{}_{}'.format(SM._name, SM.alpha,
                                            SM.min_area_in_degrees2,
                                            periodnames[-1])
 SM.store_netcdf(rg.path_outsub1, load_SM, add_hash=False)
+for p in rg.list_for_MI:
+    p.corr_xr['lag'] = ('lag', periodnames)
+    p.prec_labels['lag'] = ('lag', periodnames)
 #%%
 
 rg.get_ts_prec()
@@ -361,7 +393,7 @@ def feature_selection_CondDep(df_data, keys, z_keys=None, alpha_CI=.05, x_lag=0,
 
 
 regress_autocorr_SM = False
-unique_keys = np.unique([k[4:] for k in rg.df_data.columns[1:-2]])
+unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
 list_pvals = [] ; list_corr = []
 for k in unique_keys:
     z_keys = [z for z in rg.df_data.columns[1:-2] if k not in z]
@@ -388,7 +420,7 @@ rg.df_corr = df_corr
 
 #%%
 
-from sklearn.ensemble import RandomForestClassifier
+# from sklearn.ensemble import RandomForestClassifier
 
 alpha_CI = .05
 CondDepKeys = {} ;
@@ -598,6 +630,34 @@ for ip, precur in enumerate(rg.list_for_MI):
                                   f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_MCI'+rg.figext),
                     bbox_inches='tight')
 
+
+def df_predictions_for_plot(rg_list):
+    df_preds = []
+    for i, rg in enumerate(rg_list):
+        rg.df_fulltso.index.name = None
+        if i == 0:
+            prediction = rg.prediction_tuple[0]
+            prediction = rg.merge_df_on_df_data(rg.df_fulltso, prediction)
+        else:
+            prediction = rg.prediction_tuple[0].iloc[:,[1]]
+        df_preds.append(prediction)
+        if i+1 == len(rg_list):
+            df_preds.append(rg.df_splits)
+    df_preds  = pd.concat(df_preds, axis=1)
+    return df_preds
+
+def df_scores_for_plot(rg_list, name_object):
+    df_scores = [] ; df_boot = [] ; df_tests = []
+    for i, rg in enumerate(rg_list):
+        verification_tuple = rg.__dict__[name_object]
+        df_scores.append(verification_tuple[2])
+        df_boot.append(verification_tuple[3])
+        df_tests.append(verification_tuple[1])
+    df_scores = pd.concat(df_scores, axis=1)
+    df_boot = pd.concat(df_boot, axis=1)
+    df_tests = pd.concat(df_tests, axis=1)
+    return df_scores, df_boot, df_tests
+
 #%% Plot regions with Corr value
 
 
@@ -740,7 +800,7 @@ kwrgs_model = {'scoring':'neg_mean_absolute_error',
                 'alphas':np.concatenate([[1E-20],np.logspace(-5,0, 6),
                                          np.logspace(.01, 2.5, num=10)]), # large a, strong regul.
                 'normalize':False,
-                'fit_intercept':False,
+                'fit_intercept':True,
                 # 'store_cv_values':True}
                 'kfold':5}
 
@@ -749,7 +809,7 @@ kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
                 'alpha':list(np.concatenate([[1E-20],np.logspace(-5,0, 6),
                                          np.logspace(.01, 2.5, num=10)])), # large a, strong regul.
                 'normalize':False,
-                'fit_intercept':False,
+                'fit_intercept':True,
                 'kfold':10}
 
 mean_SST = True
@@ -757,7 +817,7 @@ mean_SST = True
 # target
 fc_mask = rg.df_data.iloc[:,-1].loc[0]
 target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
-target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+# target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 # metrics
 RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).RMSE
 MAE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).MAE
@@ -824,6 +884,16 @@ print(df_test_m)
 from matplotlib import gridspec
 from matplotlib.offsetbox import TextArea, VPacker, AnnotationBbox
 
+df_preds_save = df_predictions_for_plot([rg])
+d_dfs={'df_predictions':df_preds_save}
+filepath_dfs = os.path.join(rg.path_outsub1, f'predictions_s{seed}_continuous.h5')
+functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+
+df_scores, df_boot, df_tests = df_scores_for_plot([rg], name_object='verification_tuple')
+d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
+filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}_continuous.h5')
+functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+
 def plot_forecast_ts(df_test_m, df_test):
     fontsize = 16
 
@@ -874,6 +944,8 @@ f_name = f'{method}_{seed}_continuous'
 fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
 if save:
     plt.savefig(fig_path, bbox_inches='tight')
+
+
 #%%
 y_true = df_test['USDA_Soy']
 forecast = df_test['causal']
@@ -949,8 +1021,6 @@ def cond_forecast_table(rg_list):
             weights_norm = rg.prediction_tuple[1].mean(axis=0, level=1)
             weights_norm = weights_norm.sort_values(ascending=False, by=0)
 
-
-
             PacAtl = []
             df_labels = find_precursors.labels_to_df(rg.list_for_MI[0].prec_labels)
             dlat = df_labels['latitude'] - 29
@@ -960,8 +1030,9 @@ def cond_forecast_table(rg_list):
             if Atlan.size > 0:
                 PacAtl.append(int(Atlan.index[0]))
             PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
-            keys = [k for k in weights_norm.index if int(k.split('..')[1]) in PacAtl]
 
+            keys = [k for k in weights_norm.index if int(k.split('..')[1]) in PacAtl]
+            keys = [k for k in keys if 'sst' in k]
 
 
             PacAtl_ts = functions_pp.get_df_test(df_mean[keys],
@@ -969,6 +1040,7 @@ def cond_forecast_table(rg_list):
 
             weights_norm = weights_norm.div(weights_norm.loc[keys].max(axis=0))
             PacAtl_ts = weights_norm.loc[keys].T.loc[0] * PacAtl_ts # weigths
+            PacAtl_ts = PacAtl_ts.mean(axis=1)
 
             prediction = rg.prediction_tuple[0]
             df_test = functions_pp.get_df_test(prediction,
@@ -994,9 +1066,9 @@ def cond_forecast_table(rg_list):
                 rg.cond_verif_tuple  = cond_verif_tuple
                 cond_df[i, j, l] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
                 # mild boundary forcing
-                low = PacAtl_ts > PacAtl_ts.quantile(.5-q)
-                high = PacAtl_ts < PacAtl_ts.quantile(.5+q)
-                mask_anomalous = np.logical_or(low, high)
+                higher_low = PacAtl_ts > PacAtl_ts.quantile(.5-q)
+                lower_high = PacAtl_ts < PacAtl_ts.quantile(.5+q)
+                mask_anomalous = np.logical_and(higher_low, lower_high) # changed 11-5-21
 
                 condfc = df_test[mask_anomalous.values]
                 condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
@@ -1025,6 +1097,7 @@ df_cond_fc.to_excel(os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}.xls
 d_dfs={'df_cond_fc':df_cond_fc}
 filepath_dfs = os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}.h5')
 functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+print(df_cond_fc)
 
 #%% Event Forecast with Causal Precursors
 

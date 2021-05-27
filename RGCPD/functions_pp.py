@@ -378,7 +378,8 @@ def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
 
     # masks in xr.DataArray are not pickable, which will cause _thread.lock
     # error when parallizing an analysis pipeline.
-    ds = ds.drop('mask')
+    if 'mask' in ds.coords:
+        ds = ds.drop('mask')
     return ds
 
 def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None,

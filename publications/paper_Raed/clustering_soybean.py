@@ -13,7 +13,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-1])
+main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 df_ana_func =  os.path.join(main_dir, 'df_analysis/df_analysis/')
@@ -29,7 +29,7 @@ if sys.platform == 'linux':
     mpl.use('Agg')
     root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/'
 else:
-    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/'
+    root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
 
 path_outmain = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/clustering'
 
@@ -37,17 +37,26 @@ import plot_maps, core_pp, functions_pp
 import clustering_spatial as cl
 
 #%% Soy bean GDHY
+apply_mask_nonans = True
 
-raw_filename = os.path.join(root_data, 'soybean_us_sem.nc')
-
+raw_filename = os.path.join(root_data, 'usda_soy.nc')
 ds = core_pp.import_ds_lazy(raw_filename)
+selbox = [250,290,28,50]
+ds = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
+ds.name = 'Soy_Yield'
+ds['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds.time.values])
 
 ano = ds - ds.mean(dim='time')
+
+if apply_mask_nonans:
+    allways_data_mask = np.isnan(ano).mean(dim='time')==0
+    ano = ano.where(allways_data_mask)
 plot_maps.plot_corr_maps(ano, row_dim='time', cbar_vert=.09)
 ano = core_pp.detrend_lin_longterm(ano)
 
 var_filename = raw_filename[:-3] + '_pp.nc'
 ano.to_netcdf(var_filename)
+
 
 #%%
 
@@ -115,10 +124,11 @@ xrclustered, results = cl.dendogram_clustering(var_filename, mask=np.mean(~np.is
                                                kwrgs_clust={'q':quantiles,
                                                             'n_clusters':n_clusters,
                                                             'affinity':'jaccard',
-                                                            'linkage':'average'})
+                                                            'linkage':'average'},
+                                               n_cpu=3)
 
-plot_maps.plot_labels(xrclustered,  wspace=.05, hspace=.15, cbar_vert=.05,
-                            row_dim='n_clusters', col_dim='q')
+plot_maps.plot_labels(xrclustered,  kwrgs_plot={'wspace':.05, 'hspace':.15, 'cbar_vert':.05,
+                      'row_dim':'n_clusters', 'col_dim':'q'})
 
 f_name = 'clustering_Hierchical_dendogram_{}'.format(xrclustered.attrs['hash']) + '.pdf'
 path_fig = os.path.join(path_outmain, f_name)
@@ -155,10 +165,17 @@ plt.savefig(path_fig,
 print(f'{round(time()-t0, 2)}')
 
 #%%
-q = 50 ; c = 4
-ds = cl.spatial_mean_clusters(var_filename,
-                         xrclustered.sel(q=q, n_clusters=c))
-f_name = 'q{}_nc{}'.format(int(ds['ts'].q), int(ds['n_clusters'].n_clusters))
+ds_raw = core_pp.import_ds_lazy(raw_filename)
+selbox = [250,290,28,50]
+ds_raw = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
+ds_raw.name = 'Soy_Yield'
+ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
+
+q = 55 ; c = 8
+ds = cl.spatial_mean_clusters(ds_raw,
+                         xrclustered.sel(q=q, n_clusters=c),
+                         {'var':'variable', 'selbox':selbox})
+f_name = 'q{}_nc{}'.format(int(q), int(c))
 filepath = os.path.join(path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
@@ -166,7 +183,8 @@ cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['h
 
 raw_filename = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/usda_soy.nc'
 
-ds = core_pp.import_ds_lazy(raw_filename)['variable'].rename({'z':'time'})
+selbox = [250,290,28,50]
+ds = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
 ds.name = 'Soy_Yield'
 
 ds['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds.time.values])

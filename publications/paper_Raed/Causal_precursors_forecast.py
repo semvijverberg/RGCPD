@@ -67,7 +67,7 @@ target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 # methods = ['random_10', 'random_5', 'random_20']
-methods = ['leave_1']
+methods = ['random_5']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
@@ -286,7 +286,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
             sst.store_netcdf(rg.path_outsub1, load_sst, add_hash=False)
         sst.prec_labels['lag'] = ('lag', periodnames)
         sst.corr_xr['lag'] = ('lag', periodnames)
-        rg.quick_view_labels('sst', min_detect_gc=1, save=save,
+        rg.quick_view_labels('sst', min_detect_gc=.5, save=save,
                               append_str=periodnames[-1])
 
     #%%
@@ -303,7 +303,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
             SM.store_netcdf(rg.path_outsub1, load_SM, add_hash=False)
         SM.corr_xr['lag'] = ('lag', periodnames)
         SM.prec_labels['lag'] = ('lag', periodnames)
-        rg.quick_view_labels('smi', min_detect_gc=1, save=save,
+        rg.quick_view_labels('smi', min_detect_gc=.5, save=save,
                               append_str=periodnames[-1])
 #%%
 
@@ -578,8 +578,10 @@ def df_scores_for_plot(rg_list, name_object):
 def df_predictions_for_plot(rg_list):
     df_preds = []
     for i, rg in enumerate(rg_list):
+        rg.df_fulltso.index.name = None
         if i == 0:
             prediction = rg.prediction_tuple[0]
+            prediction = rg.merge_df_on_df_data(rg.df_fulltso, prediction)
         else:
             prediction = rg.prediction_tuple[0].iloc[:,[1]]
         df_preds.append(prediction)
@@ -738,7 +740,7 @@ def cond_forecast_table(rg_list):
                 PacAtl.append(int(Atlan.index[0]))
             PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
             keys = [k for k in weights_norm.index if int(k.split('..')[1]) in PacAtl]
-
+            keys = [k for k in keys if 'sst' in k] # only SST
 
 
             PacAtl_ts = functions_pp.get_df_test(df_mean[keys],
@@ -746,6 +748,7 @@ def cond_forecast_table(rg_list):
 
             weights_norm = weights_norm.div(weights_norm.loc[keys].max(axis=0))
             PacAtl_ts = weights_norm.loc[keys].T.loc[0] * PacAtl_ts # weigths
+            PacAtl_ts = PacAtl_ts.mean(axis=1)
 
             prediction = rg.prediction_tuple[0]
             df_test = functions_pp.get_df_test(prediction,
@@ -760,7 +763,7 @@ def cond_forecast_table(rg_list):
                 mask_anomalous = np.logical_or(low, high)
                 # anomalous Boundary forcing
                 condfc = df_test[mask_anomalous.values]
-                condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
+                # condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
                 cond_verif_tuple = fc_utils.get_scores(condfc,
                                                        score_func_list=score_func_list,
                                                        n_boot=0,
@@ -776,7 +779,7 @@ def cond_forecast_table(rg_list):
                 mask_anomalous = np.logical_and(higher_low, lower_high) # changed 11-5-21
 
                 condfc = df_test[mask_anomalous.values]
-                condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
+                # condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
                 cond_verif_tuple = fc_utils.get_scores(condfc,
                                                        score_func_list=score_func_list,
                                                        n_boot=0,
@@ -807,21 +810,13 @@ from stat_models_cont import ScikitModel
 #             'random_state':0,
 #             'max_samples':.6,
 #             'n_jobs':1}
-fcmodel = ScikitModel(RidgeCV, verbosity=0)
-kwrgs_model = {'scoring':'neg_mean_absolute_error',
-                'alphas':np.concatenate([[1E-20],np.logspace(-4,0, 5),
-                                          np.logspace(.2, 1.5, num=10)]), # large a, strong regul.
-                'normalize':False,
-                'fit_intercept':False,
-                # 'store_cv_values':True}
-                'kfold':5}
 
 fcmodel = ScikitModel(Ridge, verbosity=0)
 kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
                 'alpha':list(np.concatenate([np.logspace(-4,0, 5),
                                           np.logspace(.2, 1.5, num=8)])), # large a, strong regul.
                 'normalize':False,
-                'fit_intercept':False,
+                'fit_intercept':True,
                 'kfold':10}
 
 months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
@@ -832,7 +827,7 @@ for i, rg in enumerate(rg_list):
     # target timeseries
     fc_mask = rg.df_data.iloc[:,-1].loc[0]
     target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
-    target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+    # target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 
     mean_vars=['sst', 'smi']
     for i, p in enumerate(rg.list_for_MI):
@@ -899,13 +894,10 @@ filepath_dfs = os.path.join(rg.path_outsub1, f'predictions_s{seed}_continuous.h5
 functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
 df_scores, df_boot, df_tests = df_scores_for_plot(rg_list, name_object='verification_tuple')
-
-# df_scores_cf, df_boot_cf, df_tests_cf = df_scores_for_plot(name_object='cond_verif_tuple')
-
 d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
 filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}_continuous.h5')
-
 functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+
 d_dfs = functions_pp.load_hdf5(filepath_dfs)
 
 f = plot_scores_wrapper(df_scores, df_boot)
@@ -927,11 +919,11 @@ for rg in rg_list: # plotting score per test
         plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
 
-    df_test_s_m = rg.verification_tuple[1]
-    fig, ax = plt.subplots(1)
-    df_test_s_m.plot(ax=ax)
-    fig.savefig(os.path.join(rg.path_outsub1, f'CV_scores_{rg.fc_month}.png'),
-                bbox_inches='tight', dpi=100)
+    # df_test_s_m = rg.verification_tuple[1]
+    # fig, ax = plt.subplots(1)
+    # df_test_s_m.plot(ax=ax)
+    # fig.savefig(os.path.join(rg.path_outsub1, f'CV_scores_{rg.fc_month}.png'),
+    #             bbox_inches='tight', dpi=100)
 
 #%% save table conditional forecast (Continuous)
 df_cond_fc = cond_forecast_table(rg_list)
@@ -1138,11 +1130,11 @@ for i, q in enumerate(thresholds):
         plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
 
-    df_test_s_m = rg.verification_tuple[1]
-    fig, ax = plt.subplots(1)
-    df_test_s_m.plot(ax=ax)
-    fig.savefig(os.path.join(rg.path_outsub1, f'CV_scores_{q}_{rg.fc_month}.png'),
-                bbox_inches='tight', dpi=100)
+    # df_test_s_m = rg.verification_tuple[1]
+    # fig, ax = plt.subplots(1)
+    # df_test_s_m.plot(ax=ax)
+    # fig.savefig(os.path.join(rg.path_outsub1, f'CV_scores_{q}_{rg.fc_month}.png'),
+    #             bbox_inches='tight', dpi=100)
 
     # save table conditional forecast (Continuous)
     df_cond_fc = cond_forecast_table(rg_list)
