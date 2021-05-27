@@ -38,9 +38,10 @@ import clustering_spatial as cl
 
 #%% Soy bean GDHY
 apply_mask_nonans = True
+detrend_via_spatial_mean = False
+missing_years = 5
 
 raw_filename = os.path.join(root_data, 'usda_soy.nc')
-ds = core_pp.import_ds_lazy(raw_filename)
 selbox = [250,290,28,50]
 ds = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
 ds.name = 'Soy_Yield'
@@ -49,10 +50,19 @@ ds['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds.time.values])
 ano = ds - ds.mean(dim='time')
 
 if apply_mask_nonans:
-    allways_data_mask = np.isnan(ano).mean(dim='time')==0
+    allways_data_mask = np.isnan(ano).sum(dim='time') <= missing_years
     ano = ano.where(allways_data_mask)
-plot_maps.plot_corr_maps(ano, row_dim='time', cbar_vert=.09)
-ano = core_pp.detrend_lin_longterm(ano)
+    if missing_years != 0:
+        ano = ano.interpolate_na(dim='time', limit=2) # max 2 consecutive NaNs
+        allways_data_mask = np.isnan(ano).sum(dim='time') <= 0
+        ano = ano.where(allways_data_mask)
+# plot_maps.plot_corr_maps(ano, row_dim='time', cbar_vert=.09)
+if detrend_via_spatial_mean :
+    detrend_spat_mean = ano.mean(dim=('latitude', 'longitude'))
+    trend = detrend_spat_mean - core_pp.detrend_lin_longterm(detrend_spat_mean)
+    ano = ano - trend
+else:
+    ano = core_pp.detrend_lin_longterm(ano)
 
 var_filename = raw_filename[:-3] + '_pp.nc'
 ano.to_netcdf(var_filename)
@@ -65,17 +75,17 @@ ano.to_netcdf(var_filename)
 # =============================================================================
 from time import time
 t0 = time()
-xrclustered, results = cl.correlation_clustering(var_filename, mask=np.mean(~np.isnan(ano), axis=0) == 1,
+xrclustered, results = cl.sklearn_clustering(var_filename, mask=np.mean(~np.isnan(ano), axis=0) == 1,
                                                kwrgs_load={'tfreq':None,
                                                            'seldates':None,
                                                            'selbox':None},
                                                clustermethodkey='AgglomerativeClustering',
-                                               kwrgs_clust={'n_clusters':[2,5,7,9,12],
-                                                            'affinity':['euclidean', 'correlation'],
-                                                            'linkage':'average'})
+                                               kwrgs_clust={'n_clusters':[2,3,4,5,6,7],
+                                                            'affinity':'euclidean',
+                                                            'linkage':['ward', 'average']})
 
-plot_maps.plot_labels(xrclustered,  wspace=.05, hspace=.15, cbar_vert=.05,
-                            row_dim='n_clusters', col_dim='affinity')
+plot_maps.plot_labels(xrclustered,  kwrgs_plot={'wspace':.05, 'hspace':.15, 'cbar_vert':.05,
+                      'row_dim':'n_clusters', 'col_dim':'linkage'})
 
 f_name = 'clustering_Hierchical_correlation_{}'.format(xrclustered.attrs['hash']) + '.pdf'
 path_fig = os.path.join(path_outmain, f_name)
@@ -89,17 +99,17 @@ print(f'{round(time()-t0, 2)}')
 # =============================================================================
 from time import time
 t0 = time()
-xrclustered, results = cl.correlation_clustering(var_filename, mask=np.mean(~np.isnan(ano), axis=0) == 1,
+xrclustered, results = cl.sklearn_clustering(var_filename, mask=np.mean(~np.isnan(ano), axis=0) == 1,
                                                kwrgs_load={'tfreq':None,
                                                            'seldates':None,
                                                            'selbox':None},
                                                clustermethodkey='KMeans',
-                                               kwrgs_clust={'n_clusters':[2,5,7,9,12],
+                                               kwrgs_clust={'n_clusters':[2,3,4,8,10],
                                                             'random_state':[0,1,2]})
                                                             # 'linkage':'average'})
 
-plot_maps.plot_labels(xrclustered,  wspace=.05, hspace=.15, cbar_vert=.05,
-                            row_dim='n_clusters', col_dim='random_state')
+plot_maps.plot_labels(xrclustered,  kwrgs_plot={'wspace':.05, 'hspace':.15, 'cbar_vert':.05,
+                            'row_dim':'n_clusters', 'col_dim':'random_state'})
 
 f_name = 'clustering_KMeans_{}'.format(xrclustered.attrs['hash']) + '.pdf'
 path_fig = os.path.join(path_outmain, f_name)
@@ -165,17 +175,17 @@ plt.savefig(path_fig,
 print(f'{round(time()-t0, 2)}')
 
 #%%
-ds_raw = core_pp.import_ds_lazy(raw_filename)
 selbox = [250,290,28,50]
 ds_raw = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
 ds_raw.name = 'Soy_Yield'
 ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
 
-q = 55 ; c = 8
+linkage = 'ward' ; c =4
 ds = cl.spatial_mean_clusters(ds_raw,
-                         xrclustered.sel(q=q, n_clusters=c),
-                         {'var':'variable', 'selbox':selbox})
-f_name = 'q{}_nc{}'.format(int(q), int(c))
+                         xrclustered.sel(linkage=linkage, n_clusters=c))
+df = ds.ts.to_dataframe().pivot_table(index='time', columns='cluster')['ts']
+
+f_name = 'linkage_{}_nc{}'.format(linkage, int(c))
 filepath = os.path.join(path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 

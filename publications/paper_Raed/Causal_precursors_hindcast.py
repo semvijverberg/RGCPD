@@ -59,7 +59,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
 
-target_datasets = All_states# , 'USDA_Maize', 'GDHY_Soy']
+target_datasets = ['USDA_Soy_clusters__3']# , 'USDA_Maize', 'GDHY_Soy']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['random_10'] # ['ranstrat_20']
@@ -132,9 +132,9 @@ elif target_dataset == 'USDA_Soy_always_data':
 elif target_dataset == 'USDA_Soy_csv_midwest':
     path = os.path.join(main_dir, 'publications/paper_Raed/data/ts_spatial_avg_midwest.csv')
     TVpath = read_csv_Raed(path)
-elif target_dataset == 'USDA_Soy_clusters':
-    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/q60_nc4_dendo_cdb62.nc')
-    cluster_label = 3 ; name_ds = 'ts'
+elif target_dataset.split('__')[0] == 'USDA_Soy_clusters':
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc4_dendo_ee0e9.nc')
+    cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'USDA_Maize':
     # USDA dataset 1950 - 2019
     TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_maize_spatial_mean_ts.nc')
@@ -947,62 +947,62 @@ if save:
 
 
 #%%
-y_true = df_test['USDA_Soy']
-forecast = df_test['causal']
+# y_true = df_test['USDA_Soy']
+# forecast = df_test['causal']
 
-cond_lags = corlags = np.array([['02-01','03-01'],  # FM
-                                ['03-01', '04-30'], # MA
-                                ['05-01', '06-30'], # MJ
-                                ['07-01', '08-31'],
-                                ['03-01', '08-01']]) # JA
-cond_periodnames = ['FM', 'MA', 'MJ', 'JA', 'March-Aug']
+# cond_lags = corlags = np.array([['02-01','03-01'],  # FM
+#                                 ['03-01', '04-30'], # MA
+#                                 ['05-01', '06-30'], # MJ
+#                                 ['07-01', '08-31'],
+#                                 ['03-01', '08-01']]) # JA
+# cond_periodnames = ['FM', 'MA', 'MJ', 'JA', 'March-Aug']
 
-cond_df  = np.zeros( (3, len(cond_periodnames), 3+1))
-for j, l in enumerate(cond_lags):
+# cond_df  = np.zeros( (3, len(cond_periodnames), 3+1))
+# for j, l in enumerate(cond_lags):
 
-    sst.lags = np.array([l]) # JA
-    ts_corr = find_precursors.spatial_mean_regions(sst,
-                                                   kwrgs_load=rg.kwrgs_load,
-                                                   force_reload=True,
-                                                   lags=['MJ'])
-    df_ts = pd.concat(ts_corr, keys=range(n_spl))
+#     sst.lags = np.array([l]) # JA
+#     ts_corr = find_precursors.spatial_mean_regions(sst,
+#                                                    kwrgs_load=rg.kwrgs_load,
+#                                                    force_reload=True,
+#                                                    lags=['MJ'])
+#     df_ts = pd.concat(ts_corr, keys=range(n_spl))
 
-    zz = df_ts[['MJ..1..sst']]
-    # zz = rg.df_data[['JA..1..sst']]
+#     zz = df_ts[['MJ..1..sst']]
+#     # zz = rg.df_data[['JA..1..sst']]
 
-    state_sst = functions_pp.get_df_test(zz.rename({lag_:cond_periodnames[j]}, axis=1),
-                                         df_splits=rg.df_splits)
+#     state_sst = functions_pp.get_df_test(zz.rename({lag_:cond_periodnames[j]}, axis=1),
+#                                          df_splits=rg.df_splits)
 
-    df_test_m = rg.verification_tuple[2]
-    cond_df[:, j, 0] = df_test_m[df_test_m.columns[0][0]].loc[0]
-    quantiles = [.1, .2, .3]
-    for k, q in enumerate(quantiles):
-        low = state_sst < state_sst.quantile(q)
-        high = state_sst > state_sst.quantile(1-q)
-        mask_anomalous = np.logical_or(low, high)
+#     df_test_m = rg.verification_tuple[2]
+#     cond_df[:, j, 0] = df_test_m[df_test_m.columns[0][0]].loc[0]
+#     quantiles = [.1, .2, .3]
+#     for k, q in enumerate(quantiles):
+#         low = state_sst < state_sst.quantile(q)
+#         high = state_sst > state_sst.quantile(1-q)
+#         mask_anomalous = np.logical_or(low, high)
 
-        condfc = df_test[mask_anomalous.values]
-        condfc = condfc.rename({'causal':cond_periodnames[j]}, axis=1)
-        cond_verif_tuple = fc_utils.get_scores(condfc,
-                                               score_func_list=score_func_list,
-                                               n_boot=0,
-                                               score_per_test=False,
-                                               blocksize=1,
-                                               rng_seed=seed)
-        df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
+#         condfc = df_test[mask_anomalous.values]
+#         condfc = condfc.rename({'causal':cond_periodnames[j]}, axis=1)
+#         cond_verif_tuple = fc_utils.get_scores(condfc,
+#                                                score_func_list=score_func_list,
+#                                                n_boot=0,
+#                                                score_per_test=False,
+#                                                blocksize=1,
+#                                                rng_seed=seed)
+#         df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
 
-        metrics = df_test_m.columns.levels[1]
-        for i, met in enumerate(metrics):
-            # print(df_test_m)
-            cond_df[i, j, k+1] = df_test_m[cond_periodnames[j]].loc[0][met]
+#         metrics = df_test_m.columns.levels[1]
+#         for i, met in enumerate(metrics):
+#             # print(df_test_m)
+#             cond_df[i, j, k+1] = df_test_m[cond_periodnames[j]].loc[0][met]
 
-df_cond_fc = pd.DataFrame(cond_df.reshape((len(metrics)*len(cond_periodnames), -1)),
-                          index=pd.MultiIndex.from_product([list(metrics), cond_periodnames]),
-                          columns=['all']+quantiles)
+# df_cond_fc = pd.DataFrame(cond_df.reshape((len(metrics)*len(cond_periodnames), -1)),
+#                           index=pd.MultiIndex.from_product([list(metrics), cond_periodnames]),
+#                           columns=['all']+quantiles)
 
 
 
-df_cond_fc.to_excel(os.path.join(rg.path_outsub1, 'cond_fc_per_month.xlsx'))
+# df_cond_fc.to_excel(os.path.join(rg.path_outsub1, 'cond_fc_per_month.xlsx'))
 #%%
 def cond_forecast_table(rg_list):
     df_test_m = rg_list[0].verification_tuple[2]

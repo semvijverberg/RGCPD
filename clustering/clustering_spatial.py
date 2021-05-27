@@ -87,9 +87,10 @@ def sklearn_clustering(var_filename, mask=None, kwrgs_load={},
                            kwrgs_clust={'eps':600}):
 
     if 'selbox' in kwrgs_load.keys():
-        mask = kwrgs_load.pop('selbox')
-        print('mask overwritten with selbox list. Both selbox and mask are given.'
-              'Both adapt the domain over which to cluster')
+        if kwrgs_load['selbox'] is not None:
+            mask = kwrgs_load.pop('selbox')
+            print('mask overwritten with selbox list. Both selbox and mask are given.'
+                  'Both adapt the domain over which to cluster')
     kwrgs_l_spatial = {} # kwrgs affecting spatial extent/format
     if 'format_lon' in kwrgs_load.keys():
         kwrgs_l_spatial['format_lon'] = kwrgs_load['format_lon']
@@ -412,7 +413,7 @@ def spatial_mean_clusters(var_filename, xrclust, kwrgs_load: dict={}):
         idx = dims.index('n_clusters')
         dims[idx] = 'ncl'
         xrclust = xrclust.rename({'n_clusters':dims[idx]}).copy()
-    var1 = int(xrclust[dims[0]])
+    var1 = str(xrclust[dims[0]])
     dim1 = dims[0]
     xrts.attrs[dim1] = var1 ; xrclust.attrs[dim1] = var1
     xrclust = xrclust.drop(dim1)

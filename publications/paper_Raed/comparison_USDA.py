@@ -111,4 +111,10 @@ df_USDA_midwest[['frcst_aug_yield']].plot(ax=ax)
 df_preds[['raw_target']].plot(ax=ax)
 
 #%%
-read_csv_State(filepath_Raed_state).mean(axis=1).plot()
+f, ax = plt.subplots()
+df_States = read_csv_State(filepath_Raed_state)
+df_States_mean = df_States.mean(axis=1) ; df_States_mean.name = 'mean over States'
+plt.plot(df_States_mean, label='mean over State', c='blue')
+plt.plot(df_orig_all, color='red', label='original csv Raed mean over all non-NaN spatial data')
+ax.legend()
+rg_always.df_fullts.plot(ax=ax, c='black')
