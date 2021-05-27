@@ -59,8 +59,8 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
 
-target_datasets = ['USDA_Soy_clusters__3']# , 'USDA_Maize', 'GDHY_Soy']
-seeds = seeds = [1,2,3,4] # ,5]
+target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2', 'USDA_Soy_clusters__3, USDA_Soy_clusters__4']# , 'USDA_Maize', 'GDHY_Soy']
+seeds = seeds = [1,2] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['random_10'] # ['ranstrat_20']
 feature_sel = [True]
