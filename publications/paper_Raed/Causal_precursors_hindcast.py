@@ -192,7 +192,7 @@ elif experiment == 'semestral':
     periodnames = ['DJFMAM', 'MAMJJA', 'JJASON', 'annual']
 
 append_main = target_dataset
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'hindcast')
 PacificBox = (130,265,-10,60)
 GlobalBox  = (-180,360,-10,60)
 USBox = (225, 300, 20, 60)
