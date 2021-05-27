@@ -62,18 +62,24 @@ import plot_maps;
 import wrapper_PCMCI
 from stat_models import plot_importances
 
+All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
+              'MARYLAND', 'MINNESOTA', 'MISSOURI', 'NEW JERSEY', 'NEW YORK',
+              'NORTH CAROLINA', 'NORTH DAKOTA', 'OHIO', 'PENNSYLVANIA',
+              'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
-target_datasets = ['USDA_Soy']# , 'USDA_Maize', 'GDHY_Soy']
-seeds = seeds = [1,2,3,4] # ,5]
+
+target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2',
+                   'USDA_Soy_clusters__3', 'USDA_Soy_clusters__4']
+seeds = seeds = [1,2] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-# methods = ['random_10', 'random_5', 'random_20']
-methods = ['random_5']
+methods = ['random_10'] # ['ranstrat_20']
+feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
-                                    )).T.reshape(-1,4)
-i_default = 0
+                                    feature_sel)).T.reshape(-1,5)
+i_default = 2
 
 
 def parseArguments():
@@ -103,12 +109,22 @@ else:
     start_end_year = (int(out[2][:4]), int(out[2][-4:]))
     method = out[3]
 
-
 def read_csv_Raed(path):
     orig = pd.read_csv(path)
     orig = orig.drop('Unnamed: 0', axis=1)
     orig.index = pd.to_datetime([f'{y}-01-01' for y in orig.Year])
+    orig.index.name = 'time'
     return orig.drop('Year', 1)
+
+
+
+def read_csv_State(path, State: str=None, col='obs_yield'):
+    orig = read_csv_Raed(path)
+    orig = orig.set_index('State', append=True)
+    orig = orig.pivot_table(index='time', columns='State')[col]
+    if State is None:
+        State = orig.columns
+    return orig[State]
 
 if target_dataset == 'GDHY_Soy':
     # GDHY dataset 1980 - 2015
@@ -118,21 +134,26 @@ if target_dataset == 'GDHY_Soy':
     # start_end_year = (1980, 2015)
 elif target_dataset == 'USDA_Soy':
     # USDA dataset 1950 - 2019
-    # TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts.nc')
+    TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts.nc')
+    name_ds='Soy_Yield' ; cluster_label = ''
+elif target_dataset == 'USDA_Soy_always_data':
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts_allways_data.nc')
     name_ds='Soy_Yield' ; cluster_label = ''
-    # TVpath = os.path.join(main_dir, 'publications/paper_Raed/data/ts_spatial_avg.csv')
-    # TVpath = read_csv_Raed(TVpath)
-
-
-    # TVpath = '/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/ts_spatial_avg_midwest.h5'
-    # name_ds='USDA_Soy'
-    # start_end_year = (1950, 2019)
+elif target_dataset == 'USDA_Soy_csv_midwest':
+    path = os.path.join(main_dir, 'publications/paper_Raed/data/ts_spatial_avg_midwest.csv')
+    TVpath = read_csv_Raed(path)
+elif target_dataset.split('__')[0] == 'USDA_Soy_clusters':
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc4_dendo_ee0e9.nc')
+    cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'USDA_Maize':
     # USDA dataset 1950 - 2019
     TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_maize_spatial_mean_ts.nc')
     name_ds='Maize_Yield' ; cluster_label = None
-    # start_end_year = (1950, 2019)
+else:
+    path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
+    TVpath = read_csv_State(path, State=target_dataset, col='obs_yield')
+    TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=[TVpath.name])
+    name_ds='Soy_Yield' ; cluster_label = ''
 
 
 
