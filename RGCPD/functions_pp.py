@@ -363,7 +363,8 @@ def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
                                 seldates=seldates,
                                 selbox=selbox,
                                 dailytomonths=dailytomonths,
-                                format_lon=format_lon)
+                                format_lon=format_lon,
+                                start_end_year=start_end_year)
 
     if tfreq is not None and tfreq != 1:
         ds = time_mean_bins(ds, tfreq,

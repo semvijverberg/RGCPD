@@ -317,7 +317,7 @@ class BivariateMI:
         None.
 
         '''
-        # precur = rg.list_for_MI[0] ; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
+        # self = rg.list_for_MI[0] ; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
         name = self.name
         filepath = self.filepath
 
@@ -346,7 +346,7 @@ class BivariateMI:
         if type(self.lags[0]) == np.ndarray:
             tmp = functions_pp.time_mean_periods
             self.precur_arr = tmp(self.precur_arr, self.lags,
-                                    kwrgs_load['start_end_year'])
+                                  kwrgs_load['start_end_year'])
         return
 
     def load_and_aggregate_ts(self, df_splits: pd.DataFrame=None):
