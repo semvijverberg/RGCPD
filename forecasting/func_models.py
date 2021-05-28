@@ -273,6 +273,10 @@ def minmaxscaler_on_train(c, TrainIsTrue):
 def corrcoef(y_true, y_pred):
     return np.corrcoef(y_true, y_pred)[0][1]
 
+def r2_score(y_true, y_pred, multioutput='variance_weighted'):
+    return metrics.r2_score(y_true, y_pred, multioutput=multioutput)
+
+
 class ErrorSkillScore:
     def __init__(self, constant_bench: float=False, squared=False):
         '''

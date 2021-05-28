@@ -68,9 +68,9 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
 
-target_datasets = ['Aggregate_States'] + All_states
+target_datasets = 'USDA_Soy_always_data'
 seeds = seeds = [1] # ,5]
-yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
+yrs = ['1980, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['random_20'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
@@ -844,7 +844,7 @@ kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
                 'alpha':list(np.concatenate([np.logspace(-4,0, 5),
                                           np.logspace(.2, 1.5, num=8)])), # large a, strong regul.
                 'normalize':False,
-                'fit_intercept':False,
+                'fit_intercept':True,
                 'kfold':10}
 
 months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
@@ -855,7 +855,7 @@ for i, rg in enumerate(rg_list):
     # target timeseries
     fc_mask = rg.df_data.iloc[:,-1].loc[0]
     target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
-    target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+    # target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 
     mean_vars=['sst', 'smi']
     # mean_vars=[]
@@ -879,7 +879,7 @@ for i, rg in enumerate(rg_list):
     RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).RMSE
     MAE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).MAE
     score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS,
-                       fc_utils.metrics.r2_score]
+                       fc_utils.r2_score]
     metric_names = [s.__name__ for s in score_func_list]
 
     lag_ = 0 ;
@@ -1067,10 +1067,6 @@ for i, q in enumerate(thresholds):
         fc_mask = rg.df_data.iloc[:,-1].loc[0]
         target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
         target_ts = (target_ts - target_ts.mean()) / target_ts.std()
-        if q >= 0.5:
-            target_ts = (target_ts > target_ts.quantile(q)).astype(int)
-        elif q < .5:
-            target_ts = (target_ts < target_ts.quantile(q)).astype(int)
 
         mean_vars=['sst', 'smi']
         for i, p in enumerate(rg.list_for_MI):
@@ -1085,6 +1081,12 @@ for i, q in enumerate(thresholds):
                                              fcmodel=fcmodel,
                                              kwrgs_model=kwrgs_model,
                                              target_ts=target_ts)
+
+        if q >= 0.5:
+            target_ts = (target_ts > target_ts.quantile(q)).astype(int)
+        elif q < .5:
+            target_ts = (target_ts < target_ts.quantile(q)).astype(int)
+
         last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
         fc_month = months[last_month]
 
