@@ -143,7 +143,7 @@ elif target_dataset == 'USDA_Soy_csv_midwest':
     path = os.path.join(main_dir, 'publications/paper_Raed/data/ts_spatial_avg_midwest.csv')
     TVpath = read_csv_Raed(path)
 elif target_dataset.split('__')[0] == 'USDA_Soy_clusters':
-    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc4_dendo_ee0e9.nc')
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc4_dendo_d0003.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'USDA_Maize':
     # USDA dataset 1950 - 2019
@@ -165,6 +165,8 @@ append_pathsub = f'/{method}/s{seed}'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'forecast')
+if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
+    path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
 PacificBox = (130,265,-10,60)
 GlobalBox  = (-180,360,-10,60)
 USBox = (225, 300, 20, 60)

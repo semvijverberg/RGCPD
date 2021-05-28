@@ -39,15 +39,19 @@ import clustering_spatial as cl
 #%% Soy bean GDHY
 apply_mask_nonans = True
 detrend_via_spatial_mean = False
-missing_years = 5
+missing_years = 6
 
-raw_filename = os.path.join(root_data, 'usda_soy.nc')
-selbox = [250,290,28,50]
-ds = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
-ds.name = 'Soy_Yield'
-ds['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds.time.values])
+raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
+selbox = [253,290,28,50] ; years = list(range(1975, 2020))
 
-ano = ds - ds.mean(dim='time')
+ds_raw = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
+ds_raw.name = 'Soy_Yield'
+ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
+ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
+
+ano = ds_raw - ds_raw.mean(dim='time')
+np.isnan(ano).sum(dim='time').plot()
+
 
 if apply_mask_nonans:
     allways_data_mask = np.isnan(ano).sum(dim='time') <= missing_years
@@ -71,7 +75,7 @@ ano.to_netcdf(var_filename)
 #%%
 
 # =============================================================================
-# Clustering correlation Hierarchical Agglomerative Clustering
+# Clustering Ward Hierarchical Agglomerative Clustering
 # =============================================================================
 from time import time
 t0 = time()
@@ -86,6 +90,30 @@ xrclustered, results = cl.sklearn_clustering(var_filename, mask=np.mean(~np.isna
 
 plot_maps.plot_labels(xrclustered,  kwrgs_plot={'wspace':.05, 'hspace':.15, 'cbar_vert':.05,
                       'row_dim':'n_clusters', 'col_dim':'linkage'})
+
+f_name = 'clustering_Hierchical_correlation_{}'.format(xrclustered.attrs['hash']) + '.pdf'
+path_fig = os.path.join(path_outmain, f_name)
+plt.savefig(path_fig,
+            bbox_inches='tight') # dpi auto 600
+print(f'{round(time()-t0, 2)}')
+
+#%%
+# =============================================================================
+# Clustering correlation Hierarchical Agglomerative Clustering
+# =============================================================================
+from time import time
+t0 = time()
+xrclustered, results = cl.sklearn_clustering(var_filename, mask=np.mean(~np.isnan(ano), axis=0) == 1,
+                                               kwrgs_load={'tfreq':None,
+                                                           'seldates':None,
+                                                           'selbox':None},
+                                               clustermethodkey='AgglomerativeClustering',
+                                               kwrgs_clust={'n_clusters':[2,3,4,5,6,7],
+                                                            'affinity':'correlation',
+                                                            'linkage':'average'})
+
+plot_maps.plot_labels(xrclustered,  kwrgs_plot={'wspace':.05, 'hspace':.15, 'cbar_vert':.05,
+                      'row_dim':'n_clusters'})
 
 f_name = 'clustering_Hierchical_correlation_{}'.format(xrclustered.attrs['hash']) + '.pdf'
 path_fig = os.path.join(path_outmain, f_name)
@@ -175,10 +203,12 @@ plt.savefig(path_fig,
 print(f'{round(time()-t0, 2)}')
 
 #%%
-selbox = [250,290,28,50]
+years = list(range(1975, 2020))
+
 ds_raw = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
 ds_raw.name = 'Soy_Yield'
 ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
+ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
 
 linkage = 'ward' ; c =4
 ds = cl.spatial_mean_clusters(ds_raw,
