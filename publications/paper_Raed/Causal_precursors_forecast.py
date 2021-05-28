@@ -68,8 +68,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
 
-target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2',
-                   'USDA_Soy_clusters__3', 'USDA_Soy_clusters__4']
+target_datasets = All_states
 seeds = seeds = [1,2] # ,5]
 yrs = ['1975, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['random_20'] # ['ranstrat_20']
@@ -291,7 +290,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         merge = find_precursors.merge_labels_within_lonlatbox
 
         # # Ensure that what is in Atlantic is one precursor region
-        lonlatbox = [263, 315, 17, 40]
+        lonlatbox = [263, 300, 17, 40]
         sst.prec_labels = merge(sst, lonlatbox)
         # Indonesia_oceans = [110, 150, 0, 10]
         # sst.prec_labels = merge(sst, Indonesia_oceans)
