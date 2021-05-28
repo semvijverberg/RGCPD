@@ -59,11 +59,10 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
 
-target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2',
-                   'USDA_Soy_clusters__3', 'USDA_Soy_clusters__4']
+target_datasets = All_states
 seeds = seeds = [1,2] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['random_10'] # ['ranstrat_20']
+methods = ['random_20'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -1112,7 +1111,7 @@ kwrgs_model1 = {'scoringCV':'neg_mean_absolute_error',
                 'alpha':list(np.concatenate([np.logspace(-5,0, 6),
                                          np.logspace(.01, 2.5, num=10)])), # large a, strong regul.
                 'normalize':False,
-                'fit_intercept':False,
+                'fit_intercept':True,
                 'kfold':10}
 
 fcmodel = ScikitModel(LogisticRegressionCV, verbosity=0)

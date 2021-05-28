@@ -161,7 +161,7 @@ calc_ts= 'region mean' # 'pattern cov'
 alpha_corr = .05
 alpha_CI = .05
 n_boot = 2000
-append_pathsub = f'/{method}_always_data_mask/s{seed}'
+append_pathsub = f'/{method}/s{seed}'
 
 append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'forecast')
