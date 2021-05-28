@@ -151,7 +151,7 @@ elif target_dataset == 'USDA_Maize':
 elif target_dataset == 'Aggregate_States':
     path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
     TVpath = read_csv_State(path, State=['KENTUCKY', 'TENNESSEE', 'MISSOURI'], col='obs_yield').mean(1)
-    TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=[TVpath.name])
+    TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=['KENTUCKYTENNESSEEMISSOURI'])
     name_ds='Soy_Yield' ; cluster_label = ''
 else:
     path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
