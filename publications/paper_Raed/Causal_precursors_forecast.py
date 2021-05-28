@@ -70,7 +70,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 
 target_datasets = All_states
 seeds = seeds = [1,2] # ,5]
-yrs = ['1975, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
+yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['random_20'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
