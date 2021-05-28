@@ -71,7 +71,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2',
                    'USDA_Soy_clusters__3', 'USDA_Soy_clusters__4']
 seeds = seeds = [1,2] # ,5]
-yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
+yrs = ['1975, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['random_20'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
@@ -230,9 +230,9 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                      anomaly=[True, {'tp':False, 'smi':False}],
                      auto_detect_mask=[False, {'swvl1':True, 'swvl2':True}])
     if crossyr:
-        TV_start_end_year = (1951, 2019)
+        TV_start_end_year = (start_end_year[0]+1, 2019)
     else:
-        TV_start_end_year = (1950, 2019)
+        TV_start_end_year = (start_end_year[0], 2019)
 
     kwrgs_core_pp_time = {'start_end_year': TV_start_end_year}
     rg.pp_TV(name_ds=name_ds, detrend=True, ext_annual_to_mon=False,
