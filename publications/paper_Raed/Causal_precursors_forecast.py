@@ -70,8 +70,8 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 
 target_datasets = 'USDA_Soy_always_data'
 seeds = seeds = [1] # ,5]
-yrs = ['1980, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['random_20'] # ['ranstrat_20']
+yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
+methods = ['leave_1'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -171,6 +171,9 @@ append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'forecast')
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
     path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
+elif target_dataset in All_states: # add cluster hash
+    path_out_main = os.path.join(path_out_main, 'States')
+
 PacificBox = (130,265,-10,60)
 GlobalBox  = (-180,360,-10,60)
 USBox = (225, 300, 20, 60)
@@ -569,18 +572,10 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05,
                 # use all timeseries (for each month)
                 mean_SST_list_s.append(rg.df_data.loc[s][keys_mon_sig].copy())
                 keys_dict_meansst[s] = keys_dict_meansst[s] + keys_mon_sig
-            # # select strongest
-            # if len(keys_mon_sig) != 0 and 'sst' in uniqk:
-            #     # appending keys_dict for plotting causal regions
-            #     df_corr.loc[keys_mon_sig].mean()
-            #     keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
-            # if select_str_SM and len(keys_mon_sig) != 0 and 'sm' in uniqk:
-            #     # use only strongest SM region
-            #     df_corr.loc[keys_mon_sig].mean()
-            #     keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
-            # elif select_str_SM==False and len(keys_mon_sig) != 0 and 'sm' in uniqk:
-            #     # use all SM region
-            #     keys_dict[s] = keys_dict[s] + keys_mon_sig
+            # elif len(keys_mon_sig) == 0:
+            #     data = np.zeros(rg.df_RV_ts.size) ; data[:] = np.nan
+            #     pd.DataFrame(data, index=rg.df_RV_ts.index)
+        # if len(keys_mon_sig) != 0:
         df_s = pd.concat(mean_SST_list_s, axis=1)
         mean_SST_list.append(df_s)
     df_mean_SST = pd.concat(mean_SST_list, keys=range(rg.n_spl))
@@ -625,8 +620,7 @@ def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
         metrics_cols = ['BSS', 'roc_auc_score']
         rename_m = {'BSS': 'BSS', 'roc_auc_score':'ROC-AUC'}
     else:
-        metrics_cols = ['corrcoef', 'MAE', 'RMSE', 'r2_score',
-                        'mean_absolute_percentage_error']
+        metrics_cols = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
         rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
                     'MAE':'MAE-SS', 'CRPSS':'CRPSS', 'r2_score':'$R^2$',
                     'mean_absolute_percentage_error':'MAPE'}
@@ -746,19 +740,9 @@ def cond_forecast_table(rg_list):
     cond_df = np.zeros((metrics.size, len(rg_list), len(quantiles)*2))
     for i, met in enumerate(metrics):
         for j, rg in enumerate(rg_list):
-            df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
-                                                 n_strongest='all',
-                                                 weights=True,
-                                                 fcmodel=fcmodel,
-                                                 kwrgs_model=kwrgs_model,
-                                                 target_ts=target_ts)
-
-            weights_norm = rg.prediction_tuple[1].mean(axis=0, level=1)
-            weights_norm = weights_norm.sort_values(ascending=False, by=0)
-
-
 
             PacAtl = []
+            # find west-sub-tropical Atlantic region
             df_labels = find_precursors.labels_to_df(rg.list_for_MI[0].prec_labels)
             dlat = df_labels['latitude'] - 29
             dlon = df_labels['longitude'] - 290
@@ -767,16 +751,33 @@ def cond_forecast_table(rg_list):
             if Atlan.size > 0:
                 PacAtl.append(int(Atlan.index[0]))
             PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
-            keys = [k for k in weights_norm.index if int(k.split('..')[1]) in PacAtl]
+            PacAtl = [int(df_labels['n_gridcells'].idxmax())] # only Pacific
+
+            weights_norm = rg.prediction_tuple[1]# .mean(axis=0, level=1)
+            # weights_norm = weights_norm.sort_values(ascending=False, by=0)
+
+            keys = [k for k in weights_norm.index.levels[1] if int(k.split('..')[1]) in PacAtl]
             keys = [k for k in keys if 'sst' in k] # only SST
+            labels = ['..'.join(k.split('..')[1:]) for k in keys] + ['0..smi_sp'] # add smi just because it almost always in there
+
+            df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
+                                                 n_strongest='all',
+                                                 weights=True,
+                                                 fcmodel=fcmodel,
+                                                 kwrgs_model=kwrgs_model,
+                                                 target_ts=target_ts,
+                                                 labels=labels)
 
 
-            PacAtl_ts = functions_pp.get_df_test(df_mean[keys],
-                                              df_splits=rg.df_splits)
-
-            weights_norm = weights_norm.div(weights_norm.loc[keys].max(axis=0))
-            PacAtl_ts = weights_norm.loc[keys].T.loc[0] * PacAtl_ts # weigths
-            PacAtl_ts = PacAtl_ts.mean(axis=1)
+            # apply weighted mean based on coefficients of precursor regions
+            weights_norm = weights_norm.loc[pd.IndexSlice[:,keys],:]
+            # weights_norm = weights_norm.div(weights_norm.max(axis=0))
+            weights_norm = weights_norm.div(weights_norm.max(axis=0, level=0), level=0)
+            weights_norm = weights_norm.reset_index().pivot(index='level_0', columns='level_1')[0]
+            weights_norm.index.name = 'fold' ; df_mean.index.name = ('fold', 'time')
+            PacAtl_ts = weights_norm.multiply(df_mean[keys], axis=1, level=0)
+            PacAtl_ts = functions_pp.get_df_test(PacAtl_ts.mean(axis=1),
+                                                 df_splits=rg.df_splits)
 
             prediction = rg.prediction_tuple[0]
             df_test = functions_pp.get_df_test(prediction,
@@ -847,6 +848,9 @@ kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
                 'fit_intercept':True,
                 'kfold':10}
 
+kwrgs_model_CL = kwrgs_model.copy() ;
+kwrgs_model_CL.update({'alpha':kwrgs_model['alpha'][::3]})
+
 months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
           'SO':'hindcast'}
 list_verification = [] ; list_prediction = []
@@ -869,8 +873,9 @@ for i, rg in enumerate(rg_list):
                                          n_strongest='all',
                                          weights=True,
                                          fcmodel=fcmodel,
-                                         kwrgs_model=kwrgs_model,
-                                         target_ts=target_ts)
+                                         kwrgs_model=kwrgs_model_CL,
+                                         target_ts=target_ts,
+                                         labels=None)
     last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
     fc_month = months[last_month] ; rg.fc_month = fc_month
 
@@ -956,19 +961,22 @@ for rg in rg_list: # plotting score per test
     #             bbox_inches='tight', dpi=100)
 
 #%% save table conditional forecast (Continuous)
-df_cond_fc = cond_forecast_table(rg_list)
-# store as .xlsc
-df_cond_fc.to_excel(os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}.xlsx'))
-# Store as .h5
-d_dfs={'df_cond_fc':df_cond_fc}
-filepath_dfs = os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}.h5')
-functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+try:
+    df_cond_fc = cond_forecast_table(rg_list)
+    # store as .xlsc
+    df_cond_fc.to_excel(os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}.xlsx'))
+    # Store as .h5
+    d_dfs={'df_cond_fc':df_cond_fc}
+    filepath_dfs = os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}.h5')
+    functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+except:
+    print('SST region 1 is not always found in each split')
 
 #%% Collect different splits continuous forecast
 
 orientation = 'horizontal'
 alpha = .05
-metrics_cols = ['corrcoef', 'MAE', 'RMSE', 'r2_score', 'mean_absolute_percentage_error']
+metrics_cols = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
 rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
             'MAE':'MAE-SS', 'CRPSS':'CRPSS', 'r2_score':'$R^2$',
             'mean_absolute_percentage_error':'MAPE'}
@@ -1067,6 +1075,10 @@ for i, q in enumerate(thresholds):
         fc_mask = rg.df_data.iloc[:,-1].loc[0]
         target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
         target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+        if q >= 0.5:
+            target_ts = (target_ts > target_ts.quantile(q)).astype(int)
+        elif q < .5:
+            target_ts = (target_ts < target_ts.quantile(q)).astype(int)
 
         mean_vars=['sst', 'smi']
         for i, p in enumerate(rg.list_for_MI):
@@ -1082,10 +1094,7 @@ for i, q in enumerate(thresholds):
                                              kwrgs_model=kwrgs_model,
                                              target_ts=target_ts)
 
-        if q >= 0.5:
-            target_ts = (target_ts > target_ts.quantile(q)).astype(int)
-        elif q < .5:
-            target_ts = (target_ts < target_ts.quantile(q)).astype(int)
+
 
         last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
         fc_month = months[last_month]
@@ -1185,7 +1194,7 @@ if 'BSS' in df_scores.columns.levels[1]:
     metrics_cols = ['BSS', 'roc_auc_score']
     rename_m = {'BSS': 'BSS', 'roc_auc_score':'ROC-AUC'}
 else:
-    metrics_cols = ['corrcoef', 'MAE', 'RMSE', 'r2_score', 'mean_absolute_percentage_error']
+    metrics_cols = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
     rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
                 'MAE':'MAE-SS', 'CRPSS':'CRPSS', 'r2_score':'$r^2$',
                 'mean_absolute_percentage_error':'MAPE'}

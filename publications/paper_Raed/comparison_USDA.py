@@ -59,15 +59,17 @@ from RGCPD import RGCPD
 import func_models as fc_utils
 import functions_pp, core_pp
 
+detrend = False
 rg_mistake = RGCPD([('', filepath_target_RGCPD)],tfreq=None)
-rg_mistake.pp_TV(name_ds='Soy_Yield', ext_annual_to_mon=False)
+rg_mistake.pp_TV(name_ds='Soy_Yield', ext_annual_to_mon=False, detrend=detrend)
 rg_mistake.df_fullts = rg_mistake.df_fullts.rename({'Soy_Yield':'Sem spatial mean all data'},axis=1)
 
 
 rg_always = RGCPD([('', filepath_nc_mean_allways_data)],tfreq=None)
-rg_always.pp_TV(name_ds='Soy_Yield', ext_annual_to_mon=False)
+rg_always.pp_TV(name_ds='Soy_Yield', ext_annual_to_mon=False, detrend=detrend)
 rg_always.df_fullts = rg_always.df_fullts.rename({'Soy_Yield':'Sem spatial mean all data that was present every timestep'},axis=1)
 
+rg_always.df_fullts.merge(rg_mistake.df_fullts, left_index=True, right_index=True).corr()
 
 
 df_USDA_midwest = read_csv_Raed(filepath_USDA_frcst)

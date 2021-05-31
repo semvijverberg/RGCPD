@@ -29,7 +29,7 @@ import argparse
 os.chdir('/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper_Raed/')
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-2])
+main_dir = '/'.join(curr_dir.split('/')[:-3])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
 cluster_func = os.path.join(main_dir, 'clustering/')
