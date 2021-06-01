@@ -68,7 +68,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
 
-target_datasets = ['Aggregate_States']
+target_datasets = ['All_State_average']
 seeds = seeds = [1,2] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['ranstrat_20'] # ['ranstrat_20']
@@ -155,6 +155,11 @@ elif target_dataset == 'Aggregate_States':
     TVpath = read_csv_State(path, State=States, col='obs_yield').mean(1)
     TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=['KENTUCKYTENNESSEEMISSOURIILLINOISINDIANA'])
     name_ds='Soy_Yield' ; cluster_label = ''
+elif target_dataset == 'All_State_average':
+    path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
+    TVpath = read_csv_State(path, State=None, col='obs_yield').mean(1)
+    TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=['All_State_average'])
+    name_ds='Soy_Yield' ; cluster_label = ''
 else:
     path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
     TVpath = read_csv_State(path, State=target_dataset, col='obs_yield')
@@ -173,6 +178,8 @@ append_main = target_dataset
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'forecast')
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
     path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
+elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
+    path_out_main = os.path.join(path_out_main, 'All_State_Average')
 elif target_dataset in All_states: # add cluster hash
     path_out_main = os.path.join(path_out_main, 'States')
 
