@@ -39,7 +39,7 @@ import clustering_spatial as cl
 #%% Soy bean GDHY
 apply_mask_nonans = True
 detrend_via_spatial_mean = False
-missing_years = 6
+missing_years = 0
 
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
 selbox = [253,290,28,50] ; years = list(range(1975, 2020))
