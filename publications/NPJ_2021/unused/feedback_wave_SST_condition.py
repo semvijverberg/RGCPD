@@ -21,6 +21,8 @@ import numpy as np
 import cartopy.crs as ccrs
 import argparse
 import csv
+import pandas as pd
+import matplotlib.pyplot as plt
 
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
@@ -43,24 +45,22 @@ from RGCPD import RGCPD
 from RGCPD import BivariateMI
 import class_BivariateMI
 import wrapper_PCMCI as wPCMCI
-import functions_pp
+import functions_pp, plot_maps, core_pp
 
 periods = ['summer_center', 'summer_shiftright', 'summer_shiftleft',
            'spring_center', 'spring_shiftleft', 'spring_shiftright']
 
-periods = ['winter_center', 'winter_shiftright', 'winter_shiftleft']
+# periods = ['winter_center', 'winter_shiftright', 'winter_shiftleft']
 
-# periods = ['summer_shiftleft']
-remove_PDO = False
-if remove_PDO:
-    targets = ['east']
-else:
-    targets = ['east', 'west']
+
+
+conditions = ['strong', 'weak']
+
 seeds = np.array([1,2,3])
 
-combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
+combinations = np.array(np.meshgrid(conditions, seeds, periods)).T.reshape(-1,3)
 
-i_default = 3
+i_default = 0
 
 
 
@@ -79,12 +79,12 @@ def parseArguments():
 if __name__ == '__main__':
     args = parseArguments()
     out = combinations[args.intexper]
-    west_east = out[0]
+    west_east = 'east'
+    condition = out[0]
     seed = int(out[1])
     period = out[2]
     print(f'arg {args.intexper} - {out}')
-else:
-    seed = 0
+
 
 
 # TVpathtemp = os.path.join(data_dir, 'tf15_nc3_dendo_0ff31.nc') # old TV
@@ -100,7 +100,7 @@ elif west_east =='west':
     z500_green_bb = (145,325,20,62) # bounding box for western RW
 
 
-path_out_main = os.path.join(main_dir, f'publications/NPJ_2021/output/{west_east}_fb_doublecheck/')
+path_out_main = os.path.join(main_dir, f'publications/NPJ_2021/output/{west_east}_fb_{condition}_PDO/')
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
     start_end_TVdatet2mvsRW = start_end_TVdate
@@ -143,8 +143,8 @@ tfreq         = 15
 min_detect_gc = 0.9
 method        = 'ranstrat_10' ;
 use_sign_pattern_z500 = True
-name_MCI_csv = f'strength_rPDO{remove_PDO}.csv'
-name_rob_csv = f'robustness_rPDO{remove_PDO}.csv'
+name_MCI_csv = 'strength.csv'
+name_rob_csv = 'robustness.csv'
 
 if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
 if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
@@ -292,6 +292,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             list_import_ts=None,
             start_end_TVdate=start_end_TVdate,
             start_end_date=start_end_date,
+            start_end_year=(1980,2020),
             tfreq=tfreq,
             path_outmain=path_out_main)
 
@@ -307,7 +308,77 @@ rg.cluster_list_MI(var='N-Pac. SST')
 rg.quick_view_labels(min_detect_gc=min_detect_gc)
 # rg.get_ts_prec(precur_aggr=1)
 # rg.store_df(append_str=f'RW_and_SST_fb_tf{rg.tfreq}')
+#%% Get PDO and apply low-pass filter
+import climate_indices, filters
+from func_models import standardize_on_train
 
+filepath_df_PDOs = os.path.join(data_dir, 'df_PDOs_daily.h5')
+
+
+try:
+    df_PDOs = functions_pp.load_hdf5(filepath_df_PDOs)['df_data']
+except:
+
+
+    SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_1jan_31dec_daily_1.0deg.nc'
+
+    if 'df_PDOsplit' not in globals():
+        df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
+                                                   None)
+        PDO_plot_kwrgs = {'units':'[-]', 'cbar_vert':-.1,
+                          # 'zoomregion':(130,260,20,60),
+                          'map_proj':ccrs.PlateCarree(central_longitude=220),
+                          'y_ticks':np.array([25,40,50,60]),
+                          'x_ticks':np.arange(130, 280, 25),
+                          'clevels':np.arange(-.6,.61,.075),
+                          'clabels':np.arange(-.6,.61,.3),
+                          'subtitles':np.array([['PDO loading pattern']])}
+        fig = plot_maps.plot_corr_maps(PDO_patterns[0], **PDO_plot_kwrgs)
+        filepath = os.path.join(path_out_main, 'PDO_pattern')
+        fig.savefig(filepath + '.pdf', bbox_inches='tight')
+        fig.savefig(filepath + '.png', bbox_inches='tight')
+
+        # summerdates = core_pp.get_subdates(dates, start_end_TVdate)
+        df_PDOsplit = df_PDO.loc[0]#.loc[summerdates]
+        # standardize = preprocessing.StandardScaler()
+        # standardize.fit(df_PDOsplit[df_PDOsplit['TrainIsTrue'].values].values.reshape(-1,1))
+        # df_PDOsplit = pd.DataFrame(standardize.transform(df_PDOsplit['PDO'].values.reshape(-1,1)),
+        #                 index=df_PDOsplit.index, columns=['PDO'])
+    df_PDOsplit = df_PDOsplit[['PDO']].apply(standardize_on_train,
+                         args=[df_PDO.loc[0]['TrainIsTrue']],
+                         result_type='broadcast')
+
+    # Butter Lowpass
+    dates = df_PDOsplit.index
+    freqraw = (dates[1] - dates[0]).days
+    ls = ['solid', 'dotted', 'dashdot', 'dashed']
+    fig, ax = plt.subplots(1,1, figsize=(10,5))
+    list_dfPDO = [df_PDOsplit]
+    lowpass_yrs = [.25, .5, 1.0, 2.0]
+    for i, yr in enumerate(lowpass_yrs):
+        window = int(yr*functions_pp.get_oneyr(dates).size) # 2 year
+        if i ==0:
+            ax.plot_date(dates, df_PDOsplit.values, label=f'Raw ({freqraw} day means)',
+                      alpha=.3, linestyle='solid', marker=None)
+        df_PDObw = pd.Series(filters.lowpass(df_PDOsplit, period=window).squeeze(),
+                             index=dates, name=f'PDO{yr}bw')
+        ax.plot_date(dates, df_PDObw, label=f'Butterworth {yr}-year low-pass',
+                color='red',linestyle=ls[i], linewidth=1, marker=None)
+        df_PDOrm = df_PDOsplit.rolling(window=window, closed='right', min_periods=window).mean()
+        df_PDOrm = df_PDOrm.rename({'PDO':f'PDO{yr}rm'}, axis=1)
+        ax.plot_date(dates, df_PDOrm,
+                     label=f'Rolling mean {yr}-year low-pass (closed right)', color='green',linestyle=ls[i],
+                     linewidth=1, marker=None)
+        list_dfPDO.append(df_PDObw) ; list_dfPDO.append(df_PDOrm)
+        ax.legend()
+
+    filepath = os.path.join(path_out_main, 'Low-pass_filter.pdf')
+    plt.savefig(filepath, bbox_inches='tight')
+    df_PDOs = pd.concat(list_dfPDO,axis=1)
+
+
+    functions_pp.store_hdf_df({'df_data':df_PDOs},
+                              file_path=filepath_df_PDOs)
 
 #%%
 def append_MCI(rg, dict_v, dict_rb, alpha_level=.05):
@@ -333,34 +404,44 @@ def append_MCI(rg, dict_v, dict_rb, alpha_level=.05):
     return SSTtoRW, rbRWtoSST, rbSSTtoRW
 
 
-if remove_PDO:
-    lowpass = '2'
-    keys_ext=[f'PDO{lowpass}bw']
-    rg.list_import_ts = [('PDO', os.path.join(data_dir, 'df_PDOs.h5'))]
-else:
-    keys_ext = None
 
+df_PDOs = functions_pp.load_hdf5(filepath_df_PDOs)['df_data']
 alpha_level = .05
 dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
 dict_rb = dict_v.copy()
 freqs = [1, 5, 10, 15, 30, 60, 90]
 for f in freqs[:]:
-    rg.get_ts_prec(precur_aggr=f, keys_ext=keys_ext)
+    rg.get_ts_prec(precur_aggr=f)
+
+
     keys = [f'$RW^{west_east[0].capitalize()}$',
             f'$SST^{west_east[0].capitalize()}$']
     rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':keys[0],
                                     '0..0..N-Pac. SST_sp':keys[1]}, axis=1)
 
 
+    col = 'PDO0.5rm' ; q = 0.25
+    df_rm = df_PDOs[[col]][np.logical_and(df_PDOs.index.month == 5,
+                                          df_PDOs.index.day == 1)]
+    df_rm = df_rm.loc[core_pp.get_oneyr(df_rm, *list(range(1980,2021)))]
+    if condition == 'strong':
+        low = df_rm < df_rm.quantile(q)
+        high = df_rm > df_rm.quantile(1-q)
+        mask_anomalous = np.logical_or(low, high)
+        strong_yrs = mask_anomalous[mask_anomalous.values].index.year
+        subdates = core_pp.get_oneyr(rg.df_data.index.levels[1], *list(strong_yrs))
+    elif condition == 'weak':
+        # mild boundary forcing
+        larger_low = df_rm > df_rm.quantile(.5-q)
+        smaller_high = df_rm < df_rm.quantile(.5+q)
+        mask_mild = np.logical_and(larger_low, smaller_high)
+        weak_yrs = mask_mild[mask_mild.values].index.year
+        subdates = core_pp.get_oneyr(rg.df_data.index.levels[1], *list(weak_yrs))
 
 
-    if remove_PDO:
-        rg.df_data[keys], fig = wPCMCI.df_data_remove_z(rg.df_data.copy(), z=['PDO'],
-                                                         keys=keys,
-                                                         standardize=False,
-                                                         plot=True)
-        fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_tf{f}')
-        fig.savefig(fig_path+rg.figext, bbox_inches='tight')
+
+    rg.df_data = rg.df_data.loc[pd.IndexSlice[:, subdates], :]
+
 
     if f <= 5:
         tau_max = 5
@@ -374,7 +455,7 @@ for f in freqs[:]:
         tau_max = 1
 
     kwrgs_tigr = {'tau_min':0, 'tau_max':tau_max, 'max_conds_dim':10,
-                  'pc_alpha':0.05, 'max_combinations':10} # pc_alpha=None
+                  'pc_alpha':None, 'max_combinations':10}
     rg.PCMCI_df_data(keys=keys,
                       kwrgs_tigr=kwrgs_tigr)
 
@@ -413,7 +494,7 @@ for f in freqs[:]:
                                 'label_fontsize':15,
                                 'weights_squared':1.5,
                                 'network_lower_bound':.25},
-                        append_figpath=f'_tf{rg.precur_aggr}_{AR1SST}_rb{mlr}_taumax{tau_max}_rPDO{remove_PDO}')
+                        append_figpath=f'_tf{rg.precur_aggr}_{AR1SST}_rb{mlr}_taumax{tau_max}_{condition}')
     #%%
     rg.PCMCI_get_links(var=keys[1], alpha_level=alpha_level)
     rg.df_links.astype(int).sum(0, level=1)
@@ -437,6 +518,12 @@ for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]
         writer = csv.DictWriter(csvfile, list(dic.keys()))
         writer.writerows([dic])
 #%%
+import matplotlib as mpl
+mpl.rcParams.update(mpl.rcParamsDefault)
+#%%
+
+
+
 # s = 0
 # tig = rg.pcmci_dict[s]
 # functions_pp.get_oneyr(rg.dates_all) # dp per yr

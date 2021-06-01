@@ -16,12 +16,12 @@ from time import sleep
 
 user_dir = os.path.expanduser('~')
 # curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-curr_dir = user_dir + '/surfdrive/Scripts/RGCPD/publications/paper2'
+curr_dir = user_dir + '/surfdrive/Scripts/RGCPD/publications/NPJ_2021'
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-path_data = os.path.join(main_dir, 'publications/paper2/data/')
+path_data = os.path.join(main_dir, 'publications/NPJ_2021/data/')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -41,11 +41,11 @@ import func_models as fc_utils
 
 
 
-expers = np.array(['parcorr',
+expers = np.array(['parcorr', 'parcorrENSO',
                    'parcorrtime_target', 'parcorrtime_precur', 'parcorrtime_both', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 4
+i_default = 0
 
 def parseArguments():
     # Create argument parser
@@ -69,7 +69,7 @@ else:
 
 # path to RW timeseries
 west_east = 'east'
-mainpath_df = os.path.join(main_dir, 'publications/paper2/output/heatwave_circulation_v300_z500_SST/57db0USCA/')
+mainpath_df = os.path.join(main_dir, 'publications/NPJ_2021/output/heatwave_circulation_v300_z500_SST/57db0USCA/')
 # # t2m
 # TVpath = 'z500_145-325-20-62USCA.h5'
 # # mx2t
@@ -94,7 +94,7 @@ elif period == 'summer':
 
 
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{west_east}_parcorrmaps')
+path_out_main = os.path.join(main_dir, f'publications/NPJ_2021/output/{west_east}_parcorrmaps')
 if os.path.isdir(path_out_main) != True:
     os.makedirs(path_out_main)
 cluster_label = '' # 'z500'
@@ -104,6 +104,7 @@ name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 start_end_date = ('1-1', start_end_TVdate[-1])
 filepath_df_PDOs = os.path.join(path_data, 'df_PDOs_monthly.h5')
+filepath_df_ENSO = os.path.join(path_data, 'df_ENSOs_monthly.h5')
 
 #%% Get PDO and apply low-pass filter
 if 'parcorr' == exper:
@@ -113,7 +114,7 @@ if 'parcorr' == exper:
 
         SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_jan_dec_monthly_1.0deg.nc'
 
-        if 'df_PDOsplit' not in globals():
+        if 'df_ENSO' not in globals():
             df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
                                                        None)
             PDO_plot_kwrgs = {'units':'[-]', 'cbar_vert':-.1,
@@ -169,6 +170,49 @@ if 'parcorr' == exper:
 
     functions_pp.store_hdf_df({'df_data':df_PDOs},
                               file_path=filepath_df_PDOs)
+#%% Get ENSO 3.4 index
+if 'parcorrENSO' == exper:
+    try:
+        df_ENSOs = functions_pp.load_hdf5(filepath_df_ENSO)['df_data']
+    except:
+
+        SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_jan_dec_monthly_1.0deg.nc'
+
+        if 'df_PDOsplit' not in globals():
+            df_ENSO, ENSO_years, ENSO_cycle = climate_indices.ENSO_34(SST_pp_filepath)
+
+        df_ENSO = (df_ENSO - df_ENSO.mean()) / df_ENSO.std()
+
+        # Butter Lowpass
+        dates = df_ENSO.index
+        freqraw = (dates[1] - dates[0]).days
+        ls = ['solid', 'dotted', 'dashdot', 'dashed']
+        fig, ax = plt.subplots(1,1, figsize=(10,5))
+        list_dfENSO = [df_ENSO]
+        lowpass_yrs = [.25, .5, 1.0, 2.0]
+        for i, yr in enumerate(lowpass_yrs):
+            window = int(yr*functions_pp.get_oneyr(dates).size) # 2 year
+            if i ==0:
+                ax.plot_date(dates, df_ENSO.values, label=f'Raw ({freqraw} day means)',
+                          alpha=.3, linestyle='solid', marker=None)
+            df_ENSObw = pd.Series(filters.lowpass(df_ENSO, period=window).squeeze(),
+                                 index=dates, name=f'ENSO{yr}bw')
+            ax.plot_date(dates, df_ENSObw, label=f'Butterworth {yr}-year low-pass',
+                    color='red',linestyle=ls[i], linewidth=1, marker=None)
+            df_ENSOrm = df_ENSO.rolling(window=window, closed='right', min_periods=window).mean()
+            df_ENSOrm = df_ENSOrm.rename({'ENSO34':f'ENSO{yr}rm'}, axis=1)
+            ax.plot_date(dates, df_ENSOrm,
+                         label=f'Rolling mean {yr}-year low-pass (closed right)', color='green',linestyle=ls[i],
+                         linewidth=1, marker=None)
+            list_dfENSO.append(df_ENSObw) ; list_dfENSO.append(df_ENSOrm)
+            ax.legend()
+
+        filepath = os.path.join(path_out_main, 'Low-pass_filter_ENSO.pdf')
+        plt.savefig(filepath, bbox_inches='tight')
+        df_ENSOs = pd.concat(list_dfENSO,axis=1)
+
+    functions_pp.store_hdf_df({'df_data':df_ENSOs},
+                              file_path=filepath_df_ENSO)
 
 #%% Only SST (Parcorrtime and parcorr on PDO)
 
@@ -264,6 +308,8 @@ if 'parcorr' == exper:
 
 
 #%%
+
+
 if 'parcorr' == exper:
     # lags = np.array([1])
     # PDO1, df_lagmask1 = get_lagged_ts(rgPDO.df_data.copy() , lags[0], keys_ext)
@@ -271,7 +317,17 @@ if 'parcorr' == exper:
     # df_z.index = df_lagmask1.loc[0].loc[years][df_lagmask1.loc[0]['x_pred'].loc[years]].index
     kwrgs_func = {'filepath':filepath_df_PDOs,
                   'keys_ext':['PDO0.5rm'],
-                  'lag_z':1}
+                  'lag_z':[1]} # lag_z is defined wrt precursor dates
+    func = parcorr_z
+elif 'parcorrENSO' == exper:
+    # lags = np.array([1])
+    # PDO1, df_lagmask1 = get_lagged_ts(rgPDO.df_data.copy() , lags[0], keys_ext)
+    # years = functions_pp.get_oneyr(df_lagmask1.loc[0], *list(range(1980, 2020+1)))
+    # df_z.index = df_lagmask1.loc[0].loc[years][df_lagmask1.loc[0]['x_pred'].loc[years]].index
+    kwrgs_func = {'filepath':filepath_df_ENSO,
+                  'keys_ext':['ENSO34'],
+                  'lag_z':[1]} # lag_z is defined wrt precursor dates
+    func = parcorr_z
 elif exper == 'corr':
     func = corr_map
     kwrgs_func = {} ;
@@ -291,11 +347,13 @@ list_for_MI   = [BivariateMI(name='sst', func=func,
                             calc_ts='pattern cov', selbox=(130,260,-10,60),
                             lags=lags)]
 
+list_of_name_path = [(name_or_cluster_label, TVpath),
+                       ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_monthly_1.0deg.nc'))]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
             start_end_TVdate=('05-01', '08-01'),
-            start_end_date=start_end_date,
+            start_end_date=None,
             start_end_year=(1980, 2020),
             tfreq=2,
             path_outmain=path_out_main,
@@ -336,6 +394,20 @@ if 'parcorr' == exper and west_east == 'east':
     append_str='parcorr_{}_{}_'.format(tscol, period) + ''.join(kw) + val
     fontsize = 14
 
+if 'parcorrENSO' == exper and west_east == 'east':
+    z_ts = '$\overline{ENSO_{t-1}}$'
+    title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+    # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+    z_ts = '$\overline{ENSO_{t-2}}$'
+    # title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+    title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+    subtitles = np.array([[title0],[title1]])
+    tscol = ''.join(precur.kwrgs_func['z'].columns)
+    kw = [k for k in precur.kwrgs_func.keys() if k != 'z']
+    val = ''.join([str(kwrgs_func[k]) for k in kw])
+    append_str='parcorrENSO_{}_{}_'.format(tscol, period) + ''.join(kw) + val
+    fontsize = 14
+
 
 elif exper == 'corr' and west_east == 'east':
     title0 = '\ \n\ ' + r'$corr(SST_{t},\ $'+'$RW^E_t\ )$'
@@ -354,10 +426,11 @@ elif 'parcorrtime' in exper and west_east == 'east':
     elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' not in list(kwrgs_func.keys()):
         # regress out past target variable
         z_ts = ', '.join([f'$RW^E_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
-        # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
-        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
         z_ts = ', '.join([f'$RW^E_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
-        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+        # title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
         subtitles = np.array([[title0],[title1]])
     elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' in list(kwrgs_func.keys()):
         # regress out past target variable

@@ -42,16 +42,16 @@ def init_pcmci(df_data, significance='analytic', mask_type='y',
     for s in range(splits.size):
 
         TrainIsTrue = df_data['TrainIsTrue'].loc[s]
-        df_data_s = df_data.loc[s][TrainIsTrue.values]
+        df_data_s = df_data.loc[s][TrainIsTrue==True]
         df_data_s = df_data_s.dropna(axis=1, how='all')
         if any(df_data_s.isna().values.flatten()):
             if verbosity > 0:
                 print('Warnning: nans detected')
 #        print(np.unique(df_data_s.isna().values))
-        var_names = list(df_data_s.columns[(df_data_s.dtypes != bool)])
+        var_names = [k for k in df_data_s.columns if k not in ['TrainIsTrue', 'RV_mask']]
         df_data_s = df_data_s.loc[:,var_names]
         data = df_data_s.values
-        data_mask = ~RV_mask.loc[s][TrainIsTrue.values].values
+        data_mask = ~RV_mask.loc[s][TrainIsTrue==True].values
         # indices with mask == False are used (with mask_type 'y')
         data_mask = np.repeat(data_mask, data.shape[1]).reshape(data.shape)
 
@@ -548,8 +548,9 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
             val_plot = val_matrix_s
     return links_plot, val_plot, weights, var_names
 
-def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
-                     plot: bool=True):
+def df_data_remove_z(df_data, z_keys=[str, list], lag_z : [int, list]=[0],
+                     keys=None, standardize: bool=True, plot: bool=True):
+
     '''
 
 
@@ -557,7 +558,7 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
     ----------
     df_data : pd.DataFrame
         DataFrame containing timeseries.
-    z : str, optional
+    z_keys : str, optional
         variable z, of which influence will be remove of columns in keys.
         The default is str.
 
@@ -568,13 +569,34 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
     '''
     method = ParCorr()
 
-    if type(z) is str:
-        z = [z]
+    if type(z_keys) is str:
+        z_keys = [z_keys]
     if keys is None:
-        discard = ['TrainIsTrue', 'RV_mask'] + z
+        discard = ['TrainIsTrue', 'RV_mask'] + z_keys
         keys = [k for k in df_data.columns if k not in discard]
+    if hasattr(df_data.index, 'levels') == False: # create fake multi-index for standard data format
+        df_data.index = pd.MultiIndex.from_product([[0], df_data.index])
 
-    npstore = np.zeros(shape=(len(keys),df_data.index.levels[0].size, df_data.index.levels[1].size))
+    if type(lag_z) is int:
+        lag_z = [lag_z]
+
+    max_lag = max(lag_z);
+    dates = df_data.index.levels[1]
+    df_z = df_data[z_keys]
+    zlist = []
+    if 0 in lag_z:
+        zlist = [df_z.loc[pd.IndexSlice[:, dates[max_lag:]],:]]
+    [zlist.append(df_z.loc[pd.IndexSlice[:, dates[max_lag-l:-l]],:]) for l in lag_z if l != 0]
+    # update df_data to account for lags (first dates have no lag):
+    df_data = df_data.loc[pd.IndexSlice[:, dates[max_lag:]],:]
+    # align index dates for easy merging
+    for d_ in zlist:
+        d_.index = df_data.index
+    df_z = pd.concat(zlist, axis=1).loc[pd.IndexSlice[:, dates[max_lag:]],:]
+    # update columns with lag indication
+    df_z.columns = [f'{c[0]}_lag{c[1]}' for c in np.array(np.meshgrid(z_keys, lag_z)).T.reshape(-1,2)]
+
+    npstore = np.zeros(shape=(len(keys),df_data.index.levels[0].size, dates[max_lag:].size))
     for i, orig in enumerate(keys):
         orig = keys[i]
 
@@ -583,7 +605,7 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
                                                                   axis=1),
                                      left_index=True, right_index=True).copy()
         # Append Z timeseries
-        dfxyz = dfxy.merge(df_data[z], left_index=True, right_index=True)
+        dfxyz = dfxy.merge(df_z, left_index=True, right_index=True)
 
         for s in df_data.index.levels[0]:
             dfxyz_s = dfxyz.loc[s].copy()
@@ -591,7 +613,8 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
                 npstore[i,s,:] = dfxyz_s[orig].values # fill in all nans
             else:
                 npstore[i,s,:] = method._get_single_residuals(np.moveaxis(dfxyz_s.values, 0,1), 0,
-                                                              standardize=standardize)
+                                                              standardize=standardize,
+                                                              return_means=True)[0]
 
     df_new = pd.DataFrame(np.moveaxis(npstore, 0, 2).reshape(-1,len(keys)),
                           index=df_data.index, columns=keys)
@@ -602,7 +625,8 @@ def df_data_remove_z(df_data, z=[str, list], keys=None, standardize: bool=True,
         for i, k in enumerate(keys):
             df_data[k].loc[0].plot(ax=axes[i], label=f'{k} original',
                                       legend=False, color='green', lw=1, alpha=.8)
-            df_new[k].loc[0].plot(ax=axes[i], label=f'{z} regressed out',
+            cols = ', '.join(c.replace('_', ' ') for c in df_z.columns)
+            df_new[k].loc[0].plot(ax=axes[i], label=cols+' regressed out',
                                      legend=False, color='blue', lw=1)
             axes[i].legend()
         out = (df_new, fig)
@@ -622,7 +646,7 @@ def df_data_Parcorr(df_data, z_keys=[str, list], keys: list=None, target: str=No
         MultiIndex Dataframe (with index levels (splits, time) and columns
         indicated precursors. DataFrame should contain TrainIsTrue and RV_mask
         columns.
-    z : list or str
+    z_keys : list or str
         key(s) you want to iteratively condition on. The default is [str, list].
     keys : list, optional
         keys of which you want to iteratively test link with target.

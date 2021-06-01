@@ -208,7 +208,7 @@ class BivariateMI:
                 if type(lag) is np.int16 and self.lag_as_gap==False:
                     # dates_lag = functions_pp.func_dates_min_lag(dates_RV, self._tfreq*lag)[1]
                     m = apply_shift_lag(self.df_splits.loc[s], lag)
-                    dates_lag = m[np.logical_and(m['TrainIsTrue'], m['x_fit'])].index
+                    dates_lag = m[np.logical_and(m['TrainIsTrue']==True, m['x_fit'])].index
                     corr_val, pval = self.func(precur_train.sel(time=dates_lag),
                                                RV_ts.values.squeeze(),
                                                **self.kwrgs_func)
@@ -261,9 +261,10 @@ class BivariateMI:
             # =============================================================================
             # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']
             # =============================================================================
-            RV_train_mask = np.logical_and(RV_mask, df_splits.loc[s]['TrainIsTrue'])
+            TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values==True
+            RV_train_mask = np.logical_and(RV_mask, TrainIsTrue)
             RV_ts = RV.fullts[RV_train_mask.values]
-            TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values
+
             if self.lag_as_gap: # no clue why selecting all datapoints, changed 26-01-2021
                 train_dates = df_splits.loc[s]['TrainIsTrue'][TrainIsTrue].index
                 precur_train = precur_arr.sel(time=train_dates)
@@ -316,7 +317,7 @@ class BivariateMI:
         None.
 
         '''
-        # precur = rg.list_for_MI[0] ; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
+        # self = rg.list_for_MI[0] ; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
         name = self.name
         filepath = self.filepath
 
@@ -345,7 +346,7 @@ class BivariateMI:
         if type(self.lags[0]) == np.ndarray:
             tmp = functions_pp.time_mean_periods
             self.precur_arr = tmp(self.precur_arr, self.lags,
-                                    kwrgs_load['start_end_year'])
+                                  kwrgs_load['start_end_year'])
         return
 
     def load_and_aggregate_ts(self, df_splits: pd.DataFrame=None):
@@ -633,7 +634,10 @@ def parcorr_z(field: xr.DataArray, ts: np.ndarray, z: pd.DataFrame, lag_z: int=0
     pvals : np.ndarray
 
     '''
+    if type(lag_z) is int:
+        lag_z = [lag_z]
 
+    max_lag = max(lag_z)
     # if more then one year is filled with NaNs -> no corr value calculated.
     dates = pd.to_datetime(field.time.values)
     field, ts = check_NaNs(field, ts)
@@ -646,16 +650,25 @@ def parcorr_z(field: xr.DataArray, ts: np.ndarray, z: pd.DataFrame, lag_z: int=0
     # ts = np.expand_dims(ts[:], axis=1)
     # adjust to shape (samples, dimension) and remove first datapoints if
     # lag_z != 0.
-    y = np.expand_dims(ts[lag_z:], axis=1)
+    y = np.expand_dims(ts[max_lag:], axis=1)
     if len(z.values.squeeze().shape)==1:
         z = np.expand_dims(z.loc[dates].values.squeeze(), axis=1)
     else:
-        z = z.loc[dates].values.squeeze()
-    if lag_z >= 1:
-        z = z[:-lag_z] # last values are 'removed'
+        z = z.loc[dates].values.squeeze() # lag_z shifted wrt precursor dates
+
+    list_z = []
+    if 0 in lag_z:
+        list_z = [z[max_lag:]]
+
+    if max(lag_z) > 0:
+        [list_z.append(z[max_lag-l:-l]) for l in lag_z if l != 0]
+        z = np.concatenate(list_z, axis=1)
+
+    # if lag_z >= 1:
+        # z = z[:-lag_z] # last values are 'removed'
     for i in nonans_gc:
         cond_ind_test = ParCorr()
-        field_i = np.expand_dims(field[lag_z:,i], axis=1)
+        field_i = np.expand_dims(field[max_lag:,i], axis=1)
         a, b = cond_ind_test.run_test_raw(field_i, y, z)
         corr_vals[i] = a
         pvals[i] = b

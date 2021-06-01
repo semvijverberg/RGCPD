@@ -18,15 +18,13 @@ else:
     mpl.rc('text', usetex=True)
     mpl.rcParams['text.latex.preamble'] = r'\boldmath'
 import numpy as np
-from time import time
 import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
-from matplotlib.ticker import FuncFormatter
-import numpy as np
-import matplotlib
+# from matplotlib.ticker import FuncFormatter
+# import matplotlib
 # from sklearn import metrics
 import pandas as pd
-import xarray as xr
-import csv
+
+
 # import sklearn.linear_model as scikitlinear
 import argparse
 
@@ -37,7 +35,7 @@ RGCPD_func = os.path.join(main_dir, 'RGCPD')
 assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-data_dir = os.path.join(main_dir,'publications/paper2/data')
+data_dir = os.path.join(main_dir,'publications/NPJ_2021/data')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -51,9 +49,8 @@ from RGCPD import RGCPD
 from RGCPD import BivariateMI
 import class_BivariateMI
 import func_models as fc_utils
-import functions_pp; import df_ana
-import plot_maps; import core_pp
-import wrapper_PCMCI as wPCMCI
+import functions_pp;
+import core_pp
 
 
 # targets = ['temp', 'RW']
@@ -66,7 +63,7 @@ periods = ['JA_center']#, 'JA_shiftright', 'JA_shiftleft', 'JJA_center']
 seeds = np.array([1,2,3,4,5])
 combinations = np.array(np.meshgrid(targets, periods, seeds)).T.reshape(-1,3)
 
-i_default = 4 #8
+i_default = 0 #8
 
 def parseArguments():
     # Create argument parser
@@ -162,7 +159,7 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             calc_ts=calc_ts, selbox=(130,260,-10,60),
                             lags=lags)]
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}{append_main}/')
+path_out_main = os.path.join(main_dir, f'publications/NPJ_2021/output/{target}{append_main}/')
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,

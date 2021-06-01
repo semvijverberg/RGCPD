@@ -38,7 +38,7 @@ def check_dates_RV(df_splits, traintestgroups, start_end_TVdate):
     assert ed >= endTVdate, 'Selected date not in RV window'
     print(startTVdate, endTVdate)
 
-def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='random_5',
+def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
                                   start_end_TVdate=('07-01', '08-31'),
                                   dailytomonths=False,
                                   TVdates_aggr=False,
@@ -48,7 +48,7 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='random_5',
     #%%
     # define input: list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
     # start_end_yr_target=None; start_end_yr_precur = None; lags = np.array([1]); TVdates_aggr=False; dailytomonths=False;
-    # alpha=0.05; tfreq=10; method='random_5';start_end_TVdate=('07-01', '08-31');
+    # alpha=0.05; tfreq=10; method='leave_10';start_end_TVdate=('07-01', '08-31');
 
     curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
     main_dir = sep.join(curr_dir.split(sep)[:-1])
@@ -78,11 +78,11 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='random_5',
 
     # ### Post-processing Target Variable
     rg.pp_TV(TVdates_aggr=TVdates_aggr,
-             kwrgs_core_pp_time={'dailytomonths':dailytomonths,
-                                 'start_end_year':start_end_yr_target})
+              kwrgs_core_pp_time={'dailytomonths':dailytomonths,
+                                  'start_end_year':start_end_yr_target})
 
 
-    rg.traintest(method=method)
+    rg.traintest(method=method, gap_prior=1)
 
     # check
     if TVdates_aggr==False:
@@ -118,8 +118,8 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='random_5',
           'https://github.com/jakobrunge/tigramite/')
     #%%
     return rg
-test = test_subseas_US_t2m_tigramite
 
+test = test_subseas_US_t2m_tigramite
 
 
 #%%
@@ -175,6 +175,8 @@ rg = test(alpha=.2,
           start_end_TVdate=('06-01', '08-31'),
           lags=np.array([['10-01', '05-31']]),
           start_end_yr_target=(1980,2018))
+
+
 
 #%%
 
@@ -269,7 +271,7 @@ elif prediction == 'continuous':
               'MAE {:.2f}\n'.format(df_train_m.mean(0).loc[lag]['MAE']),
               'corrcoef {:.2f}'.format(df_train_m.mean(0).loc[lag]['corrcoef']))
 
-
+#%%
 # # Forecasting pipeline 2
 # Used for paper https://doi.org/10.1175/MWR-D-19-0409.1
 #
@@ -282,7 +284,7 @@ except ImportError as e:
     print('Not able to load in Tigramite modules, to enable causal inference '
           'features, install Tigramite from '
           'https://github.com/jakobrunge/tigramite/')
-	# remove created output folders
+ 	# remove created output folders
     shutil.rmtree(rg.path_outsub1)
     shutil.rmtree(os.path.join(main_dir, 'data', 'preprocessed'))
     raise(e)
@@ -291,6 +293,24 @@ from class_fc import fcev
 import valid_plots as dfplots
 
 if __name__ == '__main__':
+
+    #%% test parallizing pipeline
+
+    try:
+        from joblib import Parallel, delayed
+    except:
+        print('Not able to load in joblib module or test parallization failed')
+
+    tfreq_list = [10, 20]
+    futures = []
+    for tfreq in tfreq_list:
+         # pipeline(lags, periodnames)
+         futures.append(delayed(test)(0.05, tfreq))
+
+    with Parallel(n_jobs=2, backend="loky", timeout=25) as loky:
+        out = loky(futures)
+
+
 
     fc = fcev(path_data=path_df_data, n_cpu=1, causal=True)
     fc.get_TV(kwrgs_events=None)
