@@ -68,7 +68,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
 
-target_datasets = 'USDA_Soy_always_data'
+target_datasets = 'USDA_Soy_clusters__3'
 seeds = seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['ranstrat_20'] # ['ranstrat_20']
@@ -143,6 +143,7 @@ elif target_dataset == 'USDA_Soy_csv_midwest':
     TVpath = read_csv_Raed(path)
 elif target_dataset.split('__')[0] == 'USDA_Soy_clusters':
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc4_dendo_d0003.nc')
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc4_dendo_ee0e9.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'USDA_Maize':
     # USDA dataset 1950 - 2019
@@ -150,8 +151,9 @@ elif target_dataset == 'USDA_Maize':
     name_ds='Maize_Yield' ; cluster_label = None
 elif target_dataset == 'Aggregate_States':
     path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
-    TVpath = read_csv_State(path, State=['KENTUCKY', 'TENNESSEE', 'MISSOURI'], col='obs_yield').mean(1)
-    TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=['KENTUCKYTENNESSEEMISSOURI'])
+    States = ['KENTUCKY', 'TENNESSEE', 'MISSOURI', 'ILLINOIS']
+    TVpath = read_csv_State(path, State=States, col='obs_yield').mean(1)
+    TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=['KENTUCKYTENNESSEEMISSOURIILLINOIS'])
     name_ds='Soy_Yield' ; cluster_label = ''
 else:
     path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
