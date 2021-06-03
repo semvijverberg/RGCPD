@@ -1088,7 +1088,7 @@ class RGCPD:
         if keys is None:
             keys = [k for k in df_data.columns if k not in ['TrainIsTrue', 'RV_mask']]
             # remove col with same name as target_ts
-            keys = [k for k in keys if k != keys.columns[0]]
+            keys = [k for k in keys if k != self.TV.name]
 
 
         models_lags = dict()
