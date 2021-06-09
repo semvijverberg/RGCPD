@@ -39,7 +39,7 @@ import clustering_spatial as cl
 #%% Soy bean GDHY
 apply_mask_nonans = True
 detrend_via_spatial_mean = False
-missing_years = 0
+missing_years = 35
 
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
 selbox = [253,290,28,50] ; years = list(range(1950, 2020))
@@ -50,10 +50,14 @@ ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
 ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
 
 ano = ds_raw - ds_raw.mean(dim='time')
+ano = core_pp.detrend_xarray_ds_2D(ano, detrend={'method':'loess'}, anomaly=False,
+                             kwrgs_NaN_handling={'missing_data_ts_to_nan':missing_years / 70})
+#%%
+
+
 np.isnan(ano).sum(dim='time').plot()
 
-core_pp.detrend_lin_longterm(ano)
-_, trend = core_pp.detrend(ano, method='loess', return_trend=True)
+ano, trend = core_pp.detrend(ano, method='loess', return_trend=True)
 #%%
 if apply_mask_nonans:
     allways_data_mask = np.isnan(ano).sum(dim='time') <= missing_years
@@ -65,10 +69,10 @@ if apply_mask_nonans:
 # plot_maps.plot_corr_maps(ano, row_dim='time', cbar_vert=.09)
 if detrend_via_spatial_mean :
     detrend_spat_mean = ano.mean(dim=('latitude', 'longitude'))
-    trend = detrend_spat_mean - core_pp.detrend(detrend_spat_mean)
+    trend = detrend_spat_mean - core_pp.detrend(detrend_spat_mean, method='loess')
     ano = ano - trend
 else:
-    ano = core_pp.detrend_lin_longterm(ano)
+    ano = core_pp.detrend(ano, method='loess')
 
 var_filename = raw_filename[:-3] + '_pp.nc'
 ano.to_netcdf(var_filename)
@@ -81,7 +85,7 @@ ano.to_netcdf(var_filename)
 # =============================================================================
 from time import time
 t0 = time()
-xrclustered, results = cl.sklearn_clustering(var_filename, mask=np.mean(~np.isnan(ano), axis=0) == 1,
+xrclustered, results = cl.sklearn_clustering(var_filename, mask=~np.isnan(ano).all(axis=0),
                                                kwrgs_load={'tfreq':None,
                                                            'seldates':None,
                                                            'selbox':None},
@@ -105,7 +109,7 @@ print(f'{round(time()-t0, 2)}')
 # =============================================================================
 from time import time
 t0 = time()
-xrclustered, results = cl.sklearn_clustering(var_filename, mask=np.mean(~np.isnan(ano), axis=0) == 1,
+xrclustered, results = cl.sklearn_clustering(var_filename, mask=~np.isnan(ano).all(axis=0),
                                                kwrgs_load={'tfreq':None,
                                                            'seldates':None,
                                                            'selbox':None},

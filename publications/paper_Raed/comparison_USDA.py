@@ -131,6 +131,7 @@ rg_always.df_fullts.plot(ax=ax, c='black')
 #%% Test different detrending for State timeseries
 import core_pp
 df_States = read_csv_State(filepath_Raed_state)
+df_States = core_pp.NaN_handling(df_States, method='spline')
 ds, lintrend = core_pp.detrend_lin_longterm(df_States.to_xarray().to_array().T, return_trend=True)
 df_States_lin = ds.to_dataframe('Yield').pivot_table(index='time',
                                                       columns='variable')
@@ -142,8 +143,10 @@ df_lintrend.columns = df_lintrend.columns.droplevel(0)
 cols = df_States_lin.corr()[['MINNESOTA']].sort_values(by='MINNESOTA', ascending=False).index
 
 df_States = read_csv_State(filepath_Raed_state)
-df_States_linnew, df_lin_new = core_pp.detrend(df_States.copy(), method='loess',
-                                               return_trend=True, kwrgs_detrend={'order':2})
+df_States = core_pp.NaN_handling(df_States, 'spline')
+df_States_linnew, df_lin_new = core_pp.detrend_wrapper(df_States.copy(),
+                                               kwrgs_detrend={'method':'loess', 'order':2},
+                                               return_trend=True)
 # df_States_loess, loess_fit = core_pp.detrend_loess(df_States.copy(), return_trend=True)
 # df_loess_fit = pd.DataFrame(loess_fit, columns=df_States.columns, index=df_States.index)
 # df_States_lin = (df_States_lin - df_States_lin.mean(0)) / df_States_lin.std(0)
