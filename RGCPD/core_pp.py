@@ -373,142 +373,6 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
     #%%
     return
 
-def reconstruct_fft_2D(ds, coefficients:list=None,
-                    list_of_harm: list=[1, 1/2, 1/3],
-                    add_constant: bool=True):
-
-    dates = pd.to_datetime(ds.time.values)
-    N = dates.size
-    oneyr = get_oneyr(dates)
-    time_axis = np.linspace(0, N-1, N)
-    A_k = np.fft.fft(ds.values, axis=0) # positive & negative amplitude
-    freqs_belongingto_A_k = np.fft.fftfreq(ds.shape[0])
-    periods = np.zeros_like(freqs_belongingto_A_k)
-    periods[1:] = 1/(freqs_belongingto_A_k[1:]*oneyr.size)
-    def get_harmonics(periods, list_of_harm=list):
-        harmonics = []
-        for h in list_of_harm:
-            harmonics.append(np.argmin((abs(periods - h))))
-        harmonics = np.array(harmonics) - 1 # subtract 1 because loop below is adding 1
-        return harmonics
-
-    if coefficients is None:
-        if list_of_harm is [1, 1/2, 1/3]:
-            print('using default first 3 annual harmonics, expecting cycles of 365 days')
-        coefficients = get_harmonics(periods, list_of_harm=list_of_harm)
-    elif coefficients is not None:
-        coefficients = coefficients
-
-    reconstructed_signal = np.zeros_like(ds.values, dtype='c16')
-    reconstructed_signal += A_k[0].real * np.zeros_like(ds.values, dtype='c16')
-    # Adding the dc term explicitly makes the looping easier in the next step.
-
-
-    for c, k in enumerate(coefficients):
-        progress = int((100*(c+1)/coefficients.size))
-        print(f"\rProcessing {progress}%", end="")
-        k += 1  # Bump by one since we already took care of the dc term.
-        if k == N-k:
-            reconstructed_signal += A_k[k] * np.exp(
-                1.0j*2 * np.pi * (k) * time_axis / N)[:,None,None] # add fake space dims
-        # This catches the case where N is even and ensures we don't double-
-        # count the frequency k=N/2.
-
-        else:
-            reconstructed_signal += A_k[k] * np.exp(
-                1.0j*2 * np.pi * (k) * time_axis / N)[:,None,None]
-            reconstructed_signal += A_k[N-k] * np.exp(
-                1.0j*2 * np.pi * (N-k) * time_axis / N)[:,None,None]
-        # In this case we're just adding a frequency component and it's
-        # "partner" at minus the frequency
-
-    reconstructed_signal = (reconstructed_signal / N)
-    if add_constant:
-        reconstructed_signal.real += ds.values.mean(0)
-    return reconstructed_signal.real
-
-def deseasonalizefft_detrend_2D(ds, detrend: bool=True, anomaly: bool=True,
-                                n_harmonics=3):
-    '''
-    Remove long-term trend and/or remove seasonal cycle.
-
-    Seasonal cycle is removed by the subtracting the sum of the first 3 annual
-    harmonics (freq = 1/365, .5/365, .33/365).
-
-    Parameters
-    ----------
-    ds : TYPE
-        xr.DataArray() of dims (time, latitude, longitude).
-    detrend : bool, optional
-        Detrend (long-term trend along all datapoints). The default is True.
-    anomaly : bool, optional
-        Remove Seasonal cycle using FFT. The default is True.
-    Returns
-    -------
-    xr.DataArray()
-
-    '''
-    import df_ana
-
-    dates = pd.to_datetime(ds.time.values)
-    if anomaly:
-        list_of_harm= [1/h for h in range(1,n_harmonics+1)]
-        reconstructed_signal = reconstruct_fft_2D(ds, list_of_harm=list_of_harm,
-                                                 add_constant=False)
-
-    ds = ds - ds.mean(dim='time')
-    # plot gridpoints for visual check
-
-    options = np.array(np.meshgrid(ds.latitude[1:-1], ds.longitude[1:-1])).T.reshape(-1,2)
-    la1, lo1 = options[int(options.shape[0]/3)]
-    la2, lo2 = options[int(2*options.shape[0]/3)]
-    tuples = [(la1, lo1), (la1+1, lo1), (la1, lo1+1),
-              (la2, lo2), (la2+1, lo2), (la2, lo2+1)]
-    fig, ax = plt.subplots(3,2, figsize=(16,8))
-    ax = ax.flatten() ;
-    for i, lalo in enumerate(tuples):
-        lalo = (np.where(ds.latitude==lalo[0])[0][0], np.where(ds.longitude==lalo[1])[0][0])
-        ts = ds[:,lalo[0],lalo[1]]
-        while bool(np.isnan(ts).all()):
-            lalo[1] += 5
-            ts = ds[:,lalo[0],lalo[1]]
-        lat = int(ds.latitude[lalo[0]])
-        lon = int(ds.longitude[lalo[1]])
-        print(f"\rVisual test latlon {lat} {lon}", end="")
-
-
-        ax[i].set_title(f'latlon coord {lat} {lon}')
-        for yr in np.unique(dates.year):
-            singleyeardates = get_oneyr(dates, yr)
-            ax[i].plot(ts.sel(time=singleyeardates), alpha=.1, color='purple')
-        if anomaly:
-            ax[i].plot(reconstructed_signal[:singleyeardates.size, lalo[0],lalo[1]].real,
-                       label=f'FFT with {n_harmonics}h')
-        ax[i].legend()
-    plt.subplots_adjust(hspace=.3)
-    ax[-1].text(.5,1.2, 'Visual analysis:',
-            transform=ax[0].transAxes,
-            ha='center', va='bottom')
-    if anomaly:
-        ds = ds - reconstructed_signal
-
-    fig, ax = plt.subplots(1, figsize=(5,3))
-    ds[:,lalo[0],lalo[1]].groupby('time.month').mean(dim='time').plot(ax=ax)
-    ax.set_title(f'climatological monhtly means anomalies latlon coord {lat} {lon}')
-    plt.figure(figsize=(4,2.5))
-    summer = ds.sel(time=get_subdates(dates, start_end_date=('06-01', '08-31')))
-    summer.name = f'std {summer.name}'
-    ax = (summer.mean(dim='time') / summer.std(dim='time')).plot()
-
-    try:
-        ts = ds[:,la1,lo1]
-        df_ana.plot_spectrum(pd.Series(ts.values, index=dates), year_max=.1)
-    except:
-        pass
-    if detrend:
-        ds = detrend_lin_longterm(ds)
-    return ds
-
 def detrend_lin_longterm(ds, plot=True, return_trend=False,
                          NaN_interpolate='spline', spline_order=5):
     offset_clim = np.mean(ds, 0)
@@ -580,8 +444,111 @@ def _check_trend_plot(ds, detrended):
     else:
         pass
 
+def to_np(data):
+    if type(data) is pd.DataFrame:
+        kwrgs = {'columns':data.columns, 'index':data.index};
+        input_dtype = pd.DataFrame
+    elif type(data) is xr.DataArray:
+        kwrgs= {'coords':data.coords, 'dims':data.dims, 'attrs':data.attrs,
+                'name':data.name}
+        input_dtype = xr.DataArray
+    if type(data) is not np.ndarray:
+        data = data.values # attempt to make np.ndarray (if xr.DA of pd.DF)
+    else:
+        input_dtype = np.ndarray ; kwrgs={}
+    return data, kwrgs, input_dtype
+
+def back_to_input_dtype(data, kwrgs, input_dtype):
+    if input_dtype is pd.DataFrame:
+        data = pd.DataFrame(data, **kwrgs)
+    elif input_dtype is xr.DataArray:
+        data = xr.DataArray(data, **kwrgs)
+    return data
+
+def NaN_handling(data, method: str='quadratic', NaN_limit: float=None,
+                 missing_data_ts_to_nan: Union[bool, float, int]=False):
+    '''
+    Interpolate or mask NaNs in data
+
+    Parameters
+    ----------
+    data : xr.DataArray, pd.DataFrame or np.ndarray
+        input data.
+    method : str, optional
+        method used to interpolate NaNs, build upon
+        pd.DataFrame().interpolate(method=method).
+
+        Interpolation technique to use:
+        ‘linear’: Ignore the index and treat the values as equally spaced. This is the only method supported on MultiIndexes.
+        ‘time’: Works on daily and higher resolution data to interpolate given length of interval.
+        ‘index’, ‘values’: use the actual numerical values of the index.
+        ‘pad’: Fill in NaNs using existing values.
+        ‘nearest’, ‘zero’, ‘slinear’, ‘quadratic’, ‘cubic’, ‘spline’, ‘barycentric’, ‘polynomial’: Passed to scipy.interpolate.interp1d. These methods use the numerical values of the index. Both ‘polynomial’ and ‘spline’ require that you also specify an order (int), e.g. df.interpolate(method='polynomial', order=5).
+        ‘krogh’, ‘piecewise_polynomial’, ‘spline’, ‘pchip’, ‘akima’, ‘cubicspline’: Wrappers around the SciPy interpolation methods of similar names. See Notes.
+        If str is None of the valid option, will raise an ValueError.
+        The default is 'quadratic'.
+    NaN_limit : float, optional
+        Limit the amount of consecutive NaNs. The default is None (no limit)
+        The default is False.
+    missing_data_ts_to_nan : bool, float, int
+        Will mask complete timeseries to np.nan if more then a percentage (if float)
+        or more then integer (if int) of NaNs are present in timeseries.
+
+    Raises
+    ------
+    ValueError
+        If NaNs are not allowed (method=False).
+
+    Returns
+    -------
+    data : xr.DataArray, pd.DataFrame or np.ndarray
+        data with interpolated / masked NaNs.
+
+    references:
+        - https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.interpolate.html
+
+    '''
+
+    data, kwrgs_dtype, input_dtype = to_np(data)
+
+    orig_shape = data.shape
+    data = data.reshape(orig_shape[0], -1)
+
+    if type(missing_data_ts_to_nan) is float: # not allowed more then % of NaNs
+        NaN_mask = np.isnan(data).sum(0) >= missing_data_ts_to_nan * orig_shape[0]
+    elif type(missing_data_ts_to_nan) is int: # not allowed more then int NaNs
+        NaN_mask = np.isnan(data).sum(0) >= missing_data_ts_to_nan
+    else:
+        NaN_mask = np.isnan(data).all(axis=0) # Only mask NaNs every timestep
+    data[:,NaN_mask] = np.nan
+
+    # interpolating NaNs
+    t, o = np.where(np.isnan(data[:,~NaN_mask])) # NaNs some timesteps
+    if t.size > 0:
+        n_sparse_nans = t.size
+        print(f'Warning: {n_sparse_nans} NaNs found at {np.unique(o).size} location(s)')
+        if method is not False:
+            print(f'Sparse NaNs will be interpolated using {method} spline (pandas)\n')
+            if NaN_limit is not None:
+                limit = int(orig_shape[0]*NaN_limit)
+            else:
+                limit=None
+            try:
+                data[:,~NaN_mask] = pd.DataFrame(data[:,~NaN_mask]).interpolate(method=method, limit=limit).values
+            except:
+                print(f'{method} spline gave error, reverting to linear interpolation')
+                data[:,~NaN_mask] = pd.DataFrame(data[:,~NaN_mask]).interpolate(method='linear', limit=limit).values
+        else:
+            raise ValueError('NaNs not allowed')
+
+    data = data.reshape(orig_shape)
+
+    data = back_to_input_dtype(data, kwrgs_dtype, input_dtype)
+    return data
+
+
 def detrend(data, method='linear', kwrgs_detrend: dict={}, return_trend: bool=False,
-            NaN_interpolate: str='quadratic', NaN_limit: float=None, plot: bool=True):
+            plot: bool=True):
     '''
     Wrapper supporting linear and loess detrending on xr.DataArray, pd.DataFrame
     & np.ndarray. Note, linear detrending is way faster then loess detrending.
@@ -653,22 +620,25 @@ def detrend(data, method='linear', kwrgs_detrend: dict={}, return_trend: bool=Fa
         trend_ts = np.zeros( (data.shape), dtype=np.float16)
         trend_ts[:,always_NaN_mask] = np.nan
 
-    # dealing with NaNs
-    t, o = np.where(np.isnan(data[:,~always_NaN_mask])) # NaNs some timesteps
-    if t.size > 0:
-        n_sparse_nans = t.size
-        print(f'Warning: {n_sparse_nans} NaNs found at {np.unique(o).size} location(s)')
-        if NaN_interpolate is not False:
-            print(f'Sparse NaNs will be interpolated using the pandas {NaN_interpolate}\n')
-            if NaN_limit is not None:
-                limit = int(orig_shape[0]*NaN_limit)
-            else:
-                limit=None
-            data[:,~always_NaN_mask] = pd.DataFrame(data[:,~always_NaN_mask]).interpolate(method=NaN_interpolate, limit=limit).values
+    # # dealing with NaNs
+    # t, o = np.where(np.isnan(data[:,~always_NaN_mask])) # NaNs some timesteps
+    # if t.size > 0:
+    #     n_sparse_nans = t.size
+    #     print(f'Warning: {n_sparse_nans} NaNs found at {np.unique(o).size} location(s)')
+    #     if NaN_interpolate is not False:
+    #         print(f'Sparse NaNs will be interpolated using the pandas {NaN_interpolate}\n')
+    #         if NaN_limit is not None:
+    #             limit = int(orig_shape[0]*NaN_limit)
+    #         else:
+    #             limit=None
+    #         try:
+    #             data[:,~always_NaN_mask] = pd.DataFrame(data[:,~always_NaN_mask]).interpolate(method=NaN_interpolate, limit=limit).values
+    #         except:
+    #             print(f'{NaN_interpolate} spline gave error, reverting to linear interpolation')
+    #             data[:,~always_NaN_mask] = pd.DataFrame(data[:,~always_NaN_mask]).interpolate(method='linear', limit=limit).values
 
-        else:
-            raise ValueError('NaNs not allowed')
-
+    #     else:
+    #         raise ValueError('NaNs not allowed')
 
     print(f'Start {method} detrending ...\n', end="")
     if method == 'loess':
@@ -873,8 +843,6 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=False, n_harmonics=6):
             sliceyr = np.arange(i, ds.time.size, stepsyr.size)
             arr_oneday_smooth = data_smooth[sliceyr]
 
-
-
             if i==0: print('using absolute anomalies w.r.t. climatology of '
                             'smoothed concurrent day accross years\n')
             output_clim2d = arr_oneday_smooth.mean(axis=0)
@@ -1005,7 +973,141 @@ def rolling_mean_np(arr, win, center=True, win_type='boxcar'):
 
     return rollmean.values.reshape( (arr.shape))
 
+def reconstruct_fft_2D(ds, coefficients:list=None,
+                    list_of_harm: list=[1, 1/2, 1/3],
+                    add_constant: bool=True):
 
+    dates = pd.to_datetime(ds.time.values)
+    N = dates.size
+    oneyr = get_oneyr(dates)
+    time_axis = np.linspace(0, N-1, N)
+    A_k = np.fft.fft(ds.values, axis=0) # positive & negative amplitude
+    freqs_belongingto_A_k = np.fft.fftfreq(ds.shape[0])
+    periods = np.zeros_like(freqs_belongingto_A_k)
+    periods[1:] = 1/(freqs_belongingto_A_k[1:]*oneyr.size)
+    def get_harmonics(periods, list_of_harm=list):
+        harmonics = []
+        for h in list_of_harm:
+            harmonics.append(np.argmin((abs(periods - h))))
+        harmonics = np.array(harmonics) - 1 # subtract 1 because loop below is adding 1
+        return harmonics
+
+    if coefficients is None:
+        if list_of_harm is [1, 1/2, 1/3]:
+            print('using default first 3 annual harmonics, expecting cycles of 365 days')
+        coefficients = get_harmonics(periods, list_of_harm=list_of_harm)
+    elif coefficients is not None:
+        coefficients = coefficients
+
+    reconstructed_signal = np.zeros_like(ds.values, dtype='c16')
+    reconstructed_signal += A_k[0].real * np.zeros_like(ds.values, dtype='c16')
+    # Adding the dc term explicitly makes the looping easier in the next step.
+
+
+    for c, k in enumerate(coefficients):
+        progress = int((100*(c+1)/coefficients.size))
+        print(f"\rProcessing {progress}%", end="")
+        k += 1  # Bump by one since we already took care of the dc term.
+        if k == N-k:
+            reconstructed_signal += A_k[k] * np.exp(
+                1.0j*2 * np.pi * (k) * time_axis / N)[:,None,None] # add fake space dims
+        # This catches the case where N is even and ensures we don't double-
+        # count the frequency k=N/2.
+
+        else:
+            reconstructed_signal += A_k[k] * np.exp(
+                1.0j*2 * np.pi * (k) * time_axis / N)[:,None,None]
+            reconstructed_signal += A_k[N-k] * np.exp(
+                1.0j*2 * np.pi * (N-k) * time_axis / N)[:,None,None]
+        # In this case we're just adding a frequency component and it's
+        # "partner" at minus the frequency
+
+    reconstructed_signal = (reconstructed_signal / N)
+    if add_constant:
+        reconstructed_signal.real += ds.values.mean(0)
+    return reconstructed_signal.real
+
+def deseasonalizefft_detrend_2D(ds, detrend: bool=True, anomaly: bool=True,
+                                n_harmonics=3):
+    '''
+    Remove long-term trend and/or remove seasonal cycle.
+
+    Seasonal cycle is removed by the subtracting the sum of the first 3 annual
+    harmonics (freq = 1/365, .5/365, .33/365).
+
+    Parameters
+    ----------
+    ds : TYPE
+        xr.DataArray() of dims (time, latitude, longitude).
+    detrend : bool, optional
+        Detrend (long-term trend along all datapoints). The default is True.
+    anomaly : bool, optional
+        Remove Seasonal cycle using FFT. The default is True.
+    Returns
+    -------
+    xr.DataArray()
+
+    '''
+    import df_ana
+
+    dates = pd.to_datetime(ds.time.values)
+    if anomaly:
+        list_of_harm= [1/h for h in range(1,n_harmonics+1)]
+        reconstructed_signal = reconstruct_fft_2D(ds, list_of_harm=list_of_harm,
+                                                 add_constant=False)
+
+    ds = ds - ds.mean(dim='time')
+    # plot gridpoints for visual check
+
+    options = np.array(np.meshgrid(ds.latitude[1:-1], ds.longitude[1:-1])).T.reshape(-1,2)
+    la1, lo1 = options[int(options.shape[0]/3)]
+    la2, lo2 = options[int(2*options.shape[0]/3)]
+    tuples = [(la1, lo1), (la1+1, lo1), (la1, lo1+1),
+              (la2, lo2), (la2+1, lo2), (la2, lo2+1)]
+    fig, ax = plt.subplots(3,2, figsize=(16,8))
+    ax = ax.flatten() ;
+    for i, lalo in enumerate(tuples):
+        lalo = (np.where(ds.latitude==lalo[0])[0][0], np.where(ds.longitude==lalo[1])[0][0])
+        ts = ds[:,lalo[0],lalo[1]]
+        while bool(np.isnan(ts).all()):
+            lalo[1] += 5
+            ts = ds[:,lalo[0],lalo[1]]
+        lat = int(ds.latitude[lalo[0]])
+        lon = int(ds.longitude[lalo[1]])
+        print(f"\rVisual test latlon {lat} {lon}", end="")
+
+
+        ax[i].set_title(f'latlon coord {lat} {lon}')
+        for yr in np.unique(dates.year):
+            singleyeardates = get_oneyr(dates, yr)
+            ax[i].plot(ts.sel(time=singleyeardates), alpha=.1, color='purple')
+        if anomaly:
+            ax[i].plot(reconstructed_signal[:singleyeardates.size, lalo[0],lalo[1]].real,
+                       label=f'FFT with {n_harmonics}h')
+        ax[i].legend()
+    plt.subplots_adjust(hspace=.3)
+    ax[-1].text(.5,1.2, 'Visual analysis:',
+            transform=ax[0].transAxes,
+            ha='center', va='bottom')
+    if anomaly:
+        ds = ds - reconstructed_signal
+
+    fig, ax = plt.subplots(1, figsize=(5,3))
+    ds[:,lalo[0],lalo[1]].groupby('time.month').mean(dim='time').plot(ax=ax)
+    ax.set_title(f'climatological monhtly means anomalies latlon coord {lat} {lon}')
+    plt.figure(figsize=(4,2.5))
+    summer = ds.sel(time=get_subdates(dates, start_end_date=('06-01', '08-31')))
+    summer.name = f'std {summer.name}'
+    ax = (summer.mean(dim='time') / summer.std(dim='time')).plot()
+
+    try:
+        ts = ds[:,la1,lo1]
+        df_ana.plot_spectrum(pd.Series(ts.values, index=dates), year_max=.1)
+    except:
+        pass
+    if detrend:
+        ds = detrend_lin_longterm(ds)
+    return ds
 
 def test_periodic(ds):
     dlon = ds.longitude[1] - ds.longitude[0]
