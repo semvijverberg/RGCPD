@@ -42,7 +42,7 @@ detrend_via_spatial_mean = False
 missing_years = 0
 
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
-selbox = [253,290,28,50] ; years = list(range(1975, 2020))
+selbox = [253,290,28,50] ; years = list(range(1950, 2020))
 
 ds_raw = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
 ds_raw.name = 'Soy_Yield'
@@ -52,7 +52,9 @@ ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
 ano = ds_raw - ds_raw.mean(dim='time')
 np.isnan(ano).sum(dim='time').plot()
 
-
+core_pp.detrend_lin_longterm(ano)
+_, trend = core_pp.detrend(ano, method='loess', return_trend=True)
+#%%
 if apply_mask_nonans:
     allways_data_mask = np.isnan(ano).sum(dim='time') <= missing_years
     ano = ano.where(allways_data_mask)
@@ -63,7 +65,7 @@ if apply_mask_nonans:
 # plot_maps.plot_corr_maps(ano, row_dim='time', cbar_vert=.09)
 if detrend_via_spatial_mean :
     detrend_spat_mean = ano.mean(dim=('latitude', 'longitude'))
-    trend = detrend_spat_mean - core_pp.detrend_lin_longterm(detrend_spat_mean)
+    trend = detrend_spat_mean - core_pp.detrend(detrend_spat_mean)
     ano = ano - trend
 else:
     ano = core_pp.detrend_lin_longterm(ano)

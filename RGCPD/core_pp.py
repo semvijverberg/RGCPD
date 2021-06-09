@@ -509,7 +509,8 @@ def deseasonalizefft_detrend_2D(ds, detrend: bool=True, anomaly: bool=True,
         ds = detrend_lin_longterm(ds)
     return ds
 
-def detrend_lin_longterm(ds):
+def detrend_lin_longterm(ds, plot=True, return_trend=False,
+                         NaN_interpolate='spline', spline_order=5):
     offset_clim = np.mean(ds, 0)
     dates = pd.to_datetime(ds.time.values)
     detrended = sp.signal.detrend(np.nan_to_num(ds), axis=0, type='linear')
@@ -518,19 +519,34 @@ def detrend_lin_longterm(ds):
     detrended += np.repeat(offset_clim.expand_dims('time'), dates.size, 0 )
     detrended = detrended.assign_coords(
                 coords={'time':dates})
-    if len(ds.dims) > 1:
+    if plot:
+        _check_trend_plot(ds, detrended)
+
+    if return_trend:
+        out = ( detrended,  (ds - detrended)+offset_clim )
+    else:
+        out = detrended
+    return out
+
+def _check_trend_plot(ds, detrended):
+    if len(ds.shape) > 2:
         # plot single gridpoint for visual check
-        la = int(ds.shape[1]/2)
-        lo = int(ds.shape[2]/2)
-        tuples = [(la, lo), (la+1, lo), (la, lo+1)]
-        fig, ax = plt.subplots(3, figsize=(8,8))
+        always_NaN_mask = np.isnan(ds).all(axis=0)
+        lats, lons = np.where(~always_NaN_mask)
+        tuples = np.stack([lats, lons]).T
+        tuples = tuples[::max(1,int(len(tuples)/3))]
+        # tuples = np.stack([lats, lons]).T
+        fig, ax = plt.subplots(len(tuples), figsize=(8,8))
         for i, lalo in enumerate(tuples):
             ts = ds[:,lalo[0],lalo[1]]
             la = lalo[0]
             lo = lalo[1]
-            while bool(np.isnan(ts).all()):
-                lo += 5
-                ts = ds[:,la,lo]
+            # while bool(np.isnan(ts).all()):
+            #     lo += 5
+            #     try:
+            #         ts = ds[:,la,lo]
+            #     except:
+
             lat = int(ds.latitude[la])
             lon = int(ds.longitude[lo])
             print(f"\rVisual test latlon {lat} {lon}", end="")
@@ -541,15 +557,15 @@ def detrend_lin_longterm(ds):
             trend1d = ts - detrended[:,la,lo]
             linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
             linregab = np.insert(linregab, 2, float(trend1d[-1] - trend1d[0]))
-            ax[i].plot(trend1d+offset_clim[la,lo])
+            ax[i].plot(trend1d)#+offset_clim[la,lo])
             ax[i].text(.05, .05,
             'y = {:.2g}x + {:.2g}, max diff: {:.2g}'.format(*linregab),
             transform=ax[i].transAxes)
-        plt.subplots_adjust(hspace=.3)
+        plt.subplots_adjust(hspace=.5)
         ax[-1].text(.5,1.2, 'Visual analysis: trends of nearby gridcells should be similar',
                     transform=ax[0].transAxes,
                     ha='center', va='bottom')
-    else:
+    elif len(ds.shape) == 1:
         fig, ax = plt.subplots(1, figsize=(8,4))
         ax.set_title('detrend 1D ts')
         ax.plot(ds.values)
@@ -557,12 +573,242 @@ def detrend_lin_longterm(ds):
         trend1d = ds - detrended
         linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
         linregab = np.insert(linregab, 2, float(trend1d[-1] - trend1d[0]))
-        ax.plot(trend1d+offset_clim)
+        ax.plot(trend1d)#+offset_clim)
         ax.text(.05, .05,
         'y = {:.2g}x + {:.2g}, max diff: {:.2g}'.format(*linregab),
         transform=ax.transAxes)
-    return detrended
+    else:
+        pass
 
+def detrend(data, method='linear', kwrgs_detrend: dict={}, return_trend: bool=False,
+            NaN_interpolate: str='quadratic', NaN_limit: float=None, plot: bool=True):
+    '''
+    Wrapper supporting linear and loess detrending on xr.DataArray, pd.DataFrame
+    & np.ndarray. Note, linear detrending is way faster then loess detrending.
+
+    Parameters
+    ----------
+    data : TYPE
+        DESCRIPTION.
+    method : str, optional
+        Choose detrending method ['linear', 'loess']. The default is 'linear'.
+    kwrgs_detrend : dict, optional
+        Kwrgs for loess detrending. The default is {'alpha':.75, 'order':2}.
+    return_trend : bool, optional
+        Return trend timeseries. The default is False.
+    NaN_interpolate : str, optional
+        method used to interpolate NaNs, build upon
+        pd.DataFrame().interpolate(method=NaN_interpolate).
+
+        Interpolation technique to use. One of:
+        ‘linear’: Ignore the index and treat the values as equally spaced. This is the only method supported on MultiIndexes.
+        ‘time’: Works on daily and higher resolution data to interpolate given length of interval.
+        ‘index’, ‘values’: use the actual numerical values of the index.
+        ‘pad’: Fill in NaNs using existing values.
+        ‘nearest’, ‘zero’, ‘slinear’, ‘quadratic’, ‘cubic’, ‘spline’, ‘barycentric’, ‘polynomial’: Passed to scipy.interpolate.interp1d. These methods use the numerical values of the index. Both ‘polynomial’ and ‘spline’ require that you also specify an order (int), e.g. df.interpolate(method='polynomial', order=5).
+        ‘krogh’, ‘piecewise_polynomial’, ‘spline’, ‘pchip’, ‘akima’, ‘cubicspline’: Wrappers around the SciPy interpolation methods of similar names. See Notes.
+        If str is None of the valid option, will raise an ValueError.
+        The default is 'quadratic'.
+    NaN_limit : float, optional
+        Limit the amount of consecutive NaNs. The default is None (no limit)
+    plot : bool, optional
+        Plot only available for method='linear' and type(data)=xr.DA.
+        The default is True.
+
+    Raises
+    ------
+    ValueError
+        if NaNs not allowed.
+
+    Returns
+    -------
+    Returns same dtype as input (xr.DataArray, pd.DataFrame or np.ndarray)
+    if return_trend=True:
+        out = (detrended, trend)
+    else:
+        out = detrended
+    '''
+    # method='linear'; kwrgs_detrend={}; return_trend=False;NaN_interpolate='quadratic'
+    # NaN_limit=None;plot=True
+    #%%
+
+    if method == 'loess':
+        kwrgs_d = {'alpha':0.75, 'order':2} ; kwrgs_d.update(kwrgs_detrend)
+
+    if type(data) is pd.DataFrame:
+        columns = data.columns ; index = data.index ; to_df = True; to_DA=False
+    elif type(data) is xr.DataArray:
+        coords = data.coords ; dims = data.dims ; attrs = data.attrs ;
+        name = data.name ; to_DA = True ; to_df = False
+    if type(data) is not np.ndarray:
+        data = data.values # attempt to make np.ndarray (if xr.DA of pd.DF)
+    else:
+        to_DA = False ; to_df = False
+
+    orig_shape = data.shape
+    data = data.reshape(orig_shape[0], -1)
+    always_NaN_mask = np.isnan(data).all(axis=0) # NaN every timestep
+
+    if return_trend:
+        trend_ts = np.zeros( (data.shape), dtype=np.float16)
+        trend_ts[:,always_NaN_mask] = np.nan
+
+    # dealing with NaNs
+    t, o = np.where(np.isnan(data[:,~always_NaN_mask])) # NaNs some timesteps
+    if t.size > 0:
+        n_sparse_nans = t.size
+        print(f'Warning: {n_sparse_nans} NaNs found at {np.unique(o).size} location(s)')
+        if NaN_interpolate is not False:
+            print(f'Sparse NaNs will be interpolated using the pandas {NaN_interpolate}\n')
+            if NaN_limit is not None:
+                limit = int(orig_shape[0]*NaN_limit)
+            else:
+                limit=None
+            data[:,~always_NaN_mask] = pd.DataFrame(data[:,~always_NaN_mask]).interpolate(method=NaN_interpolate, limit=limit).values
+
+        else:
+            raise ValueError('NaNs not allowed')
+
+
+    print(f'Start {method} detrending ...\n', end="")
+    if method == 'loess':
+        not_always_NaN_idx = np.where(~always_NaN_mask)
+        last_index = not_always_NaN_idx[0].max() ; #div = round(last_index/40)
+        div = min(20,last_index)
+        for i_ts in not_always_NaN_idx[0]:
+            if i_ts % div==0: # print 40 steps
+                progress = int((100*(i_ts)/last_index))
+                print(f"\rProcessing {progress}%", end="")
+            ts = data[:,i_ts]
+            if ts[np.isnan(ts)].size != 0: # if still NaNs: fill with NaN
+                data[:,i_ts] = np.nan
+                continue
+            else:
+                ts = _fit_loess(ts, **kwrgs_d)
+            if return_trend:
+                trend_ts[:,i_ts] = ts
+            data[:,i_ts] -= ts
+    elif method == 'linear':
+        offset_clim = np.mean(data, 0)
+        if return_trend == False and plot == False:
+            data[:,~always_NaN_mask] = sp.signal.detrend(data[:,~always_NaN_mask], axis=0, type='linear')
+            data += np.repeat(np.isnan(offset_clim)[np.newaxis,:], orig_shape[0], 0 )
+        elif return_trend or plot:
+            detrended = data.copy()
+            detrended[:,~always_NaN_mask] = sp.signal.detrend(detrended[:,~always_NaN_mask], axis=0, type='linear')
+            detrended += np.repeat(np.isnan(offset_clim)[np.newaxis,:], orig_shape[0], 0 )
+            trend_ts = (data - detrended)
+        print('Done')
+    data = data.reshape(orig_shape)
+    if return_trend:
+        trend_ts = trend_ts.reshape(orig_shape)
+
+
+    if to_df:
+        data = pd.DataFrame(data, index=index, columns=columns)
+        if return_trend:
+            trend_ts = pd.DataFrame(trend_ts, index=index, columns=columns)
+    elif to_DA:
+        data = xr.DataArray(data, coords=coords, dims=dims, attrs=attrs, name=name)
+        if return_trend:
+            trend_ts = xr.DataArray(trend_ts, coords=coords, dims=dims, attrs=attrs,
+                                name=name)
+        if plot and method=='linear':
+            _check_trend_plot(data, detrended.reshape(orig_shape))
+
+    if return_trend:
+        out = (data, trend_ts)
+    else:
+        out = data
+    #%%
+    return out
+
+
+
+def _fit_loess(y, X=None, alpha=0.75, order=2):
+    """
+    Local Polynomial Regression (LOESS)
+
+    Performs a LOWESS (LOcally WEighted Scatter-plot Smoother) regression.
+
+
+    Parameters
+    ----------
+    y : list, array or Series
+        The response variable (the y axis).
+    X : list, array or Series
+        Explanatory variable (the x axis). If 'None', will treat y as a continuous signal (useful for smoothing).
+    alpha : float
+        The parameter which controls the degree of smoothing, which corresponds
+        to the proportion of the samples to include in local regression.
+    order : int
+        Degree of the polynomial to fit. Can be 1 or 2 (default).
+
+    Returns
+    -------
+    array
+        Prediciton of the LOESS algorithm.
+
+    See Also
+    ----------
+    signal_smooth, signal_detrend, fit_error
+
+    Examples
+    ---------
+    >>> import pandas as pd
+    >>> import neurokit2 as nk
+    >>>
+    >>> signal = np.cos(np.linspace(start=0, stop=10, num=1000))
+    >>> distorted = nk.signal_distort(signal, noise_amplitude=[0.3, 0.2, 0.1], noise_frequency=[5, 10, 50])
+    >>>
+    >>> pd.DataFrame({ "Raw": distorted, "Loess_1": nk.fit_loess(distorted, order=1), "Loess_2": nk.fit_loess(distorted, order=2)}).plot() #doctest: +SKIP
+
+    References
+    ----------
+    - copied from: https://neurokit2.readthedocs.io/en/master/_modules/neurokit2/stats/fit_loess.html#fit_loess
+    - https://simplyor.netlify.com/loess-from-scratch-in-python-animation.en-us/
+
+    """
+    if X is None:
+        X = np.linspace(0, 100, len(y))
+
+    assert order in [1, 2], "Deg has to be 1 or 2"
+    assert (alpha > 0) and (alpha <= 1), "Alpha has to be between 0 and 1"
+    assert len(X) == len(y), "Length of X and y are different"
+
+    X_domain = X
+
+    n = len(X)
+    span = int(np.ceil(alpha * n))
+
+    y_predicted = np.zeros(len(X_domain))
+    x_space = np.zeros_like(X_domain)
+
+    for i, val in enumerate(X_domain):
+        distance = abs(X - val)
+        sorted_dist = np.sort(distance)
+        ind = np.argsort(distance)
+
+        Nx = X[ind[:span]]
+        Ny = y[ind[:span]]
+
+        delx0 = sorted_dist[span - 1]
+
+        u = distance[ind[:span]] / delx0
+        w = (1 - u ** 3) ** 3
+
+        W = np.diag(w)
+        A = np.vander(Nx, N=1 + order)
+
+        V = np.matmul(np.matmul(A.T, W), A)
+        Y = np.matmul(np.matmul(A.T, W), Ny)
+        Q, R = sp.linalg.qr(V)
+        p = sp.linalg.solve_triangular(R, np.matmul(Q.T, Y))
+
+        y_predicted[i] = np.polyval(p, val)
+        x_space[i] = val
+
+    return y_predicted
 
 def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=False, n_harmonics=6):
     #%%

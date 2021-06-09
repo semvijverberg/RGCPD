@@ -18,8 +18,7 @@ import cartopy.crs as ccrs
 # import xarray as xr
 import os
 import core_pp
-from enums import Country
-from enums import Continents
+from enums import Country, Continents, US_States
 
 # use this to manually adapt the cluster a bit:
 from scipy.ndimage import binary_closing, binary_dilation, binary_erosion, binary_fill_holes, binary_opening
@@ -60,6 +59,38 @@ def country_mask(coordinates):
 
     return country_codes
 
+def US_State_mask(coordinates):
+
+    shapefile_path = DATA_ROOT + '/ne_50m_admin_1_states_provinces/ne_50m_admin_1_states_provinces.shp'
+
+    Province = shapefile.Reader(shapefile_path)
+
+    adm0_sr_index = [field[0] for field in Province.fields[:]].index("abbrev")
+
+    shapes = [geometry.shape(shape) for shape in Province.shapes()]
+    records = [record[adm0_sr_index] for record in Province.records()]
+
+    country_codes = np.empty(len(coordinates), int)
+
+    for index, coordinate in enumerate(coordinates):
+        if len(coordinates) > 1000:
+            print(f"\rCreating Country Mask: "
+                  f"{index+1:7d}/{len(coordinates):7d} "
+                  f"({float(index)/float(len(coordinates)):3.1%})", end="")
+
+        point = geometry.Point(coordinate)
+
+        for shape, adm0_sr in zip(shapes, records):
+            if point.within(shape):
+                country_codes[index] = US_States[adm0_sr] if adm0_sr in US_States.__members__ else -1
+                break
+            else:
+                country_codes[index] = -1
+
+    if len(coordinates) > 1000:
+        print()
+
+    return country_codes
 
 def Continent_mask(coordinates):
 
@@ -72,7 +103,7 @@ def Continent_mask(coordinates):
     shapes = [geometry.shape(shape) for shape in countries.shapes()]
     records = [record[Continent_index] for record in countries.records()]
 
-    country_codes = np.empty(len(coordinates), np.int)
+    country_codes = np.empty(len(coordinates), int)
 
     for index, coordinate in enumerate(coordinates):
         if len(coordinates) > 1000:
@@ -133,13 +164,19 @@ def create_mask(path, kwrgs_load={}, level='Continents'):
         lo_min, lo_max, la_min, la_max = kwrgs_load['selbox']
         domainstr = '_lats[{}_{}]_lons[{}_{}]'.format(int(la_min), int(la_max),
                                       int(lo_min), int(lo_max))
-        mask_file = mask_file + domainstr 
+        mask_file = mask_file + domainstr
+    if level == 'Continents':
+        abbrev_class = Continents
+    elif level == 'Countries':
+        abbrev_class = Country
+    elif level == 'US_States':
+        abbrev_class = US_States
     if os.path.exists(mask_file+'.nc'):
-        return core_pp.import_ds_lazy(mask_file+'.nc'), Country
+        return core_pp.import_ds_lazy(mask_file+'.nc'), abbrev_class
 
-    
+
     ds = core_pp.import_ds_lazy(path, **kwrgs_load)
-    
+
     # Load Coordinates and Normalize to ShapeFile Coordinates
     coordinates = era_coordinate_grid(ds)
     coordinates[..., 0][coordinates[..., 0] > 180] -= 360
@@ -153,8 +190,11 @@ def create_mask(path, kwrgs_load={}, level='Continents'):
         mask = Continent_mask(coordinates.reshape(-1, 2)).reshape(coordinates.shape[:2])
     elif level == 'Countries':
         mask = country_mask(coordinates.reshape(-1, 2)).reshape(coordinates.shape[:2])
-        
-    country_code = [{k : Country.__getitem__(k).value} for k in Country._member_names_]
+    elif level == 'US_States':
+        mask = US_State_mask(coordinates.reshape(-1, 2)).reshape(coordinates.shape[:2])
+
+
+    country_code = [{k : abbrev_class.__getitem__(k).value} for k in abbrev_class._member_names_]
     # np.save(mask_file+'.npy', mask)
     if 'time' in ds.dims:
         mask_xr = ds.isel(time=0).copy().drop('time')
@@ -168,8 +208,8 @@ def create_mask(path, kwrgs_load={}, level='Continents'):
     mask_xr.values = mask
     mask_xr = mask_xr.astype(int)
     mask_xr.to_netcdf(mask_file + '.nc', mode='w')
-    
-    return mask_xr, Country
+
+    return mask_xr, abbrev_class
 
 
 def plot_earth(view="EARTH"):
@@ -196,7 +236,7 @@ def plot_earth(view="EARTH"):
     elif view == "EARTH":
         ax.set_xlim(-180, 180)
         ax.set_ylim(-90, 90)
-    
+
     return projection
 
 

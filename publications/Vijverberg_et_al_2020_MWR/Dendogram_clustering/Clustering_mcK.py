@@ -17,9 +17,6 @@ else:
     root_data = user_dir + '/surfdrive/ERA5'
 
 
-
-
-
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-3])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
@@ -42,7 +39,7 @@ import plot_maps
 import df_ana
 from RGCPD import RGCPD
 list_of_name_path = [('fake', None),
-                     ('mxt2', root_data + '/input_raw/mx2t_US_1979-2018_1_12_daily_0.25deg.nc')]
+                     ('mxt2', root_data + '/input_raw/mx2t_US_1979-2020_1_12_daily_0.25deg.nc')]
 rg = RGCPD(list_of_name_path=list_of_name_path,
            path_outmain=path_outmain)
 

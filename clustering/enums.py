@@ -253,7 +253,7 @@ class Country(IntEnum):
     ZA = auto()  # South Africa
     ZM = auto()  # Zambia
     ZW = auto()  # Zimbabwe
-    
+
 class Continents(IntEnum):
     Africa          = auto()
     Asia            = auto()
@@ -262,3 +262,118 @@ class Continents(IntEnum):
     Oceania         = auto()
     North_America   = auto()
 
+class US_States(IntEnum):
+    AL = auto() # Alabama
+    AK = auto() # Alaska
+    AS = auto() # American Samoa
+    AZ = auto() # Arizona
+    AR = auto() # Arkansas
+    CA = auto() # California
+    CO = auto() # Colorado
+    CT = auto() # Connecticut
+    DE = auto() # Delaware
+    DC = auto() # District of Columbia
+    FL = auto() # Florida
+    GA = auto() # Georgia
+    GU = auto() # Guam
+    HI = auto() # Hawaii
+    ID = auto() # Idaho
+    IL = auto() # Illinois
+    IN = auto() # Indiana
+    IA = auto() # Iowa
+    KS = auto() # Kansas
+    KY = auto() # Kentucky
+    LA = auto() # Louisiana
+    ME = auto() # Maine
+    MD = auto() # Maryland
+    MA = auto() # Massachusetts
+    MI = auto() # Michigan
+    MN = auto() # Minnesota
+    MS = auto() # Mississippi
+    MO = auto() # Missouri
+    MT = auto() # Montana
+    NE = auto() # Nebraska
+    NV = auto() # Nevada
+    NH = auto() # New Hampshire
+    NJ = auto() # New Jersey
+    NM = auto() # New Mexico
+    NY = auto() # New York
+    NC = auto() # North Carolina
+    ND = auto() # North Dakota
+    MP = auto() # Northern Mariana Islands
+    OH = auto() # Ohio
+    OK = auto() # Oklahoma
+    OR = auto() # Oregon
+    PA = auto() # Pennsylvania
+    PR = auto() # Puerto Rico
+    RI = auto() # Rhode Island
+    SC = auto() # South Carolina
+    SD = auto() # South Dakota
+    TN = auto() # Tennessee
+    TX = auto() # Texas
+    UT = auto() # Utah
+    VT = auto() # Vermont
+    VI = auto() # Virgin Islands
+    VA = auto() # Virginia
+    WA = auto() # Washington
+    WV = auto() # West Virginia
+    WI = auto() # Wisconsin
+    WY = auto() # Wyoming
+us_state_abbrev = {
+                    'Alabama': 'AL',
+                    'Alaska': 'AK',
+                    'American Samoa': 'AS',
+                    'Arizona': 'AZ',
+                    'Arkansas': 'AR',
+                    'California': 'CA',
+                    'Colorado': 'CO',
+                    'Connecticut': 'CT',
+                    'Delaware': 'DE',
+                    'District of Columbia': 'DC',
+                    'Florida': 'FL',
+                    'Georgia': 'GA',
+                    'Guam': 'GU',
+                    'Hawaii': 'HI',
+                    'Idaho': 'ID',
+                    'Illinois': 'IL',
+                    'Indiana': 'IN',
+                    'Iowa': 'IA',
+                    'Kansas': 'KS',
+                    'Kentucky': 'KY',
+                    'Louisiana': 'LA',
+                    'Maine': 'ME',
+                    'Maryland': 'MD',
+                    'Massachusetts': 'MA',
+                    'Michigan': 'MI',
+                    'Minnesota': 'MN',
+                    'Mississippi': 'MS',
+                    'Missouri': 'MO',
+                    'Montana': 'MT',
+                    'Nebraska': 'NE',
+                    'Nevada': 'NV',
+                    'New Hampshire': 'NH',
+                    'New Jersey': 'NJ',
+                    'New Mexico': 'NM',
+                    'New York': 'NY',
+                    'North Carolina': 'NC',
+                    'North Dakota': 'ND',
+                    'Northern Mariana Islands':'MP',
+                    'Ohio': 'OH',
+                    'Oklahoma': 'OK',
+                    'Oregon': 'OR',
+                    'Pennsylvania': 'PA',
+                    'Puerto Rico': 'PR',
+                    'Rhode Island': 'RI',
+                    'South Carolina': 'SC',
+                    'South Dakota': 'SD',
+                    'Tennessee': 'TN',
+                    'Texas': 'TX',
+                    'Utah': 'UT',
+                    'Vermont': 'VT',
+                    'Virgin Islands': 'VI',
+                    'Virginia': 'VA',
+                    'Washington': 'WA',
+                    'West Virginia': 'WV',
+                    'Wisconsin': 'WI',
+                    'Wyoming': 'WY'
+                    }
