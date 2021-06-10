@@ -791,8 +791,8 @@ def detrend_wrapper(data, kwrgs_detrend: dict={'method':'linear'}, return_trend:
     else:
         out = detrended
     '''
-    # kwrgs_detrend={'method':'linear'}; return_trend=False;NaN_interpolate='quadratic'
-    # NaN_limit=None;plot=True
+    # kwrgs_detrend={'method':'linear'}; return_trend=False;NaN_interpolate='spline'
+    # plot=True;order=2
     #%%
     method = kwrgs_detrend.pop('method')
     if method == 'loess':
@@ -812,6 +812,12 @@ def detrend_wrapper(data, kwrgs_detrend: dict={'method':'linear'}, return_trend:
     data = data.reshape(orig_shape[0], -1)
     always_NaN_mask = np.isnan(data).all(axis=0) # NaN every timestep
 
+    if plot:
+        s = 4 if type(plot) is bool else plot
+        observations = np.where(~always_NaN_mask)
+        to_plot = observations[0][::max(1,int(observations[0].size/s))]
+        data_bf = data[:,to_plot]
+
     if return_trend:
         trend_ts = np.zeros( (data.shape), dtype=np.float16)
         trend_ts[:,always_NaN_mask] = np.nan
@@ -822,9 +828,10 @@ def detrend_wrapper(data, kwrgs_detrend: dict={'method':'linear'}, return_trend:
         last_index = not_always_NaN_idx[0].max()
         div = min(20,last_index)
         for i_ts in not_always_NaN_idx[0]:
-            if i_ts % div==0: # print 40 steps
-                progress = int((100*(i_ts)/last_index))
-                print(f"\rProcessing {progress}%", end="")
+            if not_always_NaN_idx[0].size > 20:
+                if i_ts % div==0: # print 40 steps
+                    progress = int((100*(i_ts)/last_index))
+                    print(f"\rProcessing {progress}%", end="")
             ts = data[:,i_ts]
             if ts[np.isnan(ts)].size != 0: # if still NaNs: fill with NaN
                 data[:,i_ts] = np.nan
@@ -833,7 +840,7 @@ def detrend_wrapper(data, kwrgs_detrend: dict={'method':'linear'}, return_trend:
                 ts = _fit_loess(ts, **kwrgs_d)
             if return_trend:
                 trend_ts[:,i_ts] = ts
-            data[:,i_ts] -= ts
+            data[:,i_ts] = ts
     elif method == 'linear':
         offset_clim = np.mean(data, 0)
         if return_trend == False and plot == False:
@@ -846,9 +853,18 @@ def detrend_wrapper(data, kwrgs_detrend: dict={'method':'linear'}, return_trend:
             trend_ts = (data - detrended) + np.repeat(offset_clim[np.newaxis,:], orig_shape[0], 0 )
 
         print('Done')
+
+    if plot and method=='loess':
+        _check_detrend(data_bf, data[:,to_plot])
+    if plot and method=='linear':
+        _check_detrend(data_bf, detrended[:,to_plot])
+
     data = data.reshape(orig_shape)
     if return_trend:
         trend_ts = trend_ts.reshape(orig_shape)
+
+
+
 
 
     if to_df:
@@ -872,11 +888,40 @@ def detrend_wrapper(data, kwrgs_detrend: dict={'method':'linear'}, return_trend:
     #%%
     return out
 
+def _check_detrend(data_bf, detr_data):
+    #%%
+    trend_ts = (data_bf - detr_data) + data_bf.mean(axis=0)
+    fig, ax = plt.subplots(data_bf.shape[1], figsize=(8,int(3*data_bf.shape[1])))
+    if data_bf.shape[1] == 1:
+        ax = [ax]
+    for i in range(data_bf.shape[1]):
+        ts = data_bf[:,i]
+        print(f"\rVisual test on {i}th observation", end="")
+        ax[i].set_title(f'{i+1}th observation')
+        ax[i].plot(ts, label='input data')
+        ax[i].plot(detr_data[:,i], label='detrended data')
+        if i == 0:
+            ax[i].legend()
+        trend1d = trend_ts[:,i]
+        linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
+        linregab = np.insert(linregab, 2, float(trend1d[-1] - trend1d[0]))
+        ax[i].plot(trend1d)
+        ax[i].text(.05, .05,
+        'y = {:.2g}x + {:.2g}, max diff: {:.2g}'.format(*linregab),
+        transform=ax[i].transAxes)
+    plt.subplots_adjust(hspace=.5)
+    ax[-1].text(.5,1.2, 'Visual analysis of trends',
+                transform=ax[0].transAxes,
+                ha='center', va='bottom')
+    #%%
+
 def _fit_loess(y, X=None, alpha=0.75, order=2):
     """
     Local Polynomial Regression (LOESS)
 
     Performs a LOWESS (LOcally WEighted Scatter-plot Smoother) regression.
+
+    Note, on > ~500 datapoints, very slow!
 
 
     Parameters
