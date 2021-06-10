@@ -840,7 +840,7 @@ def detrend_wrapper(data, kwrgs_detrend: dict={'method':'linear'}, return_trend:
                 ts = _fit_loess(ts, **kwrgs_d)
             if return_trend:
                 trend_ts[:,i_ts] = ts
-            data[:,i_ts] = ts
+            data[:,i_ts] = (data[:,i_ts] - ts) + ts.mean()
     elif method == 'linear':
         offset_clim = np.mean(data, 0)
         if return_trend == False and plot == False:
