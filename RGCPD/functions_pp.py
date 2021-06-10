@@ -153,7 +153,9 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                                      dailytomonths=dailytomonths)
 
     if RV_detrend: # do detrending on all timesteps
-        fullts = core_pp.detrend_lin_longterm(fullts)
+        fullts = core_pp.detrend_wrapper(fullts)
+    elif type(RV_detrend) is dict:
+        fullts = core_pp.detrend_wrapper(fullts, **RV_detrend)
     if RV_anomaly: # do anomaly on complete timeseries (rolling mean applied!)
         fullts = anom1D(fullts)
 

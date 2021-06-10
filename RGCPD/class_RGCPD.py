@@ -180,7 +180,7 @@ class RGCPD:
 
     def pp_precursors(self, loadleap=False, seldates=None,
                       selbox=None, format_lon='only_east',
-                      auto_detect_mask=False, detrend=True,
+                      auto_detect_mask=False, detrend: Union[bool,dict]=True,
                       anomaly=True, apply_fft=False, encoding={}):
         '''
         Perform preprocessing on (time, lat, lon) gridded dataset
@@ -201,8 +201,11 @@ class RGCPD:
         auto_detect_mask : bool, optional
             If True: auto detect a mask if a field has a lot of the exact same
             value (e.g. -9999). The default is False.
-        detrend : bool, optional
-            linear scipy detrending, see sp.signal.detrend docs. The default is True.
+        detrend : bool or dict, optional
+            If True: linear scipy detrending (fast), see sp.signal.detrend docs.
+            With dict, {'method':'loess'}, loess detrending can be called (slow).
+            Extra loess argument can be passed as well, see core_pp.detrend_wrapper?
+            The default is True.
         anomaly : bool, optional
             remove climatolgy. For daily data, clim calculated by first apply
             25-day rolling mean if apply_fft==True, subsequently fitting the first
@@ -250,8 +253,11 @@ class RGCPD:
         ----------
         name_ds : str, optional
             name of 1-d timeseries in .nc file. The default is 'ts'.
-        detrend : bool, optional
-            linear detrend. The default is False.
+        detrend : bool or dict, optional
+            If True: linear scipy detrending, see sp.signal.detrend docs.
+            With dict, {'method':'loess'}, loess detrending can be called.
+            Extra loess argument can be passed as well, see core_pp.detrend_wrapper?
+            The default is True.
         anomaly : bool, optional
             calculate anomaly verus climatology. The default is False.
         kwrgs_core_pp_time: dict, {}

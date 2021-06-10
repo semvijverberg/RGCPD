@@ -47,7 +47,8 @@ def import_ds_lazy(filepath: str, loadleap: bool=False,
                    seldates: Union[tuple, pd.DatetimeIndex]=None,
                    start_end_year: tuple=None, selbox: Union[list, tuple]=None,
                    format_lon='only_east', var=None, auto_detect_mask: bool=False,
-                   dailytomonths: bool=False, verbosity=0):
+                   kwrgs_NaN_handling: dict=None, dailytomonths: bool=False,
+                   verbosity=0):
     '''
 
 
@@ -78,6 +79,9 @@ def import_ds_lazy(filepath: str, loadleap: bool=False,
         variable name. The default is None.
     auto_detect_mask : bool, optional
         Detect mask based on NaNs. The default is False.
+    kwrgs_NaN_handling : dict, optional
+        calls core_pp.NaNs_handling function. Build for up to 3-d data.
+        The default is None (function not called).
     verbosity : TYPE, optional
         DESCRIPTION. The default is 0.
 
@@ -87,7 +91,6 @@ def import_ds_lazy(filepath: str, loadleap: bool=False,
         DESCRIPTION.
 
     '''
-
 
     ds = xr.open_dataset(filepath, decode_cf=True, decode_coords=True, decode_times=False)
 
@@ -122,14 +125,15 @@ def import_ds_lazy(filepath: str, loadleap: bool=False,
         ds = xr_core_pp_time(ds, seldates, start_end_year, loadleap,
                              dailytomonths)
 
+    if kwrgs_NaN_handling is not None:
+        ds = NaN_handling(ds, **kwrgs_NaN_handling)
+
     if multi_dims:
         if 'latitude' and 'longitude' not in ds.dims:
             ds = ds.rename({'lat':'latitude',
                             'lon':'longitude'})
             if 'time' in ds.squeeze().dims and len(ds.squeeze().dims) == 3:
                 ds = ds.transpose('time', 'latitude', 'longitude')
-
-
 
 
         if auto_detect_mask:
@@ -319,9 +323,10 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
                         apply_fft=True, n_harmonics=6, encoding={}):
     '''
     Function for preprocessing
-    - Calculate anomalies (by removing seasonal cycle based on first
-      three harmonics)
-    - linear long-term detrend
+    - Calculate anomalies (removing seasonal cycle); requires full years of data.
+        for daily data, a 25-day rolling mean is applied, afterwards this is
+        further smoothened by a FFT with 6 annual harmonics.
+    - linear or loess long-term detrend, see core_pp.detrend_wrapper?
     '''
     # loadleap=False; seldates=None; selbox=None; format_lon='east_west';
     # auto_detect_mask=False; detrend=True; anomaly=True;
@@ -376,12 +381,6 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
 def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=False, n_harmonics=6,
                          kwrgs_NaN_handling: dict=None):
     #%%
-    # ds = ds_raw.copy()
-    kwrgs_NaN = {'method':'quadratic', 'NaN_limit':None,
-                              'missing_data_ts_to_nan':.55}
-    if kwrgs_NaN_handling is not None:
-        kwrgs_NaN.update(kwrgs_NaN_handling)
-
 
     if type(ds.time[0].values) != type(np.datetime64()):
         numtime = ds['time']
@@ -413,7 +412,7 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=False, n_harmonics=6,
                               output_dtypes=[float])
 
     if kwrgs_NaN_handling is not False:
-        ds = NaN_handling(ds, **kwrgs_NaN)
+        ds = NaN_handling(ds, **kwrgs_NaN_handling)
 
 
 
@@ -642,10 +641,13 @@ def back_to_input_dtype(data, kwrgs, input_dtype):
         data = xr.DataArray(data, **kwrgs)
     return data
 
-def NaN_handling(data, method: str='spline', order=2, NaN_limit: float=None,
+def NaN_handling(data, method: str='spline', order=2, inter_NaN_limit: float=None,
+                 extra_NaN_limit: float=.05, final_NaN_to_clim: bool=True,
                  missing_data_ts_to_nan: Union[bool, float, int]=False):
     '''
-    Interpolate or mask NaNs in data
+    Interpolates, extrapolates NaNs or discards timeseries with NaN completely.
+    Or in the final step, fills the left-over NaNs with the mean over the
+    time-axis.
 
     Parameters
     ----------
@@ -666,12 +668,17 @@ def NaN_handling(data, method: str='spline', order=2, NaN_limit: float=None,
         The default is 'quadratic'.
     order : int, optional
         order of spline fit
-    NaN_limit : float, optional
-        Limit the amount of consecutive NaNs. The default is None (no limit)
-        The default is False.
+    inter_NaN_limit : float, optional
+        Limit the % amount of consecutive NaNs for interpolation.
+        The default is None (no limit)
+    extra_NaN_limit : float, optional
+        Limit the % amount of consecutive NaNs for extrapolation using linear method.
     missing_data_ts_to_nan : bool, float, int
         Will mask complete timeseries to np.nan if more then a percentage (if float)
         or more then integer (if int) of NaNs are present in timeseries.
+    final_NaN_to_clim : bool (optional)
+        If NaNs are still left in data after interpolation, extrapolation and
+        masking timeseries completely due to too many NaNs
 
     Raises
     ------
@@ -681,13 +688,15 @@ def NaN_handling(data, method: str='spline', order=2, NaN_limit: float=None,
     Returns
     -------
     data : xr.DataArray, pd.DataFrame or np.ndarray
-        data with interpolated / masked NaNs.
+        data with inter- / extrapolated / masked NaNs.
 
     references:
         - https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.interpolate.html
 
     '''
-
+    # method='spline';order=2;inter_NaN_limit=None;extra_NaN_limit=.05;
+    # final_NaN_to_clim=True;missing_data_ts_to_nan=False
+    #%%
     data, kwrgs_dtype, input_dtype = to_np(data)
 
     orig_shape = data.shape
@@ -709,32 +718,45 @@ def NaN_handling(data, method: str='spline', order=2, NaN_limit: float=None,
         print(f'Warning: {n_sparse_nans} NaNs found at {np.unique(o).size} location(s)',
               '')
         if method is not False:
-            print(f'Sparse NaNs will be interpolated using {method} spline (pandas)\n')
-            if NaN_limit is not None:
-                limit = int(orig_shape[0]*NaN_limit)
+            print(f'Sparse NaNs will be interpolated using {method} (pandas)\n')
+            if inter_NaN_limit is not None:
+                limit = int(orig_shape[0]*inter_NaN_limit)
             else:
                 limit=None
             try:
-
                 data[:,~NaN_mask] = pd.DataFrame(data[:,~NaN_mask]).interpolate(method=method, limit=limit,
                                                                                 limit_direction='both',
+                                                                                limit_area='inside',
                                                                                 order=order).values
             except:
                 print(f'{method} spline gave error, reverting to linear interpolation')
                 data[:,~NaN_mask] = pd.DataFrame(data[:,~NaN_mask]).interpolate(method='linear', limit=limit,
+                                                                                limit_area='inside',
                                                                                 limit_direction='both').values
-            if np.where(np.isnan(data[:,~NaN_mask]))[0].size != 0:
+            ti, oi = np.where(np.isnan(data[:,~NaN_mask]))
+            print(f'{t.size - ti.size} values are interpolated')
+            if ti.size != 0:
                 print('Warning: NaNs detected at edges of timeseries: ',
                       'extrapolating up to 5% of datapoints using linear method')
+                if extra_NaN_limit is not None:
+                    limit = int(orig_shape[0]*extra_NaN_limit)
+                else:
+                    limit=None
                 data[:,~NaN_mask] = pd.DataFrame(data[:,~NaN_mask]).interpolate(method='linear',
-                                                                                limit=int(.05*orig_shape[0]),
+                                                                                limit=limit,
                                                                 limit_direction='both').values
-            if np.where(np.isnan(data[:,~NaN_mask]))[0].size != 0:
-                print('Not all NaNs allowed to extrapolate, more then 5% of first'
-                      ' or last dps are missing')
-                print('Warning: will fill other NaNs with mean over time axis')
+            te, oe = np.where(np.isnan(data[:,~NaN_mask]))
+            print(f'{ti.size - te.size} values are extrapolated')
+            if te.size != 0:
+                print('Not all NaNs allowed to extrapolate, more then '
+                      f'{int(100*extra_NaN_limit)}% of first or last dps are missing')
+                print('Warning: extrapolation was insufficient')
+            if final_NaN_to_clim:
+                print('will fill other outlier NaNs with mean over time axis')
                 data = np.where(np.isnan(data), np.ma.array(data, mask=np.isnan(data)).mean(axis=0), data)
                 data[:,NaN_mask] = np.nan # restore always NaN mask
+            else:
+                print('Warning: NaNs still present')
         else:
             raise ValueError('NaNs not allowed')
 
@@ -760,11 +782,6 @@ def detrend_wrapper(data, kwrgs_detrend: dict={'method':'linear'}, return_trend:
     plot : bool, optional
         Plot only available for method='linear' and type(data)=xr.DA.
         The default is True.
-
-    Raises
-    ------
-    ValueError
-        if NaNs not allowed.
 
     Returns
     -------
@@ -802,7 +819,7 @@ def detrend_wrapper(data, kwrgs_detrend: dict={'method':'linear'}, return_trend:
     print(f'Start {method} detrending ...\n', end="")
     if method == 'loess':
         not_always_NaN_idx = np.where(~always_NaN_mask)
-        last_index = not_always_NaN_idx[0].max() ; #div = round(last_index/40)
+        last_index = not_always_NaN_idx[0].max()
         div = min(20,last_index)
         for i_ts in not_always_NaN_idx[0]:
             if i_ts % div==0: # print 40 steps
