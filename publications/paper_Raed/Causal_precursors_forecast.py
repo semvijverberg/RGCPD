@@ -68,7 +68,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
 
-target_datasets = All_states
+target_datasets = ['USDA_Soy'] + All_states
 seeds = seeds = [1,2] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['ranstrat_20'] # ['ranstrat_20']
@@ -133,7 +133,7 @@ if target_dataset == 'GDHY_Soy':
     # start_end_year = (1980, 2015)
 elif target_dataset == 'USDA_Soy':
     # USDA dataset 1950 - 2019
-    TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts.nc')
+    TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/init_usda_soy_spatial_mean_ts.nc')
     name_ds='Soy_Yield' ; cluster_label = ''
 elif target_dataset == 'USDA_Soy_always_data':
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts_allways_data.nc')
