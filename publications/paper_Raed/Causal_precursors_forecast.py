@@ -68,7 +68,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
 
-target_datasets = ['USDA_Soy'] + All_states
+target_datasets = 'Aggregate_States'
 seeds = seeds = [1,2] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['ranstrat_20'] # ['ranstrat_20']
