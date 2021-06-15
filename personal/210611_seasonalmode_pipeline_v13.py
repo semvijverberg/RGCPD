@@ -20,6 +20,7 @@ else:
 
 main_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 RGCPD_dir = '/'.join(main_dir.split('/')[:-1])
+sys.path.append(RGCPD_dir)
 user_dir = os.path.expanduser('~')
 os.chdir(RGCPD_dir)
 ERA5_data_dir = user_dir + '/surfdrive/ERA5/input_raw'
