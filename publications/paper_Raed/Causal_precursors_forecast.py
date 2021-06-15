@@ -71,7 +71,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2']
 seeds = seeds = [1,2] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['ranstrat_10', 'leave_1'] # ['ranstrat_20']
+methods = ['random_20'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -174,7 +174,7 @@ n_boot = 2000
 append_pathsub = f'/{method}/s{seed}'
 
 append_main = target_dataset
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'forecast_loess')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'forecast')
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
     path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
 elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
