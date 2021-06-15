@@ -784,7 +784,7 @@ def NaN_handling(data, inter_method: str='spline', order=2, inter_NaN_limit: flo
     return data
 
 
-def detrend_wrapper(data, kwrgs_detrend: Union[bool,dict]=True, return_trend: bool=False,
+def detrend_wrapper(data, kwrgs_detrend: dict=None, return_trend: bool=False,
             plot: bool=True):
     '''
     Wrapper supporting linear and loess detrending on xr.DataArray, pd.DataFrame
@@ -794,7 +794,7 @@ def detrend_wrapper(data, kwrgs_detrend: Union[bool,dict]=True, return_trend: bo
     ----------
     data : TYPE
         DESCRIPTION.
-    kwrgs_detrend : bool, dict, optional
+    kwrgs_detrend : dict, optional
         Choose detrending method ['linear', 'loess']. The default is 'linear'.
         extra kwrgs for loess detrending. The default is {'alpha':.75, 'order':2}.
     return_trend : bool, optional
@@ -814,7 +814,7 @@ def detrend_wrapper(data, kwrgs_detrend: Union[bool,dict]=True, return_trend: bo
     # kwrgs_detrend={'method':'linear'}; return_trend=False;NaN_interpolate='spline'
     # plot=True;order=2
     #%%
-    if kwrgs_detrend:
+    if kwrgs_detrend is None:
         kwrgs_detrend = {'method':'linear'}
     method = kwrgs_detrend.pop('method')
     if method == 'loess':

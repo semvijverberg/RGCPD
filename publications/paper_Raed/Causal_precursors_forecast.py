@@ -68,10 +68,10 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
 
-target_datasets = 'Aggregate_States'
+target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2']
 seeds = seeds = [1,2] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['ranstrat_20'] # ['ranstrat_20']
+methods = ['ranstrat_10', 'leave_1'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -142,8 +142,7 @@ elif target_dataset == 'USDA_Soy_csv_midwest':
     path = os.path.join(main_dir, 'publications/paper_Raed/data/ts_spatial_avg_midwest.csv')
     TVpath = read_csv_Raed(path)
 elif target_dataset.split('__')[0] == 'USDA_Soy_clusters':
-    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc4_dendo_d0003.nc')
-    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc4_dendo_ee0e9.nc')
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_0d570.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'USDA_Maize':
     # USDA dataset 1950 - 2019
@@ -252,7 +251,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         TV_start_end_year = (start_end_year[0], 2019)
 
     kwrgs_core_pp_time = {'start_end_year': TV_start_end_year}
-    rg.pp_TV(name_ds=name_ds, detrend={'method':'loess'}, ext_annual_to_mon=False,
+    rg.pp_TV(name_ds=name_ds, detrend={'method':'linear'}, ext_annual_to_mon=False,
              kwrgs_core_pp_time=kwrgs_core_pp_time)
     if method.split('_')[0]=='leave':
         rg.traintest(method, gap_prior=1, gap_after=1, seed=seed,
