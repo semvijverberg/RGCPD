@@ -561,11 +561,13 @@ if __name__ == "__main__":
     #PARAMS
     #--------------------------------------------------------------------------------------------------------------------#
     agg_level_list = ['low', 'medium', 'high'] # high, medium or low
+    fold_method_list = ['random_20', 'leave_1']
     ncl_dict = {'high': 20,
                 'medium': 42,
                 'low': 135}
 
-    combinations = np.array(np.meshgrid(agg_level_list)).T.reshape(-1,1)
+    combinations = np.array(np.meshgrid(agg_level_list,
+                                        fold_method_list)).T.reshape(-1,2)
     i_default = 0
 
 
@@ -583,7 +585,7 @@ if __name__ == "__main__":
                          'FDR_control':True,
                          'distance_eps':500,
                          'min_area_in_degrees2':5} #some controls for bivariateMI
-    fold_method = 'random_10' #choose from:
+    fold_method = str(out[1])   #choose from:
                                 # (1) random_{int}   :   with the int(ex['method'][6:8]) determining the amount of folds
                                 # (2) ranstrat_{int}:   random stratified folds, stratified based upon events,
                                 #                       requires kwrgs_events.
