@@ -349,7 +349,7 @@ def forecast(rg, crossyr):
 def get_list_of_name_path(agg_level, cl_number):
 
     # define input data:
-    path_data = os.path.join(working_dir, 'data') # path of data sets
+    path_data = os.path.join(working_dir, 'Data') # path of data sets
     # format list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
 
     agg_level = agg_level #low, medium or high aggregation level
