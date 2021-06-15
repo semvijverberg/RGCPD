@@ -30,7 +30,7 @@ print(RGCPD_dir)
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
 import class_BivariateMI, functions_pp
-from IPython.display import Image
+# from IPython.display import Image
 import numpy as np
 import pandas as pd
 import plot_maps
@@ -143,8 +143,7 @@ def check(rg, list_of_name_path, cluster_nr):
     swvl12_path = list_of_name_path[2][1]
     swvl12 = core_pp.import_ds_lazy(swvl12_path, format_lon = 'west_east')
 
-    from IPython import get_ipython
-    get_ipython().run_line_magic('matplotlib', 'inline')
+
 
     #example time series plot for first cluster
     plt.figure()
