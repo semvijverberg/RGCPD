@@ -411,7 +411,7 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=False, n_harmonics=6,
                               dask='parallelized',
                               output_dtypes=[float])
 
-    if kwrgs_NaN_handling is not False:
+    if kwrgs_NaN_handling is not None:
         ds = NaN_handling(ds, **kwrgs_NaN_handling)
 
 

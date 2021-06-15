@@ -71,7 +71,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2']
 seeds = seeds = [1,2] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['random_20'] # ['ranstrat_20']
+methods = ['leave_1'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -624,7 +624,7 @@ def df_predictions_for_plot(rg_list):
 
 def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
     orientation = 'horizontal'
-    alpha = .05
+    alpha = .1
     if 'BSS' in df_scores.columns.levels[1]:
         metrics_cols = ['BSS', 'roc_auc_score']
         rename_m = {'BSS': 'BSS', 'roc_auc_score':'ROC-AUC'}
@@ -854,7 +854,7 @@ kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
                 'alpha':list(np.concatenate([np.logspace(-4,0, 5),
                                           np.logspace(.2, 2, num=8)])), # large a, strong regul.
                 'normalize':False,
-                'fit_intercept':True,
+                'fit_intercept':False,
                 'kfold':10}
 
 kwrgs_model_CL = kwrgs_model.copy() ;

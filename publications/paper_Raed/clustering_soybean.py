@@ -41,7 +41,7 @@ apply_mask_nonans = True
 detrend_via_spatial_mean = False
 missing_years = 1
 percen_years = missing_years / 70
-percen_years = 16
+percen_years = 15
 
 
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
@@ -88,70 +88,21 @@ var_filename = raw_filename[:-3] + '_pp.nc'
 ano.to_netcdf(var_filename)
 
 #%%
-import itertools, os, re
-import make_country_mask, enums
+
+import make_country_mask
 import cartopy.feature as cfeature
 var_filename = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/masked_rf_gs_county_grids_pp.nc'
 xr_States, States = make_country_mask.create_mask(var_filename, kwrgs_load={}, level='US_States')
 xr_States = xr_States.where(xr_States.values != -1)
 
 #%% Get colormap
-import matplotlib.colors as mcolors
 
-def hex_to_rgb(value):
-    '''
-    Converts hex to rgb colours
-    value: string of 6 characters representing a hex colour.
-    Returns: list length 3 of RGB values'''
-    value = value.strip("#") # removes hash symbol if present
-    lv = len(value)
-    return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
-
-
-def rgb_to_dec(value):
-    '''
-    Converts rgb to decimal colours (i.e. divides each value by 256)
-    value: list (length 3) of RGB values
-    Returns: list (length 3) of decimal values'''
-    return [v/256 for v in value]
-
-
-def get_continuous_cmap(hex_list, float_list=None):
-    ''' creates and returns a color map that can be used in heat map figures.
-        If float_list is not provided, colour map graduates linearly between each color in hex_list.
-        If float_list is provided, each color in hex_list is mapped to the respective location in float_list.
-
-        Parameters
-        ----------
-        hex_list: list of hex code strings
-        float_list: list of floats between 0 and 1, same length as hex_list. Must start with 0 and end with 1.
-
-        Returns
-        ----------
-        colour map'''
-    rgb_list = [rgb_to_dec(hex_to_rgb(i)) for i in hex_list]
-    if float_list:
-        pass
-    else:
-        float_list = list(np.linspace(0,1,len(rgb_list)))
-
-    cdict = dict()
-    for num, col in enumerate(['red', 'green', 'blue']):
-        col_list = [[float_list[i], rgb_list[i][num], rgb_list[i][num]] for i in range(len(float_list))]
-        cdict[col] = col_list
-    cmp = mcolors.LinearSegmentedColormap('my_cmp', segmentdata=cdict, N=256)
-    return cmp
-
-cmp = get_continuous_cmap(["ffbe0b","fb5607","ff006e","8338ec","3a86ff"],
-                          float_list=list(np.linspace(0,1,5))
+cmp = plot_maps.get_continuous_cmap(["ffbe0b","fb5607","ff006e","8338ec","3a86ff"],
+                          float_list=list(np.linspace(0,1,5)))
 #%%
-n_clusters = [2,3,4,5]
 # =============================================================================
 # Clustering Ward Hierarchical Agglomerative Clustering
 # =============================================================================
-mask_US = xr.concat([np.isnan(xr_States)] * len(n_clusters), dim='n_clusters')
-mask_US['n_clusters'] = ('n_clusters', n_clusters)
-
 from time import time
 t0 = time()
 xrclusteredall, results = cl.sklearn_clustering(var_filename, mask=~np.isnan(ano).all(axis=0),
@@ -159,19 +110,27 @@ xrclusteredall, results = cl.sklearn_clustering(var_filename, mask=~np.isnan(ano
                                                            'seldates':None,
                                                            'selbox':None},
                                                clustermethodkey='AgglomerativeClustering',
-                                               kwrgs_clust={'n_clusters':n_clusters,
+                                               kwrgs_clust={'n_clusters':[2,3,4,5],
                                                             'affinity':'euclidean',
                                                             'linkage':'ward'})
-#%%
+
+title = 'Hierarchical Aggl. Clustering'
+# r = np.meshgrid(xrclusteredall.n_clusters.astype(str).values)
+r = xrclusteredall.n_clusters.astype(str).values
+# subtitles = [f'n-clusters={r.flatten()[i]}, ' + f'random state={c.flatten()[i]}' for i in range(c.size)]
+subtitles = [f'n-clusters={r.flatten()[i]}, linkage=ward, metric=euclidian' for i in range(r.size)]
 fig = plot_maps.plot_labels(xrclusteredall,
-                            kwrgs_plot={'wspace':.05, 'hspace':.15, 'cbar_vert':.05,
+                            kwrgs_plot={'wspace':.05, 'hspace':.17, 'cbar_vert':.045,
                                         'row_dim':'n_clusters', 'col_dim':'linkage',
-                                        'zoomregion':selbox, 'cmap':cmp})
-# xr_States.plot.contour()
-# ax = fig.axes[0]
-for ax in fig.axes[:-1]:
+                                        'zoomregion':selbox, 'cmap':cmp,
+                                        'x_ticks':np.array([260,270,280]),
+                                        'title':title,
+                                        'title_fontdict':{'y':.93,
+                                                          'fontsize': 18,
+                                                          'fontweight':'bold'}})
+for i, ax in enumerate(fig.axes[:-1]):
     np.isnan(xr_States).plot.contour(ax=ax,
-                                     transform=ccrs.PlateCarree(),
+                                     transform=plot_maps.ccrs.PlateCarree(),
                                      linestyles=['solid'],
                                      colors=['black'],
                                      linewidths=2,
@@ -183,12 +142,14 @@ for ax in fig.axes[:-1]:
     ax.add_feature(cfeature.OCEAN)
     ax.add_feature(cfeature.LAKES)
     ax.add_feature(cfeature.COASTLINE)
-    # ax.stock_img()
-#%%
-f_name = 'clustering_Hierchical_correlation_{}'.format(xrclusteredall.attrs['hash']) + '.pdf'
+    ax.set_ylabel(None) ; ax.set_xlabel(None)
+    ax.set_title(subtitles[i], fontsize=12)
+
+f_name = 'clustering_Hierchical_ward_{}'.format(xrclusteredall.attrs['hash'])
 path_fig = os.path.join(path_outmain, f_name)
-plt.savefig(path_fig,
-            bbox_inches='tight') # dpi auto 600
+plt.savefig(path_fig + '.pdf', bbox_inches='tight') # dpi auto 600
+
+plt.savefig(path_fig + '.jpeg', bbox_inches='tight') # dpi auto 600
 print(f'{round(time()-t0, 2)}')
 
 #%%
@@ -206,13 +167,44 @@ xrclusteredall, results = cl.sklearn_clustering(var_filename, mask=~np.isnan(ano
                                                             'affinity':'correlation',
                                                             'linkage':'average'})
 
-plot_maps.plot_labels(xrclusteredall,  kwrgs_plot={'wspace':.05, 'hspace':.15, 'cbar_vert':.05,
-                      'row_dim':'n_clusters'})
+fig = plot_maps.plot_labels(xrclusteredall,
+                            kwrgs_plot={'wspace':.05, 'hspace':.15, 'cbar_vert':.045,
+                                        'row_dim':'n_clusters',
+                                        'zoomregion':selbox, 'cmap':cmp,
+                                        'x_ticks':np.array([260,270,280]),
+                                        'title':title,
+                                        'title_fontdict':{'y':.93,
+                                                          'fontsize': 18,
+                                                          'fontweight':'bold'}})
 
-f_name = 'clustering_Hierchical_correlation_{}'.format(xrclusteredall.attrs['hash']) + '.pdf'
+title = 'Hierarchical Aggl. Clustering'
+# r = np.meshgrid(xrclusteredall.n_clusters.astype(str).values)
+r = xrclusteredall.n_clusters.astype(str).values
+# subtitles = [f'n-clusters={r.flatten()[i]}, ' + f'random state={c.flatten()[i]}' for i in range(c.size)]
+subtitles = [f'n-clusters={r.flatten()[i]}, linkage=average, metric=correlation' for i in range(r.size)]
+
+for i, ax in enumerate(fig.axes[:-1]):
+    np.isnan(xr_States).plot.contour(ax=ax,
+                                     transform=ccrs.PlateCarree(),
+                                     linestyles=['solid'],
+                                     colors=['black'],
+                                     linewidths=2,
+                                     levels=[0,1],
+                                     add_colorbar=False)
+    ax.add_feature(cfeature.NaturalEarthFeature(
+        'cultural', 'admin_1_states_provinces_lines', '50m',
+        edgecolor='grey', lw=1, facecolor='none'))
+    ax.add_feature(cfeature.OCEAN)
+    ax.add_feature(cfeature.LAKES)
+    ax.add_feature(cfeature.COASTLINE)
+    ax.set_ylabel(None) ; ax.set_xlabel(None)
+    ax.set_title(subtitles[i], fontsize=12)
+
+f_name = 'clustering_Hierchical_correlation_{}'.format(xrclusteredall.attrs['hash'])
 path_fig = os.path.join(path_outmain, f_name)
-plt.savefig(path_fig,
-            bbox_inches='tight') # dpi auto 600
+plt.savefig(path_fig + '.pdf', bbox_inches='tight') # dpi auto 600
+
+plt.savefig(path_fig + '.jpeg', bbox_inches='tight') # dpi auto 600
 print(f'{round(time()-t0, 2)}')
 
 #%%
@@ -227,16 +219,52 @@ xrclusteredall, results = cl.sklearn_clustering(var_filename, mask=np.mean(~np.i
                                                            'selbox':None},
                                                clustermethodkey='KMeans',
                                                kwrgs_clust={'n_clusters':[2,3,4,5],
-                                                            'random_state':[0,1,2]})
+                                                            'random_state':0})
                                                             # 'linkage':'average'})
 
-plot_maps.plot_labels(xrclusteredall,  kwrgs_plot={'wspace':.05, 'hspace':.15, 'cbar_vert':.05,
-                            'row_dim':'n_clusters', 'col_dim':'random_state'})
+title = 'K-means'
+# r = np.meshgrid(xrclusteredall.n_clusters.astype(str).values)
+r = xrclusteredall.n_clusters.astype(str).values
+# subtitles = [f'n-clusters={r.flatten()[i]}, ' + f'random state={c.flatten()[i]}' for i in range(c.size)]
+subtitles = [f'n-clusters={r.flatten()[i]}, metric=euclidian' for i in range(r.size)]
 
-f_name = 'clustering_KMeans_{}'.format(xrclusteredall.attrs['hash']) + '.pdf'
+fig = plot_maps.plot_labels(xrclusteredall,
+                            kwrgs_plot={'wspace':.05, 'hspace':.16, 'cbar_vert':.045,
+                                        'row_dim':'n_clusters', 'col_dim':'random_state',
+                                        'zoomregion':selbox, 'cmap':cmp,
+                                        'x_ticks':np.array([260,270,280]),
+                                        'title':title,
+                                        'title_fontdict':{'y':.93,
+                                                          'fontsize': 18,
+                                                          'fontweight':'bold'}})
+for i, ax in enumerate(fig.axes[:-1]):
+    np.isnan(xr_States).plot.contour(ax=ax,
+                                     transform=ccrs.PlateCarree(),
+                                     linestyles=['solid'],
+                                     colors=['black'],
+                                     linewidths=2,
+                                     levels=[0,1],
+                                     add_colorbar=False)
+    ax.add_feature(cfeature.NaturalEarthFeature(
+        'cultural', 'admin_1_states_provinces_lines', '50m',
+        edgecolor='grey', lw=1, facecolor='none'))
+    ax.add_feature(cfeature.OCEAN)
+    ax.add_feature(cfeature.LAKES)
+    ax.add_feature(cfeature.COASTLINE)
+    ax.set_ylabel(None) ; ax.set_xlabel(None)
+    ax.set_title(subtitles[i], fontsize=12)
+
+f_name = 'clustering_KMeans_{}'.format(xrclusteredall.attrs['hash'])
 path_fig = os.path.join(path_outmain, f_name)
-plt.savefig(path_fig,
-            bbox_inches='tight') # dpi auto 600
+plt.savefig(path_fig + '.pdf', bbox_inches='tight') # dpi auto 600
+
+
+
+f_name = 'clustering_KMeans_{}'.format(xrclusteredall.attrs['hash'])
+path_fig = os.path.join(path_outmain, f_name)
+plt.savefig(path_fig + '.jpeg', bbox_inches='tight') # dpi auto 600
+
+print(f'{round(time()-t0, 2)}')
 print(f'{round(time()-t0, 2)}')
 
 #%%
@@ -273,7 +301,7 @@ print(f'{round(time()-t0, 2)}')
 
 #%%
 
-kwrgs_NaN_handling={'missing_data_ts_to_nan':41,
+kwrgs_NaN_handling={'missing_data_ts_to_nan':40,
                     'extra_NaN_limit':False,
                     'inter_method':False,
                     'final_NaN_to_clim':False}
