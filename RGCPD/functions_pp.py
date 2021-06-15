@@ -312,9 +312,9 @@ def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0):
         df_train = df_train[cols]
     return df_train
 
-def nc_xr_ts_to_df(filename, name_ds='ts'):
+def nc_xr_ts_to_df(filename, name_ds='ts', format_lon='only_east'):
     if filename.split('.')[-1] == 'nc':
-        ds = core_pp.import_ds_lazy(filename)
+        ds = core_pp.import_ds_lazy(filename, format_lon=format_lon)
     else:
         print('not a NetCDF file')
     return xrts_to_df(ds[name_ds]), ds

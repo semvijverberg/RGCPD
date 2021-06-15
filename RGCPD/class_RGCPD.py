@@ -790,10 +790,10 @@ class RGCPD:
         print('Data stored in \n{}'.format(filename+'.h5'))
         self.path_df_data = filename
 
-    def get_clust(self, name_ds='ts'):
+    def get_clust(self, name_ds='ts', format_lon='only_east'):
         f = functions_pp
         self.df_clust, ds = f.nc_xr_ts_to_df(self.list_of_name_path[0][1],
-                                                  name_ds=name_ds)
+                                                  name_ds=name_ds, format_lon=format_lon)
         return ds
 
     def apply_df_ana_plot(self, df=None, name_ds='ts', func=None, kwrgs_func={},
