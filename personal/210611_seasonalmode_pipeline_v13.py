@@ -116,7 +116,7 @@ def define(list_of_name_path, TV_targetperiod, n_lags, kwrgs_MI):
                list_for_MI=list_for_MI,
                tfreq=None, # <- seasonal forecasting mode, set tfreq to None!
                start_end_TVdate=TV_targetperiod, # <- defining target period (whole year)
-               path_outmain=os.path.join(main_dir,'data'))
+               path_outmain=os.path.join(main_dir,f'Results/{list_of_name_path[0][0]}'))
 
     #preprocess TV
     rg.pp_TV(TVdates_aggr=True, kwrgs_core_pp_time = {'start_end_year':start_end_year}) # <- start_end_TVdate defineds aggregated over period
