@@ -87,12 +87,71 @@ ano = core_pp.detrend_xarray_ds_2D(ano, detrend={'method':'linear'}, anomaly=Fal
 var_filename = raw_filename[:-3] + '_pp.nc'
 ano.to_netcdf(var_filename)
 
-
 #%%
+import itertools, os, re
+import make_country_mask, enums
+import cartopy.feature as cfeature
+var_filename = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/masked_rf_gs_county_grids_pp.nc'
+xr_States, States = make_country_mask.create_mask(var_filename, kwrgs_load={}, level='US_States')
+xr_States = xr_States.where(xr_States.values != -1)
 
+#%% Get colormap
+import matplotlib.colors as mcolors
+
+def hex_to_rgb(value):
+    '''
+    Converts hex to rgb colours
+    value: string of 6 characters representing a hex colour.
+    Returns: list length 3 of RGB values'''
+    value = value.strip("#") # removes hash symbol if present
+    lv = len(value)
+    return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
+
+
+def rgb_to_dec(value):
+    '''
+    Converts rgb to decimal colours (i.e. divides each value by 256)
+    value: list (length 3) of RGB values
+    Returns: list (length 3) of decimal values'''
+    return [v/256 for v in value]
+
+
+def get_continuous_cmap(hex_list, float_list=None):
+    ''' creates and returns a color map that can be used in heat map figures.
+        If float_list is not provided, colour map graduates linearly between each color in hex_list.
+        If float_list is provided, each color in hex_list is mapped to the respective location in float_list.
+
+        Parameters
+        ----------
+        hex_list: list of hex code strings
+        float_list: list of floats between 0 and 1, same length as hex_list. Must start with 0 and end with 1.
+
+        Returns
+        ----------
+        colour map'''
+    rgb_list = [rgb_to_dec(hex_to_rgb(i)) for i in hex_list]
+    if float_list:
+        pass
+    else:
+        float_list = list(np.linspace(0,1,len(rgb_list)))
+
+    cdict = dict()
+    for num, col in enumerate(['red', 'green', 'blue']):
+        col_list = [[float_list[i], rgb_list[i][num], rgb_list[i][num]] for i in range(len(float_list))]
+        cdict[col] = col_list
+    cmp = mcolors.LinearSegmentedColormap('my_cmp', segmentdata=cdict, N=256)
+    return cmp
+
+cmp = get_continuous_cmap(["ffbe0b","fb5607","ff006e","8338ec","3a86ff"],
+                          float_list=list(np.linspace(0,1,5))
+#%%
+n_clusters = [2,3,4,5]
 # =============================================================================
 # Clustering Ward Hierarchical Agglomerative Clustering
 # =============================================================================
+mask_US = xr.concat([np.isnan(xr_States)] * len(n_clusters), dim='n_clusters')
+mask_US['n_clusters'] = ('n_clusters', n_clusters)
+
 from time import time
 t0 = time()
 xrclusteredall, results = cl.sklearn_clustering(var_filename, mask=~np.isnan(ano).all(axis=0),
@@ -100,13 +159,32 @@ xrclusteredall, results = cl.sklearn_clustering(var_filename, mask=~np.isnan(ano
                                                            'seldates':None,
                                                            'selbox':None},
                                                clustermethodkey='AgglomerativeClustering',
-                                               kwrgs_clust={'n_clusters':[2,3,4,5],
+                                               kwrgs_clust={'n_clusters':n_clusters,
                                                             'affinity':'euclidean',
-                                                            'linkage':['ward']})
-
-plot_maps.plot_labels(xrclusteredall,  kwrgs_plot={'wspace':.05, 'hspace':.15, 'cbar_vert':.05,
-                      'row_dim':'n_clusters', 'col_dim':'linkage'})
-
+                                                            'linkage':'ward'})
+#%%
+fig = plot_maps.plot_labels(xrclusteredall,
+                            kwrgs_plot={'wspace':.05, 'hspace':.15, 'cbar_vert':.05,
+                                        'row_dim':'n_clusters', 'col_dim':'linkage',
+                                        'zoomregion':selbox, 'cmap':cmp})
+# xr_States.plot.contour()
+# ax = fig.axes[0]
+for ax in fig.axes[:-1]:
+    np.isnan(xr_States).plot.contour(ax=ax,
+                                     transform=ccrs.PlateCarree(),
+                                     linestyles=['solid'],
+                                     colors=['black'],
+                                     linewidths=2,
+                                     levels=[0,1],
+                                     add_colorbar=False)
+    ax.add_feature(cfeature.NaturalEarthFeature(
+        'cultural', 'admin_1_states_provinces_lines', '50m',
+        edgecolor='grey', lw=1, facecolor='none'))
+    ax.add_feature(cfeature.OCEAN)
+    ax.add_feature(cfeature.LAKES)
+    ax.add_feature(cfeature.COASTLINE)
+    # ax.stock_img()
+#%%
 f_name = 'clustering_Hierchical_correlation_{}'.format(xrclusteredall.attrs['hash']) + '.pdf'
 path_fig = os.path.join(path_outmain, f_name)
 plt.savefig(path_fig,
