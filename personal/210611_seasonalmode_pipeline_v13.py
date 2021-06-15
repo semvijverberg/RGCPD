@@ -19,11 +19,13 @@ else:
     n_cpu = 3
 
 main_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+RGCPD_dir = '/'.join(main_dir.split('/')[:-1])
 user_dir = os.path.expanduser('~')
+os.chdir(RGCPD_dir)
 ERA5_data_dir = user_dir + '/surfdrive/ERA5/input_raw'
 working_dir = user_dir + '/surfdrive/output_RGCPD/EU'
 main_dir = working_dir
-print(main_dir)
+print(RGCPD_dir)
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
 import class_BivariateMI, functions_pp
