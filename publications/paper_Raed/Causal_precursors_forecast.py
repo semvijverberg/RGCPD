@@ -235,6 +235,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                start_end_year=start_end_year,
                tfreq=None,
                path_outmain=path_out_main)
+    rg.figext = '.png'
 
 
     subfoldername = target_dataset
@@ -852,7 +853,7 @@ from stat_models_cont import ScikitModel
 fcmodel = ScikitModel(Ridge, verbosity=0)
 kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
                 'alpha':list(np.concatenate([np.logspace(-4,0, 5),
-                                          np.logspace(.2, 1.5, num=8)])), # large a, strong regul.
+                                          np.logspace(.2, 2, num=8)])), # large a, strong regul.
                 'normalize':False,
                 'fit_intercept':True,
                 'kfold':10}
@@ -868,7 +869,7 @@ for i, rg in enumerate(rg_list):
     # target timeseries
     fc_mask = rg.df_data.iloc[:,-1].loc[0]
     target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
-    # target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+    target_ts = (target_ts - target_ts.mean()) / target_ts.std()
 
     mean_vars=['sst', 'smi']
     # mean_vars=[]

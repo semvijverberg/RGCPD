@@ -250,7 +250,13 @@ def return_sign_links(pc_class, pq_matrix, val_matrix,
     return {'parents': all_parents,
             'link_matrix': pq_matrix <= alpha_level}
 
-
+def df_pval_to_keys_dict(df_pvals, alpha=.05):
+    n_spl = df_pvals.index.levels[0]
+    keys_dict = {s:[] for s in n_spl}
+    for s in n_spl:
+        keys = list(df_pvals.loc[s][df_pvals.loc[s].values<alpha].index)
+        keys_dict[s].append(keys)
+    return keys_dict
 
 def get_df_MCI(pcmci_dict, pcmci_results_dict, lags, variable):
     splits = np.array(list(pcmci_dict.keys()))

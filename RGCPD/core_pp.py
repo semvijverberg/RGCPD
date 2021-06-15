@@ -549,8 +549,7 @@ def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=False, n_harmonics=6,
     #%%
     return output
 
-def detrend_lin_longterm(ds, plot=True, return_trend=False,
-                         NaN_interpolate='spline', spline_order=5):
+def detrend_lin_longterm(ds, plot=True, return_trend=False):
     offset_clim = np.mean(ds, 0)
     dates = pd.to_datetime(ds.time.values)
     detrended = sp.signal.detrend(np.nan_to_num(ds), axis=0, type='linear')
@@ -641,21 +640,25 @@ def back_to_input_dtype(data, kwrgs, input_dtype):
         data = xr.DataArray(data, **kwrgs)
     return data
 
-def NaN_handling(data, method: str='spline', order=2, inter_NaN_limit: float=None,
+def NaN_handling(data, inter_method: str='spline', order=2, inter_NaN_limit: float=None,
                  extra_NaN_limit: float=.05, final_NaN_to_clim: bool=True,
                  missing_data_ts_to_nan: Union[bool, float, int]=False):
     '''
-    Interpolates, extrapolates NaNs or discards timeseries with NaN completely.
-    Or in the final step, fills the left-over NaNs with the mean over the
-    time-axis.
+    4 options to deal with NaNs (performed in this order):
+        1. mask complete timeseries if more then % of dp are missing
+        2. Interpolation (by default via order 2 spine)
+        3. extrapolation NaNs at edged of timeseries
+        4. fills the left-over NaNs with the mean over the
+           time-axis.
+
 
     Parameters
     ----------
     data : xr.DataArray, pd.DataFrame or np.ndarray
         input data.
-    method : str, optional
-        method used to interpolate NaNs, build upon
-        pd.DataFrame().interpolate(method=method).
+    inter_method : str, optional
+        inter_method used to interpolate NaNs, build upon
+        pd.DataFrame().interpolate(method=inter_method).
 
         Interpolation technique to use:
         ‘linear’: Ignore the index and treat the values as equally spaced. This is the only method supported on MultiIndexes.
@@ -694,7 +697,7 @@ def NaN_handling(data, method: str='spline', order=2, inter_NaN_limit: float=Non
         - https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.interpolate.html
 
     '''
-    # method='spline';order=2;inter_NaN_limit=None;extra_NaN_limit=.05;
+    # inter_method='spline';order=2;inter_NaN_limit=None;extra_NaN_limit=.05;
     # final_NaN_to_clim=True;missing_data_ts_to_nan=False
     #%%
     data, kwrgs_dtype, input_dtype = to_np(data)
@@ -714,49 +717,66 @@ def NaN_handling(data, method: str='spline', order=2, inter_NaN_limit: float=Non
     # interpolating NaNs
     t, o = np.where(np.isnan(data[:,~NaN_mask])) # NaNs some timesteps
     if t.size > 0:
-        n_sparse_nans = t.size
-        print(f'Warning: {n_sparse_nans} NaNs found at {np.unique(o).size} location(s)',
+
+        # interpolation
+        print(f'Warning: {t.size} NaNs found at {np.unique(o).size} location(s)',
               '')
-        if method is not False:
-            print(f'Sparse NaNs will be interpolated using {method} (pandas)\n')
+        if inter_method is not False:
+            print(f'Sparse NaNs will be interpolated using {inter_method} (pandas)\n')
             if inter_NaN_limit is not None:
                 limit = int(orig_shape[0]*inter_NaN_limit)
             else:
                 limit=None
             try:
-                data[:,~NaN_mask] = pd.DataFrame(data[:,~NaN_mask]).interpolate(method=method, limit=limit,
+                data[:,~NaN_mask] = pd.DataFrame(data[:,~NaN_mask]).interpolate(method=inter_method, limit=limit,
                                                                                 limit_direction='both',
                                                                                 limit_area='inside',
                                                                                 order=order).values
             except:
-                print(f'{method} spline gave error, reverting to linear interpolation')
+                print(f'{inter_method} spline gave error, reverting to linear interpolation')
                 data[:,~NaN_mask] = pd.DataFrame(data[:,~NaN_mask]).interpolate(method='linear', limit=limit,
                                                                                 limit_area='inside',
                                                                                 limit_direction='both').values
-            ti, oi = np.where(np.isnan(data[:,~NaN_mask]))
+            ti, _ = np.where(np.isnan(data[:,~NaN_mask]))
             print(f'{t.size - ti.size} values are interpolated')
-            if ti.size != 0:
-                print('Warning: NaNs detected at edges of timeseries: ',
-                      'extrapolating up to 5% of datapoints using linear method')
-                if extra_NaN_limit is not None:
-                    limit = int(orig_shape[0]*extra_NaN_limit)
-                else:
-                    limit=None
-                data[:,~NaN_mask] = pd.DataFrame(data[:,~NaN_mask]).interpolate(method='linear',
-                                                                                limit=limit,
-                                                                limit_direction='both').values
+            if ti.size != 0 and limit is None:
+                print('Warning: NaNs left at edges of timeseries')
+            elif ti.size !=0 and limit is not None:
+                print('Warning: NaNs left. could be interpolation was '
+                      'insufficient due to limit, or NaNs are located at edges '
+                      'of timeseries')
+        else:
+            ti, _ = t, o
+
+        # extrapolation (only linear method possible)
+        if ti.size != 0 and extra_NaN_limit is not False:
+            print(f'Extrapolating up to {int(100*extra_NaN_limit)}% of datapoints'
+                  ' using linear method')
+            if extra_NaN_limit is not None:
+                limit = int(orig_shape[0]*extra_NaN_limit)
+            else:
+                limit=None
+            data[:,~NaN_mask] = pd.DataFrame(data[:,~NaN_mask]).interpolate(method='linear',
+                                                                            limit=limit,
+                                                            limit_direction='both').values
             te, oe = np.where(np.isnan(data[:,~NaN_mask]))
             print(f'{ti.size - te.size} values are extrapolated')
             if te.size != 0:
                 print('Not all NaNs allowed to extrapolate, more then '
-                      f'{int(100*extra_NaN_limit)}% of first or last dps are missing')
+                  f'{int(100*extra_NaN_limit)}% of first or last dps are missing')
                 print('Warning: extrapolation was insufficient')
+        tf, of = np.where(np.isnan(data[:,~NaN_mask]))
+        if tf.size != 0:
+            print(f'Warning: {tf.size} NaNs left after inter/extrapolation '
+                  'and masking.')
             if final_NaN_to_clim:
-                print('will fill other outlier NaNs with mean over time axis')
+                print('Since final_NaN_to_clim==True, will fill other '
+                      'outlier NaNs with mean over time axis')
                 data = np.where(np.isnan(data), np.ma.array(data, mask=np.isnan(data)).mean(axis=0), data)
                 data[:,NaN_mask] = np.nan # restore always NaN mask
             else:
-                print('Warning: NaNs still present')
+                print('Since final_NaN_to_clim==False, no other method to '
+                      'handle NaNs. Warning: NaNs still present')
         else:
             raise ValueError('NaNs not allowed')
 
@@ -764,7 +784,7 @@ def NaN_handling(data, method: str='spline', order=2, inter_NaN_limit: float=Non
     return data
 
 
-def detrend_wrapper(data, kwrgs_detrend: dict={'method':'linear'}, return_trend: bool=False,
+def detrend_wrapper(data, kwrgs_detrend: Union[bool,dict]=True, return_trend: bool=False,
             plot: bool=True):
     '''
     Wrapper supporting linear and loess detrending on xr.DataArray, pd.DataFrame
@@ -774,7 +794,7 @@ def detrend_wrapper(data, kwrgs_detrend: dict={'method':'linear'}, return_trend:
     ----------
     data : TYPE
         DESCRIPTION.
-    kwrgs_detrend : dict, optional
+    kwrgs_detrend : bool, dict, optional
         Choose detrending method ['linear', 'loess']. The default is 'linear'.
         extra kwrgs for loess detrending. The default is {'alpha':.75, 'order':2}.
     return_trend : bool, optional
@@ -794,6 +814,8 @@ def detrend_wrapper(data, kwrgs_detrend: dict={'method':'linear'}, return_trend:
     # kwrgs_detrend={'method':'linear'}; return_trend=False;NaN_interpolate='spline'
     # plot=True;order=2
     #%%
+    if kwrgs_detrend:
+        kwrgs_detrend = {'method':'linear'}
     method = kwrgs_detrend.pop('method')
     if method == 'loess':
         kwrgs_d = {'alpha':0.75, 'order':2} ; kwrgs_d.update(kwrgs_detrend)
