@@ -29,7 +29,7 @@ main_dir = working_dir
 print(RGCPD_dir)
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
-import class_BivariateMI, functions_pp
+import class_BivariateMI, functions_pp, find_precursors
 # from IPython.display import Image
 import numpy as np
 import pandas as pd
@@ -37,6 +37,7 @@ import plot_maps
 import xarray as xr
 import argparse
 from datetime import datetime
+
 
 #%% Define Analysis
 def define(list_of_name_path, TV_targetperiod, n_lags, kwrgs_MI, subfolder):
@@ -184,6 +185,12 @@ def process(rg, lags, fold_method, crossyr):
     testyrs = rg._get_testyrs()
     print(testyrs)
 
+    # save target region plot
+    target_cluster = int(rg.list_of_name_path[0][0])
+    xrclustered = rg.get_clust(format_lon='west_east')['xrclustered']
+    fig = plot_maps.plot_labels(find_precursors.view_or_replace_labels(xrclustered,
+                                                                 regions=target_cluster))
+    fig.savefig(os.path.join(rg.path_outsub1, 'target_cluster_{target_cluster}.jpeg'))
     # calculate correlation maps
     rg.calc_corr_maps()
 
