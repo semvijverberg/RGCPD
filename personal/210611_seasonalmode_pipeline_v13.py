@@ -39,7 +39,7 @@ import argparse
 from datetime import datetime
 
 #%% Define Analysis
-def define(list_of_name_path, TV_targetperiod, n_lags, kwrgs_MI, fold_method):
+def define(list_of_name_path, TV_targetperiod, n_lags, kwrgs_MI, subfolder):
 
     #create lag list
     days_dict = {'01':'31',
@@ -119,7 +119,7 @@ def define(list_of_name_path, TV_targetperiod, n_lags, kwrgs_MI, fold_method):
                list_for_MI=list_for_MI,
                tfreq=None, # <- seasonal forecasting mode, set tfreq to None!
                start_end_TVdate=TV_targetperiod, # <- defining target period (whole year)
-               path_outmain=os.path.join(main_dir,f'Results/{list_of_name_path[0][0]}_{fold_method}'))
+               path_outmain=os.path.join(main_dir,f'Results/{subfolder}/{list_of_name_path[0][0]}'))
 
     #preprocess TV
     rg.pp_TV(TVdates_aggr=True, kwrgs_core_pp_time = {'start_end_year':start_end_year}) # <- start_end_TVdate defineds aggregated over period
@@ -383,6 +383,8 @@ def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method,
     else:
         cl_list = distinct_cl
 
+    subfolder = f'{agg_level}_{fold_method}'
+
     #target periods, all or given
     all_targetperiods = [('01-01','01-31'),('02-01','02-28'),('03-01','03-31'),('04-01','04-30'),
                      ('05-01','05-31'),('06-01','06-30'),('07-01','07-31'),('08-01','08-31'),
@@ -430,7 +432,7 @@ def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method,
         list_of_name_path = get_list_of_name_path(agg_level, cluster)
         for month_counter, month in enumerate(targetperiods):
             #run define
-            rg, list_for_MI, lags, crossyr = define(list_of_name_path, month, n_lags, kwrgs_MI, fold_method)
+            rg, list_for_MI, lags, crossyr = define(list_of_name_path, month, n_lags, kwrgs_MI, subfolder)
             #run check (possible, not necessary)
             check(rg, list_of_name_path, cluster)
             #run processing
