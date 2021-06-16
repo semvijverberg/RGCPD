@@ -30,7 +30,6 @@ print(RGCPD_dir)
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
 import class_BivariateMI, functions_pp
-import find_precursors, plot_maps
 # from IPython.display import Image
 import numpy as np
 import pandas as pd
@@ -169,7 +168,7 @@ def check(rg, list_of_name_path, cluster_nr):
                                             'add_cfeature':'BORDERS'})
 #%% processing
 def process(rg, lags, fold_method, crossyr):
-
+    import find_precursors, plot_maps
     #Preprocess precursors
     rg.pp_precursors(detrend=True, anomaly=True, selbox=None, format_lon='west_east')
 
@@ -238,7 +237,7 @@ def process(rg, lags, fold_method, crossyr):
     count = rg._df_count # how many times is each precursor regions found in the different training sets
     print(count)
 
-    import find_precursors, plot_maps
+
     df_prec_regions = find_precursors.labels_to_df(rg.list_for_MI[0].prec_labels)
     df_prec_regions # center lat,lon coordinates and size (in number of gridcells)
 
