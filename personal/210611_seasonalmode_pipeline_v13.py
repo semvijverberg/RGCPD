@@ -29,7 +29,8 @@ main_dir = working_dir
 print(RGCPD_dir)
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
-import class_BivariateMI, functions_pp, find_precursors
+import class_BivariateMI, functions_pp
+import find_precursors, plot_maps
 # from IPython.display import Image
 import numpy as np
 import pandas as pd
