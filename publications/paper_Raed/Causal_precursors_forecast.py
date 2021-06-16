@@ -786,11 +786,14 @@ def get_df_forcing_cond_fc(rg_list):
 
         rg.df_forcing = PacAtl_ts
 
-def cond_forecast_table(rg_list):
+def cond_forecast_table(rg_list, n_boot=0):
     df_test_m = rg_list[0].verification_tuple[2]
     quantiles = [.15, .25]
     metrics = df_test_m.columns.levels[1]
-    cond_df = np.zeros((metrics.size, len(rg_list), len(quantiles)*2))
+    if n_boot > 0:
+        cond_df = np.zeros((metrics.size, len(rg_list), len(quantiles)*2, n_boot))
+    else:
+        cond_df = np.zeros((metrics.size, len(rg_list), len(quantiles)*2))
     for i, met in enumerate(metrics):
         for j, rg in enumerate(rg_list):
 
@@ -812,13 +815,16 @@ def cond_forecast_table(rg_list):
                 # condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
                 cond_verif_tuple = fc_utils.get_scores(condfc,
                                                        score_func_list=score_func_list,
-                                                       n_boot=0,
+                                                       n_boot=n_boot,
                                                        score_per_test=False,
                                                        blocksize=1,
                                                        rng_seed=seed)
                 df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
                 rg.cond_verif_tuple  = cond_verif_tuple
-                cond_df[i, j, l] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+                if n_boot == 0:
+                    cond_df[i, j, l] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+                else:
+                    cond_df[i, j, l, :] = df_boot[df_boot.columns[0][0]][met]
                 # mild boundary forcing
                 higher_low = PacAtl_ts > PacAtl_ts.quantile(.5-q)
                 lower_high = PacAtl_ts < PacAtl_ts.quantile(.5+q)
@@ -828,20 +834,104 @@ def cond_forecast_table(rg_list):
                 # condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
                 cond_verif_tuple = fc_utils.get_scores(condfc,
                                                        score_func_list=score_func_list,
-                                                       n_boot=0,
+                                                       n_boot=n_boot,
                                                        score_per_test=False,
                                                        blocksize=1,
                                                        rng_seed=seed)
                 df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
-                cond_df[i, j, l+1] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+                if n_boot == 0:
+                    cond_df[i, j, l+1] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+                else:
+                    cond_df[i, j, l+1, :] = df_boot[df_boot.columns[0][0]][met]
 
     columns = [[f'strong {int(q*200)}%', f'weak {int(q*200)}%'] for q in quantiles]
+    columns = functions_pp.flatten(columns)
+    if n_boot > 0:
+        columns = pd.MultiIndex.from_product([columns, list(range(n_boot))])
+
     df_cond_fc = pd.DataFrame(cond_df.reshape((len(metrics)*len(rg_list), -1)),
                               index=pd.MultiIndex.from_product([list(metrics), [rg.fc_month for rg in rg_list]]),
-                              columns=functions_pp.flatten(columns))
+                              columns=columns)
 
 
     return df_cond_fc
+
+
+def boxplot_cond_fc(df_cond, col, composites = 30):
+    import matplotlib as mpl
+    mpl.rcParams.update(mpl.rcParamsDefault)
+
+    plot_cols = [f'strong {composites}%', f'weak {composites}%']
+    rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
+                'MAE':'MAE-SS', 'mean_absolute_error':'Mean Absolute Error'}
+    metrics = ['mean_absolute_error', 'MAE']
+
+
+    metric = metrics[0]
+
+    f, axes = plt.subplots(1,len(metrics), figsize=(5*len(metrics), 4),
+                           sharex=True)
+
+    for iax, metric in enumerate(metrics):
+        ax = axes[iax]
+        # ax.set_facecolor('white')
+        data = df_cond.loc[metric][plot_cols]
+
+
+        perc_incr = (data[plot_cols[0]].mean() - data[plot_cols[1]].mean()) / abs(data[plot_cols[1]].mean())
+
+        nlabels = plot_cols.copy() ; widths=(.5,.5)
+        nlabels = [l.split(' ')[0] for l in nlabels]
+        if col == 'PDO0.5rm':
+            nlabels = [l.capitalize() + '\nwinter/spring\nPDO' for l in nlabels]
+        else:
+            nlabels = [l.capitalize() + ' \nPDO state' for l in nlabels]
+
+        boxprops = dict(linewidth=2.0, color='black')
+        whiskerprops = dict(linestyle='-',linewidth=2.0, color='black')
+        medianprops = dict(linestyle='-', linewidth=2, color='red')
+        ax.boxplot(data, labels=nlabels,
+                   widths=widths, whis=[2.5, 97.5], boxprops=boxprops, whiskerprops=whiskerprops,
+                   medianprops=medianprops, showmeans=True)
+
+        text = f'{int(100*perc_incr)}%'
+        if perc_incr > 0: text = '+'+text
+        ax.text(0.98, 0.98,text,
+                horizontalalignment='right',
+                verticalalignment='top',
+                transform = ax.transAxes,
+                fontsize=15)
+
+        if metric == 'corrcoef':
+            ax.set_ylim(0,1) ; steps = 1
+            yticks = np.round(np.arange(0,1.01,.2), 2)
+            ax.set_yticks(yticks[::steps])
+            ax.set_yticks(yticks, minor=True)
+            ax.tick_params(which='minor', length=0)
+            ax.set_yticklabels(yticks[::steps])
+        elif metric == 'mean_absolute_error':
+            yticks = np.round(np.arange(0,1.61,.2), 1)
+            ax.set_ylim(0,1.6) ; steps = 1
+            ax.set_yticks(yticks[::steps])
+            ax.set_yticks(yticks, minor=True)
+            ax.tick_params(which='minor', length=0)
+            ax.set_yticklabels(yticks[::steps])
+        else:
+            yticks = np.round(np.arange(-.4,1.1,.2), 1)
+            ax.set_ylim(-.4,1) ; steps = 1
+            ax.set_yticks(yticks[::steps])
+            ax.set_yticks(yticks, minor=True)
+            ax.tick_params(which='minor', length=0)
+            ax.set_yticklabels(yticks[::steps])
+            ax.axhline(y=0, color='black', linewidth=1)
+
+        ax.tick_params(which='both', grid_ls='-', grid_lw=1,width=1,
+                       labelsize=16, pad=6, color='black')
+        ax.grid(which='both', ls='--')
+        ax.set_ylabel(rename_m[metric], fontsize=18, labelpad=2)
+    f.subplots_adjust(wspace=.3)
+    filepath = os.path.join(rg.path_outsub1, f'Conditional_forecast_{col}_{composites}')
+    f.savefig(filepath + rg.figext, bbox_inches='tight')
 
 
 #%% Continuous forecast

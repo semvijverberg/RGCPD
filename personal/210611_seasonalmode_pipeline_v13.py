@@ -39,7 +39,7 @@ import argparse
 from datetime import datetime
 
 #%% Define Analysis
-def define(list_of_name_path, TV_targetperiod, n_lags, kwrgs_MI):
+def define(list_of_name_path, TV_targetperiod, n_lags, kwrgs_MI, fold_method):
 
     #create lag list
     days_dict = {'01':'31',
@@ -119,7 +119,7 @@ def define(list_of_name_path, TV_targetperiod, n_lags, kwrgs_MI):
                list_for_MI=list_for_MI,
                tfreq=None, # <- seasonal forecasting mode, set tfreq to None!
                start_end_TVdate=TV_targetperiod, # <- defining target period (whole year)
-               path_outmain=os.path.join(main_dir,f'Results/{list_of_name_path[0][0]}'))
+               path_outmain=os.path.join(main_dir,f'Results/{list_of_name_path[0][0]}_{fold_method}'))
 
     #preprocess TV
     rg.pp_TV(TVdates_aggr=True, kwrgs_core_pp_time = {'start_end_year':start_end_year}) # <- start_end_TVdate defineds aggregated over period
@@ -430,7 +430,7 @@ def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method,
         list_of_name_path = get_list_of_name_path(agg_level, cluster)
         for month_counter, month in enumerate(targetperiods):
             #run define
-            rg, list_for_MI, lags, crossyr = define(list_of_name_path, month, n_lags, kwrgs_MI)
+            rg, list_for_MI, lags, crossyr = define(list_of_name_path, month, n_lags, kwrgs_MI, fold_method)
             #run check (possible, not necessary)
             check(rg, list_of_name_path, cluster)
             #run processing
@@ -467,7 +467,7 @@ def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method,
                 df_prediction_result.update(test_df_pred, join='left')
 
         #save intermediate cluster csv
-        results_path = os.path.join(main_dir, 'Results', 'intermediate') #path of results
+        results_path = os.path.join(main_dir, 'Results', 'intermediate_'+fold_method) #path of results
         os.makedirs(results_path, exist_ok=True) # make folder if it doesn't exist
         df_ss_result.to_csv(os.path.join(results_path, str(cluster)+'_ss_scores_'+agg_level+'.csv')) #intermediate save skillscores per cluster to csv
 
