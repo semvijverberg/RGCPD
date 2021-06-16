@@ -742,6 +742,50 @@ def plot_forecast_ts(df_test_m, df_test):
 
 
 #%% Conditional continuous forecast
+
+def get_df_forcing_cond_fc(rg_list):
+    for j, rg in enumerate(rg_list):
+
+        PacAtl = []
+        # find west-sub-tropical Atlantic region
+        df_labels = find_precursors.labels_to_df(rg.list_for_MI[0].prec_labels)
+        dlat = df_labels['latitude'] - 29
+        dlon = df_labels['longitude'] - 290
+        zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
+        Atlan = zz.query('latitude < 10 & longitude < 10')
+        if Atlan.size > 0:
+            PacAtl.append(int(Atlan.index[0]))
+        PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
+        PacAtl = [int(df_labels['n_gridcells'].idxmax())] # only Pacific
+
+        weights_norm = rg.prediction_tuple[1]# .mean(axis=0, level=1)
+        # weights_norm = weights_norm.sort_values(ascending=False, by=0)
+
+        keys = [k for k in weights_norm.index.levels[1] if int(k.split('..')[1]) in PacAtl]
+        keys = [k for k in keys if 'sst' in k] # only SST
+        labels = ['..'.join(k.split('..')[1:]) for k in keys] + ['0..smi_sp'] # add smi just because it almost always in there
+
+        df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
+                                             n_strongest='all',
+                                             weights=True,
+                                             fcmodel=fcmodel,
+                                             kwrgs_model=kwrgs_model,
+                                             target_ts=target_ts,
+                                             labels=labels)
+
+
+        # apply weighted mean based on coefficients of precursor regions
+        weights_norm = weights_norm.loc[pd.IndexSlice[:,keys],:]
+        # weights_norm = weights_norm.div(weights_norm.max(axis=0))
+        weights_norm = weights_norm.div(weights_norm.max(axis=0, level=0), level=0)
+        weights_norm = weights_norm.reset_index().pivot(index='level_0', columns='level_1')[0]
+        weights_norm.index.name = 'fold' ; df_mean.index.name = ('fold', 'time')
+        PacAtl_ts = weights_norm.multiply(df_mean[keys], axis=1, level=0)
+        PacAtl_ts = functions_pp.get_df_test(PacAtl_ts.mean(axis=1),
+                                             df_splits=rg.df_splits)
+
+        rg.df_forcing = PacAtl_ts
+
 def cond_forecast_table(rg_list):
     df_test_m = rg_list[0].verification_tuple[2]
     quantiles = [.15, .25]
@@ -750,43 +794,7 @@ def cond_forecast_table(rg_list):
     for i, met in enumerate(metrics):
         for j, rg in enumerate(rg_list):
 
-            PacAtl = []
-            # find west-sub-tropical Atlantic region
-            df_labels = find_precursors.labels_to_df(rg.list_for_MI[0].prec_labels)
-            dlat = df_labels['latitude'] - 29
-            dlon = df_labels['longitude'] - 290
-            zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
-            Atlan = zz.query('latitude < 10 & longitude < 10')
-            if Atlan.size > 0:
-                PacAtl.append(int(Atlan.index[0]))
-            PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
-            PacAtl = [int(df_labels['n_gridcells'].idxmax())] # only Pacific
-
-            weights_norm = rg.prediction_tuple[1]# .mean(axis=0, level=1)
-            # weights_norm = weights_norm.sort_values(ascending=False, by=0)
-
-            keys = [k for k in weights_norm.index.levels[1] if int(k.split('..')[1]) in PacAtl]
-            keys = [k for k in keys if 'sst' in k] # only SST
-            labels = ['..'.join(k.split('..')[1:]) for k in keys] + ['0..smi_sp'] # add smi just because it almost always in there
-
-            df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
-                                                 n_strongest='all',
-                                                 weights=True,
-                                                 fcmodel=fcmodel,
-                                                 kwrgs_model=kwrgs_model,
-                                                 target_ts=target_ts,
-                                                 labels=labels)
-
-
-            # apply weighted mean based on coefficients of precursor regions
-            weights_norm = weights_norm.loc[pd.IndexSlice[:,keys],:]
-            # weights_norm = weights_norm.div(weights_norm.max(axis=0))
-            weights_norm = weights_norm.div(weights_norm.max(axis=0, level=0), level=0)
-            weights_norm = weights_norm.reset_index().pivot(index='level_0', columns='level_1')[0]
-            weights_norm.index.name = 'fold' ; df_mean.index.name = ('fold', 'time')
-            PacAtl_ts = weights_norm.multiply(df_mean[keys], axis=1, level=0)
-            PacAtl_ts = functions_pp.get_df_test(PacAtl_ts.mean(axis=1),
-                                                 df_splits=rg.df_splits)
+            PacAtl_ts = rg.df_forcing
 
             prediction = rg.prediction_tuple[0]
             df_test = functions_pp.get_df_test(prediction,

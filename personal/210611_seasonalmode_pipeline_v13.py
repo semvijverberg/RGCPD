@@ -467,8 +467,9 @@ def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method,
                 df_prediction_result.update(test_df_pred, join='left')
 
         #save intermediate cluster csv
-        results_path = results_path = os.path.join(os.path.dirname(main_dir), 'Results') #path of results
-        df_ss_result.to_csv(os.path.join(results_path, 'intermediate', str(cluster)+'_ss_scores_'+agg_level+'.csv')) #intermediate save skillscores per cluster to csv
+        results_path = os.path.join(main_dir, 'Results', 'intermediate') #path of results
+        os.makedirs(results_path, exist_ok=True) # make folder if it doesn't exist
+        df_ss_result.to_csv(os.path.join(results_path, str(cluster)+'_ss_scores_'+agg_level+'.csv')) #intermediate save skillscores per cluster to csv
 
     #return df_ss_result dataframe and prediction
     return df_ss_result, df_prediction_result, rg

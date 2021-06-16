@@ -185,7 +185,7 @@ subtitles = [f'n-clusters={r.flatten()[i]}, linkage=average, metric=correlation'
 
 for i, ax in enumerate(fig.axes[:-1]):
     np.isnan(xr_States).plot.contour(ax=ax,
-                                     transform=ccrs.PlateCarree(),
+                                     transform=plot_maps.ccrs.PlateCarree(),
                                      linestyles=['solid'],
                                      colors=['black'],
                                      linewidths=2,
@@ -239,7 +239,7 @@ fig = plot_maps.plot_labels(xrclusteredall,
                                                           'fontweight':'bold'}})
 for i, ax in enumerate(fig.axes[:-1]):
     np.isnan(xr_States).plot.contour(ax=ax,
-                                     transform=ccrs.PlateCarree(),
+                                     transform=plot_maps.ccrs.PlateCarree(),
                                      linestyles=['solid'],
                                      colors=['black'],
                                      linewidths=2,
