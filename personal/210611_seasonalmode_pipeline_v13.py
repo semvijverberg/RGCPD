@@ -222,7 +222,8 @@ def process(rg, lags, fold_method, crossyr):
 
 
     # View correlation regions
-    rg.quick_view_labels(mean=True)
+    rg.quick_view_labels(mean=True, save=True)
+    rg.plot_maps_corr(save=True)
 
     # Handle precursor regions
     rg.get_ts_prec()
