@@ -1086,7 +1086,7 @@ try:
         f = utils_paper3.boxplot_cond_fc(df_cond_fc, metrics=None,
                                          forcing_name='Pacific Forcing',
                                          composites=comp)
-        filepath = os.path.join(rg.path_outsub1, f'Conditional_forecast_{comp}')
+        filepath = os.path.join(rg.path_outsub1, f'Conditional_forecast_{comp}_cont')
         f.savefig(filepath + rg.figext, bbox_inches='tight')
 
 except:
@@ -1304,7 +1304,7 @@ for i, q in enumerate(thresholds):
         f = utils_paper3.boxplot_cond_fc(df_cond_fc, metrics=None,
                                          forcing_name='Pacific Forcing',
                                          composites=comp)
-        filepath = os.path.join(rg.path_outsub1, f'Conditional_forecast_{comp}')
+        filepath = os.path.join(rg.path_outsub1, f'Conditional_forecast_{comp}_{q}')
         f.savefig(filepath + rg.figext, bbox_inches='tight')
     # save table conditional forecast (Continuous)
 

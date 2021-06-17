@@ -28,8 +28,9 @@ import csv
 import argparse
 
 user_dir = os.path.expanduser('~')
-os.chdir(os.path.join(user_dir,
-                      'surfdrive/Scripts/RGCPD/publications/paper_Raed/'))
+mainscript_dir = os.path.join(user_dir,
+                      'surfdrive/Scripts/RGCPD/publications/paper_Raed/')
+os.chdir(mainscript_dir)
 curr_dir = os.path.join(user_dir, 'surfdrive/Scripts/RGCPD/RGCPD/')
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
@@ -42,6 +43,7 @@ if cluster_func not in sys.path:
     sys.path.append(RGCPD_func)
     sys.path.append(cluster_func)
     sys.path.append(fc_dir)
+    sys.path.append(mainscript_dir)
 
 path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
@@ -52,6 +54,7 @@ import class_BivariateMI
 import func_models as fc_utils
 import functions_pp, df_ana, climate_indices, find_precursors
 import plot_maps; import core_pp
+import utils_paper3
 
 All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'MARYLAND', 'MINNESOTA', 'MISSOURI', 'NEW JERSEY', 'NEW YORK',
@@ -59,10 +62,10 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
 
-target_datasets = 'USDA_Soy_clusters'
+target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2']
 seeds = seeds = [1,2] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['random_20'] # ['ranstrat_20']
+methods = ['random_2'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -134,6 +137,7 @@ elif target_dataset == 'USDA_Soy_csv_midwest':
     TVpath = read_csv_Raed(path)
 elif target_dataset.split('__')[0] == 'USDA_Soy_clusters':
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc4_dendo_ee0e9.nc')
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_0d570.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'USDA_Maize':
     # USDA dataset 1950 - 2019
@@ -228,6 +232,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
            start_end_year=start_end_year,
            tfreq=None,
            path_outmain=path_out_main)
+rg.fig_ext = '.jpeg'
 precur = rg.list_for_MI[0] ; lag = precur.lags[0]
 
 subfoldername = target_dataset+'/'+'_'.join([experiment, str(method),
@@ -263,7 +268,7 @@ min_detect_gc=.5
 subtitles = np.array([['March-April mean'], ['May-June mean'],
                        ['July-Aug mean'], ['Sep-Oct mean']])
 kwrgs_plotcorr_sst = {'row_dim':'lag', 'col_dim':'split','aspect':4,
-                      'hspace':.38, 'wspace':-.15, 'size':2, 'cbar_vert':0.07,
+                      'hspace':.38, 'wspace':-.15, 'size':2, 'cbar_vert':0.05,
                       'map_proj':ccrs.PlateCarree(central_longitude=220),
                       'y_ticks':False, 'x_ticks':False, #np.arange(-10,61,20), #'x_ticks':np.arange(130, 280, 25),
                       'title':'', 'subtitles':subtitles,
@@ -277,7 +282,7 @@ rg.plot_maps_corr('sst', kwrgs_plot=kwrgs_plotcorr_sst, save=save,
 
 #%%
 kwrgs_plotcorr_SM = {'row_dim':'lag', 'col_dim':'split','aspect':2, 'hspace':0.25,
-                      'wspace':0, 'size':3, 'cbar_vert':0.06,
+                      'wspace':0, 'size':3, 'cbar_vert':0.04,
                       'map_proj':ccrs.PlateCarree(central_longitude=220),
                        # 'y_ticks':np.arange(25,56,10), 'x_ticks':np.arange(230, 295, 15),
                        'y_ticks':False, 'x_ticks':False,
@@ -435,109 +440,109 @@ for i, mon in enumerate(periodnames):
         list_mon.append((k, corr_val, RB))
     CondDepKeys[mon] = list_mon
 
-from sklearn.linear_model import RidgeCV
-def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05,
-                    n_strongest='all',
-                    weights=True, labels=None,
-                    fcmodel=None, kwrgs_model=None,
-                    target_ts=None):
+# from sklearn.linear_model import RidgeCV
+# def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05,
+#                     n_strongest='all',
+#                     weights=True, labels=None,
+#                     fcmodel=None, kwrgs_model=None,
+#                     target_ts=None):
 
 
-    periodnames = list(rg.list_for_MI[0].corr_xr.lag.values)
-    df_pvals = rg.df_pvals.copy()
-    df_corr  = rg.df_corr.copy()
-    unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
-    if labels is not None:
-        unique_keys = [k for k in unique_keys if k in labels]
+#     periodnames = list(rg.list_for_MI[0].corr_xr.lag.values)
+#     df_pvals = rg.df_pvals.copy()
+#     df_corr  = rg.df_corr.copy()
+#     unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
+#     if labels is not None:
+#         unique_keys = [k for k in unique_keys if k in labels]
 
-    # dict with strongest mean parcorr over growing season
-    mean_SST_list = []
-    # keys_dict = {s:[] for s in range(rg.n_spl)} ;
-    keys_dict_meansst = {s:[] for s in range(rg.n_spl)} ;
-    for s in range(rg.n_spl):
-        mean_SST_list_s = []
-        sign_s = df_pvals[s][df_pvals[s] <= alpha_CI].dropna(axis=0, how='all')
-        for uniqk in unique_keys:
-            # uniqk = '1..smi'
-            # region label (R) for each month in split (s)
-            keys_mon = [mon+ '..'+uniqk for mon in periodnames]
-            # significant region label (R) for each month in split (s)
-            keys_mon_sig = [k for k in keys_mon if k in sign_s.index] # check if sig.
-            if uniqk.split('..')[-1] in mean_vars and len(keys_mon_sig)!=0:
-                # mean over region if they have same correlation sign across months
-                for sign in [1,-1]:
-                    mask = np.sign(df_corr.loc[keys_mon_sig][[s]]) == sign
-                    k_sign = np.array(keys_mon_sig)[mask.values.flatten()]
-                    if len(k_sign)==0:
-                        continue
-                    # calculate mean over n strongest SST timeseries
-                    if len(k_sign) > 1:
-                        meanparcorr = df_corr.loc[k_sign][[s]].squeeze().sort_values()
-                        if n_strongest == 'all':
-                            keys_str = meanparcorr.index
-                        else:
-                            keys_str = meanparcorr.index[-n_strongest:]
-                    else:
-                        keys_str  = k_sign
-                    if weights:
-                        fit_masks = rg.df_data.loc[s].iloc[:,-2:]
-                        df_d = rg.df_data.loc[s][keys_str].copy()
-                        df_d = df_d.apply(fc_utils.standardize_on_train_and_RV,
-                                          args=[fit_masks, 0])
-                        df_d = df_d.merge(fit_masks, left_index=True,right_index=True)
-                        # df_train = df_d[fit_masks['TrainIsTrue']]
-                        df_mean, model = fcmodel.fit_wrapper({'ts':target_ts},
-                                                          df_d, keys_str,
-                                                          kwrgs_model)
+#     # dict with strongest mean parcorr over growing season
+#     mean_SST_list = []
+#     # keys_dict = {s:[] for s in range(rg.n_spl)} ;
+#     keys_dict_meansst = {s:[] for s in range(rg.n_spl)} ;
+#     for s in range(rg.n_spl):
+#         mean_SST_list_s = []
+#         sign_s = df_pvals[s][df_pvals[s] <= alpha_CI].dropna(axis=0, how='all')
+#         for uniqk in unique_keys:
+#             # uniqk = '1..smi'
+#             # region label (R) for each month in split (s)
+#             keys_mon = [mon+ '..'+uniqk for mon in periodnames]
+#             # significant region label (R) for each month in split (s)
+#             keys_mon_sig = [k for k in keys_mon if k in sign_s.index] # check if sig.
+#             if uniqk.split('..')[-1] in mean_vars and len(keys_mon_sig)!=0:
+#                 # mean over region if they have same correlation sign across months
+#                 for sign in [1,-1]:
+#                     mask = np.sign(df_corr.loc[keys_mon_sig][[s]]) == sign
+#                     k_sign = np.array(keys_mon_sig)[mask.values.flatten()]
+#                     if len(k_sign)==0:
+#                         continue
+#                     # calculate mean over n strongest SST timeseries
+#                     if len(k_sign) > 1:
+#                         meanparcorr = df_corr.loc[k_sign][[s]].squeeze().sort_values()
+#                         if n_strongest == 'all':
+#                             keys_str = meanparcorr.index
+#                         else:
+#                             keys_str = meanparcorr.index[-n_strongest:]
+#                     else:
+#                         keys_str  = k_sign
+#                     if weights:
+#                         fit_masks = rg.df_data.loc[s].iloc[:,-2:]
+#                         df_d = rg.df_data.loc[s][keys_str].copy()
+#                         df_d = df_d.apply(fc_utils.standardize_on_train_and_RV,
+#                                           args=[fit_masks, 0])
+#                         df_d = df_d.merge(fit_masks, left_index=True,right_index=True)
+#                         # df_train = df_d[fit_masks['TrainIsTrue']]
+#                         df_mean, model = fcmodel.fit_wrapper({'ts':target_ts},
+#                                                           df_d, keys_str,
+#                                                           kwrgs_model)
 
-                        # kwrgs = {'alphas':[1E-20, 1E-5, 1E-2, .1, 1, 10, 50, 100]}
-                        # _m = fcmodel.scikitmodel(**kwrgs_model).fit(df_train,
-                        #                                             target_ts)
-                        # df_mean = pd.Series(_m.predict(df_d[keys_str]),
-                        #                         index=df_d.index)
-                    else:
-                        df_mean = rg.df_data.loc[s][keys_str].copy().mean(1)
-                    month_strings = [k.split('..')[0] for k in sorted(keys_str)]
-                    df_mean = df_mean.rename({0:''.join(month_strings) + '..'+uniqk},
-                                             axis=1)
-                    keys_dict_meansst[s].append( df_mean.columns[0] )
-                    mean_SST_list_s.append(df_mean)
-            elif uniqk.split('..')[-1] not in mean_vars and len(keys_mon_sig)!=0:
-                # use all timeseries (for each month)
-                mean_SST_list_s.append(rg.df_data.loc[s][keys_mon_sig].copy())
-                keys_dict_meansst[s] = keys_dict_meansst[s] + keys_mon_sig
-            # # select strongest
-            # if len(keys_mon_sig) != 0 and 'sst' in uniqk:
-            #     # appending keys_dict for plotting causal regions
-            #     df_corr.loc[keys_mon_sig].mean()
-            #     keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
-            # if select_str_SM and len(keys_mon_sig) != 0 and 'sm' in uniqk:
-            #     # use only strongest SM region
-            #     df_corr.loc[keys_mon_sig].mean()
-            #     keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
-            # elif select_str_SM==False and len(keys_mon_sig) != 0 and 'sm' in uniqk:
-            #     # use all SM region
-            #     keys_dict[s] = keys_dict[s] + keys_mon_sig
-        df_s = pd.concat(mean_SST_list_s, axis=1)
-        mean_SST_list.append(df_s)
-    df_mean_SST = pd.concat(mean_SST_list, keys=range(rg.n_spl))
-    df_mean_SST = df_mean_SST.merge(rg.df_splits.copy(),
-                                    left_index=True, right_index=True)
-    return df_mean_SST, keys_dict_meansst
+#                         # kwrgs = {'alphas':[1E-20, 1E-5, 1E-2, .1, 1, 10, 50, 100]}
+#                         # _m = fcmodel.scikitmodel(**kwrgs_model).fit(df_train,
+#                         #                                             target_ts)
+#                         # df_mean = pd.Series(_m.predict(df_d[keys_str]),
+#                         #                         index=df_d.index)
+#                     else:
+#                         df_mean = rg.df_data.loc[s][keys_str].copy().mean(1)
+#                     month_strings = [k.split('..')[0] for k in sorted(keys_str)]
+#                     df_mean = df_mean.rename({0:''.join(month_strings) + '..'+uniqk},
+#                                              axis=1)
+#                     keys_dict_meansst[s].append( df_mean.columns[0] )
+#                     mean_SST_list_s.append(df_mean)
+#             elif uniqk.split('..')[-1] not in mean_vars and len(keys_mon_sig)!=0:
+#                 # use all timeseries (for each month)
+#                 mean_SST_list_s.append(rg.df_data.loc[s][keys_mon_sig].copy())
+#                 keys_dict_meansst[s] = keys_dict_meansst[s] + keys_mon_sig
+#             # # select strongest
+#             # if len(keys_mon_sig) != 0 and 'sst' in uniqk:
+#             #     # appending keys_dict for plotting causal regions
+#             #     df_corr.loc[keys_mon_sig].mean()
+#             #     keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
+#             # if select_str_SM and len(keys_mon_sig) != 0 and 'sm' in uniqk:
+#             #     # use only strongest SM region
+#             #     df_corr.loc[keys_mon_sig].mean()
+#             #     keys_dict[s].append( df_corr.loc[keys_mon_sig][s].idxmax() )
+#             # elif select_str_SM==False and len(keys_mon_sig) != 0 and 'sm' in uniqk:
+#             #     # use all SM region
+#             #     keys_dict[s] = keys_dict[s] + keys_mon_sig
+#         df_s = pd.concat(mean_SST_list_s, axis=1)
+#         mean_SST_list.append(df_s)
+#     df_mean_SST = pd.concat(mean_SST_list, keys=range(rg.n_spl))
+#     df_mean_SST = df_mean_SST.merge(rg.df_splits.copy(),
+#                                     left_index=True, right_index=True)
+#     return df_mean_SST, keys_dict_meansst
 
-keys_dict = {s:[] for s in range(rg.n_spl)} ;
-periodnames = list(rg.list_for_MI[0].corr_xr.lag.values)
-df_pvals = rg.df_pvals.copy()
-df_corr  = rg.df_corr.copy()
-unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
-for s in range(rg.n_spl):
-    sign_s = df_pvals[s][df_pvals[s] <= alpha_CI].dropna(axis=0, how='all')
-    for uniqk in unique_keys:
-        # region label (R) for each month in split (s)
-        keys_mon = [mon+ '..'+uniqk for mon in periodnames]
-        # significant region label (R) for each month in split (s)
-        keys_mon_sig = [k for k in keys_mon if k in sign_s.index] # check if sig.
-        keys_dict[s] = keys_dict[s] + keys_mon_sig
+# keys_dict = {s:[] for s in range(rg.n_spl)} ;
+# periodnames = list(rg.list_for_MI[0].corr_xr.lag.values)
+# df_pvals = rg.df_pvals.copy()
+# df_corr  = rg.df_corr.copy()
+# unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
+# for s in range(rg.n_spl):
+#     sign_s = df_pvals[s][df_pvals[s] <= alpha_CI].dropna(axis=0, how='all')
+#     for uniqk in unique_keys:
+#         # region label (R) for each month in split (s)
+#         keys_mon = [mon+ '..'+uniqk for mon in periodnames]
+#         # significant region label (R) for each month in split (s)
+#         keys_mon_sig = [k for k in keys_mon if k in sign_s.index] # check if sig.
+#         keys_dict[s] = keys_dict[s] + keys_mon_sig
 
 CondDepKeys_strongest = {}
 for i, mon in enumerate(periodnames):
@@ -554,7 +559,7 @@ for i, mon in enumerate(periodnames):
         str_mon[j][-1] = c
     CondDepKeys_strongest[mon] = str_mon
 
-# mean over SST regions instead of strongest:
+
 
 #%%
 # =============================================================================
@@ -631,32 +636,32 @@ for ip, precur in enumerate(rg.list_for_MI):
                     bbox_inches='tight')
 
 
-def df_predictions_for_plot(rg_list):
-    df_preds = []
-    for i, rg in enumerate(rg_list):
-        rg.df_fulltso.index.name = None
-        if i == 0:
-            prediction = rg.prediction_tuple[0]
-            prediction = rg.merge_df_on_df_data(rg.df_fulltso, prediction)
-        else:
-            prediction = rg.prediction_tuple[0].iloc[:,[1]]
-        df_preds.append(prediction)
-        if i+1 == len(rg_list):
-            df_preds.append(rg.df_splits)
-    df_preds  = pd.concat(df_preds, axis=1)
-    return df_preds
+# def df_predictions_for_plot(rg_list):
+#     df_preds = []
+#     for i, rg in enumerate(rg_list):
+#         rg.df_fulltso.index.name = None
+#         if i == 0:
+#             prediction = rg.prediction_tuple[0]
+#             prediction = rg.merge_df_on_df_data(rg.df_fulltso, prediction)
+#         else:
+#             prediction = rg.prediction_tuple[0].iloc[:,[1]]
+#         df_preds.append(prediction)
+#         if i+1 == len(rg_list):
+#             df_preds.append(rg.df_splits)
+#     df_preds  = pd.concat(df_preds, axis=1)
+#     return df_preds
 
-def df_scores_for_plot(rg_list, name_object):
-    df_scores = [] ; df_boot = [] ; df_tests = []
-    for i, rg in enumerate(rg_list):
-        verification_tuple = rg.__dict__[name_object]
-        df_scores.append(verification_tuple[2])
-        df_boot.append(verification_tuple[3])
-        df_tests.append(verification_tuple[1])
-    df_scores = pd.concat(df_scores, axis=1)
-    df_boot = pd.concat(df_boot, axis=1)
-    df_tests = pd.concat(df_tests, axis=1)
-    return df_scores, df_boot, df_tests
+# def df_scores_for_plot(rg_list, name_object):
+#     df_scores = [] ; df_boot = [] ; df_tests = []
+#     for i, rg in enumerate(rg_list):
+#         verification_tuple = rg.__dict__[name_object]
+#         df_scores.append(verification_tuple[2])
+#         df_boot.append(verification_tuple[3])
+#         df_tests.append(verification_tuple[1])
+#     df_scores = pd.concat(df_scores, axis=1)
+#     df_boot = pd.concat(df_boot, axis=1)
+#     df_tests = pd.concat(df_tests, axis=1)
+#     return df_scores, df_boot, df_tests
 
 #%% Plot regions with Corr value
 
@@ -902,14 +907,6 @@ from stat_models_cont import ScikitModel
 #             'random_state':0,
 #             'max_samples':.6,
 #             'n_jobs':1}
-fcmodel = ScikitModel(RidgeCV, verbosity=0)
-kwrgs_model = {'scoring':'neg_mean_absolute_error',
-                'alphas':np.concatenate([[1E-20],np.logspace(-5,0, 6),
-                                         np.logspace(.01, 2.5, num=10)]), # large a, strong regul.
-                'normalize':False,
-                'fit_intercept':True,
-                # 'store_cv_values':True}
-                'kfold':5}
 
 fcmodel = ScikitModel(Ridge, verbosity=0)
 kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
@@ -936,7 +933,7 @@ if mean_SST:
     for i, p in enumerate(rg.list_for_MI):
         if p.calc_ts == 'pattern cov':
             mean_vars[i] +='_sp'
-    df_data, keys_dict = get_df_mean_SST(rg,
+    df_data, keys_dict = utils_paper3.get_df_mean_SST(rg,
                                          mean_vars=mean_vars,
                                          alpha_CI=alpha_CI,
                                          n_strongest='all',
@@ -945,13 +942,13 @@ if mean_SST:
                                          kwrgs_model=kwrgs_model,
                                          target_ts=target_ts)
 else:
-    df_data, keys_dict = get_df_mean_SST(rg,
+    df_data, keys_dict = utils_paper3.get_df_mean_SST(rg,
                                          mean_vars=[],
                                          alpha_CI=alpha_CI,
                                          n_strongest='all',
                                          weights=True)
 
-lag_ = 0 ; n_boot = 0
+lag_ = 0 ;
 prediction_tuple = rg.fit_df_data_ridge(df_data=df_data,
                                         keys=keys_dict,
                                         target=target_ts,
@@ -988,65 +985,18 @@ df_test = functions_pp.get_df_test(predict.rename({lag_:'causal'}, axis=1),
 print(df_test_m)
 
 #%% Plot forecast
-from matplotlib import gridspec
-from matplotlib.offsetbox import TextArea, VPacker, AnnotationBbox
 
-df_preds_save = df_predictions_for_plot([rg])
+df_preds_save = utils_paper3.df_predictions_for_plot([rg])
 d_dfs={'df_predictions':df_preds_save}
 filepath_dfs = os.path.join(rg.path_outsub1, f'predictions_s{seed}_continuous.h5')
 functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
-df_scores, df_boot, df_tests = df_scores_for_plot([rg], name_object='verification_tuple')
+df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot([rg], name_object='verification_tuple')
 d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
 filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}_continuous.h5')
 functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
-def plot_forecast_ts(df_test_m, df_test):
-    fontsize = 16
-
-    fig = plt.figure(figsize=(12, 5))
-    gs = gridspec.GridSpec(1, 1, height_ratios=None)
-    facecolor='white'
-    ax0 = plt.subplot(gs[0], facecolor=facecolor)
-    # df_test.plot(ax=ax0)
-    ax0.plot_date(df_test.index, df_test[target_dataset], ls='-',
-                  label='Observed', c='black')
-
-    ax0.plot_date(df_test.index, df_test['causal'], ls='-', c='red',
-                  label=r'Causal precursors ($\alpha=$'+f' {alpha_CI})')
-    # ax0.set_xticks()
-    # ax0.set_xticklabels(df_test.index.year,
-    ax0.set_ylabel('Soy Yield [1/ha]', fontsize=fontsize)
-    ax0.tick_params(labelsize=fontsize)
-    ax0.axhline(y=0, color='black', lw=1)
-    ax0.legend(fontsize=fontsize)
-
-    df_scores = df_test_m.loc[0][df_test_m.columns[0][0]]
-    Texts1 = [] ; Texts2 = [] ;
-    textprops = dict(color='black', fontsize=fontsize+4, family='serif')
-    rename_met = {'RMSE':'RMSE-SS', 'corrcoef':'Corr. Coeff.', 'MAE':'MAE-SS',
-                  'BSS':'BSS', 'roc_auc_score':'ROC-AUC'}
-    for k in df_scores.index:
-        label = rename_met[k]
-        val = round(df_scores[k], 2)
-        Texts1.append(TextArea(f'{label}',textprops=textprops))
-        Texts2.append(TextArea(f'{val}',textprops=textprops))
-    texts_vbox1 = VPacker(children=Texts1,pad=0,sep=4)
-    texts_vbox2 = VPacker(children=Texts2,pad=0,sep=4)
-
-    ann1 = AnnotationBbox(texts_vbox1,(.02,.15),xycoords=ax0.transAxes,
-                                box_alignment=(0,.5),
-                                bboxprops = dict(facecolor='white',
-                                                 boxstyle='round',edgecolor='white'))
-    ann2 = AnnotationBbox(texts_vbox2,(.21,.15),xycoords=ax0.transAxes,
-                                box_alignment=(0,.5),
-                                bboxprops = dict(facecolor='white',
-                                                 boxstyle='round',edgecolor='white'))
-    ann1.set_figure(fig) ; ann2.set_figure(fig)
-    fig.artists.append(ann1) ; fig.artists.append(ann2)
-    return
-
-plot_forecast_ts(df_test_m, df_test)
+utils_paper3.plot_forecast_ts(df_test_m, df_test)
 f_name = f'{method}_{seed}_continuous'
 fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
 if save:
@@ -1054,162 +1004,35 @@ if save:
 
 
 #%%
-# y_true = df_test['USDA_Soy']
-# forecast = df_test['causal']
+try:
+    rg.fc_month = 'hindcast'
+    utils_paper3.get_df_forcing_cond_fc([rg], target_ts, fcmodel, kwrgs_model,
+                                        mean_vars=mean_vars)
+    df_cond_fc = utils_paper3.cond_forecast_table([rg], score_func_list,
+                                                  n_boot=n_boot)
+    # store as .xlsc
+    df_cond_fc.to_excel(os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}.xlsx'))
+    # Store as .h5
+    d_dfs={'df_cond_fc':df_cond_fc}
+    filepath_dfs = os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}.h5')
+    functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
-# cond_lags = corlags = np.array([['02-01','03-01'],  # FM
-#                                 ['03-01', '04-30'], # MA
-#                                 ['05-01', '06-30'], # MJ
-#                                 ['07-01', '08-31'],
-#                                 ['03-01', '08-01']]) # JA
-# cond_periodnames = ['FM', 'MA', 'MJ', 'JA', 'March-Aug']
+    composites = [30, 50]
+    for comp in composites:
+        f = utils_paper3.boxplot_cond_fc(df_cond_fc, metrics=None,
+                                         forcing_name='Pacific Forcing',
+                                         composites=comp)
+        filepath = os.path.join(rg.path_outsub1, f'Conditional_forecast_{comp}_cont')
+        f.savefig(filepath + rg.figext, bbox_inches='tight')
 
-# cond_df  = np.zeros( (3, len(cond_periodnames), 3+1))
-# for j, l in enumerate(cond_lags):
+except:
+    print('SST region 1 is not always found in each split')
 
-#     sst.lags = np.array([l]) # JA
-#     ts_corr = find_precursors.spatial_mean_regions(sst,
-#                                                    kwrgs_load=rg.kwrgs_load,
-#                                                    force_reload=True,
-#                                                    lags=['MJ'])
-#     df_ts = pd.concat(ts_corr, keys=range(n_spl))
-
-#     zz = df_ts[['MJ..1..sst']]
-#     # zz = rg.df_data[['JA..1..sst']]
-
-#     state_sst = functions_pp.get_df_test(zz.rename({lag_:cond_periodnames[j]}, axis=1),
-#                                          df_splits=rg.df_splits)
-
-#     df_test_m = rg.verification_tuple[2]
-#     cond_df[:, j, 0] = df_test_m[df_test_m.columns[0][0]].loc[0]
-#     quantiles = [.1, .2, .3]
-#     for k, q in enumerate(quantiles):
-#         low = state_sst < state_sst.quantile(q)
-#         high = state_sst > state_sst.quantile(1-q)
-#         mask_anomalous = np.logical_or(low, high)
-
-#         condfc = df_test[mask_anomalous.values]
-#         condfc = condfc.rename({'causal':cond_periodnames[j]}, axis=1)
-#         cond_verif_tuple = fc_utils.get_scores(condfc,
-#                                                score_func_list=score_func_list,
-#                                                n_boot=0,
-#                                                score_per_test=False,
-#                                                blocksize=1,
-#                                                rng_seed=seed)
-#         df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
-
-#         metrics = df_test_m.columns.levels[1]
-#         for i, met in enumerate(metrics):
-#             # print(df_test_m)
-#             cond_df[i, j, k+1] = df_test_m[cond_periodnames[j]].loc[0][met]
-
-# df_cond_fc = pd.DataFrame(cond_df.reshape((len(metrics)*len(cond_periodnames), -1)),
-#                           index=pd.MultiIndex.from_product([list(metrics), cond_periodnames]),
-#                           columns=['all']+quantiles)
-
-
-
-# df_cond_fc.to_excel(os.path.join(rg.path_outsub1, 'cond_fc_per_month.xlsx'))
-#%%
-def cond_forecast_table(rg_list):
-    df_test_m = rg_list[0].verification_tuple[2]
-    quantiles = [.15, .25]
-    metrics = df_test_m.columns.levels[1]
-    cond_df = np.zeros((metrics.size, len(rg_list), len(quantiles)*2))
-    for i, met in enumerate(metrics):
-        for j, rg in enumerate(rg_list):
-            df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
-                                                 n_strongest='all',
-                                                 weights=True,
-                                                 fcmodel=fcmodel,
-                                                 kwrgs_model=kwrgs_model,
-                                                 target_ts=target_ts)
-
-            weights_norm = rg.prediction_tuple[1].mean(axis=0, level=1)
-            weights_norm = weights_norm.sort_values(ascending=False, by=0)
-
-            PacAtl = []
-            df_labels = find_precursors.labels_to_df(rg.list_for_MI[0].prec_labels)
-            dlat = df_labels['latitude'] - 29
-            dlon = df_labels['longitude'] - 290
-            zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
-            Atlan = zz.query('latitude < 10 & longitude < 10')
-            if Atlan.size > 0:
-                PacAtl.append(int(Atlan.index[0]))
-            PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
-
-            keys = [k for k in weights_norm.index if int(k.split('..')[1]) in PacAtl]
-            keys = [k for k in keys if 'sst' in k]
-
-
-            PacAtl_ts = functions_pp.get_df_test(df_mean[keys],
-                                              df_splits=rg.df_splits)
-
-            weights_norm = weights_norm.div(weights_norm.loc[keys].max(axis=0))
-            PacAtl_ts = weights_norm.loc[keys].T.loc[0] * PacAtl_ts # weigths
-            PacAtl_ts = PacAtl_ts.mean(axis=1)
-
-            prediction = rg.prediction_tuple[0]
-            df_test = functions_pp.get_df_test(prediction,
-                                               df_splits=rg.df_splits)
-
-            # df_test_m = rg.verification_tuple[2]
-            # cond_df[i, j, 0] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
-            for k, l in enumerate(range(0,4,2)):
-                q = quantiles[k]
-                low = PacAtl_ts < PacAtl_ts.quantile(q)
-                high = PacAtl_ts > PacAtl_ts.quantile(1-q)
-                mask_anomalous = np.logical_or(low, high)
-                # anomalous Boundary forcing
-                condfc = df_test[mask_anomalous.values]
-                condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
-                cond_verif_tuple = fc_utils.get_scores(condfc,
-                                                       score_func_list=score_func_list,
-                                                       n_boot=0,
-                                                       score_per_test=False,
-                                                       blocksize=1,
-                                                       rng_seed=seed)
-                df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
-                rg.cond_verif_tuple  = cond_verif_tuple
-                cond_df[i, j, l] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
-                # mild boundary forcing
-                higher_low = PacAtl_ts > PacAtl_ts.quantile(.5-q)
-                lower_high = PacAtl_ts < PacAtl_ts.quantile(.5+q)
-                mask_anomalous = np.logical_and(higher_low, lower_high) # changed 11-5-21
-
-                condfc = df_test[mask_anomalous.values]
-                condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
-                cond_verif_tuple = fc_utils.get_scores(condfc,
-                                                       score_func_list=score_func_list,
-                                                       n_boot=0,
-                                                       score_per_test=False,
-                                                       blocksize=1,
-                                                       rng_seed=seed)
-                df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
-                cond_df[i, j, l+1] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
-
-    columns = [[f'strong {int(q*200)}%', f'weak {int(q*200)}%'] for q in quantiles]
-    df_cond_fc = pd.DataFrame(cond_df.reshape((len(metrics)*len(rg_list), -1)),
-                              index=pd.MultiIndex.from_product([list(metrics), [rg.fc_month for rg in rg_list]]),
-                              columns=functions_pp.flatten(columns))
-
-
-    return df_cond_fc
-
-rg.fc_month = 'November'
-df_cond_fc = cond_forecast_table([rg])
-# store as .xlsc
-df_cond_fc.to_excel(os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}.xlsx'))
-# Store as .h5
-d_dfs={'df_cond_fc':df_cond_fc}
-filepath_dfs = os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}.h5')
-functions_pp.store_hdf_df(d_dfs, filepath_dfs)
-print(df_cond_fc)
 
 #%% Event Forecast with Causal Precursors
 
 from sklearn.linear_model import Ridge
-from sklearn.linear_model import LogisticRegressionCV, LogisticRegression
+from sklearn.linear_model import LogisticRegression
 from stat_models_cont import ScikitModel
 
 
@@ -1242,7 +1065,7 @@ kwrgs_model = {'scoringCV':'neg_brier_score',
 
 mean_SST = True
 
-q = .5
+q = .33
 # target
 fc_mask = rg.df_data.iloc[:,-1].loc[0]
 target_ts_c = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
@@ -1256,25 +1079,25 @@ BSS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).BSS
 score_func_list = [BSS, fc_utils.metrics.roc_auc_score]
 metric_names = [s.__name__ for s in score_func_list]
 
-if mean_SST:
-    mean_vars=['sst', 'smi']
-    for i, p in enumerate(rg.list_for_MI):
-        if p.calc_ts == 'pattern cov':
-            mean_vars[i] +='_sp'
-    df_data, keys_dict = get_df_mean_SST(rg,
-                                         mean_vars=mean_vars,
-                                         alpha_CI=alpha_CI,
-                                         n_strongest='all',
-                                         weights=True,
-                                         fcmodel=fcmodel,
-                                         kwrgs_model=kwrgs_model,
-                                         target_ts=target_ts)
-else:
-    df_data, keys_dict = get_df_mean_SST(rg,
-                                         mean_vars=[],
-                                         alpha_CI=alpha_CI,
-                                         n_strongest='all',
-                                         weights=True)
+# if mean_SST:
+#     mean_vars=['sst', 'smi']
+#     for i, p in enumerate(rg.list_for_MI):
+#         if p.calc_ts == 'pattern cov':
+#             mean_vars[i] +='_sp'
+#     df_data, keys_dict = utils_paper3.get_df_mean_SST(rg,
+#                                          mean_vars=mean_vars,
+#                                          alpha_CI=alpha_CI,
+#                                          n_strongest='all',
+#                                          weights=True,
+#                                          fcmodel=fcmodel,
+#                                          kwrgs_model=kwrgs_model,
+#                                          target_ts=target_ts)
+# else:
+#     df_data, keys_dict = utils_paper3.get_df_mean_SST(rg,
+#                                          mean_vars=[],
+#                                          alpha_CI=alpha_CI,
+#                                          n_strongest='all',
+#                                          weights=True)
 
 lag_ = 0 ; n_boot = 2000
 prediction_tuple = rg.fit_df_data_ridge(df_data=df_data,
@@ -1314,16 +1137,52 @@ df_test = functions_pp.get_df_test(predict.rename({lag_:'causal'}, axis=1),
                                    df_splits=rg.df_splits)
 print(df_test_m)
 #%%
-plot_forecast_ts(df_test_m, df_test)
+utils_paper3.plot_forecast_ts(df_test_m, df_test)
 f_name = f'{method}_{seed}_{q}'
 fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
 if save:
     plt.savefig(fig_path, bbox_inches='tight')
 
 #%%
+df_preds_save = utils_paper3.df_predictions_for_plot([rg])
+d_dfs={'df_predictions':df_preds_save}
+filepath_dfs = os.path.join(rg.path_outsub1, f'predictions_s{seed}_q{q}.h5')
+functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+
+df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot([rg], name_object='verification_tuple')
+d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
+filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}_q{q}.h5')
+functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+
+utils_paper3.plot_forecast_ts(df_test_m, df_test)
+f_name = f'{method}_{seed}_q{q}'
+fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
+if save:
+    plt.savefig(fig_path, bbox_inches='tight')
 
 
-# sys.exit()
+#%%
+try:
+    rg.fc_month = 'hindcast'
+    df_cond_fc = utils_paper3.cond_forecast_table([rg], score_func_list,
+                                                  n_boot=n_boot)
+    # store as .xlsc
+    df_cond_fc.to_excel(os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}_q{q}.xlsx'))
+    # Store as .h5
+    d_dfs={'df_cond_fc':df_cond_fc}
+    filepath_dfs = os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}_q{q}.h5')
+    functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+
+    composites = [30, 50]
+    for comp in composites:
+        f = utils_paper3.boxplot_cond_fc(df_cond_fc, metrics=None,
+                                         forcing_name='Pacific Forcing',
+                                         composites=comp)
+        filepath = os.path.join(rg.path_outsub1, f'Conditional_forecast_{comp}_q{q}')
+        f.savefig(filepath + rg.figext, bbox_inches='tight')
+
+except:
+    print('SST region 1 is not always found in each split')
 
 #%% forecasting
 

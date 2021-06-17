@@ -475,7 +475,7 @@ def split_region_by_lonlat(prec_labels, label=int, plot_s=0,
 
     # before:
     plot_maps.plot_labels(prec_labels.isel(split=plot_s, lag=plot_l),
-                          kwrgs_plot={'size':1.5, 
+                          kwrgs_plot={'size':1.5,
                                       'subtitles':np.array([['old']])})
     splits = list(prec_labels.split.values)
     lags   = list(prec_labels.lag.values)
@@ -502,8 +502,8 @@ def split_region_by_lonlat(prec_labels, label=int, plot_s=0,
         np_labels[i_s, i_l] = single.values
     copy_labels.values = np_labels
     # after
-    plot_maps.plot_labels(copy_labels.isel(split=plot_s, lag=plot_l), 
-                          kwrgs_plot={'size':1.5, 
+    plot_maps.plot_labels(copy_labels.isel(split=plot_s, lag=plot_l),
+                          kwrgs_plot={'size':1.5,
                                       'subtitles':np.array([['new']])})
     return copy_labels, max(orig_labels) + 1
 
@@ -555,8 +555,8 @@ def merge_labels_within_lonlatbox(precur, lonlatbox=list):
             nregs.append(r)
     for regs in [pregs, nregs]:
         if len(regs) != 0:
-            maskregions = view_or_replace_labels(prec_labels, regions=regions)
-            prec_labels.values[~np.isnan(maskregions).values] = min(regions)
+            maskregions = view_or_replace_labels(prec_labels, regions=regs)
+            prec_labels.values[~np.isnan(maskregions).values] = min(regs)
     return prec_labels
 
 def view_or_replace_labels(xarr: xr.DataArray, regions: Union[int,list],

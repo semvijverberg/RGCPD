@@ -227,7 +227,7 @@ def plot_forecast_ts(df_test_m, df_test):
     facecolor='white'
     ax0 = plt.subplot(gs[0], facecolor=facecolor)
     # df_test.plot(ax=ax0)
-    ax0.plot_date(df_test.index, df_test.iloc[:,1], ls='-',
+    ax0.plot_date(df_test.index, df_test.iloc[:,0], ls='-',
                   label='Observed', c='black')
 
     ax0.plot_date(df_test.index, df_test.iloc[:,1], ls='-', c='red',
@@ -414,7 +414,7 @@ def boxplot_cond_fc(df_cond, metrics: list=None, forcing_name: str='', composite
         row = metrics.index(metric) ; col = list(lead_times).index(lead_time)
         ax = axes[row, col]
         # ax.set_facecolor('white')
-        data = df_cond.loc[metric, lead_time].values.reshape(df_cond.index.levels[1].size, -1)
+        data = df_cond.loc[metric, lead_time].values.reshape(df_cond.columns.levels[1].size, -1)
         data = pd.DataFrame(data, columns=df_cond.columns.levels[0])[plot_cols]
 
         perc_incr = (data[plot_cols[0]].mean() - data[plot_cols[1]].mean()) / abs(data[plot_cols[1]].mean())
