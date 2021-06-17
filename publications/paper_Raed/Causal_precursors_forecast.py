@@ -1071,7 +1071,7 @@ for rg in rg_list: # plotting score per test
 #%% save table conditional forecast (Continuous)
 try:
     utils_paper3.get_df_forcing_cond_fc(rg_list, target_ts, fcmodel, kwrgs_model,
-                           mean_vars=mean_vars)
+                                        mean_vars=mean_vars)
     df_cond_fc = utils_paper3.cond_forecast_table(rg_list, score_func_list,
                                                   n_boot=n_boot)
     # store as .xlsc
@@ -1080,6 +1080,15 @@ try:
     d_dfs={'df_cond_fc':df_cond_fc}
     filepath_dfs = os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}.h5')
     functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+
+    composites = [30, 50]
+    for comp in composites:
+        f = utils_paper3.boxplot_cond_fc(df_cond_fc, metrics=None,
+                                         forcing_name='Pacific Forcing',
+                                         composites=comp)
+        filepath = os.path.join(rg.path_outsub1, f'Conditional_forecast_{comp}')
+        f.savefig(filepath + rg.figext, bbox_inches='tight')
+
 except:
     print('SST region 1 is not always found in each split')
 
@@ -1119,7 +1128,8 @@ for s in range(5):
         for i, m in enumerate(metrics_cols):
             # normal SST
 
-            labels = d_dfs['df_scores'].columns.levels[0]
+            steps = df_scores.columns.levels[1].size
+            labels = [t[0] for t in df_scores.columns][::steps]
             ax[i].plot(labels, d_dfs['df_scores'].reorder_levels((1,0), axis=1).loc[0][m].T,
                     label=f'seed: {s}',
                     color=cs[s],
@@ -1196,7 +1206,7 @@ for i, q in enumerate(thresholds):
             if p.calc_ts == 'pattern cov':
                 mean_vars[i] +='_sp'
 
-        df_data, keys_dict = get_df_mean_SST(rg,
+        df_data, keys_dict = utils_paper3.get_df_mean_SST(rg,
                                              mean_vars=mean_vars,
                                              alpha_CI=alpha_CI,
                                              n_strongest='all',
@@ -1254,7 +1264,7 @@ for i, q in enumerate(thresholds):
         list_verification.append(verification_tuple)
 
     # plot scores
-    df_scores, df_boot, df_tests = df_scores_for_plot(rg_list,
+    df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list,
                                                       name_object='verification_tuple')
 
     # df_scores_cf, df_boot_cf, df_tests_cf = df_scores_for_plot(name_object='cond_verif_tuple')
@@ -1267,7 +1277,7 @@ for i, q in enumerate(thresholds):
     functions_pp.store_hdf_df(d_dfs, filepath_dfs)
     d_dfs = functions_pp.load_hdf5(filepath_dfs)
 
-    f = plot_scores_wrapper(df_scores, df_boot)
+    f = utils_paper3.plot_scores_wrapper(df_scores, df_boot)
     f_name = f'{method}_{seed}_cf_PacAtl_q{q}'
     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
     if save:
@@ -1275,7 +1285,7 @@ for i, q in enumerate(thresholds):
 
 
     # plot timeseries
-    plot_forecast_ts(df_test_m, df_test)
+    utils_paper3.plot_forecast_ts(df_test_m, df_test)
     f_name = f'ts_forecast_{method}_{seed}_{q}_{rg.fc_month}'
     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
     if save:
@@ -1287,9 +1297,17 @@ for i, q in enumerate(thresholds):
     # df_test_s_m.plot(ax=ax)
     # fig.savefig(os.path.join(rg.path_outsub1, f'CV_scores_{q}_{rg.fc_month}.png'),
     #             bbox_inches='tight', dpi=100)
-
+    df_cond_fc = utils_paper3.cond_forecast_table(rg_list, score_func_list,
+                                                  n_boot=n_boot)
+    composites = [30, 50]
+    for comp in composites:
+        f = utils_paper3.boxplot_cond_fc(df_cond_fc, metrics=None,
+                                         forcing_name='Pacific Forcing',
+                                         composites=comp)
+        filepath = os.path.join(rg.path_outsub1, f'Conditional_forecast_{comp}')
+        f.savefig(filepath + rg.figext, bbox_inches='tight')
     # save table conditional forecast (Continuous)
-    df_cond_fc = cond_forecast_table(rg_list)
+
     # store as .xlsc
     df_cond_fc.to_excel(os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}_{q}.xlsx'))
     # Store as .h5
@@ -1339,7 +1357,8 @@ for q in [.33, .5, .66]:
             for i, m in enumerate(metrics_cols):
                 # normal SST
 
-                labels = d_dfs['df_scores'].columns.levels[0]
+                steps = df_scores.columns.levels[1].size
+                labels = [t[0] for t in df_scores.columns][::steps]
                 ax[i].plot(labels, d_dfs['df_scores'].reorder_levels((1,0), axis=1).loc[0][m].T,
                            label=f'seed: {s}', color=cs[s], linestyle='solid')
                 ax[i].fill_between(labels,
