@@ -278,7 +278,8 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             if subtitles is not None:
                 if subtitle_fontdict is None:
                     subtitle_fontdict = dict({'fontsize' : 16})
-                g.axes[row,col].set_title(subtitles[row,col], fontdict=subtitle_fontdict,
+                g.axes[row,col].set_title(np.array(subtitles)[row,col],
+                                          fontdict=subtitle_fontdict,
                                           loc='center')
             # =============================================================================
             # Format coordinate ticks

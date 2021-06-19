@@ -37,6 +37,7 @@ import plot_maps
 import xarray as xr
 import argparse
 from datetime import datetime
+import joblib
 
 
 #%% Define Analysis
@@ -379,7 +380,7 @@ def get_list_of_name_path(agg_level, cl_number):
 
 #%% loop analysis
 
-def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method,
+def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method, n_jobs,
                   distinct_cl = None, distinct_targetperiods = None):
     #retrieve number of clusters with aggregation level
     if distinct_cl is None:
@@ -427,66 +428,88 @@ def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method,
     column_array = [all_targetperiods_dict[x] for x in targetperiods] #month names as column index
 
     #initiate zeros ss_result dataframe, rows = months, columns = scores per cluster
-    df_ss_result = pd.DataFrame(np.zeros((len(row_arrays[0]), len(column_array)), dtype=float),
+    df_ss_result_all = pd.DataFrame(np.zeros((len(row_arrays[0]), len(column_array)), dtype=float),
                              index=row_arrays, columns=column_array)
 
     #initiate zeros prediction_result dataframe, rows = not yet known, columns = target time series & prediction
     df_prediction_result = pd.DataFrame()
 
-    #loop over clusters and target months
-    for cluster_counter, cluster in enumerate(cl_list):
-
+    #parallel function
+    def parallel(cluster, month, agg_level, n_lags, kwrgs_MI, fold_method, row_arrays, column_array, subfolder):
+        print(f'Starting cluster {cluster}')
         #get list_of_name_path
         list_of_name_path = get_list_of_name_path(agg_level, cluster)
-        for month_counter, month in enumerate(targetperiods):
-            #run define
-            rg, list_for_MI, lags, crossyr = define(list_of_name_path, month, n_lags, kwrgs_MI, subfolder)
-            #run check (possible, not necessary)
-            check(rg, list_of_name_path, cluster)
-            #run processing
-            rg = process(rg, lags, fold_method, crossyr)
-            #run forecast
-            test_scores, train_scores, prediction = forecast(rg, crossyr)
+        #run define
+        rg, list_for_MI, lags, crossyr = define(list_of_name_path, month, n_lags, kwrgs_MI, subfolder)
+        #run check (possible, not necessary)
+        #check(rg, list_of_name_path, cluster)
+        #run processing
+        rg = process(rg, lags, fold_method, crossyr)
+        #run forecast
+        test_scores, train_scores, prediction = forecast(rg, crossyr)
 
-            #store skill score results in df_ss_result dataframe
-            for count, i in enumerate(row_idx_2_arr[:6]): #always loop over test test test train train train per cluster
-                if count < 3:
-                        df_ss_result.loc[(cluster,i,row_idx_3_arr[count]), all_targetperiods_dict[month]] = test_scores[count]
-                else:
-                        df_ss_result.loc[(cluster,i,row_idx_3_arr[count]), all_targetperiods_dict[month]] = train_scores[count-3]
-
-            #get test df actual and predictions
-            test_df_pred = functions_pp.get_df_test(prediction, df_splits = pd.DataFrame(rg.df_data.iloc[:,-2:]))
-
-            #update dates
-            delta = int(month[0][:2])-1
-            date_list = test_df_pred.index.get_level_values(0).shift(delta, freq='MS')
-            test_df_pred.set_index([date_list], inplace=True)
-
-            #change column header of prediction to RV#ts_pred
-            new_columns = test_df_pred.columns.values
-            new_columns[1] = new_columns[0]+'_pred'
-            test_df_pred.columns = new_columns
-
-            #append to prediction_result dataframe
-            if cluster_counter == 0:
-                df_prediction_result = df_prediction_result.append(test_df_pred)
-            elif cluster_counter > 0 and month_counter == 0:
-                df_prediction_result = df_prediction_result.join(test_df_pred, how='left')
+        #store skill score results in df_ss_result dataframe
+        df_ss_result = pd.DataFrame(np.zeros((len(row_arrays[0]), len(column_array)), dtype=float),
+                             index=row_arrays, columns=column_array)
+        for count, i in enumerate(row_idx_2_arr[:6]): #always loop over test test test train train train per cluster
+            if count < 3:
+                    df_ss_result.loc[(cluster,i,row_idx_3_arr[count]), all_targetperiods_dict[month]] = test_scores[count]
             else:
-                df_prediction_result.update(test_df_pred, join='left')
+                    df_ss_result.loc[(cluster,i,row_idx_3_arr[count]), all_targetperiods_dict[month]] = train_scores[count-3]
+
+        #get test df actual and predictions
+        test_df_pred = functions_pp.get_df_test(prediction, df_splits = pd.DataFrame(rg.df_data.iloc[:,-2:]))
+
+        #update dates
+        delta = int(month[0][:2])-1
+        date_list = test_df_pred.index.get_level_values(0).shift(delta, freq='MS')
+        test_df_pred.set_index([date_list], inplace=True)
+
+        #change column header of prediction to RV#ts_pred
+        new_columns = test_df_pred.columns.values
+        new_columns[1] = new_columns[0]+'_pred'
+        test_df_pred.columns = new_columns
 
         #save intermediate cluster csv
         results_path = os.path.join(main_dir, 'Results', 'intermediate_'+fold_method) #path of results
         os.makedirs(results_path, exist_ok=True) # make folder if it doesn't exist
-        df_ss_result.to_csv(os.path.join(results_path, str(cluster)+'_ss_scores_'+agg_level+'.csv')) #intermediate save skillscores per cluster to csv
+        df_ss_result.to_csv(os.path.join(results_path,
+                                         str(cluster)+'_'+str(all_targetperiods_dict[month])+'_ss_scores_'+agg_level+'.csv')) #intermediate save skillscores per cluster to csv
 
+        return df_ss_result, test_df_pred, rg
+
+    with joblib.parallel_backend('loky'):
+        results = joblib.Parallel(n_jobs=n_jobs)(joblib.delayed(parallel)(cluster, month, agg_level, n_lags, kwrgs_MI, fold_method, row_arrays, column_array, subfolder)
+                                     for cluster in cl_list for month in targetperiods)
+
+    #append all results to one dataframe - skill scores
+    for result in results:
+        df_ss_result_all = df_ss_result_all + result[0].values
+
+    #append all results to one dataframe - predictions
+    for result_counter, result in enumerate(results):
+        if result_counter <= len(targetperiods)-1:
+            df_prediction_result = df_prediction_result.append(result[1])
+        elif result_counter > len(targetperiods)-1 and result_counter % len(targetperiods) == 0:
+            df_prediction_result = df_prediction_result.join(result[1], how='left')
+        else:
+            df_prediction_result.update(result[1], join='left')
+
+    #return one rg
+    rg = results[-1][-1]
+
+    results_path = os.path.join(main_dir, 'Results', 'intermediate_'+fold_method) #path of results
+    functions_pp.store_hdf_df({'df_ss_result':df_ss_result_all,
+                               'df_prediction_result':df_prediction_result},
+                              file_path=os.path.join(results_path,
+                                                     'df_skill_predictions.h5'))
     #return df_ss_result dataframe and prediction
-    return df_ss_result, df_prediction_result, rg
+    return df_ss_result_all, df_prediction_result, rg
 
 
 #%%
 def plot_ss2(rg, skillscores, col_wrap, metric=None):
+    #%%
     import find_precursors
 
     #load cluster_ds
@@ -551,7 +574,7 @@ def plot_ss2(rg, skillscores, col_wrap, metric=None):
                                    size = 4, clevels = np.arange(-.5,0.51,.1),
                                    cbar_vert=-0.1, hspace=-0.2,
                                    subtitles=subtitles, col_wrap=col_wrap)
-
+    #%%
     return fig
 
 #%% run with params
@@ -571,8 +594,8 @@ if __name__ == "__main__":
     #--------------------------------------------------------------------------------------------------------------------#
     #PARAMS
     #--------------------------------------------------------------------------------------------------------------------#
-    agg_level_list = ['low', 'medium', 'high'] # high, medium or low
-    fold_method_list = ['random_20', 'leave_1']
+    agg_level_list = ['high', 'medium', 'low'] # high, medium or low
+    fold_method_list = ['random_3', 'leave_1']
     ncl_dict = {'high': 20,
                 'medium': 42,
                 'low': 135}
@@ -586,7 +609,6 @@ if __name__ == "__main__":
     out = combinations[args.intexper]
     agg_level = out[0]
     cluster_numbers = np.arange(1,ncl_dict[agg_level]) #list with ints, high=20, medium=42, low=135
-    #cluster_numbers = cluster_numbers.tolist()
     #cluster_numbers = [x for x in cluster_numbers if x not in [7,9,14]] #skip HIGH: [7,9,14],
                                                                         #MEDIUM: [2,5,17,20,22,27,35,37,38], LOW: []
                                                                         #LOW: [2,6,14,15,18,27,28,30,31,34,37,39,42,43,45,47,48,52,55,58,60,61,62,63,64,65,67,72,74,78,83,85,86,88,95,96,103,105,107,111,114,115,118,121,123,125,126,127,132,133,135]
@@ -604,12 +626,12 @@ if __name__ == "__main__":
                                 # (4) split_{int}    :   (should be updated) split dataset into single train and test set
                                 # (5) no_train_test_split or False 'random_#'
     col_wrap = 3 #3 months next to each other in figure
-
+    n_jobs = 3
     #--------------------------------------------------------------------------------------------------------------------#
     #LOOP
     #--------------------------------------------------------------------------------------------------------------------#
     df_ss_result, df_prediction_result, rg = loop_analysis(agg_level, n_lags, kwrgs_list_for_MI, fold_method,
-                  distinct_cl = cluster_numbers, distinct_targetperiods = TV_targetperiod)
+                  n_jobs=n_jobs, distinct_cl = cluster_numbers, distinct_targetperiods = TV_targetperiod)
     print(df_ss_result, '\n' , df_prediction_result)
 
     #--------------------------------------------------------------------------------------------------------------------#
