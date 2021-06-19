@@ -595,7 +595,7 @@ if __name__ == "__main__":
     #PARAMS
     #--------------------------------------------------------------------------------------------------------------------#
     agg_level_list = ['high', 'medium', 'low'] # high, medium or low
-    fold_method_list = ['random_3', 'leave_1']
+    fold_method_list = ['random_20', 'leave_1']
     ncl_dict = {'high': 20,
                 'medium': 42,
                 'low': 135}
