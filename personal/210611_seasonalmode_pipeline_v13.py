@@ -471,7 +471,7 @@ def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method, n_jobs,
         test_df_pred.columns = new_columns
 
         #save intermediate cluster csv
-        results_path = os.path.join(main_dir, 'Results', 'intermediate_'+fold_method) #path of results
+        results_path = os.path.join(main_dir, 'Results', 'skillscores', f'{agg_level}_{fold_method}') #path of results
         os.makedirs(results_path, exist_ok=True) # make folder if it doesn't exist
         df_ss_result.to_csv(os.path.join(results_path,
                                          str(cluster)+'_'+str(all_targetperiods_dict[month])+'_ss_scores_'+agg_level+'.csv')) #intermediate save skillscores per cluster to csv
@@ -498,7 +498,7 @@ def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method, n_jobs,
     #return one rg
     rg = results[-1][-1]
 
-    results_path = os.path.join(main_dir, 'Results', 'intermediate_'+fold_method) #path of results
+    results_path = os.path.join(main_dir, 'Results', 'skillscores', f'{agg_level}_{fold_method}') #path of results
     functions_pp.store_hdf_df({'df_ss_result':df_ss_result_all,
                                'df_prediction_result':df_prediction_result},
                               file_path=os.path.join(results_path,
