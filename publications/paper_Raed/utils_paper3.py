@@ -383,7 +383,28 @@ def cond_forecast_table(rg_list, score_func_list, n_boot=0):
     return df_cond_fc
 
 
-def boxplot_cond_fc(df_cond, metrics: list=None, forcing_name: str='', composites = 30):
+def boxplot_cond_fc(df_cond, metrics: list=None, forcing_name: str='', composite = 30):
+    '''
+
+
+    Parameters
+    ----------
+    df_cond : pd.DataFrame
+        should have pd.MultiIndex of (metric, lead_time) and pd.MultiIndex column
+        of (composite, n_boot).
+    metrics : list, optional
+        DESCRIPTION. The default is None.
+    forcing_name : str, optional
+        DESCRIPTION. The default is ''.
+    composite : TYPE, optional
+        DESCRIPTION. The default is 30.
+
+    Returns
+    -------
+    f : TYPE
+        DESCRIPTION.
+
+    '''
     #%%
     import matplotlib as mpl
     mpl.rcParams.update(mpl.rcParamsDefault)
@@ -392,7 +413,9 @@ def boxplot_cond_fc(df_cond, metrics: list=None, forcing_name: str='', composite
                 'MAE':'MAE-SS', 'mean_absolute_error':'Mean Absolute Error',
                 'r2_score':'$r^2$ score', 'BSS':'BSS', 'roc_auc_score':'AUC-ROC'}
 
-    plot_cols = [f'strong {composites}%', f'weak {composites}%']
+    n_boot = df_cond.columns.levels[1].size
+    columns = [c[0] for c in df_cond.columns[::n_boot]]
+    plot_cols = [f'strong {composite}%', f'weak {composite}%']
     if metrics is None:
         indices = np.unique([t[0] for t in df_cond.index],return_index=True)[1]
         metrics = [n[0] for n in df_cond.index[sorted(indices)]] # preserves order
@@ -413,9 +436,9 @@ def boxplot_cond_fc(df_cond, metrics: list=None, forcing_name: str='', composite
         lead_time = index[1]
         row = metrics.index(metric) ; col = list(lead_times).index(lead_time)
         ax = axes[row, col]
-        # ax.set_facecolor('white')
-        data = df_cond.loc[metric, lead_time].values.reshape(df_cond.columns.levels[1].size, -1)
-        data = pd.DataFrame(data, columns=df_cond.columns.levels[0])[plot_cols]
+
+        data = df_cond.loc[metric, lead_time].values.reshape(len(columns), -1)
+        data = pd.DataFrame(data.T, columns=columns)[plot_cols]
 
         perc_incr = (data[plot_cols[0]].mean() - data[plot_cols[1]].mean()) / abs(data[plot_cols[1]].mean())
 
@@ -441,7 +464,7 @@ def boxplot_cond_fc(df_cond, metrics: list=None, forcing_name: str='', composite
 
         if metric == 'corrcoef' or metric=='roc_auc_score':
             ax.set_ylim(0,1) ; steps = 1
-            yticks = np.round(np.arange(0,1.01,.4), 2)
+            yticks = np.round(np.arange(0,1.01,.2), 2)
             ax.set_yticks(yticks[::steps])
             ax.set_yticks(yticks, minor=True)
             ax.tick_params(which='minor', length=0)
@@ -456,8 +479,8 @@ def boxplot_cond_fc(df_cond, metrics: list=None, forcing_name: str='', composite
             ax.tick_params(which='minor', length=0)
             ax.set_yticklabels(yticks[::steps])
         else:
-            yticks = np.round(np.arange(-.4,1.1,.4), 1)
-            ax.set_ylim(-.4,1) ; steps = 1
+            yticks = np.round(np.arange(-.2,1.1,.2), 1)
+            ax.set_ylim(-.3,1) ; steps = 2
             ax.set_yticks(yticks[::steps])
             ax.set_yticks(yticks, minor=True)
             ax.tick_params(which='minor', length=0)
