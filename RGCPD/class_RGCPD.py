@@ -498,6 +498,8 @@ class RGCPD:
                     df_data_MI = find_precursors.df_data_prec_regs(self.list_for_MI,
                                                                    TV,
                                                                    df_splits)
+                    # cross yr can lead to non-alignment of index. Adopting df_data index
+                    df_data_MI.index = self.df_data.index 
                     self.df_data = self.df_data.merge(df_data_MI, left_index=True,
                                                       right_index=True)
                 else:
@@ -514,6 +516,8 @@ class RGCPD:
                                                   cols=keys_ext,
                                                   precur_aggr=self.precur_aggr,
                                                   start_end_TVdate=start_end_TVdate)
+            # cross yr can lead to non-alignment of index. Adopting df_data index
+            self.df_data_ext.index = self.df_data.index             
             self.df_data = self.df_data.merge(self.df_data_ext,
                                               left_index=True, right_index=True)
 
