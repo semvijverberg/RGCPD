@@ -38,7 +38,7 @@ def check_dates_RV(df_splits, traintestgroups, start_end_TVdate):
     assert ed >= endTVdate, 'Selected date not in RV window'
     print(startTVdate, endTVdate)
 
-def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
+def test_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
                                   start_end_TVdate=('07-01', '08-31'),
                                   dailytomonths=False,
                                   TVdates_aggr=False,
@@ -119,7 +119,7 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_
     #%%
     return rg
 
-test = test_subseas_US_t2m_tigramite
+test = test_US_t2m_tigramite
 
 
 #%%
@@ -128,7 +128,7 @@ test = test_subseas_US_t2m_tigramite
 # =============================================================================
 
 # Daily data aggregated to 10-dm, JA, random_5
-rg = test_subseas_US_t2m_tigramite()
+rg = test_US_t2m_tigramite()
 
 # Daily data aggregated to 10-dm, DJF, random_5
 rg = test(alpha=.3, start_end_TVdate=('11-01', '02-28'))
@@ -182,7 +182,7 @@ rg = test(alpha=.2,
 
 
 
-rg = test_subseas_US_t2m_tigramite()
+rg = test_US_t2m_tigramite()
 # Forecasting pipeline 1
 import func_models as fc_utils
 from stat_models_cont import ScikitModel

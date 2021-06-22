@@ -141,6 +141,10 @@ class ScikitModel:
             scoring = kwrgs.pop('scoringCV')
         else:
             scoring = None
+        if 'n_jobs' in kwrgs.keys():
+            n_jobs = kwrgs.pop('n_jobs')
+        else:
+            n_jobs = None
         # Get training years
         x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = utils.get_masks(df_norm)
 
@@ -183,7 +187,7 @@ class ScikitModel:
                       param_grid=kwrgs_gridsearch,
                       scoring=scoring, cv=cv, refit=True,
                       return_train_score=True, verbose=self.verbosity,
-                      n_jobs=3)
+                      n_jobs=n_jobs)
             model.fit(X_train, y_train.values.ravel())
             model.best_estimator_.X_pred = X_pred # add X_pred to model
             model.df_norm = df_norm # add df_norm to model for easy reproduction

@@ -438,7 +438,7 @@ def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method, n_jobs,
 
     #parallel function
     def parallel(cluster, month, agg_level, n_lags, kwrgs_MI, fold_method, row_arrays, column_array, subfolder):
-        print(f'Starting cluster {cluster}')
+        print(f'Starting cluster {cluster}, prediciting {month}')
         #get list_of_name_path
         list_of_name_path = get_list_of_name_path(agg_level, cluster)
         #run define

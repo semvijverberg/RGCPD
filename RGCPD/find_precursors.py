@@ -638,7 +638,7 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
 
     '''
     #%%
-
+    # precur=rg.list_for_MI[0];precur_aggr=None;kwrgs_load=None;force_reload=False;lags=None
     # start_time  = time()
     name            = precur.name
     corr_xr         = precur.corr_xr
@@ -715,13 +715,15 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
 
             # if lag represents aggregation period:
             if type(precur.lags[l_idx]) is np.ndarray and precur_aggr is None:
-                precur_arr = precur.precur_arr[l_idx].values
+                precur_arr = precur.precur_arr[:,l_idx].values
 
             regions_for_ts = list(np.unique(labels_lag[~np.isnan(labels_lag)]))
 
             if use_coef_wghts:
-                coef_wghts = abs(corr[l_idx]) / abs(corr[l_idx]).max()
-                a_wghts *= coef_wghts # area & corr. value weighted
+                coef_wghts = abs(corr[l_idx]) / abs(np.nanmax(corr[l_idx]))
+                wghts = a_wghts * coef_wghts # area & corr. value weighted
+            else:
+                wghts = a_wghts
 
             # this array will be the time series for each feature
             ts_regions_lag_i = np.zeros((precur_arr.shape[0], len(regions_for_ts)))
@@ -738,7 +740,7 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
                 # Mask everything except region of interest
                 B[labels_lag == r] = 1
                 # Calculates how values inside region vary over time
-                ts = np.nanmean(precur_arr[:,B==1] * a_wghts[B==1], axis =1)
+                ts = np.nanmean(precur_arr[:,B==1] * wghts[B==1], axis =1)
 
                 # check for nans
                 if ts[np.isnan(ts)].size !=0:
