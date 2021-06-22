@@ -95,6 +95,13 @@ class BivariateMI:
         dailytomonths : bool, optional
             When True, the daily input data will be aggregated to monthly data,
             subsequently, the pre-processing steps are performed (detrend/anomaly).
+        n_cpu : int, optional
+            Calculate different train-test splits in parallel using Joblib.
+        n_jobs_clust : int, optional
+            Perform DBSCAN clustering calculation in parallel. Beware that for
+            large memory precursor fields with many precursor regions, DBSCAN
+            can become memory demanding. If all cpu's are used, there may not be
+            sufficient working memory for each cpu left.
         verbosity : int, optional
             Not used atm. The default is 1.
 

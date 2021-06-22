@@ -715,7 +715,7 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
 
             # if lag represents aggregation period:
             if type(precur.lags[l_idx]) is np.ndarray and precur_aggr is None:
-                precur_arr = precur_arr[l_idx]
+                precur_arr = precur.precur_arr[l_idx].values
 
             regions_for_ts = list(np.unique(labels_lag[~np.isnan(labels_lag)]))
 
