@@ -109,12 +109,14 @@ def define(list_of_name_path, TV_targetperiod, n_lags, kwrgs_MI, subfolder):
                                alpha=kwrgs_MI['alpha'], FDR_control=kwrgs_MI['FDR_control'],
                                lags=np.array(lags), # <- selecting time periods to aggregate
                                distance_eps=kwrgs_MI['distance_eps'],
-                               min_area_in_degrees2=kwrgs_MI['min_area_in_degrees2']),
+                               min_area_in_degrees2=kwrgs_MI['min_area_in_degrees2'],
+                               n_jobs_clust=1),
                   BivariateMI(name='swvl1_2', func=class_BivariateMI.corr_map,
                                alpha=kwrgs_MI['alpha'], FDR_control=kwrgs_MI['FDR_control'],
                                lags=np.array(lags), # <- selecting time periods to aggregate
                                distance_eps=kwrgs_MI['distance_eps'],
-                               min_area_in_degrees2=kwrgs_MI['min_area_in_degrees2'])]
+                               min_area_in_degrees2=kwrgs_MI['min_area_in_degrees2'],
+                               n_jobs_clust=1)]
 
     #initialize RGCPD class
     rg = RGCPD(list_of_name_path=list_of_name_path,

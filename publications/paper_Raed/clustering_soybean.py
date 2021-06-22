@@ -99,7 +99,7 @@ xr_States = xr_States.where(xr_States.values != -1)
 
 cmp = plot_maps.get_continuous_cmap(["ffbe0b","fb5607","ff006e","8338ec","3a86ff"],
                           float_list=list(np.linspace(0,1,5)))
-#%%
+
 # =============================================================================
 # Clustering Ward Hierarchical Agglomerative Clustering
 # =============================================================================

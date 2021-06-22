@@ -11,7 +11,7 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 from netCDF4 import num2date
-
+from joblib import Parallel, delayed
 import functions_pp
 import core_pp
 import plot_maps
@@ -77,7 +77,8 @@ def get_area(ds):
     return A_gridcell2D
 
 
-def mask_sig_to_cluster(mask_and_data_s, wght_area, distance_eps, min_area_samples):
+def mask_sig_to_cluster(mask_and_data_s, wght_area, distance_eps, min_area_samples,
+                        n_jobs=-1):
     from sklearn import cluster
     from math import radians as _r
     from sklearn.metrics.pairwise import haversine_distances
@@ -117,7 +118,7 @@ def mask_sig_to_cluster(mask_and_data_s, wght_area, distance_eps, min_area_sampl
             # more consistent when clustering
             distance = haversine_distances(sign_coords) * 6371000/1000 # multiply by Earth radius to get kilometers
             dbresult = cluster.DBSCAN(eps=distance_eps, min_samples=min_area_samples,
-                                      metric='precomputed', n_jobs=-1).fit(distance,
+                                      metric='precomputed', n_jobs=n_jobs).fit(distance,
                                       sample_weight=weights_core_samples)
             labels = dbresult.labels_ + 1
             # all labels == -1 (now 0) are seen as noise:
@@ -225,6 +226,7 @@ def cluster_DBSCAN_regions(precur):
     lags = precur.corr_xr.lag.values
     n_spl  = corr_xr.coords['split'].size
     precur.area_grid = get_area(precur.precur_arr)
+    n_jobs_clust = precur.n_jobs_clust
 
 
     if precur.group_lag: # group over regions found in range of lags
@@ -270,7 +272,8 @@ def cluster_DBSCAN_regions(precur):
             print(f"\rProgress traintest set {progress}%", end="")
             mask_and_data_s = corr_xr.sel(split=s)
             grouping_split = mask_sig_to_cluster(mask_and_data_s, wght_area,
-                                                distance_eps, min_area_samples)
+                                                distance_eps, min_area_samples,
+                                                n_jobs=n_jobs_clust)
             prec_labels_np[s] = grouping_split[0]
             labels_sign_lag[s] = grouping_split[1]
     # group regions regions the same accross splits
@@ -636,12 +639,13 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
     '''
     #%%
 
-
+    # start_time  = time()
     name            = precur.name
     corr_xr         = precur.corr_xr
     prec_labels     = precur.prec_labels
     n_spl           = corr_xr.split.size
     use_coef_wghts  = precur.use_coef_wghts
+    a_wghts = precur.area_grid / precur.area_grid.mean()
     if lags is not None:
         lags        = np.array(lags) # ensure lag is np.ndarray
         corr_xr     = corr_xr.sel(lag=lags).copy()
@@ -676,47 +680,65 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
         corr_xr, prec_labels = functions_pp.match_coords_xarrays(precur_arr,
                                           *[corr_xr, prec_labels])
 
-    ts_corr = np.zeros( (n_spl), dtype=object)
-    for s in range(n_spl):
-        corr = corr_xr.isel(split=s)
-        labels = prec_labels.isel(split=s)
+    def single_split_spatial_mean_regions(precur, precur_arr: np.ndarray,
+                                          corr: np.ndarray,
+                                          labels: np.ndarray, a_wghts: np.ndarray,
+                                          lags: np.ndarray,
+                                          use_coef_wghts: bool):
+        '''
+        Parameters
+        ----------
+        precur : class_BivariateMI
 
+        precur_arr : np.ndarray
+            of shape (time, lat, lon). If lags define period_means;
+            of shape (lag, time, lat, lon).
+        corr : np.ndarray
+            if shape (lag, lat, lon).
+        labels : np.ndarray
+            of shape (lag, lat, lon).
+        a_wghts : np.ndarray
+            if shape (lat, lon).
+        use_coef_wghts : bool
+            Use correlation coefficient as weights for spatial mean.
+
+        Returns
+        -------
+        ts_list : list
+            list of splits with numpy timeseries
+
+        '''
         ts_list = np.zeros( (lags.size), dtype=list )
         track_names = []
         for l_idx, lag in enumerate(lags):
-            labels_lag = labels.sel(lag=lag).values
+            labels_lag = labels[l_idx]
 
             # if lag represents aggregation period:
             if type(precur.lags[l_idx]) is np.ndarray and precur_aggr is None:
-                precur_arr = precur.precur_arr.sel(lag=l_idx)
-
+                precur_arr = precur_arr[l_idx]
 
             regions_for_ts = list(np.unique(labels_lag[~np.isnan(labels_lag)]))
-            a_wghts = precur.area_grid / precur.area_grid.mean()
+
             if use_coef_wghts:
-                coef_wghts = abs(corr.sel(lag=lag)) / abs(corr.sel(lag=lag)).max()
-                a_wghts *= coef_wghts.values # area & corr. value weighted
+                coef_wghts = abs(corr[l_idx]) / abs(corr[l_idx]).max()
+                a_wghts *= coef_wghts # area & corr. value weighted
 
             # this array will be the time series for each feature
-            ts_regions_lag_i = np.zeros((precur_arr.values.shape[0], len(regions_for_ts)))
+            ts_regions_lag_i = np.zeros((precur_arr.shape[0], len(regions_for_ts)))
 
             # track sign of eacht region
-            sign_ts_regions = np.zeros( len(regions_for_ts) )
+            # sign_ts_regions = np.zeros( len(regions_for_ts) )
 
 
             # calculate area-weighted mean over features
             for r in regions_for_ts:
-
                 idx = regions_for_ts.index(r)
                 # start with empty lonlat array
                 B = np.zeros(labels_lag.shape)
                 # Mask everything except region of interest
                 B[labels_lag == r] = 1
-        #        # Calculates how values inside region vary over time, wgts vs anomaly
-        #        wgts_ano = meanbox[B==1] / meanbox[B==1].max()
-        #        ts_regions_lag_i[:,idx] = np.nanmean(actbox[:,B==1] * cos_box_array[:,B==1] * wgts_ano, axis =1)
                 # Calculates how values inside region vary over time
-                ts = np.nanmean(precur_arr.values[:,B==1] * a_wghts[B==1], axis =1)
+                ts = np.nanmean(precur_arr[:,B==1] * a_wghts[B==1], axis =1)
 
                 # check for nans
                 if ts[np.isnan(ts)].size !=0:
@@ -731,23 +753,49 @@ def spatial_mean_regions(precur, precur_aggr=None, kwrgs_load: dict=None,
                         print(f'{perc_nans} NaNs split {s}'
                             f' for region {r} at lag {lag}')
 
-
                 track_names.append(f'{lag}..{int(r)}..{name}')
 
                 ts_regions_lag_i[:,idx] = ts
                 # get sign of region
-                sign_ts_regions[idx] = np.sign(np.mean(corr.isel(lag=l_idx).values[B==1]))
+                # sign_ts_regions[idx] = np.sign(np.mean(corr.isel(lag=l_idx).values[B==1]))
 
             ts_list[l_idx] = ts_regions_lag_i
 
-        dates = pd.to_datetime(precur_arr.time.values)
+        return ts_list, track_names
+
+    precur_arr = precur_arr.values
+    output = []
+    for s in range(n_spl):
+        corr = corr_xr.isel(split=s).values
+        labels = prec_labels.isel(split=s).values
+        if precur.n_cpu == 1:
+            output.append(single_split_spatial_mean_regions(precur, precur_arr,
+                                                            corr, labels,
+                                                            a_wghts, lags,
+                                                            use_coef_wghts))
+        elif precur.n_cpu > 1:
+            output.append(delayed(single_split_spatial_mean_regions)(precur,
+                                                                     precur_arr,
+                                                                     corr, labels,
+                                                                     a_wghts,
+                                                                     lags,
+                                                                     use_coef_wghts))
+    if precur.n_cpu > 1:
+        output = Parallel(n_jobs=precur.n_cpu, backend='loky')(output)
+
+    ts_corr = np.zeros( (n_spl), dtype=object)
+    for s in range(n_spl):
+        ts_list, track_names = output[s] # list of ts at different lags
         tsCorr = np.concatenate(tuple(ts_list), axis = 1)
         df_tscorr = pd.DataFrame(tsCorr, index=dates,
                                 columns=track_names)
         df_tscorr.name = str(s)
+        if any(df_tscorr.isna().values.flatten()):
+            print('Warnning: nans detected')
         ts_corr[s] = df_tscorr
-    if any(df_tscorr.isna().values.flatten()):
-        print('Warnning: nans detected')
+
+    # print(f'End time: {time() - start_time} seconds')
+
     #%%
     return ts_corr
 

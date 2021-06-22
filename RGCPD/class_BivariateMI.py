@@ -24,6 +24,7 @@ from func_models import apply_shift_lag
 from typing import Union
 import uuid
 flatten = lambda l: list(itertools.chain.from_iterable(l))
+from joblib import Parallel, delayed
 
 try:
     from tigramite.independence_tests import ParCorr
@@ -40,7 +41,8 @@ class BivariateMI:
                  group_split : bool=True, calc_ts='region mean',
                  selbox: tuple=None, use_sign_pattern: bool=False,
                  use_coef_wghts: bool=True, path_hashfile: str=None,
-                 hash_str: str=None, dailytomonths: bool=False, verbosity=1):
+                 hash_str: str=None, dailytomonths: bool=False, n_cpu=1,
+                 n_jobs_clust=-1, verbosity=1):
         '''
 
         Parameters
@@ -128,6 +130,8 @@ class BivariateMI:
         self.group_split = group_split
         self.group_lag = group_lag
         self.verbosity = verbosity
+        self.n_cpu = n_cpu
+        self.n_jobs_clust = n_jobs_clust
         if hash_str is not None:
             assert path_hashfile is not None, 'Give path to search hashfile'
             self.load_files(self, path_hashfile=str, hash_str=str)
@@ -256,6 +260,7 @@ class BivariateMI:
         np_mask = np.zeros_like(xrcorr.values)
         np_pvals = np.zeros_like(xrcorr.values)
         RV_mask = df_splits.loc[0]['RV_mask']
+        output = []
         for s in xrcorr.split.values:
             progress = int(100 * (s+1) / n_spl)
             # =============================================================================
@@ -275,13 +280,26 @@ class BivariateMI:
             n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
             print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
 
-            ma_data, pvals = MI_single_split(RV_ts, precur_train.copy(), s,
-                                             alpha=self.alpha,
-                                             FDR_control=self.FDR_control)
+            if self.n_cpu == 1:
+                output.append(MI_single_split(RV_ts, precur_train.copy(), s,
+                                              alpha=self.alpha,
+                                              FDR_control=self.FDR_control))
+            elif self.n_cpu > 1:
+                output.append(delayed(MI_single_split)(RV_ts, precur_train.copy(), s,
+                                                        alpha=self.alpha,
+                                                        FDR_control=self.FDR_control))
 
+        if self.n_cpu > 1:
+            output = Parallel(n_jobs=self.n_cpu, backend='loky')(output)
+        # unpack results
+        for s in xrcorr.split.values:
+            ma_data, pvals = output[s]
             np_data[s] = ma_data.data
             np_mask[s] = ma_data.mask
             np_pvals[s]= pvals
+
+
+
         print("\n")
         xrcorr.values = np_data
         xrpvals.values = np_pvals
