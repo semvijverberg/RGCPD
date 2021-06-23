@@ -201,7 +201,7 @@ kwrgs_model={'n_estimators':200,
 
 # choose type prediciton (continuous or probabilistic) by making comment #
 prediction = 'continuous' ; q = None
-# prediction = 'events' ; q = .66 # quantile threshold for event definition
+prediction = 'events' ; q = .66 # quantile threshold for event definition
 
 if prediction == 'continuous':
     model = ScikitModel(Ridge, verbosity=0)

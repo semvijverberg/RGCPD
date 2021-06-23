@@ -267,47 +267,62 @@ class BivariateMI:
         np_mask = np.zeros_like(xrcorr.values)
         np_pvals = np.zeros_like(xrcorr.values)
         RV_mask = df_splits.loc[0]['RV_mask']
-        output = []
-        for s in xrcorr.split.values:
-            progress = int(100 * (s+1) / n_spl)
-            # =============================================================================
-            # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']
-            # =============================================================================
-            TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values==True
-            RV_train_mask = np.logical_and(RV_mask, TrainIsTrue)
-            RV_ts = RV.fullts[RV_train_mask.values]
 
-            if self.lag_as_gap: # no clue why selecting all datapoints, changed 26-01-2021
-                train_dates = df_splits.loc[s]['TrainIsTrue'][TrainIsTrue].index
-                precur_train = precur_arr.sel(time=train_dates)
-            else:
-                precur_train = precur_arr[TrainIsTrue] # only train data
+        #%%
+        # start_time = time()
 
-            dates_RV = RV_ts.index
-            n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
-            print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
+        def calc_corr_for_splits(self, splits, RV, precur_arr, df_splits, output):
+            for s in splits:
+                progress = int(100 * (s+1) / n_spl)
+                # =============================================================================
+                # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']
+                # =============================================================================
+                TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values==True
+                RV_train_mask = np.logical_and(RV_mask, TrainIsTrue)
+                RV_ts = RV.fullts[RV_train_mask.values]
 
-            if self.n_cpu == 1:
-                output.append(MI_single_split(RV_ts, precur_train.copy(), s,
+                if self.lag_as_gap: # no clue why selecting all datapoints, changed 26-01-2021
+                    train_dates = df_splits.loc[s]['TrainIsTrue'][TrainIsTrue].index
+                    precur_train = precur_arr.sel(time=train_dates)
+                else:
+                    precur_train = precur_arr[TrainIsTrue] # only train data
+
+                dates_RV = RV_ts.index
+                n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
+                print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
+
+
+                output[s] = MI_single_split(RV_ts, precur_train.copy(), s,
                                               alpha=self.alpha,
-                                              FDR_control=self.FDR_control))
-            elif self.n_cpu > 1:
-                output.append(delayed(MI_single_split)(RV_ts, precur_train.copy(), s,
-                                                        alpha=self.alpha,
-                                                        FDR_control=self.FDR_control))
+                                              FDR_control=self.FDR_control)
+            return output
 
-        if self.n_cpu > 1:
-            output = Parallel(n_jobs=self.n_cpu, backend='loky')(output)
+        output = {}
+        if self.n_cpu == 1:
+            splits = df_splits.index.levels[0]
+            output = calc_corr_for_splits(self, splits, RV, precur_arr,
+                                          df_splits, output)
+        elif self.n_cpu > 1:
+            splits = df_splits.index.levels[0]
+            futures = []
+            for _s in np.array_split(splits, self.n_cpu):
+                futures.append(delayed(calc_corr_for_splits)(self, _s, RV,
+                                                             precur_arr, df_splits,
+                                                             output))
+            futures = Parallel(n_jobs=self.n_cpu, backend='loky')(futures)
+            [output.update(d) for d in futures]
+
         # unpack results
         for s in xrcorr.split.values:
             ma_data, pvals = output[s]
             np_data[s] = ma_data.data
             np_mask[s] = ma_data.mask
             np_pvals[s]= pvals
-
-
-
         print("\n")
+        # print(f'Time: {(time()-start_time)}')
+        #%%
+
+
         xrcorr.values = np_data
         xrpvals.values = np_pvals
         mask = (('split', 'lag', 'latitude', 'longitude'), np_mask )

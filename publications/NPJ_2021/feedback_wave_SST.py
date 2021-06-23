@@ -142,7 +142,7 @@ else:
 
 tfreq         = 15
 min_detect_gc = 0.9
-method        = 'ranstrat_10' ;
+method        = 'RepeatedKFold_10_10' ;
 use_sign_pattern_z500 = True
 name_MCI_csv = f'strength_rPDO{remove_PDO}.csv'
 name_rob_csv = f'robustness_rPDO{remove_PDO}.csv'
@@ -188,7 +188,7 @@ def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
     rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
 
     # start_time = time()
-    rg.calc_corr_maps()
+    rg.calc_corr_maps('z500')
     # print(f'End time: {int(time() - start_time)}')
 
     rg.cluster_list_MI(['z500'])
@@ -347,7 +347,7 @@ def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
         keys_ext = None
 
     alpha_level = .05
-    dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_TV['seed'])}
+    dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_traintest['seed'])}
     dict_rb = dict_v.copy()
     freqs = [1, 5, 10, 15, 30, 60, 90]
     for f in freqs[:]:
@@ -381,8 +381,10 @@ def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
 
         kwrgs_tigr = {'tau_min':0, 'tau_max':tau_max, 'max_conds_dim':10,
                       'pc_alpha':0.05, 'max_combinations':10} # pc_alpha=None
+        # start_time = time()
         rg.PCMCI_df_data(keys=keys,
-                          kwrgs_tigr=kwrgs_tigr)
+                          kwrgs_tigr=kwrgs_tigr, n_cpu=1)
+        # print(f'{int(time() - start_time)}')
 
 
         lags = range(rg.kwrgs_tigr['tau_min'], rg.kwrgs_tigr['tau_max']+1)

@@ -1232,7 +1232,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
     # test_yrs = None ; seed=1 ; gap_prior=None ; gap_after=None
 
     from func_models import get_cv_accounting_for_years
-    from sklearn.model_selection import KFold, TimeSeriesSplit
+    from sklearn.model_selection import KFold, TimeSeriesSplit, RepeatedKFold
 
     if test_yrs is not None:
         method = 'copied_from_import_ts'
@@ -1268,11 +1268,21 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                 cv = TimeSeriesSplit(max_train_size=None, n_splits=kfold,
                                      test_size=1)
                 testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
+            elif method[:13] == 'RepeatedKFold':
+                n_repeats = int(method.split('_')[1])
+                cv = RepeatedKFold(n_splits=kfold, n_repeats=n_repeats,
+                                   random_state=seed)
+                testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
+
         else:
             testgroups = test_yrs
 
+    if method[:13] == 'RepeatedKFold':
+        testsetidx = np.zeros(groups.size * n_repeats , dtype=int)
+    else:
+        testsetidx = np.zeros(groups.size , dtype=int)
+    testsetidx[:] = -999
 
-    testsetidx = np.zeros(groups.size , dtype=int) ; testsetidx[:] = -999
     for i, test_fold_idx in enumerate(testgroups):
         # convert idx to grouplabel (year or dateyrgroup)
         if test_yrs is None:
@@ -1281,7 +1291,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
             test_fold = test_fold_idx
         for j, gr in enumerate(groups):
             if gr in list(test_fold):
-                testsetidx[j] = i
+                testsetidx[j] = i % uniqgroups.size
 
     def gap_traintest(testsetidx, groups, gap):
         ign = np.zeros((np.unique(testsetidx).size, testsetidx.size))

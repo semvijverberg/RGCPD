@@ -29,7 +29,7 @@ main_dir = working_dir
 print(RGCPD_dir)
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
-import class_BivariateMI, functions_pp
+import class_BivariateMI, functions_pp, core_pp
 # from IPython.display import Image
 import numpy as np
 import pandas as pd
@@ -510,12 +510,12 @@ def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method, n_jobs,
 
 
 #%%
-def plot_ss2(rg, skillscores, col_wrap, metric=None):
+def plot_ss2(agg_level, skillscores, col_wrap, metric=None):
     #%%
     import find_precursors
 
-    #load cluster_ds
-    ds = rg.get_clust(format_lon='west_east')
+    cluster_nc_path = get_list_of_name_path(agg_level, 1)[0][1]
+    ds = core_pp.import_ds_lazy(cluster_nc_path, format_lon='west_east')
     cluster_labels_org = ds.coords['cluster']
     ds = ds['xrclustered']
 
@@ -632,22 +632,25 @@ if __name__ == "__main__":
     #--------------------------------------------------------------------------------------------------------------------#
     #LOOP
     #--------------------------------------------------------------------------------------------------------------------#
-    df_ss_result, df_prediction_result, rg = loop_analysis(agg_level, n_lags, kwrgs_list_for_MI, fold_method,
-                  n_jobs=n_jobs, distinct_cl = cluster_numbers, distinct_targetperiods = TV_targetperiod)
+    results_path = os.path.join(main_dir, 'Results', 'skillscores', f'{agg_level}_{fold_method}') #path of results
+    path_df_ss_result = os.path.join(results_path, 'df_skill_predictions.h5')
+    if os.path.isfile(path_df_ss_result):
+        df_data = functions_pp.load_hdf5(path_df_ss_result)
+        df_ss_result = df_data['df_ss_result']
+        df_prediction_result = df_data['df_prediction_result']
+    else:
+        df_ss_result, df_prediction_result, rg = loop_analysis(agg_level, n_lags, kwrgs_list_for_MI, fold_method,
+                                                               n_jobs=n_jobs, distinct_cl = cluster_numbers, distinct_targetperiods = TV_targetperiod)
     print(df_ss_result, '\n' , df_prediction_result)
-
     #--------------------------------------------------------------------------------------------------------------------#
     #PLOT
     #--------------------------------------------------------------------------------------------------------------------#
-    fig = plot_ss2(rg, df_ss_result, col_wrap, metric='test_RMSE_SS')
+    fig = plot_ss2(agg_level, df_ss_result, col_wrap, metric='test_RMSE_SS')
 
     #--------------------------------------------------------------------------------------------------------------------#
     #SAVE
     #--------------------------------------------------------------------------------------------------------------------#
-    results_path = os.path.join(os.path.dirname(main_dir), 'Results') #path of results
-
-    datetimestamp = datetime.now()
-    datetimestamp_str = datetimestamp.strftime("%Y-%m-%d_%H-%M-%S")
+    datetimestamp_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     fig.savefig(os.path.join(results_path, datetimestamp_str+ '_test_RMSE_SS_fig_'+agg_level+'.png')) #save skillscore figures
 

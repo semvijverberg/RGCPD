@@ -7,6 +7,7 @@ from tigramite.independence_tests import ParCorr #, GPDC, CMIknn, CMIsymb
 import numpy as np
 import pandas as pd
 import itertools
+from joblib import Parallel, delayed
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 
@@ -94,7 +95,7 @@ def plot_lagged_dependences(pcmci, selected_links: dict=None, tau_max=5):
     return
 
 def loop_train_test(pcmci_dict, path_txtoutput, tigr_function_call='run_pcmci',
-                    kwrgs_tigr={}):
+                    kwrgs_tigr={}, n_cpu=1):
     '''
     pc_alpha (float, optional (default: 0.05))
         Significance level in algorithm.
@@ -120,13 +121,28 @@ def loop_train_test(pcmci_dict, path_txtoutput, tigr_function_call='run_pcmci',
     splits = np.array(list(pcmci_dict.keys()))
 
     pcmci_results_dict = {}
-    for s in range(splits.size):
-        progress = int(100 * (s+1) / splits.size)
-        print(f"\rProgress causal inference - traintest set {progress}%", end="")
-        results = run_tigramite(pcmci_dict[s], path_txtoutput, s,
-                                tigr_function_call,
-                                kwrgs_tigr=kwrgs_tigr)
-        pcmci_results_dict[s] = results
+    def run_tigr_on_splits(splits, pcmci_dict, path_txtoutput, tigr_function_call='run_pcmci',
+                    kwrgs_tigr={}):
+
+        for s in splits:
+            progress = int(100 * (s+1) / splits.size)
+            print(f"\rProgress causal inference - traintest set {progress}%", end="")
+            results = run_tigramite(pcmci_dict[s], path_txtoutput, s,
+                                    tigr_function_call,
+                                    kwrgs_tigr=kwrgs_tigr)
+            pcmci_results_dict[s] = results
+        return pcmci_results_dict
+    if n_cpu==1:
+        pcmci_results_dict = run_tigr_on_splits(splits, pcmci_dict, path_txtoutput,
+                                                tigr_function_call, kwrgs_tigr)
+    elif n_cpu>1:
+        futures = []
+        for _s in np.array_split(splits, n_cpu):
+            futures.append(delayed(run_tigr_on_splits)(_s, pcmci_dict,
+                                                       path_txtoutput,
+                                                       tigr_function_call,
+                                                       kwrgs_tigr))
+        pcmci_results_dict = Parallel(n_jobs=n_cpu, backend='loky')(futures)
     #%%
     return pcmci_results_dict
 

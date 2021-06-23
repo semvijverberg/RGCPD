@@ -348,6 +348,9 @@ class RGCPD:
         (5) timeseriessplit_{int}:
             Also known as one-step-ahead CV. Always uses training data of the
             past.
+        (6) RepeatedKFold_{n_repeats}_{kfold}. Repeats K-Fold n times with
+            different randomization in each repetition (test set is different
+            each time).
         (6) False:
             No train test split.
         '''
@@ -453,27 +456,28 @@ class RGCPD:
             self.precur_aggr = precur_aggr
 
         if precur_aggr is not None or start_end_TVdate is not None:
-            if start_end_TVdate is None:
-                start_end_TVdate = self.start_end_TVdate
-                # for loading aggregated ncdf is aligned
-            else:
-                self.kwrgs_load['start_end_TVdate'] = start_end_TVdate
+            kwrgs_load = self.kwrgs_load.copy()
+            kwrgs_pp_TV = self.kwrgs_pp_TV.copy()
+            if start_end_TVdate is not None:
+                kwrgs_load['start_end_TVdate'] = start_end_TVdate
+                kwrgs_pp_TV['start_end_TVdate'] = start_end_TVdate
+            if precur_aggr is not None:
+                kwrgs_load['tfreq'] = precur_aggr
+                kwrgs_pp_TV['tfreq'] = precur_aggr
             # retrieving timeseries at different aggregation, TV and df_splits
             # need to redefined on new tfreq using the same arguments
             print(f'redefine target variable on {self.precur_aggr} day means')
             f = functions_pp
             fulltso, self.hash = f.load_TV(self.list_of_name_path,
                                            name_ds=self.name_TVds)
-            out = f.process_TV(fulltso, **self.kwrgs_pp_TV)
-            self.df_fullts, self.df_TV_ts, inf, self.traintestgroups = out
+            out = f.process_TV(fulltso, **kwrgs_pp_TV)
+            self.df_fullts, self.df_RV_ts, inf, self.traintestgroups = out
             # Re-define train-test split on new time-axis
             TV, df_splits = RV_and_traintest(self.df_fullts,
                                              self.df_RV_ts,
                                              self.traintestgroups,
                                              **self.kwrgs_traintest)
         else:
-            # use original TV timeseries
-            start_end_TVdate = self.start_end_TVdate
             TV = self.TV ; df_splits = self.df_splits
         self.df_data = pd.DataFrame(TV.fullts.values, columns=[TV.name],
                                     index=TV.dates_all)
@@ -484,7 +488,7 @@ class RGCPD:
             for i, precur in enumerate(self.list_for_MI):
                 if hasattr(precur, 'prec_labels'):
                     precur.get_prec_ts(precur_aggr=self.precur_aggr,
-                                       kwrgs_load=self.kwrgs_load)
+                                       kwrgs_load=kwrgs_load)
                 else:
                     print(f'{precur.name} not clustered yet')
                     c += i
@@ -499,7 +503,7 @@ class RGCPD:
                                                                    TV,
                                                                    df_splits)
                     # cross yr can lead to non-alignment of index. Adopting df_data index
-                    df_data_MI.index = self.df_data.index 
+                    df_data_MI.index = self.df_data.index
                     self.df_data = self.df_data.merge(df_data_MI, left_index=True,
                                                       right_index=True)
                 else:
@@ -508,16 +512,16 @@ class RGCPD:
         # Append (or only load in) external timeseries
         if self.list_import_ts is not None:
             print('\nGetting external timeseries')
-            f = find_precursors
-            self.df_data_ext = f.import_precur_ts(self.list_import_ts,
-                                                  df_splits.copy(),
-                                                  self.start_end_date,
-                                                  self.start_end_year,
-                                                  cols=keys_ext,
-                                                  precur_aggr=self.precur_aggr,
-                                                  start_end_TVdate=start_end_TVdate)
+            _f = find_precursors.import_precur_ts
+            self.df_data_ext = _f(self.list_import_ts,
+                                 df_splits.copy(),
+                                 self.start_end_date,
+                                 self.start_end_year,
+                                 cols=keys_ext,
+                                 precur_aggr=self.precur_aggr,
+                                 start_end_TVdate=kwrgs_load['start_end_TVdate'])
             # cross yr can lead to non-alignment of index. Adopting df_data index
-            self.df_data_ext.index = self.df_data.index             
+            self.df_data_ext.index = self.df_data.index
             self.df_data = self.df_data.merge(self.df_data_ext,
                                               left_index=True, right_index=True)
 
@@ -598,7 +602,7 @@ class RGCPD:
     def PCMCI_df_data(self, df_data: pd.DataFrame=None, keys: list=None,
                       path_txtoutput=None, tigr_function_call='run_pcmci',
                       kwrgs_tigr: dict=None,
-                      replace_RV_mask: np.ndarray=None,
+                      replace_RV_mask: np.ndarray=None, n_cpu: int=1,
                       verbosity=4):
 
         if df_data is None:
@@ -650,7 +654,8 @@ class RGCPD:
 
         out = wPCMCI.loop_train_test(self.pcmci_dict, path_outsub2,
                                      tigr_function_call=tigr_function_call,
-                                     kwrgs_tigr=self.kwrgs_tigr)
+                                     kwrgs_tigr=self.kwrgs_tigr,
+                                     n_cpu=n_cpu)
         self.pcmci_results_dict = out
 
     def PCMCI_get_links(self, var: str=None, alpha_level: float=.05):
