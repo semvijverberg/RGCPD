@@ -645,14 +645,15 @@ if __name__ == "__main__":
     #--------------------------------------------------------------------------------------------------------------------#
     #PLOT
     #--------------------------------------------------------------------------------------------------------------------#
-    fig = plot_ss2(agg_level, df_ss_result, col_wrap, metric='test_RMSE_SS')
-
+    metrics = ['test_RMSE_SS', 'test_MAE_SS', 'test_corrcoef',
+               'train_RMSE_SS', 'train_MAE_SS', 'train_corrcoef']
+    datetimestamp_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    for metric in metrics:
+        fig = plot_ss2(agg_level, df_ss_result, col_wrap, metric='test_RMSE_SS')
+        fig.savefig(os.path.join(results_path, datetimestamp_str+ '_test_RMSE_SS_fig_'+agg_level+'.png')) #save skillscore figures
     #--------------------------------------------------------------------------------------------------------------------#
     #SAVE
     #--------------------------------------------------------------------------------------------------------------------#
-    datetimestamp_str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-
-    fig.savefig(os.path.join(results_path, datetimestamp_str+ '_test_RMSE_SS_fig_'+agg_level+'.png')) #save skillscore figures
 
     df_ss_result.to_csv(os.path.join(results_path, datetimestamp_str+'_ss_scores_'+agg_level+'.csv')) #save skillscores to csv
     df_prediction_result.to_csv(os.path.join(results_path, datetimestamp_str+ '_predictions_'+agg_level+'.csv')) #save predictions to csv
