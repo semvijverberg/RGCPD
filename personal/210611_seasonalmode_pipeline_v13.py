@@ -384,6 +384,8 @@ def get_list_of_name_path(agg_level, cl_number):
 
 def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method, n_jobs,
                   distinct_cl = None, distinct_targetperiods = None):
+    #%%
+    # distinct_cl = cluster_numbers; distinct_targetperiods = TV_targetperiod
     #retrieve number of clusters with aggregation level
     if distinct_cl is None:
         ncl_dict = {'high': 20,
@@ -438,6 +440,7 @@ def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method, n_jobs,
 
     #parallel function
     def parallel(cluster, month, agg_level, n_lags, kwrgs_MI, fold_method, row_arrays, column_array, subfolder):
+        #%%
         print(f'Starting cluster {cluster}, prediciting {month}')
         #get list_of_name_path
         list_of_name_path = get_list_of_name_path(agg_level, cluster)
@@ -477,7 +480,7 @@ def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method, n_jobs,
         os.makedirs(results_path, exist_ok=True) # make folder if it doesn't exist
         df_ss_result.to_csv(os.path.join(results_path,
                                          str(cluster)+'_'+str(all_targetperiods_dict[month])+'_ss_scores_'+agg_level+'.csv')) #intermediate save skillscores per cluster to csv
-
+        #%%
         return df_ss_result, test_df_pred, rg
 
     with joblib.parallel_backend('loky'):
@@ -506,6 +509,7 @@ def loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method, n_jobs,
                               file_path=os.path.join(results_path,
                                                      'df_skill_predictions.h5'))
     #return df_ss_result dataframe and prediction
+    #%%
     return df_ss_result_all, df_prediction_result, rg
 
 
@@ -597,7 +601,7 @@ if __name__ == "__main__":
     #PARAMS
     #--------------------------------------------------------------------------------------------------------------------#
     agg_level_list = ['high', 'medium', 'low'] # high, medium or low
-    fold_method_list = ['random_20', 'leave_1']
+    fold_method_list = ['random_2'] # ['random_20', 'leave_1']
     ncl_dict = {'high': 20,
                 'medium': 42,
                 'low': 135}
@@ -611,12 +615,13 @@ if __name__ == "__main__":
     out = combinations[args.intexper]
     agg_level = out[0]
     cluster_numbers = np.arange(1,ncl_dict[agg_level]) #list with ints, high=20, medium=42, low=135
+    cluster_numbers = np.arange(1,2) # quick test one cluster
     #cluster_numbers = [x for x in cluster_numbers if x not in [7,9,14]] #skip HIGH: [7,9,14],
                                                                         #MEDIUM: [2,5,17,20,22,27,35,37,38], LOW: []
                                                                         #LOW: [2,6,14,15,18,27,28,30,31,34,37,39,42,43,45,47,48,52,55,58,60,61,62,63,64,65,67,72,74,78,83,85,86,88,95,96,103,105,107,111,114,115,118,121,123,125,126,127,132,133,135]
     TV_targetperiod = None # list with tuples [(mm-dd,mm-dd)] or if None, all months are targeted
     n_lags = 3 #int, max 12
-    kwrgs_list_for_MI = {'alpha':0.01,
+    kwrgs_MI = {'alpha':0.01,
                          'FDR_control':True,
                          'distance_eps':500,
                          'min_area_in_degrees2':5} #some controls for bivariateMI
@@ -639,7 +644,7 @@ if __name__ == "__main__":
         df_ss_result = df_data['df_ss_result']
         df_prediction_result = df_data['df_prediction_result']
     else:
-        df_ss_result, df_prediction_result, rg = loop_analysis(agg_level, n_lags, kwrgs_list_for_MI, fold_method,
+        df_ss_result, df_prediction_result, rg = loop_analysis(agg_level, n_lags, kwrgs_MI, fold_method,
                                                                n_jobs=n_jobs, distinct_cl = cluster_numbers, distinct_targetperiods = TV_targetperiod)
     print(df_ss_result, '\n' , df_prediction_result)
     #--------------------------------------------------------------------------------------------------------------------#
@@ -665,11 +670,10 @@ def check_ts(agg_level):
                     'low': 135}
     clusters = np.arange(1,ncl_dict[agg_level]+1)
     path_data = os.path.join(os.path.dirname(main_dir), 'Data') # path of data sets
-    kwrgs_list_for_MI = {'alpha':0.01,
+    kwrgs_MI = {'alpha':0.01,
                          'FDR_control':True,
                          'distance_eps':500,
                          'min_area_in_degrees2':5} #some controls for bivariateMI
-    kwrgs_MI = kwrgs_list_for_MI
     targetperiods = [('01-01','01-31'),('02-01','02-28'),('03-01','03-31'),('04-01','04-30'),
                          ('05-01','05-31'),('06-01','06-30'),('07-01','07-31'),('08-01','08-31'),
                          ('09-01','09-30'),('10-01','10-31'),('11-01','11-30'),('12-01','12-31')]

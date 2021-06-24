@@ -1246,7 +1246,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
         index = RV_ts.index
 
     uniqgroups = np.unique(groups)
-
+    n_repeats = 1 # defined for RepeatedKFold
     if method == 'no_train_test_split':
         kfold = 1
         testgroups = np.array([[]])
@@ -1278,10 +1278,11 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
             testgroups = test_yrs
 
     if method[:13] == 'RepeatedKFold':
-        testsetidx = np.zeros(groups.size * n_repeats , dtype=int)
+        testsetidx = np.zeros( (n_repeats, groups.size), dtype=int)
     else:
         testsetidx = np.zeros(groups.size , dtype=int)
     testsetidx[:] = -999
+
 
     for i, test_fold_idx in enumerate(testgroups):
         # convert idx to grouplabel (year or dateyrgroup)
@@ -1289,9 +1290,10 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
             test_fold = [uniqgroups[i] for i in test_fold_idx]
         else:
             test_fold = test_fold_idx
+        n = i % n_repeats
         for j, gr in enumerate(groups):
             if gr in list(test_fold):
-                testsetidx[j] = i % uniqgroups.size
+                testsetidx[n,j] = i % uniqgroups.size
 
     def gap_traintest(testsetidx, groups, gap):
         ign = np.zeros((np.unique(testsetidx).size, testsetidx.size))
@@ -1312,26 +1314,28 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
         ignafter = gap_traintest(testsetidx, groups, gap_after)
 
     TrainIsTrue = []
-    for f, i in enumerate(np.unique(testsetidx)):
-        # if -999, No Train Test split, all True
-        if method[:15] == 'TimeSeriesSplit':
-            if i == -999:
-                continue
-            mask = np.array(testsetidx < i, dtype=int)
-            mask[testsetidx>i] = -1
-        else:
-            mask = np.logical_or(testsetidx!=i, testsetidx==-999)
-        if gap_prior is not None:
-            # if gap_prior, mask values will become -1 for unused (training) data
-            mask = np.array(mask, dtype=int) ; mask[ignprior[f]] = -1
-        if gap_after is not None:
-            # same as above for gap_after.
-            mask = np.array(mask, dtype=int) ; mask[ignafter[f]] = -1
+    for n in range(n_repeats):
+        for f, i in enumerate(np.unique(testsetidx)):
+            print(n, f, i)
+            # if -999, No Train Test split, all True
+            if method[:15] == 'TimeSeriesSplit':
+                if i == -999:
+                    continue
+                mask = np.array(testsetidx[n] < i, dtype=int)
+                mask[testsetidx[n]>i] = -1
+            else:
+                mask = np.logical_or(testsetidx[n]!=i, testsetidx[n]==-999)
+            if gap_prior is not None:
+                # if gap_prior, mask values will become -1 for unused (training) data
+                mask = np.array(mask, dtype=int) ; mask[ignprior[f]] = -1
+            if gap_after is not None:
+                # same as above for gap_after.
+                mask = np.array(mask, dtype=int) ; mask[ignafter[f]] = -1
 
-        TrainIsTrue.append(pd.DataFrame(data=mask.T,
-                                        columns=['TrainIsTrue'],
-                                        index=index))
-    df_TrainIsTrue = pd.concat(TrainIsTrue , axis=0, keys=range(kfold))
+            TrainIsTrue.append(pd.DataFrame(data=mask.T,
+                                            columns=['TrainIsTrue'],
+                                            index=index))
+    df_TrainIsTrue = pd.concat(TrainIsTrue , axis=0, keys=range(n_repeats*kfold))
 
     if traintestgroups is not None:
         # first group may be of different size then other groups

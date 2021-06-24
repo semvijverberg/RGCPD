@@ -455,9 +455,9 @@ class RGCPD:
         else:
             self.precur_aggr = precur_aggr
 
+        kwrgs_load = self.kwrgs_load.copy()
+        kwrgs_pp_TV = self.kwrgs_pp_TV.copy()
         if precur_aggr is not None or start_end_TVdate is not None:
-            kwrgs_load = self.kwrgs_load.copy()
-            kwrgs_pp_TV = self.kwrgs_pp_TV.copy()
             if start_end_TVdate is not None:
                 kwrgs_load['start_end_TVdate'] = start_end_TVdate
                 kwrgs_pp_TV['start_end_TVdate'] = start_end_TVdate
@@ -926,6 +926,7 @@ class RGCPD:
                         f_name += f'_{append_str}'
                     fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
                     plt.savefig(fig_path, bbox_inches='tight')
+                plt.close()
             else:
                 print(f'no {pclass.name} regions that pass distance_eps and min_area_in_degrees2 citeria')
 
@@ -974,6 +975,7 @@ class RGCPD:
 
                 fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
                 plt.savefig(fig_path, bbox_inches='tight')
+            plt.close()
 
     def plot_maps_sum(self, var='all', figpath=None, paramsstr=None,
                       cols: List=['corr', 'C.D.'], save: bool=False,
