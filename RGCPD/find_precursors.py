@@ -678,7 +678,7 @@ def import_precur_ts(list_import_ts : List[tuple],
     # df_splits = rg.df_splits
 
     splits = df_splits.index.levels[0]
-    orig_traintest = functions_pp.get_testyrs(df_splits)
+    orig_traintest = functions_pp.get_testyrs(df_splits)[0]
     df_data_ext_s   = np.zeros( (splits.size) , dtype=object)
     counter = 0
     for i, (name, path_data) in enumerate(list_import_ts):

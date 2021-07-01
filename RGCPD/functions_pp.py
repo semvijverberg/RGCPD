@@ -308,7 +308,7 @@ def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0):
         TrainIsTrue = df['TrainIsTrue']
     else:
         TrainIsTrue = df_splits['TrainIsTrue']
-    df_train = df.loc[s][TrainIsTrue.loc[s].values==False]
+    df_train = df.loc[s][TrainIsTrue.loc[s].values]
     if cols is not None:
         df_train = df_train[cols]
     return df_train
@@ -1229,25 +1229,33 @@ def load_hdf5(path_data):
 
 def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                      seed=None, gap_prior: int=None, gap_after: int=None):
+    #%%
     # RV_ts = rg.df_RV_ts ; traintestgroups=rg.traintestgroups
     # test_yrs = None ; seed=1 ; gap_prior=None ; gap_after=None
 
     from func_models import get_cv_accounting_for_years
     from sklearn.model_selection import KFold, TimeSeriesSplit, RepeatedKFold
 
-    if test_yrs is not None:
-        method = 'copied_from_import_ts'
-        kfold  = test_yrs.shape[0]
+
 
     if traintestgroups is not None:
-        groups = traintestgroups
+        groups = traintestgroups.index.year
         index = traintestgroups.index
     else:
         groups = RV_ts.index.year
         index = RV_ts.index
 
+    if test_yrs is not None:
+        method = 'copied_from_import_ts'
+        folds  = test_yrs.shape[0]
+        tot = len(core_pp.flatten(test_yrs)) ;
+        uniq = np.unique(core_pp.flatten(test_yrs)).size
+        n_repeats = int(tot / uniq) ;
+        kfold = int(folds / n_repeats)
+    else:
+        n_repeats = 1 # defined for RepeatedKFold
+
     uniqgroups = np.unique(groups)
-    n_repeats = 1 # defined for RepeatedKFold
     if method == 'no_train_test_split':
         kfold = 1
         testgroups = np.array([[]])
@@ -1278,13 +1286,11 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
         else:
             testgroups = test_yrs
 
-    if method[:13] == 'RepeatedKFold':
-        testsetidx = np.zeros( (n_repeats, groups.size), dtype=int)
-    else:
-        testsetidx = np.zeros(groups.size , dtype=int)
+    # n_repeats is build in for compatitability with RepeatedKFold
+    testsetidx = np.zeros( (n_repeats, groups.size), dtype=int)
     testsetidx[:] = -999
 
-    n = 0
+    n = 0 ;
     for i, test_fold_idx in enumerate(testgroups):
         # convert idx to grouplabel (year or dateyrgroup)
         if test_yrs is None:
@@ -1300,9 +1306,8 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
             # if j == 21: break
             # print(gr)
             if gr in list(test_fold):
-                # idx = (i % uniqgroups.size)
-                # print(gr, i, idx, groups[idx])
-                testsetidx[n,j] = i % uniqgroups.size
+                # print(gr, i, idx, i % kfold )
+                testsetidx[n,j] = i % kfold
 
     def gap_traintest(testsetidx, groups, gap):
         ign = np.zeros((np.unique(testsetidx).size, testsetidx.size))
@@ -1334,6 +1339,8 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                 mask[testsetidx[n]>i] = -1
             else:
                 mask = np.logical_or(testsetidx[n]!=i, testsetidx[n]==-999)
+                # print(n,i,mask[mask].size)
+
             if gap_prior is not None:
                 # if gap_prior, mask values will become -1 for unused (training) data
                 mask = np.array(mask, dtype=int) ; mask[ignprior[f]] = -1
@@ -1367,6 +1374,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
     RV_mask.index = df_TrainIsTrue.index
     df_splits = df_TrainIsTrue.merge(RV_mask,
                                      left_index=True, right_index=True)
+    #%%
     return df_splits
 
 def get_testyrs(df_splits: pd.DataFrame):

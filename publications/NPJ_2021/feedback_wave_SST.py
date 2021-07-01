@@ -256,11 +256,12 @@ def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
     RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
     subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range, method, seed)
     rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
-    rg.get_ts_prec()
-    rg.calc_corr_maps()
+    rg.get_ts_prec(keys_ext=['0..0..z500_sp'])
+    rg.calc_corr_maps(df_RVfull = rg.df_data[['z5000..0..z500_sp']])
 
-    units = 'Corr. Coeff. [-]'
+
     #%%
+    units = 'Corr. Coeff. [-]'
     subtitles = np.array([[f'$corr(SST_t,\ RW^{west_east[0].capitalize()}_t)$']])
     kwrgs_plot = {'row_dim':'split', 'col_dim':'lag',
                   'aspect':2, 'hspace':-.57, 'wspace':-.22, 'size':2.5, 'cbar_vert':-.02,
@@ -289,32 +290,33 @@ def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
 
 
     #%% Only SST
-    TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
-    list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
-                          ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
+    # TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
+    # list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
+    #                       ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
 
-    list_for_MI = [BivariateMI(name='N-Pac. SST', func=class_BivariateMI.corr_map,
-                                alpha=.05, FDR_control=True,
-                                distance_eps=500, min_area_in_degrees2=5,
-                                calc_ts='pattern cov', selbox=sst_green_bb,
-                                lags=np.array([0]))]
+    # list_for_MI = [BivariateMI(name='N-Pac. SST', func=class_BivariateMI.corr_map,
+    #                             alpha=.05, FDR_control=True,
+    #                             distance_eps=500, min_area_in_degrees2=5,
+    #                             calc_ts='pattern cov', selbox=sst_green_bb,
+    #                             lags=np.array([0]))]
 
-    rg = RGCPD(list_of_name_path=list_of_name_path,
-                list_for_MI=list_for_MI,
-                list_import_ts=None,
-                start_end_TVdate=start_end_TVdate,
-                start_end_date=start_end_date,
-                tfreq=tfreq,
-                path_outmain=path_out_main)
+    # rg = RGCPD(list_of_name_path=list_of_name_path,
+    #             list_for_MI=list_for_MI,
+    #             list_import_ts=None,
+    #             start_end_TVdate=start_end_TVdate,
+    #             start_end_date=start_end_date,
+    #             tfreq=tfreq,
+    #             path_outmain=path_out_main)
 
-    rg.pp_TV(name_ds=name_ds)
-    rg.pp_precursors(anomaly=True)
-    RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
-    subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range,
-                                                      method, seed)
-    rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
+    # rg.pp_TV(name_ds=name_ds)
+    # rg.pp_precursors(anomaly=True)
+    # RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
+    # subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range,
+    #                                                   method, seed)
+    # rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
 
-    rg.calc_corr_maps(var='N-Pac. SST')
+    # rg.calc_corr_maps(var='N-Pac. SST')
+    rg.list_for_MI = rg.list_for_MI[[1]]
     rg.cluster_list_MI(var='N-Pac. SST')
     rg.quick_view_labels(min_detect_gc=min_detect_gc)
     # rg.get_ts_prec(precur_aggr=1)

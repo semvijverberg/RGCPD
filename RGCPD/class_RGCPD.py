@@ -1205,7 +1205,7 @@ def RV_and_traintest(df_fullts, df_RV_ts, traintestgroups, method=str, kwrgs_eve
                      verbosity=1):
     # df_fullts = rg.df_fullts ; df_RV_ts = rg.df_RV_ts ; traintestgroups=rg.traintestgroups
     # method='random_10'; kwrgs_events=None; precursor_ts=rg.list_import_ts; seed=1; verbosity=1
-    # gap_prior=1; gap_after=1 ; test_yrs_imp=None
+    # gap_prior=None; gap_after=None ; test_yrs_imp=None
 
     # Define traintest:
     if precursor_ts is not None:
@@ -1237,12 +1237,13 @@ def RV_and_traintest(df_fullts, df_RV_ts, traintestgroups, method=str, kwrgs_eve
         test_yrs_imp  = functions_pp.get_testyrs(df_splits)
         if test_yrs_imp is not None:
             df_splits = functions_pp.cross_validation(df_RV_ts,
+                                                      traintestgroups=traintestgroups,
                                                       test_yrs=test_yrs_imp,
                                                       method=method,
                                                       seed=seed,
                                                       gap_prior=gap_prior,
                                                       gap_after=gap_after)
-            test_yrs_set  = functions_pp.get_testyrs(df_splits)
+            test_yrs_set  = functions_pp.get_testyrs(df_splits)[0]
             equal_test = (np.equal(np.concatenate(test_yrs_imp),
                                    np.concatenate(test_yrs_set))).all()
             assert equal_test, "Train test split not equal"
