@@ -369,6 +369,8 @@ class RGCPD:
                                                    self.traintestgroups,
                                                    verbosity=self.verbosity,
                                                    **self.kwrgs_traintest)
+
+
         self.n_spl = self.df_splits.index.levels[0].size
         if subfoldername is None:
             RV_name_range = '{}-{}_'.format(*list(self.start_end_TVdate))
@@ -389,18 +391,21 @@ class RGCPD:
         if self.save:
             os.makedirs(self.path_outsub1, exist_ok=True)
 
-    def calc_corr_maps(self, var: Union[str, list]=None):
+    def calc_corr_maps(self, var: Union[str, list]=None,
+                       df_RVfull: pd.DataFrame=None):
 
         if var is None:
             if type(var) is str:
                 var = [var]
             var = [MI.name for MI in self.list_for_MI]
+        if df_RVfull is None:
+            df_RVfull = self.df_fullts
         kwrgs_load = self.kwrgs_load
         for precur in self.list_for_MI:
             precur.filepath = [l for l in self.list_precur_pp if l[0]==precur.name][0][1]
             if precur.name in var:
                 find_precursors.calculate_region_maps(precur,
-                                                      self.TV,
+                                                      df_RVfull,
                                                       self.df_splits,
                                                       kwrgs_load)
 
@@ -926,7 +931,7 @@ class RGCPD:
                         f_name += f'_{append_str}'
                     fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
                     plt.savefig(fig_path, bbox_inches='tight')
-                plt.close()
+                # plt.close()
             else:
                 print(f'no {pclass.name} regions that pass distance_eps and min_area_in_degrees2 citeria')
 
@@ -975,7 +980,7 @@ class RGCPD:
 
                 fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
                 plt.savefig(fig_path, bbox_inches='tight')
-            plt.close()
+            # plt.close()
 
     def plot_maps_sum(self, var='all', figpath=None, paramsstr=None,
                       cols: List=['corr', 'C.D.'], save: bool=False,
@@ -1198,7 +1203,7 @@ class RGCPD:
 def RV_and_traintest(df_fullts, df_RV_ts, traintestgroups, method=str, kwrgs_events=None,
                      gap_prior=None, gap_after=None, precursor_ts=None, seed: int=1,
                      verbosity=1):
-    # fullts = rg.df_fullts ; df_RV_ts = rg.df_RV_ts ; traintestgroups=rg.traintestgroups
+    # df_fullts = rg.df_fullts ; df_RV_ts = rg.df_RV_ts ; traintestgroups=rg.traintestgroups
     # method='random_10'; kwrgs_events=None; precursor_ts=rg.list_import_ts; seed=1; verbosity=1
     # gap_prior=1; gap_after=1 ; test_yrs_imp=None
 
@@ -1255,6 +1260,7 @@ def RV_and_traintest(df_fullts, df_RV_ts, traintestgroups, method=str, kwrgs_eve
                                                   gap_after=gap_after)
     TV.method = method
     TV.seed   = seed
+
     return TV, df_splits
 
 

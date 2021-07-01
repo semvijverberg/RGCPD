@@ -110,7 +110,7 @@ def load_TV(list_of_name_path, name_ds='ts'):
         elif filename.split('.')[-1] == 'h5':
             dict_df = load_hdf5(filename)
             df = dict_df[list(dict_df.keys())[0]]
-            based_on_test = True
+            based_on_test = False
             if hasattr(df.index, 'levels'):
                 splits = df.index.levels[0]
                 if splits.size == 1:
@@ -119,6 +119,7 @@ def load_TV(list_of_name_path, name_ds='ts'):
                 if based_on_test:
                     print('Get test timeseries of target pd.DataFrame')
                     df = get_df_test(df)
+                    df = df[~df.index.duplicated(keep='first')] # avoid double idx
                 else:
                     df = df.mean(axis=0, level=1)
                     print('calculate mean of different train-test folds')
@@ -1283,16 +1284,24 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
         testsetidx = np.zeros(groups.size , dtype=int)
     testsetidx[:] = -999
 
-
+    n = 0
     for i, test_fold_idx in enumerate(testgroups):
         # convert idx to grouplabel (year or dateyrgroup)
         if test_yrs is None:
             test_fold = [uniqgroups[i] for i in test_fold_idx]
         else:
             test_fold = test_fold_idx
-        n = i % n_repeats
+        # assign testsetidx
+        if max(1,i) % kfold == 0:
+            n += 1
+        # if i == 2: break
+        # print(test_fold)
         for j, gr in enumerate(groups):
+            # if j == 21: break
+            # print(gr)
             if gr in list(test_fold):
+                # idx = (i % uniqgroups.size)
+                # print(gr, i, idx, groups[idx])
                 testsetidx[n,j] = i % uniqgroups.size
 
     def gap_traintest(testsetidx, groups, gap):
@@ -1316,7 +1325,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
     TrainIsTrue = []
     for n in range(n_repeats):
         for f, i in enumerate(np.unique(testsetidx)):
-            print(n, f, i)
+            # print(n, f, i)
             # if -999, No Train Test split, all True
             if method[:15] == 'TimeSeriesSplit':
                 if i == -999:
@@ -1352,8 +1361,8 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
         RV_mask = np.ones(RV_ts.size, dtype=bool)
     RV_mask = pd.concat([pd.DataFrame(RV_mask,
                                    index=index,
-                                   columns=['RV_mask'])]*kfold,
-                        keys=range(kfold))
+                                   columns=['RV_mask'])]*n_repeats*kfold,
+                        keys=range(n_repeats*kfold))
     # weird pandas bug due to non-unique indices
     RV_mask.index = df_TrainIsTrue.index
     df_splits = df_TrainIsTrue.merge(RV_mask,

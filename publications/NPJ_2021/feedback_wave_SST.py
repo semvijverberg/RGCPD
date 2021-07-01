@@ -142,7 +142,7 @@ else:
 
 tfreq         = 15
 min_detect_gc = 0.9
-method        = 'RepeatedKFold_10_10' ;
+method        = 'RepeatedKFold_2_10' ;
 use_sign_pattern_z500 = True
 name_MCI_csv = f'strength_rPDO{remove_PDO}.csv'
 name_rob_csv = f'robustness_rPDO{remove_PDO}.csv'
@@ -155,6 +155,7 @@ name_ds = f'0..0..{name_or_cluster_label}_sp'
 #%%
 def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
     #%% Circulation vs temperature
+
     save = False
     list_of_name_path = [(cluster_label, TVpathtemp),
                          ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
@@ -169,7 +170,7 @@ def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
                                 distance_eps=600, min_area_in_degrees2=5,
                                 calc_ts='pattern cov', selbox=z500_green_bb,
                                 use_sign_pattern=use_sign_pattern_z500,
-                                lags = np.array([0]), n_cpu=1)]
+                                lags = np.array([0]), n_cpu=2)]
 
     rg = RGCPD(list_of_name_path=list_of_name_path,
                 list_for_MI=list_for_MI,
@@ -182,17 +183,21 @@ def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
 
     rg.pp_TV(detrend=False)
     rg.plot_df_clust(save=save)
-    rg.pp_precursors()
+    rg.pp_precursors(anomaly=True, detrend=True)
     RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
     subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range, method, seed)
     rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
 
-    # start_time = time()
+    start_time = time()
     rg.calc_corr_maps('z500')
-    # print(f'End time: {int(time() - start_time)}')
+    print(f'End time: {int(time() - start_time)}')
 
     rg.cluster_list_MI(['z500'])
+
+    start_time = time()
     rg.get_ts_prec(precur_aggr=1)
+    print(f'End time: {int(time() - start_time)}')
+    #%%
     TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
     rg.store_df(filename=TVpathRW)
 
@@ -236,21 +241,22 @@ def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
                                   distance_eps=500, min_area_in_degrees2=5,
                                   calc_ts='pattern cov', selbox=(130,260,-10,90),
                                   lags=np.array([0]))]
-
+    list_import_ts = [('RW', TVpathRW+'.h5')]
 
     rg = RGCPD(list_of_name_path=list_of_name_path,
                 list_for_MI=list_for_MI,
-                list_import_ts=None,
+                list_import_ts=list_import_ts,
                 start_end_TVdate=start_end_TVdate,
                 start_end_date=start_end_date,
                 tfreq=tfreq,
                 path_outmain=path_out_main)
 
     rg.pp_TV(name_ds=name_ds)
-    rg.pp_precursors(anomaly=True)
+    rg.pp_precursors(anomaly=True, detrend=True)
     RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
     subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range, method, seed)
     rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
+    rg.get_ts_prec()
     rg.calc_corr_maps()
 
     units = 'Corr. Coeff. [-]'
