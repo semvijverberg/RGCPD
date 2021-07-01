@@ -316,7 +316,7 @@ def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
     # rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
 
     # rg.calc_corr_maps(var='N-Pac. SST')
-    rg.list_for_MI = rg.list_for_MI[[1]]
+    rg.list_for_MI = [rg.list_for_MI[1]]
     rg.cluster_list_MI(var='N-Pac. SST')
     rg.quick_view_labels(min_detect_gc=min_detect_gc)
     # rg.get_ts_prec(precur_aggr=1)

@@ -139,8 +139,9 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
                start_end_year=None, RV_detrend=False, RV_anomaly=False,
                ext_annual_to_mon=True, TVdates_aggr: bool=False,
                dailytomonths: bool=False, verbosity=1):
-    # fullts=rg.fulltso.copy();RV_detrend=False;RV_anomaly=False;verbosity=1;
-    # ext_annual_to_mon=False;TVdates_aggr=False; start_end_date=None; start_end_year=None,
+    # fullts=load_TV(list_of_name_path,name_ds=rg.name_TVds)[0]
+    # RV_detrend=False;RV_anomaly=False;verbosity=1;
+    # ext_annual_to_mon=False;TVdates_aggr=False; start_end_date=None; start_end_year=None
     # dailytomonths=False
 
     # For some incredibly inexplicable reason, fullts was not pickle, even after
@@ -308,7 +309,7 @@ def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0):
         TrainIsTrue = df['TrainIsTrue']
     else:
         TrainIsTrue = df_splits['TrainIsTrue']
-    df_train = df.loc[s][TrainIsTrue.loc[s].values]
+    df_train = df.loc[s][TrainIsTrue.loc[s].values==1]
     if cols is not None:
         df_train = df_train[cols]
     return df_train
@@ -1239,13 +1240,13 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
 
 
     if traintestgroups is not None:
-        groups = traintestgroups.index.year
+        groups = traintestgroups
         index = traintestgroups.index
     else:
         groups = RV_ts.index.year
         index = RV_ts.index
 
-    if test_yrs is not None:
+    if test_yrs is not None and type(test_yrs) is not pd.DataFrame:
         method = 'copied_from_import_ts'
         folds  = test_yrs.shape[0]
         tot = len(core_pp.flatten(test_yrs)) ;
@@ -1267,7 +1268,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                 cv = get_cv_accounting_for_years(RV_ts, kfold, seed, TVgroups)
                 testgroups = cv.uniqgroups
             elif method[:5] == 'leave':
-                kfold = int(uniqgroups.size / int(method.split('_')[-1]))
+                kfold = int(round(uniqgroups.size / int(method.split('_')[-1]),0))
                 cv = KFold(n_splits=kfold, shuffle=False)
                 testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
             elif method[:6] == 'random':
@@ -1283,89 +1284,107 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                                    random_state=seed)
                 testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
 
-        else:
+        elif test_yrs is not None and type(test_yrs) is pd.DataFrame:
             testgroups = test_yrs
 
-    # n_repeats is build in for compatitability with RepeatedKFold
-    testsetidx = np.zeros( (n_repeats, groups.size), dtype=int)
-    testsetidx[:] = -999
+    if type(test_yrs) is not pd.DataFrame:
+        # n_repeats is build in for compatitability with RepeatedKFold
+        testsetidx = np.zeros( (n_repeats, groups.size), dtype=int)
+        testsetidx[:] = -999
 
-    n = 0 ;
-    for i, test_fold_idx in enumerate(testgroups):
-        # convert idx to grouplabel (year or dateyrgroup)
-        if test_yrs is None:
-            test_fold = [uniqgroups[i] for i in test_fold_idx]
-        else:
-            test_fold = test_fold_idx
-        # assign testsetidx
-        if max(1,i) % kfold == 0:
-            n += 1
-        # if i == 2: break
-        # print(test_fold)
-        for j, gr in enumerate(groups):
-            # if j == 21: break
-            # print(gr)
-            if gr in list(test_fold):
-                # print(gr, i, idx, i % kfold )
-                testsetidx[n,j] = i % kfold
-
-    def gap_traintest(testsetidx, groups, gap):
-        ign = np.zeros((np.unique(testsetidx).size, testsetidx.size))
-        for f, i in enumerate(np.unique(testsetidx)):
-            test_fold = testsetidx==i
-            roll_account_traintest_gr = gap*groups[groups==groups[-1]].size
-            ign[f] = np.roll(test_fold, roll_account_traintest_gr).astype(float)
-            ign[f] = (ign[f] - test_fold) == 1 # everything prior to test
-            if np.sign(gap) == -1:
-                ign[f][roll_account_traintest_gr:] = False
-            elif np.sign(gap) == 1:
-                ign[f][:roll_account_traintest_gr] = False
-        return ign.astype(bool)
-
-    if gap_prior is not None:
-        ignprior = gap_traintest(testsetidx, groups, -gap_prior)
-    if gap_after is not None:
-        ignafter = gap_traintest(testsetidx, groups, gap_after)
-
-    TrainIsTrue = []
-    for n in range(n_repeats):
-        for f, i in enumerate(np.unique(testsetidx)):
-            # print(n, f, i)
-            # if -999, No Train Test split, all True
-            if method[:15] == 'TimeSeriesSplit':
-                if i == -999:
-                    continue
-                mask = np.array(testsetidx[n] < i, dtype=int)
-                mask[testsetidx[n]>i] = -1
+        n = 0 ;
+        for i, test_fold_idx in enumerate(testgroups):
+            # convert idx to grouplabel (year or dateyrgroup)
+            if test_yrs is None:
+                test_fold = [uniqgroups[i] for i in test_fold_idx]
             else:
-                mask = np.logical_or(testsetidx[n]!=i, testsetidx[n]==-999)
-                # print(n,i,mask[mask].size)
+                test_fold = test_fold_idx
+            # assign testsetidx
+            if max(1,i) % kfold == 0:
+                n += 1
+            # if i == 2: break
+            # print(test_fold)
+            for j, gr in enumerate(groups):
+                # if j == 21: break
+                # print(gr)
+                if gr in list(test_fold):
+                    # print(gr, i, idx, i % kfold )
+                    testsetidx[n,j] = i % kfold
 
-            if gap_prior is not None:
-                # if gap_prior, mask values will become -1 for unused (training) data
-                mask = np.array(mask, dtype=int) ; mask[ignprior[f]] = -1
-            if gap_after is not None:
-                # same as above for gap_after.
-                mask = np.array(mask, dtype=int) ; mask[ignafter[f]] = -1
+        def gap_traintest(testsetidx, groups, gap):
+            ign = np.zeros((np.unique(testsetidx).size, testsetidx.size))
+            for f, i in enumerate(np.unique(testsetidx)):
+                test_fold = testsetidx.squeeze()==i
+                roll_account_traintest_gr = gap*groups[groups==np.unique(groups)[1]].size
+                ign[f] = np.roll(test_fold, roll_account_traintest_gr).astype(float)
+                ign[f] = (ign[f] - test_fold) == 1 # everything prior to test
+                if np.sign(gap) == -1:
+                    ign[f][roll_account_traintest_gr:] = False
+                elif np.sign(gap) == 1:
+                    ign[f][:roll_account_traintest_gr] = False
+            return ign.astype(bool)
 
-            TrainIsTrue.append(pd.DataFrame(data=mask.T,
-                                            columns=['TrainIsTrue'],
-                                            index=index))
-    df_TrainIsTrue = pd.concat(TrainIsTrue , axis=0, keys=range(n_repeats*kfold))
+        if gap_prior is not None:
+            ignprior = gap_traintest(testsetidx, groups, -gap_prior)
+        if gap_after is not None:
+            ignafter = gap_traintest(testsetidx, groups, gap_after)
+
+        TrainIsTrue = []
+        for n in range(n_repeats):
+            for f, i in enumerate(np.unique(testsetidx)):
+                # print(n, f, i)
+                # if -999, No Train Test split, all True
+                if method[:15] == 'TimeSeriesSplit':
+                    if i == -999:
+                        continue
+                    mask = np.array(testsetidx[n] < i, dtype=int)
+                    mask[testsetidx[n]>i] = -1
+                else:
+                    mask = np.logical_or(testsetidx[n]!=i, testsetidx[n]==-999)
+                    # print(n,i,mask[mask].size)
+
+                if gap_prior is not None:
+                    # if gap_prior, mask values will become -1 for unused (training) data
+                    mask = np.array(mask, dtype=int) ; mask[ignprior[f]] = -1
+                if gap_after is not None:
+                    # same as above for gap_after.
+                    mask = np.array(mask, dtype=int) ; mask[ignafter[f]] = -1
+
+                TrainIsTrue.append(pd.DataFrame(data=mask.T,
+                                                columns=['TrainIsTrue'],
+                                                index=index))
+        df_TrainIsTrue = pd.concat(TrainIsTrue , axis=0, keys=range(n_repeats*kfold))
+    else:
+        df_TrainIsTrue = test_yrs
 
     if traintestgroups is not None:
         # first group may be of different size then other groups
         fg = df_TrainIsTrue.loc[0][groups==groups[0]] # first group
         RV_maskfg = [True if d in RV_ts.index else False for d in list(fg.index)]
-        og = df_TrainIsTrue.loc[0][groups==groups[-1]] # other group size
-        RV_maskog = [True if d in RV_ts.index else False for d in list(og.index)]
-        if fg.size != og.size:
+        og = df_TrainIsTrue.loc[0][groups==np.unique(groups)[-2]] # other group size
+        lg = df_TrainIsTrue.loc[0][groups==groups[-1]] # last group size
+        if fg.size != og.size and lg.size != og.size:
+            # both fg and lg different size then other groups
+            RV_maskog = [True if d in RV_ts.index else False for d in list(og.index)]
+            RVmaskog = np.stack([RV_maskog]*(uniqgroups.size-2), 0).flatten()
+            RV_masklg = [True if d in RV_ts.index else False for d in list(lg.index)]
+            RV_mask = np.concatenate([RV_maskfg, RVmaskog, RV_masklg])
+        elif fg.size != og.size and lg.size == og.size:
+            # only fg different size then other groups
+            RV_maskog = [True if d in RV_ts.index else False for d in list(og.index)]
             RVmaskog = np.stack([RV_maskog]*(uniqgroups.size-1), 0).flatten()
             RV_mask = np.concatenate([RV_maskfg, RVmaskog])
+        elif fg.size == og.size and lg.size != og.size:
+            # only fg different size then other groups
+            RV_maskfg = np.stack([RV_maskfg]*(uniqgroups.size-1), 0).flatten()
+            RV_masklg = [True if d in RV_ts.index else False for d in list(lg.index)]
+            RV_mask = np.concatenate([RV_maskfg, RV_masklg])
         else:
+            # all equall size groups
             RV_mask = np.stack([RV_maskfg]*uniqgroups.size, 0).flatten()
     else:
         RV_mask = np.ones(RV_ts.size, dtype=bool)
+
     RV_mask = pd.concat([pd.DataFrame(RV_mask,
                                    index=index,
                                    columns=['RV_mask'])]*n_repeats*kfold,

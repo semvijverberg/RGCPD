@@ -675,7 +675,7 @@ def import_precur_ts(list_import_ts : List[tuple],
     [(name, path_data)]
     '''
     #%%
-    # df_splits = rg.df_splits
+    # df_splits = rg.df_splits; start_end_year=None; cols = None
 
     splits = df_splits.index.levels[0]
     orig_traintest = functions_pp.get_testyrs(df_splits)[0]

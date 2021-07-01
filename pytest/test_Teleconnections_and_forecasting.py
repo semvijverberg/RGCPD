@@ -71,7 +71,7 @@ def test_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
                save=True)
 
     # if TVpath contains the xr.DataArray xrclustered, we can have a look at the spatial regions.
-    rg.plot_df_clust()
+    # rg.plot_df_clust()
 
     rg.pp_precursors(detrend=True, anomaly=True, selbox=None)
 

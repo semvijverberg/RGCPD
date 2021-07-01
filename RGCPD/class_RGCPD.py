@@ -1212,7 +1212,7 @@ def RV_and_traintest(df_fullts, df_RV_ts, traintestgroups, method=str, kwrgs_eve
         path_data = ''.join(precursor_ts[0][1])
         df_ext = functions_pp.load_hdf5(path_data)['df_data'].loc[:,:]
         if 'TrainIsTrue' in df_ext.columns:
-            print('Retrieve same train test split as imported ts')
+            print('Copying same train-test split as imported ts')
             orig_method = method ; orig_seed = seed
             method = 'from_import' ; seed = ''
 
@@ -1233,24 +1233,24 @@ def RV_and_traintest(df_fullts, df_RV_ts, traintestgroups, method=str, kwrgs_eve
 
 
     if method == 'from_import':
-        df_splits = functions_pp.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue', 'RV_mask']]
-        test_yrs_imp  = functions_pp.get_testyrs(df_splits)
-        if test_yrs_imp is not None:
-            df_splits = functions_pp.cross_validation(df_RV_ts,
-                                                      traintestgroups=traintestgroups,
-                                                      test_yrs=test_yrs_imp,
-                                                      method=method,
-                                                      seed=seed,
-                                                      gap_prior=gap_prior,
-                                                      gap_after=gap_after)
-            test_yrs_set  = functions_pp.get_testyrs(df_splits)[0]
-            equal_test = (np.equal(np.concatenate(test_yrs_imp),
-                                   np.concatenate(test_yrs_set))).all()
-            assert equal_test, "Train test split not equal"
-        else:
-            method = orig_method # revert back to original train-test split
-            seed = orig_seed
-            print(f'Train-test splits reverts back to {method} with seed {seed}')
+        df_TrainIsTrue = functions_pp.load_hdf5(path_data)['df_data'].loc[:,['TrainIsTrue']]
+        # test_yrs_imp  = functions_pp.get_testyrs(df_splits)
+        # if test_yrs_imp is not None:
+        df_splits = functions_pp.cross_validation(df_RV_ts,
+                                                  traintestgroups=traintestgroups,
+                                                  test_yrs=df_TrainIsTrue,
+                                                  method=method,
+                                                  seed=seed,
+                                                  gap_prior=gap_prior,
+                                                  gap_after=gap_after)
+            # test_yrs_set  = functions_pp.get_testyrs(df_splits)[0]
+            # equal_test = (np.equal(np.concatenate(test_yrs_imp),
+            #                        np.concatenate(test_yrs_set))).all()
+            # assert equal_test, "Train test split not equal"
+        # else:
+        #     method = orig_method # revert back to original train-test split
+        #     seed = orig_seed
+        #     print(f'Train-test splits reverts back to {method} with seed {seed}')
 
     if method != 'from_import':
         df_splits = functions_pp.cross_validation(df_RV_ts,
