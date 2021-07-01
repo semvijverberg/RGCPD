@@ -1355,7 +1355,10 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                                                 index=index))
         df_TrainIsTrue = pd.concat(TrainIsTrue , axis=0, keys=range(n_repeats*kfold))
     else:
+        # align import timeseries to account data not aggregated yet
         df_TrainIsTrue = test_yrs
+        df_TrainIsTrue = df_TrainIsTrue.loc[pd.IndexSlice[:,traintestgroups.index],:]
+        kfold = df_TrainIsTrue.index.levels[0].size ; n_repeats = 1
 
     if traintestgroups is not None:
         # first group may be of different size then other groups
