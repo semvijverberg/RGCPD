@@ -157,72 +157,75 @@ name_ds = f'0..0..{name_or_cluster_label}_sp'
 # def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
 #%% Circulation vs temperature
 
-save = False
-list_of_name_path = [(cluster_label, TVpathtemp),
-                     ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
-
-
-# Adjusted box upon request Reviewer 1:
-# z500_green_bb = (155,255,20,73) #: RW box
-# use_sign_pattern_z500 = False
-
-list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
-                            alpha=.05, FDR_control=True,
-                            distance_eps=600, min_area_in_degrees2=5,
-                            calc_ts='pattern cov', selbox=z500_green_bb,
-                            use_sign_pattern=use_sign_pattern_z500,
-                            lags = np.array([0]), n_cpu=2)]
-
-rg = RGCPD(list_of_name_path=list_of_name_path,
-            list_for_MI=list_for_MI,
-            start_end_TVdate=start_end_TVdatet2mvsRW,
-            start_end_date=start_end_date,
-            start_end_year=None,
-            tfreq=tfreq,
-            path_outmain=path_out_main)
-
-
-rg.pp_TV(detrend=False)
-rg.plot_df_clust(save=save)
-rg.pp_precursors(anomaly=True, detrend=True)
-RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
-subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range, method, seed)
-rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
-
-start_time = time()
-rg.calc_corr_maps('z500')
-print(f'End time: {int(time() - start_time)}')
-
-rg.cluster_list_MI(['z500'])
-
-start_time = time()
-rg.get_ts_prec(precur_aggr=1)
-print(f'End time: {int(time() - start_time)}')
-#%%
 TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
-rg.store_df(filename=TVpathRW)
+
+if os.path.exists(TVpathRW + '.h5')==False:
+    save = False
+    list_of_name_path = [(cluster_label, TVpathtemp),
+                         ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
 
 
-# Optionally set font to Computer Modern to avoid common missing font errors
-# mpl.rc('font', family='serif', serif='cm10')
+    # Adjusted box upon request Reviewer 1:
+    # z500_green_bb = (155,255,20,73) #: RW box
+    # use_sign_pattern_z500 = False
 
-# matplotlib.rc('text', usetex=True)
-mpl.rcParams['text.latex.preamble'] = r'\boldmath'
+    list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
+                                alpha=.05, FDR_control=True,
+                                distance_eps=600, min_area_in_degrees2=5,
+                                calc_ts='pattern cov', selbox=z500_green_bb,
+                                use_sign_pattern=use_sign_pattern_z500,
+                                lags = np.array([0]), n_cpu=2)]
+
+    rg = RGCPD(list_of_name_path=list_of_name_path,
+                list_for_MI=list_for_MI,
+                start_end_TVdate=start_end_TVdatet2mvsRW,
+                start_end_date=start_end_date,
+                start_end_year=None,
+                tfreq=tfreq,
+                path_outmain=path_out_main)
+
+
+    rg.pp_TV(detrend=False)
+    rg.plot_df_clust(save=save)
+    rg.pp_precursors(anomaly=True, detrend=True)
+    RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
+    subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range, method, seed)
+    rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
+
+    start_time = time()
+    rg.calc_corr_maps('z500')
+    print(f'End time: {int(time() - start_time)}')
+
+    rg.cluster_list_MI(['z500'])
+
+    start_time = time()
+    rg.get_ts_prec(precur_aggr=1)
+    print(f'End time: {int(time() - start_time)}')
+
+
+    rg.store_df(filename=TVpathRW)
+
+
+    # Optionally set font to Computer Modern to avoid common missing font errors
+    # mpl.rc('font', family='serif', serif='cm10')
+
+    # matplotlib.rc('text', usetex=True)
+    mpl.rcParams['text.latex.preamble'] = r'\boldmath'
 
 
 
-title = f'$corr(z500, {west_east.capitalize()[0]}$-$US\ mx2t)$'
-subtitles = np.array([['']] )
-kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
-              'hspace':0.0, 'cbar_vert':-.08, 'units':'Corr. Coeff. [-]',
-              'zoomregion':(135,330,15,80), 'drawbox':[(0,0), z500_green_bb],
-              'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6,
-              'clim':(-.6,.6), 'title':title, 'subtitles':subtitles}
+    title = f'$corr(z500, {west_east.capitalize()[0]}$-$US\ mx2t)$'
+    subtitles = np.array([['']] )
+    kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
+                  'hspace':0.0, 'cbar_vert':-.08, 'units':'Corr. Coeff. [-]',
+                  'zoomregion':(135,330,15,80), 'drawbox':[(0,0), z500_green_bb],
+                  'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6,
+                  'clim':(-.6,.6), 'title':title, 'subtitles':subtitles}
 
-rg.plot_maps_corr(var='z500', save=save,
-                  append_str=f'vs{cluster_label}T'+''.join(map(str, z500_green_bb)),
-                  min_detect_gc=min_detect_gc,
-                  kwrgs_plot=kwrgs_plot)
+    rg.plot_maps_corr(var='z500', save=save,
+                      append_str=f'vs{cluster_label}T'+''.join(map(str, z500_green_bb)),
+                      min_detect_gc=min_detect_gc,
+                      kwrgs_plot=kwrgs_plot)
 
 #%% RW timeseries vs SST and RW timeseries vs RW
 TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
@@ -368,7 +371,7 @@ else:
 
 alpha_level = .05
 freqs = [1, 5, 10, 15, 30, 60, 90]
-freqs = [15, 30]
+# freqs = [15, 30]
 
 columns = functions_pp.flatten([[f'{f}-d', f'{f}-d SST->RW', f'{f}-d RW->SST'] for f in freqs])
 csvfilenameMCI = os.path.join(rg.path_outmain, name_MCI_csv)
