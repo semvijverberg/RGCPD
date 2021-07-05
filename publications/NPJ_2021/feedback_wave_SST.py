@@ -18,6 +18,7 @@ else:
     mpl.rc('text', usetex=True)
     mpl.rcParams['text.latex.preamble'] = r'\boldmath'
 import numpy as np
+import pandas as pd
 import cartopy.crs as ccrs
 import argparse
 import csv
@@ -46,8 +47,7 @@ import class_BivariateMI
 import wrapper_PCMCI as wPCMCI
 import functions_pp
 
-periods = ['summer_center', 'summer_shiftright', 'summer_shiftleft',
-           'spring_center', 'spring_shiftleft', 'spring_shiftright']
+periods = ['summer_center', 'spring_center']
 
 # periods = ['winter_center', 'winter_shiftright', 'winter_shiftleft']
 
@@ -57,11 +57,11 @@ if remove_PDO:
     targets = ['east']
 else:
     targets = ['east', 'west']
-seeds = np.array([1,2,3])
+seeds = np.array([1])
 
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
-i_default = 0
+i_default = 1
 
 
 
@@ -142,8 +142,9 @@ else:
 
 tfreq         = 15
 min_detect_gc = 0.9
-method        = 'RepeatedKFold_2_10' ;
+method        = 'RepeatedKFold_10_7' ;
 use_sign_pattern_z500 = True
+
 name_MCI_csv = f'strength_rPDO{remove_PDO}.csv'
 name_rob_csv = f'robustness_rPDO{remove_PDO}.csv'
 
@@ -324,16 +325,27 @@ rg.quick_view_labels(min_detect_gc=min_detect_gc)
 
 
 #%%
-def append_MCI(rg, dict_v, dict_rb, alpha_level=.05):
+def append_MCI(rg, df_MCI, dict_rb, alpha_level=.05):
     dkeys = [f'{f}-d', f'{f}-d SST->RW', f'{f}-d RW->SST']
 
     rg.PCMCI_get_links(var=keys[0], alpha_level=alpha_level) # links toward RW
-    SSTtoRW = rg.df_MCIc.mean(0,level=1).loc[keys[1]].iloc[1:].max().round(3) # select SST
+
+    # SSTtoRW = rg.df_MCIc.mean(0,level=1).loc[keys[1]].iloc[1:].max().round(3) # select SST
+    SSTtoRW = rg.df_MCIc.loc[pd.IndexSlice[:,keys[1]],:].iloc[:,1:].max(axis=1).round(3)
+    SSTtoRW.index = SSTtoRW.index.levels[0]
     rg.PCMCI_get_links(var=keys[1], alpha_level=alpha_level) # links toward SST
-    RWtoSST = rg.df_MCIc.mean(0,level=1).loc[keys[0]].iloc[1:].max().round(3) # select RW
-    lag0 = rg.df_MCIc.mean(0,level=1).loc[keys[0]]['coeff l0'].round(3)
-    append_dict = {dkeys[0]:lag0, dkeys[1]:SSTtoRW, dkeys[2]:RWtoSST}
-    dict_v.update(append_dict)
+    RWtoSST = rg.df_MCIc.loc[pd.IndexSlice[:,keys[0]],:].iloc[:,1:].max(axis=1).round(3)
+    RWtoSST.index = RWtoSST.index.levels[0]
+    lag0 = rg.df_MCIc.loc[pd.IndexSlice[:,keys[0]],:].iloc[:,0].round(3)
+    # lag0 = lag0.index.levels[0]
+
+
+    df_append = pd.DataFrame({dkeys[0]:lag0.values, dkeys[1]:SSTtoRW.values,
+                              dkeys[2]:RWtoSST.values})
+    # df_append.to_csv(csvfilenameMCI, mode='a', header=False, columns=dkeys,
+    #                  index_label=RWtoSST.index, index=False)
+    df_MCI = df_MCI.merge(df_append, left_index=True, right_index=True)
+    # dict_v.update(append_dict)
 
     robustness = wPCMCI.get_traintest_links(rg.pcmci_dict,
                                       rg.parents_dict,
@@ -344,7 +356,7 @@ def append_MCI(rg, dict_v, dict_rb, alpha_level=.05):
     rbRWtoSST = int(max(robustness[0][1][1:])) # from i to j, RW to SST
     append_dict = {dkeys[0]:rblag0, dkeys[1]:rbSSTtoRW, dkeys[2]:rbRWtoSST}
     dict_rb.update(append_dict)
-    return SSTtoRW, rbRWtoSST, rbSSTtoRW
+    return df_MCI
 
 
 if remove_PDO:
@@ -355,14 +367,24 @@ else:
     keys_ext = None
 
 alpha_level = .05
-dict_v = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_traintest['seed'])}
-dict_rb = dict_v.copy()
 freqs = [1, 5, 10, 15, 30, 60, 90]
+freqs = [15, 30]
+
+columns = functions_pp.flatten([[f'{f}-d', f'{f}-d SST->RW', f'{f}-d RW->SST'] for f in freqs])
+csvfilenameMCI = os.path.join(rg.path_outmain, name_MCI_csv)
+df_MCI = pd.DataFrame(np.concatenate([np.repeat(west_east, rg.n_spl)[None,:],
+                                      np.repeat(period, rg.n_spl)[None,:]], axis=0).T,
+                      columns=['target', 'period'])
+
+
+
+dict_rb = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_traintest['seed'])}
+
 for f in freqs[:]:
     rg.get_ts_prec(precur_aggr=f, keys_ext=keys_ext)
     keys = [f'$RW^{west_east[0].capitalize()}$',
             f'$SST^{west_east[0].capitalize()}$']
-    rg.df_data = rg.df_data.rename({'z5000..0..z500_sp':keys[0],
+    rg.df_data = rg.df_data.rename({'0..0..z500_sp':keys[0],
                                     '0..0..N-Pac. SST_sp':keys[1]}, axis=1)
 
 
@@ -370,9 +392,9 @@ for f in freqs[:]:
 
     if remove_PDO:
         rg.df_data[keys], fig = wPCMCI.df_data_remove_z(rg.df_data.copy(), z=['PDO'],
-                                                         keys=keys,
-                                                         standardize=False,
-                                                         plot=True)
+                                                          keys=keys,
+                                                          standardize=False,
+                                                          plot=True)
         fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_tf{f}')
         fig.savefig(fig_path+rg.figext, bbox_inches='tight')
 
@@ -397,8 +419,9 @@ for f in freqs[:]:
 
     lags = range(rg.kwrgs_tigr['tau_min'], rg.kwrgs_tigr['tau_max']+1)
     lags = np.array([l*f for i, l in enumerate(lags)])
-    mlr=9
-    SSTtoRW, rbRWtoSST, rbSSTtoRW = append_MCI(rg, dict_v, dict_rb, alpha_level)
+    mlr = int(0.9 * rg.n_spl)
+    df_MCI = append_MCI(rg, df_MCI, dict_rb, alpha_level)
+
     AR1SST = rg.df_MCIc.mean(0,level=1).loc[keys[1]]['coeff l1'].round(2)
 
     # my_cmap = matplotlib.colors.ListedColormap(
@@ -439,9 +462,14 @@ for f in freqs[:]:
 #%%
 # write MCI strength and robustness to csv
 
-csvfilenameMCI = os.path.join(rg.path_outmain, name_MCI_csv)
+
+if os.path.exists(csvfilenameMCI) == False:
+    df_MCI.to_csv(csvfilenameMCI)
+else:
+    df_MCI.to_csv(csvfilenameMCI, mode='a', header=False)
+
 csvfilenamerobust = os.path.join(rg.path_outmain, name_rob_csv)
-for csvfilename, dic in [(csvfilenameMCI, dict_v), (csvfilenamerobust, dict_rb)]:
+for csvfilename, dic in [(csvfilenamerobust, dict_rb)]:
     # create .csv if it does not exists
     if os.path.exists(csvfilename) == False:
         with open(csvfilename, 'a', newline='') as csvfile:

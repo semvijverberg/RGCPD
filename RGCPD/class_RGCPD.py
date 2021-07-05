@@ -726,11 +726,11 @@ class RGCPD:
         fig = plt.figure(figsize=figshape, facecolor='white')
         ax = fig.add_subplot(111, facecolor='white')
         fig, ax = tp.plot_graph(val_matrix=val_plot,
-                      var_names=var_names,
-                      link_width=link_width,
-                      link_matrix=links_plot,
-                      fig_ax=(fig, ax),
-                      **kwrgs)
+                                var_names=var_names,
+                                link_width=link_width,
+                                link_matrix=links_plot,
+                                fig_ax=(fig, ax),
+                                **kwrgs)
         f_name = f'CEN_{variable}_s{s}'
         if append_figpath is not None:
             fig_path = os.path.join(self.path_outsub1, f_name+append_figpath)
