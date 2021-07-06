@@ -388,7 +388,7 @@ dict_rb = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_trai
 for f in freqs[:]:
     if f <= 5:
         tau_max = 5 ;
-        n_cpu = 6 if sys.platform == 'linux' else 3
+        n_cpu = 3 if sys.platform == 'linux' else 3
     elif f == 10:
         tau_max = 4 ; n_cpu = 2
     elif f == 15:
