@@ -842,7 +842,7 @@ def single_split_calc_spatcov(precur, precur_arr: np.ndarray, corr: np.ndarray,
         if precur.period_means_array == True:
             precur_arr = precur.precur_arr.sel(lag=il)
 
-        pattern = corr[il]
+        pattern = np.copy(corr[il])
         mask = labels[il]
         pattern[np.isnan(mask)] = np.nan
         if use_sign_pattern == True:
