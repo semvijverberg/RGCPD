@@ -1361,7 +1361,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
 
         df_index = traintestgroups.index ; input_index = df_TrainIsTrue.loc[0].index
         input_data = np.array(df_TrainIsTrue.values).reshape(kfold, -1)
-        idx = [True if df_index[i] in input_index else False for i in range(df_index.size)]
+        idx = [True if df_index[i] in input_index else False for i in range(input_index.size)]
         mask = np.repeat(np.array(idx)[None,:], kfold, axis=0)
         # .loc very slow on lots of data
         # df_TrainIsTrue = df_TrainIsTrue.loc[pd.IndexSlice[:,traintestgroups.index],:]
