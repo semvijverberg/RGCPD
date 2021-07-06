@@ -1358,18 +1358,18 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
         # align import timeseries to account data not aggregated yet
         df_TrainIsTrue = test_yrs
         kfold = df_TrainIsTrue.index.levels[0].size ; n_repeats = 1
-        if np.equal(traintestgroups.index, df_TrainIsTrue.loc[0].index).all()==False:
-            df_index = traintestgroups.index ; input_index = df_TrainIsTrue.loc[0].index
-            input_data = np.array(df_TrainIsTrue.values).reshape(kfold, -1)
-            idx = [True if df_index[i] in input_index else False for i in range(df_index.size)]
-            mask = np.repeat(np.array(idx)[None,:], kfold, axis=0)
-            # .loc very slow on lots of data
-            # df_TrainIsTrue = df_TrainIsTrue.loc[pd.IndexSlice[:,traintestgroups.index],:]
-            # below is faster, but still slower than numpy
-            # df_TrainIsTrue = df_TrainIsTrue.loc[pd.MultiIndex.from_product([np.arange(kfold), df_index])]
-            df_TrainIsTrue = pd.DataFrame(input_data[mask],
-                                          index=pd.MultiIndex.from_product([np.arange(kfold), df_index]),
-                                          columns=['TrainIsTrue'])
+
+        df_index = traintestgroups.index ; input_index = df_TrainIsTrue.loc[0].index
+        input_data = np.array(df_TrainIsTrue.values).reshape(kfold, -1)
+        idx = [True if df_index[i] in input_index else False for i in range(df_index.size)]
+        mask = np.repeat(np.array(idx)[None,:], kfold, axis=0)
+        # .loc very slow on lots of data
+        # df_TrainIsTrue = df_TrainIsTrue.loc[pd.IndexSlice[:,traintestgroups.index],:]
+        # below is faster, but still slower than numpy
+        # df_TrainIsTrue = df_TrainIsTrue.loc[pd.MultiIndex.from_product([np.arange(kfold), df_index])]
+        df_TrainIsTrue = pd.DataFrame(input_data[mask],
+                                      index=pd.MultiIndex.from_product([np.arange(kfold), df_index]),
+                                      columns=['TrainIsTrue'])
 
 
     if traintestgroups is not None:
