@@ -163,7 +163,7 @@ save = True
 
 TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
 
-if os.path.exists(TVpathRW + '.h5')==False:
+if os.path.exists(TVpathRW + '_tf{tfreq}.h5')==False:
 
     list_of_name_path = [(cluster_label, TVpathtemp),
                          ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
@@ -250,7 +250,7 @@ list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov', selbox=(130,260,-10,90),
                               lags=np.array([0]))]
-list_import_ts = [('RW', TVpathRW+'_tf15.h5')]
+list_import_ts = [('RW', TVpathRW+f'_tf{tfreq}.h5')]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
