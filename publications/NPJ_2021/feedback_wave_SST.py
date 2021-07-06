@@ -153,12 +153,11 @@ if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
 
 
 freqs = [1, 5, 10, 15, 30, 60, 90]
-freqs = [90]
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 
 save = True
-force_rerun = False
+force_rerun = True
 #%%
 # def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
 #%% Circulation vs temperature
