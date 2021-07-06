@@ -142,7 +142,7 @@ else:
 
 tfreq         = 15
 min_detect_gc = 0.9
-method        = 'RepeatedKFold_2_7' ;
+method        = 'RepeatedKFold_10_7' ;
 use_sign_pattern_z500 = True
 
 name_MCI_csv = f'strength_rPDO{remove_PDO}.csv'
