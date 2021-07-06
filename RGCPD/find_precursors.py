@@ -626,7 +626,7 @@ def df_data_prec_regs(list_MI, TV, df_splits): #, outdic_precur, df_splits, TV #
     #%%
     splits = df_splits.index.levels[0]
     n_regions_list = []
-    df_data_s   = np.zeros( (splits.size) , dtype=object)
+    df_data_s   = np.zeros( (splits.size) , dtype='object')
     for s in range(splits.size):
 
         # create list with all actors, these will be merged into the fulldata array
@@ -678,8 +678,8 @@ def import_precur_ts(list_import_ts : List[tuple],
     # df_splits = rg.df_splits; start_end_year=None; cols = None
 
     splits = df_splits.index.levels[0]
-    orig_traintest = functions_pp.get_testyrs(df_splits)[0]
-    df_data_ext_s   = np.zeros( (splits.size) , dtype=object)
+    orig_traintest = functions_pp.get_testyrs(df_splits)
+    df_data_ext_s   = np.zeros( (splits.size) , dtype='object')
     counter = 0
     for i, (name, path_data) in enumerate(list_import_ts):
 

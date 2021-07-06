@@ -157,13 +157,16 @@ name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 
 save = True
+force_rerun = False
 #%%
 # def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
 #%% Circulation vs temperature
 
 TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}_{method}')
 
-if os.path.exists(TVpathRW + '_tf{tfreq}.h5')==False:
+nonexists = [os.path.exists(TVpathRW + f'_tf{tfreq}.h5')==False for f in freqs]
+
+if any(nonexists) or force_rerun:
 
     list_of_name_path = [(cluster_label, TVpathtemp),
                          ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
@@ -202,7 +205,7 @@ if os.path.exists(TVpathRW + '_tf{tfreq}.h5')==False:
 
     rg.cluster_list_MI(['z500'])
 
-    start_time = time()
+    # start_time = time()
     for f in freqs:
         rg.get_ts_prec(precur_aggr=f)
         # print(f'End time: {int(time() - start_time)}')
@@ -234,7 +237,7 @@ if os.path.exists(TVpathRW + '_tf{tfreq}.h5')==False:
 
 #%% RW timeseries vs SST and RW timeseries vs RW
 
-list_of_name_path = [(name_or_cluster_label, TVpathRW+f'_tf{tfreq}.h5'),
+list_of_name_path = [(name_or_cluster_label, TVpathRW+'_tf1.h5'),
                       ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc')),
                       ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
                       # ('Trop. Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
@@ -400,8 +403,11 @@ for f in freqs[:]:
         tau_max = 2 ; n_cpu = 1
     elif f == 60:
         tau_max = 1 ; n_cpu = 1
-
-    rg.list_import_ts = [('RW', TVpathRW+f'_tf{f}.h5')]
+    if f == 30: # exception because code thinks 30-day are monthly mean data
+        rg.list_import_ts = [('RW', TVpathRW+'_tf1.h5')]
+    else:
+        rg.list_import_ts = [('RW', TVpathRW+f'_tf{f}.h5')]
+    rg.kwrgs_traintest['precursor_ts'] = [('RW', TVpathRW+f'_tf{f}.h5')]
     rg.list_for_MI[0].n_cpu = n_cpu
     rg.get_ts_prec(precur_aggr=f, keys_ext=keys_ext)
     keys = [f'$RW^{west_east[0].capitalize()}$',

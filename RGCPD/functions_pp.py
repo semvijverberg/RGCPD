@@ -1411,7 +1411,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
     #%%
     return df_splits
 
-def get_testyrs(df_splits: pd.DataFrame):
+def get_testyrs(df_splits: pd.DataFrame, return_traintestgroups=False):
     '''
     Extracts test years if both:
         - TrainIsTrue mask present
@@ -1476,7 +1476,10 @@ def get_testyrs(df_splits: pd.DataFrame):
                 groupset.append(list(yrs))
             test_yrs.append(flatten(groupset)) # changed to flatten() 20-05-21
             testgroups.append([list(uniqgroups).index(gr) for gr in np.unique(groups_in_s)])
-        out = (np.array(test_yrs, dtype=object), testgroups)
+        if return_traintestgroups:
+            out = (np.array(test_yrs, dtype='object'), testgroups)
+        else:
+            out = (np.array(test_yrs, dtype='object'))
     elif 'TrainIsTrue' in df_splits.columns:
         split_by_TrainIsTrue = True
 
@@ -1487,7 +1490,7 @@ def get_testyrs(df_splits: pd.DataFrame):
             df_split = df_splits.loc[s]
             test_yrs = np.unique(df_split[df_split['TrainIsTrue']==False].index.year)
             traintest_yrs.append(test_yrs)
-        out = (np.array(traintest_yrs, dtype=object))
+        out = (np.array(traintest_yrs, dtype='object'))
     elif split_by_TrainIsTrue==False and out is None:
         print('Note: No Train-test split found, could not extract test yrs')
 

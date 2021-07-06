@@ -142,7 +142,8 @@ def loop_train_test(pcmci_dict, path_txtoutput, tigr_function_call='run_pcmci',
                                                        path_txtoutput,
                                                        tigr_function_call,
                                                        kwrgs_tigr))
-        pcmci_results_dict = Parallel(n_jobs=n_cpu, backend='loky')(futures)
+        futures = Parallel(n_jobs=n_cpu, backend='loky')(futures)
+        [pcmci_results_dict.update(d) for d in futures]
     #%%
     return pcmci_results_dict
 
