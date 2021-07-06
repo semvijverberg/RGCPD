@@ -161,7 +161,7 @@ save = True
 # def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
 #%% Circulation vs temperature
 
-TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}_method')
+TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}_{method}')
 
 if os.path.exists(TVpathRW + '_tf{tfreq}.h5')==False:
 
@@ -233,7 +233,7 @@ if os.path.exists(TVpathRW + '_tf{tfreq}.h5')==False:
                       kwrgs_plot=kwrgs_plot)
 
 #%% RW timeseries vs SST and RW timeseries vs RW
-TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
+
 list_of_name_path = [(name_or_cluster_label, TVpathRW+'.h5'),
                       ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc')),
                       ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
