@@ -151,6 +151,8 @@ name_rob_csv = f'robustness_rPDO{remove_PDO}.csv'
 if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
 if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
 
+
+freqs = [1, 5, 10, 15, 30, 60, 90]
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 
@@ -194,18 +196,19 @@ if os.path.exists(TVpathRW + '.h5')==False:
     subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range, method, seed)
     rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
 
-    start_time = time()
+    # start_time = time()
     rg.calc_corr_maps('z500')
-    print(f'End time: {int(time() - start_time)}')
+    # print(f'End time: {int(time() - start_time)}')
 
     rg.cluster_list_MI(['z500'])
 
     start_time = time()
-    rg.get_ts_prec(precur_aggr=1)
-    print(f'End time: {int(time() - start_time)}')
+    for f in freqs:
+        rg.get_ts_prec(precur_aggr=f)
+        # print(f'End time: {int(time() - start_time)}')
 
 
-    rg.store_df(filename=TVpathRW)
+        rg.store_df(filename=TVpathRW + f'_tf{f}')
 
 
     # Optionally set font to Computer Modern to avoid common missing font errors
@@ -247,7 +250,7 @@ list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov', selbox=(130,260,-10,90),
                               lags=np.array([0]))]
-list_import_ts = [('RW', TVpathRW+'.h5')]
+list_import_ts = [('RW', TVpathRW+'_tf15.h5')]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
@@ -372,7 +375,7 @@ else:
     keys_ext = ['0..0..z500_sp']
 
 alpha_level = .05
-freqs = [1, 5, 10, 15, 30, 60, 90]
+
 # freqs = [15, 30]
 
 columns = functions_pp.flatten([[f'{f}-d', f'{f}-d SST->RW', f'{f}-d RW->SST'] for f in freqs])
@@ -398,6 +401,7 @@ for f in freqs[:]:
     elif f == 60:
         tau_max = 1 ; n_cpu = 1
 
+    list_import_ts = [('RW', TVpathRW+f'_tf{f}.h5')]
     rg.list_for_MI[0].n_cpu = n_cpu
     rg.get_ts_prec(precur_aggr=f, keys_ext=keys_ext)
     keys = [f'$RW^{west_east[0].capitalize()}$',
