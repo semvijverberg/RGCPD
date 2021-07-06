@@ -153,6 +153,8 @@ if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
 
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
+
+save = True
 #%%
 # def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
 #%% Circulation vs temperature
@@ -160,7 +162,7 @@ name_ds = f'0..0..{name_or_cluster_label}_sp'
 TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
 
 if os.path.exists(TVpathRW + '.h5')==False:
-    save = False
+
     list_of_name_path = [(cluster_label, TVpathtemp),
                          ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc'))]
 
@@ -384,6 +386,19 @@ df_MCI = pd.DataFrame(np.concatenate([np.repeat(west_east, rg.n_spl)[None,:],
 dict_rb = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_traintest['seed'])}
 
 for f in freqs[:]:
+    if f <= 5:
+        tau_max = 5 ;
+        n_cpu = 10 if sys.platform == 'linux' else 3
+    elif f == 10:
+        tau_max = 4 ; n_cpu = 2
+    elif f == 15:
+        tau_max = 3 ; n_cpu = 1
+    elif f == 30:
+        tau_max = 2 ; n_cpu = 1
+    elif f == 60:
+        tau_max = 1 ; n_cpu = 1
+
+    rg.list_for_MI[0].n_cpu = n_cpu
     rg.get_ts_prec(precur_aggr=f, keys_ext=keys_ext)
     keys = [f'$RW^{west_east[0].capitalize()}$',
             f'$SST^{west_east[0].capitalize()}$']
@@ -401,17 +416,7 @@ for f in freqs[:]:
         fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_tf{f}')
         fig.savefig(fig_path+rg.figext, bbox_inches='tight')
 
-    if f <= 5:
-        tau_max = 5 ;
-        n_cpu = 10 if sys.platform == 'linux' else 3
-    elif f == 10:
-        tau_max = 4 ; n_cpu = 2
-    elif f == 15:
-        tau_max = 3 ; n_cpu = 1
-    elif f == 30:
-        tau_max = 2 ; n_cpu = 1
-    elif f == 60:
-        tau_max = 1 ; n_cpu = 1
+
 
     kwrgs_tigr = {'tau_min':0, 'tau_max':tau_max, 'max_conds_dim':10,
                   'pc_alpha':0.05, 'max_combinations':10} # pc_alpha=None
