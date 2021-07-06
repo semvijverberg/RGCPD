@@ -402,7 +402,8 @@ for f in freqs[:]:
         fig.savefig(fig_path+rg.figext, bbox_inches='tight')
 
     if f <= 5:
-        tau_max = 5 ; n_cpu = 3
+        tau_max = 5 ;
+        n_cpu = 10 if sys.platform == 'linux' else 3
     elif f == 10:
         tau_max = 4 ; n_cpu = 2
     elif f == 15:
