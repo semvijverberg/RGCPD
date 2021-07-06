@@ -369,7 +369,7 @@ if remove_PDO:
     keys_ext=[f'PDO{lowpass}bw']
     rg.list_import_ts = [('PDO', os.path.join(data_dir, 'df_PDOs.h5'))]
 else:
-    keys_ext = None
+    keys_ext = ['0..0..z500_sp']
 
 alpha_level = .05
 freqs = [1, 5, 10, 15, 30, 60, 90]
@@ -388,7 +388,7 @@ dict_rb = {'Target':west_east, 'Period':period,'Seed':'s{}'.format(rg.kwrgs_trai
 for f in freqs[:]:
     if f <= 5:
         tau_max = 5 ;
-        n_cpu = 10 if sys.platform == 'linux' else 3
+        n_cpu = 6 if sys.platform == 'linux' else 3
     elif f == 10:
         tau_max = 4 ; n_cpu = 2
     elif f == 15:
