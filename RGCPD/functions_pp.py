@@ -207,7 +207,7 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
     if same_freq == False and TVdates_aggr==False:
         if verbosity == 1:
             print('original tfreq of imported response variable is converted to '
-                  'desired tfreq')
+                  f'desired {tfreq} ({input_freq}) means')
         out = time_mean_bins(fullts, tfreq,
                              start_end_date,
                              start_end_year,
@@ -641,13 +641,11 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
                        dates_aggr.is_leap_year[0],
                        dates_aggr[0] < pd.to_datetime(f'{startyear}-03-01')])
         # cross-year, one yr with dates both prior and after 03-01
-        yrs = np.unique(dates_aggr.year) ; leap2yr = []
-        for yr in yrs:
-            syr = core_pp.get_oneyr(dates_aggr, yr)
-            leap2yr.append(all([syr.is_leap_year[0],
-                           any(syr < pd.to_datetime(f'{yr}-03-01')),
-                           syr[-1] > pd.to_datetime(f'{yr}-03-01')]))
-        leap2yr = any(leap2yr)
+        yrs = np.unique(dates_aggr.year) ;
+        # if yrs.size > 1:
+        leap2yr = all([any(dates_aggr.is_leap_year),
+                       any(dates_aggr < pd.to_datetime(f'{yrs.max()}-03-01')),
+                       dates_aggr[-1] > pd.to_datetime(f'{yrs.max()}-03-01')])
 
 
         if leap1yr or leap2yr:
@@ -1472,7 +1470,7 @@ def get_testyrs(df_splits: pd.DataFrame, return_traintestgroups=False):
             groupset = []
             for gr in np.unique(groups_in_s):
                 yrs = TrainIsTrue_s[groups_in_s==gr]
-                yrs = np.unique(yrs.year)
+                yrs = np.unique(yrs.year.max())
                 groupset.append(list(yrs))
             test_yrs.append(flatten(groupset)) # changed to flatten() 20-05-21
             testgroups.append([list(uniqgroups).index(gr) for gr in np.unique(groups_in_s)])

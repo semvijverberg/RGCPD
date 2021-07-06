@@ -521,7 +521,7 @@ class RGCPD:
             self.df_data_ext = _f(self.list_import_ts,
                                  df_splits.copy(),
                                  self.start_end_date,
-                                 self.start_end_year,
+                                 kwrgs_load['start_end_year'],
                                  cols=keys_ext,
                                  precur_aggr=self.precur_aggr,
                                  start_end_TVdate=kwrgs_load['start_end_TVdate'])

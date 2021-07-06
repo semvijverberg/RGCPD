@@ -61,7 +61,7 @@ seeds = np.array([1])
 
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
-i_default = 1
+i_default = 2
 
 
 
@@ -145,19 +145,20 @@ min_detect_gc = 0.9
 method        = 'RepeatedKFold_10_7' ;
 use_sign_pattern_z500 = True
 
-name_MCI_csv = f'strength_rPDO{remove_PDO}.csv'
-name_rob_csv = f'robustness_rPDO{remove_PDO}.csv'
+name_MCI_csv = f'strength_rPDO{remove_PDO}_{method}.csv'
+name_rob_csv = f'robustness_rPDO{remove_PDO}_{method}.csv'
 
 if tfreq > 15: sst_green_bb = (140,240,-9,59) # (180, 240, 30, 60): original warm-code focus
 if tfreq <= 15: sst_green_bb = (140,235,20,59) # same as for West
 
 
 freqs = [1, 5, 10, 15, 30, 60, 90]
+freqs = [90]
 name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 
 save = True
-force_rerun = True
+force_rerun = False
 #%%
 # def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
 #%% Circulation vs temperature
@@ -183,35 +184,35 @@ if any(nonexists) or force_rerun:
                                 use_sign_pattern=use_sign_pattern_z500,
                                 lags = np.array([0]), n_cpu=2)]
 
-    rg = RGCPD(list_of_name_path=list_of_name_path,
+    rg1 = RGCPD(list_of_name_path=list_of_name_path,
                 list_for_MI=list_for_MI,
                 start_end_TVdate=start_end_TVdatet2mvsRW,
-                start_end_date=start_end_date,
+                start_end_date=None,
                 start_end_year=None,
                 tfreq=tfreq,
                 path_outmain=path_out_main)
 
 
-    rg.pp_TV(detrend=False)
-    rg.plot_df_clust(save=save)
-    rg.pp_precursors(anomaly=True, detrend=True)
-    RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
+    rg1.pp_TV(detrend=False)
+    rg1.plot_df_clust(save=save)
+    rg1.pp_precursors(anomaly=True, detrend=True)
+    RV_name_range = '{}-{}'.format(*list(rg1.start_end_TVdate))
     subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range, method, seed)
-    rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
+    rg1.traintest(method=method, seed=seed, subfoldername=subfoldername)
 
     # start_time = time()
-    rg.calc_corr_maps('z500')
+    rg1.calc_corr_maps('z500')
     # print(f'End time: {int(time() - start_time)}')
 
-    rg.cluster_list_MI(['z500'])
+    rg1.cluster_list_MI(['z500'])
 
     # start_time = time()
     for f in freqs:
-        rg.get_ts_prec(precur_aggr=f)
+        rg1.get_ts_prec(precur_aggr=f, start_end_TVdate=start_end_TVdate)
         # print(f'End time: {int(time() - start_time)}')
 
 
-        rg.store_df(filename=TVpathRW + f'_tf{f}')
+        rg1.store_df(filename=TVpathRW + f'_tf{f}')
 
 
     # Optionally set font to Computer Modern to avoid common missing font errors
@@ -230,7 +231,7 @@ if any(nonexists) or force_rerun:
                   'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6,
                   'clim':(-.6,.6), 'title':title, 'subtitles':subtitles}
 
-    rg.plot_maps_corr(var='z500', save=save,
+    rg1.plot_maps_corr(var='z500', save=save,
                       append_str=f'vs{cluster_label}T'+''.join(map(str, z500_green_bb)),
                       min_detect_gc=min_detect_gc,
                       kwrgs_plot=kwrgs_plot)
@@ -259,7 +260,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
             list_import_ts=list_import_ts,
             start_end_TVdate=start_end_TVdate,
-            start_end_date=start_end_date,
+            start_end_date=None,
             tfreq=tfreq,
             path_outmain=path_out_main)
 
@@ -401,7 +402,7 @@ for f in freqs[:]:
         tau_max = 3 ; n_cpu = 1
     elif f == 30:
         tau_max = 2 ; n_cpu = 1
-    elif f == 60:
+    elif f >= 60:
         tau_max = 1 ; n_cpu = 1
     if f == 30: # exception because code thinks 30-day are monthly mean data
         rg.list_import_ts = [('RW', TVpathRW+'_tf1.h5')]
@@ -438,7 +439,7 @@ for f in freqs[:]:
 
     lags = range(rg.kwrgs_tigr['tau_min'], rg.kwrgs_tigr['tau_max']+1)
     lags = np.array([l*f for i, l in enumerate(lags)])
-    mlr = int(0.9 * rg.n_spl)
+    mlr = 60
     df_MCI = append_MCI(rg, df_MCI, dict_rb, alpha_level)
 
     AR1SST = rg.df_MCIc.mean(0,level=1).loc[keys[1]]['coeff l1'].round(2)
@@ -469,7 +470,7 @@ for f in freqs[:]:
                                 'link_colorbar_label':'Link strength',
                                 'node_colorbar_label':'Auto-strength',
                                 'label_fontsize':15,
-                                'weights_squared':1.5,
+                                'weights_squared':2,
                                 'network_lower_bound':.25},
                         append_figpath=f'_tf{rg.precur_aggr}_{AR1SST}_rb{mlr}_taumax{tau_max}_rPDO{remove_PDO}')
     #%%

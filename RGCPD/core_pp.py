@@ -1239,6 +1239,10 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
     lpyr is boolean if you want load the leap days yes or no.
     '''
     #%%
+
+    if start_end_date is None and start_end_year is None:
+        return dates
+
     if start_end_year is None:
         startyr = dates.year.min()
         endyr   = dates.year.max()

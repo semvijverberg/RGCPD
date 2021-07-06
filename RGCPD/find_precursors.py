@@ -687,7 +687,6 @@ def import_precur_ts(list_import_ts : List[tuple],
         if type(df_data_e_all) is pd.Series:
             df_data_e_all = pd.DataFrame(df_data_e_all)
 
-        df_data_e_all = df_data_e_all.iloc[:,:] # not sure why needed
         if cols is None:
             cols = list(df_data_e_all.columns[(df_data_e_all.dtypes != bool).values])
         elif type(cols) is str:
@@ -695,8 +694,10 @@ def import_precur_ts(list_import_ts : List[tuple],
 
         if hasattr(df_data_e_all.index, 'levels'):
             dates_subset = core_pp.get_subdates(df_data_e_all.loc[0].index, start_end_date,
-                                            start_end_year)
-            df_data_e_all = df_data_e_all.loc[pd.IndexSlice[:,dates_subset], :]
+                                                start_end_year)
+            dates_subset = pd.MultiIndex.from_product([df_data_e_all.index.levels[0],
+                                                       dates_subset])
+            df_data_e_all = df_data_e_all.loc[dates_subset]
         else:
             dates_subset = core_pp.get_subdates(df_data_e_all.index, start_end_date,
                                 start_end_year)
@@ -718,7 +719,7 @@ def import_precur_ts(list_import_ts : List[tuple],
 
 
             df_data_ext_s[s] = df_data_e[cols]
-            tfreq_date_e = (df_data_e.index[1] - df_data_e.index[0]).days
+            tfreq_date_e = int(np.median((df_data_e.index[1:]-df_data_e.index[:-1]).days))
 
             if precur_aggr != tfreq_date_e:
                 try:
