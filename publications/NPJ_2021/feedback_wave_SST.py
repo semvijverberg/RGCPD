@@ -161,7 +161,7 @@ save = True
 # def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
 #%% Circulation vs temperature
 
-TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}')
+TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}_method')
 
 if os.path.exists(TVpathRW + '_tf{tfreq}.h5')==False:
 
@@ -401,7 +401,7 @@ for f in freqs[:]:
     elif f == 60:
         tau_max = 1 ; n_cpu = 1
 
-    list_import_ts = [('RW', TVpathRW+f'_tf{f}.h5')]
+    rg.list_import_ts = [('RW', TVpathRW+f'_tf{f}.h5')]
     rg.list_for_MI[0].n_cpu = n_cpu
     rg.get_ts_prec(precur_aggr=f, keys_ext=keys_ext)
     keys = [f'$RW^{west_east[0].capitalize()}$',
