@@ -49,7 +49,7 @@ import functions_pp
 
 periods = ['summer_center', 'spring_center']
 
-# periods = ['winter_center', 'winter_shiftright', 'winter_shiftleft']
+periods = ['winter_center']
 
 # periods = ['summer_shiftleft']
 remove_PDO = False
@@ -61,7 +61,7 @@ seeds = np.array([1])
 
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
-i_default = 2
+i_default = 0
 
 
 
@@ -407,7 +407,7 @@ for f in freqs[:]:
         rg.list_import_ts = [('RW', TVpathRW+'_tf1.h5')]
     else:
         rg.list_import_ts = [('RW', TVpathRW+f'_tf{f}.h5')]
-    rg.kwrgs_traintest['precursor_ts'] = [('RW', TVpathRW+f'_tf{f}.h5')]
+    rg.kwrgs_traintest['precursor_ts'] = rg.list_import_ts
     rg.list_for_MI[0].n_cpu = n_cpu
     rg.get_ts_prec(precur_aggr=f, keys_ext=keys_ext)
     keys = [f'$RW^{west_east[0].capitalize()}$',

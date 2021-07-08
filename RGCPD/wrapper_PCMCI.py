@@ -3,6 +3,7 @@ import os, io, sys
 from tigramite import data_processing as pp
 from tigramite.pcmci import PCMCI
 import matplotlib.pyplot as plt
+from statsmodels.sandbox.stats import multicomp
 from tigramite.independence_tests import ParCorr #, GPDC, CMIknn, CMIsymb
 import numpy as np
 import pandas as pd
@@ -463,7 +464,7 @@ def store_ts(df_data, df_sum, dict_ds, filename): # outdic_precur, add_spatcov=T
 def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
                         pcmci_results_dict:dict,
                         variable: str=None, s: int=None,
-                        min_link_robustness: int=1):
+                        min_link_robustness: int=1, alpha=0.05, FDR='fdr_bh'):
     '''
     Retrieves the links / MCI coefficients of a single variable or all.
     Does this for a single traintest split, or by calculating the mean over
@@ -507,21 +508,26 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
     splits = np.array(list(pcmci_dict.keys()))
     if s is None:
         todef_order_index = [len(pcmci_dict[s].var_names) for s in splits]
-        links_s = np.zeros( splits.size , dtype=object)
-        MCIvals_s= np.zeros( splits.size , dtype=object)
+        links_s     = np.zeros( splits.size , dtype=object)
+        MCIvals_s   = np.zeros( splits.size , dtype=object)
+        qvals_s     = np.zeros( splits.size , dtype=object)
         for s in splits:
             links_plot = np.zeros_like(parents_dict[s][2])
             link_matrix_s = parents_dict[s][2]
             val_plot = np.zeros_like(pcmci_results_dict[s]['val_matrix'], dtype=float)
+            qval_plot = np.ones_like(pcmci_results_dict[s]['q_matrix'], dtype=float)
             val_matrix_s = pcmci_results_dict[s]['val_matrix']
+            qval_matrix_s = pcmci_results_dict[s]['q_matrix']
             var_names = pcmci_dict[s].var_names
             if variable is not None:
                 idx = var_names.index(variable)
                 links_plot[:,idx] = link_matrix_s[:,idx]
                 val_plot[:,:] = val_matrix_s[:,:] # keep val_matrix complete
+                qval_plot[:,:] = qval_matrix_s[:,idx] # only idx with vals < 1
             else:
                 links_plot[:,:] = link_matrix_s[:,:]
                 val_plot[:,:] = val_matrix_s[:,:]
+                qval_plot[:,:] = qval_matrix_s[:,:] # keep val_matrix complete
             index = [p for p in itertools.product(var_names, var_names)]
             if len(var_names) == max(todef_order_index):
                 fullindex = index
@@ -530,13 +536,35 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
             links_s[s] = pd.DataFrame(nplinks, index=index)
             npMCIvals = val_plot.reshape(len(var_names)**2, -1)
             MCIvals_s[s] = pd.DataFrame(npMCIvals, index=index)
+            npqvals = qval_plot.reshape(len(var_names)**2, -1)
+            qvals_s[s] = pd.DataFrame(npqvals, index=index)
+
         df_links = pd.concat(links_s, keys=splits)
         # get links present at least min_link_robustness times
+        # get all qvals
+        if FDR is not None or FDR is not False:
+            df_qvals_all = pd.concat(qvals_s, keys=splits)
+            df_qvals = df_qvals_all ; npq = df_qvals.values
+            npq = npq.reshape(splits.size, len(index), -1)
+            for i, link in enumerate(index):
+                for l in df_qvals.columns: # lags
+                    _qvals = df_qvals_all.loc[pd.MultiIndex.from_product([splits, index[i:i+1]]),l]
+                    adjusted_pvalues = multicomp.multipletests(_qvals, method='fdr_bh')
+                    ad_p = adjusted_pvalues[1]
+                    npq[:,i,l] = ad_p
+            df_qvals_all = pd.DataFrame(npq.reshape(df_qvals_all.shape),
+                                        index=df_qvals_all.index,
+                                        columns=df_qvals_all.columns)
+        else:
+            pass
+
+        df_links = df_qvals_all < alpha
         df_robustness = df_links.sum(axis=0, level=1)
         df_robustness = df_robustness.reindex(index=fullindex)
         weights = df_robustness.values
         weights = weights.reshape(len(var_names), len(var_names), -1)
         df_links = df_robustness >= min_link_robustness
+
         # ensure that missing links due to potential precursor step are not
         # appended to pandas df (auto behavior)
         df_links = df_links.reindex(index=fullindex)
