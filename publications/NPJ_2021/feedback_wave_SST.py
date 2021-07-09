@@ -49,7 +49,7 @@ import functions_pp
 
 periods = ['summer_center', 'spring_center']
 
-periods = ['winter_center']
+# periods = ['winter_center']
 
 # periods = ['summer_shiftleft']
 remove_PDO = False
@@ -157,7 +157,7 @@ name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 
 save = True
-force_rerun = True
+force_rerun = False
 #%%
 # def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
 #%% Circulation vs temperature

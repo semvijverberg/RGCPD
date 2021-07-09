@@ -18,8 +18,9 @@ if main_dir not in sys.path:
     sys.path.append(main_dir)
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
-import class_BivariateMI, functions_pp
+import class_BivariateMI, functions_pp, core_pp
 import numpy as np
+import pandas as pd
 import shutil
 
 
@@ -39,22 +40,35 @@ def check_dates_RV(df_splits, traintestgroups, start_end_TVdate):
     print(startTVdate, endTVdate)
 
 def test_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
-                                  start_end_TVdate=('07-01', '08-31'),
-                                  dailytomonths=False,
-                                  TVdates_aggr=False,
-                                  lags=np.array([1]),
-                                  start_end_yr_precur=None,
-                                  start_end_yr_target=None):
+                          start_end_TVdate=('07-01', '08-31'),
+                          dailytomonths=False,
+                          TVdates_aggr=False,
+                          lags=np.array([1]),
+                          start_end_yr_precur=None,
+                          start_end_yr_target=None,
+                          load_annual_target=False):
     #%%
     # define input: list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
     # start_end_yr_target=None; start_end_yr_precur = None; lags = np.array([1]); TVdates_aggr=False; dailytomonths=False;
-    # alpha=0.05; tfreq=10; method='leave_10';start_end_TVdate=('07-01', '08-31');
+    # alpha=0.05; tfreq=10; method='leave_10';start_end_TVdate=('07-01', '08-31'); load_annual_target=False
+
+
 
     curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
     main_dir = sep.join(curr_dir.split(sep)[:-1])
     path_test = os.path.join(main_dir, 'data')
+    path_target = os.path.join(path_test, 'tf5_nc5_dendo_80d77.nc')
 
-    list_of_name_path = [(3, os.path.join(path_test, 'tf5_nc5_dendo_80d77.nc')),
+    if load_annual_target:
+        ts = core_pp.import_ds_lazy(path_target)['ts'].sel(cluster=3)
+        # calculate annual mean value of ts (silly, but just a test)
+        df = ts.groupby(ts.time.dt.year).mean().to_dataframe()[['ts']]
+        df.index = pd.to_datetime([f'{y}-01-01' for y in df.index])
+        path_target = df # path_target overwritten with df with one-val-per-yr
+        tfreq = 3 ; dailytomonths=True
+        start_end_TVdate = ('07-01', '08-31')
+
+    list_of_name_path = [(3, path_target),
                         ('sst', os.path.join(path_test,'sst_daily_1979-2018_5deg_Pacific_175_240E_25_50N.nc'))]
 
     # define analysis:
@@ -83,7 +97,7 @@ def test_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
 
 
     rg.traintest(method=method, gap_prior=1)
-
+    rg.traintestgroups[rg.traintestgroups==2]
     # check
     if TVdates_aggr==False:
         check_dates_RV(rg.df_splits, rg.traintestgroups, start_end_TVdate)
@@ -148,6 +162,9 @@ rg = test(alpha=.1, tfreq=20,
 # Daily-to-monthly data, 2-month mean JJA, random_5
 rg = test(alpha=.1, dailytomonths=True, tfreq=2,
           start_end_TVdate=('06-01', '08-31'))
+
+# Daily to annual mean ts, random_5, dailytomonths for SST
+rg = test(load_annual_target=True)
 
 # =============================================================================
 # Seasonal use-cases (from daily to monhtly)

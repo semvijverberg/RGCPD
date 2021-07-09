@@ -209,29 +209,57 @@ def run_tigramite(pcmci, path_outsub2, s, tigr_function_call='run_pcmci',
 
     return results
 
-def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level):
+def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level, FDR_cv='fdr_bh'):
     #%%
     splits = np.array(list(pcmci_dict.keys()))
 
-    parents_dict = {}
-    for s in range(splits.size):
+    # collect p-vals accross cv folds
+    if FDR_cv is not None or FDR_cv is not False:
+        pq_matrix = []
+        for s in range(splits.size):
+            results = pcmci_results_dict[s]
+            if 'q_matrix' in list(results.keys()):
+                pq_matrix_s = results['q_matrix']
+            else:
+                pq_matrix_s = results['p_matrix']
+            pq_matrix.append(pq_matrix_s)
+        pq_matrix = np.array(pq_matrix)
 
+        # apply FDR across CVs
+        npq = pq_matrix.reshape(splits.size, -1).copy()
+        for link in range(npq.shape[1]):
+            _qvals = npq[:,link]
+            adjusted_pvalues = multicomp.multipletests(_qvals, method=FDR_cv)
+            ad_p = adjusted_pvalues[1]
+            npq[:,link] = ad_p
+        for s in range(splits.size):
+            # add pq_matrix
+            results = pcmci_results_dict[s]
+            results['pq_matrix'] = npq[s].reshape(pq_matrix_s.shape)
+
+    parents_dict = {} ;
+    for s in range(splits.size):
         pcmci = pcmci_dict[s]
         results = pcmci_results_dict[s]
-        # # returns all causal links, not just causal parents/precursors (of lag>0)
-        # sig = return_sign_links(pcmci, pq_matrix=results['q_matrix'],
-        #                                     val_matrix=results['val_matrix'],
-        #                                     alpha_level=alpha_level)
-
-        sig = pcmci.return_significant_links(results['q_matrix'],
-                                               val_matrix=results['val_matrix'],
-                                               alpha_level=alpha_level,
-                                               include_lagzero_links=True)
+        if 'pq_matrix' in list(results.keys()):
+            pq_matrix_s = results['pq_matrix']
+        elif 'q_matrix' in list(results.keys()):
+            pq_matrix_s = results['q_matrix']
+        else:
+            pq_matrix_s = results['p_matrix']
+        sig = pcmci.return_significant_links(pq_matrix_s,
+                                             val_matrix=results['val_matrix'],
+                                             alpha_level=alpha_level,
+                                             include_lagzero_links=True)
 
         all_parents = sig['link_dict']
         link_matrix = sig['link_matrix']
 
+
         parents_dict[s] = all_parents, pcmci.var_names, link_matrix
+
+    else:
+        pass
 
     #%%
     return parents_dict
@@ -251,22 +279,6 @@ def get_df_links(parents_dict, variable: str=None):
     df_links = pd.concat(list(df_links_s), keys= range(splits.size))
 
     return df_links
-
-def return_sign_links(pc_class, pq_matrix, val_matrix,
-                            alpha_level=0.05):
-      # Initialize the return value
-    all_parents = dict()
-    for j in pc_class.selected_variables:
-        # Get the good links
-        good_links = np.argwhere(pq_matrix[:, j, :] <= alpha_level)
-        # Build a dictionary from these links to their values
-        links = {(i, -tau): np.abs(val_matrix[i, j, abs(tau) ])
-                 for i, tau in good_links}
-        # Sort by value
-        all_parents[j] = sorted(links, key=links.get, reverse=True)
-    # Return the significant parents
-    return {'parents': all_parents,
-            'link_matrix': pq_matrix <= alpha_level}
 
 def df_pval_to_keys_dict(df_pvals, alpha=.05):
     n_spl = df_pvals.index.levels[0]
@@ -510,24 +522,24 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
         todef_order_index = [len(pcmci_dict[s].var_names) for s in splits]
         links_s     = np.zeros( splits.size , dtype=object)
         MCIvals_s   = np.zeros( splits.size , dtype=object)
-        qvals_s     = np.zeros( splits.size , dtype=object)
+        # qvals_s     = np.zeros( splits.size , dtype=object)
         for s in splits:
             links_plot = np.zeros_like(parents_dict[s][2])
             link_matrix_s = parents_dict[s][2]
             val_plot = np.zeros_like(pcmci_results_dict[s]['val_matrix'], dtype=float)
-            qval_plot = np.ones_like(pcmci_results_dict[s]['q_matrix'], dtype=float)
+            # qval_plot = np.ones_like(pcmci_results_dict[s]['q_matrix'], dtype=float)
             val_matrix_s = pcmci_results_dict[s]['val_matrix']
-            qval_matrix_s = pcmci_results_dict[s]['q_matrix']
+            # qval_matrix_s = pcmci_results_dict[s]['q_matrix']
             var_names = pcmci_dict[s].var_names
             if variable is not None:
                 idx = var_names.index(variable)
                 links_plot[:,idx] = link_matrix_s[:,idx]
                 val_plot[:,:] = val_matrix_s[:,:] # keep val_matrix complete
-                qval_plot[:,:] = qval_matrix_s[:,idx] # only idx with vals < 1
+                # qval_plot[:,:] = qval_matrix_s[:,idx] # only idx with vals < 1
             else:
                 links_plot[:,:] = link_matrix_s[:,:]
                 val_plot[:,:] = val_matrix_s[:,:]
-                qval_plot[:,:] = qval_matrix_s[:,:] # keep val_matrix complete
+                # qval_plot[:,:] = qval_matrix_s[:,:] # keep val_matrix complete
             index = [p for p in itertools.product(var_names, var_names)]
             if len(var_names) == max(todef_order_index):
                 fullindex = index
@@ -536,29 +548,10 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
             links_s[s] = pd.DataFrame(nplinks, index=index)
             npMCIvals = val_plot.reshape(len(var_names)**2, -1)
             MCIvals_s[s] = pd.DataFrame(npMCIvals, index=index)
-            npqvals = qval_plot.reshape(len(var_names)**2, -1)
-            qvals_s[s] = pd.DataFrame(npqvals, index=index)
+            # npqvals = qval_plot.reshape(len(var_names)**2, -1)
+            # qvals_s[s] = pd.DataFrame(npqvals, index=index)
 
         df_links = pd.concat(links_s, keys=splits)
-        # get links present at least min_link_robustness times
-        # get all qvals
-        if FDR is not None or FDR is not False:
-            df_qvals_all = pd.concat(qvals_s, keys=splits)
-            df_qvals = df_qvals_all ; npq = df_qvals.values
-            npq = npq.reshape(splits.size, len(index), -1)
-            for i, link in enumerate(index):
-                for l in df_qvals.columns: # lags
-                    _qvals = df_qvals_all.loc[pd.MultiIndex.from_product([splits, index[i:i+1]]),l]
-                    adjusted_pvalues = multicomp.multipletests(_qvals, method='fdr_bh')
-                    ad_p = adjusted_pvalues[1]
-                    npq[:,i,l] = ad_p
-            df_qvals_all = pd.DataFrame(npq.reshape(df_qvals_all.shape),
-                                        index=df_qvals_all.index,
-                                        columns=df_qvals_all.columns)
-        else:
-            pass
-
-        df_links = df_qvals_all < alpha
         df_robustness = df_links.sum(axis=0, level=1)
         df_robustness = df_robustness.reindex(index=fullindex)
         weights = df_robustness.values

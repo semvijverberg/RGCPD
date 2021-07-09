@@ -663,7 +663,8 @@ class RGCPD:
                                      n_cpu=n_cpu)
         self.pcmci_results_dict = out
 
-    def PCMCI_get_links(self, var: str=None, alpha_level: float=.05):
+    def PCMCI_get_links(self, var: str=None, alpha_level: float=.05,
+                        FDR_cv='fdr_bh'):
         '''
 
 
@@ -688,7 +689,7 @@ class RGCPD:
 
         self.parents_dict = wPCMCI.get_links_pcmci(self.pcmci_dict,
                                                    self.pcmci_results_dict,
-                                                   alpha_level)
+                                                   alpha_level, FDR_cv=FDR_cv)
         self.df_links = wPCMCI.get_df_links(self.parents_dict, variable=var)
         lags = np.arange(0, self.kwrgs_tigr['tau_max']+1)
         self.df_MCIc, self.df_MCIa = wPCMCI.get_df_MCI(self.pcmci_dict,
@@ -700,8 +701,11 @@ class RGCPD:
 
     def PCMCI_plot_graph(self, variable: str=None, s: int=None, kwrgs: dict=None,
                          figshape: tuple=(10,10), min_link_robustness: int=1,
-                         append_figpath: str=None):
+                         alpha_level=0.05, FDR_cv='fdr_bh', append_figpath: str=None):
 
+        self.parents_dict = wPCMCI.get_links_pcmci(self.pcmci_dict,
+                                                   self.pcmci_results_dict,
+                                                   alpha_level, FDR_cv=FDR_cv)
         out = wPCMCI.get_traintest_links(self.pcmci_dict,
                                          self.parents_dict,
                                          self.pcmci_results_dict,
