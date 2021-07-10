@@ -157,7 +157,7 @@ name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 
 save = True
-force_rerun = False
+force_rerun = True
 #%%
 # def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
 #%% Circulation vs temperature
@@ -403,10 +403,10 @@ for f in freqs[:]:
         tau_max = 2 ; n_cpu = 1
     elif f >= 60:
         tau_max = 1 ; n_cpu = 1
-    if f == 30: # exception because code thinks 30-day are monthly mean data
-        rg.list_import_ts = [('RW', TVpathRW+'_tf1.h5')]
-    else:
-        rg.list_import_ts = [('RW', TVpathRW+f'_tf{f}.h5')]
+    # if f == 30: # exception because code thinks 30-day are monthly mean data
+    #     rg.list_import_ts = [('RW', TVpathRW+'_tf1.h5')]
+    # else:
+    rg.list_import_ts = [('RW', TVpathRW+f'_tf{f}.h5')]
     rg.kwrgs_traintest['precursor_ts'] = rg.list_import_ts
     rg.list_for_MI[0].n_cpu = n_cpu
     rg.get_ts_prec(precur_aggr=f, keys_ext=keys_ext)

@@ -676,7 +676,7 @@ def import_precur_ts(list_import_ts : List[tuple],
     '''
     #%%
     # list_import_ts = self.list_import_ts
-    # df_splits = rg.df_splits; ; cols = None ; start_end_date=self.start_end_date,
+    # cols = None ; start_end_date=self.start_end_date
     # start_end_year = kwrgs_load['start_end_year']; start_end_TVdate=kwrgs_load['start_end_TVdate']
 
     splits = df_splits.index.levels[0]

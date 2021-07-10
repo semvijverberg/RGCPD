@@ -1496,6 +1496,7 @@ def get_testyrs(df_splits: pd.DataFrame, return_traintestgroups=False):
         traintestgroups = np.repeat(secgroup,
                                     secondcyclic.size)
         traintestgroups = np.concatenate([firstgroup, traintestgroups])
+        traintestgroups = pd.Series(traintestgroups, index=df_splits.loc[0].index)
         uniqgroups = np.unique(traintestgroups)
         test_yrs = [] ; testgroups = []
         splits = df_splits.index.levels[0]
@@ -1507,6 +1508,7 @@ def get_testyrs(df_splits: pd.DataFrame, return_traintestgroups=False):
             for gr in np.unique(groups_in_s):
                 yrs = TrainIsTrue_s[groups_in_s==gr]
                 yrs = np.unique(yrs.year.max())
+                print(yrs)
                 groupset.append(list(yrs))
             test_yrs.append(flatten(groupset)) # changed to flatten() 20-05-21
             testgroups.append([list(uniqgroups).index(gr) for gr in np.unique(groups_in_s)])
