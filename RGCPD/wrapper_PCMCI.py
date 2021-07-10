@@ -3,10 +3,12 @@ import os, io, sys
 from tigramite import data_processing as pp
 from tigramite.pcmci import PCMCI
 import matplotlib.pyplot as plt
+from statsmodels.sandbox.stats import multicomp
 from tigramite.independence_tests import ParCorr #, GPDC, CMIknn, CMIsymb
 import numpy as np
 import pandas as pd
 import itertools
+from joblib import Parallel, delayed
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 
@@ -94,7 +96,7 @@ def plot_lagged_dependences(pcmci, selected_links: dict=None, tau_max=5):
     return
 
 def loop_train_test(pcmci_dict, path_txtoutput, tigr_function_call='run_pcmci',
-                    kwrgs_tigr={}):
+                    kwrgs_tigr={}, n_cpu=1):
     '''
     pc_alpha (float, optional (default: 0.05))
         Significance level in algorithm.
@@ -120,13 +122,29 @@ def loop_train_test(pcmci_dict, path_txtoutput, tigr_function_call='run_pcmci',
     splits = np.array(list(pcmci_dict.keys()))
 
     pcmci_results_dict = {}
-    for s in range(splits.size):
-        progress = int(100 * (s+1) / splits.size)
-        print(f"\rProgress causal inference - traintest set {progress}%", end="")
-        results = run_tigramite(pcmci_dict[s], path_txtoutput, s,
-                                tigr_function_call,
-                                kwrgs_tigr=kwrgs_tigr)
-        pcmci_results_dict[s] = results
+    def run_tigr_on_splits(splits, pcmci_dict, path_txtoutput, tigr_function_call='run_pcmci',
+                    kwrgs_tigr={}):
+
+        for s in splits:
+            progress = int(100 * (s+1) / splits.size)
+            print(f"\rProgress causal inference - traintest set {progress}%", end="")
+            results = run_tigramite(pcmci_dict[s], path_txtoutput, s,
+                                    tigr_function_call,
+                                    kwrgs_tigr=kwrgs_tigr)
+            pcmci_results_dict[s] = results
+        return pcmci_results_dict
+    if n_cpu==1:
+        pcmci_results_dict = run_tigr_on_splits(splits, pcmci_dict, path_txtoutput,
+                                                tigr_function_call, kwrgs_tigr)
+    elif n_cpu>1:
+        futures = []
+        for _s in np.array_split(splits, n_cpu):
+            futures.append(delayed(run_tigr_on_splits)(_s, pcmci_dict,
+                                                       path_txtoutput,
+                                                       tigr_function_call,
+                                                       kwrgs_tigr))
+        futures = Parallel(n_jobs=n_cpu, backend='loky')(futures)
+        [pcmci_results_dict.update(d) for d in futures]
     #%%
     return pcmci_results_dict
 
@@ -191,29 +209,58 @@ def run_tigramite(pcmci, path_outsub2, s, tigr_function_call='run_pcmci',
 
     return results
 
-def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level):
+def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level, FDR_cv='fdr_bh'):
     #%%
     splits = np.array(list(pcmci_dict.keys()))
 
-    parents_dict = {}
-    for s in range(splits.size):
+    # collect p-vals accross cv folds
+    if FDR_cv is not None or FDR_cv is not False:
+        pq_matrix = []
+        for s in range(splits.size):
+            results = pcmci_results_dict[s]
+            if 'q_matrix' in list(results.keys()):
+                pq_matrix_s = results['q_matrix']
+            else:
+                pq_matrix_s = results['p_matrix']
+            pq_matrix.append(pq_matrix_s)
+        # splits might have different shapes, therefore dtype='object'
+        pq_matrix = np.array(pq_matrix, dtype='object')
 
+        # apply FDR across CVs
+        npq = pq_matrix.reshape(splits.size, -1).copy()
+        for link in range(npq.shape[1]):
+            _qvals = npq[:,link]
+            adjusted_pvalues = multicomp.multipletests(_qvals, method=FDR_cv)
+            ad_p = adjusted_pvalues[1]
+            npq[:,link] = ad_p
+        for s in range(splits.size):
+            # add pq_matrix
+            results = pcmci_results_dict[s]
+            results['pq_matrix'] = npq[s].reshape(pq_matrix_s.shape)
+
+    parents_dict = {} ;
+    for s in range(splits.size):
         pcmci = pcmci_dict[s]
         results = pcmci_results_dict[s]
-        # # returns all causal links, not just causal parents/precursors (of lag>0)
-        # sig = return_sign_links(pcmci, pq_matrix=results['q_matrix'],
-        #                                     val_matrix=results['val_matrix'],
-        #                                     alpha_level=alpha_level)
-
-        sig = pcmci.return_significant_links(results['q_matrix'],
-                                               val_matrix=results['val_matrix'],
-                                               alpha_level=alpha_level,
-                                               include_lagzero_links=True)
+        if 'pq_matrix' in list(results.keys()):
+            pq_matrix_s = results['pq_matrix']
+        elif 'q_matrix' in list(results.keys()):
+            pq_matrix_s = results['q_matrix']
+        else:
+            pq_matrix_s = results['p_matrix']
+        sig = pcmci.return_significant_links(pq_matrix_s,
+                                             val_matrix=results['val_matrix'],
+                                             alpha_level=alpha_level,
+                                             include_lagzero_links=True)
 
         all_parents = sig['link_dict']
         link_matrix = sig['link_matrix']
 
+
         parents_dict[s] = all_parents, pcmci.var_names, link_matrix
+
+    else:
+        pass
 
     #%%
     return parents_dict
@@ -234,23 +281,13 @@ def get_df_links(parents_dict, variable: str=None):
 
     return df_links
 
-def return_sign_links(pc_class, pq_matrix, val_matrix,
-                            alpha_level=0.05):
-      # Initialize the return value
-    all_parents = dict()
-    for j in pc_class.selected_variables:
-        # Get the good links
-        good_links = np.argwhere(pq_matrix[:, j, :] <= alpha_level)
-        # Build a dictionary from these links to their values
-        links = {(i, -tau): np.abs(val_matrix[i, j, abs(tau) ])
-                 for i, tau in good_links}
-        # Sort by value
-        all_parents[j] = sorted(links, key=links.get, reverse=True)
-    # Return the significant parents
-    return {'parents': all_parents,
-            'link_matrix': pq_matrix <= alpha_level}
-
-
+def df_pval_to_keys_dict(df_pvals, alpha=.05):
+    n_spl = df_pvals.index.levels[0]
+    keys_dict = {s:[] for s in n_spl}
+    for s in n_spl:
+        keys = list(df_pvals.loc[s][df_pvals.loc[s].values<alpha].index)
+        keys_dict[s].append(keys)
+    return keys_dict
 
 def get_df_MCI(pcmci_dict, pcmci_results_dict, lags, variable):
     splits = np.array(list(pcmci_dict.keys()))
@@ -440,7 +477,7 @@ def store_ts(df_data, df_sum, dict_ds, filename): # outdic_precur, add_spatcov=T
 def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
                         pcmci_results_dict:dict,
                         variable: str=None, s: int=None,
-                        min_link_robustness: int=1):
+                        min_link_robustness: int=1, alpha=0.05, FDR='fdr_bh'):
     '''
     Retrieves the links / MCI coefficients of a single variable or all.
     Does this for a single traintest split, or by calculating the mean over
@@ -484,21 +521,26 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
     splits = np.array(list(pcmci_dict.keys()))
     if s is None:
         todef_order_index = [len(pcmci_dict[s].var_names) for s in splits]
-        links_s = np.zeros( splits.size , dtype=object)
-        MCIvals_s= np.zeros( splits.size , dtype=object)
+        links_s     = np.zeros( splits.size , dtype=object)
+        MCIvals_s   = np.zeros( splits.size , dtype=object)
+        # qvals_s     = np.zeros( splits.size , dtype=object)
         for s in splits:
             links_plot = np.zeros_like(parents_dict[s][2])
             link_matrix_s = parents_dict[s][2]
             val_plot = np.zeros_like(pcmci_results_dict[s]['val_matrix'], dtype=float)
+            # qval_plot = np.ones_like(pcmci_results_dict[s]['q_matrix'], dtype=float)
             val_matrix_s = pcmci_results_dict[s]['val_matrix']
+            # qval_matrix_s = pcmci_results_dict[s]['q_matrix']
             var_names = pcmci_dict[s].var_names
             if variable is not None:
                 idx = var_names.index(variable)
                 links_plot[:,idx] = link_matrix_s[:,idx]
                 val_plot[:,:] = val_matrix_s[:,:] # keep val_matrix complete
+                # qval_plot[:,:] = qval_matrix_s[:,idx] # only idx with vals < 1
             else:
                 links_plot[:,:] = link_matrix_s[:,:]
                 val_plot[:,:] = val_matrix_s[:,:]
+                # qval_plot[:,:] = qval_matrix_s[:,:] # keep val_matrix complete
             index = [p for p in itertools.product(var_names, var_names)]
             if len(var_names) == max(todef_order_index):
                 fullindex = index
@@ -507,13 +549,16 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
             links_s[s] = pd.DataFrame(nplinks, index=index)
             npMCIvals = val_plot.reshape(len(var_names)**2, -1)
             MCIvals_s[s] = pd.DataFrame(npMCIvals, index=index)
+            # npqvals = qval_plot.reshape(len(var_names)**2, -1)
+            # qvals_s[s] = pd.DataFrame(npqvals, index=index)
+
         df_links = pd.concat(links_s, keys=splits)
-        # get links present at least min_link_robustness times
         df_robustness = df_links.sum(axis=0, level=1)
         df_robustness = df_robustness.reindex(index=fullindex)
         weights = df_robustness.values
         weights = weights.reshape(len(var_names), len(var_names), -1)
         df_links = df_robustness >= min_link_robustness
+
         # ensure that missing links due to potential precursor step are not
         # appended to pandas df (auto behavior)
         df_links = df_links.reindex(index=fullindex)

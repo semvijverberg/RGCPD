@@ -47,7 +47,8 @@ def import_ds_lazy(filepath: str, loadleap: bool=False,
                    seldates: Union[tuple, pd.DatetimeIndex]=None,
                    start_end_year: tuple=None, selbox: Union[list, tuple]=None,
                    format_lon='only_east', var=None, auto_detect_mask: bool=False,
-                   dailytomonths: bool=False, verbosity=0):
+                   kwrgs_NaN_handling: dict=None, dailytomonths: bool=False,
+                   verbosity=0):
     '''
 
 
@@ -78,6 +79,9 @@ def import_ds_lazy(filepath: str, loadleap: bool=False,
         variable name. The default is None.
     auto_detect_mask : bool, optional
         Detect mask based on NaNs. The default is False.
+    kwrgs_NaN_handling : dict, optional
+        calls core_pp.NaNs_handling function. Build for up to 3-d data.
+        The default is None (function not called).
     verbosity : TYPE, optional
         DESCRIPTION. The default is 0.
 
@@ -87,7 +91,6 @@ def import_ds_lazy(filepath: str, loadleap: bool=False,
         DESCRIPTION.
 
     '''
-
 
     ds = xr.open_dataset(filepath, decode_cf=True, decode_coords=True, decode_times=False)
 
@@ -122,14 +125,15 @@ def import_ds_lazy(filepath: str, loadleap: bool=False,
         ds = xr_core_pp_time(ds, seldates, start_end_year, loadleap,
                              dailytomonths)
 
+    if kwrgs_NaN_handling is not None:
+        ds = NaN_handling(ds, **kwrgs_NaN_handling)
+
     if multi_dims:
         if 'latitude' and 'longitude' not in ds.dims:
             ds = ds.rename({'lat':'latitude',
                             'lon':'longitude'})
             if 'time' in ds.squeeze().dims and len(ds.squeeze().dims) == 3:
                 ds = ds.transpose('time', 'latitude', 'longitude')
-
-
 
 
         if auto_detect_mask:
@@ -319,9 +323,10 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
                         apply_fft=True, n_harmonics=6, encoding={}):
     '''
     Function for preprocessing
-    - Calculate anomalies (by removing seasonal cycle based on first
-      three harmonics)
-    - linear long-term detrend
+    - Calculate anomalies (removing seasonal cycle); requires full years of data.
+        for daily data, a 25-day rolling mean is applied, afterwards this is
+        further smoothened by a FFT with 6 annual harmonics.
+    - linear or loess long-term detrend, see core_pp.detrend_wrapper?
     '''
     # loadleap=False; seldates=None; selbox=None; format_lon='east_west';
     # auto_detect_mask=False; detrend=True; anomaly=True;
@@ -372,6 +377,678 @@ def detrend_anom_ncdf3D(infile, outfile, loadleap=False,
 #    diff.to_netcdf(filename.replace('.nc', 'diff.nc'))
     #%%
     return
+
+def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=False, n_harmonics=6,
+                         kwrgs_NaN_handling: dict=None):
+    #%%
+
+    if type(ds.time[0].values) != type(np.datetime64()):
+        numtime = ds['time']
+        dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
+        if numtime.attrs['calendar'] != 'gregorian':
+            dates = [d.strftime('%Y-%m-%d') for d in dates]
+        dates = pd.to_datetime(dates)
+    else:
+        dates = pd.to_datetime(ds['time'].values)
+    stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
+    ds['time'] = dates
+
+    def _detrendfunc2d(arr_oneday, arr_oneday_smooth):
+
+        # get trend of smoothened signal
+        no_nans = np.nan_to_num(arr_oneday_smooth)
+        detrended_sm = sp.signal.detrend(no_nans, axis=0, type='linear')
+        nan_true = np.isnan(arr_oneday)
+        detrended_sm[nan_true.values] = np.nan
+        # subtract trend smoothened signal of arr_oneday values
+        trend = (arr_oneday_smooth - detrended_sm)- np.mean(arr_oneday_smooth, 0)
+        detrended = arr_oneday - trend
+        return detrended, detrended_sm
+
+
+    def detrendfunc2d(arr_oneday):
+        return xr.apply_ufunc(_detrendfunc2d, arr_oneday,
+                              dask='parallelized',
+                              output_dtypes=[float])
+
+    if kwrgs_NaN_handling is not None:
+        ds = NaN_handling(ds, **kwrgs_NaN_handling)
+
+
+
+    if anomaly:
+        if (stepsyr.day== 1).all() == True or int(ds.time.size / 365) >= 120:
+            print('\nHandling time series longer then 120 yrs or monthly data, no smoothening applied')
+            data_smooth = ds.values
+            if (stepsyr[1] - stepsyr[0]).days in [28,29,30,31]:
+                window_s = False
+
+        elif (stepsyr.day== 1).all() == False and int(ds.time.size / 365) < 120:
+            window_s = max(min(25,int(stepsyr.size / 12)), 1)
+            # print('Performing {} day rolling mean'
+            #       ' to get better interannual statistics'.format(window_s))
+            # from time import time
+            # start = time()
+            print('applying rolling mean, beware: memory intensive')
+            data_smooth =  rolling_mean_np(ds.values, window_s, win_type='boxcar')
+            # data_smooth_xr = ds.rolling(time=window_s, min_periods=1,
+            #                             center=True).mean(skipna=False)
+            # passed = time() - start / 60
+
+        output_clim3d = np.zeros((stepsyr.size, ds.latitude.size, ds.longitude.size),
+                                   dtype='float32')
+
+        for i in range(stepsyr.size):
+
+            sliceyr = np.arange(i, ds.time.size, stepsyr.size)
+            arr_oneday_smooth = data_smooth[sliceyr]
+
+            if i==0: print('using absolute anomalies w.r.t. climatology of '
+                            'smoothed concurrent day accross years\n')
+            output_clim2d = arr_oneday_smooth.mean(axis=0)
+            # output[i::stepsyr.size] = arr_oneday - output_clim3d
+            output_clim3d[i,:,:] = output_clim2d
+
+            progress = int((100*(i+1)/stepsyr.size))
+            print(f"\rProcessing {progress}%", end="")
+
+        if apply_fft:
+            # beware, mean by default 0, add constant = False
+            list_of_harm= [1/h for h in range(1,n_harmonics+1)]
+            clim_rec = reconstruct_fft_2D(xr.DataArray(data=output_clim3d,
+                                                       coords=ds.sel(time=stepsyr).coords,
+                                                       dims=ds.dims),
+                                          list_of_harm=list_of_harm,
+                                          add_constant=False)
+            # Adding mean of origninal ds
+            clim_rec += ds.values.mean(0)
+            output = ds - np.tile(clim_rec, (int(dates.size/stepsyr.size), 1, 1))
+        elif apply_fft==False:
+            output = ds - np.tile(output_clim3d, (int(dates.size/stepsyr.size), 1, 1))
+    else:
+        output = ds
+
+
+    # =============================================================================
+    # test gridcells:
+    # =============================================================================
+    # # try to find location above EU
+    # ts = ds.sel(longitude=30, method='nearest').sel(latitude=40, method='nearest')
+    # la1 = np.argwhere(ts.latitude.values ==ds.latitude.values)[0][0]
+    # lo1 = np.argwhere(ts.longitude.values ==ds.longitude.values)[0][0]
+    if anomaly:
+        la1 = int(ds.shape[1]/2)
+        lo1 = int(ds.shape[2]/2)
+        la2 = int(ds.shape[1]/3)
+        lo2 = int(ds.shape[2]/3)
+
+        tuples = [[la1, lo1], [la1+1, lo1],
+                  [la2, lo2], [la2+1, lo2]]
+        if apply_fft:
+            fig, ax = plt.subplots(4,2, figsize=(16,8))
+        else:
+            fig, ax = plt.subplots(2,2, figsize=(16,8))
+        ax = ax.flatten()
+        for i, lalo in enumerate(tuples):
+            ts = ds[:,lalo[0],lalo[1]]
+            while bool(np.isnan(ts).all()):
+                lalo[1] += 5
+                ts = ds[:,lalo[0],lalo[1]]
+            lat = int(ds.latitude[lalo[0]])
+            lon = int(ds.longitude[lalo[1]])
+            print(f"\rVisual test latlon {lat} {lon}", end="")
+
+            if window_s == False: # no daily data
+                rawdayofyear = ts.groupby('time.month').mean('time')
+            else:
+                rawdayofyear = ts.groupby('time.dayofyear').mean('time')
+
+            ax[i].set_title(f'latlon coord {lat} {lon}')
+            for yr in np.unique(dates.year):
+                singleyeardates = get_oneyr(dates, yr)
+                ax[i].plot(ts.sel(time=singleyeardates), alpha=.1, color='purple')
+
+            if window_s is not None:
+                ax[i].plot(output_clim3d[:,lalo[0],lalo[1]], color='green', linewidth=2,
+                     label=f'clim {window_s}-day rm')
+            ax[i].plot(rawdayofyear, color='black', alpha=.6,
+                       label='clim mean dayofyear')
+            if apply_fft:
+                ax[i].plot(clim_rec[:,lalo[0],lalo[1]][:365], 'r-',
+                           label=f'fft {n_harmonics}h on (smoothened) data')
+                diff = clim_rec[:,lalo[0],lalo[1]][:singleyeardates.size] - output_clim3d[:,lalo[0],lalo[1]]
+                diff = diff / ts.std(dim='time').values
+                ax[i+len(tuples)].plot(diff)
+                ax[i+len(tuples)].set_title(f'latlon coord {lat} {lon} diff/std(alldata)')
+            ax[i].legend()
+        ax[-1].text(.5,1.2, 'Visual analysis',
+                transform=ax[0].transAxes,
+                ha='center', va='bottom')
+        plt.subplots_adjust(hspace=.4)
+        fig, ax = plt.subplots(1, figsize=(5,3))
+        std_all = output[:,lalo[0],lalo[1]].std(dim='time')
+        monthlymean = output[:,lalo[0],lalo[1]].groupby('time.month').mean(dim='time')
+        (monthlymean/std_all).plot(ax=ax)
+        ax.set_ylabel('standardized anomaly [-]')
+        ax.set_title(f'climatological monthly means anomalies latlon coord {lat} {lon}')
+        fig, ax = plt.subplots(1, figsize=(5,3))
+        summer = output.sel(time=get_subdates(dates, start_end_date=('06-01', '08-31')))
+        summer.name = f'std {summer.name}'
+        (summer.mean(dim='time') / summer.std(dim='time')).plot(ax=ax,
+                                                                vmin=-3,vmax=3,
+                                                                cmap=plt.cm.bwr)
+        ax.set_title('summer composite mean [in std]')
+    print('\n')
+
+
+    if detrend==True: # keep old workflow working with linear detrending
+        output = detrend_wrapper(output, kwrgs_detrend={'method':'linear'})
+    elif type(detrend) is dict:
+        output = detrend_wrapper(output, kwrgs_detrend=detrend)
+
+    #%%
+    return output
+
+def detrend_lin_longterm(ds, plot=True, return_trend=False):
+    offset_clim = np.mean(ds, 0)
+    dates = pd.to_datetime(ds.time.values)
+    detrended = sp.signal.detrend(np.nan_to_num(ds), axis=0, type='linear')
+    detrended[np.repeat(np.isnan(offset_clim).expand_dims('t').values,
+                        dates.size, 0 )] = np.nan # restore NaNs
+    detrended += np.repeat(offset_clim.expand_dims('time'), dates.size, 0 )
+    detrended = detrended.assign_coords(
+                coords={'time':dates})
+    if plot:
+        _check_trend_plot(ds, detrended)
+
+    if return_trend:
+        out = ( detrended,  (ds - detrended)+offset_clim )
+    else:
+        out = detrended
+    return out
+
+def _check_trend_plot(ds, detrended):
+    if len(ds.shape) > 2:
+        # plot single gridpoint for visual check
+        always_NaN_mask = np.isnan(ds).all(axis=0)
+        lats, lons = np.where(~always_NaN_mask)
+        tuples = np.stack([lats, lons]).T
+        tuples = tuples[::max(1,int(len(tuples)/3))]
+        # tuples = np.stack([lats, lons]).T
+        fig, ax = plt.subplots(len(tuples), figsize=(8,8))
+        for i, lalo in enumerate(tuples):
+            ts = ds[:,lalo[0],lalo[1]]
+            la = lalo[0]
+            lo = lalo[1]
+            # while bool(np.isnan(ts).all()):
+            #     lo += 5
+            #     try:
+            #         ts = ds[:,la,lo]
+            #     except:
+
+            lat = int(ds.latitude[la])
+            lon = int(ds.longitude[lo])
+            print(f"\rVisual test latlon {lat} {lon}", end="")
+
+            ax[i].set_title(f'latlon coord {lat} {lon}')
+            ax[i].plot(ts)
+            ax[i].plot(detrended[:,la,lo])
+            trend1d = ts - detrended[:,la,lo]
+            linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
+            linregab = np.insert(linregab, 2, float(trend1d[-1] - trend1d[0]))
+            ax[i].plot(trend1d+ts.mean(axis=0))
+            ax[i].text(.05, .05,
+            'y = {:.2g}x + {:.2g}, max diff: {:.2g}'.format(*linregab),
+            transform=ax[i].transAxes)
+        plt.subplots_adjust(hspace=.5)
+        ax[-1].text(.5,1.2, 'Visual analysis of trends',
+                    transform=ax[0].transAxes,
+                    ha='center', va='bottom')
+    elif len(ds.shape) == 1:
+        fig, ax = plt.subplots(1, figsize=(8,4))
+        ax.set_title('detrend 1D ts')
+        ax.plot(ds.values)
+        ax.plot(detrended)
+        trend1d = ds - detrended
+        linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
+        linregab = np.insert(linregab, 2, float(trend1d[-1] - trend1d[0]))
+        ax.plot(trend1d + (ds.mean(axis=0)) )
+        ax.text(.05, .05,
+        'y = {:.2g}x + {:.2g}, max diff: {:.2g}'.format(*linregab),
+        transform=ax.transAxes)
+    else:
+        pass
+
+def to_np(data):
+    if type(data) is pd.DataFrame:
+        kwrgs = {'columns':data.columns, 'index':data.index};
+        input_dtype = pd.DataFrame
+    elif type(data) is xr.DataArray:
+        kwrgs= {'coords':data.coords, 'dims':data.dims, 'attrs':data.attrs,
+                'name':data.name}
+        input_dtype = xr.DataArray
+    if type(data) is not np.ndarray:
+        data = data.values # attempt to make np.ndarray (if xr.DA of pd.DF)
+    else:
+        input_dtype = np.ndarray ; kwrgs={}
+    return data, kwrgs, input_dtype
+
+def back_to_input_dtype(data, kwrgs, input_dtype):
+    if input_dtype is pd.DataFrame:
+        data = pd.DataFrame(data, **kwrgs)
+    elif input_dtype is xr.DataArray:
+        data = xr.DataArray(data, **kwrgs)
+    return data
+
+def NaN_handling(data, inter_method: str='spline', order=2, inter_NaN_limit: float=None,
+                 extra_NaN_limit: float=.05, final_NaN_to_clim: bool=True,
+                 missing_data_ts_to_nan: Union[bool, float, int]=False):
+    '''
+    4 options to deal with NaNs (performed in this order):
+        1. mask complete timeseries if more then % of dp are missing
+        2. Interpolation (by default via order 2 spine)
+        3. extrapolation NaNs at edged of timeseries
+        4. fills the left-over NaNs with the mean over the
+           time-axis.
+
+
+    Parameters
+    ----------
+    data : xr.DataArray, pd.DataFrame or np.ndarray
+        input data.
+    inter_method : str, optional
+        inter_method used to interpolate NaNs, build upon
+        pd.DataFrame().interpolate(method=inter_method).
+
+        Interpolation technique to use:
+        ‘linear’: Ignore the index and treat the values as equally spaced. This is the only method supported on MultiIndexes.
+        ‘time’: Works on daily and higher resolution data to interpolate given length of interval.
+        ‘index’, ‘values’: use the actual numerical values of the index.
+        ‘pad’: Fill in NaNs using existing values.
+        ‘nearest’, ‘zero’, ‘slinear’, ‘quadratic’, ‘cubic’, ‘spline’, ‘barycentric’, ‘polynomial’: Passed to scipy.interpolate.interp1d. These methods use the numerical values of the index. Both ‘polynomial’ and ‘spline’ require that you also specify an order (int), e.g. df.interpolate(method='polynomial', order=5).
+        ‘krogh’, ‘piecewise_polynomial’, ‘spline’, ‘pchip’, ‘akima’, ‘cubicspline’: Wrappers around the SciPy interpolation methods of similar names. See Notes.
+        If str is None of the valid option, will raise an ValueError.
+        The default is 'quadratic'.
+    order : int, optional
+        order of spline fit
+    inter_NaN_limit : float, optional
+        Limit the % amount of consecutive NaNs for interpolation.
+        The default is None (no limit)
+    extra_NaN_limit : float, optional
+        Limit the % amount of consecutive NaNs for extrapolation using linear method.
+    missing_data_ts_to_nan : bool, float, int
+        Will mask complete timeseries to np.nan if more then a percentage (if float)
+        or more then integer (if int) of NaNs are present in timeseries.
+    final_NaN_to_clim : bool (optional)
+        If NaNs are still left in data after interpolation, extrapolation and
+        masking timeseries completely due to too many NaNs
+
+    Raises
+    ------
+    ValueError
+        If NaNs are not allowed (method=False).
+
+    Returns
+    -------
+    data : xr.DataArray, pd.DataFrame or np.ndarray
+        data with inter- / extrapolated / masked NaNs.
+
+    references:
+        - https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.interpolate.html
+
+    '''
+    # inter_method='spline';order=2;inter_NaN_limit=None;extra_NaN_limit=.05;
+    # final_NaN_to_clim=True;missing_data_ts_to_nan=False
+    #%%
+    data, kwrgs_dtype, input_dtype = to_np(data)
+
+    orig_shape = data.shape
+    data = data.reshape(orig_shape[0], -1)
+
+    if type(missing_data_ts_to_nan) is float: # not allowed more then % of NaNs
+        NaN_mask = np.isnan(data).sum(0) >= missing_data_ts_to_nan * orig_shape[0]
+    elif type(missing_data_ts_to_nan) is int: # not allowed more then int NaNs
+        NaN_mask = np.isnan(data).sum(0) >= missing_data_ts_to_nan
+    else:
+        # NaN_mask = np.isnan(data).all(axis=0) # Only mask NaNs every timestep
+        NaN_mask = np.isnan(data).sum(axis=0) == orig_shape[0]
+    data[:,NaN_mask] = np.nan
+
+    # interpolating NaNs
+    t, o = np.where(np.isnan(data[:,~NaN_mask])) # NaNs some timesteps
+    if t.size > 0:
+
+        # interpolation
+        print(f'Warning: {t.size} NaNs found at {np.unique(o).size} location(s)',
+              '')
+        if inter_method is not False:
+            print(f'Sparse NaNs will be interpolated using {inter_method} (pandas)\n')
+            if inter_NaN_limit is not None:
+                limit = int(orig_shape[0]*inter_NaN_limit)
+            else:
+                limit=None
+            try:
+                data[:,~NaN_mask] = pd.DataFrame(data[:,~NaN_mask]).interpolate(method=inter_method, limit=limit,
+                                                                                limit_direction='both',
+                                                                                limit_area='inside',
+                                                                                order=order).values
+            except:
+                print(f'{inter_method} spline gave error, reverting to linear interpolation')
+                data[:,~NaN_mask] = pd.DataFrame(data[:,~NaN_mask]).interpolate(method='linear', limit=limit,
+                                                                                limit_area='inside',
+                                                                                limit_direction='both').values
+            ti, _ = np.where(np.isnan(data[:,~NaN_mask]))
+            print(f'{t.size - ti.size} values are interpolated')
+            if ti.size != 0 and limit is None:
+                print('Warning: NaNs left at edges of timeseries')
+            elif ti.size !=0 and limit is not None:
+                print('Warning: NaNs left. could be interpolation was '
+                      'insufficient due to limit, or NaNs are located at edges '
+                      'of timeseries')
+        else:
+            ti, _ = t, o
+
+        # extrapolation (only linear method possible)
+        if ti.size != 0 and extra_NaN_limit is not False:
+            print(f'Extrapolating up to {int(100*extra_NaN_limit)}% of datapoints'
+                  ' using linear method')
+            if extra_NaN_limit is not None:
+                limit = int(orig_shape[0]*extra_NaN_limit)
+            else:
+                limit=None
+            data[:,~NaN_mask] = pd.DataFrame(data[:,~NaN_mask]).interpolate(method='linear',
+                                                                            limit=limit,
+                                                            limit_direction='both').values
+            te, oe = np.where(np.isnan(data[:,~NaN_mask]))
+            print(f'{ti.size - te.size} values are extrapolated')
+            if te.size != 0:
+                print('Not all NaNs allowed to extrapolate, more then '
+                  f'{int(100*extra_NaN_limit)}% of first or last dps are missing')
+                print('Warning: extrapolation was insufficient')
+        tf, of = np.where(np.isnan(data[:,~NaN_mask]))
+        if tf.size != 0:
+            print(f'Warning: {tf.size} NaNs left after inter/extrapolation '
+                  'and masking.')
+            if final_NaN_to_clim:
+                print('Since final_NaN_to_clim==True, will fill other '
+                      'outlier NaNs with mean over time axis')
+                data = np.where(np.isnan(data), np.ma.array(data, mask=np.isnan(data)).mean(axis=0), data)
+                data[:,NaN_mask] = np.nan # restore always NaN mask
+            else:
+                print('Since final_NaN_to_clim==False, no other method to '
+                      'handle NaNs. Warning: NaNs still present')
+        else:
+            raise ValueError('NaNs not allowed')
+
+    data = back_to_input_dtype(data.reshape(orig_shape), kwrgs_dtype, input_dtype)
+    return data
+
+
+def detrend_wrapper(data, kwrgs_detrend: dict=None, return_trend: bool=False,
+            plot: bool=True):
+    '''
+    Wrapper supporting linear and loess detrending on xr.DataArray, pd.DataFrame
+    & np.ndarray. Note, linear detrending is way faster then loess detrending.
+
+    Parameters
+    ----------
+    data : TYPE
+        DESCRIPTION.
+    kwrgs_detrend : dict, optional
+        Choose detrending method ['linear', 'loess']. The default is 'linear'.
+        extra kwrgs for loess detrending. The default is {'alpha':.75, 'order':2}.
+    return_trend : bool, optional
+        Return trend timeseries. The default is False.
+    plot : bool, optional
+        Plot only available for method='linear' and type(data)=xr.DA.
+        The default is True.
+
+    Returns
+    -------
+    Returns same dtype as input (xr.DataArray, pd.DataFrame or np.ndarray)
+    if return_trend=True:
+        out = (detrended, trend)
+    else:
+        out = detrended
+    '''
+    # kwrgs_detrend={'method':'linear'}; return_trend=False;NaN_interpolate='spline'
+    # plot=True;order=2
+    #%%
+    if kwrgs_detrend is None:
+        kwrgs_detrend = {'method':'linear'}
+    method = kwrgs_detrend.pop('method')
+    if method == 'loess':
+        kwrgs_d = {'alpha':0.75, 'order':2} ; kwrgs_d.update(kwrgs_detrend)
+
+    if type(data) is pd.DataFrame:
+        columns = data.columns ; index = data.index ; to_df = True; to_DA=False
+    elif type(data) is xr.DataArray:
+        coords = data.coords ; dims = data.dims ; attrs = data.attrs ;
+        name = data.name ; to_DA = True ; to_df = False
+    if type(data) is not np.ndarray:
+        data = data.values # attempt to make np.ndarray (if xr.DA of pd.DF)
+    else:
+        to_DA = False ; to_df = False
+
+    orig_shape = data.shape
+    data = data.reshape(orig_shape[0], -1)
+    always_NaN_mask = np.isnan(data).all(axis=0) # NaN every timestep
+
+    if plot:
+        s = 4 if type(plot) is bool else plot
+        observations = np.where(~always_NaN_mask)
+        to_plot = observations[0][::max(1,int(observations[0].size/s))]
+        data_bf = data[:,to_plot]
+
+    if return_trend:
+        trend_ts = np.zeros( (data.shape), dtype=np.float16)
+        trend_ts[:,always_NaN_mask] = np.nan
+
+    print(f'Start {method} detrending ...\n', end="")
+    if method == 'loess':
+        not_always_NaN_idx = np.where(~always_NaN_mask)
+        last_index = not_always_NaN_idx[0].max()
+        div = min(20,last_index)
+        for i_ts in not_always_NaN_idx[0]:
+            if not_always_NaN_idx[0].size > 20:
+                if i_ts % div==0: # print 40 steps
+                    progress = int((100*(i_ts)/last_index))
+                    print(f"\rProcessing {progress}%", end="")
+            ts = data[:,i_ts]
+            if ts[np.isnan(ts)].size != 0: # if still NaNs: fill with NaN
+                data[:,i_ts] = np.nan
+                continue
+            else:
+                ts = _fit_loess(ts, **kwrgs_d)
+            if return_trend:
+                trend_ts[:,i_ts] = ts
+            data[:,i_ts] = (data[:,i_ts] - ts) + ts.mean()
+    elif method == 'linear':
+        offset_clim = np.mean(data, 0)
+        if return_trend == False and plot == False:
+            data[:,~always_NaN_mask] = sp.signal.detrend(data[:,~always_NaN_mask], axis=0, type='linear')
+            data += np.repeat(offset_clim[np.newaxis,:], orig_shape[0], 0 )
+        elif return_trend or plot:
+            detrended = data.copy()
+            detrended[:,~always_NaN_mask] = sp.signal.detrend(detrended[:,~always_NaN_mask], axis=0, type='linear')
+            detrended += np.repeat(offset_clim[np.newaxis,:], orig_shape[0], 0 )
+            trend_ts = (data - detrended) + np.repeat(offset_clim[np.newaxis,:], orig_shape[0], 0 )
+
+        print('Done')
+
+    if plot and method=='loess':
+        _check_detrend(data_bf, data[:,to_plot])
+    if plot and method=='linear':
+        _check_detrend(data_bf, detrended[:,to_plot])
+
+    data = data.reshape(orig_shape)
+    if return_trend:
+        trend_ts = trend_ts.reshape(orig_shape)
+
+
+
+
+
+    if to_df:
+        data = pd.DataFrame(data, index=index, columns=columns)
+        if return_trend:
+            trend_ts = pd.DataFrame(trend_ts, index=index, columns=columns)
+    elif to_DA:
+        data = xr.DataArray(data, coords=coords, dims=dims, attrs=attrs, name=name)
+        if return_trend:
+            trend_ts = xr.DataArray(trend_ts, coords=coords, dims=dims, attrs=attrs,
+                                name=name)
+        if plot and method=='linear':
+            _check_trend_plot(data, detrended.reshape(orig_shape))
+            data = xr.DataArray(detrended.reshape(orig_shape), coords=coords, dims=dims, attrs=attrs, name=name)
+
+
+    if return_trend:
+        out = (data, trend_ts)
+    else:
+        out = data
+    #%%
+    return out
+
+def _check_detrend(data_bf, detr_data):
+    #%%
+    trend_ts = (data_bf - detr_data) + data_bf.mean(axis=0)
+    fig, ax = plt.subplots(data_bf.shape[1], figsize=(8,int(3*data_bf.shape[1])))
+    if data_bf.shape[1] == 1:
+        ax = [ax]
+    for i in range(data_bf.shape[1]):
+        ts = data_bf[:,i]
+        print(f"\rVisual test on {i}th observation", end="")
+        ax[i].set_title(f'{i+1}th observation')
+        ax[i].plot(ts, label='input data')
+        ax[i].plot(detr_data[:,i], label='detrended data')
+        if i == 0:
+            ax[i].legend()
+        trend1d = trend_ts[:,i]
+        linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
+        linregab = np.insert(linregab, 2, float(trend1d[-1] - trend1d[0]))
+        ax[i].plot(trend1d)
+        ax[i].text(.05, .05,
+        'y = {:.2g}x + {:.2g}, max diff: {:.2g}'.format(*linregab),
+        transform=ax[i].transAxes)
+    plt.subplots_adjust(hspace=.5)
+    ax[-1].text(.5,1.2, 'Visual analysis of trends',
+                transform=ax[0].transAxes,
+                ha='center', va='bottom')
+    #%%
+
+def _fit_loess(y, X=None, alpha=0.75, order=2):
+    """
+    Local Polynomial Regression (LOESS)
+
+    Performs a LOWESS (LOcally WEighted Scatter-plot Smoother) regression.
+
+    Note, on > ~500 datapoints, very slow!
+
+
+    Parameters
+    ----------
+    y : list, array or Series
+        The response variable (the y axis).
+    X : list, array or Series
+        Explanatory variable (the x axis). If 'None', will treat y as a continuous signal (useful for smoothing).
+    alpha : float
+        The parameter which controls the degree of smoothing, which corresponds
+        to the proportion of the samples to include in local regression.
+    order : int
+        Degree of the polynomial to fit. Can be 1 or 2 (default).
+
+    Returns
+    -------
+    array
+        Prediciton of the LOESS algorithm.
+
+    See Also
+    ----------
+    signal_smooth, signal_detrend, fit_error
+
+    Examples
+    ---------
+    >>> import pandas as pd
+    >>> import neurokit2 as nk
+    >>>
+    >>> signal = np.cos(np.linspace(start=0, stop=10, num=1000))
+    >>> distorted = nk.signal_distort(signal, noise_amplitude=[0.3, 0.2, 0.1], noise_frequency=[5, 10, 50])
+    >>>
+    >>> pd.DataFrame({ "Raw": distorted, "Loess_1": nk.fit_loess(distorted, order=1), "Loess_2": nk.fit_loess(distorted, order=2)}).plot() #doctest: +SKIP
+
+    References
+    ----------
+    - copied from: https://neurokit2.readthedocs.io/en/master/_modules/neurokit2/stats/fit_loess.html#fit_loess
+    - https://simplyor.netlify.com/loess-from-scratch-in-python-animation.en-us/
+
+    """
+    if X is None:
+        X = np.linspace(0, 100, len(y))
+
+    assert order in [1, 2], "Deg has to be 1 or 2"
+    assert (alpha > 0) and (alpha <= 1), "Alpha has to be between 0 and 1"
+    assert len(X) == len(y), "Length of X and y are different"
+
+    X_domain = X
+
+    n = len(X)
+    span = int(np.ceil(alpha * n))
+
+    y_predicted = np.zeros(len(X_domain))
+    x_space = np.zeros_like(X_domain)
+
+    for i, val in enumerate(X_domain):
+        distance = abs(X - val)
+        sorted_dist = np.sort(distance)
+        ind = np.argsort(distance)
+
+        Nx = X[ind[:span]]
+        Ny = y[ind[:span]]
+
+        delx0 = sorted_dist[span - 1]
+
+        u = distance[ind[:span]] / delx0
+        w = (1 - u ** 3) ** 3
+
+        W = np.diag(w)
+        A = np.vander(Nx, N=1 + order)
+
+        V = np.matmul(np.matmul(A.T, W), A)
+        Y = np.matmul(np.matmul(A.T, W), Ny)
+        Q, R = sp.linalg.qr(V)
+        p = sp.linalg.solve_triangular(R, np.matmul(Q.T, Y))
+
+        y_predicted[i] = np.polyval(p, val)
+        x_space[i] = val
+
+    return y_predicted
+
+#%%
+def rolling_mean_np(arr, win, center=True, win_type='boxcar'):
+
+
+    df = pd.DataFrame(data=arr.reshape( (arr.shape[0], arr[0].size)))
+
+    if win_type == 'gaussian':
+        w_std = win/3.
+        print('Performing {} day rolling mean with gaussian window (std={})'
+              ' to get better interannual statistics'.format(win,w_std))
+        fig, ax = plt.subplots(figsize=(3,3))
+        ax.plot(range(-int(win/2),+round(win/2+.49)), spwin.gaussian(win, w_std))
+        plt.title('window used for rolling mean')
+        plt.xlabel('timesteps')
+        rollmean = df.rolling(win, center=center, min_periods=1,
+                          win_type='gaussian').mean(std=w_std)
+    elif win_type == 'boxcar':
+        fig, ax = plt.subplots(figsize=(3,3))
+        plt.plot(spwin.boxcar(win))
+        plt.title('window used for rolling mean')
+        plt.xlabel('timesteps')
+        rollmean = df.rolling(win, center=center, min_periods=1,
+                          win_type='boxcar').mean()
+
+    return rollmean.values.reshape( (arr.shape))
 
 def reconstruct_fft_2D(ds, coefficients:list=None,
                     list_of_harm: list=[1, 1/2, 1/3],
@@ -509,258 +1186,6 @@ def deseasonalizefft_detrend_2D(ds, detrend: bool=True, anomaly: bool=True,
         ds = detrend_lin_longterm(ds)
     return ds
 
-def detrend_lin_longterm(ds):
-    offset_clim = np.mean(ds, 0)
-    dates = pd.to_datetime(ds.time.values)
-    detrended = sp.signal.detrend(np.nan_to_num(ds), axis=0, type='linear')
-    detrended[np.repeat(np.isnan(offset_clim).expand_dims('t').values,
-                        dates.size, 0 )] = np.nan # restore NaNs
-    detrended += np.repeat(offset_clim.expand_dims('time'), dates.size, 0 )
-    detrended = detrended.assign_coords(
-                coords={'time':dates})
-    if len(ds.dims) > 1:
-        # plot single gridpoint for visual check
-        la = int(ds.shape[1]/2)
-        lo = int(ds.shape[2]/2)
-        tuples = [(la, lo), (la+1, lo), (la, lo+1)]
-        fig, ax = plt.subplots(3, figsize=(8,8))
-        for i, lalo in enumerate(tuples):
-            ts = ds[:,lalo[0],lalo[1]]
-            la = lalo[0]
-            lo = lalo[1]
-            while bool(np.isnan(ts).all()):
-                lo += 5
-                ts = ds[:,la,lo]
-            lat = int(ds.latitude[la])
-            lon = int(ds.longitude[lo])
-            print(f"\rVisual test latlon {lat} {lon}", end="")
-
-            ax[i].set_title(f'latlon coord {lat} {lon}')
-            ax[i].plot(ts)
-            ax[i].plot(detrended[:,la,lo])
-            trend1d = ts - detrended[:,la,lo]
-            linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
-            linregab = np.insert(linregab, 2, float(trend1d[-1] - trend1d[0]))
-            ax[i].plot(trend1d+offset_clim[la,lo])
-            ax[i].text(.05, .05,
-            'y = {:.2g}x + {:.2g}, max diff: {:.2g}'.format(*linregab),
-            transform=ax[i].transAxes)
-        plt.subplots_adjust(hspace=.3)
-        ax[-1].text(.5,1.2, 'Visual analysis: trends of nearby gridcells should be similar',
-                    transform=ax[0].transAxes,
-                    ha='center', va='bottom')
-    else:
-        fig, ax = plt.subplots(1, figsize=(8,4))
-        ax.set_title('detrend 1D ts')
-        ax.plot(ds.values)
-        ax.plot(detrended)
-        trend1d = ds - detrended
-        linregab = np.polyfit(np.arange(trend1d.size), trend1d, 1)
-        linregab = np.insert(linregab, 2, float(trend1d[-1] - trend1d[0]))
-        ax.plot(trend1d+offset_clim)
-        ax.text(.05, .05,
-        'y = {:.2g}x + {:.2g}, max diff: {:.2g}'.format(*linregab),
-        transform=ax.transAxes)
-    return detrended
-
-
-def detrend_xarray_ds_2D(ds, detrend, anomaly, apply_fft=False, n_harmonics=6):
-    #%%
-
-
-    if type(ds.time[0].values) != type(np.datetime64()):
-        numtime = ds['time']
-        dates = num2date(numtime, units=numtime.units, calendar=numtime.attrs['calendar'])
-        if numtime.attrs['calendar'] != 'gregorian':
-            dates = [d.strftime('%Y-%m-%d') for d in dates]
-        dates = pd.to_datetime(dates)
-    else:
-        dates = pd.to_datetime(ds['time'].values)
-    stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
-    ds['time'] = dates
-
-    def _detrendfunc2d(arr_oneday, arr_oneday_smooth):
-
-        # get trend of smoothened signal
-        no_nans = np.nan_to_num(arr_oneday_smooth)
-        detrended_sm = sp.signal.detrend(no_nans, axis=0, type='linear')
-        nan_true = np.isnan(arr_oneday)
-        detrended_sm[nan_true.values] = np.nan
-        # subtract trend smoothened signal of arr_oneday values
-        trend = (arr_oneday_smooth - detrended_sm)- np.mean(arr_oneday_smooth, 0)
-        detrended = arr_oneday - trend
-        return detrended, detrended_sm
-
-
-    def detrendfunc2d(arr_oneday):
-        return xr.apply_ufunc(_detrendfunc2d, arr_oneday,
-                              dask='parallelized',
-                              output_dtypes=[float])
-    #        return xr.apply_ufunc(_detrendfunc2d, arr_oneday.compute(),
-    #                              dask='parallelized',
-    #                              output_dtypes=[float])
-
-    if anomaly:
-        if (stepsyr.day== 1).all() == True or int(ds.time.size / 365) >= 120:
-            print('\nHandling time series longer then 120 day or monthly data, no smoothening applied')
-            data_smooth = ds.values
-            if (stepsyr[1] - stepsyr[0]).days in [28,29,30,31]:
-                window_s = False
-
-        elif (stepsyr.day== 1).all() == False and int(ds.time.size / 365) < 120:
-            window_s = max(min(25,int(stepsyr.size / 12)), 1)
-            # print('Performing {} day rolling mean'
-            #       ' to get better interannual statistics'.format(window_s))
-            from time import time
-            start = time()
-            print('applying rolling mean, beware: memory intensive')
-            data_smooth =  rolling_mean_np(ds.values, window_s, win_type='boxcar')
-            # data_smooth_xr = ds.rolling(time=window_s, min_periods=1,
-            #                             center=True).mean(skipna=False)
-            passed = time() - start / 60
-
-        output_clim3d = np.zeros((stepsyr.size, ds.latitude.size, ds.longitude.size),
-                                   dtype='float32')
-
-        for i in range(stepsyr.size):
-
-            sliceyr = np.arange(i, ds.time.size, stepsyr.size)
-            arr_oneday_smooth = data_smooth[sliceyr]
-
-
-
-            if i==0: print('using absolute anomalies w.r.t. climatology of '
-                            'smoothed concurrent day accross years\n')
-            output_clim2d = arr_oneday_smooth.mean(axis=0)
-            # output[i::stepsyr.size] = arr_oneday - output_clim3d
-            output_clim3d[i,:,:] = output_clim2d
-
-            progress = int((100*(i+1)/stepsyr.size))
-            print(f"\rProcessing {progress}%", end="")
-
-        if apply_fft:
-            # beware, mean by default 0, add constant = False
-            list_of_harm= [1/h for h in range(1,n_harmonics+1)]
-            clim_rec = reconstruct_fft_2D(xr.DataArray(data=output_clim3d,
-                                                       coords=ds.sel(time=stepsyr).coords,
-                                                       dims=ds.dims),
-                                          list_of_harm=list_of_harm,
-                                          add_constant=False)
-            # Adding mean of origninal ds
-            clim_rec += ds.values.mean(0)
-            output = ds - np.tile(clim_rec, (int(dates.size/stepsyr.size), 1, 1))
-        elif apply_fft==False:
-            output = ds - np.tile(output_clim3d, (int(dates.size/stepsyr.size), 1, 1))
-    else:
-        output = ds
-
-
-    # =============================================================================
-    # test gridcells:
-    # =============================================================================
-    # # try to find location above EU
-    # ts = ds.sel(longitude=30, method='nearest').sel(latitude=40, method='nearest')
-    # la1 = np.argwhere(ts.latitude.values ==ds.latitude.values)[0][0]
-    # lo1 = np.argwhere(ts.longitude.values ==ds.longitude.values)[0][0]
-    if anomaly:
-        la1 = int(ds.shape[1]/2)
-        lo1 = int(ds.shape[2]/2)
-        la2 = int(ds.shape[1]/3)
-        lo2 = int(ds.shape[2]/3)
-
-        tuples = [[la1, lo1], [la1+1, lo1],
-                  [la2, lo2], [la2+1, lo2]]
-        if apply_fft:
-            fig, ax = plt.subplots(4,2, figsize=(16,8))
-        else:
-            fig, ax = plt.subplots(2,2, figsize=(16,8))
-        ax = ax.flatten()
-        for i, lalo in enumerate(tuples):
-            ts = ds[:,lalo[0],lalo[1]]
-            while bool(np.isnan(ts).all()):
-                lalo[1] += 5
-                ts = ds[:,lalo[0],lalo[1]]
-            lat = int(ds.latitude[lalo[0]])
-            lon = int(ds.longitude[lalo[1]])
-            print(f"\rVisual test latlon {lat} {lon}", end="")
-
-            if window_s == False: # no daily data
-                rawdayofyear = ts.groupby('time.month').mean('time')
-            else:
-                rawdayofyear = ts.groupby('time.dayofyear').mean('time')
-
-            ax[i].set_title(f'latlon coord {lat} {lon}')
-            for yr in np.unique(dates.year):
-                singleyeardates = get_oneyr(dates, yr)
-                ax[i].plot(ts.sel(time=singleyeardates), alpha=.1, color='purple')
-
-            if window_s is not None:
-                ax[i].plot(output_clim3d[:,lalo[0],lalo[1]], color='green', linewidth=2,
-                     label=f'clim {window_s}-day rm')
-            ax[i].plot(rawdayofyear, color='black', alpha=.6,
-                       label='clim mean dayofyear')
-            if apply_fft:
-                ax[i].plot(clim_rec[:,lalo[0],lalo[1]][:365], 'r-',
-                           label=f'fft {n_harmonics}h on (smoothened) data')
-                diff = clim_rec[:,lalo[0],lalo[1]][:singleyeardates.size] - output_clim3d[:,lalo[0],lalo[1]]
-                diff = diff / ts.std(dim='time').values
-                ax[i+len(tuples)].plot(diff)
-                ax[i+len(tuples)].set_title(f'latlon coord {lat} {lon} diff/std(alldata)')
-            ax[i].legend()
-        ax[-1].text(.5,1.2, 'Visual analysis',
-                transform=ax[0].transAxes,
-                ha='center', va='bottom')
-        plt.subplots_adjust(hspace=.4)
-        fig, ax = plt.subplots(1, figsize=(5,3))
-        std_all = output[:,lalo[0],lalo[1]].std(dim='time')
-        monthlymean = output[:,lalo[0],lalo[1]].groupby('time.month').mean(dim='time')
-        (monthlymean/std_all).plot(ax=ax)
-        ax.set_ylabel('standardized anomaly [-]')
-        ax.set_title(f'climatological monthly means anomalies latlon coord {lat} {lon}')
-        fig, ax = plt.subplots(1, figsize=(5,3))
-        summer = output.sel(time=get_subdates(dates, start_end_date=('06-01', '08-31')))
-        summer.name = f'std {summer.name}'
-        (summer.mean(dim='time') / summer.std(dim='time')).plot(ax=ax,
-                                                                vmin=-3,vmax=3,
-                                                                cmap=plt.cm.bwr)
-        ax.set_title('summer composite mean [in std]')
-    print('\n')
-
-
-    if detrend:
-        print('Detrending ...')
-        output = detrend_lin_longterm(output)
-
-    #%%
-    return output
-#%%
-def rolling_mean_np(arr, win, center=True, win_type='boxcar'):
-
-
-    df = pd.DataFrame(data=arr.reshape( (arr.shape[0], arr[0].size)))
-
-    if win_type == 'gaussian':
-        w_std = win/3.
-        print('Performing {} day rolling mean with gaussian window (std={})'
-              ' to get better interannual statistics'.format(win,w_std))
-        fig, ax = plt.subplots(figsize=(3,3))
-        ax.plot(range(-int(win/2),+round(win/2+.49)), spwin.gaussian(win, w_std))
-        plt.title('window used for rolling mean')
-        plt.xlabel('timesteps')
-        rollmean = df.rolling(win, center=center, min_periods=1,
-                          win_type='gaussian').mean(std=w_std)
-    elif win_type == 'boxcar':
-        fig, ax = plt.subplots(figsize=(3,3))
-        plt.plot(spwin.boxcar(win))
-        plt.title('window used for rolling mean')
-        plt.xlabel('timesteps')
-        rollmean = df.rolling(win, center=center, min_periods=1,
-                          win_type='boxcar').mean()
-
-    return rollmean.values.reshape( (arr.shape))
-
-
-
 def test_periodic(ds):
     dlon = ds.longitude[1] - ds.longitude[0]
     return (360 / dlon == ds.longitude.size).values
@@ -814,6 +1239,10 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
     lpyr is boolean if you want load the leap days yes or no.
     '''
     #%%
+
+    if start_end_date is None and start_end_year is None:
+        return dates
+
     if start_end_year is None:
         startyr = dates.year.min()
         endyr   = dates.year.max()

@@ -21,9 +21,11 @@ from statsmodels.sandbox.stats import multicomp
 import functions_pp, core_pp
 import find_precursors
 from func_models import apply_shift_lag
+from class_RV import RV_class
 from typing import Union
 import uuid
 flatten = lambda l: list(itertools.chain.from_iterable(l))
+from joblib import Parallel, delayed
 
 try:
     from tigramite.independence_tests import ParCorr
@@ -40,7 +42,8 @@ class BivariateMI:
                  group_split : bool=True, calc_ts='region mean',
                  selbox: tuple=None, use_sign_pattern: bool=False,
                  use_coef_wghts: bool=True, path_hashfile: str=None,
-                 hash_str: str=None, dailytomonths: bool=False, verbosity=1):
+                 hash_str: str=None, dailytomonths: bool=False, n_cpu=1,
+                 n_jobs_clust=-1, verbosity=1):
         '''
 
         Parameters
@@ -93,6 +96,13 @@ class BivariateMI:
         dailytomonths : bool, optional
             When True, the daily input data will be aggregated to monthly data,
             subsequently, the pre-processing steps are performed (detrend/anomaly).
+        n_cpu : int, optional
+            Calculate different train-test splits in parallel using Joblib.
+        n_jobs_clust : int, optional
+            Perform DBSCAN clustering calculation in parallel. Beware that for
+            large memory precursor fields with many precursor regions, DBSCAN
+            can become memory demanding. If all cpu's are used, there may not be
+            sufficient working memory for each cpu left.
         verbosity : int, optional
             Not used atm. The default is 1.
 
@@ -128,6 +138,8 @@ class BivariateMI:
         self.group_split = group_split
         self.group_lag = group_lag
         self.verbosity = verbosity
+        self.n_cpu = n_cpu
+        self.n_jobs_clust = n_jobs_clust
         if hash_str is not None:
             assert path_hashfile is not None, 'Give path to search hashfile'
             self.load_files(self, path_hashfile=str, hash_str=str)
@@ -135,9 +147,10 @@ class BivariateMI:
         return
 
 
-    def bivariateMI_map(self, precur_arr, df_splits, RV): #
+    def bivariateMI_map(self, precur_arr, df_splits, df_RVfull): #
         #%%
-        # precur_arr = self.precur_arr ; df_splits = rg.df_splits ; RV = rg.TV
+        # self=rg.list_for_MI[0] ; precur_arr=self.precur_arr ;
+        # df_splits = rg.df_splits ; df_RVfull = rg.df_fullts
         """
         This function calculates the correlation maps for precur_arr for different lags.
         Field significance is applied to test for correltion.
@@ -159,7 +172,13 @@ class BivariateMI:
         self.df_splits = df_splits # add df_splits to self
         dates = self.df_splits.loc[0].index
 
-        targetstepsoneyr = functions_pp.get_oneyr(RV.RV_ts)
+        TrainIsTrue = df_splits.loc[0]['TrainIsTrue']
+        RV_train_mask = np.logical_and(df_splits.loc[0]['RV_mask'], TrainIsTrue)
+        if hasattr(df_RVfull.index, 'levels'):
+            RV_ts = df_RVfull.loc[0][RV_train_mask.values]
+        else:
+            RV_ts = df_RVfull[RV_train_mask.values]
+        targetstepsoneyr = functions_pp.get_oneyr(RV_ts)
         if type(self.lags[0]) == np.ndarray and targetstepsoneyr.size>1:
             raise ValueError('Precursor and Target do not align.\n'
                              'One aggregated value taken for months '
@@ -196,6 +215,7 @@ class BivariateMI:
 
         def MI_single_split(RV_ts, precur_train, s, alpha=.05, FDR_control=True):
 
+
             lat = precur_train.latitude.values
             lon = precur_train.longitude.values
 
@@ -208,13 +228,13 @@ class BivariateMI:
                 if type(lag) is np.int16 and self.lag_as_gap==False:
                     # dates_lag = functions_pp.func_dates_min_lag(dates_RV, self._tfreq*lag)[1]
                     m = apply_shift_lag(self.df_splits.loc[s], lag)
-                    dates_lag = m[np.logical_and(m['TrainIsTrue']==True, m['x_fit'])].index
+                    dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
                     corr_val, pval = self.func(precur_train.sel(time=dates_lag),
                                                RV_ts.values.squeeze(),
                                                **self.kwrgs_func)
                 elif type(lag) == np.int16 and self.lag_as_gap==True:
                     # if only shift tfreq, then gap=0
-                    datesdaily = RV.aggr_to_daily_dates(dates_RV, tfreq=self._tfreq)
+                    datesdaily = RV_class.aggr_to_daily_dates(dates_RV, tfreq=self._tfreq)
                     dates_lag = functions_pp.func_dates_min_lag(datesdaily,
                                                                 self._tfreq+lag)[1]
 
@@ -255,34 +275,74 @@ class BivariateMI:
         np_data = np.zeros_like(xrcorr.values)
         np_mask = np.zeros_like(xrcorr.values)
         np_pvals = np.zeros_like(xrcorr.values)
-        RV_mask = df_splits.loc[0]['RV_mask']
+
+
+        #%%
+        # start_time = time()
+
+        def calc_corr_for_splits(self, splits, df_RVfull, np_precur_arr, df_splits, output):
+            '''
+            Wrapper to divide calculating a number of splits per core, instead of
+            assigning each split to a seperate worker.
+            '''
+            n_spl = df_splits.index.levels[0].size
+            # reload numpy array to xarray (xarray not always picklable by joblib)
+            precur_arr = core_pp.back_to_input_dtype(np_precur_arr[0], np_precur_arr[1],
+                                                     np_precur_arr[2])
+            RV_mask = df_splits.loc[0]['RV_mask']
+            for s in splits:
+                progress = int(100 * (s+1) / n_spl)
+                # =============================================================================
+                # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']
+                # =============================================================================
+                TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values==True
+                RV_train_mask = np.logical_and(RV_mask, TrainIsTrue)
+                if hasattr(df_RVfull.index, 'levels'):
+                    RV_ts = df_RVfull.loc[s][RV_train_mask.values]
+                else:
+                    RV_ts = df_RVfull[RV_train_mask.values]
+
+                if self.lag_as_gap: # no clue why selecting all datapoints, changed 26-01-2021
+                    train_dates = df_splits.loc[s]['TrainIsTrue'][TrainIsTrue].index
+                    precur_train = precur_arr.sel(time=train_dates)
+                else:
+                    precur_train = precur_arr[TrainIsTrue] # only train data
+
+                n = RV_ts.size ; r = int(100*n/RV_mask[RV_mask].size)
+                print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
+
+                output[s] = MI_single_split(RV_ts, precur_train, s,
+                                            alpha=self.alpha,
+                                            FDR_control=self.FDR_control)
+            return output
+
+        output = {}
+        np_precur_arr = core_pp.to_np(precur_arr)
+        if self.n_cpu == 1:
+            splits = df_splits.index.levels[0]
+            output = calc_corr_for_splits(self, splits, df_RVfull, np_precur_arr,
+                                          df_splits, output)
+        elif self.n_cpu > 1:
+            splits = df_splits.index.levels[0]
+            futures = []
+            for _s in np.array_split(splits, self.n_cpu):
+                futures.append(delayed(calc_corr_for_splits)(self, _s, df_RVfull,
+                                                             np_precur_arr, df_splits,
+                                                             output))
+            futures = Parallel(n_jobs=self.n_cpu, backend='loky')(futures)
+            [output.update(d) for d in futures]
+
+        # unpack results
         for s in xrcorr.split.values:
-            progress = int(100 * (s+1) / n_spl)
-            # =============================================================================
-            # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']
-            # =============================================================================
-            TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values==True
-            RV_train_mask = np.logical_and(RV_mask, TrainIsTrue)
-            RV_ts = RV.fullts[RV_train_mask.values]
-
-            if self.lag_as_gap: # no clue why selecting all datapoints, changed 26-01-2021
-                train_dates = df_splits.loc[s]['TrainIsTrue'][TrainIsTrue].index
-                precur_train = precur_arr.sel(time=train_dates)
-            else:
-                precur_train = precur_arr[TrainIsTrue] # only train data
-
-            dates_RV = RV_ts.index
-            n = dates_RV.size ; r = int(100*n/RV.dates_RV.size )
-            print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
-
-            ma_data, pvals = MI_single_split(RV_ts, precur_train.copy(), s,
-                                             alpha=self.alpha,
-                                             FDR_control=self.FDR_control)
-
+            ma_data, pvals = output[s]
             np_data[s] = ma_data.data
             np_mask[s] = ma_data.mask
             np_pvals[s]= pvals
         print("\n")
+        # print(f'Time: {(time()-start_time)}')
+        #%%
+
+
         xrcorr.values = np_data
         xrpvals.values = np_pvals
         mask = (('split', 'lag', 'latitude', 'longitude'), np_mask )
@@ -404,16 +464,11 @@ class BivariateMI:
             if np.isnan(self.prec_labels.values).all():
                 self.ts_corr = np.array(splits.size*[[]])
             else:
-                if self.calc_ts == 'region mean':
-                    self.ts_corr = find_precursors.spatial_mean_regions(self,
-                                                  precur_aggr=precur_aggr,
-                                                  kwrgs_load=kwrgs_load)
-                elif self.calc_ts == 'pattern cov':
-                    self.ts_corr = loop_get_spatcov(self,
-                                                    precur_aggr=precur_aggr,
-                                                    kwrgs_load=kwrgs_load)
-
+                self.ts_corr = calc_ts_wrapper(self,
+                                               precur_aggr=precur_aggr,
+                                               kwrgs_load=kwrgs_load)
                 n_tot_regs += max([self.ts_corr[s].shape[1] for s in range(splits.size)])
+
         return
 
     def store_netcdf(self, path: str=None, f_name: str=None, add_hash=True):
@@ -549,7 +604,7 @@ def corr_map(field, ts):
 def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag_y=0, lag_x=0):
     '''
     Only works for subseasonal data (more then 1 datapoint per year).
-    Lag must be >= 1
+    Lag must be >= 1. Warning!!! what about gap between years and shifting data
 
     Parameters
     ----------
@@ -676,14 +731,15 @@ def parcorr_z(field: xr.DataArray, ts: np.ndarray, z: pd.DataFrame, lag_z: int=0
     corr_vals[fieldnans] = np.nan
     return corr_vals, pvals
 
-def loop_get_spatcov(precur, precur_aggr=None, kwrgs_load: dict=None,
-                     force_reload: bool=False, lags: list=None):
-
-    name            = precur.name
-    use_sign_pattern = precur.use_sign_pattern
+def pp_calc_ts(precur, precur_aggr=None, kwrgs_load: dict=None,
+                      force_reload: bool=False, lags: list=None):
+    '''
+    Pre-process for calculating timeseries of precursor regions or pattern.
+    '''
+    #%%
     corr_xr         = precur.corr_xr
     prec_labels     = precur.prec_labels
-    splits           = corr_xr.split
+
     if lags is not None:
         lags        = np.array(lags) # ensure lag is np.ndarray
         corr_xr     = corr_xr.sel(lag=lags).copy()
@@ -700,63 +756,291 @@ def loop_get_spatcov(precur, precur_aggr=None, kwrgs_load: dict=None,
 
     if precur_aggr is None and force_reload==False:
         precur_arr = precur.precur_arr
-        if tfreq==365:
-            precur_arr = precur.precur_arr
-        # use precursor array with temporal aggregation that was used to create
-        # correlation map. When tfreq=365, aggregation (one-value-per-year)
-        # is already done. period used to aggregate was defined by the lag
-
     else:
         if precur_aggr is not None:
             precur.tfreq = precur_aggr
         precur.load_and_aggregate_precur(kwrgs_load.copy())
         precur_arr = precur.precur_arr
 
-    precur.area_grid = find_precursors.get_area(precur_arr)
+    if type(precur.lags[0]) is np.ndarray and precur_aggr is None:
+        precur.period_means_array = True
+    else:
+        precur.period_means_array = False
+
     if precur_arr.shape[-2:] != corr_xr.shape[-2:]:
         print('shape loaded precur_arr != corr map, matching coords')
         corr_xr, prec_labels = functions_pp.match_coords_xarrays(precur_arr,
                                           *[corr_xr, prec_labels])
+    #%%
+    return precur_arr, corr_xr, prec_labels
 
-    ts_sp = np.zeros( (splits.size), dtype=object)
-    for s in splits:
-        ts_list = np.zeros( (lags.size), dtype=list )
-        track_names = []
-        for il,lag in enumerate(lags):
+# def loop_get_spatcov(precur, precur_aggr=None, kwrgs_load: dict=None,
+#                      force_reload: bool=False, lags: list=None):
+#     '''
+#     Calculate spatial covariance between significantly correlating gridcells
+#     and observed (time, lat, lon) data.
+#     '''
+#     #%%
 
-            # if lag represents aggregation period:
-            if type(precur.lags[il]) is np.ndarray and precur_aggr is None:
-                precur_arr = precur.precur_arr.sel(lag=il)
+#     precur_arr, corr_xr, prec_labels = pp_calc_ts(precur, precur_aggr,
+#                                                   kwrgs_load,
+#                                                   force_reload, lags)
 
-            corr_vals = corr_xr.sel(split=s).isel(lag=il)
-            mask = prec_labels.sel(split=s).isel(lag=il)
-            pattern = corr_vals.where(~np.isnan(mask))
-            if use_sign_pattern == True:
-                pattern = np.sign(pattern)
-            if np.isnan(pattern.values).all():
-                # no regions of this variable and split
-                nants = np.zeros( (precur_arr.time.size, 1) )
-                nants[:] = np.nan
-                ts_list[il] = nants
-                pass
-            else:
-                # if normalize == True:
-                #     spatcov_full = calc_spatcov(full_timeserie, pattern)
-                #     mean = spatcov_full.sel(time=dates_train).mean(dim='time')
-                #     std = spatcov_full.sel(time=dates_train).std(dim='time')
-                #     spatcov_test = ((spatcov_full - mean) / std)
-                # elif normalize == False:
-                xrts = find_precursors.calc_spatcov(precur_arr, pattern)
-                ts_list[il] = xrts.values[:,None]
-            track_names.append(f'{lag}..0..{precur.name}' + '_sp')
+#     lags        = prec_labels.lag.values
+#     precur.area_grid = find_precursors.get_area(precur_arr)
+#     splits          = corr_xr.split
+#     use_sign_pattern = precur.use_sign_pattern
 
-        # concatenate timeseries all of lags
+
+
+#     ts_sp = np.zeros( (splits.size), dtype=object)
+#     for s in splits:
+#         ts_list = np.zeros( (lags.size), dtype=list )
+#         track_names = []
+#         for il,lag in enumerate(lags):
+
+#             # if lag represents aggregation period:
+#             if type(precur.lags[il]) is np.ndarray and precur_aggr is None:
+#                 precur_arr = precur.precur_arr.sel(lag=il)
+
+#             corr_vals = corr_xr.sel(split=s).isel(lag=il)
+#             mask = prec_labels.sel(split=s).isel(lag=il)
+#             pattern = corr_vals.where(~np.isnan(mask))
+#             if use_sign_pattern == True:
+#                 pattern = np.sign(pattern)
+#             if np.isnan(pattern.values).all():
+#                 # no regions of this variable and split
+#                 nants = np.zeros( (precur_arr.time.size, 1) )
+#                 nants[:] = np.nan
+#                 ts_list[il] = nants
+#                 pass
+#             else:
+#                 xrts = find_precursors.calc_spatcov(precur_arr, pattern,
+#                                                     area_wght=True)
+#                 ts_list[il] = xrts.values[:,None]
+#             track_names.append(f'{lag}..0..{precur.name}' + '_sp')
+
+#         # concatenate timeseries all of lags
+#         tsCorr = np.concatenate(tuple(ts_list), axis = 1)
+
+#         dates = pd.to_datetime(precur_arr.time.values)
+#         ts_sp[s] = pd.DataFrame(tsCorr,
+#                                 index=dates,
+#                                 columns=track_names)
+#     # df_sp = pd.concat(list(ts_sp), keys=range(splits.size))
+#     #%%
+#     return ts_sp
+
+def single_split_calc_spatcov(precur, precur_arr: np.ndarray, corr: np.ndarray,
+                              labels: np.ndarray, a_wghts: np.ndarray,
+                              lags: np.ndarray, use_sign_pattern: bool):
+    ts_list = np.zeros( (lags.size), dtype=list )
+    track_names = []
+    for il,lag in enumerate(lags):
+
+        # if lag represents aggregation period:
+        if precur.period_means_array == True:
+            precur_arr = precur.precur_arr.sel(lag=il)
+
+        pattern = np.copy(corr[il]) # copy to fix ValueError: assignment destination is read-only
+        mask = labels[il]
+        pattern[np.isnan(mask)] = np.nan
+        if use_sign_pattern == True:
+            pattern = np.sign(pattern)
+        if np.isnan(pattern).all():
+            # no regions of this variable and split
+            nants = np.zeros( (precur_arr.shape[0], 1) )
+            nants[:] = np.nan
+            ts_list[il] = nants
+            pass
+        else:
+            xrts = find_precursors.calc_spatcov(precur_arr, pattern,
+                                                area_wght=a_wghts)
+            ts_list[il] = xrts[:,None]
+        track_names.append(f'{lag}..0..{precur.name}' + '_sp')
+    return ts_list, track_names
+
+
+def single_split_spatial_mean_regions(precur, precur_arr: np.ndarray,
+                                      corr: np.ndarray,
+                                      labels: np.ndarray, a_wghts: np.ndarray,
+                                      lags: np.ndarray,
+                                      use_coef_wghts: bool):
+    '''
+    precur : class_BivariateMI
+
+    precur_arr : np.ndarray
+        of shape (time, lat, lon). If lags define period_means;
+        of shape (lag, time, lat, lon).
+    corr : np.ndarray
+        if shape (lag, lat, lon).
+    labels : np.ndarray
+        of shape (lag, lat, lon).
+    a_wghts : np.ndarray
+        if shape (lat, lon).
+    use_coef_wghts : bool
+        Use correlation coefficient as weights for spatial mean.
+
+    Returns
+    -------
+    ts_list : list of splits with numpy timeseries
+    '''
+    ts_list = np.zeros( (lags.size), dtype=list )
+    track_names = []
+    for l_idx, lag in enumerate(lags):
+        labels_lag = labels[l_idx]
+
+        # if lag represents aggregation period:
+        if precur.period_means_array == True:
+            precur_arr = precur.precur_arr[:,l_idx].values
+
+        regions_for_ts = list(np.unique(labels_lag[~np.isnan(labels_lag)]))
+
+        if use_coef_wghts:
+            coef_wghts = abs(corr[l_idx]) / abs(np.nanmax(corr[l_idx]))
+            wghts = a_wghts * coef_wghts # area & corr. value weighted
+        else:
+            wghts = a_wghts
+
+        # this array will be the time series for each feature
+        ts_regions_lag_i = np.zeros((precur_arr.shape[0], len(regions_for_ts)))
+
+        # track sign of eacht region
+
+        # calculate area-weighted mean over features
+        for r in regions_for_ts:
+            idx = regions_for_ts.index(r)
+            # start with empty lonlat array
+            B = np.zeros(labels_lag.shape)
+            # Mask everything except region of interest
+            B[labels_lag == r] = 1
+            # Calculates how values inside region vary over time
+            ts = np.nanmean(precur_arr[:,B==1] * wghts[B==1], axis =1)
+
+            # check for nans
+            if ts[np.isnan(ts)].size !=0:
+                print(ts)
+                perc_nans = ts[np.isnan(ts)].size / ts.size
+                if perc_nans == 1:
+                    # all NaNs
+                    print(f'All timesteps were NaNs for split'
+                        f' for region {r} at lag {lag}')
+
+                else:
+                    print(f'{perc_nans} NaNs for split'
+                        f' for region {r} at lag {lag}')
+
+            track_names.append(f'{lag}..{int(r)}..{precur.name}')
+
+            ts_regions_lag_i[:,idx] = ts
+            # get sign of region
+            # sign_ts_regions[idx] = np.sign(np.mean(corr.isel(lag=l_idx).values[B==1]))
+
+        ts_list[l_idx] = ts_regions_lag_i
+
+    return ts_list, track_names
+
+def calc_ts_wrapper(precur, precur_aggr=None, kwrgs_load: dict=None,
+                    force_reload: bool=False, lags: list=None):
+    '''
+    Wrapper for calculating 1-d spatial mean timeseries per precursor region
+    or a timeseries of the spatial pattern (only significantly corr. gridcells).
+
+    Parameters
+    ----------
+    precur : class_BivariateMI instance
+    precur_aggr : int, optional
+        If None, same precur_arr is used as for the correlation maps.
+    kwrgs_load : dict, optional
+        kwrgs to load in timeseries. See functions_pp.import_ds_timemeanbins or
+        functions_pp.time_mean_period. The default is None.
+    force_reload : bool, optional
+        Force reload a different precursor array (precur_arr). The default is
+        False.
+
+    Returns
+    -------
+    ts_corr : TYPE
+        DESCRIPTION.
+
+    '''
+    #%%
+    # precur=rg.list_for_MI[0];precur_aggr=None;kwrgs_load=None;force_reload=False;lags=None
+    # start_time  = time()
+    precur_arr, corr_xr, prec_labels = pp_calc_ts(precur, precur_aggr,
+                                                  kwrgs_load,
+                                                  force_reload, lags)
+    lags        = prec_labels.lag.values
+    use_coef_wghts  = precur.use_coef_wghts
+    a_wghts         = precur.area_grid / precur.area_grid.mean()
+    splits          = corr_xr.split.values
+    dates = pd.to_datetime(precur_arr.time.values)
+
+
+
+    if precur.calc_ts == 'pattern cov':
+        kwrgs = {'use_sign_pattern':precur.use_sign_pattern}
+        _f = single_split_calc_spatcov
+    elif precur.calc_ts == 'region mean':
+        kwrgs = {'use_coef_wghts':precur.use_coef_wghts}
+        _f = single_split_spatial_mean_regions
+
+
+    def splits_spatial_mean_regions(_f,
+                                    splits: np.ndarray,
+                                    precur, precur_arr: np.ndarray,
+                                    corr_np: np.ndarray,
+                                    labels_np: np.ndarray, a_wghts: np.ndarray,
+                                    lags: np.ndarray,
+                                    use_coef_wghts: bool):
+        '''
+        Wrapper to divide calculating a number of splits per core, instead of
+        assigning each split to a seperate worker (high overhead).
+        '''
+        for s in splits:
+            corr = corr_np[s]
+            labels = labels_np[s]
+            output[s] = _f(precur, precur_arr, corr, labels, a_wghts, lags,
+                           **kwrgs)
+        return output
+
+
+    precur_arr = precur_arr.values
+    corr_np = corr_xr.values
+    labels_np = prec_labels.values
+    output = {}
+    if precur.n_cpu == 1:
+        output = splits_spatial_mean_regions(_f, splits, precur, precur_arr,
+                                             corr_np, labels_np,
+                                             a_wghts, lags, use_coef_wghts)
+
+    elif precur.n_cpu > 1:
+        futures = []
+        for _s in np.array_split(splits, precur.n_cpu):
+            futures.append(delayed(splits_spatial_mean_regions)(_f, _s,
+                                                                precur,
+                                                                precur_arr,
+                                                                corr_np,
+                                                                labels_np,
+                                                                a_wghts, lags,
+                                                                use_coef_wghts))
+        futures = Parallel(n_jobs=precur.n_cpu, backend='loky')(futures)
+        [output.update(d) for d in futures]
+
+
+    ts_corr = np.zeros( (splits.size), dtype=object)
+    for s in range(splits.size):
+        ts_list, track_names = output[s] # list of ts at different lags
         tsCorr = np.concatenate(tuple(ts_list), axis = 1)
-
-        dates = pd.to_datetime(precur_arr.time.values)
-        ts_sp[s] = pd.DataFrame(tsCorr,
-                                index=dates,
+        df_tscorr = pd.DataFrame(tsCorr,
+                                 index=dates,
                                 columns=track_names)
-    # df_sp = pd.concat(list(ts_sp), keys=range(splits.size))
-    return ts_sp
+        df_tscorr.name = str(s)
+        if any(df_tscorr.isna().values.flatten()):
+            print('Warnning: nans detected')
+        ts_corr[s] = df_tscorr
 
+    # print(f'End time: {time() - start_time} seconds')
+
+    #%%
+    return ts_corr

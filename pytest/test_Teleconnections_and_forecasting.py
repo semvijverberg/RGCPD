@@ -18,8 +18,9 @@ if main_dir not in sys.path:
     sys.path.append(main_dir)
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
-import class_BivariateMI, functions_pp
+import class_BivariateMI, functions_pp, core_pp
 import numpy as np
+import pandas as pd
 import shutil
 
 
@@ -38,23 +39,36 @@ def check_dates_RV(df_splits, traintestgroups, start_end_TVdate):
     assert ed >= endTVdate, 'Selected date not in RV window'
     print(startTVdate, endTVdate)
 
-def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
-                                  start_end_TVdate=('07-01', '08-31'),
-                                  dailytomonths=False,
-                                  TVdates_aggr=False,
-                                  lags=np.array([1]),
-                                  start_end_yr_precur=None,
-                                  start_end_yr_target=None):
+def test_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
+                          start_end_TVdate=('07-01', '08-31'),
+                          dailytomonths=False,
+                          TVdates_aggr=False,
+                          lags=np.array([1]),
+                          start_end_yr_precur=None,
+                          start_end_yr_target=None,
+                          load_annual_target=False):
     #%%
     # define input: list_of_name_path = [('TVname', 'TVpath'), ('prec_name', 'prec_path')]
     # start_end_yr_target=None; start_end_yr_precur = None; lags = np.array([1]); TVdates_aggr=False; dailytomonths=False;
-    # alpha=0.05; tfreq=10; method='leave_10';start_end_TVdate=('07-01', '08-31');
+    # alpha=0.05; tfreq=10; method='leave_10';start_end_TVdate=('07-01', '08-31'); load_annual_target=False
+
+
 
     curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
     main_dir = sep.join(curr_dir.split(sep)[:-1])
     path_test = os.path.join(main_dir, 'data')
+    path_target = os.path.join(path_test, 'tf5_nc5_dendo_80d77.nc')
 
-    list_of_name_path = [(3, os.path.join(path_test, 'tf5_nc5_dendo_80d77.nc')),
+    if load_annual_target:
+        ts = core_pp.import_ds_lazy(path_target)['ts'].sel(cluster=3)
+        # calculate annual mean value of ts (silly, but just a test)
+        df = ts.groupby(ts.time.dt.year).mean().to_dataframe()[['ts']]
+        df.index = pd.to_datetime([f'{y}-01-01' for y in df.index])
+        path_target = df # path_target overwritten with df with one-val-per-yr
+        dailytomonths=True
+
+
+    list_of_name_path = [(3, path_target),
                         ('sst', os.path.join(path_test,'sst_daily_1979-2018_5deg_Pacific_175_240E_25_50N.nc'))]
 
     # define analysis:
@@ -71,7 +85,7 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_
                save=True)
 
     # if TVpath contains the xr.DataArray xrclustered, we can have a look at the spatial regions.
-    rg.plot_df_clust()
+    # rg.plot_df_clust()
 
     rg.pp_precursors(detrend=True, anomaly=True, selbox=None)
 
@@ -83,7 +97,7 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_
 
 
     rg.traintest(method=method, gap_prior=1)
-
+    rg.traintestgroups[rg.traintestgroups==2]
     # check
     if TVdates_aggr==False:
         check_dates_RV(rg.df_splits, rg.traintestgroups, start_end_TVdate)
@@ -119,7 +133,7 @@ def test_subseas_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_
     #%%
     return rg
 
-test = test_subseas_US_t2m_tigramite
+test = test_US_t2m_tigramite
 
 
 #%%
@@ -128,7 +142,7 @@ test = test_subseas_US_t2m_tigramite
 # =============================================================================
 
 # Daily data aggregated to 10-dm, JA, random_5
-rg = test_subseas_US_t2m_tigramite()
+rg = test_US_t2m_tigramite()
 
 # Daily data aggregated to 10-dm, DJF, random_5
 rg = test(alpha=.3, start_end_TVdate=('11-01', '02-28'))
@@ -148,6 +162,14 @@ rg = test(alpha=.1, tfreq=20,
 # Daily-to-monthly data, 2-month mean JJA, random_5
 rg = test(alpha=.1, dailytomonths=True, tfreq=2,
           start_end_TVdate=('06-01', '08-31'))
+
+# Daily to annual mean ts, random_5, daily to 3-month mean for SST, lags wrt JJA
+rg = test(load_annual_target=True, tfreq = 3,
+          start_end_TVdate = ('07-01', '08-01'))
+
+# Daily to annual mean ts, random_5, daily to 2-month mean for SST, lags wrt JJA
+rg = test(load_annual_target=True, tfreq = 2,
+          start_end_TVdate = ('05-01', '08-01'))
 
 # =============================================================================
 # Seasonal use-cases (from daily to monhtly)
@@ -182,7 +204,7 @@ rg = test(alpha=.2,
 
 
 
-rg = test_subseas_US_t2m_tigramite()
+rg = test_US_t2m_tigramite()
 # Forecasting pipeline 1
 import func_models as fc_utils
 from stat_models_cont import ScikitModel
@@ -201,7 +223,7 @@ kwrgs_model={'n_estimators':200,
 
 # choose type prediciton (continuous or probabilistic) by making comment #
 prediction = 'continuous' ; q = None
-# prediction = 'events' ; q = .66 # quantile threshold for event definition
+prediction = 'events' ; q = .66 # quantile threshold for event definition
 
 if prediction == 'continuous':
     model = ScikitModel(Ridge, verbosity=0)
