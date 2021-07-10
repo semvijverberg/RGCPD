@@ -47,7 +47,7 @@ import class_BivariateMI
 import wrapper_PCMCI as wPCMCI
 import functions_pp
 
-periods = ['summer_center', 'spring_center']
+periods = ['summer_center', 'spring_center', 'winter_center']
 
 # periods = ['winter_center']
 
