@@ -223,7 +223,8 @@ def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level, FDR_cv='fdr_bh'
             else:
                 pq_matrix_s = results['p_matrix']
             pq_matrix.append(pq_matrix_s)
-        pq_matrix = np.array(pq_matrix)
+        # splits might have different shapes, therefore dtype='object'
+        pq_matrix = np.array(pq_matrix, dtype='object')
 
         # apply FDR across CVs
         npq = pq_matrix.reshape(splits.size, -1).copy()

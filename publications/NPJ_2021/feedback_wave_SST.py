@@ -451,7 +451,8 @@ for f in freqs[:]:
                   "#dc2f02","#e85d04","#f48c06","#faa307", "#ffba08"][::-1]
     cmap_nodes = ListedColormap(cmap_nodes)
 
-    rg.PCMCI_plot_graph(min_link_robustness=mlr, figshape=(10.5,4),
+    rg.PCMCI_plot_graph(min_link_robustness=mlr, alpha_level=0.05, FDR_cv='fdr_bh',
+                        figshape=(10.5,4),
                         kwrgs={'vmax_nodes':.9,
                                 'node_aspect':130,
                                 'node_size':.008,

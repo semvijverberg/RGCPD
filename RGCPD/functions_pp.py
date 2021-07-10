@@ -334,12 +334,12 @@ def xrts_to_df(xarray):
         var1 = int(xarray[dims[0]])
         dim1 = dims[0]
         name = '{}{}'.format(dim1, var1)
-        xarray = xarray.drop(dim1)
+        xarray = xarray.drop_vars(dim1)
         if len(dims) == 2:
             var2 = int(xarray[dims[1]])
             dim2 = dims[1]
             name += '_{}{}'.format(dim2, var2)
-            xarray = xarray.drop(dim2)
+            xarray = xarray.drop_vars(dim2)
         df = xarray.T.to_dataframe(name=name).unstack(level=1)
 
         df = df.droplevel(0, axis=1)
@@ -384,7 +384,7 @@ def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
     # masks in xr.DataArray are not pickable, which will cause _thread.lock
     # error when parallizing an analysis pipeline.
     if 'mask' in ds.coords:
-        ds = ds.drop('mask')
+        ds = ds.drop_vars('mask')
     return ds
 
 def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None,
@@ -648,19 +648,22 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
             else:
                 sd = dates_aggr[0]
 
-            # single year, dates between 01-01 and > 03-01
-            leap1yr = all([dates_aggr.year.unique().size==1,
-                           dates_aggr.is_leap_year[0],
-                           dates_aggr[0] < pd.to_datetime(f'{startyear}-03-01')])
-            # cross-year, one yr with dates both prior and after 03-01
-            yrs = np.unique(dates_aggr.year) ;
-            # if yrs.size > 1:
-            leap2yr = all([any(dates_aggr.is_leap_year),
-                           any(dates_aggr < pd.to_datetime(f'{yrs.max()}-03-01')),
-                           dates_aggr[-1] > pd.to_datetime(f'{yrs.max()}-03-01')])
+            # # single year, dates between 01-01 and > 03-01
+            # leap1yr = all([dates_aggr.year.unique().size==1,
+            #                dates_aggr.is_leap_year[0],
+            #                dates_aggr[0] < pd.to_datetime(f'{startyear}-03-01')])
+            # cross-year, one yr with dates both prior and after 03-01 in a lpyr
+
+            # single check for leap_year
+            if any(dates_aggr.is_leap_year):
+                _lpyr = dates_aggr[dates_aggr.is_leap_year][0].year
+                leap2yr = all([any(dates_aggr < pd.to_datetime(f'{_lpyr}-03-01')),
+                              dates_aggr[-1] > pd.to_datetime(f'{_lpyr}-03-01')])
+            else:
+                leap2yr  = False
 
 
-            if leap1yr or leap2yr:
+            if leap2yr:
                 start_yr = pd.date_range(start=sd,
                                      end=dates_aggr[-1])
             else:

@@ -33,7 +33,7 @@ def extend_longitude(data):
     import numpy as np
     plottable = xr.concat([data, data.sel(longitude=data.longitude[:1])], dim='longitude').to_dataset(name="ds")
     plottable["longitude"] = np.linspace(0,360, len(plottable.longitude))
-    plottable = plottable.to_array(dim='ds').squeeze(dim='ds').drop('ds')
+    plottable = plottable.to_array(dim='ds').squeeze(dim='ds').drop_vars('ds')
     return plottable
 
 def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
