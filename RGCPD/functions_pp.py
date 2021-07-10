@@ -42,6 +42,8 @@ def get_oneyr(dt_pdf_pds_xr, *args):
         dates = pddatetime.where(pddatetime.year==year).dropna()
     return dates
 
+month_days = {1:31, 2:28, 3:31}
+
 def perform_post_processing(list_of_name_path, kwrgs_pp=None, verbosity=1):
     '''
     if argument of kwrgs_pp is list, then the first item is assumed to be the
@@ -180,6 +182,7 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
     elif timestep_days >= 28 and timestep_days <= 31 and n_yrs != n_timesteps:
         input_freq = 'monthly'
         same_freq = (dates[1].month - dates[0].month) == tfreq #same_freq true/False
+
     elif tfreq == timestep_days:
         same_freq = True
     elif timestep_days == 365 or timestep_days == 366:
@@ -527,7 +530,7 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
     at closed_on_date. With closed on date defined as the last day of TV_period
     '''
     #%%
-    # xr_or_dt = rg.fulltso.copy();verbosity=1; closed='right'
+    # xr_or_dt = rg.df_fulltso.copy();verbosity=1; closed='right'
     # start_end_date=None; start_end_year=None; verbosity=0
 
     if type(xr_or_dt) == type(xr.DataArray([0])):
@@ -540,6 +543,11 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         input_freq = 'day'
     elif (datetime[1] - datetime[0]).days in [28,29,30,31]:
         input_freq = 'month'
+        # ensure that days are 01, needed for alignment of timeseries.
+        start_end_TVdate = [s.split('-')[0] + '-01' for s in start_end_TVdate]
+        if start_end_date is not None:
+            start_end_date = [s.split('-')[0] + '-01' for s in start_end_date]
+
     # =============================================================================
     #   # select dates
     # =============================================================================
@@ -600,6 +608,9 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
             dates_aggr =  pd.date_range(end=_closed_on_date, freq=_tfreq,
                                         closed=closed,
                                         periods=fit_bins)
+            if 'm' in _tfreq:
+                # somehow month periods aligns on last date of month before
+                dates_aggr += pd.Timedelta('1d')
 
             # Extend untill adjhrsenddate
             while dates_aggr[-1] + pd.Timedelta(_tfreq) < pd.to_datetime(adjhrsenddate):
@@ -622,11 +633,11 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
                 fit_bins -= 1
         elif 'm' in _tfreq:
             fit_bins = int(12/tfreq)
-            dm = date_dt(months=tfreq-1, days=25) ; asd = pd.to_datetime(adjhrsstartdate)
+            dm = date_dt(months=tfreq) ; asd = pd.to_datetime(adjhrsstartdate)
             while dates_aggr[0] - dm < asd: #< pd.Timedelta('3d'):
                 dates_aggr =  pd.date_range(end=dates_aggr[-1], freq=_tfreq,
                                         closed=closed,
-                                        periods=fit_bins)
+                                        periods=fit_bins) + pd.Timedelta('1d')
                 fit_bins -= 1
         # if crossyr == False and senddate[1] == '12-31':
         #     # Extend untill end of the year, which might be handy in case one
@@ -671,11 +682,13 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
                                      end=dates_aggr[-1])
             start_yr = core_pp.remove_leapdays(start_yr)
         elif 'm' in _tfreq:
-            # monthly aggr always ends at latest date
-            sd = dates_aggr[0] - date_dt(months=tfreq-1, days=5)
+            sd = dates_aggr[0] - date_dt(months=tfreq)
             start_yr = pd.date_range(start=sd, end=dates_aggr[-1],
-                                     freq='1m')
+                                     freq='1m') + pd.Timedelta('1d')
             start_yr = pd.to_datetime([f'{d.year}-{d.month}-01' for d in start_yr])
+
+        assert start_yr.size % tfreq == 0, ('Timeseries to fit aggregation bins'
+                                            ' failed')
 
         return start_yr
 

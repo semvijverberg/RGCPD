@@ -65,8 +65,8 @@ def test_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
         df = ts.groupby(ts.time.dt.year).mean().to_dataframe()[['ts']]
         df.index = pd.to_datetime([f'{y}-01-01' for y in df.index])
         path_target = df # path_target overwritten with df with one-val-per-yr
-        tfreq = 3 ; dailytomonths=True
-        start_end_TVdate = ('07-01', '08-31')
+        dailytomonths=True
+
 
     list_of_name_path = [(3, path_target),
                         ('sst', os.path.join(path_test,'sst_daily_1979-2018_5deg_Pacific_175_240E_25_50N.nc'))]
@@ -163,8 +163,13 @@ rg = test(alpha=.1, tfreq=20,
 rg = test(alpha=.1, dailytomonths=True, tfreq=2,
           start_end_TVdate=('06-01', '08-31'))
 
-# Daily to annual mean ts, random_5, dailytomonths for SST
-rg = test(load_annual_target=True)
+# Daily to annual mean ts, random_5, daily to 3-month mean for SST, lags wrt JJA
+rg = test(load_annual_target=True, tfreq = 3,
+          start_end_TVdate = ('07-01', '08-01'))
+
+# Daily to annual mean ts, random_5, daily to 2-month mean for SST, lags wrt JJA
+rg = test(load_annual_target=True, tfreq = 2,
+          start_end_TVdate = ('05-01', '08-01'))
 
 # =============================================================================
 # Seasonal use-cases (from daily to monhtly)

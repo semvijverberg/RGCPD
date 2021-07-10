@@ -45,7 +45,7 @@ expers = np.array(['parcorr', 'parcorrENSO',
                    'parcorrtime_target', 'parcorrtime_precur', 'parcorrtime_both', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 0
+i_default = 2
 
 def parseArguments():
     # Create argument parser
