@@ -234,7 +234,7 @@ class BivariateMI:
             dates_RV = RV_ts.index
             for i, lag in enumerate(lags):
                 if type(lag) is np.int16 and self.lag_as_gap==False:
-                    if self.func.__name__=='parcorr_map_time':
+                    if self.func.__name__=='parcorr_map':
                         corr_val, pval = self.func(precur_train, df_RVfull_s,
                                                    self.df_splits.loc[s].copy(),
                                                    lag=lag,
@@ -423,7 +423,7 @@ class BivariateMI:
         kwrgs = self.kwrgs_load
         if hasattr(self, 'kwrgs_z') == False: # copy so info remains stored
             self.kwrgs_z = self.kwrgs_func.copy() # first time copy
-        if self.func.__name__ == 'parcorr_z':
+        if 'filepath' in self.kwrgs_z.keys():
             if type(self.kwrgs_z['filepath']) is str:
                 print('Loading and aggregating {}'.format(self.kwrgs_z['keys_ext']))
                 f = find_precursors.import_precur_ts
@@ -442,7 +442,7 @@ class BivariateMI:
                                                               right_index=True)).iloc[:,:1]
                 k = list(self.kwrgs_func.keys())
                 [self.kwrgs_func.pop(k) for k in k if k in ['filepath','keys_ext']]
-                self.kwrgs_func.update({'z':self.df_z}) # overwrite kwrgs_func
+                self.kwrgs_func.update({'df_z':self.df_z}) # overwrite kwrgs_func
                 k = [k for k in list(self.kwrgs_z.keys()) if k not in ['filepath','keys_ext']]
 
                 equal_dates = all(np.equal(self.df_z.index,
@@ -453,7 +453,7 @@ class BivariateMI:
                 self.df_z = self.kwrgs_z['filepath']
                 k = list(self.kwrgs_func.keys())
                 [self.kwrgs_func.pop(k) for k in k if k in ['filepath','keys_ext']]
-                self.kwrgs_func.update({'z':self.df_z}) # overwrite kwrgs_func
+                self.kwrgs_func.update({'df_z':self.df_z}) # overwrite kwrgs_func
         return
 
 
@@ -606,8 +606,11 @@ def corr_map(field, ts):
 
     return corr_vals, pvals
 
-def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, df_splits_s, lag,
-                     lag_y=0, lag_x=0):
+def parcorr_map(field: xr.DataArray, ts: pd.DataFrame, df_splits_s, lag,
+                lag_y: Union[int,list]=None, lag_x: Union[int,list]=None,
+                df_z: pd.DataFrame=None, lag_z: Union[int,list]=None,
+                lagzxrelative=True):
+
     '''
     Only works for subseasonal data (more then 1 datapoint per year).
 
@@ -619,12 +622,19 @@ def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, df_splits_s, lag,
         Target timeseries.
     df_splits_s : pd.DataFrame
         DF with TrainIsTrue and RV_mask to handle lag shifting
-    lag : int, optional
+    lag : int
         lag used to select precursor dates. The default is 1.
-    lag_x : int or list
-        lags w.r.t. the precursor lag to regress out
-    lag_y : int or list
-        lags w.r.t. target RV period to regress out
+    lag_x : int or list, optional
+        lags of precursor lag to regress out, default is None.
+    lag_y : int or list, optional
+        lags w.r.t. target RV period to regress out, default is None.
+    df_z : pd.DataFrame, optional
+        1-d timeseries to regress out, default is None.
+    lag_z : int or list, optional
+        lags of precursor lag to regress out, default is None.
+    lagzxrelative : bool, optional
+        Whether to define lag_z and lag_x w.r.t. the lag of the precursor.
+        Default is True.
 
 
     Returns
@@ -634,10 +644,14 @@ def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, df_splits_s, lag,
 
     '''
     # field = precur_train; ts = df_RVfull_s ; df_splits_s=self.df_splits.loc[s]
+    # lagzxrelative=True; lag_y=None; lag_z=None ; lag_x=None
+     # df_z = self.kwrgs_func['df_z']
     if type(lag_y) is int:
         lag_y = [lag_y]
     if type(lag_x) is int:
         lag_x = [lag_x]
+    if type(lag_z) is int:
+        lag_z = [lag_z]
 
     # if more then one year is filled with NaNs -> no corr value calculated.
     m = apply_shift_lag(df_splits_s, lag)
@@ -651,18 +665,31 @@ def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, df_splits_s, lag,
     fieldnans = np.array([np.isnan(field_lag[:,i]).any() for i in range(x.size)])
     nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
 
+    # =============================================================================
+    # checking if data is not available at edges due to lag shifting
+    # =============================================================================
     missing_edge_data = 0
-    if max(lag_y) > 0:
+    if lag_y is not None:
         m = apply_shift_lag(df_splits_s, max(lag_y))
         m = np.logical_and(m['TrainIsTrue']==1, m['x_fit'])
         missing_edge_data = max(ts_target.shape[0] - ts[m].values.shape[0],
                                 missing_edge_data)
-    if max(lag_x) > 0:
-        m = apply_shift_lag(df_splits_s, max(lag_x)+lag)
+    if lag_x is not None:
+        _lag = max(lag_x) + lag if lagzxrelative else max(lag_x)
+        m = apply_shift_lag(df_splits_s, _lag)
         dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
         missing_edge_data = max(ts_target.shape[0] - dates_lag.size, missing_edge_data)
+    if lag_z is not None:
+        _lag = max(lag_z) + lag if lagzxrelative else max(lag_z)
+        m = apply_shift_lag(df_splits_s, _lag)
+        m = np.logical_and(m['TrainIsTrue']==1, m['x_fit'])
+        missing_edge_data = max(ts_target.shape[0] - df_z.loc[m[m].index].values.shape[0],
+                                missing_edge_data)
 
-    if max(lag_y) > 0:
+    # =============================================================================
+    # Get (lag shifted) zy
+    # =============================================================================
+    if lag_y is not None:
         zy = []
         for _lag in lag_y:
             m = apply_shift_lag(df_splits_s, _lag)
@@ -670,33 +697,54 @@ def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, df_splits_s, lag,
             missing_edge = ts_target.shape[0] - ts[m].values.shape[0]
             zy.append(ts[m].values[missing_edge_data-missing_edge:])
         zy = np.concatenate(zy, axis=1)
+    else:
+        zy = None
 
-    if max(lag_x) > 0:
+    # =============================================================================
+    # Get (lag shifted) zz
+    # =============================================================================
+    if lag_z is not None:
+        zz = []
+        for _lag in lag_z:
+            _lag = _lag + lag if lagzxrelative else _lag
+            m = apply_shift_lag(df_splits_s, _lag)
+            m = np.logical_and(m['TrainIsTrue']==1, m['x_fit'])
+            missing_edge = ts_target.shape[0] - df_z.loc[m[m].index].values.shape[0]
+            zz.append(df_z.loc[m[m].index].values[missing_edge_data-missing_edge:])
+        zz = np.concatenate(zz, axis=1)
+    else:
+        zz = None
+
+    # =============================================================================
+    # Get (lag shifted) zx_field
+    # =============================================================================
+    if lag_x is not None:
         # this workflow might a bit too memory intensive since copying precursor
         # len(lag_x) times. But otherwise need to compute this in loop over gridcells.
         zx_field = []
         for _lag in lag_x:
-            m = apply_shift_lag(df_splits_s, _lag+lag)
+            _lag_ = _lag + lag if lagzxrelative else _lag
+            m = apply_shift_lag(df_splits_s, _lag_)
             dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
             missing_edge = missing_edge_data - (ts_target.shape[0]  - dates_lag.size)
             _d = dates_lag[missing_edge:]
             zx_field.append(field.sel(time=_d).values.reshape(_d.size,1,-1))
         zx_field = np.concatenate(zx_field, axis=1)
+    else:
+        zx = None
 
 
     y = np.expand_dims(ts_target[missing_edge_data:], axis=1)
     for i in nonans_gc:
         cond_ind_test = ParCorr()
-        if max(lag_x) > 0:
+        if lag_x is not None:
             zx = zx_field[:,:,i]
-        if max(lag_x) > 0 and max(lag_y) > 0: # both zy and zx defined
-            z = np.concatenate((zy,zx), axis=1)
-        elif max(lag_x) > 0 and max(lag_y) == 0: # only zx defined
-            z = zx
-        elif max(lag_x) == 0 and max(lag_y) > 0:
-            z = zy
-        else:
-            z = None
+        z = None
+        for _z in [zx, zy, zz]:
+            if _z is not None and z is None:
+                z = np.concatenate([_z], axis=1) # create first z
+            elif _z is not None and z is not None:
+                z = np.append(z, _z, axis=1) # append other z's
         field_i = np.expand_dims(field_lag[missing_edge_data:,i], axis=1)
         a, p = cond_ind_test.run_test_raw(field_i, y, z)
         # acorr, pcorr = cond_ind_test.run_test_raw(field_i, y, z=None)
@@ -716,7 +764,22 @@ def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, df_splits_s, lag,
     corr_vals[fieldnans] = np.nan
     return corr_vals, pvals
 
+#%% Tigramite check of parcorr
+
+# df_x = pd.DataFrame(field.values.reshape(field.shape[0],-1)[:,i], index=pd.to_datetime(field.time.values),
+#                     columns=['x'])
+# df_y = df_RVfull_s[df_splits_s['TrainIsTrue']]
+# masks = df_splits_s[df_splits_s['TrainIsTrue']]
+# df_tig = pd.concat([df_y.merge(df_x, left_index=True,
+#                     right_index=True).merge(masks,
+#                                             left_index=True,right_index=True)], keys=[0])
+
+# kwrgs_tigr = {'tau_min':0, 'tau_max':1, 'max_conds_dim':10,
+#                   'pc_alpha':0.05, 'max_combinations':10, 'max_conds_px':1}
+# rg.precur_aggr = 2
+# rg.PCMCI_df_data(kwrgs_tigr=kwrgs_tigr)
 #%%
+# pd.DataFrame(field.values.reshape(field.shape[0].size,-1), index=pd.to_datetime(field.time.values)).iloc[:,i]
 # array = np.moveaxis(np.concatenate([field_i, y, z], axis=1),0,1) ;
 # res_x = ParCorr()._get_single_residuals(array, target_var=0) ;
 # plt.figure()

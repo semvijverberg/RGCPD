@@ -33,20 +33,18 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
 from class_BivariateMI import corr_map
-from class_BivariateMI import parcorr_z
-from class_BivariateMI import parcorr_map_time
+from class_BivariateMI import parcorr_map
 import climate_indices, filters, functions_pp, core_pp, plot_maps
 from func_models import standardize_on_train
 import func_models as fc_utils
 
 
 
-expers = np.array(['parcorr', 'parcorrENSO',
+expers = np.array(['parcorr', 'parcorrENSO','parcorr_SSTlag1',
                    'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 0
-
+i_default = 5
 def parseArguments():
     # Create argument parser
     parser = argparse.ArgumentParser()
@@ -102,6 +100,7 @@ name_ds = f'0..0..{name_or_cluster_label}_sp'
 start_end_date = ('1-1', start_end_TVdate[-1])
 filepath_df_PDOs = os.path.join(path_data, 'df_PDOs_monthly.h5')
 filepath_df_ENSO = os.path.join(path_data, 'df_ENSOs_monthly.h5')
+filepath_df_SSTlag1 = os.path.join(path_data, 'df_SST_lag1.h5')
 
 #%% Get PDO and apply low-pass filter
 if 'parcorr' == exper:
@@ -233,7 +232,7 @@ def get_lagged_ts(df_data, lag, keys=None):
 lowpass = 0.5
 if 'parcorr' == exper:
     # lowpass = float(exper.split('__')[1])
-    func = parcorr_z
+    func = parcorr_map
     # z_filepath = os.path.join(path_data, 'PDO_ENSO34_ERA5_1979_2018.h5')
     z_filepath = filepath_df_PDOs
     keys_ext = [f'PDO{lowpass}rm']
@@ -306,7 +305,7 @@ if 'parcorr' == exper:
 
 #%%
 
-
+func = parcorr_map
 if 'parcorr' == exper:
     # lags = np.array([1])
     # PDO1, df_lagmask1 = get_lagged_ts(rgPDO.df_data.copy() , lags[0], keys_ext)
@@ -314,28 +313,28 @@ if 'parcorr' == exper:
     # df_z.index = df_lagmask1.loc[0].loc[years][df_lagmask1.loc[0]['x_pred'].loc[years]].index
     kwrgs_func = {'filepath':filepath_df_PDOs,
                   'keys_ext':['PDO0.5rm'],
-                  'lag_z':[2]} # lag_z is defined wrt precursor dates
-    func = parcorr_z
+                  'lag_z':[1]} # lag_z is defined wrt precursor dates
 elif 'parcorrENSO' == exper:
-    # lags = np.array([1])
-    # PDO1, df_lagmask1 = get_lagged_ts(rgPDO.df_data.copy() , lags[0], keys_ext)
-    # years = functions_pp.get_oneyr(df_lagmask1.loc[0], *list(range(1980, 2020+1)))
-    # df_z.index = df_lagmask1.loc[0].loc[years][df_lagmask1.loc[0]['x_pred'].loc[years]].index
     kwrgs_func = {'filepath':filepath_df_ENSO,
                   'keys_ext':['ENSO34'],
                   'lag_z':[1]} # lag_z is defined wrt precursor dates
-    func = parcorr_z
+elif 'parcorr_SSTlag1' == exper:
+    kwrgs_func = {'filepath':filepath_df_SSTlag1,
+                  'keys_ext':['1..0..sst_sp'],
+                  'lag_z':[1],
+                  'input_freq':'monthly'} # lag_z is defined wrt precursor dates
+
 elif exper == 'corr':
-    func = corr_map
     kwrgs_func = {} ;
 elif 'parcorrtime' in exper:
     if exper.split('_')[1] == 'target':
         kwrgs_func = {'lag_y':[1]}
     elif exper.split('_')[1] == 'precur':
-        kwrgs_func = {'lag_x':[1]}
+        kwrgs_func = {'lag_x':[2]}
     elif exper.split('_')[1] == 'both':
         kwrgs_func = {'lag_y':[1], 'lag_x':[1]}
-    func = parcorr_map_time
+
+# kwrgs_func['lagzxrelative'] = False
 
 sst_dailytomonths = False
 if sst_dailytomonths:
@@ -394,7 +393,7 @@ if 'parcorr' == exper and west_east == 'east':
     z_ts = '$\overline{PDO_{t-2}}$'
     title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
     subtitles = np.array([[title0],[title1]])
-    tscol = ''.join(precur.kwrgs_func['z'].columns)
+    tscol = ''.join(precur.kwrgs_func['df_z'].columns)
     kw = [k for k in precur.kwrgs_func.keys() if k != 'z']
     val = ''.join([str(kwrgs_func[k]) for k in kw])
     append_str='parcorr_{}_{}_'.format(tscol, period) + ''.join(kw) + val
@@ -408,7 +407,7 @@ if 'parcorrENSO' == exper and west_east == 'east':
     # title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
     title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
     subtitles = np.array([[title0],[title1]])
-    tscol = ''.join(precur.kwrgs_func['z'].columns)
+    tscol = ''.join(precur.kwrgs_func['df_z'].columns)
     kw = [k for k in precur.kwrgs_func.keys() if k != 'z']
     val = ''.join([str(kwrgs_func[k]) for k in kw])
     append_str='parcorrENSO_{}_{}_'.format(tscol, period) + ''.join(kw) + val

@@ -601,7 +601,7 @@ class RGCPD:
             keys = keys.copy()
             keys.append('TrainIsTrue') ; keys.append('RV_mask')
 
-        self.pcmci_dict = wPCMCI.init_pcmci(self.df_data[keys],
+        self.pcmci_dict = wPCMCI.init_pcmci(df_data[keys],
                                             verbosity=verbosity)
 
     def PCMCI_df_data(self, df_data: pd.DataFrame=None, keys: list=None,
