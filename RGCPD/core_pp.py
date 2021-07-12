@@ -901,6 +901,8 @@ def detrend_wrapper(data, kwrgs_detrend: dict=None, return_trend: bool=False,
         if plot and method=='linear':
             _check_trend_plot(data, detrended.reshape(orig_shape))
             data = xr.DataArray(detrended.reshape(orig_shape), coords=coords, dims=dims, attrs=attrs, name=name)
+    else: # numpy array
+        data = detrended.reshape(orig_shape)
 
 
     if return_trend:

@@ -1508,7 +1508,6 @@ def get_testyrs(df_splits: pd.DataFrame, return_traintestgroups=False):
             for gr in np.unique(groups_in_s):
                 yrs = TrainIsTrue_s[groups_in_s==gr]
                 yrs = np.unique(yrs.year.max())
-                print(yrs)
                 groupset.append(list(yrs))
             test_yrs.append(flatten(groupset)) # changed to flatten() 20-05-21
             testgroups.append([list(uniqgroups).index(gr) for gr in np.unique(groups_in_s)])

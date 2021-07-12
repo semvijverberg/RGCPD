@@ -42,10 +42,10 @@ import func_models as fc_utils
 
 
 expers = np.array(['parcorr', 'parcorrENSO',
-                   'parcorrtime_target', 'parcorrtime_precur', 'parcorrtime_both', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
+                   'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 2
+i_default = 0
 
 def parseArguments():
     # Create argument parser
@@ -79,18 +79,15 @@ TVpath = 'z500_155-300-20-7357db0USCA.h5'
 
 TVpath  = os.path.join(mainpath_df, TVpath)
 
-TVpath = os.path.join(path_data, 'eastRW_summer_center_s1.h5')
+TVpath = os.path.join(path_data, 'eastRW_summer_center_s1_RepeatedKFold_10_7_tf1.h5')
 
 period = 'summer'
 if period == 'spring':
     start_end_TVdate = ('03-01', '05-31')
-    tfreq = 60
     lags = np.array([0,1])
 elif period == 'summer':
     start_end_TVdate = ('06-01', '08-31')
-    # start_end_TVdate = ('05-01', '09-15')
-    tfreq = 60
-    lags = np.array([0, 1])
+    lags = np.array([0, 1, 2])
 
 
 
@@ -317,7 +314,7 @@ if 'parcorr' == exper:
     # df_z.index = df_lagmask1.loc[0].loc[years][df_lagmask1.loc[0]['x_pred'].loc[years]].index
     kwrgs_func = {'filepath':filepath_df_PDOs,
                   'keys_ext':['PDO0.5rm'],
-                  'lag_z':[1]} # lag_z is defined wrt precursor dates
+                  'lag_z':[2]} # lag_z is defined wrt precursor dates
     func = parcorr_z
 elif 'parcorrENSO' == exper:
     # lags = np.array([1])
@@ -340,15 +337,23 @@ elif 'parcorrtime' in exper:
         kwrgs_func = {'lag_y':[1], 'lag_x':[1]}
     func = parcorr_map_time
 
+sst_dailytomonths = False
+if sst_dailytomonths:
+    list_of_name_path = [(name_or_cluster_label, TVpath),
+                         ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
+else:
+    list_of_name_path = [(name_or_cluster_label, TVpath),
+                         ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_monthly_1.0deg.nc'))]
+
+
 list_for_MI   = [BivariateMI(name='sst', func=func,
                             alpha=.05, FDR_control=True,
                             kwrgs_func=kwrgs_func,
                             distance_eps=1000, min_area_in_degrees2=1,
                             calc_ts='pattern cov', selbox=(130,260,-10,60),
-                            lags=lags)]
+                            lags=lags, dailytomonths=sst_dailytomonths)]
 
-list_of_name_path = [(name_or_cluster_label, TVpath),
-                       ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_monthly_1.0deg.nc'))]
+
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
@@ -360,12 +365,13 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             append_pathsub='_' + exper)
 
 
-rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=True,
+rg.pp_TV(name_ds=name_ds, detrend=True, anomaly=True,
          kwrgs_core_pp_time={'dailytomonths':True})
 
 rg.pp_precursors()
 
 rg.traintest('random_10')
+
 
 rg.calc_corr_maps()
 precur = rg.list_for_MI[0]
@@ -407,8 +413,6 @@ if 'parcorrENSO' == exper and west_east == 'east':
     val = ''.join([str(kwrgs_func[k]) for k in kw])
     append_str='parcorrENSO_{}_{}_'.format(tscol, period) + ''.join(kw) + val
     fontsize = 14
-
-
 elif exper == 'corr' and west_east == 'east':
     title0 = '\ \n\ ' + r'$corr(SST_{t},\ $'+'$RW^E_t\ )$'
     title1 = '\ \n\ ' + r'$corr(SST_{t-1},\ $'+'$RW^E_t\ )$'
@@ -505,18 +509,18 @@ import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
 #%% get Correlation between pattern and PDO
 
-rg.list_for_MI[0].calc_ts = 'pattern cov'
-rg.cluster_list_MI()
-rg.get_ts_prec()
+# rg.list_for_MI[0].calc_ts = 'pattern cov'
+# rg.cluster_list_MI()
+# rg.get_ts_prec()
 
-df_test = functions_pp.get_df_test(rg.df_data)
+# df_test = functions_pp.get_df_test(rg.df_data)
 
-df_PDO_and_SST = df_PDOs.merge(df_test, left_index=True, right_index=True)[['PDO', '1..0..sst_sp']]
+# df_PDO_and_SST = df_PDOs.merge(df_test, left_index=True, right_index=True)[['PDO', '1..0..sst_sp']]
 
 
-RV_mask = fc_utils.apply_shift_lag(rg.df_splits, 1)['x_pred'].loc[0]
-df_PDO_and_SST = df_PDO_and_SST[RV_mask.values]
-df_PDO_and_SST.corr()
+# RV_mask = fc_utils.apply_shift_lag(rg.df_splits, 1)['x_pred'].loc[0]
+# df_PDO_and_SST = df_PDO_and_SST[RV_mask.values]
+# df_PDO_and_SST.corr()
 
 # rg.cluster_list_MI() ; rg.get_ts_prec() ;
 # out = rg.fit_df_data_ridge()

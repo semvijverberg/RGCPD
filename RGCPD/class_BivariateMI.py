@@ -213,7 +213,7 @@ class BivariateMI:
         xrpvals = xrcorr.copy()
 
 
-        def MI_single_split(RV_ts, precur_train, s, alpha=.05, FDR_control=True):
+        def MI_single_split(df_RVfull, precur_train, s, alpha=.05, FDR_control=True):
 
 
             lat = precur_train.latitude.values
@@ -223,15 +223,28 @@ class BivariateMI:
             Corr_Coeff = np.ma.array(z, mask=z)
             pvals = np.ones((lat.size*lon.size,len(lags) ) )
 
+            RV_mask = df_splits.loc[s]['RV_mask']
+            TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values==True
+            RV_train_mask = np.logical_and(RV_mask, TrainIsTrue)
+            if hasattr(df_RVfull.index, 'levels'):
+                df_RVfull_s = df_RVfull.loc[s]
+            else:
+                df_RVfull_s = df_RVfull
+            RV_ts = df_RVfull_s[RV_train_mask.values]
             dates_RV = RV_ts.index
             for i, lag in enumerate(lags):
                 if type(lag) is np.int16 and self.lag_as_gap==False:
-                    # dates_lag = functions_pp.func_dates_min_lag(dates_RV, self._tfreq*lag)[1]
-                    m = apply_shift_lag(self.df_splits.loc[s], lag)
-                    dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
-                    corr_val, pval = self.func(precur_train.sel(time=dates_lag),
-                                               RV_ts.values.squeeze(),
-                                               **self.kwrgs_func)
+                    if self.func.__name__=='parcorr_map_time':
+                        corr_val, pval = self.func(precur_train, df_RVfull_s,
+                                                   self.df_splits.loc[s].copy(),
+                                                   lag=lag,
+                                                   **self.kwrgs_func)
+                    else:
+                        m = apply_shift_lag(self.df_splits.loc[s], lag)
+                        dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
+                        corr_val, pval = self.func(precur_train.sel(time=dates_lag),
+                                                   RV_ts.values.squeeze(),
+                                                   **self.kwrgs_func)
                 elif type(lag) == np.int16 and self.lag_as_gap==True:
                     # if only shift tfreq, then gap=0
                     datesdaily = RV_class.aggr_to_daily_dates(dates_RV, tfreq=self._tfreq)
@@ -296,12 +309,6 @@ class BivariateMI:
                 # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']
                 # =============================================================================
                 TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values==True
-                RV_train_mask = np.logical_and(RV_mask, TrainIsTrue)
-                if hasattr(df_RVfull.index, 'levels'):
-                    RV_ts = df_RVfull.loc[s][RV_train_mask.values]
-                else:
-                    RV_ts = df_RVfull[RV_train_mask.values]
-
                 if self.lag_as_gap: # no clue why selecting all datapoints, changed 26-01-2021
                     train_dates = df_splits.loc[s]['TrainIsTrue'][TrainIsTrue].index
                     precur_train = precur_arr.sel(time=train_dates)
@@ -311,7 +318,7 @@ class BivariateMI:
                 n = RV_ts.size ; r = int(100*n/RV_mask[RV_mask].size)
                 print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
 
-                output[s] = MI_single_split(RV_ts, precur_train, s,
+                output[s] = MI_single_split(df_RVfull, precur_train, s,
                                             alpha=self.alpha,
                                             FDR_control=self.FDR_control)
             return output
@@ -380,11 +387,9 @@ class BivariateMI:
         # self = rg.list_for_MI[0] ; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
         name = self.name
         filepath = self.filepath
-
-        # for name, filepath in list_precur_pp: # loop over all variables
-            # =============================================================================
-            # Unpack non-default arguments
-            # =============================================================================
+        # =============================================================================
+        # Unpack non-default arguments
+        # =============================================================================
         kwrgs = {'selbox':self.selbox, 'dailytomonths':self.dailytomonths}
         for key, value in kwrgs_load.items():
             if type(value) is list and name in value[1].keys():
@@ -601,10 +606,10 @@ def corr_map(field, ts):
 
     return corr_vals, pvals
 
-def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag_y=0, lag_x=0):
+def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, df_splits_s, lag,
+                     lag_y=0, lag_x=0):
     '''
     Only works for subseasonal data (more then 1 datapoint per year).
-    Lag must be >= 1. Warning!!! what about gap between years and shifting data
 
     Parameters
     ----------
@@ -612,12 +617,15 @@ def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag_y=0, lag_x=0):
         (time, lat, lon) field.
     ts : np.ndarray
         Target timeseries.
+    df_splits_s : pd.DataFrame
+        DF with TrainIsTrue and RV_mask to handle lag shifting
     lag : int, optional
-        DESCRIPTION. The default is 1.
-    target : TYPE, optional
-        DESCRIPTION. The default is True.
-    precursor : TYPE, optional
-        DESCRIPTION. The default is True.
+        lag used to select precursor dates. The default is 1.
+    lag_x : int or list
+        lags w.r.t. the precursor lag to regress out
+    lag_y : int or list
+        lags w.r.t. target RV period to regress out
+
 
     Returns
     -------
@@ -625,48 +633,108 @@ def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag_y=0, lag_x=0):
     pvals : np.ndarray
 
     '''
-    # field = precur_train.sel(time=dates_lag) ; ts = RV_ts.values.squeeze()
-
+    # field = precur_train; ts = df_RVfull_s ; df_splits_s=self.df_splits.loc[s]
     if type(lag_y) is int:
         lag_y = [lag_y]
     if type(lag_x) is int:
         lag_x = [lag_x]
 
-    max_lag = max(max(lag_y), max(lag_x))
-    assert max_lag>0, 'lag_x or lag_y must be >= 1'
     # if more then one year is filled with NaNs -> no corr value calculated.
-    field, ts = check_NaNs(field, ts)
-    x = np.ma.zeros(field.shape[1])
+    m = apply_shift_lag(df_splits_s, lag)
+    dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
+    RV_mask = df_splits_s.sum(axis=1) == 2
+    field_lag, ts_target = check_NaNs(field.sel(time=dates_lag), ts.values.squeeze()[RV_mask])
+    x = np.ma.zeros(field_lag.shape[1])
     corr_vals = np.array(x)
     pvals = np.array(x)
 
-    fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
+    fieldnans = np.array([np.isnan(field_lag[:,i]).any() for i in range(x.size)])
     nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
 
+    missing_edge_data = 0
+    if max(lag_y) > 0:
+        m = apply_shift_lag(df_splits_s, max(lag_y))
+        m = np.logical_and(m['TrainIsTrue']==1, m['x_fit'])
+        missing_edge_data = max(ts_target.shape[0] - ts[m].values.shape[0],
+                                missing_edge_data)
+    if max(lag_x) > 0:
+        m = apply_shift_lag(df_splits_s, max(lag_x)+lag)
+        dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
+        missing_edge_data = max(ts_target.shape[0] - dates_lag.size, missing_edge_data)
 
     if max(lag_y) > 0:
-        zy = [np.expand_dims(ts[max_lag-l:-l], axis=1) for l in lag_y if l != 0]
+        zy = []
+        for _lag in lag_y:
+            m = apply_shift_lag(df_splits_s, _lag)
+            m = np.logical_and(m['TrainIsTrue']==1, m['x_fit'])
+            missing_edge = ts_target.shape[0] - ts[m].values.shape[0]
+            zy.append(ts[m].values[missing_edge_data-missing_edge:])
         zy = np.concatenate(zy, axis=1)
 
-    y = np.expand_dims(ts[max_lag:], axis=1)
+    if max(lag_x) > 0:
+        # this workflow might a bit too memory intensive since copying precursor
+        # len(lag_x) times. But otherwise need to compute this in loop over gridcells.
+        zx_field = []
+        for _lag in lag_x:
+            m = apply_shift_lag(df_splits_s, _lag+lag)
+            dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
+            missing_edge = missing_edge_data - (ts_target.shape[0]  - dates_lag.size)
+            _d = dates_lag[missing_edge:]
+            zx_field.append(field.sel(time=_d).values.reshape(_d.size,1,-1))
+        zx_field = np.concatenate(zx_field, axis=1)
+
+
+    y = np.expand_dims(ts_target[missing_edge_data:], axis=1)
     for i in nonans_gc:
         cond_ind_test = ParCorr()
         if max(lag_x) > 0:
-            zx = [np.expand_dims(field[max_lag-l:-l, i], axis=1) for l in lag_x if l != 0]
-            zx = np.concatenate(zx, axis=1)
+            zx = zx_field[:,:,i]
         if max(lag_x) > 0 and max(lag_y) > 0: # both zy and zx defined
             z = np.concatenate((zy,zx), axis=1)
         elif max(lag_x) > 0 and max(lag_y) == 0: # only zx defined
             z = zx
         elif max(lag_x) == 0 and max(lag_y) > 0:
             z = zy
-        field_i = np.expand_dims(field[max_lag:,i], axis=1)
-        a, b = cond_ind_test.run_test_raw(field_i, y, z)
+        else:
+            z = None
+        field_i = np.expand_dims(field_lag[missing_edge_data:,i], axis=1)
+        a, p = cond_ind_test.run_test_raw(field_i, y, z)
+        # acorr, pcorr = cond_ind_test.run_test_raw(field_i, y, z=None)
+        # if abs(pcorr) -abs(p) > .4 and p < 0.01:
+        #     print('corr increased due to regressing out z', a, acorr)
+        #     break
+        #     field_i = core_pp.detrend_wrapper(field_i)
+        #     y       = core_pp.detrend_wrapper(y)
+        #     for zaxis in range(z.shape[1]):
+        #         z[:,zaxis] = core_pp.detrend_wrapper(z[:,zaxis])
+        #     avald, pvald = cond_ind_test.run_test_raw(field_i, y, z)
+
+
         corr_vals[i] = a
-        pvals[i] = b
+        pvals[i] = p
     # restore original nans
     corr_vals[fieldnans] = np.nan
     return corr_vals, pvals
+
+#%%
+# array = np.moveaxis(np.concatenate([field_i, y, z], axis=1),0,1) ;
+# res_x = ParCorr()._get_single_residuals(array, target_var=0) ;
+# plt.figure()
+# plt.plot(res_x, label='residuals') ;
+# plt.plot(array[0], label='orig x') ;
+# plt.legend()
+
+# plt.figure()
+# res_y = ParCorr()._get_single_residuals(array, target_var=1)
+# plt.plot(res_y, label='residuals')
+# plt.plot(array[1], label='orig y')
+# plt.legend()
+# print('\n',scipy.stats.pearsonr(res_y,res_x))
+# #%%
+# res_x_d = core_pp.detrend_wrapper(res_x)
+# res_y_d = core_pp.detrend_wrapper(res_y)
+# print('\n',scipy.stats.pearsonr(res_y_d,res_x_d))
+#%%
 
 def parcorr_z(field: xr.DataArray, ts: np.ndarray, z: pd.DataFrame, lag_z: int=0):
     '''

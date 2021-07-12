@@ -61,7 +61,7 @@ seeds = np.array([1])
 
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
-i_default = 0
+i_default = 4
 
 
 
