@@ -702,7 +702,7 @@ def import_precur_ts(list_import_ts : List[tuple],
             df_data_e_all = df_data_e_all.loc[dates_subset]
         else:
             dates_subset = core_pp.get_subdates(df_data_e_all.index, start_end_date,
-                                start_end_year)
+                                                start_end_year)
             df_data_e_all = df_data_e_all.loc[dates_subset]
 
         if 'TrainIsTrue' in df_data_e_all.columns:

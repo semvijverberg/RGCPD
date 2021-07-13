@@ -44,7 +44,7 @@ expers = np.array(['parcorr', 'parcorrENSO','parcorr_SSTlag1',
                    'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 5
+i_default = 0
 def parseArguments():
     # Create argument parser
     parser = argparse.ArgumentParser()
@@ -312,17 +312,16 @@ if 'parcorr' == exper:
     # years = functions_pp.get_oneyr(df_lagmask1.loc[0], *list(range(1980, 2020+1)))
     # df_z.index = df_lagmask1.loc[0].loc[years][df_lagmask1.loc[0]['x_pred'].loc[years]].index
     kwrgs_func = {'filepath':filepath_df_PDOs,
-                  'keys_ext':['PDO0.5rm'],
+                  'keys_ext':['PDO'],
                   'lag_z':[1]} # lag_z is defined wrt precursor dates
 elif 'parcorrENSO' == exper:
     kwrgs_func = {'filepath':filepath_df_ENSO,
                   'keys_ext':['ENSO34'],
                   'lag_z':[1]} # lag_z is defined wrt precursor dates
 elif 'parcorr_SSTlag1' == exper:
-    kwrgs_func = {'filepath':filepath_df_SSTlag1,
-                  'keys_ext':['1..0..sst_sp'],
-                  'lag_z':[1],
-                  'input_freq':'monthly'} # lag_z is defined wrt precursor dates
+    df_z = functions_pp.load_hdf5(filepath_df_SSTlag1)['df_data']
+    kwrgs_func = {'filepath':df_z.mean(axis=0, level=1),
+                  'lag_z':[1]} # lag_z is defined wrt precursor dates
 
 elif exper == 'corr':
     kwrgs_func = {} ;
@@ -398,7 +397,18 @@ if 'parcorr' == exper and west_east == 'east':
     val = ''.join([str(kwrgs_func[k]) for k in kw])
     append_str='parcorr_{}_{}_'.format(tscol, period) + ''.join(kw) + val
     fontsize = 14
-
+if 'parcorr_SSTlag1' == exper and west_east == 'east':
+    z_ts = '$SST^{pattern}_{t-1}$'
+    # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+    title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+    z_ts = '$SST^{pattern}_{t-2}$'
+    title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+    subtitles = np.array([[title0],[title1]])
+    tscol = ''.join(precur.kwrgs_func['df_z'].columns)
+    kw = [k for k in precur.kwrgs_func.keys() if k != 'z']
+    val = ''.join([str(kwrgs_func[k]) for k in kw])
+    append_str='parcorr_{}_{}_'.format(tscol, period) + ''.join(kw) + val
+    fontsize = 14
 if 'parcorrENSO' == exper and west_east == 'east':
     z_ts = '$\overline{ENSO_{t-1}}$'
     title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
@@ -466,16 +476,19 @@ kwrgs_plot = {'row_dim':'lag', 'col_dim':'split',
               'subtitles':subtitles, 'subtitle_fontdict':{'fontsize':13},
               'title_fontdict':{'fontsize':fontsize, 'fontweight':'bold'}}
 #%%
+plotlags= [0,1]
 if sys.platform == 'linux':
     for min_detect_gc in [.5,.6,.7,.8,.9,1.]:
         rg.plot_maps_corr(var='sst', save=save,
                           kwrgs_plot=kwrgs_plot,
                           min_detect_gc=min_detect_gc,
+                          plotlags=plotlags,
                           append_str=append_str)
 else:
     rg.plot_maps_corr(var='sst', save=save,
                       kwrgs_plot=kwrgs_plot,
                       min_detect_gc=min_detect_gc,
+                      plotlags=plotlags,
                       append_str=append_str)
 
 #%% plot lag 1

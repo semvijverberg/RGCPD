@@ -380,6 +380,9 @@ def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
                             start_end_year,
                             closed=closed,
                             start_end_TVdate=start_end_TVdate)[0]
+    elif tfreq == 1: # to align with traintest groups.
+        ds = timeseries_tofit_bins(ds, tfreq, start_end_date, start_end_year,
+                                   start_end_TVdate=start_end_TVdate)[0]
     ds = ds.squeeze()
     # check if no axis has length 0:
     assert 0 not in ds.shape, ('loaded ds has a dimension of length 0'
@@ -738,8 +741,6 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
                                       closed_on_date, tfreq)
             start_day = start_yr.min()
             end_day = start_yr.max()
-
-
 
     # if input_freq == 'month':
     #     dt = date_dt(months=tfreq)
@@ -1787,3 +1788,6 @@ def check_pp_done(name, infile, kwrgs_load: dict=None, verbosity=1):
 #    dates_fit_tfreq = dates
     #%%
     return outfile
+
+
+

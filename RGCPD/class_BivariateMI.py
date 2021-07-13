@@ -645,7 +645,7 @@ def parcorr_map(field: xr.DataArray, ts: pd.DataFrame, df_splits_s, lag,
     '''
     # field = precur_train; ts = df_RVfull_s ; df_splits_s=self.df_splits.loc[s]
     # lagzxrelative=True; lag_y=None; lag_z=None ; lag_x=None
-     # df_z = self.kwrgs_func['df_z']
+    # df_z = self.kwrgs_func['df_z']
     if type(lag_y) is int:
         lag_y = [lag_y]
     if type(lag_x) is int:
@@ -747,10 +747,11 @@ def parcorr_map(field: xr.DataArray, ts: pd.DataFrame, df_splits_s, lag,
                 z = np.append(z, _z, axis=1) # append other z's
         field_i = np.expand_dims(field_lag[missing_edge_data:,i], axis=1)
         a, p = cond_ind_test.run_test_raw(field_i, y, z)
-        # acorr, pcorr = cond_ind_test.run_test_raw(field_i, y, z=None)
-        # if abs(pcorr) -abs(p) > .4 and p < 0.01:
-        #     print('corr increased due to regressing out z', a, acorr)
-        #     break
+        acorr, pcorr = cond_ind_test.run_test_raw(field_i, y, z=None)
+        if abs(pcorr) -abs(p) > .4 and p < 0.01:
+            print('corr increased due to regressing out z', a, acorr)
+            plot_maps.show_field_point(field, i=i)
+            break
         #     field_i = core_pp.detrend_wrapper(field_i)
         #     y       = core_pp.detrend_wrapper(y)
         #     for zaxis in range(z.shape[1]):
@@ -778,6 +779,9 @@ def parcorr_map(field: xr.DataArray, ts: pd.DataFrame, df_splits_s, lag,
 #                   'pc_alpha':0.05, 'max_combinations':10, 'max_conds_px':1}
 # rg.precur_aggr = 2
 # rg.PCMCI_df_data(kwrgs_tigr=kwrgs_tigr)
+#%% Some timeseries plots
+# plt.style.use('bmh') ; plt.plot(field_i, label='$x{_t}$') ; plt.plot(zx, c='b', label=r'$x_{t-1}$') ; plt.legend(fontsize=16)
+# plt.style.use('bmh') ; plt.plot(field_i, label='$x{_t}$') ; plt.plot(zz, c='b', label=r'$x^{pattern}_{t-1}$') ; plt.legend(fontsize=14)
 #%%
 # pd.DataFrame(field.values.reshape(field.shape[0].size,-1), index=pd.to_datetime(field.time.values)).iloc[:,i]
 # array = np.moveaxis(np.concatenate([field_i, y, z], axis=1),0,1) ;

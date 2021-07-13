@@ -257,7 +257,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                         g.axes[row_text,col_text].text(int(lontext), int(lattext),
                                                        text, **kwrgs)
             # =============================================================================
-            # Add scatter points list([[ax_loc, list(np_array_xy, kwrgs)]])
+            # Add scatter points , e.g. [['all', [array([[  0.5, 160.5]]), {}]]]
             # =============================================================================
             if scatter is not None:
                 for list_s in scatter:
@@ -820,3 +820,29 @@ def get_continuous_cmap(hex_list, float_list=None):
         cdict[col] = col_list
     cmp = mcolors.LinearSegmentedColormap('my_cmp', segmentdata=cdict, N=256)
     return cmp
+
+def show_field_point(field, i=None, lat=None, lon=None):
+    ''' Lon in degrees west (give negative values when west)'''
+    lats = list(field.latitude.values)
+    lons = list(field.longitude.values)
+    latlons = [[la,lo] for la in lats for lo in lons]
+    if i is not None:
+        latlon = latlons[i]
+        lon = ((latlon[1] + 180) % 360) - 180
+        print(f'latitude : {latlon[0]}, longitude {lon}')
+    if lat is not None and lon is not None:
+        fieldpoint = field.sel(latitude=lat,
+                              method='nearest').sel(longitude=(lon+ 360) % 360,
+                                                    method='nearest')
+        lat = float(fieldpoint.latitude.values)
+        lon = float(fieldpoint.longitude.values)
+        latlon = [lat,lon] ; i = latlons.index(latlon)
+        print(f'nearest latitude : {lat}, nearest longitude {((lon+ 180) % 360) - 180}'
+              f', index {i}')
+    fieldstep = field[0].drop_vars('time')
+    scatter = [['all', [np.array([latlon]), {}]]]
+    fieldstep.values[:,:] = 0
+    plot_corr_maps(fieldstep, scatter=scatter)
+
+
+
