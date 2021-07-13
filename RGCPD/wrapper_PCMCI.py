@@ -214,7 +214,7 @@ def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level, FDR_cv='fdr_bh'
     splits = np.array(list(pcmci_dict.keys()))
 
     # collect p-vals accross cv folds
-    if FDR_cv is not None or FDR_cv is not False:
+    if FDR_cv is not None and FDR_cv is not False:
         pq_matrix = []
         for s in range(splits.size):
             results = pcmci_results_dict[s]
