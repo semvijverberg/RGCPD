@@ -941,7 +941,7 @@ class RGCPD:
 
 
     def plot_maps_corr(self, var=None, plotlags: list=None, kwrgs_plot: dict={},
-                       mean: bool=True, min_detect_gc: float=.5,
+                       splits: str='mean', min_detect_gc: float=.5,
                        mask_xr=None, region_labels: Union[int,list]=None,
                        save: bool=False, append_str: str=None):
 
@@ -965,10 +965,12 @@ class RGCPD:
                 xrmask = pclass.corr_xr['mask']
             xrvals = pclass.corr_xr.sel(lag=plotlags)
             xrmask = xrmask.sel(lag=plotlags)
-            if mean:
+            if splits == 'mean':
                 xrvals, xrmask = RGCPD._get_sign_splits_masked(xrvals,
                                                                min_detect_gc,
                                                                xrmask)
+            elif type(splits) is int:
+                xrvals, xrmask = xrvals.sel(split=splits), xrmask.sel(split=splits)
 
             plot_maps.plot_corr_maps(xrvals,
                                      mask_xr=xrmask, **kwrgs_plot)
@@ -979,7 +981,7 @@ class RGCPD:
                 else:
                     f_name = '{}_a{}'.format(precur_name,
                                              pclass.alpha)
-                if mean:
+                if splits == 'mean':
                     f_name += f'_md{min_detect_gc}'
 
                 fig_path = os.path.join(self.path_outsub1, f_name)+self.figext

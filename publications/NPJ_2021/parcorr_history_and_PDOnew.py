@@ -304,7 +304,7 @@ if 'parcorr' == exper:
 
 
 #%%
-
+lowpass = 0.5
 func = parcorr_map
 if 'parcorr' == exper:
     # lags = np.array([1])
@@ -312,7 +312,7 @@ if 'parcorr' == exper:
     # years = functions_pp.get_oneyr(df_lagmask1.loc[0], *list(range(1980, 2020+1)))
     # df_z.index = df_lagmask1.loc[0].loc[years][df_lagmask1.loc[0]['x_pred'].loc[years]].index
     kwrgs_func = {'filepath':filepath_df_PDOs,
-                  'keys_ext':['PDO'],
+                  'keys_ext':[f'PDO{lowpass}rm'],
                   'lag_z':[1]} # lag_z is defined wrt precursor dates
 elif 'parcorrENSO' == exper:
     kwrgs_func = {'filepath':filepath_df_ENSO,
@@ -329,7 +329,7 @@ elif 'parcorrtime' in exper:
     if exper.split('_')[1] == 'target':
         kwrgs_func = {'lag_y':[1]}
     elif exper.split('_')[1] == 'precur':
-        kwrgs_func = {'lag_x':[2]}
+        kwrgs_func = {'lag_x':[1]}
     elif exper.split('_')[1] == 'both':
         kwrgs_func = {'lag_y':[1], 'lag_x':[1]}
 
@@ -363,7 +363,7 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             append_pathsub='_' + exper)
 
 
-rg.pp_TV(name_ds=name_ds, detrend=True, anomaly=True,
+rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=False, # detrending already done on z500
          kwrgs_core_pp_time={'dailytomonths':True})
 
 rg.pp_precursors()
@@ -393,10 +393,10 @@ if 'parcorr' == exper and west_east == 'east':
     title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
     subtitles = np.array([[title0],[title1]])
     tscol = ''.join(precur.kwrgs_func['df_z'].columns)
-    kw = [k for k in precur.kwrgs_func.keys() if k != 'z']
+    kw = [k for k in kwrgs_func.keys() if k != 'df_z']
     val = ''.join([str(kwrgs_func[k]) for k in kw])
-    append_str='parcorr_{}_{}_'.format(tscol, period) + ''.join(kw) + val
-    fontsize = 14
+    append_str='parcorrtime_{}_'.format(period) + ''.join(kw) + val
+    fontsize = 12
 if 'parcorr_SSTlag1' == exper and west_east == 'east':
     z_ts = '$SST^{pattern}_{t-1}$'
     # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
@@ -423,8 +423,8 @@ if 'parcorrENSO' == exper and west_east == 'east':
     append_str='parcorrENSO_{}_{}_'.format(tscol, period) + ''.join(kw) + val
     fontsize = 14
 elif exper == 'corr' and west_east == 'east':
-    title0 = '\ \n\ ' + r'$corr(SST_{t},\ $'+'$RW^E_t\ )$'
-    title1 = '\ \n\ ' + r'$corr(SST_{t-1},\ $'+'$RW^E_t\ )$'
+    title0 =  r'$corr(SST_{t},\ $'+'$RW^E_t\ )$'
+    title1 =  r'$corr(SST_{t-1},\ $'+'$RW^E_t\ )$'
     subtitles = np.array([[title0],[title1]])
     append_str='' ; fontsize = 14 ; hspace = .2
 elif 'parcorrtime' in exper and west_east == 'east':
@@ -439,11 +439,11 @@ elif 'parcorrtime' in exper and west_east == 'east':
     elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' not in list(kwrgs_func.keys()):
         # regress out past target variable
         z_ts = ', '.join([f'$RW^E_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
-        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
-        # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+        # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
         z_ts = ', '.join([f'$RW^E_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
-        # title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
-        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+        # title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
         subtitles = np.array([[title0],[title1]])
     elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' in list(kwrgs_func.keys()):
         # regress out past target variable
@@ -459,8 +459,8 @@ elif 'parcorrtime' in exper and west_east == 'east':
         subtitles = np.array([[title0],[title1]])
     # else:
     #     title = r'$parcorr(SST_{t-lag}, $'+'$RW^E_t\ |\ $'+r'$SST_{t-lag-1},$'+'$RW^E_{t-1})$'
-    kw = [k for k in kwrgs_func.keys() if k != 'z']
-    val = ''.join([str(kwrgs_func[k]) for k in kwrgs_func.keys()])
+    kw = [k for k in kwrgs_func.keys() if k != 'df_z']
+    val = ''.join([str(kwrgs_func[k]) for k in kw])
     append_str='parcorrtime_{}_'.format(period) + ''.join(kw) + val
     fontsize = 12
 
@@ -500,6 +500,7 @@ else:
 #     else:
 #         title = r'$parcorr(SST_{t-1},\ RW^E_t\ |\ SST_{t-2}, RW^E_{t-1})$'
 
+
 kwrgs_plot['subtitles'] = subtitles[[1]]
 kwrgs_plot['cbar_vert'] = -.1
 kwrgs_plot['title'] = title
@@ -512,10 +513,45 @@ if sys.platform == 'linux':
                           append_str=append_str+'Lag1')
 else:
     rg.plot_maps_corr(var='sst', plotlags=[1], save=save,
+                      splits='mean',
                       kwrgs_plot=kwrgs_plot,
                       min_detect_gc=min_detect_gc,
                       append_str=append_str+'Lag1')
+#%%
+if exper == 'parcorrtime_precur' or exper == 'parcorrtime_target':
+    kwrgs_plot['scatter']= [['all', [[np.array([[ 15.5, 204.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 16.5, 204.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 16.5, 205.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 16.5, 206.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 17.5, 204.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 17.5, 205.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 17.5, 206.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 18.5, 204.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 18.5, 205.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 19.5, 205.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 45.5, 167.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 46.5, 170.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 46.5, 171.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 46.5, 172.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 46.5, 182.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 46.5, 183.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 173.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 174.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 175.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 176.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 177.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 178.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 179.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 48.5, 177.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 50.5, 162.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 50.5, 163.5]]), {'color':'purple', 'edgecolors':"black"}]]]]
 
+
+    rg.plot_maps_corr(var='sst', plotlags=[1], save=save,
+                      splits=9,
+                      kwrgs_plot=kwrgs_plot,
+                      min_detect_gc=min_detect_gc,
+                      append_str=append_str+'Lag1_scatter')
 #%%
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)

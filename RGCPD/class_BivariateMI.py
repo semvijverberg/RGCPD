@@ -643,6 +643,7 @@ def parcorr_map(field: xr.DataArray, ts: pd.DataFrame, df_splits_s, lag,
     pvals : np.ndarray
 
     '''
+    #%%
     # field = precur_train; ts = df_RVfull_s ; df_splits_s=self.df_splits.loc[s]
     # lagzxrelative=True; lag_y=None; lag_z=None ; lag_x=None
     # df_z = self.kwrgs_func['df_z']
@@ -735,6 +736,7 @@ def parcorr_map(field: xr.DataArray, ts: pd.DataFrame, df_splits_s, lag,
 
 
     y = np.expand_dims(ts_target[missing_edge_data:], axis=1)
+    # dict_ana = {}
     for i in nonans_gc:
         cond_ind_test = ParCorr()
         if lag_x is not None:
@@ -747,11 +749,13 @@ def parcorr_map(field: xr.DataArray, ts: pd.DataFrame, df_splits_s, lag,
                 z = np.append(z, _z, axis=1) # append other z's
         field_i = np.expand_dims(field_lag[missing_edge_data:,i], axis=1)
         a, p = cond_ind_test.run_test_raw(field_i, y, z)
-        acorr, pcorr = cond_ind_test.run_test_raw(field_i, y, z=None)
-        if abs(pcorr) -abs(p) > .4 and p < 0.01:
-            print('corr increased due to regressing out z', a, acorr)
-            plot_maps.show_field_point(field, i=i)
-            break
+        # acorr, pcorr = cond_ind_test.run_test_raw(field_i, y, z=None)
+        # if abs(a) - abs(acorr) > .15 and p < 0.01 and a < 0:
+        #     dict_ana[i] = [field_i, y, z]
+        #     #
+        #     print('corr increased due to regressing out z', a, acorr)
+        #     plot_maps.show_field_point(field, i=i)
+        #     break
         #     field_i = core_pp.detrend_wrapper(field_i)
         #     y       = core_pp.detrend_wrapper(y)
         #     for zaxis in range(z.shape[1]):
@@ -761,11 +765,30 @@ def parcorr_map(field: xr.DataArray, ts: pd.DataFrame, df_splits_s, lag,
 
         corr_vals[i] = a
         pvals[i] = p
+
+    # i_gridcells = np.array(list(dict_ana.keys()))
+    # dict_ana1 = {i:dict_ana[i] for i in i_gridcells[i_gridcells<5000]}
+    # dict_ana2 = {i:dict_ana[i] for i in i_gridcells[i_gridcells>5000]}
+    # dic = dict_ana1
+    # if len(dic) != 0:
+    #     arr = np.array([np.concatenate(dic[i], axis=1) for n,i in enumerate(dic.keys())])
+
+    #     z_label='$x_{t-2}$'
+    #     # for n,i in enumerate(dic.keys()):
+    #     #     field_i = arr[n][:,0] ; y = arr[n][:,1] ; z = arr[n][:,2:]
+    #     #     check_parcorr_plots(field, field_i, y, z, i, dates_lag, z_label)
+    #     arr = arr.mean(0) # mean over timeseries
+    #     field_i = arr[:,0] ; y = arr[:,1] ; z = arr[:,2:]
+    #     m = apply_shift_lag(df_splits_s, 1)
+    #     dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
+    #     dates_lag = dates_lag[missing_edge_data:]
+    #     check_parcorr_plots(field, field_i, y, z, 'red_mean', dates_lag, z_label)
     # restore original nans
     corr_vals[fieldnans] = np.nan
+    #%%
     return corr_vals, pvals
 
-#%% Tigramite check of parcorr
+#%% Tigramite check of parcorr, datapoint: i = 3455
 
 # df_x = pd.DataFrame(field.values.reshape(field.shape[0],-1)[:,i], index=pd.to_datetime(field.time.values),
 #                     columns=['x'])
@@ -774,33 +797,251 @@ def parcorr_map(field: xr.DataArray, ts: pd.DataFrame, df_splits_s, lag,
 # df_tig = pd.concat([df_y.merge(df_x, left_index=True,
 #                     right_index=True).merge(masks,
 #                                             left_index=True,right_index=True)], keys=[0])
-
+# rg.df_data = df_tig
 # kwrgs_tigr = {'tau_min':0, 'tau_max':1, 'max_conds_dim':10,
 #                   'pc_alpha':0.05, 'max_combinations':10, 'max_conds_px':1}
 # rg.precur_aggr = 2
 # rg.PCMCI_df_data(kwrgs_tigr=kwrgs_tigr)
 #%% Some timeseries plots
-# plt.style.use('bmh') ; plt.plot(field_i, label='$x{_t}$') ; plt.plot(zx, c='b', label=r'$x_{t-1}$') ; plt.legend(fontsize=16)
-# plt.style.use('bmh') ; plt.plot(field_i, label='$x{_t}$') ; plt.plot(zz, c='b', label=r'$x^{pattern}_{t-1}$') ; plt.legend(fontsize=14)
-#%%
-# pd.DataFrame(field.values.reshape(field.shape[0].size,-1), index=pd.to_datetime(field.time.values)).iloc[:,i]
-# array = np.moveaxis(np.concatenate([field_i, y, z], axis=1),0,1) ;
-# res_x = ParCorr()._get_single_residuals(array, target_var=0) ;
-# plt.figure()
-# plt.plot(res_x, label='residuals') ;
-# plt.plot(array[0], label='orig x') ;
-# plt.legend()
+def check_parcorr_plots(field, field_i, y, z, i, dates_lag, z_label='$x_{t-2}$'):
+    #%%
+    import matplotlib.pyplot as plt
+    fs = 20
+    # z = zx
+    # z_label = '$x_{t-2}$'
+    # z_label = '$x^{pattern}_{t-2}$'
+    # z = zz
+    array = np.vstack((field_i.T, y.T, z.T))
+    array = (array - np.mean(array, 1)[:,None]) / np.std(array, 1)[:,None]
 
-# plt.figure()
-# res_y = ParCorr()._get_single_residuals(array, target_var=1)
-# plt.plot(res_y, label='residuals')
-# plt.plot(array[1], label='orig y')
-# plt.legend()
-# print('\n',scipy.stats.pearsonr(res_y,res_x))
+    # Plot x_t-1 and z
+    path_out = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper2_Sem/Third_submission/figures/parcorr_figs/gridcells'
+    path_df_z = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/NPJ_2021/data/df_SST_lag1.h5'
+
+    # plot corr(y,x) vs corr(y,res_x)
+
+    df_z = functions_pp.load_hdf5(path_df_z)['df_data'].mean(axis=0, level=1)
+    df_z = df_z.loc[dates_lag].values.squeeze()
+    res_x = ParCorr()._get_single_residuals(np.copy(array), target_var=0)
+    res_y = ParCorr()._get_single_residuals(np.copy(array), target_var=1)
+
+    df_z = ((df_z - df_z.mean()) / df_z.std()) * -1
+    res_x = (res_x - res_x.mean()) / res_x.std()
+    res_y = (res_y - res_y.mean()) / res_y.std()
+    xlag = ((array[0]-np.mean(array[0],0))/np.std(array[0],0)).squeeze()
+
+    corr_function_patt = ((array[1]-np.mean(array[1])) * (df_z - df_z.mean()))
+    corr_function_xlag = ((array[1]-np.mean(array[1])) * (xlag-xlag.mean()))
+    corr_function_resx = ((res_y-np.mean(res_y)) * (res_x - res_x.mean()))
+    diff = abs(corr_function_xlag  - corr_function_resx)
+    remove_idx = 6
+    idx_skip = np.argwhere(diff >= sorted(diff)[-remove_idx]).squeeze()
+    # index_argmin = np.arange(0,73)[diff<sorted(diff)[-remove_idx]]
+
+
+    f, axes = plt.subplots(5,1, figsize=(15,25))
+    # bbox_to_anchor=(0.5, 1.42)
+    ax1 = axes[0]
+    ax1.plot(corr_function_xlag, c='#0096c7', label=r'$(y_t-\overline{y_t})\cdot (x_{t-1}-\overline{x_{t-1}})$')
+    ax1.plot(corr_function_resx, c='purple',
+            label=r'$(res_y-\overline{res_y})\cdot (res_x-\overline{res_x})$')
+    ax1.legend(fontsize=fs, loc='lower left')#, bbox_to_anchor=bbox_to_anchor, loc='upper center')
+    # ax1.scatter(idx_skip, corr_function_resx[idx_skip], c='r')
+    corr_n = scipy.stats.pearsonr(array[1].squeeze(), array[0].squeeze())
+    corr_r = scipy.stats.pearsonr(res_y,res_x)
+    # corr_r_excl = scipy.stats.pearsonr(res_y[index_argmin],res_x[index_argmin])
+    ax1.set_ylim(corr_function_resx.min()-2,
+                max(corr_function_resx.max(), corr_function_xlag.max())+.5)
+    textstr = '$corr(y_t,x_{t-1})=$'+f'${round(corr_n[0],2)}\ ({round(corr_n[1],3)})$\n'
+    textstr += '$corr(res_y,res_x)=$'+f'${round(corr_r[0],2)}\ ({round(corr_r[1],3)})$'
+    # textstr += '$corr(res_y,res_x)=$'+f'{round(corr_r_excl,2)} (excl red datapoint)'
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    # place a text box in upper left in axes coords
+    ax1.text(0.98, 0.05, textstr, transform=ax1.transAxes, fontsize=fs,
+            verticalalignment='bottom',
+            horizontalalignment='right', bbox=props)
+
+
+    ax2 = axes[1]
+    # y_t and x_t-1
+    ax2.plot(array[1], c='red', label='$y_t$', alpha=.8, ls='--')
+    ax2.scatter(range(array[1].size), array[1],
+                color='red', alpha=.5) ;
+    ax2.plot(array[0], c='#0096c7', label='$[x_{t-1}]$') ;
+    ax2.scatter(range(array[0].size), array[0],
+                color='#0096c7', alpha=.8) ;
+    ax2.set_ylim(min(array[:2].ravel())-2,
+                max(array[:2].ravel())+.5)
+    ax2.legend(fontsize=fs, loc='lower left')#, bbox_to_anchor=bbox_to_anchor, loc='upper center')
+
+    # res_y and res_x
+    ax3 = axes[2]
+    ax3.plot(res_y, c='red', label='$res_y\ [y_{t} | $'+f'{z_label}$]$', alpha=.8, ls='--')
+    ax3.scatter(range(array[1].size), res_y,
+                color='red', alpha=.5) ;
+    ax3.plot(res_x, c = 'purple', label='$res_x\ [x_{t-1} | $'+f'{z_label}$]$')
+    ax3.scatter(range(array[0].size), res_x,
+                color='purple', alpha=.8) ;
+    ax3.set_ylim(min(min(res_y), min(res_x))-4,
+                 max(max(res_y), max(res_x))+.5)
+    ax3.legend(fontsize=fs, loc='lower left')#, bbox_to_anchor=bbox_to_anchor, loc='upper center')
+
+    # Gradient vs Residual x
+    ax4 = axes[3]
+    xlag = ((field_i - np.mean(field_i)) / np.std(field_i)).squeeze()
+    gradient = (xlag) - (((z-np.mean(z,0))/np.std(z,0)).squeeze())
+    gradient = (gradient - np.mean(gradient)) / np.std(gradient)
+    ax4.plot(gradient, c='orange', label='Gradient $[x_{t-1} - $'+'$x_{t-2}$'+'$]$')
+    ax4.plot(res_x, c='purple', label='Residual $[x_{t-1} | $'+'$x_{t-2}$'+'$]$') ;
+    ax4.set_ylim(min(min(xlag), min(gradient))-3,
+                 max(max(xlag), max(gradient))+.5)
+    ax4.legend(fontsize=fs, loc='lower left')#, bbox_to_anchor=bbox_to_anchor, loc='upper center')
+
+    ax5 = axes[4]
+    ax5.plot(corr_function_patt, c='green', alpha=.5,
+             label=r'$(y_t-\overline{y_t})\cdot (x^{pattern}_{t-1}-\overline{x^{pattern}_{t-1}})$')
+    ax5.plot(corr_function_xlag, c='#0096c7', label=r'$(y_t-\overline{y_t})\cdot (x_{t-1}-\overline{x_{t-1}})$')
+    ax5.legend(fontsize=fs, loc='lower left')#, bbox_to_anchor=bbox_to_anchor, loc='upper center')
+    corr_n = scipy.stats.pearsonr(array[1].squeeze(), array[0].squeeze())
+    corr_r = scipy.stats.pearsonr(array[1].squeeze(),df_z)
+    ax5.set_ylim(corr_function_resx.min()-1.5,
+                max(corr_function_resx.max(), corr_function_xlag.max())+.5)
+    textstr = '$corr(y_t,x_{t-1})=$'+f'${round(corr_n[0],2)}\ ({round(corr_n[1],3)})$\n'
+    textstr += '$corr(y_t,x^{pattern}_{t-1})=$'+f'${round(corr_r[0],2)}\ ({round(corr_r[1],3)})$'
+    # textstr += '$corr(res_y,res_x)=$'+f'{round(corr_r_excl,2)} (excl red datapoint)'
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    # place a text box in upper left in axes coords
+    ax5.text(0.98, 0.05, textstr, transform=ax5.transAxes, fontsize=fs,
+            verticalalignment='bottom',
+            horizontalalignment='right', bbox=props)
+
+
+    plt.subplots_adjust(hspace=.2) ;
+    if 'purple' in i:
+        plot_labels = ['A', 'B', 'C', 'D', 'E']
+    elif 'red' in i:
+        plot_labels = ['F', 'G', 'H', 'I', 'J']
+    for i_ax, ax in enumerate(axes):
+        ax.minorticks_on() ; ax.axhline(y=0, color='black')
+        ax.grid(b=True, which='minor', color='grey', linestyle='--')
+        [ax.axvline(x=x, c='grey', alpha=.8) for x in idx_skip]
+        ax.tick_params(labelsize=16)
+        ax.text(0.01, 0.96, plot_labels[i_ax], transform=ax.transAxes, fontsize=fs+4,
+        verticalalignment='top',
+        horizontalalignment='left', bbox={'facecolor':'white'})
+    f.savefig(path_out + f'/{i}_correlation_function_{z_label}.jpeg', bbox_inches='tight')
+    #%%
+    # plt.savefig(path_out + f'/{i}_residual_parcorr(xt-1_{z_label}).jpeg')
+
+
+    # Original y and residual y
+    plt.figure(figsize=(10,5))
+    plt.plot(array[1], label='Original $[y_t]$')
+    plt.plot(res_y, label='Residual $[y_{1} | $'+f'{z_label}$]$') ;
+    plt.legend(fontsize=fs, loc='upper center')
+    plt.savefig(path_out + f'/{i}_residual_parcorr(yt_{z_label}).jpeg')
+    dim, T = array.shape
+    xyz = np.array([0 for i in range(field_i.shape[-1])] +
+                   [1 for i in range(y.shape[-1])] +
+                   [2 for i in range(z.shape[-1])])
+    print('\n',scipy.stats.pearsonr(res_y,res_x)[0],
+            ParCorr().get_significance(scipy.stats.pearsonr(res_y,res_x)[0], array, xyz, T, dim))
+
+
+
+    # print('\n',scipy.stats.pearsonr(array[1].squeeze(),gradient))
+    # print('\n',scipy.stats.pearsonr(res_x,gradient))
+    # print('\n',scipy.stats.pearsonr(array[1].squeeze(),res_x))
+    # print('\n',scipy.stats.pearsonr(array[0].squeeze(),res_x))
+
+    # Relationship between x_t-1 and gradient
+    plt.figure(figsize=(10,5))
+    xlag = array[0]
+    gradient = xlag - ((z-np.mean(z,0))/np.std(z,0)).squeeze()
+    gradient = (gradient - np.mean(gradient) / np.std(gradient))
+    plt.style.use('bmh') ;
+    plt.plot(gradient, label='Gradient $[x_{t-1} - $'+'$x_{t-2}$'+'$]$')
+    plt.plot(xlag, label='Original $[x_{t-1}]$') ;
+    plt.legend(fontsize=fs)
+    plt.savefig(path_out + f'/{i}_xt-1_vs_gradient_{z_label}.jpeg')
+
+    plt.figure(figsize=(10,5)) ; plt.style.use('bmh')
+    plt.plot(array[0], label='$x_{t-1}$') ;
+    plt.plot(array[2], c='b', label=z_label) ;
+    plt.legend(fontsize=fs, loc='upper center')
+    plt.savefig(path_out + f'/{i}_timeseries_xt-1_{z_label}.jpeg')
+    #%%
+    return
+#%%
+
+
+#%%
+
+
+
+
+# #%% Relationship between x_t-1 and gradient
+# plt.figure(figsize=(10,5))
+# xlag = ((field_i - np.mean(field_i)) / np.std(field_i)).squeeze()
+# gradient = xlag - ((zx-np.mean(zx,0))/np.std(zx,0)).squeeze()
+# gradient = (gradient - np.mean(gradient) / np.std(gradient))
+# plt.style.use('bmh') ;
+# plt.plot(gradient, label='Gradient $[x_{t-1} - $'+'$x_{t-2}$'+'$]$')
+# plt.plot(xlag, label='Original $[x_{t-1}]$') ;
+# plt.legend(fontsize=fs)
+# plt.savefig(path_out + f'/xt-1_vs_gradient_{z_label}.jpeg')
+
+# #%% Residual with x_t-2 versus residual with x_t-2 pattern
+# array = np.vstack((field_i.T, y.T, zx.T))
+# array = (array - np.mean(array, 1)[:,None]) / np.std(array, 1)[:,None]
+# res_xx = ParCorr()._get_single_residuals(np.copy(array), target_var=0)
+# array = np.vstack((field_i.T, y.T, zz.T))
+# array = (array - np.mean(array, 1)[:,None]) / np.std(array, 1)[:,None]
+# res_xz = ParCorr()._get_single_residuals(np.copy(array), target_var=0)
+
+# plt.figure(figsize=(10,5))
+# plt.plot(res_xx, label='Residual $[x_{t-1} | x_{t-2}]$') ;
+# plt.plot(res_xz, label='Residual $[x_{t-1} | x^{pattern}_{t-2}]$')
+# plt.legend(fontsize=fs, loc='upper center')
+# plt.ylim(-2.5,3)
 # #%%
-# res_x_d = core_pp.detrend_wrapper(res_x)
-# res_y_d = core_pp.detrend_wrapper(res_y)
-# print('\n',scipy.stats.pearsonr(res_y_d,res_x_d))
+# plt.figure(figsize=(10,5))
+# plt.plot(abs(array[1] - ((zz-np.mean(zz,0))/np.std(zz,0)).squeeze()), label='$y_t - x_{t-1} | x^{pattern}_{t-2}$')
+# plt.plot(abs(array[1] - ((zx-np.mean(zx,0))/np.std(zx,0)).squeeze()), label='$y_t - x_{t-1} | x_{t-2}$')
+# plt.legend(fontsize=fs, loc='upper center')
+# plt.ylim(0,4)
+# #%%
+# plt.figure(figsize=(10,5))
+# plt.plot(abs(array[1] - xlag), label='$y_t - x_{t-1}$')
+# plt.plot(abs(array[1] - ((zx-np.mean(zx,0))/np.std(zx,0)).squeeze()), label='$y_t - x_{t-1} | x_{t-2}$')
+# plt.legend(fontsize=fs, loc='upper center')
+# plt.ylim(0,4)
+
+# #%%
+
+
+# #%%
+# plt.figure(figsize=(10,5))
+# plt.plot(abs(array[1] - array[0]), label='$y_t - x_{t-1}$') ;
+# plt.plot(abs(array[1] - res_xx), label='$y_t - parcorr(x_{t-1} | x_{t-2})$') ;
+# plt.legend(fontsize=fs, loc='upper center')
+# plt.ylim(0,5)
+# # print('\n',scipy.stats.pearsonr(res_xx,res_xz))
+
+# #%% Plot x_t-2 and x^pattern_t-2
+# plt.figure(figsize=(10,5)) ; plt.style.use('bmh')
+# plt.plot(((zx-np.mean(zx,0))/np.std(zx,0)).squeeze(), label='$x_{t-2}$') ;
+# plt.plot(((zz-np.mean(zz,0))/np.std(zz,0)).squeeze(), c='b', label='$x^{pattern}_{t-2}$') ;
+# plt.legend(fontsize=fs, loc='upper center')
+# plt.savefig(path_out + '/timeseries_xt-2_xpattern_t-2.jpeg')
+# #%% autocorrelation plot
+# import df_ana
+# df = pd.DataFrame(field.values.reshape(field.shape[0],-1), index=pd.to_datetime(field.time.values)).iloc[:,i]
+# f, ax = plt.subplots(1) ;
+# df_ana.plot_ac(df_z, ax=ax, s = 6, color='#EE6666') ;
+# df_ana.plot_ac(df, ax=ax, s = 6, color='#3388BB') ;
+# ax.set_xticklabels(labels=np.arange(0, 12,2))
+# ax.set_xlabel('Months') ; ax.set_ylabel('Autocorrelation')
 #%%
 
 def parcorr_z(field: xr.DataArray, ts: np.ndarray, z: pd.DataFrame, lag_z: int=0):
