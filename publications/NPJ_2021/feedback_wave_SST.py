@@ -45,7 +45,7 @@ from RGCPD import RGCPD
 from RGCPD import BivariateMI
 import class_BivariateMI
 import wrapper_PCMCI as wPCMCI
-import functions_pp
+import functions_pp, plot_maps, find_precursors, core_pp
 
 periods = ['summer_center', 'spring_center', 'winter_center']
 
@@ -61,7 +61,7 @@ seeds = np.array([1])
 
 combinations = np.array(np.meshgrid(targets, seeds, periods)).T.reshape(-1,3)
 
-i_default = 4
+i_default = 0
 
 
 
@@ -145,6 +145,7 @@ min_detect_gc = 0.9
 method        = 'RepeatedKFold_10_7' ;
 use_sign_pattern_z500 = True
 
+TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}_{method}')
 name_MCI_csv = f'strength_rPDO{remove_PDO}_{method}.csv'
 name_rob_csv = f'robustness_rPDO{remove_PDO}_{method}.csv'
 
@@ -158,11 +159,10 @@ name_ds = f'0..0..{name_or_cluster_label}_sp'
 
 save = True
 force_rerun = True
-#%%
-# def pipeline(cluster_label, TVpathtemp, seed=1, save = True):
+
 #%% Circulation vs temperature
 
-TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}_{method}')
+
 
 nonexists = [os.path.exists(TVpathRW + f'_tf{tfreq}.h5')==False for f in freqs]
 
@@ -235,6 +235,9 @@ if any(nonexists) or force_rerun:
                       min_detect_gc=min_detect_gc,
                       kwrgs_plot=kwrgs_plot)
 
+
+
+
 #%% RW timeseries vs SST and RW timeseries vs RW
 
 list_of_name_path = [(name_or_cluster_label, TVpathRW+'_tf1.h5'),
@@ -288,8 +291,40 @@ rg.plot_maps_corr(var='N-Pac. SST', save=save, min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot, append_str='')
 
 #%% Plot corr map versus z500
+title = f'$corr(z500_t, RW^{west_east.capitalize()[0]}_t)$'
+subtitles = np.array([['']] )
+kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
+              'hspace':0.0, 'cbar_vert':-.08, 'units':'Corr. Coeff. [-]',
+              'cbar_tick_dict':{'labelsize':17},
+              'zoomregion':(-180,360,0,80), 'drawbox':None,
+              'clevels':np.arange(-.6,.61,.075),
+              'clabels':np.arange(-.6,.61,.3),
+              'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6,
+              'clim':(-.6,.6), 'title':title, 'subtitles':subtitles,
+              'title_fontdict':{'y':1.0, 'fontsize':18}}
+save = True
+# rg.plot_maps_corr(var='z500', save=save,
+#                   min_detect_gc=min_detect_gc,
+#                   kwrgs_plot=kwrgs_plot,
+#                   append_str=''.join(map(str, z500_green_bb))+TV+str(cluster_label))
 
+z500 = rg.list_for_MI[0]
+xrvals, xrmask = RGCPD._get_sign_splits_masked(z500.corr_xr,
+                                               min_detect_gc,
+                                               z500.corr_xr['mask'])
+fig = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
 
+ds = core_pp.import_ds_lazy(TVpathtemp)
+xrclustered = find_precursors.view_or_replace_labels(ds['xrclustered'],
+                                                     cluster_label)
+fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
+           np.isnan(xrclustered), transform=ccrs.PlateCarree(),
+           levels=[0, 2], linewidths=2, linestyles=['solid'], colors=['white'])
+filename = os.path.join(rg.path_outsub1,
+                        'z500vsRW_'+''.join(map(str, z500_green_bb)))
+fig.savefig(filename+'.pdf', bbox_inches='tight')
+fig.savefig(filename+'.jpg', dpi=300, bbox_inches='tight')
+#%%
 precur = rg.list_for_MI[0]
 subtitles = np.array([[f'$corr(z500_t,\ RW^{west_east[0].capitalize()}_t)$']])
 kwrgs_plot.update({'size':5, 'cbar_vert':.19, 'subtitles':subtitles,

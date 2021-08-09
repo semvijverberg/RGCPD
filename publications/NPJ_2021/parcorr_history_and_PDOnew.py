@@ -44,7 +44,7 @@ expers = np.array(['parcorr', 'parcorrENSO','parcorr_SSTlag1',
                    'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 0
+i_default = 2
 def parseArguments():
     # Create argument parser
     parser = argparse.ArgumentParser()
@@ -316,7 +316,7 @@ if 'parcorr' == exper:
                   'lag_z':[1]} # lag_z is defined wrt precursor dates
 elif 'parcorrENSO' == exper:
     kwrgs_func = {'filepath':filepath_df_ENSO,
-                  'keys_ext':['ENSO34'],
+                  'keys_ext':[f'ENSO{lowpass}rm'],
                   'lag_z':[1]} # lag_z is defined wrt precursor dates
 elif 'parcorr_SSTlag1' == exper:
     df_z = functions_pp.load_hdf5(filepath_df_SSTlag1)['df_data']
@@ -405,20 +405,20 @@ if 'parcorr_SSTlag1' == exper and west_east == 'east':
     title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
     subtitles = np.array([[title0],[title1]])
     tscol = ''.join(precur.kwrgs_func['df_z'].columns)
-    kw = [k for k in precur.kwrgs_func.keys() if k != 'z']
+    kw = [k for k in kwrgs_func.keys() if k != 'df_z']
     val = ''.join([str(kwrgs_func[k]) for k in kw])
     append_str='parcorr_{}_{}_'.format(tscol, period) + ''.join(kw) + val
     fontsize = 14
 if 'parcorrENSO' == exper and west_east == 'east':
     z_ts = '$\overline{ENSO_{t-1}}$'
-    title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
-    # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+    # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+    title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
     z_ts = '$\overline{ENSO_{t-2}}$'
-    # title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
-    title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+    title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+    # title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
     subtitles = np.array([[title0],[title1]])
     tscol = ''.join(precur.kwrgs_func['df_z'].columns)
-    kw = [k for k in precur.kwrgs_func.keys() if k != 'z']
+    kw = [k for k in precur.kwrgs_func.keys() if k != 'df_z']
     val = ''.join([str(kwrgs_func[k]) for k in kw])
     append_str='parcorrENSO_{}_{}_'.format(tscol, period) + ''.join(kw) + val
     fontsize = 14

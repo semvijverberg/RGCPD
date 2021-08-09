@@ -163,8 +163,8 @@ xrvals, xrmask = RGCPD._get_sign_splits_masked(z500.corr_xr,
                                                z500.corr_xr['mask'])
 fig = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
 
-rg.get_clust()
-xrclustered = find_precursors.view_or_replace_labels(rg.ds['xrclustered'],
+ds = rg.get_clust()
+xrclustered = find_precursors.view_or_replace_labels(ds['xrclustered'],
                                                      cluster_label)
 fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
            np.isnan(xrclustered), transform=ccrs.PlateCarree(),
