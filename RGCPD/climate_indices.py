@@ -141,12 +141,13 @@ def PDO_single_split(s, ds_monthly, ds, df_splits):
     dates_all_train = pd.to_datetime([d for d in dates_monthly if d.year in train_yrs])
 
     PDO_pattern, solver, adjust_sign = get_PDO(ds_monthly.sel(time=dates_all_train))
-    data_train = find_precursors.calc_spatcov(ds.sel(time=dates_train_origtime).load(),
-                                              PDO_pattern)
-    df_train = pd.DataFrame(data=data_train.values, index=dates_train_origtime, columns=['PDO'])
+    data_train = find_precursors.calc_spatcov(ds.sel(time=dates_train_origtime).values,
+                                              PDO_pattern.values)
+    df_train = pd.DataFrame(data=data_train, index=dates_train_origtime, columns=['PDO'])
     if splits.size > 1:
-        data_test = find_precursors.calc_spatcov(ds.sel(time=dates_test_origtime).load(), PDO_pattern)
-        df_test = pd.DataFrame(data=data_test.values, index=dates_test_origtime, columns=['PDO'])
+        data_test = find_precursors.calc_spatcov(ds.sel(time=dates_test_origtime).values,
+                                                 PDO_pattern.values)
+        df_test = pd.DataFrame(data=data_test, index=dates_test_origtime, columns=['PDO'])
         df = pd.concat([df_test, df_train]).sort_index()
     else:
         df = df_train

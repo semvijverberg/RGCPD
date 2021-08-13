@@ -205,7 +205,7 @@ if 'parcorr__' in exper:
                   tfreq=tfreq,
                   path_outmain=path_out_main,
                   append_pathsub='_' + exper)
-    rgPDO.pp_TV(name_ds, anomaly=True)q
+    rgPDO.pp_TV(name_ds, anomaly=True)
 
     rgPDO.traintest('random_10')
     rgPDO.get_ts_prec()

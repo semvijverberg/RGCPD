@@ -901,6 +901,8 @@ def detrend_wrapper(data, kwrgs_detrend: dict=None, return_trend: bool=False,
         if plot and method=='linear':
             _check_trend_plot(data, detrended.reshape(orig_shape))
             data = xr.DataArray(detrended.reshape(orig_shape), coords=coords, dims=dims, attrs=attrs, name=name)
+    else: # numpy array
+        data = detrended.reshape(orig_shape)
 
 
     if return_trend:
@@ -1242,6 +1244,9 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
 
     if start_end_date is None and start_end_year is None:
         return dates
+    elif start_end_date is None and start_end_year is not None:
+        selyears = np.arange(start_end_year[0],start_end_year[-1]+1)
+        return get_oneyr(dates, *selyears)
 
     if start_end_year is None:
         startyr = dates.year.min()

@@ -218,7 +218,8 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
         fullts, dates_tobin, traintestgroups = out
 
     if same_freq == True and TVdates_aggr==False: # and start_end_date is not None and input_freq == 'daily':
-        out = timeseries_tofit_bins(fullts, tfreq, start_end_date, start_end_year)
+        out = timeseries_tofit_bins(fullts, tfreq, start_end_date, start_end_year,
+                                    start_end_TVdate=start_end_TVdate)
         fullts, dates, traintestgroups = out
         print('Selecting subset as defined by start_end_date')
 
@@ -379,6 +380,9 @@ def import_ds_timemeanbins(filepath, tfreq: int=None, start_end_date=None,
                             start_end_year,
                             closed=closed,
                             start_end_TVdate=start_end_TVdate)[0]
+    elif tfreq == 1: # to align with traintest groups.
+        ds = timeseries_tofit_bins(ds, tfreq, start_end_date, start_end_year,
+                                   start_end_TVdate=start_end_TVdate)[0]
     ds = ds.squeeze()
     # check if no axis has length 0:
     assert 0 not in ds.shape, ('loaded ds has a dimension of length 0'
@@ -535,10 +539,26 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
 
     if type(xr_or_dt) == type(xr.DataArray([0])):
         datetime = pd.to_datetime(xr_or_dt['time'].values)
+    elif type(xr_or_dt) == pd.DataFrame:
+        datetime = xr_or_dt.index
     else:
         datetime = xr_or_dt.copy()
 
     datetime = core_pp.remove_leapdays(datetime)
+    if start_end_date is not None:
+        sstartdate, senddate = start_end_date
+    if start_end_date is None:
+        d_s = datetime[0]
+        d_e = datetime[-1]
+        sstartdate = '{:02d}-{:02d}'.format(d_s.month, d_s.day)
+        senddate   = '{:02d}-{:02d}'.format(d_e.month, d_e.day)
+    if start_end_TVdate is None:
+        start_end_TVdate = (sstartdate, senddate) # select all dates
+    else:
+        senddate = start_end_TVdate[-1] # over-rule end date of start_end_date
+
+
+
     if (datetime[1] - datetime[0]).days == 1:
         input_freq = 'day'
     elif (datetime[1] - datetime[0]).days in [28,29,30,31]:
@@ -561,17 +581,7 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         startyear, endyear = start_end_year
         years = range(startyear, endyear+1)
 
-    if start_end_date is not None:
-        sstartdate, senddate = start_end_date
-    if start_end_date is None:
-        d_s = datetime[0]
-        d_e = datetime[-1]
-        sstartdate = '{:02d}-{:02d}'.format(d_s.month, d_s.day)
-        senddate   = '{:02d}-{:02d}'.format(d_e.month, d_e.day)
-    if start_end_TVdate is None:
-        start_end_TVdate = (sstartdate, senddate) # select all dates
-    else:
-        senddate = start_end_TVdate[-1] # over-rule end date of start_end_date
+
 
     # check if Target variable period is crossing Dec-Jan
     crossyr = int(start_end_TVdate[0].replace('-','')) > int(start_end_TVdate[1].replace('-',''))
@@ -586,16 +596,6 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         sstartdate = sstartdate.strftime('%Y-%m-%d') # keep same format
     else:
         senddate   = '{}-{}'.format(startyear, closed_on_date)
-
-    # if start_end_date is None:
-
-    # else:
-    #     sstartdate = '{}-{}'.format(startyear, sstartdate)
-
-    # remnant two lines of code , may be removed
-    adjhrsstartdate = sstartdate + ' {:02d}:00:00'.format(datetime[0].hour)
-    adjhrsenddate   = senddate + ' {:02d}:00:00'.format(datetime[0].hour)
-
 
     def getdaily_firstyear(adjhrsstartdate, adjhrsenddate, closed_on_date, _tfreq):
         if 'd' in _tfreq:
@@ -626,19 +626,35 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         # is not prior to the requisted adjhrsstartdate
         if 'd' in _tfreq:
             fit_bins = int(365/tfreq) + 1
-            while dates_aggr[0] < pd.to_datetime(adjhrsstartdate):
-                dates_aggr =  pd.date_range(end=dates_aggr[-1], freq=_tfreq,
-                                        closed=closed,
-                                        periods=fit_bins)
-                fit_bins -= 1
+            # first year exception for tfreq=1 and first year
+            if tfreq==1 and all(dates_aggr.year <= core_pp.get_oneyr(datetime).year[0]):
+                while dates_aggr[0] != pd.to_datetime(adjhrsstartdate):
+                    dates_aggr =  pd.date_range(end=dates_aggr[-1], freq=_tfreq,
+                                                closed=closed,
+                                                periods=fit_bins)
+                    fit_bins -= 1
+            else:
+                while dates_aggr[0] < pd.to_datetime(adjhrsstartdate):
+                    dates_aggr =  pd.date_range(end=dates_aggr[-1], freq=_tfreq,
+                                                closed=closed,
+                                                periods=fit_bins)
+                    fit_bins -= 1
         elif 'm' in _tfreq:
             fit_bins = int(12/tfreq)
             dm = date_dt(months=tfreq) ; asd = pd.to_datetime(adjhrsstartdate)
-            while dates_aggr[0] - dm < asd: #< pd.Timedelta('3d'):
-                dates_aggr =  pd.date_range(end=dates_aggr[-1], freq=_tfreq,
-                                        closed=closed,
-                                        periods=fit_bins) + pd.Timedelta('1d')
-                fit_bins -= 1
+            # first year exception for tfreq=1 and first year
+            if tfreq==1 and all(dates_aggr.year <= core_pp.get_oneyr(datetime).year[0]):
+                while dates_aggr[0] != asd:
+                    dates_aggr =  pd.date_range(end=dates_aggr[-1], freq=_tfreq,
+                                            closed=closed,
+                                            periods=fit_bins) + pd.Timedelta('1d')
+                    fit_bins -= 1
+            else:
+                while dates_aggr[0] - dm < asd: #< pd.Timedelta('3d'):
+                    dates_aggr =  pd.date_range(end=dates_aggr[-1], freq=_tfreq,
+                                                closed=closed,
+                                                periods=fit_bins) + pd.Timedelta('1d')
+                    fit_bins -= 1
         # if crossyr == False and senddate[1] == '12-31':
         #     # Extend untill end of the year, which might be handy in case one
         #     # want to study stuff like autocorrelation. Not wanted with cross-year.
@@ -692,38 +708,39 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
 
         return start_yr
 
-    if input_freq == 'day' and tfreq == 1:
-        one_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
-        start_yr = pd.date_range(start=one_yr[0], end=one_yr[-1],
-                                freq=datetime[1] - datetime[0])
-        start_yr = core_pp.remove_leapdays(start_yr)
-        end_day = start_yr.max()
-        start_day = start_yr.min()
+    adjhrsstartdate = sstartdate + ' {:02d}:00:00'.format(datetime[0].hour)
+    adjhrsenddate   = senddate + ' {:02d}:00:00'.format(datetime[0].hour)
+
+    # if tfreq == 1:
+    #     start_yr = datetime.where(datetime.year == datetime.year[0]).dropna(how='any')
+    #     # start_yr = pd.date_range(start=one_yr[0], end=one_yr[-1],
+    #     #                         freq=datetime[1] - datetime[0])
+    #     start_yr = core_pp.remove_leapdays(start_yr)
+    #     end_day = start_yr.max()
+    #     start_day = start_yr.min()
 
 
-    if tfreq != 1:
-        _tfreq = f'{tfreq}' + input_freq[0]
-        if closed == 'right':
-            if start_end_date == None:
-                # make cyclic around closed_end_date
-                if crossyr:
-                    startyear += 1 # first year full period not possible
-                start_yr = getdaily_firstyear(adjhrsstartdate,
-                                             f'{startyear}-{closed_on_date} 0:00:00',
-                                             closed_on_date, _tfreq)
+    # if tfreq != 1:
+    _tfreq = f'{tfreq}' + input_freq[0]
+    if closed == 'right':
+        if start_end_date == None:
+            # make cyclic around closed_end_date
+            if crossyr:
+                startyear += 1 # first year full period not possible
+            start_yr = getdaily_firstyear(adjhrsstartdate,
+                                         f'{startyear}-{closed_on_date} 0:00:00',
+                                         closed_on_date, _tfreq)
 
-                otheryrs = getdaily_firstyear(f'{startyear}-{closed_on_date} 0:00:00',
-                                              f'{startyear+1}-{closed_on_date} 0:00:00',
-                                              closed_on_date, _tfreq)
-                start_day = otheryrs.min()
-                end_day = otheryrs.max()
-            else:
-                start_yr = getdaily_firstyear(adjhrsstartdate, adjhrsenddate,
-                                          closed_on_date, tfreq)
-                start_day = start_yr.min()
-                end_day = start_yr.max()
-
-
+            otheryrs = getdaily_firstyear(f'{startyear}-{closed_on_date} 0:00:00',
+                                          f'{startyear+1}-{closed_on_date} 0:00:00',
+                                          closed_on_date, _tfreq)
+            start_day = otheryrs.min()
+            end_day = otheryrs.max()
+        else:
+            start_yr = getdaily_firstyear(adjhrsstartdate, adjhrsenddate,
+                                      closed_on_date, _tfreq)
+            start_day = start_yr.min()
+            end_day = start_yr.max()
 
     # if input_freq == 'month':
     #     dt = date_dt(months=tfreq)
@@ -749,7 +766,8 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
     #    n_oneyr = start_yr.size
     #    end_year = endyear
 
-    if tfreq != 1 and start_end_date == None:
+    # if tfreq != 1 and start_end_date == None:
+    if start_end_date is None:
         # make cyclic around closed_end_date
         other_cyclic_yrs = core_pp.make_dates(otheryrs, years[1:])
         datesdt = start_yr.append(other_cyclic_yrs)
@@ -1508,7 +1526,6 @@ def get_testyrs(df_splits: pd.DataFrame, return_traintestgroups=False):
             for gr in np.unique(groups_in_s):
                 yrs = TrainIsTrue_s[groups_in_s==gr]
                 yrs = np.unique(yrs.year.max())
-                print(yrs)
                 groupset.append(list(yrs))
             test_yrs.append(flatten(groupset)) # changed to flatten() 20-05-21
             testgroups.append([list(uniqgroups).index(gr) for gr in np.unique(groups_in_s)])
@@ -1771,3 +1788,6 @@ def check_pp_done(name, infile, kwrgs_load: dict=None, verbosity=1):
 #    dates_fit_tfreq = dates
     #%%
     return outfile
+
+
+

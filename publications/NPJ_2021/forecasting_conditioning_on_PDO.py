@@ -244,10 +244,10 @@ except:
                           'clevels':np.arange(-.6,.61,.075),
                           'clabels':np.arange(-.6,.61,.3),
                           'subtitles':np.array([['PDO loading pattern']])}
-        fig = plot_maps.plot_corr_maps(PDO_patterns[0], **PDO_plot_kwrgs)
+        fcg = plot_maps.plot_corr_maps(PDO_patterns[0], **PDO_plot_kwrgs)
         filepath = os.path.join(path_out_main, 'PDO_pattern')
-        fig.savefig(filepath + '.pdf', bbox_inches='tight')
-        fig.savefig(filepath + '.png', bbox_inches='tight')
+        fcg.fig.savefig(filepath + '.pdf', bbox_inches='tight')
+        fcg.fig.savefig(filepath + '.png', bbox_inches='tight')
 
         # summerdates = core_pp.get_subdates(dates, start_end_TVdate)
         df_PDOsplit = df_PDO.loc[0]#.loc[summerdates]
@@ -290,9 +290,10 @@ except:
 
     functions_pp.store_hdf_df({'df_data':df_PDOs},
                               file_path=filepath_df_PDOs)
-#%%
+#%% get timeseries
 rg.list_import_ts = [('PDO', filepath_df_PDOs)]
 rg.get_ts_prec()
+
 #%% forecasting
 def get_lagged_ts(df_data, lag, keys=None):
     if keys is None:
@@ -636,7 +637,7 @@ boxplot_cond_fc(df_cond_rm, col, composites = 50)
 #                               score_func_list, n_boot=2000)
 # boxplot_cond_fc(df_cond, col, composites = 30)
 # boxplot_cond_fc(df_cond, col, composites = 50)
-    #%%
+#%%
 
 
 # dates = core_pp.get_subdates(rg.dates_TV, start_end_year=(1980,2020))

@@ -135,7 +135,7 @@ def mask_sig_to_cluster(mask_and_data_s, wght_area, distance_eps, min_area_sampl
         np_regs = np.array(np_dbregs, dtype='int')
     return np_regs, labels_sign_lag
 
-def calc_spatcov(full_timeserie, pattern, area_wght=None):
+def calc_spatcov(full_timeserie: np.ndarray, pattern: np.ndarray, area_wght=None):
     #%%
     '''
     Calculate spatial covariance over time-axis, which should be first index.
@@ -668,22 +668,25 @@ def import_precur_ts(list_import_ts : List[tuple],
                      start_end_date: Tuple[str, str],
                      start_end_year: Tuple[int, int],
                      start_end_TVdate: Tuple[str, str],
-                     cols: list=None,
+                     # cols: list=None,
                      precur_aggr: int=1):
     '''
     list_import_ts has format List[tuples],
-    [(name, path_data)]
+    [(columns, path_data)]
+
+    columns : int or list
+    columns to load from pd.DataFrame called df_data
     '''
     #%%
     # list_import_ts = self.list_import_ts
-    # cols = None ; start_end_date=self.start_end_date
+    # cols = None ;
     # start_end_year = kwrgs_load['start_end_year']; start_end_TVdate=kwrgs_load['start_end_TVdate']
 
     splits = df_splits.index.levels[0]
     orig_traintest = functions_pp.get_testyrs(df_splits)
     df_data_ext_s   = np.zeros( (splits.size) , dtype='object')
     counter = 0
-    for i, (name, path_data) in enumerate(list_import_ts):
+    for i, (cols, path_data) in enumerate(list_import_ts):
 
         df_data_e_all = functions_pp.load_hdf5(path_data)['df_data']
         if type(df_data_e_all) is pd.Series:
@@ -702,7 +705,7 @@ def import_precur_ts(list_import_ts : List[tuple],
             df_data_e_all = df_data_e_all.loc[dates_subset]
         else:
             dates_subset = core_pp.get_subdates(df_data_e_all.index, start_end_date,
-                                start_end_year)
+                                                start_end_year)
             df_data_e_all = df_data_e_all.loc[dates_subset]
 
         if 'TrainIsTrue' in df_data_e_all.columns:

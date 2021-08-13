@@ -257,7 +257,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                         g.axes[row_text,col_text].text(int(lontext), int(lattext),
                                                        text, **kwrgs)
             # =============================================================================
-            # Add scatter points list([[ax_loc, list(np_array_xy, kwrgs)]])
+            # Add scatter points , e.g. [['all', [array([[ lat, lon]]), {}]]]
             # =============================================================================
             if scatter is not None:
                 for list_s in scatter:
@@ -266,12 +266,16 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                         row_text, col_text = row, col
                     else:
                         row_text, col_text = loc_ax
-                    np_array_xy = list_s[1][0] # lon, lat coords - shape=(points, 2)
-                    kwrgs_scatter = list_s[1][1]
-                    g.axes[row_text,col_text].scatter(x=np_array_xy[:,0],
-                                                      y=np_array_xy[:,1],
-                                                      transform=ccrs.PlateCarree(),
-                                                      **kwrgs_scatter)
+                    list_arr_kwrgs = list_s[1]
+                    if type(list_arr_kwrgs) is not list:
+                        list_arr_kwrgs = [list_arr_kwrgs]
+                    for list_s in list_arr_kwrgs:
+                        np_array_xy = list_s[0] # lon, lat coords - shape=(points, 2)
+                        kwrgs_scatter = list_s[1]
+                        g.axes[row_text,col_text].scatter(x=np_array_xy[:,1],
+                                                          y=np_array_xy[:,0],
+                                                          transform=ccrs.PlateCarree(),
+                                                          **kwrgs_scatter)
             # =============================================================================
             # Subtitles
             # =============================================================================
@@ -391,7 +395,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
 
     #%%
-    return g.fig
+    return g
 
 def causal_reg_to_xarray(df_links, list_MI):
     #%%
@@ -820,3 +824,35 @@ def get_continuous_cmap(hex_list, float_list=None):
         cdict[col] = col_list
     cmp = mcolors.LinearSegmentedColormap('my_cmp', segmentdata=cdict, N=256)
     return cmp
+
+def show_field_point(field, i=None, lat=None, lon=None):
+    ''' Lon in degrees west (give negative values when west)'''
+    lats = list(field.latitude.values)
+    lons = list(field.longitude.values)
+    coords = [[la,lo] for la in lats for lo in lons]
+    if i is not None and lat is None:
+        if type(i) is not list:
+            i = [i]
+
+        latlon = [coords[_i] for _i in i]
+
+        lon = [((ll[1] + 180) % 360) - 180 for ll in latlon]
+        print(f'latitude : {latlon[0]}, longitude {lon}')
+    if lat is not None and lon is not None and i is None:
+        fieldpoint = field.sel(latitude=lat,
+                              method='nearest').sel(longitude=(lon+ 360) % 360,
+                                                    method='nearest')
+        lat = float(fieldpoint.latitude.values)
+        lonW = float(fieldpoint.longitude.values)
+        latlon = [lat,lonW] ; i = coords.index(latlon)
+        print(f'nearest latitude : {lat}, nearest longitude {((lonW+ 180) % 360) - 180}'
+              f', index {i}')
+    else:
+        print('both i and lat are not None')
+    fieldstep = field[0].drop_vars('time')
+    _locs = [[np.array([ll]), {}] for ll in latlon]
+    scatter = [['all', _locs]]
+    print('kwrgs_plot[\'scatter\']=', scatter)
+    fieldstep.values[:,:] = 0
+    plot_corr_maps(fieldstep, scatter=scatter, n_yticks=5)
+
