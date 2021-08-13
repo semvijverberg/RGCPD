@@ -738,7 +738,7 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
             end_day = otheryrs.max()
         else:
             start_yr = getdaily_firstyear(adjhrsstartdate, adjhrsenddate,
-                                      closed_on_date, tfreq)
+                                      closed_on_date, _tfreq)
             start_day = start_yr.min()
             end_day = start_yr.max()
 

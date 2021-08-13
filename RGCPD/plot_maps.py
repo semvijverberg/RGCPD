@@ -395,7 +395,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
 
     #%%
-    return g.fig
+    return g
 
 def causal_reg_to_xarray(df_links, list_MI):
     #%%

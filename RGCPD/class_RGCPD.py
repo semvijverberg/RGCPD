@@ -432,7 +432,7 @@ class RGCPD:
             print(f'Retrieving {e_class.neofs} EOF(s) for {e_class.name}')
             e_class.plot_eofs(mean=mean, kwrgs=kwrgs)
 
-    def get_ts_prec(self, precur_aggr: int=None, keys_ext: list=None,
+    def get_ts_prec(self, precur_aggr: int=None,
                     start_end_TVdate: tuple=None):
         '''
         Aggregate target and precursors to binned means.
@@ -442,9 +442,6 @@ class RGCPD:
         precur_aggr : int, optional
             bin window size to calculate time mean bins. If None, self.tfreq
             value is choosen.
-        keys_ext : list, optional
-            list with column names to load and aggregate a subset of the
-            .h5 pandas dataframe. The default is None.
         start_end_TVdate : tuple, optional
             Allows to change the target start end period. Using format
             format ('mm-dd', 'mm-dd'). The default is None.
@@ -522,7 +519,7 @@ class RGCPD:
                                  df_splits.copy(),
                                  self.start_end_date,
                                  kwrgs_load['start_end_year'],
-                                 cols=keys_ext,
+                                 # cols=keys_ext,
                                  precur_aggr=self.precur_aggr,
                                  start_end_TVdate=kwrgs_load['start_end_TVdate'])
             # cross yr can lead to non-alignment of index. Adopting df_data index
@@ -943,7 +940,7 @@ class RGCPD:
     def plot_maps_corr(self, var=None, plotlags: list=None, kwrgs_plot: dict={},
                        splits: str='mean', min_detect_gc: float=.5,
                        mask_xr=None, region_labels: Union[int,list]=None,
-                       save: bool=False, append_str: str=None):
+                       save: bool=False, append_str: str=None, return_fig=False):
 
         if type(var) is str:
             var = [var]
@@ -959,9 +956,9 @@ class RGCPD:
             if region_labels is not None and mask_xr is None:
                 f = find_precursors.view_or_replace_labels
                 mask_xr = np.isnan(f(pclass.prec_labels.copy(), region_labels))
-            if mask_xr is not None:
+            if mask_xr is not None and mask_xr is not False:
                 xrmask = (pclass.corr_xr['mask'] + mask_xr).astype(bool)
-            else:
+            else: # auto mask from corr map
                 xrmask = pclass.corr_xr['mask']
             xrvals = pclass.corr_xr.sel(lag=plotlags)
             xrmask = xrmask.sel(lag=plotlags)
@@ -971,8 +968,8 @@ class RGCPD:
                                                                xrmask)
             elif type(splits) is int:
                 xrvals, xrmask = xrvals.sel(split=splits), xrmask.sel(split=splits)
-
-            plot_maps.plot_corr_maps(xrvals,
+            if mask_xr == False: xrmask = None
+            fcg = plot_maps.plot_corr_maps(xrvals,
                                      mask_xr=xrmask, **kwrgs_plot)
             if save == True:
                 if append_str is not None:
@@ -985,7 +982,9 @@ class RGCPD:
                     f_name += f'_md{min_detect_gc}'
 
                 fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
-                plt.savefig(fig_path, bbox_inches='tight')
+                fcg.fig.savefig(fig_path, bbox_inches='tight')
+            if return_fig:
+                return fcg
             # plt.close()
 
     def plot_maps_sum(self, var='all', figpath=None, paramsstr=None,

@@ -44,7 +44,7 @@ expers = np.array(['parcorr', 'parcorrENSO','parcorr_SSTlag1',
                    'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 2
+i_default = 5
 def parseArguments():
     # Create argument parser
     parser = argparse.ArgumentParser()
@@ -110,7 +110,7 @@ if 'parcorr' == exper:
 
         SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_jan_dec_monthly_1.0deg.nc'
 
-        if 'df_ENSO' not in globals():
+        if 'df_PDOs' not in globals():
             df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
                                                        None)
             PDO_plot_kwrgs = {'units':'[-]', 'cbar_vert':-.1,
@@ -324,10 +324,10 @@ elif 'parcorr_SSTlag1' == exper:
                   'lag_z':[1]} # lag_z is defined wrt precursor dates
 
 elif exper == 'corr':
-    kwrgs_func = {} ;
+    kwrgs_func = {} ; func = corr_map
 elif 'parcorrtime' in exper:
     if exper.split('_')[1] == 'target':
-        kwrgs_func = {'lag_y':[1]}
+        kwrgs_func = {'lag_y':[2]}
     elif exper.split('_')[1] == 'precur':
         kwrgs_func = {'lag_x':[1]}
     elif exper.split('_')[1] == 'both':
@@ -580,7 +580,122 @@ mpl.rcParams.update(mpl.rcParamsDefault)
 # df = df.merge(PDO1.loc[s], left_index=True, right_index=True)
 # df = rg.TV.RV_ts.merge(df, left_index=True, right_index=True)
 
+#%% Make plot to show eastern RW is in phase, while western RW is not.
 
+# first get PDO
+SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_jan_dec_monthly_1.0deg.nc'
+df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath, None)
+neg_PDO = (-1*PDO_patterns[0]).drop_vars('split')
+
+PDO_plot_kwrgs = {'units':'[-]', 'cbar_vert':-.1,
+                  # 'zoomregion':(130,260,20,60),
+                  'map_proj':ccrs.PlateCarree(central_longitude=220),
+                  'y_ticks':np.array([25, 35, 45, 55, 65]),
+                  'x_ticks':np.arange(130, 280, 25),
+                  'clevels':np.arange(-.6,.61,.075),
+                  'clabels':np.arange(-.6,.61,.3),
+                  'subtitles':np.array([['PDO loading pattern']])}
+fig = plot_maps.plot_corr_maps(PDO_patterns[0], **PDO_plot_kwrgs)
+
+
+#%%
+list_of_name_path = [(name_or_cluster_label, TVpath),
+                         ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_monthly_1.0deg.nc'))]
+
+
+list_for_MI   = [BivariateMI(name='sst', func=corr_map,
+                            alpha=.05, FDR_control=True,
+                            distance_eps=1000, min_area_in_degrees2=1,
+                            calc_ts='pattern cov', selbox=(130,260,-10,60),
+                            lags=np.array([0,1]))]
+rg = RGCPD(list_of_name_path=list_of_name_path,
+            list_for_MI=list_for_MI,
+            start_end_TVdate=('05-01', '08-01'),
+            start_end_date=None,
+            start_end_year=(1980, 2020),
+            tfreq=2,
+            path_outmain=path_out_main,
+            append_pathsub='_' + exper)
+rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=False, # detrending already done on z500
+         kwrgs_core_pp_time={'dailytomonths':True})
+rg.pp_precursors()
+rg.traintest('random_10')
+rg.calc_corr_maps()
+#%%
+from plot_maps import ccrs
+# Optionally set font to Computer Modern to avoid common missing font errors
+matplotlib.rc('font', family='serif', serif='cm10')
+
+matplotlib.rc('text', usetex=True)
+matplotlib.rcParams['text.latex.preamble'] = r'\boldmath'
+
+kwrgs_plot = PDO_plot_kwrgs.copy()
+kwrgs_plot['units'] = None ; kwrgs_plot['hspace'] = .05
+kwrgs_plot['subtitles'] = [[''], ['']]
+kwrgs_plot['row_dim'] = 'lag' ; kwrgs_plot['col_dim'] = 'split'
+kwrgs_plot['cbar_vert'] = -.015
+kwrgs_plot['zoomregion'] = (130, 250, 20, 60)
+g = rg.plot_maps_corr(min_detect_gc=.5, return_fig=True,
+                      mask_xr=False, kwrgs_plot=kwrgs_plot)
+for ax in g.axes.flatten():
+    neg_PDO.plot.contour(ax=ax, linewidths=3,
+                                      levels=[-0.7, -0.5, -0.35, 0., 0.35, 0.5, 0.7],
+                                      linestyles=['--', '--', '--', 'solid', '-', '-', '-'],
+                                      colors=['black', 'black', 'black', 'green', 'black', 'black', 'black'],
+                                      transform=ccrs.PlateCarree())
+    ax.set_xlabel(None) ; ax.set_ylabel(None)
+g.axes[0,0].set_title('$corr(SST_t, RW_t^E)$',
+                       fontdict={'fontsize' : 16},
+                      loc='center')
+g.axes[1,0].set_title('$corr(SST_{t-1}, RW_t^E)$',
+                       fontdict={'fontsize' : 16},
+                      loc='center')
+g.fig.savefig(os.path.join(rg.path_outsub1, 'east_2monthmean_corr_map_with_PDO.pdf'),
+              bbox_inches='tight')
+#%%
+TVpathwest = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/NPJ_2021/data/westRW_summer_center_s1_RepeatedKFold_10_7_tf1.h5'
+list_of_name_path = [(name_or_cluster_label, TVpathwest),
+                         ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_monthly_1.0deg.nc'))]
+
+
+list_for_MI   = [BivariateMI(name='sst', func=corr_map,
+                            alpha=.05, FDR_control=True,
+                            distance_eps=1000, min_area_in_degrees2=1,
+                            calc_ts='pattern cov', selbox=(130,260,-10,60),
+                            lags=np.array([0, 1]), dailytomonths=sst_dailytomonths)]
+rgw = RGCPD(list_of_name_path=list_of_name_path,
+            list_for_MI=list_for_MI,
+            start_end_TVdate=('05-01', '08-01'),
+            start_end_date=None,
+            start_end_year=(1980, 2020),
+            tfreq=2,
+            path_outmain=path_out_main,
+            append_pathsub='_' + exper)
+rgw.pp_TV(name_ds=name_ds, detrend=False, anomaly=False, # detrending already done on z500
+         kwrgs_core_pp_time={'dailytomonths':True})
+rgw.pp_precursors()
+rgw.traintest('random_10')
+rgw.calc_corr_maps()
+
+#%%
+from plot_maps import ccrs
+
+g = rgw.plot_maps_corr(min_detect_gc=.9, return_fig=True, kwrgs_plot=kwrgs_plot)
+for ax in g.axes.flatten():
+    neg_PDO.plot.contour(ax=ax, linewidths=3,
+                                      levels=[-0.7, -0.5, -0.35, 0., 0.35, 0.5, 0.7],
+                                      linestyles=['--', '--', '--', 'solid', '-', '-', '-'],
+                                      colors=['black', 'black', 'black', 'green', 'black', 'black', 'black'],
+                                      transform=ccrs.PlateCarree())
+    ax.set_xlabel(None) ; ax.set_ylabel(None)
+g.axes[0,0].set_title('$corr(SST_t, RW_t^W)$',
+                       fontdict={'fontsize' : 16},
+                      loc='center')
+g.axes[1,0].set_title('$corr(SST_{t-1}, RW_t^W)$',
+                       fontdict={'fontsize' : 16},
+                      loc='center')
+g.fig.savefig(os.path.join(rg.path_outsub1, 'west_2monthmean_corr_map_with_PDO.pdf'),
+              bbox_inches='tight')
 
 #%%
 # # remove PDO df

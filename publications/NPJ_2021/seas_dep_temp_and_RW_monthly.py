@@ -107,7 +107,7 @@ else:
     experiment = 'adapt_corr'
     remove_PDO = False
 
-mainpath_df = os.path.join(main_dir, 'publications/paper2/output/heatwave_circulation_v300_z500_SST/57db0USCA/')
+mainpath_df = os.path.join(main_dir, 'publications/NPJ_2021/output/heatwave_circulation_v300_z500_SST/57db0USCA/')
 calc_ts='region mean' # pattern cov
 # # t2m
 # TVpath = 'z500_145-325-20-62USCA.h5'
@@ -141,7 +141,7 @@ elif target[-2:] == 'RW':
     #     TVpath = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
 
 precur_aggr = tfreq
-method     = 'ranstrat_10' ;
+method     = 'ranstrat_10' ; # since we now have one-val-per year, stratification can/is not be used.
 n_boot = 2000
 
 append_main = ''

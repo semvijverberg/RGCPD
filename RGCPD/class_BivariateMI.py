@@ -654,10 +654,11 @@ def parcorr_map(field: xr.DataArray, ts: pd.DataFrame, df_splits_s, lag,
     if type(lag_z) is int:
         lag_z = [lag_z]
 
-    # if more then one year is filled with NaNs -> no corr value calculated.
+    # get lagged precursor
     m = apply_shift_lag(df_splits_s, lag)
     dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
-    RV_mask = df_splits_s.sum(axis=1) == 2
+    RV_mask = df_splits_s.sum(axis=1) == 2 # both train and RV dates of target
+    # if more then one year is filled with NaNs -> no corr value calculated.
     field_lag, ts_target = check_NaNs(field.sel(time=dates_lag), ts.values.squeeze()[RV_mask])
     x = np.ma.zeros(field_lag.shape[1])
     corr_vals = np.array(x)
@@ -1122,13 +1123,6 @@ def pp_calc_ts(precur, precur_aggr=None, kwrgs_load: dict=None,
         prec_labels = prec_labels.sel(lag=lags).copy()
     else:
         lags        = prec_labels.lag.values
-    dates           = pd.to_datetime(precur.precur_arr.time.values)
-    oneyr = functions_pp.get_oneyr(dates)
-    if oneyr.size == 1: # single val per year precursor
-        tfreq = 365
-    else:
-        tfreq = (oneyr[1] - oneyr[0]).days
-
 
     if precur_aggr is None and force_reload==False:
         precur_arr = precur.precur_arr

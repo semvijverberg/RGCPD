@@ -75,7 +75,7 @@ path_out_main = os.path.join(main_dir,
 name_ds='ts'
 start_end_TVdate = ('06-01', '08-31')
 start_end_date = None
-method='ranstrat_10' ; seed = 1
+method='RepeatedKFold_7_10' ; seed = 1
 tfreq = 15
 min_detect_gc=.9
 start_end_year = (1979, 2020)
@@ -148,7 +148,8 @@ subtitles = np.array([['']] )
 kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
               'hspace':0.0, 'cbar_vert':-.08, 'units':'Corr. Coeff. [-]',
               'zoomregion':(-180,360,0,80), 'drawbox':[(0,0), z500_green_bb],
-              'map_proj':ccrs.PlateCarree(central_longitude=220), 'n_yticks':6,
+              'map_proj':ccrs.PlateCarree(central_longitude=220),
+              'y_ticks':np.array([10,30,50,70,90]),
               'clim':(-.6,.6), 'title':title, 'subtitles':subtitles,
               'title_fontdict':{'y':1.0, 'fontsize':18}}
 save = True
@@ -188,9 +189,10 @@ fig.savefig(filename + rg.figext, bbox_inches='tight')
 
 
 kwrgs_plot['title'] = f'$corr(v300_t, T^{west_east.capitalize()[0]}_t)$'
-kwrgs_plot['drawbox'] = [(0,0), v300_green_bb]
+kwrgs_plot['drawbox'] = None
 kwrgs_plot['zoomregion'] = (-180,360,20,90)
 kwrgs_plot['cbar_vert'] = -0.025
+kwrgs_plot['title_fontdict'] = {'y':0.94, 'fontsize':18}
 
 v200 = rg.list_for_MI[1]
 xrvals, xrmask = RGCPD._get_sign_splits_masked(v200.corr_xr,
@@ -223,6 +225,7 @@ filename = os.path.join(rg.path_outsub1, 'v300vsmx2t_nobox'+
                         rg.hash+'_'+str(cluster_label))
 
 fig.savefig(filename + rg.figext, bbox_inches='tight')
+
 #%%
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
@@ -349,7 +352,7 @@ kwrgs_plot = {'row_dim':'split', 'col_dim':'lag','aspect':2, 'hspace':-.47,
               'wspace':-.15, 'size':3, 'cbar_vert':-.1,
               'units':'Corr. Coeff. [-]', 'zoomregion':(130,260,-10,60),
               'clim':(-.6,.6), 'map_proj':ccrs.PlateCarree(central_longitude=220),
-              'n_yticks':6, 'x_ticks':np.arange(130, 280, 25),
+              'y_ticks':np.array([30,50,70,90]), 'x_ticks':np.arange(130, 280, 25),
               'subtitles':subtitles, 'title':title,
               'title_fontdict':{'y':1.0, 'fontsize':18}}
 rg.plot_maps_corr(var='sst', save=save,
@@ -360,9 +363,6 @@ rg.plot_maps_corr(var='sst', save=save,
 #%%
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
-#%%
-
-
 
 
 

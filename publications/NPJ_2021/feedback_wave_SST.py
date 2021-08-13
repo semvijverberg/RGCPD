@@ -52,7 +52,7 @@ periods = ['summer_center', 'spring_center', 'winter_center']
 # periods = ['winter_center']
 
 # periods = ['summer_shiftleft']
-remove_PDO = False
+remove_PDO = True
 if remove_PDO:
     targets = ['east']
 else:
@@ -158,7 +158,7 @@ name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 
 save = True
-force_rerun = True
+force_rerun = False
 
 #%% Circulation vs temperature
 
@@ -406,9 +406,9 @@ def append_MCI(rg, df_MCI, dict_rb, alpha_level=.05):
 
 
 if remove_PDO:
-    lowpass = '2'
-    keys_ext=[f'PDO{lowpass}bw']
-    rg.list_import_ts = [('PDO', os.path.join(data_dir, 'df_PDOs.h5'))]
+    lowpass = '0.5'
+    keys_ext=[f'PDO{lowpass}rm']
+    # rg.list_import_ts = [('PDO', os.path.join(data_dir, 'df_PDOs.h5'))]
 else:
     keys_ext = ['0..0..z500_sp']
 
@@ -441,10 +441,17 @@ for f in freqs[:]:
     # if f == 30: # exception because code thinks 30-day are monthly mean data
     #     rg.list_import_ts = [('RW', TVpathRW+'_tf1.h5')]
     # else:
-    rg.list_import_ts = [('RW', TVpathRW+f'_tf{f}.h5')]
+    rg.list_import_ts = [('0..0..z500_sp', TVpathRW+f'_tf{f}.h5')]
+    if remove_PDO:
+        rg.list_import_ts += [(f'PDO{lowpass}rm',
+                               os.path.join(data_dir,'df_PDOs_daily.h5'))]
+    # else:
+        # rg.kwrgs_pp_TV['start_end_year'] = None
+        # rg.kwrgs_load['start_end_year'] = None
+
     rg.kwrgs_traintest['precursor_ts'] = rg.list_import_ts
     rg.list_for_MI[0].n_cpu = n_cpu
-    rg.get_ts_prec(precur_aggr=f, keys_ext=keys_ext)
+    rg.get_ts_prec(precur_aggr=f)
     keys = [f'$RW^{west_east[0].capitalize()}$',
             f'$SST^{west_east[0].capitalize()}$']
     rg.df_data = rg.df_data.rename({'0..0..z500_sp':keys[0],
@@ -454,12 +461,15 @@ for f in freqs[:]:
 
 
     if remove_PDO:
-        rg.df_data[keys], fig = wPCMCI.df_data_remove_z(rg.df_data.copy(), z=['PDO'],
-                                                          keys=keys,
-                                                          standardize=False,
-                                                          plot=True)
+        rg.df_data[keys], fig = wPCMCI.df_data_remove_z(rg.df_data.copy(),
+                                                        z_keys=['PDO'],
+                                                        keys=keys,
+                                                        lag_z=[2],
+                                                        standardize=False,
+                                                        plot=True)
         fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_tf{f}')
         fig.savefig(fig_path+rg.figext, bbox_inches='tight')
+        rg.df_data = rg.get_subdates_df(years=(1980,2020))
 
 
 
