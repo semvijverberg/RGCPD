@@ -679,7 +679,6 @@ def import_precur_ts(list_import_ts : List[tuple],
     '''
     #%%
     # list_import_ts = self.list_import_ts
-    # cols = None ;
     # start_end_year = kwrgs_load['start_end_year']; start_end_TVdate=kwrgs_load['start_end_TVdate']
 
     splits = df_splits.index.levels[0]

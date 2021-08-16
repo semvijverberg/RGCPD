@@ -1307,9 +1307,14 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
         while sstartdate < pd.to_datetime(str(startyr) + '-' + start_end_date[0]):
             daily_yr_fit -=1
             sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
+        # leapday exception
 
         start_yr = remove_leapdays(pd.date_range(start=sstartdate, end=senddate,
                                     freq=pd.Timedelta(tfreq, unit='day')))
+        if sstartdate.is_leap_year and sstartdate.month<3 and senddate.month>=3:
+            start_yr = list(start_yr)
+            start_yr[0] = start_yr[0]- pd.Timedelta('1d')
+            start_yr = pd.to_datetime(start_yr)
 
     datessubset = make_dates(start_yr, np.arange(startyr, endyr+1))
     if tfreq == 1: # only check for daily data

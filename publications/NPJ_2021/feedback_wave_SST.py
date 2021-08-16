@@ -142,7 +142,7 @@ else:
 
 tfreq         = 15
 min_detect_gc = 0.9
-method        = 'RepeatedKFold_10_7' ;
+method        = False #'RepeatedKFold_10_7' ;
 use_sign_pattern_z500 = True
 
 TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}_{method}')
@@ -158,7 +158,7 @@ name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 
 save = True
-force_rerun = False
+force_rerun = True
 
 #%% Circulation vs temperature
 
@@ -238,7 +238,9 @@ if any(nonexists) or force_rerun:
 
 
 
+# =============================================================================
 #%% RW timeseries vs SST and RW timeseries vs RW
+# =============================================================================
 
 list_of_name_path = [(name_or_cluster_label, TVpathRW+'_tf1.h5'),
                       ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc')),
@@ -256,7 +258,7 @@ list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov', selbox=(130,260,-10,90),
                               lags=np.array([0]))]
-list_import_ts = [('RW', TVpathRW+f'_tf{tfreq}.h5')]
+list_import_ts = [(['0..0..z500_sp'], TVpathRW+f'_tf{tfreq}.h5')]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
@@ -271,11 +273,11 @@ rg.pp_precursors(anomaly=True, detrend=True)
 RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
 subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range, method, seed)
 rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
-rg.get_ts_prec(keys_ext=['0..0..z500_sp'])
+rg.get_ts_prec()
 rg.calc_corr_maps(df_RVfull = rg.df_data[['z5000..0..z500_sp']])
 
 
-#%%
+#%% Plot corr map versus SST
 units = 'Corr. Coeff. [-]'
 subtitles = np.array([[f'$corr(SST_t,\ RW^{west_east[0].capitalize()}_t)$']])
 kwrgs_plot = {'row_dim':'split', 'col_dim':'lag',
@@ -290,7 +292,7 @@ kwrgs_plot = {'row_dim':'split', 'col_dim':'lag',
 rg.plot_maps_corr(var='N-Pac. SST', save=save, min_detect_gc=min_detect_gc,
                   kwrgs_plot=kwrgs_plot, append_str='')
 
-#%% Plot corr map versus z500
+#%% Plot corr map versus z500 with while contour lines of temperature cluster
 title = f'$corr(z500_t, RW^{west_east.capitalize()[0]}_t)$'
 subtitles = np.array([['']] )
 kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
@@ -324,7 +326,7 @@ filename = os.path.join(rg.path_outsub1,
                         'z500vsRW_'+''.join(map(str, z500_green_bb)))
 fig.savefig(filename+'.pdf', bbox_inches='tight')
 fig.savefig(filename+'.jpg', dpi=300, bbox_inches='tight')
-#%%
+#%% Plot corr map versus z500
 precur = rg.list_for_MI[0]
 subtitles = np.array([[f'$corr(z500_t,\ RW^{west_east[0].capitalize()}_t)$']])
 kwrgs_plot.update({'size':5, 'cbar_vert':.19, 'subtitles':subtitles,
@@ -461,23 +463,30 @@ for f in freqs[:]:
 
 
     if remove_PDO:
-        rg.df_data[keys], fig = wPCMCI.df_data_remove_z(rg.df_data.copy(),
-                                                        z_keys=['PDO'],
-                                                        keys=keys,
-                                                        lag_z=[2],
+        rg.df_data = rg.get_subdates_df(years=(1980,2020))
+        rg.df_data[keys[1:]], fig = wPCMCI.df_data_remove_z(rg.df_data.copy(),
+                                                        z_keys=['PDO0.5rm']+keys[:1],
+                                                        keys=keys[1:],
+                                                        lag_z=[1],
                                                         standardize=False,
                                                         plot=True)
         fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_tf{f}')
         fig.savefig(fig_path+rg.figext, bbox_inches='tight')
-        rg.df_data = rg.get_subdates_df(years=(1980,2020))
-
-
+        # ensure no NaNs in data
+        rg.df_data = rg.get_subdates_df(start_end_date=('04-01', '08-31'))
+        # df_new, _ = wPCMCI.df_data_remove_z(df_data,
+        #                                                 z_keys=['PDO0.5rm'],
+        #                                                 keys=keys[1:],
+        #                                                 lag_z=[1],
+        #                                                 standardize=False,
+        #                                                 plot=True)
+        # df_new = df_new.merge(rg.df_data[['TrainIsTrue', 'RV_mask']], left_index=True, right_index=True)
 
     kwrgs_tigr = {'tau_min':0, 'tau_max':tau_max, 'max_conds_dim':10,
                   'pc_alpha':0.05, 'max_combinations':10} # pc_alpha=None
     # start_time = time()
     rg.PCMCI_df_data(keys=keys,
-                      kwrgs_tigr=kwrgs_tigr, n_cpu=n_cpu)
+                     kwrgs_tigr=kwrgs_tigr, n_cpu=n_cpu)
     # print(f'{int(time() - start_time)}')
 
 
@@ -546,6 +555,133 @@ for csvfilename, dic in [(csvfilenamerobust, dict_rb)]:
     with open(csvfilename, 'a', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, list(dic.keys()))
         writer.writerows([dic])
+#%%
+import matplotlib as mpl
+mpl.rcParams.update(mpl.rcParamsDefault)
+#%%
+
+list_of_name_path = [(name_or_cluster_label, TVpathRW+'_tf1.h5'),
+                      ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
+
+list_for_MI = [BivariateMI(name='N-Pac. SST', func=class_BivariateMI.corr_map,
+                            alpha=.05, FDR_control=True,
+                            distance_eps=500, min_area_in_degrees2=5,
+                            calc_ts='pattern cov', selbox=sst_green_bb,
+                            lags=np.array([0]))]
+
+rg = RGCPD(list_of_name_path=list_of_name_path,
+            list_for_MI=list_for_MI,
+            list_import_ts=None,
+            start_end_TVdate=start_end_TVdate,
+            start_end_date=None,
+            tfreq=tfreq,
+            path_outmain=path_out_main)
+
+rg.pp_TV(name_ds=name_ds)
+rg.pp_precursors(anomaly=True)
+RV_name_range = '{}-{}'.format(*list(rg.start_end_TVdate))
+subfoldername = 'RW_SST_fb_{}_{}s{}'.format(RV_name_range,
+                                                  method, seed)
+rg.traintest(method=method, seed=seed, subfoldername=subfoldername)
+
+rg.calc_corr_maps(var='N-Pac. SST')
+
+rg.cluster_list_MI(var='N-Pac. SST')
+rg.quick_view_labels(min_detect_gc=min_detect_gc)
+
+#%%
+keys = [f'$RW^{west_east[0].capitalize()}$',
+        f'$SST^{west_east[0].capitalize()}$']
+z_keys_tests = [keys[:1], ['PDO0.5rm'], keys[:1] + ['PDO0.5rm']]
+for z_keys in z_keys_tests:
+    f = 60
+    rg.list_import_ts = [('0..0..z500_sp', TVpathRW+f'_tf{f}.h5'),
+                         ('PDO0.5rm',
+                          os.path.join(data_dir,'df_PDOs_daily.h5'))]
+
+
+
+    rg.kwrgs_traintest['precursor_ts'] = rg.list_import_ts
+    rg.list_for_MI[0].n_cpu = n_cpu
+    rg.get_ts_prec(precur_aggr=f)
+
+    rg.df_data = rg.df_data.rename({'0..0..z500_sp':keys[0],
+                                    '0..0..N-Pac. SST_sp':keys[1]}, axis=1)
+
+
+
+
+    if z_keys is not None:
+        rg.df_data = rg.get_subdates_df(years=(1980,2020),
+                                        start_end_date=('01-01', '08-31'))
+        rg.df_data[keys[1:]], fig = wPCMCI.df_data_remove_z(rg.df_data.copy(),
+                                                        z_keys=z_keys,
+                                                        keys=keys[1:],
+                                                        lag_z=[1],
+                                                        standardize=False,
+                                                        plot=True)
+        fig_path = os.path.join(rg.path_outsub1, f'regressing_out_PDO_tf{f}')
+        fig.savefig(fig_path+rg.figext, bbox_inches='tight')
+        # ensure no NaNs in data
+        rg.df_data = rg.get_subdates_df(start_end_date=('04-01', '08-31'))
+        # df_new, _ = wPCMCI.df_data_remove_z(df_data,
+        #                                                 z_keys=['PDO0.5rm'],
+        #                                                 keys=keys[1:],
+        #                                                 lag_z=[1],
+        #                                                 standardize=False,
+        #                                                 plot=True)
+        # df_new = df_new.merge(rg.df_data[['TrainIsTrue', 'RV_mask']], left_index=True, right_index=True)
+    tau_max = 1
+    kwrgs_tigr = {'tau_min':0, 'tau_max':tau_max, 'max_conds_dim':10,
+                  'pc_alpha':0.05, 'max_combinations':10} # pc_alpha=None
+
+    rg.PCMCI_df_data(keys=keys,
+                     kwrgs_tigr=kwrgs_tigr, n_cpu=n_cpu)
+    rg.PCMCI_get_links(keys[0])
+
+
+    lags = range(rg.kwrgs_tigr['tau_min'], rg.kwrgs_tigr['tau_max']+1)
+    lags = np.array([l*f for i, l in enumerate(lags)])
+    mlr = 1
+    # df_MCI = append_MCI(rg, df_MCI, dict_rb, alpha_level)
+
+    # AR1SST = rg.df_MCIc.mean(0,level=1).loc[keys[1]]['coeff l1'].round(2)
+
+    # my_cmap = matplotlib.colors.ListedColormap(
+    #     ["#f94144","#f3722c","#f8961e","#f9c74f","#90be6d","#43aa8b"][::-1])
+    cmap_edges = ListedColormap(
+        ["#8D0801","#bc4749", "#fb8500","#ffb703","#a7c957", "#b5dda4"][::-1])
+    cmap_nodes = ["#9d0208",
+                  "#dc2f02","#e85d04","#f48c06","#faa307", "#ffba08"][::-1]
+    cmap_nodes = ListedColormap(cmap_nodes)
+
+    append_figpath = f'_tf{rg.precur_aggr}_rb{mlr}_taumax{tau_max}'
+    if z_keys is not None:
+        append_figpath += '_z_keys_' + ''.join(z_keys)
+    rg.PCMCI_plot_graph(min_link_robustness=mlr, alpha_level=0.05, FDR_cv='fdr_bh',
+                        figshape=(10.5,4),
+                        kwrgs={'vmax_nodes':.9,
+                                'node_aspect':130,
+                                'node_size':.008,
+                                'node_ticks':.3,
+                                'node_label_size':50,
+                                'vmax_edges':.6,
+                                'vmin_edges':0,
+                                'cmap_edges':cmap_edges,
+                                'cmap_nodes':cmap_nodes,
+                                'edge_ticks':.2,
+                                'lag_array':lags,
+                                'curved_radius':.5,
+                                'arrowhead_size':100000,
+                                'link_label_fontsize':35,
+                                'link_colorbar_label':'Link strength',
+                                'node_colorbar_label':'Auto-strength',
+                                'label_fontsize':15,
+                                'weights_squared':1,
+                                'network_lower_bound':.25},
+                        append_figpath=append_figpath)
+
+
 #%%
 # s = 0
 # tig = rg.pcmci_dict[s]

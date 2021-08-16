@@ -107,8 +107,9 @@ class RGCPD:
         list_for_EOFS : list, optional
             list of EOF classes, see docs EOF?
         list_import_ts : list, optional
-            Load in precursor 1-d timeseries in format:
-            [(name1, path_to_h5_file1), [(name2, path_to_h5_file2)]]
+            Load in precursor 1-d timeseries from hdf5 files in format:
+            [([columns], path_to_h5_file1), [([columns], path_to_h5_file2)]]
+            The .h5 files should contain a pd.DataFrame called df_data.
             precursor_ts can handle the RGCPD cross-validation format.
         start_end_TVdate : tuple, optional
             tuple of start- and enddate for target variable in
@@ -552,9 +553,9 @@ class RGCPD:
         if df_data is None:
             df_data = self.df_data.copy()
         dates = df_data.loc[0].index
-        if type(years) is tuple or start_end_date is None:
+        if type(years) is tuple or start_end_date is not None:
             seldates = functions_pp.core_pp.get_subdates(dates, start_end_date,
-                                            years)
+                                                         years)
         elif type(years) in [np.ndarray, list]:
             seldates = functions_pp.get_oneyr(dates, years)
         return df_data.loc[pd.MultiIndex.from_product([range(self.n_spl), seldates])]
@@ -832,7 +833,7 @@ class RGCPD:
                                 mask: xr.DataArray=None):
 
         n_splits = xr_in.split.size
-        min_d = round(n_splits * (1- min_detect),0)
+        min_d = max(1,round(n_splits * (1- min_detect),0))
         # 1 == non-significant, 0 == significant
         if mask is None:
             mask = np.isnan(xr_in) # NaN = True = 1 = non-sign

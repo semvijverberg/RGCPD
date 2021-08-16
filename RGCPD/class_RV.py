@@ -15,9 +15,6 @@ import functions_pp
 import core_pp
 
 
-
-
-
 class RV_class:
     def __init__(self, fullts: pd.DataFrame, RV_ts: pd.DataFrame,
                  kwrgs_events: Union[dict, tuple], only_RV_events: bool=True,
