@@ -72,7 +72,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['timeseriessplit_30'] # ['ranstrat_20']
+methods = ['leave_1'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -254,11 +254,11 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     kwrgs_core_pp_time = {'start_end_year': TV_start_end_year}
     rg.pp_TV(name_ds=name_ds, detrend={'method':'linear'}, ext_annual_to_mon=False,
              kwrgs_core_pp_time=kwrgs_core_pp_time)
-    if method.split('_')[0]=='leave':
-        rg.traintest(method, gap_prior=1, gap_after=1, seed=seed,
-                     subfoldername=subfoldername)
-    else:
-        rg.traintest(method, seed=seed, subfoldername=subfoldername)
+    # if method.split('_')[0]=='leave':
+    #     rg.traintest(method, gap_prior=1, gap_after=1, seed=seed,
+    #                  subfoldername=subfoldername)
+    # else:
+    rg.traintest(method, seed=seed, subfoldername=subfoldername)
 
 
     #%%
