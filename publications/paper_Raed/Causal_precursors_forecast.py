@@ -187,7 +187,7 @@ PacificBox = (130,265,-10,60)
 GlobalBox  = (-180,360,-10,60)
 USBox = (225, 300, 20, 60)
 
-load = True
+load = 'all'
 save = True
 
 list_of_name_path = [(cluster_label, TVpath),
