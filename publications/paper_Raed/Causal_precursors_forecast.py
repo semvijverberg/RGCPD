@@ -58,7 +58,7 @@ from RGCPD import BivariateMI
 import class_BivariateMI
 import func_models as fc_utils
 import functions_pp, find_precursors
-import plot_maps;
+import plot_maps, core_pp
 import wrapper_PCMCI
 import utils_paper3
 from stat_models import plot_importances
@@ -72,7 +72,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2']
 seeds = seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['random_20'] # ['ranstrat_20']
+methods = ['timeseriessplit_30'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -187,7 +187,7 @@ PacificBox = (130,265,-10,60)
 GlobalBox  = (-180,360,-10,60)
 USBox = (225, 300, 20, 60)
 
-
+load = False
 save = True
 
 list_of_name_path = [(cluster_label, TVpath),
@@ -260,6 +260,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     else:
         rg.traintest(method, seed=seed, subfoldername=subfoldername)
 
+
     #%%
     sst = rg.list_for_MI[0]
     if 'sst' in use_vars:
@@ -267,7 +268,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                                             sst.distance_eps,
                                             sst.min_area_in_degrees2,
                                             periodnames[-1])
-        if load:
+        if load == 'maps' or load == 'all':
             loaded = sst.load_files(rg.path_outsub1, load_sst)
         else:
             loaded = False
@@ -280,7 +281,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                                             SM.distance_eps,
                                             SM.min_area_in_degrees2,
                                             periodnames[-1])
-        if load:
+        if load == 'maps' or load == 'all':
             loaded = SM.load_files(rg.path_outsub1, load_SM)
         else:
             loaded = False
@@ -345,72 +346,79 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         SM.prec_labels['lag'] = ('lag', periodnames)
         rg.quick_view_labels('smi', min_detect_gc=.5, save=save,
                               append_str=periodnames[-1])
-#%%
 
-    rg.get_ts_prec()
-    rg.df_data = rg.df_data.rename({rg.df_data.columns[0]:target_dataset},axis=1)
+    #%% Calculate spatial mean timeseries of precursor regions
+    filepath_df_output = os.path.join(rg.path_outsub1,
+                                      f'df_output_{periodnames[-1]}.h5')
+    if load == 'all' and os.path.exists(filepath_df_output):
+        df_output = functions_pp.load_hdf5(filepath_df_output)
+        rg.df_data  = df_output['df_data']
+        rg.df_pvals = df_output['df_pvals']
+        rg.df_corr  = df_output['df_corr']
+    else:
+        rg.get_ts_prec()
+        rg.df_data = rg.df_data.rename({rg.df_data.columns[0]:target_dataset},axis=1)
+        #%% Causal Inference
+        def feature_selection_CondDep(df_data, keys, z_keys=None, alpha_CI=.05, x_lag=0, z_lag=0):
 
+            # Feature selection Cond. Dependence
+            keys = list(keys) # must be list
+            if z_keys is None:
+                z_keys = keys
+            corr, pvals = wrapper_PCMCI.df_data_Parcorr(df_data.copy(), keys=keys,
+                                                        z_keys=z_keys, z_lag=z_lag)
+            # removing all keys that are Cond. Indep. in each trainingset
+            keys_dict = dict(zip(range(rg.n_spl), [keys]*rg.n_spl)) # all vars
+            for s in rg.df_splits.index.levels[0]:
+                for k_i in keys:
+                    onekeyCI = (np.nan_to_num(pvals.loc[k_i][s],nan=alpha_CI) > alpha_CI).mean()>0
+                    keyisNaN = np.isnan(pvals.loc[k_i][s]).all()
+                    if onekeyCI or keyisNaN:
+                        k_ = keys_dict[s].copy() ; k_.pop(k_.index(k_i))
+                        keys_dict[s] = k_
 
-    # # fill first value of smi (NaN because of missing December when calc smi
-    # # on month februari).
-    # keys = [k for k in rg.df_data.columns if k.split('..')[-1]=='smi']
-    # rg.df_data[keys] = rg.df_data[keys].fillna(value=0)
-
-    #%% Causal Inference
-
-    def feature_selection_CondDep(df_data, keys, z_keys=None, alpha_CI=.05, x_lag=0, z_lag=0):
-
-        # Feature selection Cond. Dependence
-        keys = list(keys) # must be list
-        if z_keys is None:
-            z_keys = keys
-        corr, pvals = wrapper_PCMCI.df_data_Parcorr(df_data.copy(), keys=keys,
-                                                    z_keys=z_keys, z_lag=z_lag)
-        # removing all keys that are Cond. Indep. in each trainingset
-        keys_dict = dict(zip(range(rg.n_spl), [keys]*rg.n_spl)) # all vars
-        for s in rg.df_splits.index.levels[0]:
-            for k_i in keys:
-                onekeyCI = (np.nan_to_num(pvals.loc[k_i][s],nan=alpha_CI) > alpha_CI).mean()>0
-                keyisNaN = np.isnan(pvals.loc[k_i][s]).all()
-                if onekeyCI or keyisNaN:
-                    k_ = keys_dict[s].copy() ; k_.pop(k_.index(k_i))
-                    keys_dict[s] = k_
-
-        return corr, pvals, keys_dict.copy()
-
-
-    regress_autocorr_SM = False
-    unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
-    # select the causal regions from analysys in Causal Inferred Precursors
-    print('Start Causal Inference')
-    list_pvals = [] ; list_corr = []
-    for k in unique_keys:
-        z_keys = [z for z in rg.df_data.columns[1:-2] if k not in z]
-
-        for mon in periodnames:
-            keys = [mon+ '..'+k]
-            if regress_autocorr_SM and 'sm' in k:
-                z_keys = [z for z in rg.df_data.columns[1:-2] if keys[0] not in z]
+            return corr, pvals, keys_dict.copy()
 
 
-            if keys[0] not in rg.df_data.columns:
-                continue
-            out = feature_selection_CondDep(rg.df_data.copy(), keys=keys,
-                                            z_keys=z_keys, alpha_CI=.05)
-            corr, pvals, keys_dict = out
-            list_pvals.append(pvals.max(axis=0, level=0))
-            list_corr.append(corr.mean(axis=0, level=0))
+        regress_autocorr_SM = False
+        unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
+        # select the causal regions from analysys in Causal Inferred Precursors
+        print('Start Causal Inference')
+        list_pvals = [] ; list_corr = []
+        for k in unique_keys:
+            z_keys = [z for z in rg.df_data.columns[1:-2] if k not in z]
+
+            for mon in periodnames:
+                keys = [mon+ '..'+k]
+                if regress_autocorr_SM and 'sm' in k:
+                    z_keys = [z for z in rg.df_data.columns[1:-2] if keys[0] not in z]
 
 
-    rg.df_pvals = pd.concat(list_pvals,axis=0)
-    rg.df_corr = pd.concat(list_corr,axis=0)
+                if keys[0] not in rg.df_data.columns:
+                    continue
+                out = feature_selection_CondDep(rg.df_data.copy(), keys=keys,
+                                                z_keys=z_keys, alpha_CI=.05)
+                corr, pvals, keys_dict = out
+                list_pvals.append(pvals.max(axis=0, level=0))
+                list_corr.append(corr.mean(axis=0, level=0))
 
+
+        rg.df_pvals = pd.concat(list_pvals,axis=0)
+        rg.df_corr = pd.concat(list_corr,axis=0)
+
+        df_output = {'df_data': rg.df_data,
+                      'df_pvals':rg.df_pvals,
+                      'df_corr':rg.df_corr}
+        functions_pp.store_hdf_df(df_output, filepath_df_output)
+    #%%
     return rg
 
 
 # pipeline(lags=lags_july, periodnames=periodnames_july)
 
 #%%
+
+
 if __name__ == '__main__':
     sy = start_end_year[0]
     sy_p1 = start_end_year[0] + 1
@@ -502,13 +510,15 @@ if __name__ == '__main__':
     use_vars_list = [use_vars_july, use_vars_june,
                      use_vars_may, use_vars_april, use_vars_march]
 
-    futures = []
+    futures = [] ; rg_list = []
     for lags, periodnames, use_vars in zip(lag_list, periodnames_list, use_vars_list):
-        # pipeline(lags, periodnames)
-        futures.append(delayed(pipeline)(lags, periodnames, use_vars))
+        if load == False:
+            futures.append(delayed(pipeline)(lags, periodnames, use_vars, load))
+        else:
+            rg_list.append(pipeline(lags, periodnames, use_vars, load))
 
-
-    rg_list = Parallel(n_jobs=n_cpu, backend='loky')(futures)
+    if load == False:
+        rg_list = Parallel(n_jobs=n_cpu, backend='loky')(futures)
 rg = rg_list[0]
 
 
@@ -1133,3 +1143,13 @@ for rg in rg_list:
     fig.savefig(os.path.join(rg.path_outsub1, f'weights_{fc_month}.png'),
                 bbox_inches='tight', dpi=100)
 
+#%% R2 skill metric proportional with length of dataset
+det, trend = core_pp.detrend_wrapper(rg.df_fulltso[['raw_target']], return_trend=True)
+trend = trend.rename({'raw_target':'trend'}, axis=1)
+target = rg.df_fulltso[['raw_target']].rename({'raw_target':'Soy Yield'})
+trend_pred = target.merge(trend, left_index=True, right_index=True)
+skill = fc_utils.get_scores(trend_pred,
+                            score_func_list=[fc_utils.r2_score])[2]
+skill10yrs = fc_utils.get_scores(trend_pred.loc[core_pp.get_subdates(trend_pred.index, None,
+                                                                range(2000,2010))],
+                            score_func_list=[fc_utils.r2_score])[2]

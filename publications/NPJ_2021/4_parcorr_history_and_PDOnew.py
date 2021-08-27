@@ -3,6 +3,14 @@
 """
 Created on Tue Feb 18 15:03:30 2020
 
+Step 4 to reproduce results of NPJ paper:
+"The role of the Pacific Decadal Oscillation and
+ocean-atmosphere interactions in driving US temperature variability"
+
+It loads the RW and temperature timeseries that are stored by step 2.
+This script calculates and plots the (partial) correlation maps of
+Figure 3 and 4.
+
 @author: semvijverberg
 """
 

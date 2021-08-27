@@ -310,13 +310,25 @@ def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0):
     Returns only the data at which TrainIsTrue.
 
     '''
+    if cols is not None:
+        df = df[cols]
     if df_splits is None:
         TrainIsTrue = df['TrainIsTrue']
     else:
         TrainIsTrue = df_splits['TrainIsTrue']
-    df_train = df.loc[s][TrainIsTrue.loc[s].values==1]
-    if cols is not None:
-        df_train = df_train[cols]
+    if type(s) is int:
+        df_train = df.loc[s][TrainIsTrue.loc[s].values==1]
+    elif s == 'mean': # mean over all training data
+        if type(df) is pd.Series:
+            df = pd.DataFrame(df)
+        df_trains = []
+        for col in df.columns:
+            splits = df_splits.index.levels[0]
+            l_dfs = [df[col].loc[s][TrainIsTrue.loc[s].values==1] for s in splits]
+            df_coltrain = pd.concat(l_dfs, axis=1)
+            df_coltrain = df_coltrain.groupby(by=df_coltrain.columns, axis=1).mean()
+            df_trains.append(df_coltrain)
+        df_train = pd.concat(df_trains, axis=1)
     return df_train
 
 def nc_xr_ts_to_df(filename, name_ds='ts', format_lon='only_east'):
@@ -1288,7 +1300,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
     # test_yrs = None ; seed=1 ; gap_prior=None ; gap_after=None
 
     from func_models import get_cv_accounting_for_years
-    from sklearn.model_selection import KFold, TimeSeriesSplit, RepeatedKFold
+    import sklearn.model_selection as sk_ms
 
 
 
@@ -1315,27 +1327,38 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
         testgroups = np.array([[]])
     else:
         if test_yrs is None:
-            kfold = int(method.split('_')[-1])
+            kfold = float(method.split('_')[-1])
+            if kfold.is_integer(): kfold = int(kfold)
             if method[:8] == 'ranstrat':
                 TVgroups = groups.loc[RV_ts.index]
                 cv = get_cv_accounting_for_years(RV_ts, kfold, seed, TVgroups)
                 testgroups = cv.uniqgroups
             elif method[:5] == 'leave':
                 kfold = int(round(uniqgroups.size / int(method.split('_')[-1]),0))
-                cv = KFold(n_splits=kfold, shuffle=False)
+                cv = sk_ms.KFold(n_splits=kfold, shuffle=False)
                 testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
             elif method[:6] == 'random':
-                cv = KFold(n_splits=kfold, shuffle=True, random_state=seed)
+                cv = sk_ms.KFold(n_splits=kfold, shuffle=True,
+                                 random_state=seed)
                 testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
-            elif method[:15] == 'TimeSeriesSplit':
-                cv = TimeSeriesSplit(max_train_size=None, n_splits=kfold,
-                                     test_size=1)
+            elif method[:15].lower() == 'timeseriessplit':
+                cv = sk_ms.TimeSeriesSplit(max_train_size=None,
+                                           n_splits=kfold, test_size=1)
+
                 testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
             elif method[:13] == 'RepeatedKFold':
                 n_repeats = int(method.split('_')[1])
-                cv = RepeatedKFold(n_splits=kfold, n_repeats=n_repeats,
-                                   random_state=seed)
+                cv = sk_ms.RepeatedKFold(n_splits=kfold, n_repeats=n_repeats,
+                                         random_state=seed)
                 testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
+            elif method[:5] == 'split':
+                trainsize = kfold
+                n_repeats=1 ; kfold = 1
+                if trainsize.is_integer(): trainsize = int(trainsize)
+                cv = sk_ms.train_test_split(uniqgroups, train_size=trainsize,
+                                            shuffle=False)
+                testgroups = [[list(uniqgroups).index(gr) for gr in cv[1]]]
+                # testgroups = [list(f[1]) for f in cv.split(uniqgroups)]
 
         elif test_yrs is not None and type(test_yrs) is pd.DataFrame:
             testgroups = test_yrs
@@ -1353,7 +1376,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
             else:
                 test_fold = test_fold_idx
             # assign testsetidx
-            if max(1,i) % kfold == 0:
+            if max(1,i) % kfold == 0 and kfold!=1:
                 n += 1
             # if i == 2: break
             # print(test_fold)
@@ -1392,6 +1415,10 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
                         continue
                     mask = np.array(testsetidx[n] < i, dtype=int)
                     mask[testsetidx[n]>i] = -1
+                elif method[:5] == 'split':
+                    if i == -999:
+                        continue
+                    mask = np.logical_or(testsetidx[n]!=i, testsetidx[n]==-999)
                 else:
                     mask = np.logical_or(testsetidx[n]!=i, testsetidx[n]==-999)
                     # print(n,i,mask[mask].size)

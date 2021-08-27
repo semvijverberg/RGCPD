@@ -10,7 +10,7 @@ Created on Wed Jun 16 11:14:02 2021
 
 import os, sys
 import numpy as np
-
+import itertools
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -282,7 +282,7 @@ def get_df_forcing_cond_fc(rg_list, target_ts, fcmodel, kwrgs_model,
         if Atlan.size > 0:
             PacAtl.append(int(Atlan.index[0]))
         PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
-        PacAtl = [int(df_labels['n_gridcells'].idxmax())] # only Pacific
+        # PacAtl = [int(df_labels['n_gridcells'].idxmax())] # only Pacific
 
         weights_norm = rg.prediction_tuple[1]# .mean(axis=0, level=1)
         # weights_norm = weights_norm.sort_values(ascending=False, by=0)
@@ -307,8 +307,7 @@ def get_df_forcing_cond_fc(rg_list, target_ts, fcmodel, kwrgs_model,
         weights_norm = weights_norm.reset_index().pivot(index='level_0', columns='level_1')[0]
         weights_norm.index.name = 'fold' ; df_mean.index.name = ('fold', 'time')
         PacAtl_ts = weights_norm.multiply(df_mean[keys], axis=1, level=0)
-        PacAtl_ts = functions_pp.get_df_test(PacAtl_ts.mean(axis=1),
-                                             df_splits=rg.df_splits)
+
 
         rg.df_forcing = PacAtl_ts
 
@@ -323,7 +322,10 @@ def cond_forecast_table(rg_list, score_func_list, n_boot=0):
     for i, met in enumerate(metrics):
         for j, rg in enumerate(rg_list):
 
-            PacAtl_ts = rg.df_forcing
+            df_forctest = functions_pp.get_df_test(rg.df_forcing.mean(axis=1),
+                                                   df_splits=rg.df_splits)
+            df_forctrain = functions_pp.get_df_train(rg.df_forcing.mean(axis=1),
+                                             df_splits=rg.df_splits, s='mean')
 
             prediction = rg.prediction_tuple[0]
             df_test = functions_pp.get_df_test(prediction,
@@ -333,8 +335,8 @@ def cond_forecast_table(rg_list, score_func_list, n_boot=0):
             # cond_df[i, j, 0] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
             for k, l in enumerate(range(0,4,2)):
                 q = quantiles[k]
-                low = PacAtl_ts < PacAtl_ts.quantile(q)
-                high = PacAtl_ts > PacAtl_ts.quantile(1-q)
+                low = df_forctest < float(df_forctrain.quantile(q))
+                high = df_forctest > float(df_forctrain.quantile(1-q))
                 mask_anomalous = np.logical_or(low, high)
                 # anomalous Boundary forcing
                 condfc = df_test[mask_anomalous.values]
@@ -352,8 +354,8 @@ def cond_forecast_table(rg_list, score_func_list, n_boot=0):
                 else:
                     cond_df[i, j, l, :] = df_boot[df_boot.columns[0][0]][met]
                 # mild boundary forcing
-                higher_low = PacAtl_ts > PacAtl_ts.quantile(.5-q)
-                lower_high = PacAtl_ts < PacAtl_ts.quantile(.5+q)
+                higher_low = df_forctest > float(df_forctrain.quantile(.5-q))
+                lower_high = df_forctest < float(df_forctrain.quantile(.5+q))
                 mask_anomalous = np.logical_and(higher_low, lower_high) # changed 11-5-21
 
                 condfc = df_test[mask_anomalous.values]
@@ -501,3 +503,61 @@ def boxplot_cond_fc(df_cond, metrics: list=None, forcing_name: str='', composite
     f.subplots_adjust(wspace=.4)
     #%%
     return f
+
+def lineplot_cond_fc(filepath_dfs, metrics: list=None, composites=[30],
+                     alpha=0.05, fs=16):
+    #%%
+    rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
+                'MAE':'MAE-SS', 'mean_absolute_error':'Mean Absolute Error',
+                'r2_score':'$r^2$ score', 'BSS':'BSS', 'roc_auc_score':'AUC-ROC'}
+
+    df_cond_fc = functions_pp.load_hdf5(filepath_dfs)['df_cond_fc']
+
+    # preserves order
+    indices = np.unique([t[1] for t in df_cond_fc.index],return_index=True)[1]
+    lead_times = [n[1] for n in df_cond_fc.index[sorted(indices)]]
+
+    if metrics is None:
+
+        indices = np.unique([t[0] for t in df_cond_fc.index],
+                            return_index=True)[1]
+        metrics = [n[0] for n in df_cond_fc.index[sorted(indices)]]
+
+
+
+    f, axes = plt.subplots(len(metrics),1,
+                           figsize=(10, 6*len(metrics)**0.5),
+                           sharex=True)
+    # plt.style.use('seaborn-talk')
+    cols = [c for c in df_cond_fc.columns.levels[0] if \
+            int(c.split('%')[0][-2:]) in composites]
+    # lines = [t for t in itertools.product(metrics, cols)]
+    for met, cond in itertools.product(metrics, cols):
+        print(met, cond)
+        df = df_cond_fc.loc[met, cond] ; ax = axes[metrics.index(met)]
+        if metrics.index(met) == 0:
+            label = cond.split(' ')[0] +' SST forcing ('+cond.split(' ')[1]+' composite)'
+        else:
+            label=None
+        ax.plot(lead_times, df.mean(axis=1).values, label=label)
+        lower = df.quantile(q=alpha/2, axis=1)
+        upper = df.quantile(q=1-alpha/2, axis=1)
+        ax.fill_between(lead_times, lower, upper, alpha=0.2)
+
+        if met == 'corrcoef':
+            ax.set_ylim(0,1) ; labelpad=11
+        elif met == 'r2_score':
+            ax.set_ylim(-.3,0.9) ; labelpad=-9
+        else:
+            ax.set_ylim(-0.3,0.6) ; labelpad=0
+        ax.axhline(y=0, color='black', lw=.75)
+        ax.set_ylabel(rename_m[met], fontsize=fs, labelpad=labelpad)
+        ax.grid(b=True, axis='y')
+        ax.tick_params(direction='in', length=9)
+        ax.xaxis.set_tick_params(labelsize=fs-2)
+        ax.yaxis.set_tick_params(labelsize=fs-2)
+        if metrics.index(met) == 0:
+            ax.legend(fontsize=fs-5)
+
+
+

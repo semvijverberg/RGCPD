@@ -3,6 +3,13 @@
 """
 Created on Thu Nov 26 12:44:42 2020
 
+Step for Appendix B to reproduce results of NPJ paper:
+"The role of the Pacific Decadal Oscillation and
+ocean-atmosphere interactions in driving US temperature variability"
+
+It loads the RW and temperature timeseries that are stored by step 2.
+This script generates and plot the results for Appendix B.
+
 @author: semvijverberg
 """
 import os, inspect, sys

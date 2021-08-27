@@ -3,6 +3,18 @@
 """
 Created on Thu May 28 15:26:32 2020
 
+Step 1 to reproduce results of NPJ paper:
+"The role of the Pacific Decadal Oscillation and
+ocean-atmosphere interactions in driving US temperature variability"
+
+This script is used to find the western and eastern US cluster. It also
+calculates the T^E and T^W timeseries, which are used thoughout the analysis.
+It also create SI-Figure 1.
+
+The clustering output data is loaded by clusters_check.py and that script
+creates Figure 7.
+
+
 @author: semvijverberg
 """
 

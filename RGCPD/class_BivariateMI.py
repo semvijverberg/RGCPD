@@ -457,7 +457,7 @@ class BivariateMI:
         return
 
 
-    def get_prec_ts(self, precur_aggr=None, kwrgs_load=None): #, outdic_precur #TODO
+    def get_prec_ts(self, precur_aggr=None, kwrgs_load=None):
         # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
         # stacked on top of each other (from lag_min to lag_max)
 
@@ -527,18 +527,21 @@ class BivariateMI:
                     f_name = file
         if f_name is not None:
             filepath = os.path.join(path_hashfile, f_name)
-            self.ds = core_pp.import_ds_lazy(filepath)
-            self.corr_xr = self.ds['corr_xr']
+            self.corr_xr = core_pp.import_ds_lazy(filepath, var='corr_xr')
             self.alpha = self.corr_xr.attrs['alpha']
             self.FDR_control = bool(self.corr_xr.attrs['FDR_control'])
-            self.precur_arr = self.ds['precur_arr']
+            self.precur_arr = core_pp.import_ds_lazy(filepath,
+                                                      var='precur_arr')
             # self._tfreq = self.precur_arr.attrs['_tfreq']
-            if 'prec_labels' in self.ds.variables.keys():
-                self.prec_labels = self.ds['prec_labels']
+            try:
+                self.prec_labels = core_pp.import_ds_lazy(filepath,
+                                                          var='prec_labels')
                 self.distance_eps = self.prec_labels.attrs['distance_eps']
                 self.min_area_in_degrees2 = self.prec_labels.attrs['min_area_in_degrees2']
                 self.group_lag = bool(self.prec_labels.attrs['group_lag'])
                 self.group_split = bool(self.prec_labels.attrs['group_split'])
+            except:
+                print('prec_labels not found. Precursor regions not yet clustered')
             loaded = True
         else:
             print('No file that matches the hash_str or instance settings in '
@@ -1224,7 +1227,7 @@ def single_split_calc_spatcov(precur, precur_arr: np.ndarray, corr: np.ndarray,
             ts_list[il] = nants
             pass
         else:
-            xrts = find_precursors.calc_spatcov(precur_arr, pattern,
+            xrts = find_precursors.calc_spatcov(precur_arr.values, pattern,
                                                 area_wght=a_wghts)
             ts_list[il] = xrts[:,None]
         track_names.append(f'{lag}..0..{precur.name}' + '_sp')
@@ -1342,6 +1345,8 @@ def calc_ts_wrapper(precur, precur_aggr=None, kwrgs_load: dict=None,
                                                   force_reload, lags)
     lags        = prec_labels.lag.values
     use_coef_wghts  = precur.use_coef_wghts
+    if hasattr(precur, 'area_grid')==False:
+        precur.area_grid = find_precursors.get_area(precur_arr)
     a_wghts         = precur.area_grid / precur.area_grid.mean()
     splits          = corr_xr.split.values
     dates = pd.to_datetime(precur_arr.time.values)

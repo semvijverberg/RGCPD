@@ -344,11 +344,12 @@ class RGCPD:
             kwrgs_events.
         (3) leave_{int}:
             Leave_n_out CV. Chronologically split train and test years.
-        (4) split_{int:
-            (should be updated) split dataset into single train and test set
+        (4) split_{int_or_float}:
+            splits dataset into single train and test set. if float: that % of
+            data is used for training. if int: that number of years are used.
         (5) timeseriessplit_{int}:
             Also known as one-step-ahead CV. Always uses training data of the
-            past.
+            past. The int determines the amount of one-step-aheads.
         (6) RepeatedKFold_{n_repeats}_{kfold}. Repeats K-Fold n times with
             different randomization in each repetition (test set is different
             each time).
