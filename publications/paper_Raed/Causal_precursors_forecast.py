@@ -70,7 +70,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 
 
 target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2']
-seeds = seeds = [1,2,3,4] # ,5]
+seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['leave_1'] # ['ranstrat_20']
 feature_sel = [True]
@@ -187,7 +187,7 @@ PacificBox = (130,265,-10,60)
 GlobalBox  = (-180,360,-10,60)
 USBox = (225, 300, 20, 60)
 
-load = False
+load = True
 save = True
 
 list_of_name_path = [(cluster_label, TVpath),
@@ -776,7 +776,7 @@ kwrgs_model = {'scoringCV':'neg_brier_score',
                 'kfold':10,
                 'max_iter':200}
 
-thresholds = [.33, .5, .66]
+thresholds = [.5, 0.33, .66]
 # thresholds = [.5]
 for i, q in enumerate(thresholds):
     list_verification = [] ; list_prediction = []
@@ -888,11 +888,11 @@ for i, q in enumerate(thresholds):
     #             bbox_inches='tight', dpi=100)
     df_cond_fc = utils_paper3.cond_forecast_table(rg_list, score_func_list,
                                                   n_boot=n_boot)
-    composites = [30, 50]
+    composites = [50, 30]
     for comp in composites:
         f = utils_paper3.boxplot_cond_fc(df_cond_fc, metrics=None,
                                          forcing_name='Pacific Forcing',
-                                         composites=comp)
+                                         composite=comp)
         filepath = os.path.join(rg.path_outsub1, f'Conditional_forecast_{comp}_{q}')
         f.savefig(filepath + rg.figext, bbox_inches='tight')
     # save table conditional forecast (Continuous)

@@ -512,18 +512,27 @@ def _bootstrap(pred_test, n_boot_sub, chunks, score_func_list, rng_seed: int=1):
     y_true = pred_test.iloc[:,0]
     y_pred = pred_test.iloc[:,1]
     score_l = []
-    rng = np.random.RandomState(rng_seed)
-    for i in range(n_boot_sub):
+    rng = np.random.RandomState(rng_seed) ; i = 0 ; r = 0
+    while i != n_boot_sub:
+        i += 1 # loop untill n_boot
         # bootstrap by sampling with replacement on the prediction indices
         ran_ind = rng.randint(0, len(chunks) - 1, len(chunks))
         ran_blok = [chunks[i] for i in ran_ind] # random selection of blocks
         indices = list(itertools.chain.from_iterable(ran_blok)) #blocks to list
 
         if len(np.unique(y_true[indices])) < 2:
+            i -= 1 ; r += 1 # resample and track # of resamples with r
             # We need at least one positive and one negative sample for ROC AUC
             # to be defined: reject the sample
             continue
-        score_l.append([f(y_true[indices], y_pred[indices]) for f in score_func_list])
+        if r <= 100:
+            score_l.append([f(y_true[indices],
+                              y_pred[indices]) for f in score_func_list])
+        else: # after 100 resamples, plug in NaNs
+            score_l.append([np.nan for i in range(len(score_func_list))])
+            if i == n_boot_sub:
+                print(f'Too many ({r}) resample attempts to get both negative '
+                      'and positive samples of truth, returning NaNs')
 
     return score_l
 
