@@ -1163,7 +1163,9 @@ class RGCPD:
                 if type(target) is str:
                     target_ts = df_data.loc[s][[target]][RV_mask]
                 elif type(target) is pd.DataFrame:
-                    target_ts = target
+                    target_ts = target.copy()
+                    if hasattr(target.index, 'levels'):
+                        target_ts = target_ts.loc[s]
 
                 shift_lag = fc_utils.apply_shift_lag
                 df_norm = df_trans.merge(shift_lag(fit_masks.copy(), lag),

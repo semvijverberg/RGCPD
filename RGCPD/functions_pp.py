@@ -1410,7 +1410,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
             for f, i in enumerate(np.unique(testsetidx)):
                 # print(n, f, i)
                 # if -999, No Train Test split, all True
-                if method[:15] == 'TimeSeriesSplit':
+                if method[:15].lower() == 'timeseriessplit':
                     if i == -999:
                         continue
                     mask = np.array(testsetidx[n] < i, dtype=int)

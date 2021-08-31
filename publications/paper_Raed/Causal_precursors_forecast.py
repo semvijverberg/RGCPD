@@ -72,7 +72,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2']
 seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['ranstrat_20'] # ['ranstrat_20']
+methods = ['timeseriessplit_30'] # ['ranstrat_20'] timeseriessplit_30
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -187,7 +187,7 @@ PacificBox = (130,265,-10,60)
 GlobalBox  = (-180,360,-10,60)
 USBox = (225, 300, 20, 60)
 
-load = False
+load = 'all'
 save = True
 
 list_of_name_path = [(cluster_label, TVpath),
@@ -523,40 +523,45 @@ rg = rg_list[0]
 
 
 
-
-#%% Continuous forecast
+# =============================================================================
+# Continuous forecast
+# =============================================================================
+#%% get Combined Lead time models
 from sklearn.linear_model import Ridge
 from stat_models_cont import ScikitModel
-# fcmodel = ScikitModel(RandomForestRegressor, verbosity=0)
-# kwrgs_model={'n_estimators':200,
-#             'max_depth':[2,5,7],
-#             'scoringCV':'neg_mean_squared_error',
-#             'oob_score':True,
-#             'min_samples_leaf':2,
-#             'random_state':0,
-#             'max_samples':.6,
-#             'n_jobs':1}
 
-fcmodel = ScikitModel(Ridge, verbosity=0)
-kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
-                'alpha':list(np.concatenate([np.logspace(-4,0, 5),
-                                          np.logspace(.2, 2, num=8)])), # large a, strong regul.
-                'normalize':False,
-                'fit_intercept':False,
-                'kfold':10}
+from sklearn.ensemble import RandomForestRegressor
+fcmodel = ScikitModel(RandomForestRegressor, verbosity=0)
+kwrgs_model={'n_estimators':200,
+            'max_depth':[2,5,7],
+            'scoringCV':'neg_mean_squared_error',
+            'oob_score':True,
+            'min_samples_leaf':2,
+            'random_state':0,
+            'max_samples':.6,
+            'n_jobs':1}
+
+# fcmodel = ScikitModel(Ridge, verbosity=0)
+# kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
+#                 'alpha':list(np.concatenate([np.logspace(-4,0, 5),
+#                                           np.logspace(.5, 2, num=10)])), # large a, strong regul.
+#                 'normalize':False,
+#                 'fit_intercept':False,
+#                 'kfold':10}
 
 kwrgs_model_CL = kwrgs_model.copy() ;
-kwrgs_model_CL.update({'alpha':kwrgs_model['alpha'][::3]})
+# kwrgs_model_CL.update({'alpha':kwrgs_model['alpha'][::3]})
 
 months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
           'SO':'hindcast'}
 list_verification = [] ; list_prediction = []
 for i, rg in enumerate(rg_list):
 
-    # target timeseries
-    fc_mask = rg.df_data.iloc[:,-1].loc[0]
-    target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
-    target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+    # target timeseries, standardize using training data
+    target_ts = rg.transform_df_data(rg.df_data.iloc[:,[0]].merge(rg.df_splits,
+                                                      left_index=True,
+                                                      right_index=True),
+                                     transformer=fc_utils.standardize_on_train)
 
     mean_vars=['sst', 'smi']
     # mean_vars=[]
@@ -575,39 +580,69 @@ for i, rg in enumerate(rg_list):
                                          labels=None)
     last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
     fc_month = months[last_month] ; rg.fc_month = fc_month
+    rg.df_pred_tuple = (df_data, keys_dict)
 
+#%% get Signal (strong forcing from Pacific SSTs)
+
+
+utils_paper3.get_df_forcing_cond_fc(rg_list, target_ts, fcmodel, kwrgs_model,
+                                    mean_vars=mean_vars, region='only_Pacific')
+
+
+
+#%% Make prediciton
+for i, rg in enumerate(rg_list):
+
+    fig, ax = plt.subplots(1)
+    target_ts = target_ts.rename({target_ts.columns[0]:'Target'},axis=1)
+    target_ts.loc[0].plot(ax=ax, label='target')
+    target_ts_signal = target_ts.multiply(rg.df_forcing.mean(axis=1).abs(), axis=0)
+    target_ts_signal= target_ts_signal.rename({rg.df_data.columns[0]:
+                                               f'Target * {rg.fc_month} signal'},
+                                              axis=1)
+    target_ts_signal.loc[0].plot(ax=ax)
+    target_ts_signal = rg.transform_df_data(target_ts_signal.merge(rg.df_splits,
+                                                                   left_index=True,
+                                                                   right_index=True),
+                                            transformer=fc_utils.standardize_on_train)
+    ax.set_ylim(-4,3)
 
     # metrics
-    RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).RMSE
-    MAE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).MAE
+    RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts_signal.mean())).RMSE
+    MAE_SS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts_signal.mean())).MAE
     score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS,
                        fc_utils.r2_score]
     metric_names = [s.__name__ for s in score_func_list]
 
+    df_data, keys_dict = rg.df_pred_tuple
     lag_ = 0 ;
     prediction_tuple = rg.fit_df_data_ridge(df_data=df_data,
                                             keys=keys_dict,
-                                            target=target_ts,
+                                            target=target_ts_signal,
                                             tau_min=0, tau_max=0,
                                             kwrgs_model=kwrgs_model,
                                             fcmodel=fcmodel,
                                             transformer=None)
 
     predict, weights, models_lags = prediction_tuple
+
     prediction = predict.rename({predict.columns[0]:target_dataset,
-                                 lag_:fc_month}, axis=1)
+                                 lag_:rg.fc_month}, axis=1)
+
+    # prediction = target_ts.merge(prediction.iloc[:,[1]], left_index=True,right_index=True)
+
     prediction_tuple = (prediction, weights, models_lags)
     list_prediction.append(prediction_tuple)
     rg.prediction_tuple = prediction_tuple
 
 
-    verification_tuple = fc_utils.get_scores(prediction,
+    verification_tuple_c = fc_utils.get_scores(prediction,
                                              rg.df_data.iloc[:,-2:],
                                              score_func_list,
                                              n_boot=n_boot,
                                              blocksize=1,
                                              rng_seed=seed)
-    df_train_m, df_test_s_m, df_test_m, df_boot = verification_tuple
+    df_train_m, df_test_s_m, df_test_m, df_boot = verification_tuple_c
 
 
     m = models_lags[f'lag_{lag_}'][f'split_{0}']
@@ -615,9 +650,8 @@ for i, rg in enumerate(rg_list):
     # plt.axvline(m.best_params_['alpha']) ; plt.show() ; plt.close()
 
 
-    list_verification.append(verification_tuple)
-    rg.verification_tuple = verification_tuple
-
+    list_verification.append(verification_tuple_c)
+    rg.verification_tuple_c = verification_tuple_c
 #%% Plotting Continuous forecast
 
 df_preds_save = utils_paper3.df_predictions_for_plot(rg_list)
@@ -625,7 +659,7 @@ d_dfs={'df_predictions':df_preds_save}
 filepath_dfs = os.path.join(rg.path_outsub1, f'predictions_s{seed}_continuous.h5')
 functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
-df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list, name_object='verification_tuple')
+df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list, name_object='verification_tuple_c')
 d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
 filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}_continuous.h5')
 functions_pp.store_hdf_df(d_dfs, filepath_dfs)
@@ -643,7 +677,7 @@ for rg in rg_list: # plotting score per test
     predict = rg.prediction_tuple[0]
     df_test = functions_pp.get_df_test(predict.rename({lag_:'causal'}, axis=1),
                                        df_splits=rg.df_splits)
-    df_test_m = rg.verification_tuple[2]
+    df_test_m = rg.verification_tuple_c[2]
     utils_paper3.plot_forecast_ts(df_test_m, df_test)
     f_name = f'ts_forecast_{method}_{seed}_continuous_{rg.fc_month}'
     fig_path = os.path.join(rg.path_outsub1, f_name)+rg.figext
@@ -651,7 +685,7 @@ for rg in rg_list: # plotting score per test
         plt.savefig(fig_path, bbox_inches='tight')
     plt.close()
 
-    # df_test_s_m = rg.verification_tuple[1]
+    # df_test_s_m = rg.verification_tuple_c[1]
     # fig, ax = plt.subplots(1)
     # df_test_s_m.plot(ax=ax)
     # fig.savefig(os.path.join(rg.path_outsub1, f'CV_scores_{rg.fc_month}.png'),
@@ -659,8 +693,7 @@ for rg in rg_list: # plotting score per test
 
 #%% save table conditional forecast (Continuous)
 try:
-    utils_paper3.get_df_forcing_cond_fc(rg_list, target_ts, fcmodel, kwrgs_model,
-                                        mean_vars=mean_vars)
+
     df_cond_fc = utils_paper3.cond_forecast_table(rg_list, score_func_list,
                                                   n_boot=n_boot)
     # store as .xlsc
@@ -758,15 +791,7 @@ if save:
 
 #%% Low/High yield forecast
 from sklearn.linear_model import LogisticRegression
-# fcmodel = ScikitModel(RandomForestRegressor, verbosity=0)
-# kwrgs_model={'n_estimators':200,
-#             'max_depth':[2,5,7],
-#             'scoringCV':'neg_mean_squared_error',
-#             'oob_score':True,
-#             'min_samples_leaf':2,
-#             'random_state':0,
-#             'max_samples':.6,
-#             'n_jobs':1}
+
 fcmodel = ScikitModel(LogisticRegression, verbosity=0)
 kwrgs_model = {'scoringCV':'neg_brier_score',
                 'C':list([.1,.5,.8,1,1.2,4,7,10, 20]), # large a, strong regul.
@@ -776,15 +801,15 @@ kwrgs_model = {'scoringCV':'neg_brier_score',
                 'kfold':10,
                 'max_iter':200}
 
-thresholds = [.5, 0.33, .66]
+thresholds = [0.33, .66]
 # thresholds = [.5]
 for i, q in enumerate(thresholds):
-    list_verification = [] ; list_prediction = []
     for i, rg in enumerate(rg_list):
-        # target
-        fc_mask = rg.df_data.iloc[:,-1].loc[0]
-        target_ts = rg.df_data.iloc[:,[0]].loc[0][fc_mask]
-        target_ts = (target_ts - target_ts.mean()) / target_ts.std()
+        # target timeseries, standardize using training data
+        target_ts = rg.transform_df_data(rg.df_data.iloc[:,[0]].merge(rg.df_splits,
+                                                          left_index=True,
+                                                          right_index=True),
+                                         transformer=fc_utils.standardize_on_train)
         if q >= 0.5:
             target_ts = (target_ts > target_ts.quantile(q)).astype(int)
         elif q < .5:
@@ -803,32 +828,69 @@ for i, q in enumerate(thresholds):
                                              fcmodel=fcmodel,
                                              kwrgs_model=kwrgs_model,
                                              target_ts=target_ts)
+        if q == 0.33:
+            rg.df_pred_tuple_l = (df_data, keys_dict)
+        elif q == 0.66:
+            rg.df_pred_tuple_h = (df_data, keys_dict)
 
+#%% fit probabilistic forecasts
+for i, q in enumerate(thresholds):
+    if q == 0.33:
+        # find where there is Pacific signal for low yield
+        utils_paper3.get_df_forcing_cond_fc(rg_list, target_ts, fcmodel,
+                                            kwrgs_model, mean_vars=mean_vars,
+                                            region='only_Pacific',
+                                            name_object='df_pred_tuple_l')
+    elif q == 0.66:
+        # find where there is Pacific signal for high yield
+        utils_paper3.get_df_forcing_cond_fc(rg_list, target_ts, fcmodel,
+                                            kwrgs_model, mean_vars=mean_vars,
+                                            region='only_Pacific',
+                                            name_object='df_pred_tuple_h')
 
+    list_verification = [] ; list_prediction = []
+    for i, rg in enumerate(rg_list):
+        # target timeseries, standardize using training data
+        target_ts = rg.transform_df_data(rg.df_data.iloc[:,[0]].merge(rg.df_splits,
+                                                          left_index=True,
+                                                          right_index=True),
+                                         transformer=fc_utils.standardize_on_train)
+        # target
+        target_ts_signal = target_ts.multiply(rg.df_forcing.mean(axis=1).abs(), axis=0)
+        target_ts_signal= target_ts_signal.rename({rg.df_data.columns[0]:
+                                                   f'Target * {rg.fc_month} signal'},
+                                                  axis=1)
+        target_ts_signal.loc[0].plot(ax=ax)
+        target_ts_signal = rg.transform_df_data(target_ts_signal.merge(rg.df_splits,
+                                                                       left_index=True,
+                                                                       right_index=True),
+                                                transformer=fc_utils.standardize_on_train)
 
-        last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
-        fc_month = months[last_month]
+        if q >= 0.5:
+            target_ts_signal = (target_ts_signal > float(target_ts.quantile(q))).astype(int)
+        elif q < .5:
+            target_ts_signal = (target_ts_signal < float(target_ts.quantile(q))).astype(int)
 
         # metrics
-        BSS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts.mean())).BSS
+        BSS = fc_utils.ErrorSkillScore(constant_bench=float(target_ts_signal.mean())).BSS
         score_func_list = [BSS, fc_utils.metrics.roc_auc_score]
         metric_names = [s.__name__ for s in score_func_list]
 
         lag_ = 0 ;
         prediction_tuple = rg.fit_df_data_ridge(df_data=df_data,
                                                 keys=keys_dict,
-                                                target=target_ts,
+                                                target=target_ts_signal,
                                                 tau_min=0, tau_max=0,
                                                 kwrgs_model=kwrgs_model,
                                                 fcmodel=fcmodel,
                                                 transformer=None)
 
         predict, weights, models_lags = prediction_tuple
-        prediction = predict.rename({predict.columns[0]:'target',
-                                     lag_:fc_month}, axis=1)
+        prediction = predict.rename({predict.columns[0]:'Target',
+                                     lag_:rg.fc_month}, axis=1)
         prediction_tuple = (prediction, weights, models_lags)
 
-        rg.prediction_tuple = prediction_tuple
+
 
 
         verification_tuple = fc_utils.get_scores(prediction,
@@ -848,23 +910,42 @@ for i, q in enumerate(thresholds):
 
         df_test = functions_pp.get_df_test(predict.rename({lag_:'causal'}, axis=1),
                                             df_splits=rg.df_splits)
-        rg.verification_tuple = verification_tuple
+        if q == 0.33:
+            rg.verification_tuple_l = verification_tuple
+            rg.prediction_tuple_l = prediction_tuple
+        elif q == 0.66:
+            rg.verification_tuple_h = verification_tuple
+            rg.prediction_tuple_h = prediction_tuple
         list_prediction.append(prediction_tuple)
         list_verification.append(verification_tuple)
 
-    # plot scores
-    df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list,
-                                                      name_object='verification_tuple')
+#%% Plotting event forecasts
 
-    # df_scores_cf, df_boot_cf, df_tests_cf = df_scores_for_plot(name_object='cond_verif_tuple')
+
+for i, q in enumerate(thresholds):
+    if q == 0.33:
+        df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list,
+                                       name_object='verification_tuple_l')
+        df_preds_save = utils_paper3.df_predictions_for_plot(rg_list,
+                                                              'prediction_tuple_l')
+
+    elif q == 0.66:
+        df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list,
+                                       name_object='verification_tuple_h')
+        df_preds_save= utils_paper3.df_predictions_for_plot(rg_list,
+                                                            'prediction_tuple_h')
+
+
+    d_dfs={'df_predictions':df_preds_save}
+    filepath_dfs = os.path.join(rg.path_outsub1, f'predictions_s{seed}_continuous.h5')
+    functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+    df_preds_save = functions_pp.load_hdf5(filepath_dfs)['df_predictions']
 
     d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
-                # 'df_scores_cf':df_scores_cf, 'df_boot_cf':df_boot_cf,
-                # 'df_tests_cf':df_tests_cf}
     filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}_q{q}.h5')
-
     functions_pp.store_hdf_df(d_dfs, filepath_dfs)
     d_dfs = functions_pp.load_hdf5(filepath_dfs)
+    df_scores, df_boot = d_dfs['df_scores'], d_dfs['df_boot']
 
     f = utils_paper3.plot_scores_wrapper(df_scores, df_boot)
     f_name = f'{method}_{seed}_cf_PacAtl_q{q}'
@@ -872,6 +953,10 @@ for i, q in enumerate(thresholds):
     if save:
         f.savefig(fig_path, bbox_inches='tight')
 
+#%%
+for i, q in enumerate(thresholds):
+    filepath_dfs = os.path.join(rg.path_outsub1, f'predictions_s{seed}_continuous.h5')
+    df_preds_save = functions_pp.load_hdf5(filepath_dfs)['df_predictions']
 
     # plot timeseries
     utils_paper3.plot_forecast_ts(df_test_m, df_test)
@@ -886,23 +971,25 @@ for i, q in enumerate(thresholds):
     # df_test_s_m.plot(ax=ax)
     # fig.savefig(os.path.join(rg.path_outsub1, f'CV_scores_{q}_{rg.fc_month}.png'),
     #             bbox_inches='tight', dpi=100)
-    df_cond_fc = utils_paper3.cond_forecast_table(rg_list, score_func_list,
-                                                  n_boot=n_boot)
-    composites = [50, 30]
-    for comp in composites:
-        f = utils_paper3.boxplot_cond_fc(df_cond_fc, metrics=None,
-                                         forcing_name='Pacific Forcing',
-                                         composite=comp)
-        filepath = os.path.join(rg.path_outsub1, f'Conditional_forecast_{comp}_{q}')
-        f.savefig(filepath + rg.figext, bbox_inches='tight')
-    # save table conditional forecast (Continuous)
 
-    # store as .xlsc
-    df_cond_fc.to_excel(os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}_{q}.xlsx'))
-    # Store as .h5
-    d_dfs={'df_cond_fc':df_cond_fc}
-    filepath_dfs = os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}_{q}.h5')
-    functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+    #%% Old conditional forecast
+    # df_cond_fc = utils_paper3.cond_forecast_table(rg_list, score_func_list,
+    #                                               n_boot=n_boot)
+    # composites = [50, 30]
+    # for comp in composites:
+    #     f = utils_paper3.boxplot_cond_fc(df_cond_fc, metrics=None,
+    #                                      forcing_name='Pacific Forcing',
+    #                                      composite=comp)
+    #     filepath = os.path.join(rg.path_outsub1, f'Conditional_forecast_{comp}_{q}')
+    #     f.savefig(filepath + rg.figext, bbox_inches='tight')
+    # # save table conditional forecast (Continuous)
+
+    # # store as .xlsc
+    # df_cond_fc.to_excel(os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}_{q}.xlsx'))
+    # # Store as .h5
+    # d_dfs={'df_cond_fc':df_cond_fc}
+    # filepath_dfs = os.path.join(rg.path_outsub1, f'cond_fc_{method}_s{seed}_{q}.h5')
+    # functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
 #%% Collect different splits high/low forecast for plotting
 

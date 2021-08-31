@@ -90,7 +90,7 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05,
                                           args=[fit_masks, 0])
                         df_d = df_d.merge(fit_masks, left_index=True,right_index=True)
                         # df_train = df_d[fit_masks['TrainIsTrue']]
-                        df_mean, model = fcmodel.fit_wrapper({'ts':target_ts},
+                        df_mean, model = fcmodel.fit_wrapper({'ts':target_ts.loc[s]},
                                                           df_d, keys_str,
                                                           kwrgs_model)
 
@@ -132,12 +132,12 @@ def df_scores_for_plot(rg_list, name_object):
     df_tests = pd.concat(df_tests, axis=1)
     return df_scores, df_boot, df_tests
 
-def df_predictions_for_plot(rg_list):
+def df_predictions_for_plot(rg_list, name_object='prediction_tuple'):
     df_preds = []
     for i, rg in enumerate(rg_list):
         rg.df_fulltso.index.name = None
         if i == 0:
-            prediction = rg.prediction_tuple[0]
+            prediction = rg.__dict__[name_object][0]
             prediction = rg.merge_df_on_df_data(rg.df_fulltso, prediction)
         else:
             prediction = rg.prediction_tuple[0].iloc[:,[1]]
@@ -219,29 +219,43 @@ def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
         f.suptitle(title, y=.95, fontsize=18)
     return f
 
-def plot_forecast_ts(df_test_m, df_test):
+def plot_forecast_ts(df_test_m, df_test, target_ts=None, fig_ax=None):
+    #%%
     fontsize = 16
+    if fig_ax is None:
+        fig = plt.figure(figsize=(12, 5))
+        gs = gridspec.GridSpec(1, 1, height_ratios=None)
+        facecolor='white'
+        ax0 = plt.subplot(gs[0], facecolor=facecolor)
+    else:
+        fig, ax = fig_ax
 
-    fig = plt.figure(figsize=(12, 5))
-    gs = gridspec.GridSpec(1, 1, height_ratios=None)
-    facecolor='white'
-    ax0 = plt.subplot(gs[0], facecolor=facecolor)
-    # df_test.plot(ax=ax0)
-    ax0.plot_date(df_test.index, df_test.iloc[:,0], ls='-',
+    if target_ts is not None:
+        ax0.plot_date(df_test.index, target_ts.loc[0].loc[df_test.index],
+                      ls='--', c='grey', label='Observed', marker=None)
+        ax0.plot_date(df_test.index, df_test.iloc[:,0], ls='-',
+                  label='Potential Predictable Signal', c='black')
+    else:
+        ax0.plot_date(df_test.index, df_test.iloc[:,0], ls='-',
                   label='Observed', c='black')
 
+
+
     ax0.plot_date(df_test.index, df_test.iloc[:,1], ls='-', c='red',
-                  label=r'Ridge Regression forecast')
+                  label=r'Ridge Regression')
+
     # ax0.set_xticks()
     # ax0.set_xticklabels(df_test.index.year,
     ax0.set_ylabel('Standardized Soy Yield', fontsize=fontsize)
     ax0.tick_params(labelsize=fontsize)
     ax0.axhline(y=0, color='black', lw=1)
     ax0.legend(fontsize=fontsize)
+    ax0.set_ylim(-3,3)
+
 
     df_scores = df_test_m.loc[0][df_test_m.columns[0][0]]
     Texts1 = [] ; Texts2 = [] ;
-    textprops = dict(color='black', fontsize=fontsize+4, family='serif')
+    textprops = dict(color='black', fontsize=fontsize, family='serif')
     rename_met = {'RMSE':'RMSE-SS', 'corrcoef':'Corr. Coeff.', 'MAE':'MAE-SS',
                   'BSS':'BSS', 'roc_auc_score':'ROC-AUC', 'r2_score':'$r^2$',
                   'mean_absolute_percentage_error':'MAPE'}
@@ -253,61 +267,78 @@ def plot_forecast_ts(df_test_m, df_test):
     texts_vbox1 = VPacker(children=Texts1,pad=0,sep=4)
     texts_vbox2 = VPacker(children=Texts2,pad=0,sep=4)
 
-    ann1 = AnnotationBbox(texts_vbox1,(.02,.15),xycoords=ax0.transAxes,
+    ann1 = AnnotationBbox(texts_vbox1,(.02,.18),xycoords=ax0.transAxes,
                                 box_alignment=(0,.5),
                                 bboxprops = dict(facecolor='white',
                                                  boxstyle='round',edgecolor='white'))
-    ann2 = AnnotationBbox(texts_vbox2,(.21,.15),xycoords=ax0.transAxes,
+    ann2 = AnnotationBbox(texts_vbox2,(.21,.18),xycoords=ax0.transAxes,
                                 box_alignment=(0,.5),
                                 bboxprops = dict(facecolor='white',
                                                  boxstyle='round',edgecolor='white'))
     ann1.set_figure(fig) ; ann2.set_figure(fig)
     fig.artists.append(ann1) ; fig.artists.append(ann2)
+    #%%
     return
 
 
 #%% Conditional continuous forecast
 
 def get_df_forcing_cond_fc(rg_list, target_ts, fcmodel, kwrgs_model,
-                           mean_vars=['sst', 'smi']):
+                           mean_vars=['sst', 'smi'], region='only_Pacific',
+                           name_object='df_pred_tuple'):
     for j, rg in enumerate(rg_list):
 
-        PacAtl = []
+
         # find west-sub-tropical Atlantic region
         df_labels = find_precursors.labels_to_df(rg.list_for_MI[0].prec_labels)
-        dlat = df_labels['latitude'] - 29
-        dlon = df_labels['longitude'] - 290
-        zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
-        Atlan = zz.query('latitude < 10 & longitude < 10')
-        if Atlan.size > 0:
-            PacAtl.append(int(Atlan.index[0]))
-        PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
-        # PacAtl = [int(df_labels['n_gridcells'].idxmax())] # only Pacific
-
-        weights_norm = rg.prediction_tuple[1]# .mean(axis=0, level=1)
-        # weights_norm = weights_norm.sort_values(ascending=False, by=0)
-
-        keys = [k for k in weights_norm.index.levels[1] if int(k.split('..')[1]) in PacAtl]
-        keys = [k for k in keys if 'sst' in k] # only SST
-        labels = ['..'.join(k.split('..')[1:]) for k in keys] + ['0..smi_sp'] # add smi just because it almost always in there
-
-        df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
-                                             n_strongest='all',
-                                             weights=True,
-                                             fcmodel=fcmodel,
-                                             kwrgs_model=kwrgs_model,
-                                             target_ts=target_ts,
-                                             labels=labels)
+        if region == 'only_Pacific':
+            PacAtl = [int(df_labels['n_gridcells'].idxmax())] # only Pacific
+        elif region == 'Pacific+SM':
+            PacAtl = [int(df_labels['n_gridcells'].idxmax()), 0]
+        else:
+            PacAtl = []
+            dlat = df_labels['latitude'] - 29
+            dlon = df_labels['longitude'] - 290
+            zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
+            Atlan = zz.query('latitude < 10 & longitude < 10')
+            if Atlan.size > 0:
+                PacAtl.append(int(Atlan.index[0]))
+            PacAtl.append(int(df_labels['n_gridcells'].idxmax())) # Pacific SST
 
 
-        # apply weighted mean based on coefficients of precursor regions
-        weights_norm = weights_norm.loc[pd.IndexSlice[:,keys],:]
-        # weights_norm = weights_norm.div(weights_norm.max(axis=0))
-        weights_norm = weights_norm.div(weights_norm.max(axis=0, level=0), level=0)
-        weights_norm = weights_norm.reset_index().pivot(index='level_0', columns='level_1')[0]
-        weights_norm.index.name = 'fold' ; df_mean.index.name = ('fold', 'time')
-        PacAtl_ts = weights_norm.multiply(df_mean[keys], axis=1, level=0)
 
+        if hasattr(rg, name_object):
+            df_mean, keys_dict = rg.__dict__[name_object]
+        else:
+            # get keys with different lags to construct CL models
+            keys = [k for k in rg.df_data.columns[1:-2] if int(k.split('..')[1]) in PacAtl]
+            # keys = [k for k in keys if 'sst' in k] # only SST
+
+            labels = ['..'.join(k.split('..')[1:]) for k in keys]
+            if '0..smi_sp' not in labels: # add smi just because it almost
+                # always in there, otherwise error
+                labels += '0..smi_sp'
+            df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
+                                                 n_strongest='all',
+                                                 weights=True,
+                                                 fcmodel=fcmodel,
+                                                 kwrgs_model=kwrgs_model,
+                                                 target_ts=target_ts,
+                                                 labels=labels)
+
+        if region != 'only_Pacific' and region != 'Pacific+SM':
+            weights_norm = rg.prediction_tuple[1]
+            # weights_norm = weights_norm.sort_values(ascending=False, by=0)
+            # apply weighted mean based on coefficients of precursor regions
+            weights_norm = weights_norm.loc[pd.IndexSlice[:,keys],:]
+            # weights_norm = weights_norm.div(weights_norm.max(axis=0))
+            weights_norm = weights_norm.div(weights_norm.max(axis=0, level=0), level=0)
+            weights_norm = weights_norm.reset_index().pivot(index='level_0', columns='level_1')[0]
+            weights_norm.index.name = 'fold' ; df_mean.index.name = ('fold', 'time')
+            PacAtl_ts = weights_norm.multiply(df_mean[keys], axis=1, level=0)
+        else:
+            keys = [k for k in df_mean.columns[1:-2] if int(k.split('..')[1]) in PacAtl]
+            PacAtl_ts = df_mean[keys]
 
         rg.df_forcing = PacAtl_ts
 
