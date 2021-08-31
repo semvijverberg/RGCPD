@@ -142,9 +142,19 @@ def df_predictions_for_plot(rg_list, name_object='prediction_tuple'):
         else:
             prediction = rg.prediction_tuple[0].iloc[:,[1]]
         df_preds.append(prediction)
+        if i == 0:
+            df_preds.append
         if i+1 == len(rg_list):
             df_preds.append(rg.df_splits)
+
+    target_ts = rg.transform_df_data(rg.df_data.iloc[:,[0]].merge(rg.df_splits,
+                                                                  left_index=True,
+                                                                  right_index=True),
+                                     transformer=fc_utils.standardize_on_train)
+    target_ts = target_ts.rename({target_ts.columns[0]:'Target'},axis=1)
+    df_preds.insert(1, target_ts)
     df_preds  = pd.concat(df_preds, axis=1)
+
     return df_preds
 
 def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
@@ -242,14 +252,14 @@ def plot_forecast_ts(df_test_m, df_test, target_ts=None, fig_ax=None):
 
 
     ax0.plot_date(df_test.index, df_test.iloc[:,1], ls='-', c='red',
-                  label=r'Ridge Regression')
+                  label=r'Prediction')
 
     # ax0.set_xticks()
     # ax0.set_xticklabels(df_test.index.year,
     ax0.set_ylabel('Standardized Soy Yield', fontsize=fontsize)
     ax0.tick_params(labelsize=fontsize)
     ax0.axhline(y=0, color='black', lw=1)
-    ax0.legend(fontsize=fontsize)
+    ax0.legend(fontsize=fontsize-2, loc='upper left')
     ax0.set_ylim(-3,3)
 
 

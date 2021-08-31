@@ -529,11 +529,19 @@ rg = rg_list[0]
 #%% get Combined Lead time models
 from sklearn.linear_model import Ridge
 from stat_models_cont import ScikitModel
+kwrgs_model1 = {'scoringCV':'neg_mean_absolute_error',
+                'alpha':list(np.concatenate([np.logspace(-4,0, 5),
+                                          np.logspace(.5, 2, num=10)])), # large a, strong regul.
+                'normalize':False,
+                'fit_intercept':False,
+                'kfold':10}
+model1_tuple = (ScikitModel(Ridge, verbosity=0),
+                kwrgs_model1)
+
 
 from sklearn.ensemble import RandomForestRegressor
-fcmodel = ScikitModel(RandomForestRegressor, verbosity=0)
-kwrgs_model={'n_estimators':200,
-            'max_depth':[2,5,7],
+kwrgs_model2={'n_estimators':200,
+            'max_depth':[5,7,10],
             'scoringCV':'neg_mean_squared_error',
             'oob_score':True,
             'min_samples_leaf':2,
@@ -541,46 +549,51 @@ kwrgs_model={'n_estimators':200,
             'max_samples':.6,
             'n_jobs':1}
 
-# fcmodel = ScikitModel(Ridge, verbosity=0)
-# kwrgs_model = {'scoringCV':'neg_mean_absolute_error',
-#                 'alpha':list(np.concatenate([np.logspace(-4,0, 5),
-#                                           np.logspace(.5, 2, num=10)])), # large a, strong regul.
-#                 'normalize':False,
-#                 'fit_intercept':False,
-#                 'kfold':10}
+model2_tuple = (ScikitModel(RandomForestRegressor, verbosity=0),
+                kwrgs_model2)
 
-kwrgs_model_CL = kwrgs_model.copy() ;
-# kwrgs_model_CL.update({'alpha':kwrgs_model['alpha'][::3]})
 
-months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
-          'SO':'hindcast'}
-list_verification = [] ; list_prediction = []
-for i, rg in enumerate(rg_list):
 
-    # target timeseries, standardize using training data
-    target_ts = rg.transform_df_data(rg.df_data.iloc[:,[0]].merge(rg.df_splits,
-                                                      left_index=True,
-                                                      right_index=True),
-                                     transformer=fc_utils.standardize_on_train)
+for fcmodel, kwrgs_model in [model1_tuple, model2_tuple]:
+    kwrgs_model_CL = kwrgs_model.copy() ;
+    # kwrgs_model_CL.update({'alpha':kwrgs_model['alpha'][::3]})
 
-    mean_vars=['sst', 'smi']
-    # mean_vars=[]
-    for i, p in enumerate(rg.list_for_MI):
-        if p.name in mean_vars:
-            if p.calc_ts == 'pattern cov':
-                mean_vars[i] +='_sp'
-    df_data, keys_dict = utils_paper3.get_df_mean_SST(rg,
-                                         mean_vars=mean_vars,
-                                         alpha_CI=alpha_CI,
-                                         n_strongest='all',
-                                         weights=True,
-                                         fcmodel=fcmodel,
-                                         kwrgs_model=kwrgs_model_CL,
-                                         target_ts=target_ts,
-                                         labels=None)
-    last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
-    fc_month = months[last_month] ; rg.fc_month = fc_month
-    rg.df_pred_tuple = (df_data, keys_dict)
+    months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
+              'SO':'hindcast'}
+    list_verification = [] ; list_prediction = []
+    for i, rg in enumerate(rg_list):
+
+        # target timeseries, standardize using training data
+        target_ts = rg.transform_df_data(rg.df_data.iloc[:,[0]].merge(rg.df_splits,
+                                                          left_index=True,
+                                                          right_index=True),
+                                         transformer=fc_utils.standardize_on_train)
+
+        mean_vars=['sst', 'smi']
+        # mean_vars=[]
+        for i, p in enumerate(rg.list_for_MI):
+            if p.name in mean_vars:
+                if p.calc_ts == 'pattern cov':
+                    mean_vars[i] +='_sp'
+        df_data, keys_dict = utils_paper3.get_df_mean_SST(rg,
+                                             mean_vars=mean_vars,
+                                             alpha_CI=alpha_CI,
+                                             n_strongest='all',
+                                             weights=True,
+                                             fcmodel=fcmodel,
+                                             kwrgs_model=kwrgs_model_CL,
+                                             target_ts=target_ts,
+                                             labels=None)
+        last_month = list(rg.list_for_MI[0].corr_xr.lag.values)[-1]
+        fc_month = months[last_month] ; rg.fc_month = fc_month
+        rg.df_pred_tuple = (df_data, keys_dict)
+        # store df_pred_tuple
+
+    # for s in range(rg.n_spl):
+    #     _cols = np.array(df_data.loc[s].dropna(axis=1).columns[:-2])
+    #     _keys  = np.array((keys_dict[s]))
+    #     _cols = np.array(sorted(_cols), dtype=object) ; _keys = np.array(sorted(_keys),dtype=object)
+    #     print(s, np.equal(_cols, _keys))
 
 #%% get Signal (strong forcing from Pacific SSTs)
 
@@ -617,7 +630,6 @@ for i, rg in enumerate(rg_list):
     df_data, keys_dict = rg.df_pred_tuple
     lag_ = 0 ;
     prediction_tuple = rg.fit_df_data_ridge(df_data=df_data,
-                                            keys=keys_dict,
                                             target=target_ts_signal,
                                             tau_min=0, tau_max=0,
                                             kwrgs_model=kwrgs_model,
@@ -626,10 +638,8 @@ for i, rg in enumerate(rg_list):
 
     predict, weights, models_lags = prediction_tuple
 
-    prediction = predict.rename({predict.columns[0]:target_dataset,
+    prediction = predict.rename({predict.columns[0]:'Target*Signal',
                                  lag_:rg.fc_month}, axis=1)
-
-    # prediction = target_ts.merge(prediction.iloc[:,[1]], left_index=True,right_index=True)
 
     prediction_tuple = (prediction, weights, models_lags)
     list_prediction.append(prediction_tuple)
@@ -649,19 +659,30 @@ for i, rg in enumerate(rg_list):
     # plt.plot(kwrgs_model['alpha'], m.cv_results_['mean_test_score'])
     # plt.axvline(m.best_params_['alpha']) ; plt.show() ; plt.close()
 
-
     list_verification.append(verification_tuple_c)
     rg.verification_tuple_c = verification_tuple_c
+
+    # prediction_o = target_ts.merge(prediction.iloc[:,[1]], left_index=True,right_index=True)
+    # verification_tuple_c_o = fc_utils.get_scores(prediction_o,
+    #                                          rg.df_data.iloc[:,-2:],
+    #                                          score_func_list,
+    #                                          n_boot=n_boot,
+    #                                          blocksize=1,
+    #                                          rng_seed=seed)
+    # rg.verification_tuple_c_o  = verification_tuple_c_o
 #%% Plotting Continuous forecast
 
+model_name = fcmodel.scikitmodel.__name__
 df_preds_save = utils_paper3.df_predictions_for_plot(rg_list)
 d_dfs={'df_predictions':df_preds_save}
-filepath_dfs = os.path.join(rg.path_outsub1, f'predictions_s{seed}_continuous.h5')
+filepath_dfs = os.path.join(rg.path_outsub1,
+                            f'predictions_s{seed}_cont{model_name}.h5')
 functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
 df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list, name_object='verification_tuple_c')
 d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
-filepath_dfs = os.path.join(rg.path_outsub1, f'scores_s{seed}_continuous.h5')
+filepath_dfs = os.path.join(rg.path_outsub1,
+                            f'scores_s{seed}_cont{model_name}.h5')
 functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
 d_dfs = functions_pp.load_hdf5(filepath_dfs)
