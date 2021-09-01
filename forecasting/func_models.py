@@ -294,7 +294,7 @@ class ErrorSkillScore:
         RMSE (Skill Score).
 
         '''
-        self.benchmark = constant_bench
+        self.benchmark = float(constant_bench)
         self.squared = squared
         # if type(self.benchmark) is not None:
 

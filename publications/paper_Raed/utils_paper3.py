@@ -133,29 +133,35 @@ def df_scores_for_plot(rg_list, name_object):
     return df_scores, df_boot, df_tests
 
 def df_predictions_for_plot(rg_list, name_object='prediction_tuple'):
-    df_preds = []
+    df_preds = [] ; df_weights = []
     for i, rg in enumerate(rg_list):
         rg.df_fulltso.index.name = None
         if i == 0:
             prediction = rg.__dict__[name_object][0]
             prediction = rg.merge_df_on_df_data(rg.df_fulltso, prediction)
         else:
-            prediction = rg.prediction_tuple[0].iloc[:,[1]]
+            prediction = rg.__dict__[name_object][0].iloc[:,[1]]
         df_preds.append(prediction)
         if i == 0:
             df_preds.append
         if i+1 == len(rg_list):
             df_preds.append(rg.df_splits)
+        weights = rg.__dict__[name_object][1]
+        df_weights.append(weights.rename({0:rg.fc_month}, axis=1))
 
-    target_ts = rg.transform_df_data(rg.df_data.iloc[:,[0]].merge(rg.df_splits,
-                                                                  left_index=True,
-                                                                  right_index=True),
-                                     transformer=fc_utils.standardize_on_train)
-    target_ts = target_ts.rename({target_ts.columns[0]:'Target'},axis=1)
-    df_preds.insert(1, target_ts)
+    # add Target if Target*Signal was fitter
+    if df_preds[0].columns[0] != 'Target':
+        target_ts = rg.transform_df_data(\
+                     rg.df_data.iloc[:,[0]].merge(rg.df_splits,
+                                                  left_index=True,
+                                                  right_index=True),
+                     transformer=fc_utils.standardize_on_train)
+        target_ts = target_ts.rename({target_ts.columns[0]:'Target'},axis=1)
+        df_preds.insert(1, target_ts)
     df_preds  = pd.concat(df_preds, axis=1)
+    df_weights = pd.concat(df_weights, axis=1)
 
-    return df_preds
+    return df_preds, df_weights
 
 def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
     orientation = 'horizontal'
@@ -293,9 +299,9 @@ def plot_forecast_ts(df_test_m, df_test, target_ts=None, fig_ax=None):
 
 #%% Conditional continuous forecast
 
-def get_df_forcing_cond_fc(rg_list, target_ts, fcmodel, kwrgs_model,
-                           mean_vars=['sst', 'smi'], region='only_Pacific',
-                           name_object='df_pred_tuple'):
+def get_df_forcing_cond_fc(rg_list, #target_ts, fcmodel, kwrgs_model, mean_vars=['sst', 'smi'],
+                           region='only_Pacific',
+                           name_object='df_CL_data'):
     for j, rg in enumerate(rg_list):
 
 
@@ -318,34 +324,36 @@ def get_df_forcing_cond_fc(rg_list, target_ts, fcmodel, kwrgs_model,
 
 
         if hasattr(rg, name_object):
-            df_mean, keys_dict = rg.__dict__[name_object]
+            df_mean = rg.__dict__[name_object]
         else:
+            pass
             # get keys with different lags to construct CL models
-            keys = [k for k in rg.df_data.columns[1:-2] if int(k.split('..')[1]) in PacAtl]
-            # keys = [k for k in keys if 'sst' in k] # only SST
+            # keys = [k for k in rg.df_data.columns[1:-2] if int(k.split('..')[1]) in PacAtl]
+            # # keys = [k for k in keys if 'sst' in k] # only SST
 
-            labels = ['..'.join(k.split('..')[1:]) for k in keys]
-            if '0..smi_sp' not in labels: # add smi just because it almost
-                # always in there, otherwise error
-                labels += '0..smi_sp'
-            df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
-                                                 n_strongest='all',
-                                                 weights=True,
-                                                 fcmodel=fcmodel,
-                                                 kwrgs_model=kwrgs_model,
-                                                 target_ts=target_ts,
-                                                 labels=labels)
+            # labels = ['..'.join(k.split('..')[1:]) for k in keys]
+            # if '0..smi_sp' not in labels: # add smi just because it almost
+            #     # always in there, otherwise error
+            #     labels += '0..smi_sp'
+            # df_mean, keys_dict = get_df_mean_SST(rg, mean_vars=mean_vars,
+            #                                      n_strongest='all',
+            #                                      weights=True,
+            #                                      fcmodel=fcmodel,
+            #                                      kwrgs_model=kwrgs_model,
+            #                                      target_ts=target_ts,
+            #                                      labels=labels)
 
         if region != 'only_Pacific' and region != 'Pacific+SM':
-            weights_norm = rg.prediction_tuple[1]
-            # weights_norm = weights_norm.sort_values(ascending=False, by=0)
-            # apply weighted mean based on coefficients of precursor regions
-            weights_norm = weights_norm.loc[pd.IndexSlice[:,keys],:]
-            # weights_norm = weights_norm.div(weights_norm.max(axis=0))
-            weights_norm = weights_norm.div(weights_norm.max(axis=0, level=0), level=0)
-            weights_norm = weights_norm.reset_index().pivot(index='level_0', columns='level_1')[0]
-            weights_norm.index.name = 'fold' ; df_mean.index.name = ('fold', 'time')
-            PacAtl_ts = weights_norm.multiply(df_mean[keys], axis=1, level=0)
+            # weights_norm = rg.prediction_tuple[1]
+            # # weights_norm = weights_norm.sort_values(ascending=False, by=0)
+            # # apply weighted mean based on coefficients of precursor regions
+            # weights_norm = weights_norm.loc[pd.IndexSlice[:,keys],:]
+            # # weights_norm = weights_norm.div(weights_norm.max(axis=0))
+            # weights_norm = weights_norm.div(weights_norm.max(axis=0, level=0), level=0)
+            # weights_norm = weights_norm.reset_index().pivot(index='level_0', columns='level_1')[0]
+            # weights_norm.index.name = 'fold' ; df_mean.index.name = ('fold', 'time')
+            # PacAtl_ts = weights_norm.multiply(df_mean[keys], axis=1, level=0)
+            pass
         else:
             keys = [k for k in df_mean.columns[1:-2] if int(k.split('..')[1]) in PacAtl]
             PacAtl_ts = df_mean[keys]
