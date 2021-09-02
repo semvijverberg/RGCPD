@@ -535,6 +535,8 @@ rg = rg_list[0]
 # =============================================================================
 filepath_df_datas = os.path.join(rg.path_outsub1, 'df_data')
 os.makedirs(filepath_df_datas, exist_ok=True)
+filepath_verif = os.path.join(rg.path_outsub1, 'verif')
+os.makedirs(filepath_verif, exist_ok=True)
 
 #%% Continuous forecast: get Combined Lead time models
 
@@ -816,6 +818,9 @@ for model_name_CL, model_name in model_combs_plot:
         if m == 0:
             ax.legend(fontsize=10, loc='lower left')
 
+
+fig.savefig(os.path.join(filepath_verif,
+                         'timeseries_and_skill.pdf'), bbox_inches='tight')
 #%% Continuous forecast: plotting skill scores
 import utils_paper3
 metrics_plot = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
@@ -825,12 +830,13 @@ model_combs_plot  = [['Ridge', 'Ridge'],
 # model_combs_plot = [['RandomForestRegressor', 'RandomForestRegressor']]
 fc_month_list = [rg.fc_month for rg in rg_list]
 # fig = plt.figure(figsize=(12, 5))
-# fig, axes = plt.subplots(nrows=len(fc_month_list), ncols=len(metrics_plot), figsize=(12,10),
-#                          # gridspec_kw={'width_ratios':[4,1]},
-#                          sharex=True, sharey=True)
+fig, axes = plt.subplots(nrows=len(model_combs_plot), ncols=len(metrics_plot),
+                         figsize=(17,10),
+                          # gridspec_kw={'width_ratios':[4,1]},
+                          sharex=True, sharey=False)
 # gs = gridspec.GridSpec(len(fc_month_list), 2, height_ratios=None,
 
-for i, (model_name_CL, model_name) in enumerate(model_combs_plot):
+for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
     # for i, (nameTarget_fit, nameTarget) in enumerate(verif_combs):
 
 
@@ -861,24 +867,32 @@ for i, (model_name_CL, model_name) in enumerate(model_combs_plot):
 
     print(model_name_CL, model_name, nameTarget_fit, nameTarget)
     if model_name == 'RandomForestRegressor':
-        name = 'RF regr.'
+        name = 'RF.'
     elif model_name == 'Ridge':
-        name = 'Ridge regr.'
+        name = 'Ridge'
+    if model_name_CL == 'RandomForestRegressor':
+        name_CL = 'RF'
+    elif model_name_CL == 'Ridge':
+        name_CL = 'Ridge'
 
     list_verif = [d_dfscores, d_dfscores_T, d_dfscores_N]
     df_scores_list = [d['df_scores'] for d in list_verif]
-    # df_test_TS, df_test_T = d_dfscores['df_scores'], d_dfscores_T['df_scores']
-    # df_boot_TS, df_boot_T = d_dfscores['df_boot'], d_dfscores_T['df_boot']
-    # df_scores_list = [df_test_TS, df_test_T]
     df_boot_list = [d['df_boot'] for d in list_verif]
 
-    f = utils_paper3.plot_scores_wrapper(df_scores_list, df_boot_list,
+    fig = utils_paper3.plot_scores_wrapper(df_scores_list, df_boot_list,
                                          labels=['Target*Signal','Target', 'Normal'],
                                          metrics_plot=metrics_plot,
-                                         fig_ax = None)
-    title = f'Target fitted: {nameTarget_fit} with CL {model_name_CL} '\
-            f'model & final {name} model'
-    f.suptitle(title, y=.95, fontsize=18)
+                                         fig_ax = (fig, axes[j]))
+    axes[j,0].set_ylabel(f'{name_CL} -> {name}', fontsize=18)
+    # axes[j].set_xlabel('Forecast month', fontsize=18)
+    # title = f'Target fitted: {nameTarget_fit} with CL {model_name_CL} '\
+    #         f'model & final {name} model'
+    # fig.suptitle(title, y=.95, fontsize=18)
+    fig.subplots_adjust(wspace=.2)
+    fig.subplots_adjust(hspace=.3)
+
+fig.savefig(os.path.join(filepath_verif,
+                       'scores_vs_lags.pdf'), bbox_inches='tight')
 
 #%%
 df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list, name_object='verification_tuple_c')

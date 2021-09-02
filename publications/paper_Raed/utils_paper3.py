@@ -198,8 +198,6 @@ def plot_scores_wrapper(df_scores_list, df_boot_list, labels=None,
 
     # for j, df_sc in enumerate(df_scores_list):
     for j, (df_sc,df_b) in enumerate(zip(df_scores_list, df_boot_list)):
-
-
         for i, m in enumerate(metrics_plot):
             # normal SST
             # columns.levels auto-sorts order of labels, to avoid:
@@ -215,23 +213,20 @@ def plot_scores_wrapper(df_scores_list, df_boot_list, labels=None,
                                 edgecolor=cl_combs[j][1], facecolor=cl_combs[j][1], alpha=0.3,
                                 linestyle=cl_combs[j][0], linewidth=2)
 
-
             if m == 'corrcoef':
                 ax[i].set_ylim(-.2,1)
             elif m == 'roc_auc_score':
                 ax[i].set_ylim(0,1)
             else:
-                ax[i].set_ylim(-.2,.6)
+                ax[i].set_ylim(-.1,.6)
             ax[i].axhline(y=0, color='black', linewidth=1)
-            ax[i].tick_params(labelsize=16, pad=6)
-            # if i == len(metrics_plot)-1 and orientation=='vertical':
-            #     ax[i].set_xlabel('Forecast month', fontsize=18)
-            # elif orientation=='horizontal':
-            ax[i].set_xlabel('Forecast month', fontsize=18)
+            ax[i].tick_params(labelsize=14, pad=6)
+
+
             if i == 0:
                 ax[i].legend(loc='lower right', fontsize=14)
-            ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
-
+            # ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=0)
+            ax[i].set_title(rename_m[m])
     f.subplots_adjust(hspace=.1)
     f.subplots_adjust(wspace=.25)
 
