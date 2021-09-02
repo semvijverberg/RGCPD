@@ -190,7 +190,8 @@ class ScikitModel:
                       n_jobs=n_jobs)
             model.fit(X_train, y_train.values.ravel())
             model.best_estimator_.X_pred = X_pred # add X_pred to model
-            model.df_norm = df_norm # add df_norm to model for easy reproduction
+            model.best_estimator_.df_norm = df_norm # add df_norm to model for easy reproduction
+            model.best_estimator_.target = RV_fit
             # if self.verbosity == 1:
             #     results = model.cv_results_
             #     scores = results['mean_test_score']
@@ -203,6 +204,7 @@ class ScikitModel:
             model.fit(X_train, y_train.values.ravel())
             model.X_pred = X_pred # add X_pred to model
             model.df_norm = df_norm # add df_norm to model for easy reproduction
+            model.target = RV_fit
 
         if np.unique(y_train).size < 5:
             y_pred = model.predict_proba(X_pred)[:,1] # prob. event prediction

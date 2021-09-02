@@ -37,6 +37,12 @@ if cluster_func not in sys.path:
 import func_models as fc_utils
 import functions_pp, find_precursors
 
+nice_colors = ['#EE6666', '#3388BB', '#9988DD', '#EECC55',
+                '#88BB44', '#FFBBBB']
+line_styles = ['-', '--', '-.', ':', '']
+
+cl_combs = np.array(np.meshgrid(line_styles, nice_colors),
+                     dtype=object).T.reshape(-1,2)
 
 
 
@@ -163,91 +169,92 @@ def df_predictions_for_plot(rg_list, name_object='prediction_tuple'):
 
     return df_preds, df_weights
 
-def plot_scores_wrapper(df_scores, df_boot, df_scores_cf=None, df_boot_cf=None):
-    orientation = 'horizontal'
+def plot_scores_wrapper(df_scores_list, df_boot_list, labels=None,
+                        metrics_plot=None, fig_ax=None):
+
     alpha = .1
-    if 'BSS' in df_scores.columns.levels[1]:
-        metrics_cols = ['BSS', 'roc_auc_score']
-        rename_m = {'BSS': 'BSS', 'roc_auc_score':'ROC-AUC'}
-    else:
-        metrics_cols = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
-        rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
-                    'MAE':'MAE-SS', 'CRPSS':'CRPSS', 'r2_score':'$R^2$',
-                    'mean_absolute_percentage_error':'MAPE'}
-
-    if orientation=='vertical':
-        f, ax = plt.subplots(len(metrics_cols),1, figsize=(6, 5*len(metrics_cols)),
-                         sharex=True) ;
-    else:
-        f, ax = plt.subplots(1,len(metrics_cols), figsize=(6.5*len(metrics_cols), 5),
-                         sharey=False) ;
-
-    c1, c2 = '#3388BB', '#EE6666'
-    for i, m in enumerate(metrics_cols):
-        # normal SST
-        # columns.levels auto-sorts order of labels, to avoid:
-        steps = df_scores.columns.levels[1].size
-        labels = [t[0] for t in df_scores.columns][::steps]
-        ax[i].plot(labels, df_scores.reorder_levels((1,0), axis=1).loc[0][m].T,
-                label='Verification on all years',
-                color=c2,
-                linestyle='solid')
-        ax[i].fill_between(labels,
-                            df_boot.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                            df_boot.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-                            edgecolor=c2, facecolor=c2, alpha=0.3,
-                            linestyle='solid', linewidth=2)
-        # Conditional SST
-        if df_scores_cf is not None:
-            labels = df_scores_cf.columns.levels[0]
-            ax[i].plot(labels, df_scores_cf.reorder_levels((1,0), axis=1).loc[0][m].T,
-                    label='Pronounced Pacific state years',
-                    color=c1,
-                    linestyle='solid')
-            ax[i].fill_between(labels,
-                                df_boot_cf.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
-                                df_boot_cf.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
-                                edgecolor=c1, facecolor=c1, alpha=0.3,
-                                linestyle='solid', linewidth=2)
-
-        if m == 'corrcoef':
-            ax[i].set_ylim(-.2,1)
-        elif m == 'roc_auc_score':
-            ax[i].set_ylim(0,1)
+    if metrics_plot is None:
+        if 'BSS' in df_scores_list[0].columns.levels[1]:
+            metrics_plot = ['BSS', 'roc_auc_score']
         else:
-            ax[i].set_ylim(-.2,.6)
-        ax[i].axhline(y=0, color='black', linewidth=1)
-        ax[i].tick_params(labelsize=16, pad=6)
-        if i == len(metrics_cols)-1 and orientation=='vertical':
+            metrics_plot = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
+    rename_m = {'corrcoef': 'Corr. coeff.', 'RMSE':'RMSE-SS',
+                'MAE':'MAE-SS', 'CRPSS':'CRPSS', 'r2_score':'$R^2$',
+                'mean_absolute_percentage_error':'MAPE',
+                'BSS': 'BSS', 'roc_auc_score':'ROC-AUC'}
+
+    if fig_ax is None:
+        f, ax = plt.subplots(1,len(metrics_plot), figsize=(6.5*len(metrics_plot), 5),
+                             sharey=False) ;
+    else:
+        f, ax = fig_ax
+
+    if type(df_scores_list) is not list:
+        df_scores_list = [df_scores_list]
+    if type(df_boot_list) is not list:
+        df_boot_list = [df_boot_list]
+    if labels is None:
+        labels = ['Verification on all years']
+
+    # for j, df_sc in enumerate(df_scores_list):
+    for j, (df_sc,df_b) in enumerate(zip(df_scores_list, df_boot_list)):
+
+
+        for i, m in enumerate(metrics_plot):
+            # normal SST
+            # columns.levels auto-sorts order of labels, to avoid:
+            steps = df_sc.columns.levels[1].size
+            months = [t[0] for t in df_sc.columns][::steps]
+            ax[i].plot(months, df_sc.reorder_levels((1,0), axis=1).loc[0][m].T,
+                       label=labels[j],
+                       color=cl_combs[j][1],
+                       linestyle=cl_combs[j][0])
+            ax[i].fill_between(months,
+                                df_b.reorder_levels((1,0), axis=1)[m].quantile(1-alpha/2.),
+                                df_b.reorder_levels((1,0), axis=1)[m].quantile(alpha/2.),
+                                edgecolor=cl_combs[j][1], facecolor=cl_combs[j][1], alpha=0.3,
+                                linestyle=cl_combs[j][0], linewidth=2)
+
+
+            if m == 'corrcoef':
+                ax[i].set_ylim(-.2,1)
+            elif m == 'roc_auc_score':
+                ax[i].set_ylim(0,1)
+            else:
+                ax[i].set_ylim(-.2,.6)
+            ax[i].axhline(y=0, color='black', linewidth=1)
+            ax[i].tick_params(labelsize=16, pad=6)
+            # if i == len(metrics_plot)-1 and orientation=='vertical':
+            #     ax[i].set_xlabel('Forecast month', fontsize=18)
+            # elif orientation=='horizontal':
             ax[i].set_xlabel('Forecast month', fontsize=18)
-        elif orientation=='horizontal':
-            ax[i].set_xlabel('Forecast month', fontsize=18)
-        if i == 0:
-            ax[i].legend(loc='lower right', fontsize=14)
-        ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
+            if i == 0:
+                ax[i].legend(loc='lower right', fontsize=14)
+            ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=-4)
 
     f.subplots_adjust(hspace=.1)
     f.subplots_adjust(wspace=.25)
-    title = 'Verification high Yield forecast'
-    if orientation == 'vertical':
-        f.suptitle(title, y=.92, fontsize=18)
-    else:
-        f.suptitle(title, y=.95, fontsize=18)
+
     return f
 
 def plot_forecast_ts(df_test_m, df_test, target_ts=None, fig_ax=None, fs=12,
                      metrics_plot=None, name_model=None):
     #%%
+    # fig_ax=None
     fontsize = fs
     if fig_ax is None:
         fig = plt.figure(figsize=(12, 5))
-        gs = gridspec.GridSpec(1, 1, height_ratios=None)
+        gs = gridspec.GridSpec(1, 2, width_ratios=[2,1])
         ax0 = plt.subplot(gs[0])
+        ax1 = plt.subplot(gs[1])
     else:
-        fig, ax0 = fig_ax
+        fig, axs = fig_ax
+        if type(axs) is np.ndarray:
+            ax0 = axs[0]
+            ax1 = axs[1]
 
     if target_ts is not None:
-        ax0.plot_date(df_test.index, target_ts.loc[0].loc[df_test.index],
+        ax0.plot_date(df_test.index, target_ts.loc[df_test.index],
                       ls='--', c='grey', label='Observed', marker=None)
         ax0.plot_date(df_test.index, df_test.iloc[:,0], ls='-',
                   label='Potential Predictable Signal', c='black')
@@ -269,38 +276,58 @@ def plot_forecast_ts(df_test_m, df_test, target_ts=None, fig_ax=None, fs=12,
 
     if type(df_test_m) is not list:
         df_test_m = [df_test_m]
+    order_verif = ['vs. PPS', 'vs. Target']
+    df_scores = []
     for i, df_test_skill in enumerate(df_test_m):
+        r = {df_test_skill.columns[0][0]:order_verif[i]}
+        df_scores.append( df_test_skill.rename(r, axis=1) )
+    df_scores = pd.concat(df_scores, axis=1)
+    df_scores = df_scores.T.reset_index().pivot_table(index='level_1',
+                                                      columns='level_0')[0]
 
-        y_offset = 0
-        if i == 1:
-            y_offset = 0.1
-        df_scores = df_test_skill.loc[0][df_test_skill.columns[0][0]]
-        Texts1 = [] ; Texts2 = [] ;
-        textprops = dict(color='black', fontsize=fontsize, family='serif')
-        rename_met = {'RMSE':'RMSE-SS', 'corrcoef':'Corr.', 'MAE':'MAE-SS',
-                      'BSS':'BSS', 'roc_auc_score':'ROC-AUC', 'r2_score':'$r^2$',
-                      'mean_absolute_percentage_error':'MAPE'}
-        if metrics_plot is None:
-            metrics_plot = df_scores.index
-        for k in metrics_plot:
-            label = rename_met[k]
-            val = round(df_scores[k], 2)
-            Texts1.append(TextArea(f'{label}',textprops=textprops))
-            Texts2.append(TextArea(f'{val}',textprops=textprops))
-        texts_vbox1 = VPacker(children=Texts1,pad=0,sep=4)
-        texts_vbox2 = VPacker(children=Texts2,pad=0,sep=4)
+        # y_offset = 0
+        # if i == 1:
+        #     y_offset = 0.2
+        # df_scores = df_test_skill.loc[0][df_test_skill.columns[0][0]]
+        # Texts1 = [] ; Texts2 = [] ;
+        # textprops = dict(color='black', fontsize=fontsize, family='serif')
+    rename_met = {'RMSE':'RMSE-SS', 'corrcoef':'Corr.', 'MAE':'MAE-SS',
+                  'BSS':'BSS', 'roc_auc_score':'ROC-AUC', 'r2_score':'$r^2$',
+                  'mean_absolute_percentage_error':'MAPE'}
+    if metrics_plot is None:
+        metrics_plot = df_scores.index
 
-        ann1 = AnnotationBbox(texts_vbox1,(1.02+y_offset,0.5),xycoords=ax0.transAxes,
-                                    box_alignment=(0,.5),
-                                    bboxprops = dict(facecolor='grey', alpha=.5,
-                                                     boxstyle='round',edgecolor='white'))
-        ann2 = AnnotationBbox(texts_vbox2,(1.15+y_offset,0.5),xycoords=ax0.transAxes,
-                                    box_alignment=(0,.5),
-                                    bboxprops = dict(facecolor='grey', alpha=.5,
-                                                     boxstyle='round',edgecolor='white'))
-        ann1.set_figure(fig) ; ann2.set_figure(fig)
-        fig.artists.append(ann1) ; fig.artists.append(ann2)
-        ax0.set_title(df_test.columns[1] + ' forecast', fontsize=fs, y=.95)
+    table = ax1.table(cellText=np.round(df_scores.loc[metrics_plot].values, 2),
+                      cellLoc='center',
+                      rowLabels=[rename_met[m] for m in metrics_plot],
+                      colLabels=df_scores.columns, loc='center',
+                      edges='closed')
+    table.scale(1.1, 1.5)
+    table.set_fontsize(fontsize+4)
+    # ax0.secondary_xaxis('right', functions=(deg2rad, rad2deg))
+    # plt.table(['{:.2f}'.format(t) for t in df_scores[metrics_plot].values])
+        # for k in metrics_plot:
+        #     label = rename_met[k]
+        #     val = round(df_scores[k], 2)
+        #     Texts1.append(TextArea(f'{label}',textprops=textprops))
+        #     Texts2.append(TextArea(f'{val}',textprops=textprops))
+        # texts_vbox1 = VPacker(children=Texts1,pad=0,sep=4)
+        # texts_vbox2 = VPacker(children=Texts2,pad=0,sep=4)
+
+        # ann1 = AnnotationBbox(texts_vbox1,(1.02+y_offset,0.5),xycoords=ax0.transAxes,
+        #                             box_alignment=(0,.5),
+        #                             bboxprops = dict(facecolor='grey', alpha=.5,
+        #                                              boxstyle='round',edgecolor='white'))
+        # ann2 = AnnotationBbox(texts_vbox2,(1.15+y_offset,0.5),xycoords=ax0.transAxes,
+        #                             box_alignment=(0,.5),
+        #                             bboxprops = dict(facecolor='grey', alpha=.5,
+        #                                              boxstyle='round',edgecolor='white'))
+        # ann1.set_figure(fig) ; ann2.set_figure(fig)
+        # fig.artists.append(ann1) ; fig.artists.append(ann2)
+    ax0.set_title(df_test.columns[1] + ' forecast', fontsize=fs, y=.95)
+    ax1.axis('off')
+    ax1.axis('tight')
+    ax1.set_facecolor('white')
     #%%
     return
 

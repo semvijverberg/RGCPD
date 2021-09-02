@@ -565,3 +565,4 @@ def SciKitModel_coeff(model, lag):
                         columns=[lag])
     return df.rename_axis(name, axis=1)
 
+
