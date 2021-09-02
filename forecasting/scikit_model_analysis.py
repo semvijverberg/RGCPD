@@ -65,13 +65,15 @@ def ensemble_error_estimators(model, kwrgs_model: dict,
             oob_error = 1 - model.oob_score_
             error_rate[label].append((i, oob_error))
 
+    f, ax = plt.subplots(1)
     # Generate the "OOB error rate" vs. "n_estimators" plot.
     for i, (label, clf_err) in enumerate(error_rate.items()):
         xs, ys = zip(*clf_err)
-        plt.plot(xs, ys, label=label, c=cl_combs[i][1], ls=cl_combs[i][0])
+        ax.plot(xs, ys, label=label, c=cl_combs[i][1], ls=cl_combs[i][0])
 
     plt.xlim(min_estimators, max_estimators)
     plt.xlabel("n_estimators")
     plt.ylabel("OOB error score")
     plt.legend(bbox_to_anchor=(1.0, .5), fontsize=10)
     plt.show()
+    return f

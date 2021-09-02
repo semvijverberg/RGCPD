@@ -893,6 +893,12 @@ for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
 
 fig.savefig(os.path.join(filepath_verif,
                        'scores_vs_lags.pdf'), bbox_inches='tight')
+#%% Check RF tuning
+import scikit_model_analysis as sk_ana
+model = models_lags['lag_0'][f'split_{0}']
+f = sk_ana.ensemble_error_estimators(model.best_estimator_, kwrgs_model2)
+f.savefig(os.path.join(filepath_verif,
+                       'RF_tuning.pdf'), bbox_inches='tight')
 
 #%%
 df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list, name_object='verification_tuple_c')
