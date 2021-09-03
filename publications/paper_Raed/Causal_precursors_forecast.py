@@ -72,7 +72,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2']
 seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['timeseriessplit_30'] # ['ranstrat_20'] timeseriessplit_30
+methods = ['ranstrat_20'] # ['ranstrat_20'] timeseriessplit_30
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -753,6 +753,7 @@ for model_name_CL, model_name in model_combs:
 import utils_paper3
 
 for model_name_CL, model_name in model_combs:
+    nameTarget = 'Target'
     for nameTarget_fit in ['Target', 'Target*Signal']:
         print(f'CL: {model_name_CL} -> {model_name} -> {nameTarget_fit}')
         f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
@@ -833,6 +834,7 @@ for model_name_CL, model_name in model_combs_plot:
     filepath_dfs = os.path.join(filepath_df_datas, df_file)
     d_dfscores_T = functions_pp.load_hdf5(filepath_dfs)
 
+
     f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
                                                 f'{nameTarget_fit}.h5'
     filepath_dfs = os.path.join(filepath_df_datas, f_name)
@@ -886,7 +888,8 @@ fig, axes = plt.subplots(nrows=len(model_combs_plot), ncols=len(metrics_plot),
                          figsize=(17,10),
                           # gridspec_kw={'width_ratios':[4,1]},
                           sharex=True, sharey=False)
-# gs = gridspec.GridSpec(len(fc_month_list), 2, height_ratios=None,
+
+condition = 'strong 50%'
 
 for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
     # for i, (nameTarget_fit, nameTarget) in enumerate(verif_combs):
@@ -896,26 +899,29 @@ for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
     nameTarget_fit = 'Target'
     nameTarget = 'Target'
     df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
-                f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5'
+                f'{nameTarget_fit}_{nameTarget}_{n_boot}'
     filepath_dfs = os.path.join(filepath_df_datas, df_file)
-    d_dfscores_N = functions_pp.load_hdf5(filepath_dfs)
+    d_dfscores_N = functions_pp.load_hdf5(filepath_dfs+'.h5')
+    # d_dfscores_N_CF = functions_pp.load_hdf5(filepath_dfs+'_CF.h5')
 
 
-    # load df_scores Target*Signal + Target*Signal
-    nameTarget_fit = 'Target*Signal'
-    nameTarget = 'Target*Signal'
-    df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
-                f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5'
-    filepath_dfs = os.path.join(filepath_df_datas, df_file)
-    d_dfscores = functions_pp.load_hdf5(filepath_dfs)
+    # # load df_scores Target*Signal + Target*Signal
+    # nameTarget_fit = 'Target*Signal'
+    # nameTarget = 'Target*Signal'
+    # df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
+    #             f'{nameTarget_fit}_{nameTarget}_{n_boot}'
+    # filepath_dfs = os.path.join(filepath_df_datas, df_file)
+    # d_dfscores = functions_pp.load_hdf5(filepath_dfs+'.h5')
 
     nameTarget_fit = 'Target*Signal'
     nameTarget = 'Target'
     df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
-                f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5'
+                f'{nameTarget_fit}_{nameTarget}_{n_boot}'
     filepath_dfs = os.path.join(filepath_df_datas, df_file)
-    d_dfscores_T = functions_pp.load_hdf5(filepath_dfs)
-
+    d_dfscores_T = functions_pp.load_hdf5(filepath_dfs+'.h5')
+    d_dfscores_T_CF = functions_pp.load_hdf5(filepath_dfs+'_CF.h5')
+    df_scores, df_boot = utils_paper3.to_df_scores_format(d_dfscores_T_CF,
+                                                          condition)
 
     print(model_name_CL, model_name, nameTarget_fit, nameTarget)
     if model_name == 'RandomForestRegressor':
@@ -927,9 +933,11 @@ for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
     elif model_name_CL == 'Ridge':
         name_CL = 'Ridge'
 
-    list_verif = [d_dfscores, d_dfscores_T, d_dfscores_N]
-    df_scores_list = [d['df_scores'] for d in list_verif]
-    df_boot_list = [d['df_boot'] for d in list_verif]
+    list_verif = [d_dfscores_T, d_dfscores_N]
+    df_scores_list = [d['df_scores'] for d in list_verif] + [df_scores]
+    df_boot_list = [d['df_boot'] for d in list_verif] + df_boot
+
+
 
     fig = utils_paper3.plot_scores_wrapper(df_scores_list, df_boot_list,
                                          labels=['Target*Signal','Target', 'Normal'],

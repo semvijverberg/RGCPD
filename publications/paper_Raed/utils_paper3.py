@@ -464,6 +464,16 @@ def cond_forecast_table(rg_list, score_func_list, df_predictions,
 
     return df_cond_fc
 
+def to_df_scores_format(d_dfscores, condition='50% strong'):
+    df_scores = d_dfscores['df_cond'].T.loc[[condition]].swaplevel(0,1,1)
+    df_boot = d_dfscores['df_cond_b'][condition].T.swaplevel(0,1,1)
+    steps = df_scores.columns.levels[1].size
+    months = [t[0] for t in df_scores.columns][::steps]
+    steps = df_scores.columns.levels[0].size
+    metrics_ = [t[1] for t in df_scores.columns][::steps]
+    df_scores = pd.DataFrame(df_scores, columns=pd.MultiIndex.from_product([months, metrics_]))
+    df_boot = pd.DataFrame(df_boot, columns=pd.MultiIndex.from_product([months, metrics_]))
+    return df_scores, df_boot
 
 def boxplot_cond_fc(df_cond, metrics: list=None, forcing_name: str='', composite = 30):
     '''
