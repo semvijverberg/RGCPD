@@ -608,8 +608,9 @@ def labels_to_df(prec_labels, return_mean_latlon=True):
         for i,l in enumerate(labels):
             latlon = np.array(df[(df==l).values].index)
             latlon = np.array([list(l) for l in latlon])
-            mean_coords_area[i][:2] = latlon.mean(0)
-            mean_coords_area[i][-1] = latlon.shape[0]
+            if latlon.size != 0:
+                mean_coords_area[i][:2] = latlon.mean(0)
+                mean_coords_area[i][-1] = latlon.shape[0]
         df = pd.DataFrame(mean_coords_area, index=labels,
                      columns=['latitude', 'longitude', 'n_gridcells'])
     return df

@@ -390,14 +390,15 @@ def get_df_forcing_cond_fc(rg_list, #target_ts, fcmodel, kwrgs_model, mean_vars=
 
         rg.df_forcing = PacAtl_ts
 
-def cond_forecast_table(rg_list, score_func_list, n_boot=0):
-    df_test_m = rg_list[0].verification_tuple[2]
+def cond_forecast_table(rg_list, score_func_list, df_predictions,
+                        nameTarget='Target', n_boot=0):
+
     quantiles = [.15, .25]
-    metrics = df_test_m.columns.levels[1]
+    metrics = [s.__name__ for s in score_func_list]
     if n_boot > 0:
-        cond_df = np.zeros((metrics.size, len(rg_list), len(quantiles)*2, n_boot))
+        cond_df = np.zeros((len(metrics), len(rg_list), len(quantiles)*2, n_boot))
     else:
-        cond_df = np.zeros((metrics.size, len(rg_list), len(quantiles)*2))
+        cond_df = np.zeros((len(metrics), len(rg_list), len(quantiles)*2))
     for i, met in enumerate(metrics):
         for j, rg in enumerate(rg_list):
 
@@ -406,7 +407,7 @@ def cond_forecast_table(rg_list, score_func_list, n_boot=0):
             df_forctrain = functions_pp.get_df_train(rg.df_forcing.mean(axis=1),
                                              df_splits=rg.df_splits, s='mean')
 
-            prediction = rg.prediction_tuple[0]
+            prediction = df_predictions[[nameTarget, rg.fc_month]]
             df_test = functions_pp.get_df_test(prediction,
                                                df_splits=rg.df_splits)
 

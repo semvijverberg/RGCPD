@@ -542,7 +542,7 @@ os.makedirs(filepath_verif, exist_ok=True)
 
 from sklearn.linear_model import Ridge
 from stat_models_cont import ScikitModel
-kwrgs_model1 = {'scoringCV':'neg_root_mean_squared_error',
+kwrgs_model1 = {'scoringCV':'neg_mean_squared_error',
                 'alpha':list(np.concatenate([np.logspace(-4,0, 5),
                                           np.logspace(.5, 2, num=10)])), # large a, strong regul.
                 'normalize':False,
@@ -556,7 +556,7 @@ model1_tuple = (ScikitModel(Ridge, verbosity=0),
 from sklearn.ensemble import RandomForestRegressor
 kwrgs_model2={'n_estimators':[400],
               'max_depth':[5,10],
-              'scoringCV':'neg_root_mean_squared_error',
+              'scoringCV':'neg_mean_squared_error',
               'criterion':'mse',
               'oob_score':True,
               'random_state':0,
@@ -577,9 +577,9 @@ target_ts = rg.transform_df_data(rg.df_data.iloc[:,[0]].merge(rg.df_splits,
 for fcmodel, kwrgs_model in [model1_tuple, model2_tuple]:
     kwrgs_model_CL = kwrgs_model.copy() ;
     # kwrgs_model_CL.update({'alpha':kwrgs_model['alpha'][::3]})
-    model_name = fcmodel.scikitmodel.__name__
+    model_name_CL = fcmodel.scikitmodel.__name__
     filepath_dfs = os.path.join(filepath_df_datas,
-                                f'CL_models_cont{model_name}.h5')
+                                f'CL_models_cont{model_name_CL}.h5')
     df_data_CL = {}
     try:
         df_data_CL = functions_pp.load_hdf5(filepath_dfs)
@@ -590,7 +590,7 @@ for fcmodel, kwrgs_model in [model1_tuple, model2_tuple]:
 
 
     for i, rg in enumerate(rg_list):
-        print(model_name, i)
+        print(model_name_CL, i)
 
         if loaded:
             rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
@@ -646,17 +646,28 @@ for model_name_CL, model_name in model_combs:
             print(model_name_CL, model_name, i)
             # get CL model of that month
             rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
+
+        # get forcing per fc_month
+        utils_paper3.get_df_forcing_cond_fc(rg_list,
+                                    region='only_Pacific',
+                                    name_object='df_CL_data')
+        for i, rg in enumerate(rg_list):
+            keys_dict = {s:rg.df_CL_data.loc[s].dropna(axis=1).columns[:-2] \
+                         for s in range(rg.n_spl)}
             # get estimated signal from Pacific
-            utils_paper3.get_df_forcing_cond_fc(rg_list,
-                                                region='only_Pacific',
-                                                name_object='df_CL_data')
+
             # adapt target timeseries for fitting
+            df_forcing = rg.df_forcing.mean(axis=1) # mean over cols
+            # very rare exception that Pac is not causal @ alpha level
+            df_forcing = df_forcing.fillna(value=1)
 
             target_ts = target_ts.rename({target_ts.columns[0]:'Target'},axis=1)
-            target_ts_signal = target_ts.multiply(rg.df_forcing.mean(axis=1).abs(), axis=0)
-            target_ts_signal= target_ts_signal.rename({rg.df_data.columns[0]:
-                                                       f'Target * {rg.fc_month} signal'},
-                                                      axis=1)
+            target_ts_signal = target_ts.multiply(df_forcing.abs(),
+                                                  axis=0)
+            target_ts_signal= target_ts_signal.rename(\
+                                          {rg.df_data.columns[0]:
+                                           f'Target * {rg.fc_month} signal'},
+                                          axis=1)
             target_ts_signal = rg.transform_df_data(target_ts_signal.merge(rg.df_splits,
                                                                            left_index=True,
                                                                            right_index=True),
@@ -666,7 +677,9 @@ for model_name_CL, model_name in model_combs:
             if nameTarget == 'Target*Signal':
                 _target_ts = target_ts_signal
 
+
             prediction_tuple = rg.fit_df_data_ridge(df_data=rg.df_CL_data,
+                                                    keys=keys_dict,
                                                     target=_target_ts,
                                                     tau_min=0, tau_max=0,
                                                     kwrgs_model=kwrgs_model,
@@ -736,6 +749,45 @@ for model_name_CL, model_name in model_combs:
                             f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5')
         functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
+#%% Continuous forecast: Verification conditional forecast
+import utils_paper3
+
+for model_name_CL, model_name in model_combs:
+    for nameTarget_fit in ['Target', 'Target*Signal']:
+        print(f'CL: {model_name_CL} -> {model_name} -> {nameTarget_fit}')
+        f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
+                                                    f'{nameTarget_fit}.h5'
+        filepath_dfs = os.path.join(filepath_df_datas, f_name)
+
+        try:
+            d_dfs = functions_pp.load_hdf5(filepath_dfs)
+            df_predictions = d_dfs['df_predictions']
+        except:
+            print('loading predictions failed, skipping this model')
+            continue
+
+        # metrics
+        bench = prediction[nameTarget].mean()
+        RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).RMSE
+        MAE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).MAE
+        score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS,
+                           fc_utils.r2_score]
+
+        df_cond = utils_paper3.cond_forecast_table(rg_list, score_func_list,
+                                                   df_predictions,
+                                                   nameTarget='Target',
+                                                   n_boot=n_boot)
+
+        df_cond_b = utils_paper3.cond_forecast_table(rg_list, score_func_list,
+                                                   df_predictions,
+                                                   nameTarget='Target',
+                                                   n_boot=n_boot)
+        d_dfs={'df_cond':df_cond, 'df_cond_b':df_cond_b}
+        filepath_dfs = os.path.join(filepath_df_datas,
+                        f'scores_cont_CL{model_name_CL}_{model_name}_'\
+                            f'{nameTarget_fit}_{nameTarget}_{n_boot}_CF.h5')
+        functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+
 
     # m = models_lags[f'lag_{lag_}'][f'split_{0}']
     # # plt.plot(kwrgs_model['alpha'], m.cv_results_['mean_test_score'])
@@ -788,9 +840,9 @@ for model_name_CL, model_name in model_combs_plot:
 
     print(model_name_CL, model_name, nameTarget_fit, nameTarget)
     if model_name == 'RandomForestRegressor':
-        name = 'RF regr.'
+        name = 'RF'
     elif model_name == 'Ridge':
-        name = 'Ridge regr.'
+        name = 'Ridge'
     for m, fc_month in enumerate(fc_month_list):
         axs = axes[m]
         ax = axs[0]
@@ -867,7 +919,7 @@ for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
 
     print(model_name_CL, model_name, nameTarget_fit, nameTarget)
     if model_name == 'RandomForestRegressor':
-        name = 'RF.'
+        name = 'RF'
     elif model_name == 'Ridge':
         name = 'Ridge'
     if model_name_CL == 'RandomForestRegressor':
