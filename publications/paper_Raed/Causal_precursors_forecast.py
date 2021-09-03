@@ -72,7 +72,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2']
 seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['timeseriessplit_30'] # ['ranstrat_20'] timeseriessplit_30
+methods = ['ranstrat_20'] # ['ranstrat_20'] timeseriessplit_30
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -768,7 +768,7 @@ for model_name_CL, model_name in model_combs:
             continue
 
         # metrics
-        bench = prediction[nameTarget].mean()
+        bench = df_predictions[nameTarget].mean()
         RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).RMSE
         MAE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).MAE
         score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS,
@@ -902,7 +902,7 @@ for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
                 f'{nameTarget_fit}_{nameTarget}_{n_boot}'
     filepath_dfs = os.path.join(filepath_df_datas, df_file)
     d_dfscores_N = functions_pp.load_hdf5(filepath_dfs+'.h5')
-    # d_dfscores_N_CF = functions_pp.load_hdf5(filepath_dfs+'_CF.h5')
+    d_dfscores_N_CF = functions_pp.load_hdf5(filepath_dfs+'_CF.h5')
 
 
     # # load df_scores Target*Signal + Target*Signal
@@ -919,8 +919,8 @@ for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
                 f'{nameTarget_fit}_{nameTarget}_{n_boot}'
     filepath_dfs = os.path.join(filepath_df_datas, df_file)
     d_dfscores_T = functions_pp.load_hdf5(filepath_dfs+'.h5')
-    d_dfscores_T_CF = functions_pp.load_hdf5(filepath_dfs+'_CF.h5')
-    df_scores, df_boot = utils_paper3.to_df_scores_format(d_dfscores_T_CF,
+    # d_dfscores_T_CF = functions_pp.load_hdf5(filepath_dfs+'_CF.h5')
+    df_scores, df_boot = utils_paper3.to_df_scores_format(d_dfscores_N_CF,
                                                           condition)
 
     print(model_name_CL, model_name, nameTarget_fit, nameTarget)
@@ -933,14 +933,14 @@ for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
     elif model_name_CL == 'Ridge':
         name_CL = 'Ridge'
 
-    list_verif = [d_dfscores_T, d_dfscores_N]
+    list_verif = [d_dfscores_N, d_dfscores_T]
     df_scores_list = [d['df_scores'] for d in list_verif] + [df_scores]
-    df_boot_list = [d['df_boot'] for d in list_verif] + df_boot
+    df_boot_list = [d['df_boot'] for d in list_verif] + [df_boot]
 
 
 
     fig = utils_paper3.plot_scores_wrapper(df_scores_list, df_boot_list,
-                                         labels=['Target*Signal','Target', 'Normal'],
+                                         labels=['Target', 'Target(m(S))', 'Target(m(S)) | S'],
                                          metrics_plot=metrics_plot,
                                          fig_ax = (fig, axes[j]))
     axes[j,0].set_ylabel(f'{name_CL} -> {name}', fontsize=18)
