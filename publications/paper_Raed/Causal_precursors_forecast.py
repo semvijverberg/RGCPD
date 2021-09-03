@@ -776,7 +776,7 @@ for model_name_CL, model_name in model_combs:
         df_cond = utils_paper3.cond_forecast_table(rg_list, score_func_list,
                                                    df_predictions,
                                                    nameTarget='Target',
-                                                   n_boot=n_boot)
+                                                   n_boot=0)
 
         df_cond_b = utils_paper3.cond_forecast_table(rg_list, score_func_list,
                                                    df_predictions,
