@@ -79,7 +79,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 0
+i_default = 3
 
 
 def parseArguments():
@@ -623,7 +623,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
 
         for i, rg in enumerate(rg_list):
-            print(model_name_CL, i)
+            print(fc_type, model_name_CL, i)
 
             if loaded:
                 rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
@@ -655,16 +655,20 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
 
     #%% Continuous forecast: Make prediction
-
-    model_combs = [['Ridge', 'Ridge'],
-                   ['Ridge', 'RandomForestRegressor'],
-                   ['RandomForestRegressor', 'RandomForestRegressor']]
+    if fc_type == 'continuous':
+        model_combs = [['Ridge', 'Ridge'],
+                       ['Ridge', 'RandomForestRegressor'],
+                       ['RandomForestRegressor', 'RandomForestRegressor']]
+    else:
+        model_combs = [['LogisticRegression', 'LogisticRegression'],
+                       ['LogisticRegression', 'RandomForestClassifier'],
+                       ['RandomForestClassifier', 'RandomForestClassifier']]
 
     fcmodel, kwrgs_model = model1_tuple
     for model_name_CL, model_name in model_combs:
-        if model_name == 'Ridge':
+        if model_name == 'Ridge' or model_name == 'LogisticRegression':
             fcmodel, kwrgs_model = model1_tuple
-        elif model_name == 'RandomForestRegressor':
+        elif 'RandomForest' in model_name:
             fcmodel, kwrgs_model = model2_tuple
 
         filepath_dfs = os.path.join(filepath_df_datas,
@@ -674,6 +678,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
         except:
             print('loading CL models failed, skipping this model')
             continue
+
         for nameTarget in ['Target', 'Target*Signal']:
             for i, rg in enumerate(rg_list):
                 # get CL model of that month
