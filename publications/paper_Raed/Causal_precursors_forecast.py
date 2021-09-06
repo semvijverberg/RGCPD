@@ -707,7 +707,8 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 # very rare exception that Pac is not causal @ alpha level
                 df_forcing = df_forcing.fillna(value=1)
 
-                target_ts = target_ts.rename({target_ts.columns[0]:'Target'},axis=1)
+                target_ts = rg.df_data.iloc[:,[0]].rename(\
+                          {rg.df_data.iloc[:,[0]].columns[0]:'Target'},axis=1)
                 target_ts_signal = target_ts.multiply(df_forcing.abs(),
                                                       axis=0)
                 target_ts_signal= target_ts_signal.rename(\
@@ -723,11 +724,11 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 if nameTarget == 'Target*Signal':
                     _target_ts = target_ts_signal
                 if fc_type != 'continuous':
-                    quantile_fl = float(target_ts.quantile(fc_type))
+                    # quantile_fl = float(target_ts.quantile(fc_type))
                     if fc_type >= 0.5:
-                        _target_ts = (_target_ts > quantile_fl).astype(int)
+                        _target_ts = (_target_ts > _target_ts.quantile(fc_type)).astype(int)
                     elif fc_type < .5:
-                        _target_ts = (_target_ts < quantile_fl).astype(int)
+                        _target_ts = (_target_ts < _target_ts.quantile(fc_type)).astype(int)
 
 
                 prediction_tuple = rg.fit_df_data_ridge(df_data=rg.df_CL_data,
