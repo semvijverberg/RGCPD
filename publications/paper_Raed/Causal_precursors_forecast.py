@@ -557,12 +557,12 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
         from sklearn.ensemble import RandomForestRegressor
         kwrgs_model2={'n_estimators':[400],
-                      'max_depth':[5,10],
+                      'max_depth':[3,5,10],
                       'scoringCV':'neg_mean_squared_error',
                       'criterion':'mse',
                       'oob_score':True,
                       'random_state':0,
-                      'min_impurity_decrease':[.02, 0],
+                      'min_impurity_decrease':0,
                       'max_samples':[0.55,.75],
                       'kfold':10,
                       'n_jobs':n_cpu}
@@ -970,7 +970,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
             out = utils_paper3.load_scores(target_opt, model_name_CL, model_name,
                                            n_boot, filepath_df_datas,
-                                           condition='50% strong')
+                                           condition=condition)
             df_scores_list, df_boot_list = out
 
 

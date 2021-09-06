@@ -477,7 +477,7 @@ def to_df_scores_format(d_dfscores, condition='50% strong'):
     return df_scores, df_boot
 
 def load_scores(list_labels, model_name_CL, model_name, n_boot,
-                filepath_df_datas, condition='50% strong'):
+                filepath_df_datas, condition='strong 50%'):
 
     df_scores_list = [] ; df_boot_list = []
     for label in list_labels:
