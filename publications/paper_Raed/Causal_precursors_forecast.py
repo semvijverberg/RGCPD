@@ -69,10 +69,10 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
 
 
-target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2']
+target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['timeseriessplit_30'] # ['ranstrat_20'] timeseriessplit_30
+methods = ['ranstrat_20'] # ['ranstrat_20'] timeseriessplit_30
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -567,14 +567,14 @@ for fc_type in ['continuous', 0.33, 0.66]:
         model2_tuple = (ScikitModel(RandomForestRegressor, verbosity=0),
                         kwrgs_model2)
     else:
-    fcmodel1 = ScikitModel(LogisticRegression, verbosity=0)
-    kwrgs_model1 = {'scoringCV':'neg_brier_score',
-                    'C':list([.1,.5,.8,1,1.2,4,7,10, 20]), # large a, strong regul.
-                    'random_state':seed,
-                    'penalty':'l2',
-                    'solver':'lbfgs',
-                    'kfold':10,
-                    'max_iter':200}
+        fcmodel1 = ScikitModel(LogisticRegression, verbosity=0)
+        kwrgs_model1 = {'scoringCV':'neg_brier_score',
+                        'C':list([.1,.5,.8,1,1.2,4,7,10, 20]), # large a, strong regul.
+                        'random_state':seed,
+                        'penalty':'l2',
+                        'solver':'lbfgs',
+                        'kfold':10,
+                        'max_iter':200}
 
         from sklearn.ensemble import RandomForestClassifier
         kwrgs_model2={'n_estimators':[400],
@@ -669,15 +669,21 @@ for fc_type in ['continuous', 0.33, 0.66]:
             continue
         for nameTarget in ['Target', 'Target*Signal']:
             for i, rg in enumerate(rg_list):
-                print(model_name_CL, model_name, i)
                 # get CL model of that month
                 rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
 
+            filepath_dfs = os.path.join(filepath_df_datas,
+                                        f'predictions_cont_CL{model_name_CL}_'\
+                                        f'{model_name}_{nameTarget}.h5')
+            if os.path.exists(filepath_dfs):
+                print('Prediction final model already stored, skipping this model')
+                continue
             # get forcing per fc_month
             utils_paper3.get_df_forcing_cond_fc(rg_list,
                                         region='only_Pacific',
                                         name_object='df_CL_data')
             for i, rg in enumerate(rg_list):
+                print(model_name_CL, model_name, i)
                 keys_dict = {s:rg.df_CL_data.loc[s].dropna(axis=1).columns[:-2] \
                              for s in range(rg.n_spl)}
                 # get estimated signal from Pacific
@@ -724,9 +730,6 @@ for fc_type in ['continuous', 0.33, 0.66]:
             model_name = fcmodel.scikitmodel.__name__
             df_predictions, df_w_save = utils_paper3.df_predictions_for_plot(rg_list)
             d_df_preds={'df_predictions':df_predictions, 'df_weights':df_w_save}
-            filepath_dfs = os.path.join(filepath_df_datas,
-                                        f'predictions_cont_CL{model_name_CL}_'\
-                                        f'{model_name}_{nameTarget}.h5')
             functions_pp.store_hdf_df(d_df_preds, filepath_dfs)
 
     #%% Continuous forecast: Verification
@@ -746,6 +749,13 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 df_predictions = d_dfs['df_predictions']
             except:
                 print('loading predictions failed, skipping this model')
+                continue
+
+            filepath_dfs = os.path.join(filepath_df_datas,
+                            f'scores_cont_CL{model_name_CL}_{model_name}_'\
+                                f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5')
+            if os.path.exists(filepath_dfs):
+                print('Verification of model vs. Targert already stored, skip')
                 continue
 
             for i, rg in enumerate(rg_list):
@@ -770,9 +780,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
             df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list,
                                                                'verification_tuple')
             d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
-            filepath_dfs = os.path.join(filepath_df_datas,
-                            f'scores_cont_CL{model_name_CL}_{model_name}_'\
-                                f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5')
+
             functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
     #%% Continuous forecast: Verification conditional forecast
@@ -781,7 +789,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
     for model_name_CL, model_name in model_combs:
         nameTarget = 'Target'
         for nameTarget_fit in ['Target', 'Target*Signal']:
-            print(f'CL: {model_name_CL} -> {model_name} -> {nameTarget_fit}')
+
             f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
                                                         f'{nameTarget_fit}.h5'
             filepath_dfs = os.path.join(filepath_df_datas, f_name)
@@ -792,6 +800,15 @@ for fc_type in ['continuous', 0.33, 0.66]:
             except:
                 print('loading predictions failed, skipping this model')
                 continue
+
+            filepath_dfs = os.path.join(filepath_df_datas,
+                                             f'scores_cont_CL{model_name_CL}_{model_name}_'\
+                                             f'{nameTarget_fit}_{nameTarget}_{n_boot}_CF.h5')
+            if os.path.exists(filepath_dfs):
+                print('Verification of model vs. Targert already stored, skip')
+                continue
+            else:
+                print(f'CL: {model_name_CL} -> {model_name} -> {nameTarget_fit}')
 
             # metrics
             bench = df_predictions[nameTarget].mean()
@@ -810,9 +827,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                                                        nameTarget='Target',
                                                        n_boot=n_boot)
             d_dfs={'df_cond':df_cond, 'df_cond_b':df_cond_b}
-            filepath_dfs = os.path.join(filepath_df_datas,
-                            f'scores_cont_CL{model_name_CL}_{model_name}_'\
-                                f'{nameTarget_fit}_{nameTarget}_{n_boot}_CF.h5')
+
             functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
 
