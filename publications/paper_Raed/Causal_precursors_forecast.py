@@ -548,7 +548,8 @@ for fc_type in ['continuous', 0.33, 0.66]:
     if fc_type == 'continuous':
         from sklearn.linear_model import Ridge, LogisticRegression
         from stat_models_cont import ScikitModel
-        kwrgs_model1 = {'scoringCV':'neg_mean_squared_error',
+        scoringCV = 'neg_mean_squared_error'
+        kwrgs_model1 = {'scoringCV':scoringCV,
                         'alpha':list(np.concatenate([np.logspace(-4,0, 5),
                                                   np.logspace(.5, 2, num=10)])), # large a, strong regul.
                         'normalize':False,
@@ -570,9 +571,10 @@ for fc_type in ['continuous', 0.33, 0.66]:
                       'n_jobs':n_cpu}
         model2_tuple = (ScikitModel(RandomForestRegressor, verbosity=0),
                         kwrgs_model2)
-    else:
 
-        kwrgs_model1 = {'scoringCV':'neg_brier_score',
+    else:
+        scoringCV = 'neg_brier_score'
+        kwrgs_model1 = {'scoringCV':scoringCV,
                         'C':list([.1,.5,.8,1,1.2,4,7,10, 20]), # large a, strong regul.
                         'random_state':seed,
                         'penalty':'l2',
@@ -586,7 +588,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
         from sklearn.ensemble import RandomForestClassifier
         kwrgs_model2={'n_estimators':[400],
                       'max_depth':[5,10],
-                      'scoringCV':'neg_mean_squared_error',
+                      'scoringCV':scoringCV,
                       # 'criterion':'mse',
                       'oob_score':True,
                       'random_state':0,
@@ -720,6 +722,12 @@ for fc_type in ['continuous', 0.33, 0.66]:
                     _target_ts = target_ts
                 if nameTarget == 'Target*Signal':
                     _target_ts = target_ts_signal
+                if fc_type != 'continuous':
+                    quantile_fl = float(target_ts.quantile(fc_type))
+                    if fc_type >= 0.5:
+                        _target_ts = (_target_ts > quantile_fl).astype(int)
+                    elif fc_type < .5:
+                        _target_ts = (_target_ts < quantile_fl).astype(int)
 
 
                 prediction_tuple = rg.fit_df_data_ridge(df_data=rg.df_CL_data,
