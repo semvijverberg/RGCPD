@@ -533,432 +533,458 @@ rg = rg_list[0]
 # =============================================================================
 # Continuous forecast
 # =============================================================================
-filepath_df_datas = os.path.join(rg.path_outsub1, 'df_data')
-os.makedirs(filepath_df_datas, exist_ok=True)
-filepath_verif = os.path.join(rg.path_outsub1, 'verif')
-os.makedirs(filepath_verif, exist_ok=True)
+for fc_type in ['continuous', 0.33, 0.66]:
+    filepath_df_datas = os.path.join(rg.path_outsub1, f'df_data_{str(fc_type)}')
+    os.makedirs(filepath_df_datas, exist_ok=True)
+    filepath_verif = os.path.join(rg.path_outsub1, f'verif_{str(fc_type)}')
+    os.makedirs(filepath_verif, exist_ok=True)
 
-#%% Continuous forecast: get Combined Lead time models
+    #%% Continuous forecast: get Combined Lead time models
+    if fc_type == 'continuous':
+        from sklearn.linear_model import Ridge, LogisticRegression
+        from stat_models_cont import ScikitModel
+        kwrgs_model1 = {'scoringCV':'neg_mean_squared_error',
+                        'alpha':list(np.concatenate([np.logspace(-4,0, 5),
+                                                  np.logspace(.5, 2, num=10)])), # large a, strong regul.
+                        'normalize':False,
+                        'fit_intercept':False,
+                        'kfold':10,
+                        'n_jobs':n_cpu}
+        model1_tuple = (ScikitModel(Ridge, verbosity=0),
+                        kwrgs_model1)
 
-from sklearn.linear_model import Ridge
-from stat_models_cont import ScikitModel
-kwrgs_model1 = {'scoringCV':'neg_mean_squared_error',
-                'alpha':list(np.concatenate([np.logspace(-4,0, 5),
-                                          np.logspace(.5, 2, num=10)])), # large a, strong regul.
-                'normalize':False,
-                'fit_intercept':False,
-                'kfold':10,
-                'n_jobs':n_cpu}
-model1_tuple = (ScikitModel(Ridge, verbosity=0),
-                kwrgs_model1)
+        from sklearn.ensemble import RandomForestRegressor
+        kwrgs_model2={'n_estimators':[400],
+                      'max_depth':[5,10],
+                      'scoringCV':'neg_mean_squared_error',
+                      'criterion':'mse',
+                      'oob_score':True,
+                      'random_state':0,
+                      'min_impurity_decrease':[.02, 0],
+                      'max_samples':[0.55,.75],
+                      'kfold':10,
+                      'n_jobs':n_cpu}
+        model2_tuple = (ScikitModel(RandomForestRegressor, verbosity=0),
+                        kwrgs_model2)
+    else:
+    fcmodel1 = ScikitModel(LogisticRegression, verbosity=0)
+    kwrgs_model1 = {'scoringCV':'neg_brier_score',
+                    'C':list([.1,.5,.8,1,1.2,4,7,10, 20]), # large a, strong regul.
+                    'random_state':seed,
+                    'penalty':'l2',
+                    'solver':'lbfgs',
+                    'kfold':10,
+                    'max_iter':200}
 
+        from sklearn.ensemble import RandomForestClassifier
+        kwrgs_model2={'n_estimators':[400],
+                      'max_depth':[5,10],
+                      'scoringCV':'neg_mean_squared_error',
+                      'criterion':'mse',
+                      'oob_score':True,
+                      'random_state':0,
+                      'min_impurity_decrease':[.02, 0],
+                      'max_samples':[0.55,.75],
+                      'kfold':10,
+                      'n_jobs':n_cpu}
+        model2_tuple = (ScikitModel(RandomForestClassifier, verbosity=0),
+                        kwrgs_model2)
 
-from sklearn.ensemble import RandomForestRegressor
-kwrgs_model2={'n_estimators':[400],
-              'max_depth':[5,10],
-              'scoringCV':'neg_mean_squared_error',
-              'criterion':'mse',
-              'oob_score':True,
-              'random_state':0,
-              'min_impurity_decrease':[.02, 0],
-              'max_samples':[0.55,.75],
-              'kfold':10,
-              'n_jobs':n_cpu}
+    # target timeseries, standardize using training data
+    target_ts = rg.transform_df_data(rg.df_data.iloc[:,[0]].merge(rg.df_splits,
+                                                      left_index=True,
+                                                      right_index=True),
+                                     transformer=fc_utils.standardize_on_train)
+    if fc_type != 'continuous':
+        if fc_type >= 0.5:
+            target_ts = (target_ts > target_ts.quantile(fc_type)).astype(int)
+        elif fc_type < .5:
+            target_ts = (target_ts < target_ts.quantile(fc_type)).astype(int)
 
-model2_tuple = (ScikitModel(RandomForestRegressor, verbosity=0),
-                kwrgs_model2)
-
-# target timeseries, standardize using training data
-target_ts = rg.transform_df_data(rg.df_data.iloc[:,[0]].merge(rg.df_splits,
-                                                  left_index=True,
-                                                  right_index=True),
-                                 transformer=fc_utils.standardize_on_train)
-
-for fcmodel, kwrgs_model in [model1_tuple, model2_tuple]:
-    kwrgs_model_CL = kwrgs_model.copy() ;
-    # kwrgs_model_CL.update({'alpha':kwrgs_model['alpha'][::3]})
-    model_name_CL = fcmodel.scikitmodel.__name__
-    filepath_dfs = os.path.join(filepath_df_datas,
-                                f'CL_models_cont{model_name_CL}.h5')
-    df_data_CL = {}
-    try:
-        df_data_CL = functions_pp.load_hdf5(filepath_dfs)
-        loaded = True
-
-    except:
-        loaded = False
-
-
-    for i, rg in enumerate(rg_list):
-        print(model_name_CL, i)
-
-        if loaded:
-            rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
-            continue
-        else:
-            pass
-
-        mean_vars=['sst', 'smi']
-        # mean_vars=[]
-        for i, p in enumerate(rg.list_for_MI):
-            if p.name in mean_vars:
-                if p.calc_ts == 'pattern cov':
-                    mean_vars[i] +='_sp'
-        df_data, keys_dict = utils_paper3.get_df_mean_SST(rg,
-                                             mean_vars=mean_vars,
-                                             alpha_CI=alpha_CI,
-                                             n_strongest='all',
-                                             weights=True,
-                                             fcmodel=fcmodel,
-                                             kwrgs_model=kwrgs_model_CL,
-                                             target_ts=target_ts,
-                                             labels=None)
-
-        rg.df_CL_data = df_data
-        df_data_CL[f'{rg.fc_month}_df_data'] = df_data
-    # store df_pred_tuple
-    functions_pp.store_hdf_df(df_data_CL, filepath_dfs)
-
-
-
-#%% Continuous forecast: Make prediction
-
-model_combs = [['Ridge', 'Ridge'],
-               ['Ridge', 'RandomForestRegressor'],
-               ['RandomForestRegressor', 'RandomForestRegressor']]
-
-fcmodel, kwrgs_model = model1_tuple
-for model_name_CL, model_name in model_combs:
-    if model_name == 'Ridge':
-        fcmodel, kwrgs_model = model1_tuple
-    elif model_name == 'RandomForestRegressor':
-        fcmodel, kwrgs_model = model2_tuple
-
-    filepath_dfs = os.path.join(filepath_df_datas,
-                                f'CL_models_cont{model_name_CL}.h5')
-    try:
-        df_data_CL = functions_pp.load_hdf5(filepath_dfs)
-    except:
-        print('loading CL models failed, skipping this model')
-        continue
-    for nameTarget in ['Target', 'Target*Signal']:
-        for i, rg in enumerate(rg_list):
-            print(model_name_CL, model_name, i)
-            # get CL model of that month
-            rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
-
-        # get forcing per fc_month
-        utils_paper3.get_df_forcing_cond_fc(rg_list,
-                                    region='only_Pacific',
-                                    name_object='df_CL_data')
-        for i, rg in enumerate(rg_list):
-            keys_dict = {s:rg.df_CL_data.loc[s].dropna(axis=1).columns[:-2] \
-                         for s in range(rg.n_spl)}
-            # get estimated signal from Pacific
-
-            # adapt target timeseries for fitting
-            df_forcing = rg.df_forcing.mean(axis=1) # mean over cols
-            # very rare exception that Pac is not causal @ alpha level
-            df_forcing = df_forcing.fillna(value=1)
-
-            target_ts = target_ts.rename({target_ts.columns[0]:'Target'},axis=1)
-            target_ts_signal = target_ts.multiply(df_forcing.abs(),
-                                                  axis=0)
-            target_ts_signal= target_ts_signal.rename(\
-                                          {rg.df_data.columns[0]:
-                                           f'Target * {rg.fc_month} signal'},
-                                          axis=1)
-            target_ts_signal = rg.transform_df_data(target_ts_signal.merge(rg.df_splits,
-                                                                           left_index=True,
-                                                                           right_index=True),
-                                                    transformer=fc_utils.standardize_on_train)
-            if nameTarget == 'Target':
-                _target_ts = target_ts
-            if nameTarget == 'Target*Signal':
-                _target_ts = target_ts_signal
-
-
-            prediction_tuple = rg.fit_df_data_ridge(df_data=rg.df_CL_data,
-                                                    keys=keys_dict,
-                                                    target=_target_ts,
-                                                    tau_min=0, tau_max=0,
-                                                    kwrgs_model=kwrgs_model,
-                                                    fcmodel=fcmodel,
-                                                    transformer=None)
-
-            predict, weights, models_lags = prediction_tuple
-
-            prediction = predict.rename({predict.columns[0]:nameTarget,
-                                         0:rg.fc_month}, axis=1)
-
-            prediction_tuple = (prediction, weights, models_lags)
-            rg.prediction_tuple = prediction_tuple
-
-        # store output predictions of each month per model
-        model_name = fcmodel.scikitmodel.__name__
-        df_predictions, df_w_save = utils_paper3.df_predictions_for_plot(rg_list)
-        d_df_preds={'df_predictions':df_predictions, 'df_weights':df_w_save}
+    for fcmodel, kwrgs_model in [model1_tuple, model2_tuple]:
+        kwrgs_model_CL = kwrgs_model.copy() ;
+        # kwrgs_model_CL.update({'alpha':kwrgs_model['alpha'][::3]})
+        model_name_CL = fcmodel.scikitmodel.__name__
         filepath_dfs = os.path.join(filepath_df_datas,
-                                    f'predictions_cont_CL{model_name_CL}_'\
-                                    f'{model_name}_{nameTarget}.h5')
-        functions_pp.store_hdf_df(d_df_preds, filepath_dfs)
-
-#%% Continuous forecast: Verification
-verif_combs = [['Target', 'Target'],
-               ['Target*Signal', 'Target'],
-               ['Target*Signal', 'Target*Signal']]
-
-for model_name_CL, model_name in model_combs:
-    for nameTarget_fit, nameTarget in verif_combs:
-
-        f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
-                                                    f'{nameTarget_fit}.h5'
-        filepath_dfs = os.path.join(filepath_df_datas, f_name)
-
+                                    f'CL_models_cont{model_name_CL}.h5')
+        df_data_CL = {}
         try:
-            d_dfs = functions_pp.load_hdf5(filepath_dfs)
-            df_predictions = d_dfs['df_predictions']
+            df_data_CL = functions_pp.load_hdf5(filepath_dfs)
+            loaded = True
         except:
-            print('loading predictions failed, skipping this model')
-            continue
+            loaded = False
+
 
         for i, rg in enumerate(rg_list):
-            prediction = df_predictions[[nameTarget, rg.fc_month]]
+            print(model_name_CL, i)
+
+            if loaded:
+                rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
+                continue
+            else:
+                pass
+
+            mean_vars=['sst', 'smi']
+            # mean_vars=[]
+            for i, p in enumerate(rg.list_for_MI):
+                if p.name in mean_vars:
+                    if p.calc_ts == 'pattern cov':
+                        mean_vars[i] +='_sp'
+            df_data, keys_dict = utils_paper3.get_df_mean_SST(rg,
+                                                 mean_vars=mean_vars,
+                                                 alpha_CI=alpha_CI,
+                                                 n_strongest='all',
+                                                 weights=True,
+                                                 fcmodel=fcmodel,
+                                                 kwrgs_model=kwrgs_model_CL,
+                                                 target_ts=target_ts,
+                                                 labels=None)
+
+            rg.df_CL_data = df_data
+            df_data_CL[f'{rg.fc_month}_df_data'] = df_data
+        # store df_pred_tuple
+        functions_pp.store_hdf_df(df_data_CL, filepath_dfs)
+
+
+
+    #%% Continuous forecast: Make prediction
+
+    model_combs = [['Ridge', 'Ridge'],
+                   ['Ridge', 'RandomForestRegressor'],
+                   ['RandomForestRegressor', 'RandomForestRegressor']]
+
+    fcmodel, kwrgs_model = model1_tuple
+    for model_name_CL, model_name in model_combs:
+        if model_name == 'Ridge':
+            fcmodel, kwrgs_model = model1_tuple
+        elif model_name == 'RandomForestRegressor':
+            fcmodel, kwrgs_model = model2_tuple
+
+        filepath_dfs = os.path.join(filepath_df_datas,
+                                    f'CL_models_cont{model_name_CL}.h5')
+        try:
+            df_data_CL = functions_pp.load_hdf5(filepath_dfs)
+        except:
+            print('loading CL models failed, skipping this model')
+            continue
+        for nameTarget in ['Target', 'Target*Signal']:
+            for i, rg in enumerate(rg_list):
+                print(model_name_CL, model_name, i)
+                # get CL model of that month
+                rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
+
+            # get forcing per fc_month
+            utils_paper3.get_df_forcing_cond_fc(rg_list,
+                                        region='only_Pacific',
+                                        name_object='df_CL_data')
+            for i, rg in enumerate(rg_list):
+                keys_dict = {s:rg.df_CL_data.loc[s].dropna(axis=1).columns[:-2] \
+                             for s in range(rg.n_spl)}
+                # get estimated signal from Pacific
+
+                # adapt target timeseries for fitting
+                df_forcing = rg.df_forcing.mean(axis=1) # mean over cols
+                # very rare exception that Pac is not causal @ alpha level
+                df_forcing = df_forcing.fillna(value=1)
+
+                target_ts = target_ts.rename({target_ts.columns[0]:'Target'},axis=1)
+                target_ts_signal = target_ts.multiply(df_forcing.abs(),
+                                                      axis=0)
+                target_ts_signal= target_ts_signal.rename(\
+                                              {rg.df_data.columns[0]:
+                                               f'Target * {rg.fc_month} signal'},
+                                              axis=1)
+                target_ts_signal = rg.transform_df_data(target_ts_signal.merge(rg.df_splits,
+                                                                               left_index=True,
+                                                                               right_index=True),
+                                                        transformer=fc_utils.standardize_on_train)
+                if nameTarget == 'Target':
+                    _target_ts = target_ts
+                if nameTarget == 'Target*Signal':
+                    _target_ts = target_ts_signal
+
+
+                prediction_tuple = rg.fit_df_data_ridge(df_data=rg.df_CL_data,
+                                                        keys=keys_dict,
+                                                        target=_target_ts,
+                                                        tau_min=0, tau_max=0,
+                                                        kwrgs_model=kwrgs_model,
+                                                        fcmodel=fcmodel,
+                                                        transformer=None)
+
+                predict, weights, models_lags = prediction_tuple
+
+                prediction = predict.rename({predict.columns[0]:nameTarget,
+                                             0:rg.fc_month}, axis=1)
+
+                prediction_tuple = (prediction, weights, models_lags)
+                rg.prediction_tuple = prediction_tuple
+
+            # store output predictions of each month per model
+            model_name = fcmodel.scikitmodel.__name__
+            df_predictions, df_w_save = utils_paper3.df_predictions_for_plot(rg_list)
+            d_df_preds={'df_predictions':df_predictions, 'df_weights':df_w_save}
+            filepath_dfs = os.path.join(filepath_df_datas,
+                                        f'predictions_cont_CL{model_name_CL}_'\
+                                        f'{model_name}_{nameTarget}.h5')
+            functions_pp.store_hdf_df(d_df_preds, filepath_dfs)
+
+    #%% Continuous forecast: Verification
+    verif_combs = [['Target', 'Target'],
+                   ['Target*Signal', 'Target'],
+                   ['Target*Signal', 'Target*Signal']]
+
+    for model_name_CL, model_name in model_combs:
+        for nameTarget_fit, nameTarget in verif_combs:
+
+            f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
+                                                        f'{nameTarget_fit}.h5'
+            filepath_dfs = os.path.join(filepath_df_datas, f_name)
+
+            try:
+                d_dfs = functions_pp.load_hdf5(filepath_dfs)
+                df_predictions = d_dfs['df_predictions']
+            except:
+                print('loading predictions failed, skipping this model')
+                continue
+
+            for i, rg in enumerate(rg_list):
+                prediction = df_predictions[[nameTarget, rg.fc_month]]
+
+                # metrics
+                bench = prediction[nameTarget].mean()
+                RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).RMSE
+                MAE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).MAE
+                score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS,
+                                   fc_utils.r2_score]
+                metric_names = [s.__name__ for s in score_func_list]
+                verification_tuple = fc_utils.get_scores(prediction,
+                                                         rg.df_data.iloc[:,-2:],
+                                                         score_func_list,
+                                                         n_boot=n_boot,
+                                                         blocksize=1,
+                                                         rng_seed=seed)
+                df_train_m, df_test_s_m, df_test_m, df_boot = verification_tuple
+                rg.verification_tuple = verification_tuple
+
+            df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list,
+                                                               'verification_tuple')
+            d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
+            filepath_dfs = os.path.join(filepath_df_datas,
+                            f'scores_cont_CL{model_name_CL}_{model_name}_'\
+                                f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5')
+            functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+
+    #%% Continuous forecast: Verification conditional forecast
+    # import utils_paper3
+
+    for model_name_CL, model_name in model_combs:
+        nameTarget = 'Target'
+        for nameTarget_fit in ['Target', 'Target*Signal']:
+            print(f'CL: {model_name_CL} -> {model_name} -> {nameTarget_fit}')
+            f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
+                                                        f'{nameTarget_fit}.h5'
+            filepath_dfs = os.path.join(filepath_df_datas, f_name)
+
+            try:
+                d_dfs = functions_pp.load_hdf5(filepath_dfs)
+                df_predictions = d_dfs['df_predictions']
+            except:
+                print('loading predictions failed, skipping this model')
+                continue
 
             # metrics
-            bench = prediction[nameTarget].mean()
+            bench = df_predictions[nameTarget].mean()
             RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).RMSE
             MAE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).MAE
             score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS,
                                fc_utils.r2_score]
-            metric_names = [s.__name__ for s in score_func_list]
-            verification_tuple = fc_utils.get_scores(prediction,
-                                                     rg.df_data.iloc[:,-2:],
-                                                     score_func_list,
-                                                     n_boot=n_boot,
-                                                     blocksize=1,
-                                                     rng_seed=seed)
-            df_train_m, df_test_s_m, df_test_m, df_boot = verification_tuple
-            rg.verification_tuple = verification_tuple
 
-        df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list,
-                                                           'verification_tuple')
-        d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
-        filepath_dfs = os.path.join(filepath_df_datas,
-                        f'scores_cont_CL{model_name_CL}_{model_name}_'\
-                            f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5')
-        functions_pp.store_hdf_df(d_dfs, filepath_dfs)
+            df_cond = utils_paper3.cond_forecast_table(rg_list, score_func_list,
+                                                       df_predictions,
+                                                       nameTarget='Target',
+                                                       n_boot=0)
 
-#%% Continuous forecast: Verification conditional forecast
-import utils_paper3
+            df_cond_b = utils_paper3.cond_forecast_table(rg_list, score_func_list,
+                                                       df_predictions,
+                                                       nameTarget='Target',
+                                                       n_boot=n_boot)
+            d_dfs={'df_cond':df_cond, 'df_cond_b':df_cond_b}
+            filepath_dfs = os.path.join(filepath_df_datas,
+                            f'scores_cont_CL{model_name_CL}_{model_name}_'\
+                                f'{nameTarget_fit}_{nameTarget}_{n_boot}_CF.h5')
+            functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
-for model_name_CL, model_name in model_combs:
-    nameTarget = 'Target'
-    for nameTarget_fit in ['Target', 'Target*Signal']:
-        print(f'CL: {model_name_CL} -> {model_name} -> {nameTarget_fit}')
+
+        # m = models_lags[f'lag_{lag_}'][f'split_{0}']
+        # # plt.plot(kwrgs_model['alpha'], m.cv_results_['mean_test_score'])
+        # # plt.axvline(m.best_params_['alpha']) ; plt.show() ; plt.close()
+
+        # rg.verification_tuple_c = verification_tuple_c
+
+        # prediction_o = target_ts.merge(prediction.iloc[:,[1]], left_index=True,right_index=True)
+        # verification_tuple_c_o = fc_utils.get_scores(prediction_o,
+        #                                          rg.df_data.iloc[:,-2:],
+        #                                          score_func_list,
+        #                                          n_boot=n_boot,
+        #                                          blocksize=1,
+        #                                          rng_seed=seed)
+        # rg.verification_tuple_c_o  = verification_tuple_c_o
+
+    #%% Plotting Continuous forecast timeseries
+    # import utils_paper3
+    metrics_plot = ['corrcoef', 'MAE', 'r2_score']
+    model_combs_plot = [['RandomForestRegressor', 'RandomForestRegressor']]
+    fc_month_list = [rg.fc_month for rg in rg_list]
+    # fig = plt.figure(figsize=(12, 5))
+    fig, axes = plt.subplots(nrows=len(fc_month_list), ncols=2, figsize=(12,10),
+                             gridspec_kw={'width_ratios':[4,1]},
+                             sharex=True, sharey=True)
+    # gs = gridspec.GridSpec(len(fc_month_list), 2, height_ratios=None,
+
+    for model_name_CL, model_name in model_combs_plot:
+        # for i, (nameTarget_fit, nameTarget) in enumerate(verif_combs):
+
+        # load df_scores
+        nameTarget_fit = 'Target*Signal'
+        nameTarget = 'Target*Signal'
+        df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
+                    f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5'
+        filepath_dfs = os.path.join(filepath_df_datas, df_file)
+        d_dfscores = functions_pp.load_hdf5(filepath_dfs)
+
+        nameTarget_fit = 'Target*Signal'
+        nameTarget = 'Target'
+        df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
+                    f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5'
+        filepath_dfs = os.path.join(filepath_df_datas, df_file)
+        d_dfscores_T = functions_pp.load_hdf5(filepath_dfs)
+
+
         f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
                                                     f'{nameTarget_fit}.h5'
         filepath_dfs = os.path.join(filepath_df_datas, f_name)
+        d_dfpreds = functions_pp.load_hdf5(filepath_dfs)
 
-        try:
-            d_dfs = functions_pp.load_hdf5(filepath_dfs)
-            df_predictions = d_dfs['df_predictions']
-        except:
-            print('loading predictions failed, skipping this model')
-            continue
-
-        # metrics
-        bench = df_predictions[nameTarget].mean()
-        RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).RMSE
-        MAE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).MAE
-        score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS,
-                           fc_utils.r2_score]
-
-        df_cond = utils_paper3.cond_forecast_table(rg_list, score_func_list,
-                                                   df_predictions,
-                                                   nameTarget='Target',
-                                                   n_boot=0)
-
-        df_cond_b = utils_paper3.cond_forecast_table(rg_list, score_func_list,
-                                                   df_predictions,
-                                                   nameTarget='Target',
-                                                   n_boot=n_boot)
-        d_dfs={'df_cond':df_cond, 'df_cond_b':df_cond_b}
-        filepath_dfs = os.path.join(filepath_df_datas,
-                        f'scores_cont_CL{model_name_CL}_{model_name}_'\
-                            f'{nameTarget_fit}_{nameTarget}_{n_boot}_CF.h5')
-        functions_pp.store_hdf_df(d_dfs, filepath_dfs)
-
-
-    # m = models_lags[f'lag_{lag_}'][f'split_{0}']
-    # # plt.plot(kwrgs_model['alpha'], m.cv_results_['mean_test_score'])
-    # # plt.axvline(m.best_params_['alpha']) ; plt.show() ; plt.close()
-
-    # rg.verification_tuple_c = verification_tuple_c
-
-    # prediction_o = target_ts.merge(prediction.iloc[:,[1]], left_index=True,right_index=True)
-    # verification_tuple_c_o = fc_utils.get_scores(prediction_o,
-    #                                          rg.df_data.iloc[:,-2:],
-    #                                          score_func_list,
-    #                                          n_boot=n_boot,
-    #                                          blocksize=1,
-    #                                          rng_seed=seed)
-    # rg.verification_tuple_c_o  = verification_tuple_c_o
-
-#%% Plotting Continuous forecast timeseries
-import utils_paper3
-metrics_plot = ['corrcoef', 'MAE', 'r2_score']
-model_combs_plot = [['RandomForestRegressor', 'RandomForestRegressor']]
-fc_month_list = [rg.fc_month for rg in rg_list]
-# fig = plt.figure(figsize=(12, 5))
-fig, axes = plt.subplots(nrows=len(fc_month_list), ncols=2, figsize=(12,10),
-                         gridspec_kw={'width_ratios':[4,1]},
-                         sharex=True, sharey=True)
-# gs = gridspec.GridSpec(len(fc_month_list), 2, height_ratios=None,
-
-for model_name_CL, model_name in model_combs_plot:
-    # for i, (nameTarget_fit, nameTarget) in enumerate(verif_combs):
-
-    # load df_scores
-    nameTarget_fit = 'Target*Signal'
-    nameTarget = 'Target*Signal'
-    df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
-                f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5'
-    filepath_dfs = os.path.join(filepath_df_datas, df_file)
-    d_dfscores = functions_pp.load_hdf5(filepath_dfs)
-
-    nameTarget_fit = 'Target*Signal'
-    nameTarget = 'Target'
-    df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
-                f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5'
-    filepath_dfs = os.path.join(filepath_df_datas, df_file)
-    d_dfscores_T = functions_pp.load_hdf5(filepath_dfs)
+        print(model_name_CL, model_name, nameTarget_fit, nameTarget)
+        if model_name == 'RandomForestRegressor':
+            name = 'RF'
+        elif model_name == 'Ridge':
+            name = 'Ridge'
+        for m, fc_month in enumerate(fc_month_list):
+            axs = axes[m]
+            ax = axs[0]
+            df_test_TS = d_dfscores['df_scores'][[fc_month]] # skill TargetSignal
+            df_test_T = d_dfscores_T['df_scores'][[fc_month]] # skill Target
+            df_test_m = [df_test_TS, df_test_T]
+            df_preds  = d_dfpreds['df_predictions']
+            df_test   = df_preds[[df_preds.columns[0], fc_month]]
+            df_test = functions_pp.get_df_test(df_test,
+                                                df_splits=rg_list[m].df_splits)
+            df_test[['Target*Signal']] = functions_pp.get_df_train(
+                                                 df_preds[['Target*Signal']],
+                                                 df_splits=rg.df_splits)
+            target_ts = functions_pp.get_df_test(df_preds[['Target']],
+                                                 df_splits=rg_list[m].df_splits)
+            utils_paper3.plot_forecast_ts(df_test_m, df_test,
+                                          target_ts=target_ts,
+                                          fig_ax=(fig, axs),
+                                          fs=11,
+                                          metrics_plot=metrics_plot,
+                                          name_model=name)
+            ax.set_ylim(-3,3)
+            ax.set_yticks(np.arange(-3,3.1,1))
+            ax.margins(x=.02)
+            if m == 0:
+                ax.legend(fontsize=10, loc='lower left')
 
 
-    f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
-                                                f'{nameTarget_fit}.h5'
-    filepath_dfs = os.path.join(filepath_df_datas, f_name)
-    d_dfpreds = functions_pp.load_hdf5(filepath_dfs)
+    fig.savefig(os.path.join(filepath_verif,
+                             'timeseries_and_skill.pdf'), bbox_inches='tight')
+    #%% Continuous forecast: plotting skill scores
+    # import utils_paper3
+    metrics_plot = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
+    model_combs_plot  = [['Ridge', 'Ridge'],
+                         ['Ridge', 'RandomForestRegressor'],
+                         ['RandomForestRegressor', 'RandomForestRegressor']]
+    # model_combs_plot = [['RandomForestRegressor', 'RandomForestRegressor']]
+    fc_month_list = [rg.fc_month for rg in rg_list]
+    # fig = plt.figure(figsize=(12, 5))
+    fig, axes = plt.subplots(nrows=len(model_combs_plot), ncols=len(metrics_plot),
+                             figsize=(17,10),
+                              # gridspec_kw={'width_ratios':[4,1]},
+                              sharex=True, sharey=False)
 
-    print(model_name_CL, model_name, nameTarget_fit, nameTarget)
-    if model_name == 'RandomForestRegressor':
-        name = 'RF'
-    elif model_name == 'Ridge':
-        name = 'Ridge'
-    for m, fc_month in enumerate(fc_month_list):
-        axs = axes[m]
-        ax = axs[0]
-        df_test_TS = d_dfscores['df_scores'][[fc_month]] # skill TargetSignal
-        df_test_T = d_dfscores_T['df_scores'][[fc_month]] # skill Target
-        df_test_m = [df_test_TS, df_test_T]
-        df_preds  = d_dfpreds['df_predictions']
-        df_test   = df_preds[[df_preds.columns[0], fc_month]]
-        df_test = functions_pp.get_df_test(df_test,
-                                            df_splits=rg_list[m].df_splits)
-        df_test[['Target*Signal']] = functions_pp.get_df_train(
-                                             df_preds[['Target*Signal']],
-                                             df_splits=rg.df_splits)
-        target_ts = functions_pp.get_df_test(df_preds[['Target']],
-                                             df_splits=rg_list[m].df_splits)
-        utils_paper3.plot_forecast_ts(df_test_m, df_test,
-                                      target_ts=target_ts,
-                                      fig_ax=(fig, axs),
-                                      fs=11,
-                                      metrics_plot=metrics_plot,
-                                      name_model=name)
-        ax.set_ylim(-3,3)
-        ax.set_yticks(np.arange(-3,3.1,1))
-        ax.margins(x=.02)
-        if m == 0:
-            ax.legend(fontsize=10, loc='lower left')
+    condition = 'strong 50%'
+
+    for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
+        # for i, (nameTarget_fit, nameTarget) in enumerate(verif_combs):
 
 
-fig.savefig(os.path.join(filepath_verif,
-                         'timeseries_and_skill.pdf'), bbox_inches='tight')
-#%% Continuous forecast: plotting skill scores
-import utils_paper3
-metrics_plot = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
-model_combs_plot  = [['Ridge', 'Ridge'],
-                     ['Ridge', 'RandomForestRegressor'],
-                     ['RandomForestRegressor', 'RandomForestRegressor']]
-# model_combs_plot = [['RandomForestRegressor', 'RandomForestRegressor']]
-fc_month_list = [rg.fc_month for rg in rg_list]
-# fig = plt.figure(figsize=(12, 5))
-fig, axes = plt.subplots(nrows=len(model_combs_plot), ncols=len(metrics_plot),
-                         figsize=(17,10),
-                          # gridspec_kw={'width_ratios':[4,1]},
-                          sharex=True, sharey=False)
-
-condition = 'strong 50%'
-
-for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
-    # for i, (nameTarget_fit, nameTarget) in enumerate(verif_combs):
+        # load df_scores
+        nameTarget_fit = 'Target'
+        nameTarget = 'Target'
+        df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
+                    f'{nameTarget_fit}_{nameTarget}_{n_boot}'
+        filepath_dfs = os.path.join(filepath_df_datas, df_file)
+        d_dfscores_N = functions_pp.load_hdf5(filepath_dfs+'.h5')
+        d_dfscores_N_CF = functions_pp.load_hdf5(filepath_dfs+'_CF.h5')
 
 
-    # load df_scores
-    nameTarget_fit = 'Target'
-    nameTarget = 'Target'
-    df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
-                f'{nameTarget_fit}_{nameTarget}_{n_boot}'
-    filepath_dfs = os.path.join(filepath_df_datas, df_file)
-    d_dfscores_N = functions_pp.load_hdf5(filepath_dfs+'.h5')
-    d_dfscores_N_CF = functions_pp.load_hdf5(filepath_dfs+'_CF.h5')
+        # # load df_scores Target*Signal + Target*Signal
+        # nameTarget_fit = 'Target*Signal'
+        # nameTarget = 'Target*Signal'
+        # df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
+        #             f'{nameTarget_fit}_{nameTarget}_{n_boot}'
+        # filepath_dfs = os.path.join(filepath_df_datas, df_file)
+        # d_dfscores = functions_pp.load_hdf5(filepath_dfs+'.h5')
 
+        nameTarget_fit = 'Target*Signal'
+        nameTarget = 'Target'
+        df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
+                    f'{nameTarget_fit}_{nameTarget}_{n_boot}'
+        filepath_dfs = os.path.join(filepath_df_datas, df_file)
+        d_dfscores_T = functions_pp.load_hdf5(filepath_dfs+'.h5')
+        d_dfscores_T_CF = functions_pp.load_hdf5(filepath_dfs+'_CF.h5')
+        df_scores, df_boot = utils_paper3.to_df_scores_format(d_dfscores_T_CF,
+                                                              condition)
 
-    # # load df_scores Target*Signal + Target*Signal
-    # nameTarget_fit = 'Target*Signal'
-    # nameTarget = 'Target*Signal'
-    # df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
-    #             f'{nameTarget_fit}_{nameTarget}_{n_boot}'
-    # filepath_dfs = os.path.join(filepath_df_datas, df_file)
-    # d_dfscores = functions_pp.load_hdf5(filepath_dfs+'.h5')
+        print(model_name_CL, model_name, nameTarget_fit, nameTarget)
+        if model_name == 'RandomForestRegressor':
+            name = 'RF'
+        elif model_name == 'Ridge':
+            name = 'Ridge'
+        if model_name_CL == 'RandomForestRegressor':
+            name_CL = 'RF'
+        elif model_name_CL == 'Ridge':
+            name_CL = 'Ridge'
 
-    nameTarget_fit = 'Target*Signal'
-    nameTarget = 'Target'
-    df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
-                f'{nameTarget_fit}_{nameTarget}_{n_boot}'
-    filepath_dfs = os.path.join(filepath_df_datas, df_file)
-    d_dfscores_T = functions_pp.load_hdf5(filepath_dfs+'.h5')
-    # d_dfscores_T_CF = functions_pp.load_hdf5(filepath_dfs+'_CF.h5')
-    df_scores, df_boot = utils_paper3.to_df_scores_format(d_dfscores_N_CF,
-                                                          condition)
-
-    print(model_name_CL, model_name, nameTarget_fit, nameTarget)
-    if model_name == 'RandomForestRegressor':
-        name = 'RF'
-    elif model_name == 'Ridge':
-        name = 'Ridge'
-    if model_name_CL == 'RandomForestRegressor':
-        name_CL = 'RF'
-    elif model_name_CL == 'Ridge':
-        name_CL = 'Ridge'
-
-    list_verif = [d_dfscores_N, d_dfscores_T]
-    df_scores_list = [d['df_scores'] for d in list_verif] + [df_scores]
-    df_boot_list = [d['df_boot'] for d in list_verif] + [df_boot]
+        list_verif = [d_dfscores_N, d_dfscores_T]
+        df_scores_list = [d['df_scores'] for d in list_verif] + [df_scores]
+        df_boot_list = [d['df_boot'] for d in list_verif] + [df_boot]
 
 
 
-    fig = utils_paper3.plot_scores_wrapper(df_scores_list, df_boot_list,
-                                         labels=['Target', 'Target(m(S))', 'Target(m(S)) | S'],
-                                         metrics_plot=metrics_plot,
-                                         fig_ax = (fig, axes[j]))
-    axes[j,0].set_ylabel(f'{name_CL} -> {name}', fontsize=18)
-    # axes[j].set_xlabel('Forecast month', fontsize=18)
-    # title = f'Target fitted: {nameTarget_fit} with CL {model_name_CL} '\
-    #         f'model & final {name} model'
-    # fig.suptitle(title, y=.95, fontsize=18)
-    fig.subplots_adjust(wspace=.2)
-    fig.subplots_adjust(hspace=.3)
+        fig = utils_paper3.plot_scores_wrapper(df_scores_list, df_boot_list,
+                                             labels=['Target', 'Target(m(S))', 'Target(m(S)) | S'],
+                                             metrics_plot=metrics_plot,
+                                             fig_ax = (fig, axes[j]))
+        axes[j,0].set_ylabel(f'{name_CL} -> {name}', fontsize=18)
+        # axes[j].set_xlabel('Forecast month', fontsize=18)
+        # title = f'Target fitted: {nameTarget_fit} with CL {model_name_CL} '\
+        #         f'model & final {name} model'
+        # fig.suptitle(title, y=.95, fontsize=18)
+        fig.subplots_adjust(wspace=.2)
+        fig.subplots_adjust(hspace=.3)
 
-fig.savefig(os.path.join(filepath_verif,
-                       'scores_vs_lags.pdf'), bbox_inches='tight')
-#%% Check RF tuning
-import scikit_model_analysis as sk_ana
-model = models_lags['lag_0'][f'split_{0}']
-f = sk_ana.ensemble_error_estimators(model.best_estimator_, kwrgs_model2)
-f.savefig(os.path.join(filepath_verif,
-                       'RF_tuning.pdf'), bbox_inches='tight')
+    fig.savefig(os.path.join(filepath_verif,
+                           'scores_vs_lags.pdf'), bbox_inches='tight')
+    #%% Check RF tuning
+    import scikit_model_analysis as sk_ana
+    model = models_lags['lag_0'][f'split_{0}']
+    f = sk_ana.ensemble_error_estimators(model.best_estimator_, kwrgs_model2)
+    f.savefig(os.path.join(filepath_verif,
+                           'RF_tuning.pdf'), bbox_inches='tight')
 
 #%%
 df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list, name_object='verification_tuple_c')
