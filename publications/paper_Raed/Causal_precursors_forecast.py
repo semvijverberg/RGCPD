@@ -70,16 +70,16 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 
 
 target_datasets = ['USDA_Soy_clusters__1']
-seeds = [1,2,3,4] # ,5]
+seeds = [1,2,3] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['ranstrat_20'] # ['ranstrat_20'] timeseriessplit_30
+methods = ['timeseriessplit_30', 'ranstrat_20'] # ['ranstrat_20'] timeseriessplit_30
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 0
+i_default = 1
 
 
 def parseArguments():
@@ -116,7 +116,9 @@ def read_csv_Raed(path):
     orig.index.name = 'time'
     return orig.drop('Year', 1)
 
-
+if method.lower()[:-3] == 'timeseriessplit' and seed > 1:
+    print('stop run')
+    sys.exit()
 
 def read_csv_State(path, State: str=None, col='obs_yield'):
     orig = read_csv_Raed(path)
