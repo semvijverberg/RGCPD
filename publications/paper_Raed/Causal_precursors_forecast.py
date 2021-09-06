@@ -989,11 +989,14 @@ for fc_type in ['continuous', 0.33, 0.66]:
         fig.savefig(os.path.join(filepath_verif,
                                  f'scores_vs_lags_{i}.pdf'), bbox_inches='tight')
     #%% Check RF tuning
-    import scikit_model_analysis as sk_ana
-    model = models_lags['lag_0'][f'split_{0}']
-    f = sk_ana.ensemble_error_estimators(model2_tuple[1], kwrgs_model2)
-    f.savefig(os.path.join(filepath_verif,
-                           'RF_tuning.pdf'), bbox_inches='tight')
+    try:
+        import scikit_model_analysis as sk_ana
+        model = models_lags['lag_0'][f'split_{0}']
+        f = sk_ana.ensemble_error_estimators(model2_tuple[1], kwrgs_model2)
+        f.savefig(os.path.join(filepath_verif,
+                               'RF_tuning.pdf'), bbox_inches='tight')
+    except:
+        pass
 
 
 
