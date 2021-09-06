@@ -331,6 +331,8 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         sst.corr_xr['lag'] = ('lag', periodnames)
         rg.quick_view_labels('sst', min_detect_gc=.5, save=save,
                               append_str=periodnames[-1])
+        plt.close()
+
         # store forecast month
         months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
                   'SO':'hindcast'}
@@ -352,6 +354,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         SM.prec_labels['lag'] = ('lag', periodnames)
         rg.quick_view_labels('smi', min_detect_gc=.5, save=save,
                               append_str=periodnames[-1])
+        plt.close()
 
 
     #%% Calculate spatial mean timeseries of precursor regions
@@ -931,6 +934,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
     fig.savefig(os.path.join(filepath_verif,
                              'timeseries_and_skill.pdf'), bbox_inches='tight')
+    plt.close()
     #%% Continuous forecast: plotting skill scores
     # import utils_paper3
     if fc_type == 'continuous':
@@ -987,6 +991,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
         fig.savefig(os.path.join(filepath_verif,
                                  f'scores_vs_lags_{i}.pdf'), bbox_inches='tight')
+        plt.close()
     #%% Check RF tuning
     try:
         import scikit_model_analysis as sk_ana

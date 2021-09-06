@@ -37,8 +37,8 @@ if cluster_func not in sys.path:
 import func_models as fc_utils
 import functions_pp, find_precursors
 
-nice_colors = ['#EE6666', '#3388BB', '#9988DD', '#EECC55',
-                '#88BB44', '#FFBBBB']
+nice_colors = ['#EE6666', '#3388BB', '#88BB44', '#9988DD', '#EECC55',
+                '#FFBBBB']
 line_styles = ['-', '--', '-.', ':', '']
 
 cl_combs = np.array(np.meshgrid(line_styles, nice_colors),
