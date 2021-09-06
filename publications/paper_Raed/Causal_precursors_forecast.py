@@ -79,7 +79,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 1
+i_default = 0
 
 
 def parseArguments():
@@ -569,7 +569,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
         model2_tuple = (ScikitModel(RandomForestRegressor, verbosity=0),
                         kwrgs_model2)
     else:
-        fcmodel1 = ScikitModel(LogisticRegression, verbosity=0)
+
         kwrgs_model1 = {'scoringCV':'neg_brier_score',
                         'C':list([.1,.5,.8,1,1.2,4,7,10, 20]), # large a, strong regul.
                         'random_state':seed,
@@ -577,6 +577,9 @@ for fc_type in ['continuous', 0.33, 0.66]:
                         'solver':'lbfgs',
                         'kfold':10,
                         'max_iter':200}
+        model1_tuple = (ScikitModel(LogisticRegression, verbosity=0),
+                        kwrgs_model1)
+
 
         from sklearn.ensemble import RandomForestClassifier
         kwrgs_model2={'n_estimators':[400],
