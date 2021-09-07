@@ -190,7 +190,7 @@ GlobalBox  = (-180,360,-10,60)
 USBox = (225, 300, 20, 60)
 
 load = 'all'
-save = True
+save = False
 
 list_of_name_path = [(cluster_label, TVpath),
                        ('sst', os.path.join(path_raw, 'sst_1950-2019_1_12_monthly_1.0deg.nc')),
@@ -605,10 +605,15 @@ for fc_type in ['continuous', 0.33, 0.66]:
                                                       right_index=True),
                                      transformer=fc_utils.standardize_on_train)
     if fc_type != 'continuous':
+        quantile = functions_pp.get_df_train(target_ts,
+                                             df_splits=rg.df_splits,
+                                             s='extrapolate',
+                                             function='quantile',
+                                             kwrgs={'q':fc_type})
         if fc_type >= 0.5:
-            target_ts = (target_ts > target_ts.quantile(fc_type)).astype(int)
+            target_ts = (target_ts > quantile.values).astype(int)
         elif fc_type < .5:
-            target_ts = (target_ts < target_ts.quantile(fc_type)).astype(int)
+            target_ts = (target_ts < quantile.values).astype(int)
 
     for fcmodel, kwrgs_model in [model1_tuple, model2_tuple]:
         kwrgs_model_CL = kwrgs_model.copy() ;
@@ -696,6 +701,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
             utils_paper3.get_df_forcing_cond_fc(rg_list,
                                         region='only_Pacific',
                                         name_object='df_CL_data')
+            # loop over forecast months (lags)
             for i, rg in enumerate(rg_list):
                 print(model_name_CL, model_name, i)
                 keys_dict = {s:rg.df_CL_data.loc[s].dropna(axis=1).columns[:-2] \
@@ -703,32 +709,60 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 # get estimated signal from Pacific
 
                 # adapt target timeseries for fitting
-                df_forcing = rg.df_forcing.mean(axis=1) # mean over cols
+                # mean over cols
                 # very rare exception that Pac is not causal @ alpha level
-                df_forcing = df_forcing.fillna(value=1)
 
-                target_ts = rg.df_data.iloc[:,[0]].rename(\
-                          {rg.df_data.iloc[:,[0]].columns[0]:'Target'},axis=1)
+                df_forcing = rg.df_forcing.mean(axis=1)
+                df_forcing = df_forcing.fillna(np.nanmean(
+                                                rg.df_forcing.values.ravel()))
+                if fc_type == 'continuous':
+                    df_forcing = pd.DataFrame(df_forcing, columns=[0])
+
+                    df_forcing = rg.transform_df_data(df_forcing.merge(rg.df_splits,
+                                                                   left_index=True,
+                                                                   right_index=True),
+                                          transformer=fc_utils.standardize_on_train)
+                    df_forcing = df_forcing[0]
+                else:
+                    df_forcing  = df_forcing - 0.5
+
+
+                # target timeseries, standardize using training data
+                target_ts = rg.transform_df_data(rg.df_data.iloc[:,[0]].merge(
+                                                        rg.df_splits,
+                                                        left_index=True,
+                                                        right_index=True),
+                                     transformer=fc_utils.standardize_on_train)
+
+                target_ts = target_ts.rename({target_ts.columns[0]:'Target'},
+                                             axis=1)
                 target_ts_signal = target_ts.multiply(df_forcing.abs(),
                                                       axis=0)
                 target_ts_signal= target_ts_signal.rename(\
                                               {rg.df_data.columns[0]:
                                                f'Target * {rg.fc_month} signal'},
                                               axis=1)
-                target_ts_signal = rg.transform_df_data(target_ts_signal.merge(rg.df_splits,
-                                                                               left_index=True,
-                                                                               right_index=True),
-                                                        transformer=fc_utils.standardize_on_train)
+                if fc_type == 'continuous':
+                    _t = rg.transform_df_data
+                    target_ts_signal = _t(target_ts_signal.merge(rg.df_splits,
+                                                                 left_index=True,
+                                                                 right_index=True),
+                                          transformer=fc_utils.standardize_on_train)
                 if nameTarget == 'Target':
                     _target_ts = target_ts
                 if nameTarget == 'Target*Signal':
                     _target_ts = target_ts_signal
                 if fc_type != 'continuous':
-                    # quantile_fl = float(target_ts.quantile(fc_type))
+                    # out of sample quantile
+                    quantile = functions_pp.get_df_train(_target_ts,
+                                                        df_splits=rg.df_splits,
+                                                        s='extrapolate',
+                                                        function='quantile',
+                                                        kwrgs={'q':fc_type})
                     if fc_type >= 0.5:
-                        _target_ts = (_target_ts > _target_ts.quantile(fc_type)).astype(int)
+                        _target_ts = (_target_ts > quantile.values).astype(int)
                     elif fc_type < .5:
-                        _target_ts = (_target_ts < _target_ts.quantile(fc_type)).astype(int)
+                        _target_ts = (_target_ts < quantile.values).astype(int)
 
 
                 prediction_tuple = rg.fit_df_data_ridge(df_data=rg.df_CL_data,
@@ -780,10 +814,28 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 continue
 
             for i, rg in enumerate(rg_list):
-                prediction = df_predictions[[nameTarget, rg.fc_month]]
+                prediction = df_predictions[[nameTarget, rg.fc_month]].copy()
+                if nameTarget_fit == 'Target*Signal' and nameTarget == 'Target':
+                    _target_ts = prediction[['Target']]
+                    quantile = functions_pp.get_df_train(_target_ts,
+                                                          df_splits=rg.df_splits,
+                                                          s='extrapolate',
+                                                          function='quantile',
+                                                          kwrgs={'q':fc_type})
+                    if fc_type >= 0.5:
+                        _target_ts = (_target_ts > quantile.values).astype(int)
+                    elif fc_type < .5:
+                        _target_ts = (_target_ts < quantile.values).astype(int)
 
-                # metrics
-                bench = prediction[nameTarget].mean()
+                    prediction[[nameTarget]] = _target_ts
+
+                # Benchmark step 1: mean training sets extrapolated to test
+                bench = functions_pp.get_df_train(prediction[nameTarget],
+                                                  df_splits=rg.df_splits,
+                                                  s='extrapolate',
+                                                  function='mean')
+                bench = functions_pp.get_df_test(bench, df_splits=rg.df_splits)
+                bench = float(bench.mean())
                 if fc_type == 'continuous':
                     RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).RMSE
                     MAE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).MAE
@@ -837,7 +889,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 print(f'CL: {model_name_CL} -> {model_name} -> {nameTarget_fit}')
 
             # metrics
-            bench = prediction[nameTarget].mean()
+            bench = float(prediction.iloc[:,0].mean())
             if fc_type == 'continuous':
                 RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).RMSE
                 MAE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).MAE
@@ -1016,7 +1068,57 @@ for fc_type in ['continuous', 0.33, 0.66]:
     except:
         pass
 
+#%% PDO versus trend line
+import climate_indices
+_df_PDO, PDO_patterns = climate_indices.PDO(rg.list_for_MI[0].filepath,
+                                           None)
+PDO_plot_kwrgs = {'units':'[-]', 'cbar_vert':-.1,
+                  # 'zoomregion':(130,260,20,60),
+                  'map_proj':ccrs.PlateCarree(central_longitude=220),
+                  'y_ticks':np.array([25,40,50,60]),
+                  'x_ticks':np.arange(130, 280, 25),
+                  'clevels':np.arange(-.6,.61,.075),
+                  'clabels':np.arange(-.6,.61,.3),
+                  'subtitles':np.array([['PDO negative loading pattern']])}
+fcg = plot_maps.plot_corr_maps(PDO_patterns[0], **PDO_plot_kwrgs)
+filepath = os.path.join(rg.path_outsub1, 'PDO_pattern')
+fcg.fig.savefig(filepath + '.pdf', bbox_inches='tight')
+fcg.fig.savefig(filepath + '.png', bbox_inches='tight')
 
+df_PDO = _df_PDO.loc[0][['PDO']]
+df_PDO = df_PDO.groupby(df_PDO.index.year).mean()
+df_PDO = df_PDO.iloc[-rg.df_fullts.size:] # lazy way of selecting years
+df_PDO.index = rg.df_fullts.index
+df_Pac = [c for c in rg.df_data.columns if '..1..sst' in c]
+df_Pac = functions_pp.get_df_test(rg.df_data[df_Pac], df_splits=rg.df_splits)
+df_Pacm = df_Pac.mean(axis=1) ; df_Pacm.name = 'east Pac.'
+df_PDO_T = rg.df_fullts.merge(df_PDO, left_index=True, right_index=True)
+df_PDO_T_P = df_PDO_T.merge(df_Pacm, left_index=True, right_index=True)
+df_PDO_T_P = (df_PDO_T_P - df_PDO_T_P.mean(0)) / df_PDO_T_P.std(0)
+#%%
+f, ax = plt.subplots(1, figsize=(12,8))
+df_PDO_T_P.plot(ax=ax, color=['black', 'grey', 'r'])
+ax.axhline(color='black')
+ax.legend(['Target', 'PDO(-)', 'Eastern Pacific'])
+f.savefig(os.path.join(rg.path_outsub1, 'Target_vs_Pac_ts'+rg.figext),
+          bbox_inches='tight')
+#%%
+_model = fcmodel.scikitmodel.__name__
+_month = 'May'
+filepath_dfs = os.path.join(filepath_df_datas,
+                            f'CL_models_cont{_model}.h5')
+df_data_CL = functions_pp.load_hdf5(filepath_dfs)
+CL_m = df_data_CL[_month + '_df_data']
+CL_Pac = CL_m[[c for c in CL_m.columns if '..1..sst' in c]]
+CL_Pac = functions_pp.get_df_train(CL_Pac, df_splits=rg.df_splits)
+CL_PacR_mean = CL_Pac.merge(df_Pacm, left_index=True, right_index=True)
+f, ax = plt.subplots(1, figsize=(12,8))
+CL_PacR_mean.plot(ax=ax, color=['blue', 'r'])
+ax.axhline(color='black')
+ax.legend([f'{_model} Eastern Pacific', 'Eastern Pacific mean'])
+f.savefig(os.path.join(rg.path_outsub1, 'Pacific_model_vs_Pacific_mean'+rg.figext),
+          bbox_inches='tight')
+#%%
 
 # #%%
 # df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list, name_object='verification_tuple_c')

@@ -270,6 +270,7 @@ def get_df_test(df, cols: list=None, df_splits: pd.DataFrame=None):
     df_splits : pd.DataFrame
         seperate df with TrainIsTrue column specifying the train-test data
 
+
     Returns
     -------
     Returns only the data at which TrainIsTrue==False.
@@ -283,18 +284,44 @@ def get_df_test(df, cols: list=None, df_splits: pd.DataFrame=None):
         TrainIsTrue = df_splits['TrainIsTrue']
     list_test = []
     for s in range(splits.size):
-        TestIsTrue = TrainIsTrue[s]==False
+        TestIsTrue = (TrainIsTrue[s]==False).values
+        # get test values
         try: # normal
-            list_test.append(df.loc[s][TestIsTrue.values])
+            test_vals = df.loc[s][TestIsTrue]
         except: # only RV_mask (for predictions)
             TestIsTrue = TestIsTrue[df_splits.loc[s]['RV_mask']]
-            list_test.append(df.loc[s][TestIsTrue.values])
+            test_vals = df.loc[s][TestIsTrue]
+        # if function is not None:
+        #     try: # normal
+        #         train_vals = df.loc[s][~TestIsTrue]
+        #     except: # only RV_mask (for predictions)
+        #         TestIsTrue = TestIsTrue[df_splits.loc[s]['RV_mask']]
+        #         train_vals = df.loc[s][~TestIsTrue]
+        #     to_test = getattr(train_vals, function)(**kwrgs)
+        #     if return_only_test:
+        #         to_test = pd.DataFrame(to_test).reset_index()\
+        #                                         .pivot_table(columns='index')
+        #         to_test = to_test.append([to_test]*(test_vals.index.size-1),
+        #                                  ignore_index=True)
+        #         to_test.index = test_vals.index
+        #         test_vals = to_test[df.columns] # preserve order columns
+        #     elif return_only_test==False and function=='quantile':
+        #         if kwrgs['q'] >= 0.5 and kwrgs['q'] < 1:
+        #             test_vals = (df.loc[s] > float(to_test)).astype(int)
+        #         elif kwrgs['q'] < 0.5 and kwrgs['q'] > 0:
+        #             test_vals = (df.loc[s] < float(to_test)).astype(int)
+        #         else:
+        #             print('q should be > 0 and < 1')
+        list_test.append(test_vals)
+
+
     df = pd.concat(list_test).sort_index()
     if cols is not None:
         df = df[cols]
     return df
 
-def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0):
+def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0,
+                 function='mean', kwrgs: dict={}):
     '''
     Parameters
     ----------
@@ -304,6 +331,16 @@ def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0):
         return sub df based on columns. The default is None.
     df_splits : pd.DataFrame
         seperate df with TrainIsTrue column specifying the train-test data
+    s : int or str
+        if int, it will select the training sample s.
+        if s == 'squeeze', the function (e.g. mean) is calculated across
+        training samples.
+        if s == 'extrapolate', the function computes the mean/quantile/std of
+        each training sample and extrapolates (fills all timesteps).
+
+    function : str
+        Call attribute of pd.DataFrame (e.g. mean, quantile, std)
+
 
     Returns
     -------
@@ -318,18 +355,44 @@ def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0):
         TrainIsTrue = df_splits['TrainIsTrue']
     if type(s) is int:
         df_train = df.loc[s][TrainIsTrue.loc[s].values==1]
-    elif s == 'mean': # mean over all training data
+    elif s == 'squeeze' or s == 'extrapolate': # mean over all training data
         if type(df) is pd.Series:
             df = pd.DataFrame(df)
         df_trains = []
         for col in df.columns:
             splits = df_splits.index.levels[0]
             l_dfs = [df[col].loc[s][TrainIsTrue.loc[s].values==1] for s in splits]
-            df_coltrain = pd.concat(l_dfs, axis=1)
-            df_coltrain = df_coltrain.groupby(by=df_coltrain.columns, axis=1).mean()
+
+            if s == 'squeeze':
+                df_coltrain = pd.concat(l_dfs, axis=1)
+                df_coltrain = df_coltrain.groupby(by=df_coltrain.columns,
+                                                  axis=1)
+                df_coltrain = getattr(df_coltrain, function)(**kwrgs)
+                df_coltrain = pd.DataFrame(df_coltrain, columns=[col])
+            elif s == 'extrapolate':
+                df_coltrain = [getattr(d, function)(**kwrgs) for d in l_dfs]
+                df_coltrain = np.repeat(np.array(df_coltrain).reshape(splits.size,1),
+                                        df_splits.index.levels[1].size, axis=0)
+                df_coltrain = pd.DataFrame(df_coltrain.reshape(-1,1), index=df.index,
+                                           columns=[str(col)+'_'+function])
             df_trains.append(df_coltrain)
         df_train = pd.concat(df_trains, axis=1)
     return df_train
+
+def quickplot_df(df, df_splits=None):
+    if type(df) is pd.Series:
+        df.name = 0 ; df = pd.DataFrame(df)
+    cols = [c for c in df.columns if c not in ['TrainIsTrue', 'RV_mask']]
+    f, ax = plt.subplots(1, figsize=(12,8))
+    if hasattr(df.index, 'levels'):
+        splits = df.index.levels[0]
+        for s in splits:
+            ax.plot(df[cols].loc[s])
+        if df_splits is not None or 'TrainIsTrue' in df.columns:
+            df_test = get_df_test(df, cols, df_splits)
+            ax.plot(df_test, label='test', color='black')
+        ax.legend(cols)
+
 
 def nc_xr_ts_to_df(filename, name_ds='ts', format_lon='only_east'):
     if filename.split('.')[-1] == 'nc':

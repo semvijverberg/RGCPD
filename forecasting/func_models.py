@@ -294,41 +294,51 @@ class ErrorSkillScore:
         RMSE (Skill Score).
 
         '''
-        self.benchmark = float(constant_bench)
+        if type(constant_bench) in [float, int, np.float_]:
+            self.benchmark = float(constant_bench)
+        elif type(constant_bench) in [np.ndarray, pd.Series, pd.DataFrame]:
+            self.benchmark = np.array(constant_bench, dtype=float)
+        else:
+            print('give float or ndarray, pd.Series or pd.DataFrame')
         self.squared = squared
         # if type(self.benchmark) is not None:
 
-        # return metrics.mean_squared_error(y_true, y_pred, squared=root
+
     def RMSE(self, y_true, y_pred):
         self.RMSE_score = metrics.mean_squared_error(y_true, y_pred,
                                               squared=self.squared)
         if self.benchmark is False:
             return self.RMSE_score
-        elif type(self.benchmark) in [float, int, np.float_]:
+        elif type(self.benchmark) is float:
             b_ = np.zeros(y_true.size) ; b_[:] = self.benchmark
-            self.RMSE_bench = metrics.mean_squared_error(y_true,
-                                               b_,
-                                               squared=self.squared)
-            return (self.RMSE_bench - self.RMSE_score) / self.RMSE_bench
+        elif type(self.benchmark) is np.ndarray:
+            b_  = self.benchmark
+        self.RMSE_bench = metrics.mean_squared_error(y_true,
+                                           b_,
+                                           squared=self.squared)
+        return (self.RMSE_bench - self.RMSE_score) / self.RMSE_bench
 
     def MAE(self, y_true, y_pred):
         fc_score = metrics.mean_absolute_error(y_true, y_pred)
         if self.benchmark is False:
             return fc_score
-        elif type(self.benchmark) in [float, int]:
+        elif type(self.benchmark) is float:
             b_ = np.zeros(y_true.size) ; b_[:] = self.benchmark
-            self.MAE_bench = metrics.mean_absolute_error(y_true, b_)
-
-            return (self.MAE_bench - fc_score) / self.MAE_bench
+        elif type(self.benchmark) is np.ndarray:
+            b_  = self.benchmark
+        self.MAE_bench = metrics.mean_absolute_error(y_true, b_)
+        return (self.MAE_bench - fc_score) / self.MAE_bench
 
     def BSS(self, y_true, y_pred):
         self.brier_score = metrics.brier_score_loss(y_true, y_pred)
         if self.benchmark is False:
             return self.brier_score
-        elif type(self.benchmark) in [float, int]:
-            b_ = np.zeros(y_true.size) ; b_[:] = self.benchmark
-            self.BS_bench = metrics.brier_score_loss(y_true, b_)
-            return (self.BS_bench - self.brier_score) / self.BS_bench
+        elif type(self.benchmark) is float:
+            self.b_ = np.zeros(y_true.size) ; self.b_[:] = self.benchmark
+        elif type(self.benchmark) is np.ndarray:
+            self.b_  = self.benchmark
+        self.BS_bench = metrics.brier_score_loss(y_true, self.b_)
+        return (self.BS_bench - self.brier_score) / self.BS_bench
 
     def AUC_SS(self, y_true, y_pred):
         # from http://bibliotheek.knmi.nl/knmipubIR/IR2018-01.pdf eq. 1
