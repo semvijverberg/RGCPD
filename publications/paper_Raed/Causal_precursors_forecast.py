@@ -866,6 +866,23 @@ for fc_type in ['continuous', 0.33, 0.66]:
     # import utils_paper3
 
     for model_name_CL, model_name in model_combs:
+        # load CL model to get df_forcing
+        filepath_dfs = os.path.join(filepath_df_datas,
+                                    f'CL_models_cont{model_name_CL}.h5')
+        try:
+            df_data_CL = functions_pp.load_hdf5(filepath_dfs)
+        except:
+            print('loading CL models failed, skipping this model')
+            continue
+
+        for i, rg in enumerate(rg_list):
+            # get CL model of that month
+            rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
+        # get forcing per fc_month
+        utils_paper3.get_df_forcing_cond_fc(rg_list,
+                                            region='only_Pacific',
+                                            name_object='df_CL_data')
+
         nameTarget = 'Target'
         for nameTarget_fit in ['Target', 'Target*Signal']:
 
