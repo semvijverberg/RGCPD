@@ -862,7 +862,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
             functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
-    #%% Continuous forecast: Verification conditional forecast
+    #%% Continuous forecast: Conditional forecast verification
     # import utils_paper3
 
     for model_name_CL, model_name in model_combs:
@@ -888,6 +888,28 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 continue
             else:
                 print(f'CL: {model_name_CL} -> {model_name} -> {nameTarget_fit}')
+
+            if nameTarget_fit == 'Target*Signal' and fc_type != 'continuous':
+                _target_ts = df_predictions[['Target']]
+                quantile = functions_pp.get_df_train(_target_ts,
+                                                      df_splits=rg.df_splits,
+                                                      s='extrapolate',
+                                                      function='quantile',
+                                                      kwrgs={'q':fc_type})
+                if fc_type >= 0.5:
+                    _target_ts = (_target_ts > quantile.values).astype(int)
+                elif fc_type < .5:
+                    _target_ts = (_target_ts < quantile.values).astype(int)
+
+
+                # drop original continuous Target
+                df_predictions = df_predictions.drop(nameTarget, axis=1)
+                # replace Target*Signal with binary Target for verification
+                df_predictions = df_predictions.rename(
+                                        {nameTarget_fit : nameTarget},axis=1)
+                df_predictions[[nameTarget]] = _target_ts
+                # prediction.drop(nameTarget_fit)
+                # prediction = prediction.drop(nameTarget_fit, axis=1)
 
             # metrics
             bench = float(prediction.iloc[:,0].mean())
@@ -941,7 +963,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
     fig, axes = plt.subplots(nrows=len(fc_month_list), ncols=2, figsize=(12,10),
                              gridspec_kw={'width_ratios':[4,1]},
                              sharex=True, sharey=True)
-    # gs = gridspec.GridSpec(len(fc_month_list), 2, height_ratios=None,
+    print('Plotting timeseries')
     for model_name_CL, model_name in model_combs_plot:
         # for i, (nameTarget_fit, nameTarget) in enumerate(verif_combs):
 
@@ -1019,7 +1041,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
     target_options = [['Target', 'Target (fitPPS)'],
                       ['Target', 'Target | PPS', 'Target (fitPPS) | PPS']]
     condition = 'strong 50%'
-
+    print('Plotting skill scores')
     for i, target_opt in enumerate(target_options):
         fig, axes = plt.subplots(nrows=len(model_combs_plot), ncols=len(metrics_plot),
                      figsize=(17,10),
