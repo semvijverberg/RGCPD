@@ -912,7 +912,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 # prediction = prediction.drop(nameTarget_fit, axis=1)
 
             # metrics
-            bench = float(prediction.iloc[:,0].mean())
+            bench = float(df_predictions[[nameTarget]].mean())
             if fc_type == 'continuous':
                 RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).RMSE
                 MAE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).MAE
