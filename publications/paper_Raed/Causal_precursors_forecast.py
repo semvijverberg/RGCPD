@@ -1040,7 +1040,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 df_test  = df_preds[0][['Target', fc_month]]
                 df_test = functions_pp.get_df_test(df_test,
                                            df_splits=rg_list[m].df_splits)
-                if fc_type != 'continous':
+                if fc_type != 'continuous':
                     if fc_type >= 0.5:
                         df_test[['Target']] = (df_test[['Target']] > \
                                    df_test[['Target']].quantile(fc_type)).astype(int)
