@@ -224,7 +224,7 @@ def plot_scores_wrapper(df_scores_list, df_boot_list, labels=None,
 
 
             if i == 0:
-                ax[i].legend(loc='lower right', fontsize=14)
+                ax[i].legend(loc='lower left', fontsize=12)
             # ax[i].set_ylabel(rename_m[m], fontsize=18, labelpad=0)
             ax[i].set_title(rename_m[m])
     f.subplots_adjust(hspace=.1)
@@ -271,14 +271,15 @@ def plot_forecast_ts(df_test_m, df_test, target_ts=None, fig_ax=None, fs=12,
 
     if type(df_test_m) is not list:
         df_test_m = [df_test_m]
-    order_verif = ['vs. PPS', 'vs. Target']
+    order_verif = ['Target', 'Target | Signal']
     df_scores = []
     for i, df_test_skill in enumerate(df_test_m):
-        r = {df_test_skill.columns[0][0]:order_verif[i]}
-        df_scores.append( df_test_skill.rename(r, axis=1) )
+        r = {df_test_skill.index[0]:order_verif[i]}
+        df_scores.append( df_test_skill.rename(r, axis=0) )
     df_scores = pd.concat(df_scores, axis=1)
-    df_scores = df_scores.T.reset_index().pivot_table(index='level_1',
-                                                      columns='level_0')[0]
+    df_scores = df_scores.T.reset_index().pivot_table(index='index')
+    # df_scores = df_scores.T.reset_index().pivot_table(index='index',
+                                                      # columns=0)[0]
 
         # y_offset = 0
         # if i == 1:
@@ -508,7 +509,7 @@ def to_df_scores_format(d_dfscores, condition='50% strong'):
 def load_scores(list_labels, model_name_CL, model_name, n_boot,
                 filepath_df_datas, condition='strong 50%'):
 
-    df_scores_list = [] ; df_boot_list = []
+    df_scores_list = [] ; df_boot_list = []; df_predictions = []
     for label in list_labels:
         if 'fitPPS' in label:
             nameTargetfit = 'Target*Signal'
@@ -521,6 +522,11 @@ def load_scores(list_labels, model_name_CL, model_name, n_boot,
             d_dfscores = functions_pp.load_hdf5(filepath_dfs+'.h5')
             df_scores_list.append(d_dfscores['df_scores'])
             df_boot_list.append(d_dfscores['df_boot'])
+            f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
+                                                        f'{nameTargetfit}.h5'
+            filepath_dfs = os.path.join(filepath_df_datas, f_name)
+            d_dfs = functions_pp.load_hdf5(filepath_dfs)
+            df_predictions.append(d_dfs['df_predictions'])
         elif '| PPS' in label:
             df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
                         f'{nameTargetfit}_Target_{n_boot}_CF'
@@ -529,7 +535,8 @@ def load_scores(list_labels, model_name_CL, model_name, n_boot,
             df_scores, df_boot = to_df_scores_format(d_dfscores, condition)
             df_scores_list.append(df_scores)
             df_boot_list.append(df_boot)
-    return df_scores_list, df_boot_list
+
+    return df_scores_list, df_boot_list, df_predictions
 
 
 def boxplot_cond_fc(df_cond, metrics: list=None, forcing_name: str='', composite = 30):

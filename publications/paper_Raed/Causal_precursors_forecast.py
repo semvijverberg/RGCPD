@@ -969,12 +969,17 @@ for fc_type in ['continuous', 0.33, 0.66]:
         # rg.verification_tuple_c_o  = verification_tuple_c_o
 
     #%% Plotting Continuous forecast timeseries
-    # import utils_paper3
+    import utils_paper3
     if fc_type == 'continuous':
         metrics_plot = ['corrcoef', 'MAE', 'r2_score']
+        model_combs_plot = [['RandomForestRegressor', 'RandomForestRegressor']]
     else:
         metrics_plot = ['BSS', 'roc_auc_score']
-    model_combs_plot = [['RandomForestRegressor', 'RandomForestRegressor']]
+        model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
+                             ['LogisticRegression', 'RandomForestClassifier'],
+                             ['RandomForestClassifier', 'RandomForestClassifier']]
+
+
     fc_month_list = [rg.fc_month for rg in rg_list]
     # fig = plt.figure(figsize=(12, 5))
     fig, axes = plt.subplots(nrows=len(fc_month_list), ncols=2, figsize=(12,10),
@@ -985,71 +990,98 @@ for fc_type in ['continuous', 0.33, 0.66]:
         # for i, (nameTarget_fit, nameTarget) in enumerate(verif_combs):
 
         # load df_scores
-        nameTarget_fit = 'Target*Signal'
-        nameTarget = 'Target*Signal'
-        df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
-                    f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5'
-        filepath_dfs = os.path.join(filepath_df_datas, df_file)
-        d_dfscores = functions_pp.load_hdf5(filepath_dfs)
+        # nameTarget_fit = 'Target*Signal'
+        # nameTarget = 'Target'
+        # df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
+        #             f'{nameTarget_fit}_{nameTarget}_{n_boot}_CF.h5'
+        # filepath_dfs = os.path.join(filepath_df_datas, df_file)
+        # d_dfscores = functions_pp.load_hdf5(filepath_dfs)
 
-        nameTarget_fit = 'Target*Signal'
-        nameTarget = 'Target'
-        df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
-                    f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5'
-        filepath_dfs = os.path.join(filepath_df_datas, df_file)
-        d_dfscores_T = functions_pp.load_hdf5(filepath_dfs)
+        # nameTarget_fit = 'Target*Signal'
+        # nameTarget = 'Target'
+        # df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
+        #             f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5'
+        # filepath_dfs = os.path.join(filepath_df_datas, df_file)
+        # d_dfscores_T = functions_pp.load_hdf5(filepath_dfs)
 
 
-        f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
-                                                    f'{nameTarget_fit}.h5'
-        filepath_dfs = os.path.join(filepath_df_datas, f_name)
-        d_dfpreds = functions_pp.load_hdf5(filepath_dfs)
+        # f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
+        #                                             f'{nameTarget_fit}.h5'
+        # filepath_dfs = os.path.join(filepath_df_datas, f_name)
+        # d_dfpreds = functions_pp.load_hdf5(filepath_dfs)
 
-        print(model_name_CL, model_name, nameTarget_fit, nameTarget)
-        if model_name == 'RandomForestRegressor':
+        print(model_name_CL, model_name)
+        if 'RandomForest' in model_name:
             name = 'RF'
-        elif model_name == 'Ridge':
-            name = 'Ridge'
-        for m, fc_month in enumerate(fc_month_list):
-            axs = axes[m]
-            ax = axs[0]
-            df_test_TS = d_dfscores['df_scores'][[fc_month]] # skill TargetSignal
-            df_test_T = d_dfscores_T['df_scores'][[fc_month]] # skill Target
-            df_test_m = [df_test_TS, df_test_T]
-            df_preds  = d_dfpreds['df_predictions']
-            df_test   = df_preds[[df_preds.columns[0], fc_month]]
-            df_test = functions_pp.get_df_test(df_test,
-                                                df_splits=rg_list[m].df_splits)
-            df_test[['Target*Signal']] = functions_pp.get_df_train(
-                                                 df_preds[['Target*Signal']],
-                                                 df_splits=rg.df_splits)
-            target_ts = functions_pp.get_df_test(df_preds[['Target']],
-                                                 df_splits=rg_list[m].df_splits)
-            utils_paper3.plot_forecast_ts(df_test_m, df_test,
-                                          target_ts=target_ts,
-                                          fig_ax=(fig, axs),
-                                          fs=11,
-                                          metrics_plot=metrics_plot,
-                                          name_model=name)
-            ax.set_ylim(-3,3)
-            ax.set_yticks(np.arange(-3,3.1,1))
-            ax.margins(x=.02)
-            if m == 0:
-                ax.legend(fontsize=10, loc='lower left')
+        elif model_name == 'Ridge' or model_name=='LogisticRegression':
+            name = 'Ridge' if fc_type =='continuous' else 'LR'
+        if 'RandomForest' in model_name_CL:
+            name_CL = 'RF'
+        elif model_name_CL == 'Ridge' or model_name=='LogisticRegression':
+            name_CL = 'Ridge' if fc_type =='continuous' else 'LR'
+
+        target_options = [['Target', 'Target | PPS'],
+                          ['Target (fitPPS)', 'Target (fitPPS) | PPS']]
+        condition = 'strong 50%'
+        print('Plotting skill scores')
+        for i, target_opt in enumerate(target_options):
+            fig, axes = plt.subplots(nrows=len(fc_month_list), ncols=2, figsize=(12,10),
+                             gridspec_kw={'width_ratios':[4,1]},
+                             sharex=True, sharey=True)
+            out = utils_paper3.load_scores(target_opt, model_name_CL, model_name,
+                                       n_boot, filepath_df_datas,
+                                       condition=condition)
+
+            df_scores, df_boots, df_preds = out
+            for m, fc_month in enumerate(fc_month_list):
+                axs = axes[m]
+                ax = axs[0]
+                df_test_m = [d[fc_month] for d in df_scores]
+                df_test  = df_preds[0][['Target', fc_month]]
+                df_test = functions_pp.get_df_test(df_test,
+                                           df_splits=rg_list[m].df_splits)
+                if fc_type != 'continous':
+                    if fc_type >= 0.5:
+                        df_test[['Target']] = (df_test[['Target']] > \
+                                   df_test[['Target']].quantile(fc_type)).astype(int)
+                    elif fc_type < .5:
+                        df_test[['Target']] = (df_test[['Target']] < \
+                                   df_test[['Target']].quantile(fc_type)).astype(int)
+
+                utils_paper3.plot_forecast_ts(df_test_m, df_test,
+                                              target_ts=df_test[['Target']],
+                                              fig_ax=(fig, axs),
+                                              fs=11,
+                                              metrics_plot=metrics_plot,
+                                              name_model=f'CL-{name_CL} -> {name}')
+                if fc_type == 'continuous':
+                    ax.set_ylim(-3,3)
+                    ax.set_yticks(np.arange(-3,3.1,1))
+                else:
+                    ax.set_ylim(-0.1,1.1)
+                    ax.set_yticks(np.arange(0,1.01,.5))
+                ax.margins(x=.02)
+                if m == 0:
+                    ax.legend(fontsize=10, loc='lower left')
 
 
-    fig.savefig(os.path.join(filepath_verif,
-                             'timeseries_and_skill.pdf'), bbox_inches='tight')
-    plt.close()
+            fig.savefig(os.path.join(filepath_verif,
+                     f'timeseries_and_skill_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
+            plt.close()
     #%% Continuous forecast: plotting skill scores
     # import utils_paper3
     if fc_type == 'continuous':
         metrics_plot = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
+        model_combs_plot  = [['Ridge', 'Ridge'],
+                             ['Ridge', 'RandomForestRegressor'],
+                             ['RandomForestRegressor', 'RandomForestRegressor']]
     else:
         metrics_plot = ['BSS', 'roc_auc_score']
-    model_combs_plot  = [['Ridge', 'Ridge'],
-                         ['Ridge', 'RandomForestRegressor'],
-                         ['RandomForestRegressor', 'RandomForestRegressor']]
+        model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
+                             ['LogisticRegression', 'RandomForestClassifier'],
+                             ['RandomForestClassifier', 'RandomForestClassifier']]
+
+
     # model_combs_plot = [['RandomForestRegressor', 'RandomForestRegressor']]
     fc_month_list = [rg.fc_month for rg in rg_list]
     # fig = plt.figure(figsize=(12, 5))
@@ -1068,18 +1100,18 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
 
             print(model_name_CL, model_name, target_opt)
-            if model_name == 'RandomForestRegressor':
+            if 'RandomForest' in model_name:
                 name = 'RF'
-            elif model_name == 'Ridge':
-                name = 'Ridge'
-            if model_name_CL == 'RandomForestRegressor':
+            elif model_name == 'Ridge' or model_name=='LogisticRegression':
+                name = 'Ridge' if fc_type =='continuous' else 'LR'
+            if 'RandomForest' in model_name_CL:
                 name_CL = 'RF'
-            elif model_name_CL == 'Ridge':
-                name_CL = 'Ridge'
+            elif model_name_CL == 'Ridge' or model_name=='LogisticRegression':
+                name_CL = 'Ridge' if fc_type =='continuous' else 'LR'
 
             out = utils_paper3.load_scores(target_opt, model_name_CL, model_name,
                                            n_boot, filepath_df_datas,
-                                           condition=condition)
+                                           condition=condition)[:2]
             df_scores_list, df_boot_list = out
 
 
