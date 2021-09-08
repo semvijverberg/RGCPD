@@ -404,8 +404,6 @@ def cond_forecast_table(rg_list, score_func_list, df_predictions,
 
             df_forctest = functions_pp.get_df_test(rg.df_forcing.mean(axis=1),
                                                    df_splits=rg.df_splits)
-            df_forctrain = functions_pp.get_df_train(rg.df_forcing.mean(axis=1),
-                                             df_splits=rg.df_splits, s='mean')
 
             prediction = df_predictions[[nameTarget, rg.fc_month]]
             df_test = functions_pp.get_df_test(prediction,
@@ -415,8 +413,22 @@ def cond_forecast_table(rg_list, score_func_list, df_predictions,
             # cond_df[i, j, 0] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
             for k, l in enumerate(range(0,4,2)):
                 q = quantiles[k]
-                low = df_forctest < float(df_forctrain.quantile(q))
-                high = df_forctest > float(df_forctrain.quantile(1-q))
+                # extrapolate quantile values based on training data
+                q_low = functions_pp.get_df_train(rg.df_forcing.mean(axis=1),
+                                         df_splits=rg.df_splits, s='extrapolate',
+                                         function='quantile', kwrgs={'q':q})
+                # Extract out-of-sample quantile values
+                q_low = functions_pp.get_df_test(q_low,
+                                                   df_splits=rg.df_splits)
+
+                q_high = functions_pp.get_df_train(rg.df_forcing.mean(axis=1),
+                                         df_splits=rg.df_splits, s='extrapolate',
+                                         function='quantile', kwrgs={'q':1-q})
+                q_high = functions_pp.get_df_test(q_high,
+                                                   df_splits=rg.df_splits)
+
+                low = df_forctest < q_low.values.ravel()
+                high = df_forctest > q_high.values.ravel()
                 mask_anomalous = np.logical_or(low, high)
                 # anomalous Boundary forcing
                 condfc = df_test[mask_anomalous.values]
@@ -433,9 +445,26 @@ def cond_forecast_table(rg_list, score_func_list, df_predictions,
                     cond_df[i, j, l] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
                 else:
                     cond_df[i, j, l, :] = df_boot[df_boot.columns[0][0]][met]
+                # =============================================================
                 # mild boundary forcing
-                higher_low = df_forctest > float(df_forctrain.quantile(.5-q))
-                lower_high = df_forctest < float(df_forctrain.quantile(.5+q))
+                # =============================================================
+                q_higher_low = functions_pp.get_df_train(rg.df_forcing.mean(axis=1),
+                                         df_splits=rg.df_splits, s='extrapolate',
+                                         function='quantile', kwrgs={'q':.5-q})
+                q_higher_low = functions_pp.get_df_test(q_higher_low,
+                                                   df_splits=rg.df_splits)
+
+
+                q_lower_high = functions_pp.get_df_train(rg.df_forcing.mean(axis=1),
+                                         df_splits=rg.df_splits, s='extrapolate',
+                                         function='quantile', kwrgs={'q':.5+q})
+                q_lower_high = functions_pp.get_df_test(q_lower_high,
+                                                   df_splits=rg.df_splits)
+
+                higher_low = df_forctest > q_higher_low.values.ravel()
+                lower_high = df_forctest < q_lower_high.values.ravel()
+                # higher_low = df_forctest > float(df_forctrain.quantile(.5-q))
+                # lower_high = df_forctest < float(df_forctrain.quantile(.5+q))
                 mask_anomalous = np.logical_and(higher_low, lower_high) # changed 11-5-21
 
                 condfc = df_test[mask_anomalous.values]

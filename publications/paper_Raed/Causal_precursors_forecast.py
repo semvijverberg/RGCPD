@@ -815,7 +815,8 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
             for i, rg in enumerate(rg_list):
                 prediction = df_predictions[[nameTarget, rg.fc_month]].copy()
-                if nameTarget_fit == 'Target*Signal' and nameTarget == 'Target':
+                if nameTarget_fit == 'Target*Signal' and nameTarget == 'Target' \
+                                                and fc_type != 'continuous':
                     _target_ts = prediction[['Target']]
                     quantile = functions_pp.get_df_train(_target_ts,
                                                           df_splits=rg.df_splits,
