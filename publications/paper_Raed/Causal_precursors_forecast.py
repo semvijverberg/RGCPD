@@ -901,10 +901,10 @@ for fc_type in ['continuous', 0.33, 0.66]:
                                              f'scores_cont_CL{model_name_CL}_{model_name}_'\
                                              f'{nameTarget_fit}_{nameTarget}_{n_boot}_CF.h5')
             if os.path.exists(filepath_dfs):
-                print('Verification of model vs. Targert already stored, skip')
+                print('Cond. Verif. of model vs. Target already stored, skip')
                 continue
             else:
-                print(f'CL: {model_name_CL} -> {model_name} -> {nameTarget_fit}')
+                print(f'Cond. Verif.: CL-{model_name_CL} -> {model_name} -> {nameTarget_fit}')
 
             if nameTarget_fit == 'Target*Signal' and fc_type != 'continuous':
                 _target_ts = df_predictions[['Target']]
