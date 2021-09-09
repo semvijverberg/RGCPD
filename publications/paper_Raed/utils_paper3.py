@@ -218,7 +218,7 @@ def plot_scores_wrapper(df_scores_list, df_boot_list, labels=None,
             elif m == 'roc_auc_score':
                 ax[i].set_ylim(0,1)
             else:
-                ax[i].set_ylim(-.1,.6)
+                ax[i].set_ylim(-.1,1.)
             ax[i].axhline(y=0, color='black', linewidth=1)
             ax[i].tick_params(labelsize=14, pad=6)
 

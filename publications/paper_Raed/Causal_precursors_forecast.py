@@ -536,12 +536,13 @@ rg = rg_list[0]
 
 
 # =============================================================================
-# Continuous forecast
+# Forecasts
 # =============================================================================
+btoos = 'F' # binary target out of sample False
 for fc_type in ['continuous', 0.33, 0.66]:
-    filepath_df_datas = os.path.join(rg.path_outsub1, f'df_data_{str(fc_type)}')
+    filepath_df_datas = os.path.join(rg.path_outsub1, f'df_data_{str(fc_type)}_{btoos}')
     os.makedirs(filepath_df_datas, exist_ok=True)
-    filepath_verif = os.path.join(rg.path_outsub1, f'verif_{str(fc_type)}')
+    filepath_verif = os.path.join(rg.path_outsub1, f'verif_{str(fc_type)}_{btoos}')
     os.makedirs(filepath_verif, exist_ok=True)
 
     #%% Continuous forecast: get Combined Lead time models
@@ -605,15 +606,19 @@ for fc_type in ['continuous', 0.33, 0.66]:
                                                       right_index=True),
                                      transformer=fc_utils.standardize_on_train)
     if fc_type != 'continuous':
-        quantile = functions_pp.get_df_train(target_ts,
-                                             df_splits=rg.df_splits,
-                                             s='extrapolate',
-                                             function='quantile',
-                                             kwrgs={'q':fc_type})
+        if btoos != 'F':
+            quantile = functions_pp.get_df_train(target_ts,
+                                                 df_splits=rg.df_splits,
+                                                 s='extrapolate',
+                                                 function='quantile',
+                                                 kwrgs={'q':fc_type}).values
+        else:
+            quantile = float(target_ts.quantile(fc_type))
         if fc_type >= 0.5:
-            target_ts = (target_ts > quantile.values).astype(int)
+            target_ts = (target_ts > quantile).astype(int)
         elif fc_type < .5:
-            target_ts = (target_ts < quantile.values).astype(int)
+            target_ts = (target_ts < quantile).astype(int)
+
 
     for fcmodel, kwrgs_model in [model1_tuple, model2_tuple]:
         kwrgs_model_CL = kwrgs_model.copy() ;
@@ -724,7 +729,8 @@ for fc_type in ['continuous', 0.33, 0.66]:
                                           transformer=fc_utils.standardize_on_train)
                     df_forcing = df_forcing[0]
                 else:
-                    df_forcing  = df_forcing - 0.5
+                    halfmaxprob = df_forcing.max(axis=0, level=0)/2.
+                    df_forcing  = df_forcing.subtract(halfmaxprob, axis=0, level=0)
 
 
                 # target timeseries, standardize using training data
@@ -754,15 +760,18 @@ for fc_type in ['continuous', 0.33, 0.66]:
                     _target_ts = target_ts_signal
                 if fc_type != 'continuous':
                     # out of sample quantile
-                    quantile = functions_pp.get_df_train(_target_ts,
-                                                        df_splits=rg.df_splits,
-                                                        s='extrapolate',
-                                                        function='quantile',
-                                                        kwrgs={'q':fc_type})
+                    if btoos != 'F':
+                        quantile = functions_pp.get_df_train(target_ts,
+                                                             df_splits=rg.df_splits,
+                                                             s='extrapolate',
+                                                             function='quantile',
+                                                             kwrgs={'q':fc_type}).values
+                    else:
+                        quantile = float(target_ts.quantile(fc_type))
                     if fc_type >= 0.5:
-                        _target_ts = (_target_ts > quantile.values).astype(int)
+                        target_ts = (target_ts > quantile).astype(int)
                     elif fc_type < .5:
-                        _target_ts = (_target_ts < quantile.values).astype(int)
+                        target_ts = (target_ts < quantile).astype(int)
 
 
                 prediction_tuple = rg.fit_df_data_ridge(df_data=rg.df_CL_data,
@@ -818,15 +827,18 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 if nameTarget_fit == 'Target*Signal' and nameTarget == 'Target' \
                                                 and fc_type != 'continuous':
                     _target_ts = prediction[['Target']]
-                    quantile = functions_pp.get_df_train(_target_ts,
-                                                          df_splits=rg.df_splits,
-                                                          s='extrapolate',
-                                                          function='quantile',
-                                                          kwrgs={'q':fc_type})
+                    if btoos != 'F':
+                        quantile = functions_pp.get_df_train(target_ts,
+                                                             df_splits=rg.df_splits,
+                                                             s='extrapolate',
+                                                             function='quantile',
+                                                             kwrgs={'q':fc_type}).values
+                    else:
+                        quantile = float(_target_ts.quantile(fc_type))
                     if fc_type >= 0.5:
-                        _target_ts = (_target_ts > quantile.values).astype(int)
+                        _target_ts = (_target_ts > quantile).astype(int)
                     elif fc_type < .5:
-                        _target_ts = (_target_ts < quantile.values).astype(int)
+                        _target_ts = (_target_ts < quantile).astype(int)
 
                     prediction[[nameTarget]] = _target_ts
 
@@ -908,15 +920,18 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
             if nameTarget_fit == 'Target*Signal' and fc_type != 'continuous':
                 _target_ts = df_predictions[['Target']]
-                quantile = functions_pp.get_df_train(_target_ts,
-                                                      df_splits=rg.df_splits,
-                                                      s='extrapolate',
-                                                      function='quantile',
-                                                      kwrgs={'q':fc_type})
+                if btoos != 'F':
+                    quantile = functions_pp.get_df_train(target_ts,
+                                                         df_splits=rg.df_splits,
+                                                         s='extrapolate',
+                                                         function='quantile',
+                                                         kwrgs={'q':fc_type}).values
+                else:
+                    quantile = float(_target_ts.quantile(fc_type))
                 if fc_type >= 0.5:
-                    _target_ts = (_target_ts > quantile.values).astype(int)
+                    _target_ts = (_target_ts > quantile).astype(int)
                 elif fc_type < .5:
-                    _target_ts = (_target_ts < quantile.values).astype(int)
+                    _target_ts = (_target_ts < quantile).astype(int)
 
 
                 # drop original continuous Target
@@ -969,10 +984,12 @@ for fc_type in ['continuous', 0.33, 0.66]:
         # rg.verification_tuple_c_o  = verification_tuple_c_o
 
     #%% Plotting Continuous forecast timeseries
-    import utils_paper3
+    # import utils_paper3
     if fc_type == 'continuous':
         metrics_plot = ['corrcoef', 'MAE', 'r2_score']
-        model_combs_plot = [['RandomForestRegressor', 'RandomForestRegressor']]
+        model_combs_plot  = [['Ridge', 'Ridge'],
+                             ['Ridge', 'RandomForestRegressor'],
+                             ['RandomForestRegressor', 'RandomForestRegressor']]
     else:
         metrics_plot = ['BSS', 'roc_auc_score']
         model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
@@ -1069,7 +1086,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                      f'timeseries_and_skill_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
             plt.close()
     #%% Continuous forecast: plotting skill scores
-    # import utils_paper3
+    import utils_paper3
     if fc_type == 'continuous':
         metrics_plot = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
         model_combs_plot  = [['Ridge', 'Ridge'],
