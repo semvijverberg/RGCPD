@@ -703,9 +703,11 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 print('Prediction final model already stored, skipping this model')
                 continue
             # get forcing per fc_month
+            regions = ['Pacific+SM', 'Pacific+SM',
+                       'only_Pacific', 'only_Pacific', 'only_Pacific']
             utils_paper3.get_df_forcing_cond_fc(rg_list,
-                                            region='Pacific+SM',
-                                            name_object='df_data')
+                                                regions=regions,
+                                                name_object='df_data')
             # loop over forecast months (lags)
             for i, rg in enumerate(rg_list):
                 print(model_name_CL, model_name, i)
@@ -899,8 +901,10 @@ for fc_type in ['continuous', 0.33, 0.66]:
             # get CL model of that month
             rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
         # get forcing per fc_month
+        regions = ['Pacific+SM', 'Pacific+SM',
+                   'only_Pacific', 'only_Pacific', 'only_Pacific']
         utils_paper3.get_df_forcing_cond_fc(rg_list,
-                                            region='Pacific+SM',
+                                            regions=regions,
                                             name_object='df_data')
 
         nameTarget = 'Target'
@@ -1098,7 +1102,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                      f'timeseries_and_skill_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
             plt.close()
     #%% Continuous forecast: plotting skill scores
-    import utils_paper3
+    # import utils_paper3
     if fc_type == 'continuous':
         metrics_plot = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
         model_combs_plot  = [['Ridge', 'Ridge'],

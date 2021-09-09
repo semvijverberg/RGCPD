@@ -331,10 +331,12 @@ def plot_forecast_ts(df_test_m, df_test, target_ts=None, fig_ax=None, fs=12,
 #%% Conditional continuous forecast
 
 def get_df_forcing_cond_fc(rg_list, #target_ts, fcmodel, kwrgs_model, mean_vars=['sst', 'smi'],
-                           region='only_Pacific',
+                           regions=['only_Pacific'],
                            name_object='df_CL_data'):
+    if len(regions) == 1:
+        regions = regions * len(rg_list)
     for j, rg in enumerate(rg_list):
-
+        region = regions[j]
 
         # find west-sub-tropical Atlantic region
         df_labels = find_precursors.labels_to_df(rg.list_for_MI[0].prec_labels)
