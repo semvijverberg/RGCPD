@@ -79,7 +79,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 3
+i_default = 4
 
 
 def parseArguments():
@@ -538,11 +538,11 @@ rg = rg_list[0]
 # =============================================================================
 # Forecasts
 # =============================================================================
-btoos = 'F' # binary target out of sample False
+btoos = '' # binary target out of sample False
 for fc_type in ['continuous', 0.33, 0.66]:
-    filepath_df_datas = os.path.join(rg.path_outsub1, f'df_data_{str(fc_type)}_{btoos}')
+    filepath_df_datas = os.path.join(rg.path_outsub1, f'df_data_{str(fc_type)}{btoos}')
     os.makedirs(filepath_df_datas, exist_ok=True)
-    filepath_verif = os.path.join(rg.path_outsub1, f'verif_{str(fc_type)}_{btoos}')
+    filepath_verif = os.path.join(rg.path_outsub1, f'verif_{str(fc_type)}{btoos}')
     os.makedirs(filepath_verif, exist_ok=True)
 
     #%% Continuous forecast: get Combined Lead time models
@@ -676,7 +676,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                        ['LogisticRegression', 'RandomForestClassifier'],
                        ['RandomForestClassifier', 'RandomForestClassifier']]
 
-    fcmodel, kwrgs_model = model1_tuple
+    model_name_CL, model_name = model_combs[0]
     for model_name_CL, model_name in model_combs:
         if model_name == 'Ridge' or model_name == 'LogisticRegression':
             fcmodel, kwrgs_model = model1_tuple
@@ -704,8 +704,8 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 continue
             # get forcing per fc_month
             utils_paper3.get_df_forcing_cond_fc(rg_list,
-                                        region='only_Pacific',
-                                        name_object='df_CL_data')
+                                            region='Pacific+SM',
+                                            name_object='df_data')
             # loop over forecast months (lags)
             for i, rg in enumerate(rg_list):
                 print(model_name_CL, model_name, i)
@@ -763,16 +763,16 @@ for fc_type in ['continuous', 0.33, 0.66]:
                     if btoos != 'F':
                         # quantile based on only training data, using the
                         # standardized-on-train Target
-                        quantile = functions_pp.get_df_train(target_ts,
+                        quantile = functions_pp.get_df_train(_target_ts,
                                                              df_splits=rg.df_splits,
                                                              s='extrapolate',
                                                              function='quantile',
                                                              kwrgs={'q':fc_type}).values
                     else:
-                        # using all target data - non-standardized-on-train
-                        compl_target = rg.df_data.loc[0].iloc[:,[0]]
-                        compl_target = (compl_target - compl_target.mean()) / compl_target.std()
-                        quantile = float(compl_target.quantile(fc_type))
+                        # using all target data - mean over standardized-on-train
+                        _target_ts = _target_ts.mean(0, level=1)
+                        _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
+                        quantile = float(_target_ts.quantile(fc_type))
                     if fc_type >= 0.5:
                         _target_ts = (_target_ts > quantile).astype(int)
                     elif fc_type < .5:
@@ -833,7 +833,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                     # Unique case, Target is continuous -> convert to binary
                     _target_ts = prediction[['Target']]
                     if btoos != 'F':
-                        quantile = functions_pp.get_df_train(target_ts,
+                        quantile = functions_pp.get_df_train(_target_ts,
                                                              df_splits=rg.df_splits,
                                                              s='extrapolate',
                                                              function='quantile',
@@ -900,8 +900,8 @@ for fc_type in ['continuous', 0.33, 0.66]:
             rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
         # get forcing per fc_month
         utils_paper3.get_df_forcing_cond_fc(rg_list,
-                                            region='only_Pacific',
-                                            name_object='df_CL_data')
+                                            region='Pacific+SM',
+                                            name_object='df_data')
 
         nameTarget = 'Target'
         for nameTarget_fit in ['Target', 'Target*Signal']:
@@ -935,6 +935,8 @@ for fc_type in ['continuous', 0.33, 0.66]:
                                                          function='quantile',
                                                          kwrgs={'q':fc_type}).values
                 else:
+                    _target_ts = _target_ts.mean(0, level=1)
+                    _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
                     quantile = float(_target_ts.quantile(fc_type))
                 if fc_type >= 0.5:
                     _target_ts = (_target_ts > quantile).astype(int)

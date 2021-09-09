@@ -35,10 +35,10 @@ def get_oneyr(dt_pdf_pds_xr, *args):
 
     for arg in args:
         year = arg
-        dates.append(pddatetime.where(pddatetime.year==year).dropna())
+        dates.append(pddatetime.where(pddatetime.year.values==year).dropna())
     dates = pd.to_datetime(flatten(dates))
     if len(dates) == 0:
-        dates = pddatetime.where(pddatetime.year==year).dropna()
+        dates = pddatetime.where(pddatetime.year.values==year).dropna()
     return dates
 
 
@@ -263,7 +263,7 @@ def ds_num2date(ds, loadleap=False):
         dates = [d.replace(day=1,hour=0) for d in pd.to_datetime(dates)]
     else:
         dates = pd.to_datetime(dates)
-        stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
+        stepsyr = get_oneyr(dates)
         test_if_fullyr = np.logical_and(dates[stepsyr.size-1].month == 12,
                                    dates[stepsyr.size-1].day == 31)
         assert test_if_fullyr, ('full is needed as raw data since rolling'
