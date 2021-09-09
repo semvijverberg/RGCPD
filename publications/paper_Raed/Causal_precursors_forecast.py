@@ -555,7 +555,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                                                   np.logspace(.5, 2, num=10)])), # large a, strong regul.
                         'normalize':False,
                         'fit_intercept':False,
-                        'kfold':10,
+                        'kfold':5,
                         'n_jobs':n_cpu}
         model1_tuple = (ScikitModel(Ridge, verbosity=0),
                         kwrgs_model1)
@@ -568,7 +568,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                       'random_state':0,
                       'min_impurity_decrease':0,
                       'max_samples':[0.55,.75],
-                      'kfold':10,
+                      'kfold':5,
                       'n_jobs':n_cpu}
         model2_tuple = (ScikitModel(RandomForestRegressor, verbosity=0),
                         kwrgs_model2)
@@ -580,7 +580,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                         'random_state':seed,
                         'penalty':'l2',
                         'solver':'lbfgs',
-                        'kfold':10,
+                        'kfold':5,
                         'max_iter':200}
         model1_tuple = (ScikitModel(LogisticRegression, verbosity=0),
                         kwrgs_model1)
@@ -595,7 +595,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                       'random_state':0,
                       'min_impurity_decrease':[.02, 0],
                       'max_samples':[0.55,.75],
-                      'kfold':10,
+                      'kfold':5,
                       'n_jobs':n_cpu}
         model2_tuple = (ScikitModel(RandomForestClassifier, verbosity=0),
                         kwrgs_model2)
@@ -759,15 +759,20 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 if nameTarget == 'Target*Signal':
                     _target_ts = target_ts_signal
                 if fc_type != 'continuous':
-                    # out of sample quantile
+
                     if btoos != 'F':
+                        # quantile based on only training data, using the
+                        # standardized-on-train Target
                         quantile = functions_pp.get_df_train(target_ts,
                                                              df_splits=rg.df_splits,
                                                              s='extrapolate',
                                                              function='quantile',
                                                              kwrgs={'q':fc_type}).values
                     else:
-                        quantile = float(target_ts.quantile(fc_type))
+                        # using all target data - non-standardized-on-train
+                        compl_target = rg.df_data.loc[0].iloc[:,[0]]
+                        compl_target = (compl_target - compl_target.mean()) / compl_target.std()
+                        quantile = float(compl_target.quantile(fc_type))
                     if fc_type >= 0.5:
                         _target_ts = (_target_ts > quantile).astype(int)
                     elif fc_type < .5:
@@ -798,8 +803,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
     #%% Continuous forecast: Verification
     verif_combs = [['Target', 'Target'],
-                   ['Target*Signal', 'Target'],
-                   ['Target*Signal', 'Target*Signal']]
+                   ['Target*Signal', 'Target']]
 
     for model_name_CL, model_name in model_combs:
         for nameTarget_fit, nameTarget in verif_combs:
@@ -826,6 +830,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 prediction = df_predictions[[nameTarget, rg.fc_month]].copy()
                 if nameTarget_fit == 'Target*Signal' and nameTarget == 'Target' \
                                                 and fc_type != 'continuous':
+                    # Unique case, Target is continuous -> convert to binary
                     _target_ts = prediction[['Target']]
                     if btoos != 'F':
                         quantile = functions_pp.get_df_train(target_ts,
@@ -842,20 +847,23 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
                     prediction[[nameTarget]] = _target_ts
 
-                # Benchmark step 1: mean training sets extrapolated to test
-                bench = functions_pp.get_df_train(prediction[nameTarget],
-                                                  df_splits=rg.df_splits,
-                                                  s='extrapolate',
-                                                  function='mean')
-                bench = functions_pp.get_df_test(bench, df_splits=rg.df_splits)
-                bench = float(bench.mean())
+                # # Benchmark step 1: mean training sets extrapolated to test
+                # bench = functions_pp.get_df_train(prediction[nameTarget],
+                #                                   df_splits=rg.df_splits,
+                #                                   s='extrapolate',
+                #                                   function='mean')
+                # bench = functions_pp.get_df_test(bench, df_splits=rg.df_splits)
+                # bench = float(bench.mean())
                 if fc_type == 'continuous':
+                    # benchmark is climatological mean (after detrending)
+                    bench = float(rg.df_data.loc[0].iloc[:,[0]].mean())
                     RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).RMSE
                     MAE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).MAE
                     score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS,
                                        fc_utils.r2_score]
                 else:
-                    BSS = fc_utils.ErrorSkillScore(constant_bench=bench).BSS
+                    # benchmark is clim. probability
+                    BSS = fc_utils.ErrorSkillScore(constant_bench=fc_type).BSS
                     score_func_list = [BSS, fc_utils.metrics.roc_auc_score]
 
                 metric_names = [s.__name__ for s in score_func_list]
@@ -944,14 +952,16 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 # prediction = prediction.drop(nameTarget_fit, axis=1)
 
             # metrics
-            bench = float(df_predictions[[nameTarget]].mean())
             if fc_type == 'continuous':
+                # benchmark is climatological mean (after detrending)
+                bench = float(rg.df_data.loc[0].iloc[:,[0]].mean())
                 RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).RMSE
                 MAE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).MAE
                 score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS,
                                    fc_utils.r2_score]
             else:
-                BSS = fc_utils.ErrorSkillScore(constant_bench=bench).BSS
+                # benchmark is clim. probability
+                BSS = fc_utils.ErrorSkillScore(constant_bench=fc_type).BSS
                 score_func_list = [BSS, fc_utils.metrics.roc_auc_score]
 
             df_cond = utils_paper3.cond_forecast_table(rg_list, score_func_list,
