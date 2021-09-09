@@ -538,8 +538,8 @@ rg = rg_list[0]
 # =============================================================================
 # Forecasts
 # =============================================================================
-btoos = '' # binary target out of sample False
-for fc_type in ['continuous', 0.33, 0.66]:
+btoos = '' # if btoos=='_T': binary target out of sample.
+for fc_type in ['continuous', 0.33]:
     filepath_df_datas = os.path.join(rg.path_outsub1, f'df_data_{str(fc_type)}{btoos}')
     os.makedirs(filepath_df_datas, exist_ok=True)
     filepath_verif = os.path.join(rg.path_outsub1, f'verif_{str(fc_type)}{btoos}')
@@ -561,13 +561,13 @@ for fc_type in ['continuous', 0.33, 0.66]:
                         kwrgs_model1)
 
         from sklearn.ensemble import RandomForestRegressor
-        kwrgs_model2={'n_estimators':[400],
-                      'max_depth':[3,5,10],
+        kwrgs_model2={'n_estimators':[450],
+                      'max_depth':[3,6],
                       'scoringCV':'neg_mean_squared_error',
                       'oob_score':True,
                       'random_state':0,
                       'min_impurity_decrease':0,
-                      'max_samples':[0.55,.75],
+                      'max_samples':[0.4,.6],
                       'kfold':5,
                       'n_jobs':n_cpu}
         model2_tuple = (ScikitModel(RandomForestRegressor, verbosity=0),
@@ -587,14 +587,14 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
 
         from sklearn.ensemble import RandomForestClassifier
-        kwrgs_model2={'n_estimators':[400],
-                      'max_depth':[5,10],
+        kwrgs_model2={'n_estimators':[450],
+                      'max_depth':[3,6],
                       'scoringCV':scoringCV,
                       # 'criterion':'mse',
                       'oob_score':True,
                       'random_state':0,
-                      'min_impurity_decrease':[.02, 0],
-                      'max_samples':[0.55,.75],
+                      'min_impurity_decrease':0,
+                      'max_samples':[0.4,.6],
                       'kfold':5,
                       'n_jobs':n_cpu}
         model2_tuple = (ScikitModel(RandomForestClassifier, verbosity=0),
@@ -606,14 +606,16 @@ for fc_type in ['continuous', 0.33, 0.66]:
                                                       right_index=True),
                                      transformer=fc_utils.standardize_on_train)
     if fc_type != 'continuous':
-        if btoos != 'F':
+        if btoos == '_T':
             quantile = functions_pp.get_df_train(target_ts,
                                                  df_splits=rg.df_splits,
                                                  s='extrapolate',
                                                  function='quantile',
                                                  kwrgs={'q':fc_type}).values
         else:
-            quantile = float(target_ts.quantile(fc_type))
+            _target_ts = target_ts.mean(0, level=1)
+            _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
+            quantile = float(_target_ts.quantile(fc_type))
         if fc_type >= 0.5:
             target_ts = (target_ts > quantile).astype(int)
         elif fc_type < .5:
@@ -761,8 +763,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 if nameTarget == 'Target*Signal':
                     _target_ts = target_ts_signal
                 if fc_type != 'continuous':
-
-                    if btoos != 'F':
+                    if btoos == '_T':
                         # quantile based on only training data, using the
                         # standardized-on-train Target
                         quantile = functions_pp.get_df_train(_target_ts,
@@ -834,7 +835,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
                                                 and fc_type != 'continuous':
                     # Unique case, Target is continuous -> convert to binary
                     _target_ts = prediction[['Target']]
-                    if btoos != 'F':
+                    if btoos == '_T':
                         quantile = functions_pp.get_df_train(_target_ts,
                                                              df_splits=rg.df_splits,
                                                              s='extrapolate',
@@ -932,7 +933,7 @@ for fc_type in ['continuous', 0.33, 0.66]:
 
             if nameTarget_fit == 'Target*Signal' and fc_type != 'continuous':
                 _target_ts = df_predictions[['Target']]
-                if btoos != 'F':
+                if btoos == '_T':
                     quantile = functions_pp.get_df_train(target_ts,
                                                          df_splits=rg.df_splits,
                                                          s='extrapolate',
