@@ -769,9 +769,9 @@ for fc_type in ['continuous', 0.33, 0.66]:
                     else:
                         quantile = float(target_ts.quantile(fc_type))
                     if fc_type >= 0.5:
-                        target_ts = (target_ts > quantile).astype(int)
+                        _target_ts = (_target_ts > quantile).astype(int)
                     elif fc_type < .5:
-                        target_ts = (target_ts < quantile).astype(int)
+                        _target_ts = (_target_ts < quantile).astype(int)
 
 
                 prediction_tuple = rg.fit_df_data_ridge(df_data=rg.df_CL_data,
