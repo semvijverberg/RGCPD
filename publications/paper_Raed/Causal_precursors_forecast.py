@@ -720,17 +720,17 @@ for fc_type in ['continuous', 0.33, 0.66]:
                 df_forcing = rg.df_forcing.mean(axis=1)
                 df_forcing = df_forcing.fillna(np.nanmean(
                                                 rg.df_forcing.values.ravel()))
-                if fc_type == 'continuous':
-                    df_forcing = pd.DataFrame(df_forcing, columns=[0])
+                # if fc_type == 'continuous':
+                df_forcing = pd.DataFrame(df_forcing, columns=[0])
 
-                    df_forcing = rg.transform_df_data(df_forcing.merge(rg.df_splits,
-                                                                   left_index=True,
-                                                                   right_index=True),
-                                          transformer=fc_utils.standardize_on_train)
-                    df_forcing = df_forcing[0]
-                else:
-                    halfmaxprob = df_forcing.max(axis=0, level=0)/2.
-                    df_forcing  = df_forcing.subtract(halfmaxprob, axis=0, level=0)
+                df_forcing = rg.transform_df_data(df_forcing.merge(rg.df_splits,
+                                                               left_index=True,
+                                                               right_index=True),
+                                      transformer=fc_utils.standardize_on_train)
+                df_forcing = df_forcing[0]
+                # else:
+                #     halfmaxprob = df_forcing.max(axis=0, level=0)/2.
+                #     df_forcing  = df_forcing.subtract(halfmaxprob, axis=0, level=0)
 
 
                 # target timeseries, standardize using training data
@@ -748,12 +748,12 @@ for fc_type in ['continuous', 0.33, 0.66]:
                                               {rg.df_data.columns[0]:
                                                f'Target * {rg.fc_month} signal'},
                                               axis=1)
-                if fc_type == 'continuous':
-                    _t = rg.transform_df_data
-                    target_ts_signal = _t(target_ts_signal.merge(rg.df_splits,
-                                                                 left_index=True,
-                                                                 right_index=True),
-                                          transformer=fc_utils.standardize_on_train)
+                # if fc_type == 'continuous':
+                _t = rg.transform_df_data
+                target_ts_signal = _t(target_ts_signal.merge(rg.df_splits,
+                                                             left_index=True,
+                                                             right_index=True),
+                                      transformer=fc_utils.standardize_on_train)
                 if nameTarget == 'Target':
                     _target_ts = target_ts
                 if nameTarget == 'Target*Signal':
