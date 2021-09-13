@@ -81,6 +81,8 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
 i_default = 0
+load = False
+save = True
 
 
 def parseArguments():
@@ -190,8 +192,7 @@ PacificBox = (130,265,-10,60)
 GlobalBox  = (-180,360,-10,60)
 USBox = (225, 300, 20, 60)
 
-load = 'all'
-save = False
+
 
 list_of_name_path = [(cluster_label, TVpath),
                        ('sst', os.path.join(path_raw, 'sst_1950-2019_1_12_monthly_1.0deg.nc')),
@@ -258,6 +259,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     rg.pp_TV(name_ds=name_ds, detrend={'method':'linear'}, ext_annual_to_mon=False,
              kwrgs_core_pp_time=kwrgs_core_pp_time)
     if method.split('_')[0]=='leave':
+        subfoldername += 'gp_prior_1_after_1'
         rg.traintest(method, gap_prior=1, gap_after=1, seed=seed,
                       subfoldername=subfoldername)
     else:

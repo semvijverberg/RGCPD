@@ -146,10 +146,7 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
     # RV_detrend=False;RV_anomaly=False;verbosity=1;
     # ext_annual_to_mon=True;TVdates_aggr=False; start_end_date=None; start_end_year=None
     # dailytomonths=False
-    if TVdates_aggr==False and tfreq is None:
-        raise ValueError('Combination not possible: TVdates_aggr=False and '
-                         'tfreq=None. Either aggregate over start_end_TVdate '
-                         'period or select n-bin aggregation with tfreq.')
+
 
     # For some incredibly inexplicable reason, fullts was not pickle, even after
     # copy or deepcopying the object. So I recreate the object now:
@@ -173,6 +170,13 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
     endyear = dates.year[-1]
     n_timesteps = dates.size
     n_yrs       = (endyear - startyear) + 1
+
+    if TVdates_aggr==False and tfreq is None and n_timesteps != n_yrs:
+        raise ValueError('Combination not possible: TVdates_aggr=False and '
+                         'tfreq=None and Target timeseries has more then 1 '
+                         'data point per year. Either aggregate over '
+                         'start_end_TVdate period or select n-bin aggregation '
+                         'with tfreq.')
 
     # align fullts with precursor import_ds_lazy()
     fullts = core_pp.xr_core_pp_time(fullts, seldates=start_end_date)
