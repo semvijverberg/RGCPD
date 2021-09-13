@@ -17,6 +17,7 @@ import pandas as pd
 # import sklearn.linear_model as scikitlinear
 from matplotlib import gridspec
 from matplotlib.offsetbox import TextArea, VPacker, AnnotationBbox
+import matplotlib.patches as mpatches
 
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
@@ -232,52 +233,114 @@ def plot_scores_wrapper(df_scores_list, df_boot_list, labels=None,
 
     return f
 
-def plot_forecast_ts(df_test_m, df_test, target_ts=None, fig_ax=None, fs=12,
+def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
+                     fig_ax=None, fs=12,
                      metrics_plot=None, name_model=None):
     #%%
     # fig_ax=None
+    alpha = .1
     fontsize = fs
-    if fig_ax is None:
-        fig = plt.figure(figsize=(12, 5))
-        gs = gridspec.GridSpec(1, 2, width_ratios=[2,1])
-        ax0 = plt.subplot(gs[0])
-        ax1 = plt.subplot(gs[1])
+    if fig_ax is None and df_forcings is None:
+        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(12,4),
+                             gridspec_kw={'width_ratios':[3.5,1]},
+                             sharex=True, sharey=True)
+    if fig_ax is None and df_forcings is not None:
+        fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(12,4),
+                             gridspec_kw={'width_ratios':[3.5,1],
+                                          'height_ratios':[3,1]},
+                             sharex=True, sharey=False)
     else:
         fig, axs = fig_ax
-        if type(axs) is np.ndarray:
-            ax0 = axs[0]
-            ax1 = axs[1]
 
-    if target_ts is not None:
-        ax0.plot_date(df_test.index, target_ts.loc[df_test.index],
-                      ls='--', c='grey', label='Observed', marker=None)
-        ax0.plot_date(df_test.index, df_test.iloc[:,0], ls='-',
-                  label='Potential Predictable Signal', c='black')
+
+    if axs.size==4:
+        ax0u, ax0b = axs.reshape(-1)[[0,2]]
+        ax1u, ax1b = axs.reshape(-1)[[1,3]]
     else:
-        ax0.plot_date(df_test.index, df_test.iloc[:,0], ls='-',
-                  label='Observed', c='black')
+        ax0u = axs[0]
+        ax1u = axs[1]
 
+
+    if df_forcings is not None and axs.size==4:
+        col = [c for c in df_forcings.columns if df_test.columns[1] in c]
+        # forc_name = col[0].split('\n')[-1]
+        mean = df_forcings[col].mean(0,level=1)
+        std = df_forcings[col].std(0,level=1) * 2
+
+        # identify strong forcing dates
+        q_th = df_forcings.columns.name/100
+        low = float(mean.quantile(q_th/2))
+        high = float(mean.quantile(1-q_th/2))
+        markercolor = np.repeat(['black'], mean.size)
+        mean_np = mean.values.ravel()
+        for i, dp in enumerate(mean_np):
+            if dp > high:
+                markercolor[i] = 'red'
+            elif dp < low:
+                markercolor[i] = 'blue'
+        markersize = np.round((np.abs(mean_np)+3)**3,0)
+
+
+        ax0b.plot_date(df_test.index, mean.loc[df_test.index],
+                      ls='--', c='green', alpha=.7, lw=1,
+                      markeredgecolor='black',
+                      markerfacecolor='green',
+                      label=mean.columns[0]+' Signal', markersize=4)
+        ax0b.fill_between(df_test.index, (mean-std).values.ravel(),
+                          (mean+std).values.ravel(), fc='limegreen')
+
+        ax0b.axhline(low, lw=0.5, c='grey')
+        ax0b.axhline(high, lw=0.5, c='grey')
+
+        bound_low = np.repeat(-3.,mean.size) ; bound_low[mean_np > low] = low
+        bound_high = np.repeat(3.,mean.size) ; bound_high[mean_np < high] = high
+        ax0b.fill_between(df_test.index, np.repeat(low, mean.size),
+                          bound_low, fc='blue', alpha=.3)
+        ax0b.fill_between(df_test.index, np.repeat(high, mean.size),
+                          bound_high, fc='red', alpha=.3)
+        # bound_low = np.repeat(0.90,mean.size) ; bound_low[mean_np > low] = 1.0
+        # bound_high = np.repeat(0.1,mean.size) ; bound_high[mean_np < high] = 0.
+        # ax0u.fill_between(df_test.index, np.repeat(1., mean.size),
+        #                   bound_low, fc='blue', alpha=.3)
+        # ax0u.fill_between(df_test.index, np.repeat(0., mean.size),
+        #                   bound_high, fc='red', alpha=.3)
+        # ax0b.legend(loc='lower center', fontsize=fs-4,
+        #             bbox_to_anchor = (0,-0.06,0.4,1))
+        ax0b.set_title(col[0] + ' Signal', fontsize=fs-2, y=0.95)
+        table_col = [d.index[0] for d in df_test_m][1:]
+        y_title = .99
+    else:
+        markercolor = 'black'
+        markersize = 1
+        table_col = 'S>50%'
+        y_title = .95
+
+    ax0u.plot_date(df_test.index, df_test.iloc[:,0], ls='-',
+                   label='Observed', c='black', marker=None)
+    ax0u.scatter(df_test.index, df_test.iloc[:,0], ls='-',
+                   label=None, c=markercolor, s=markersize)
     if name_model is None:
         name_model = 'Prediction'
 
-    ax0.plot_date(df_test.index, df_test.iloc[:,1], ls='-', c='red',
+    ax0u.plot_date(df_test.index, df_test.iloc[:,1], ls='-', c='orange',
                   label=name_model)
 
     # ax0.set_xticks()
     # ax0.set_xticklabels(df_test.index.year,
     # ax0.set_ylabel('Standardized Soy Yield', fontsize=fontsize)
-    ax0.tick_params(labelsize=fontsize)
-    ax0.axhline(y=0, color='black', lw=1)
+    ax0u.tick_params(labelsize=fontsize)
+
 
     if type(df_test_m) is not list:
         df_test_m = [df_test_m]
-    order_verif = ['Target', 'Target | Signal']
+    order_verif = ['All'] + table_col
     df_scores = []
     for i, df_test_skill in enumerate(df_test_m):
         r = {df_test_skill.index[0]:order_verif[i]}
         df_scores.append( df_test_skill.rename(r, axis=0) )
     df_scores = pd.concat(df_scores, axis=1)
     df_scores = df_scores.T.reset_index().pivot_table(index='index')
+    df_scores = df_scores[order_verif]
     # df_scores = df_scores.T.reset_index().pivot_table(index='index',
                                                       # columns=0)[0]
 
@@ -289,41 +352,70 @@ def plot_forecast_ts(df_test_m, df_test, target_ts=None, fig_ax=None, fs=12,
         # textprops = dict(color='black', fontsize=fontsize, family='serif')
     rename_met = {'RMSE':'RMSE-SS', 'corrcoef':'Corr.', 'MAE':'MAE-SS',
                   'BSS':'BSS', 'roc_auc_score':'ROC-AUC', 'r2_score':'$r^2$',
-                  'mean_absolute_percentage_error':'MAPE'}
+                  'mean_absolute_percentage_error':'MAPE', 'AUC_SS':'AUC-SS',
+                  'precision':'Precision', 'accuracy':'Accuracy'}
     if metrics_plot is None:
         metrics_plot = df_scores.index
 
-    table = ax1.table(cellText=np.round(df_scores.loc[metrics_plot].values, 2),
+
+    if df_boots_list is not None:
+        bootlow = [] ; boothigh = []
+        for i, df_b in enumerate(df_boots_list):
+            _l = pd.DataFrame(df_b.quantile(alpha)).T
+            _h = pd.DataFrame(df_b.quantile(1-alpha)).T
+            bootlow.append( _l.rename({_l.index[0]:order_verif[i]}, axis=0) )
+            boothigh.append( _h.rename({_h.index[0]:order_verif[i]}, axis=0) )
+        bootlow = pd.concat(bootlow, axis=1)
+        bootlow = bootlow.T.reset_index().pivot_table(index='index')
+        boothigh = pd.concat(boothigh, axis=1)
+        boothigh = boothigh.T.reset_index().pivot_table(index='index')
+        tbl = bootlow.loc[metrics_plot].values
+        tbh = boothigh.loc[metrics_plot].values
+
+    tsc = df_scores.loc[metrics_plot].values
+    tscs = np.zeros(tsc.shape, dtype=object)
+    for i, m in enumerate(metrics_plot):
+        _sc_ = tsc[i]
+        if 'prec' in m or 'acc' in m:
+            sc_f = ['{:.0f}%'.format(round(s,0)) for s in _sc_.ravel()]
+            if df_boots_list is not None:
+                for j, s in enumerate(zip(tbl[i], tbh[i])):
+                    sc_f[j] = sc_f[j].replace('%', r'$_{{{:.0f}}}^{{{:.0f}}}$%'.format(*s))
+        else:
+            sc_f = ['{:.2f}'.format(round(s,2)) for s in tsc[i].ravel()]
+
+            if df_boots_list is not None:
+                for j, s in enumerate(zip(tbl[i], tbh[i])):
+                    sc_f[j] = sc_f[j] + r'$_{{{:.2f}}}^{{{:.2f}}}$'.format(*s)
+        tscs[i] = sc_f
+
+
+    table = ax1u.table(cellText=tscs,
                       cellLoc='center',
                       rowLabels=[rename_met[m] for m in metrics_plot],
                       colLabels=df_scores.columns, loc='center',
                       edges='closed')
-    table.scale(1.1, 1.5)
-    table.set_fontsize(fontsize+4)
-    # ax0.secondary_xaxis('right', functions=(deg2rad, rad2deg))
-    # plt.table(['{:.2f}'.format(t) for t in df_scores[metrics_plot].values])
-        # for k in metrics_plot:
-        #     label = rename_met[k]
-        #     val = round(df_scores[k], 2)
-        #     Texts1.append(TextArea(f'{label}',textprops=textprops))
-        #     Texts2.append(TextArea(f'{val}',textprops=textprops))
-        # texts_vbox1 = VPacker(children=Texts1,pad=0,sep=4)
-        # texts_vbox2 = VPacker(children=Texts2,pad=0,sep=4)
-
-        # ann1 = AnnotationBbox(texts_vbox1,(1.02+y_offset,0.5),xycoords=ax0.transAxes,
-        #                             box_alignment=(0,.5),
-        #                             bboxprops = dict(facecolor='grey', alpha=.5,
-        #                                              boxstyle='round',edgecolor='white'))
-        # ann2 = AnnotationBbox(texts_vbox2,(1.15+y_offset,0.5),xycoords=ax0.transAxes,
-        #                             box_alignment=(0,.5),
-        #                             bboxprops = dict(facecolor='grey', alpha=.5,
-        #                                              boxstyle='round',edgecolor='white'))
-        # ann1.set_figure(fig) ; ann2.set_figure(fig)
-        # fig.artists.append(ann1) ; fig.artists.append(ann2)
-    ax0.set_title(df_test.columns[1] + ' forecast', fontsize=fs, y=.95)
-    ax1.axis('off')
-    ax1.axis('tight')
-    ax1.set_facecolor('white')
+    if len(df_test_m) == 2:
+        table.scale(0.9, 1.7)
+    elif len(df_test_m) == 3:
+        table.scale(1.30, 1.9)
+    table.set_fontsize(fontsize+2)
+    ax0u.set_title(df_test.columns[1] + ' forecast', fontsize=fs, y=y_title)
+    ax1u.axis('off') ; ax1b.axis('off')
+    ax1u.axis('tight') ; ax1b.axis('tight')
+    ax1u.set_facecolor('white') ; ax1b.set_facecolor('white')
+    if 'BSS' in metrics_plot:
+        ax0u.set_ylim(-0.05,1.05)
+        ax0u.set_ylabel('Prob. Forecast', labelpad=3)
+    else:
+        ax0u.axhline(y=0, color='black', lw=1)
+        ax0u.set_ylim(-3.05,3.05)
+        ax0u.set_ylabel('Forecast')
+    if df_forcings is not None and axs.size==4:
+        ax0b.set_ylim(-3.05,3.05)
+        ax0b.set_yticks(np.arange(-3,3.1,3))
+        ax0b.set_yticklabels(np.arange(-3,3.1,3))
+        # ax0b.set_ylabel('Signal')
     #%%
     return
 
@@ -505,11 +597,11 @@ def to_df_scores_format(d_dfscores, condition='50% strong'):
     metrics_ = [t[0] for t in d_dfscores['df_cond'].index][::steps]
     df_scores = pd.DataFrame(df_scores, columns=pd.MultiIndex.from_product([months, metrics_]))
     df_boot = pd.DataFrame(df_boot, columns=pd.MultiIndex.from_product([months, metrics_]))
-    df_scores.index = [0]
+    df_scores.index = [condition]
     return df_scores, df_boot
 
 def load_scores(list_labels, model_name_CL, model_name, n_boot,
-                filepath_df_datas, condition='strong 50%'):
+                filepath_df_datas, condition=None):
 
     df_scores_list = [] ; df_boot_list = []; df_predictions = []
     for label in list_labels:
@@ -534,9 +626,16 @@ def load_scores(list_labels, model_name_CL, model_name, n_boot,
                         f'{nameTargetfit}_Target_{n_boot}_CF'
             filepath_dfs = os.path.join(filepath_df_datas, df_file)
             d_dfscores = functions_pp.load_hdf5(filepath_dfs+'.h5')
-            df_scores, df_boot = to_df_scores_format(d_dfscores, condition)
-            df_scores_list.append(df_scores)
-            df_boot_list.append(df_boot)
+            if condition is None:
+                conditions = [c for c in d_dfscores['df_cond'].columns if 'str' in c]
+            elif type(condition) is str:
+                conditions  = [condition]
+            else:
+                conditions   = condition
+            for con in conditions:
+                df_scores, df_boot = to_df_scores_format(d_dfscores, con)
+                df_scores_list.append(df_scores)
+                df_boot_list.append(df_boot)
 
     return df_scores_list, df_boot_list, df_predictions
 

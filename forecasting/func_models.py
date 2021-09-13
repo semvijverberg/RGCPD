@@ -340,11 +340,24 @@ class ErrorSkillScore:
         self.BS_bench = metrics.brier_score_loss(y_true, self.b_)
         return (self.BS_bench - self.brier_score) / self.BS_bench
 
-    def AUC_SS(self, y_true, y_pred):
-        # from http://bibliotheek.knmi.nl/knmipubIR/IR2018-01.pdf eq. 1
-        self.auc_score = metrics.roc_auc_score(y_true, y_pred)
-        auc_bench = .5
-        return (self.auc_score - auc_bench) / (1-auc_bench)
+class binary_score:
+    def __init__(self, threshold: float=0.5):
+        self.threshold = threshold
+
+    def precision(self, y_true, y_pred):
+        y_pred_b = y_pred > self.threshold
+        return int(metrics.precision_score(y_true, y_pred_b)*100)
+
+    def accuracy(self, y_true, y_pred):
+        y_pred_b = y_pred > self.threshold
+        return int(metrics.accuracy_score(y_true, y_pred_b)*100)
+
+
+def AUC_SS(y_true, y_pred):
+    # from http://bibliotheek.knmi.nl/knmipubIR/IR2018-01.pdf eq. 1
+    auc_score = metrics.roc_auc_score(y_true, y_pred)
+    auc_bench = .5
+    return (auc_score - auc_bench) / (1-auc_bench)
 
 class CRPSS_vs_constant_bench:
     def __init__(self, constant_bench: float=False, return_mean=True,

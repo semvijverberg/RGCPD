@@ -33,6 +33,7 @@ from time import sleep
 import itertools, os, re
 from matplotlib import gridspec
 from matplotlib.offsetbox import TextArea, VPacker, AnnotationBbox
+import matplotlib.patches as mpatches
 
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
@@ -798,6 +799,17 @@ for fc_type in ['continuous', 0.33]:
                 prediction_tuple = (prediction, weights, models_lags)
                 rg.prediction_tuple = prediction_tuple
 
+                if 'RandomForest' in fcmodel.scikitmodel.__name__:
+                    #%% Check RF tuning
+                    try:
+                        import scikit_model_analysis as sk_ana
+                        model = models_lags['lag_0'][f'split_{0}']
+                        f = sk_ana.ensemble_error_estimators(fcmodel, kwrgs_model)
+                        f.savefig(os.path.join(filepath_verif,
+                                               f'RF_tuning_{rg.fc_month}.pdf'), bbox_inches='tight')
+                    except:
+                        pass
+
             # store output predictions of each month per model
             model_name = fcmodel.scikitmodel.__name__
             df_predictions, df_w_save = utils_paper3.df_predictions_for_plot(rg_list)
@@ -808,6 +820,8 @@ for fc_type in ['continuous', 0.33]:
     verif_combs = [['Target', 'Target'],
                    ['Target*Signal', 'Target']]
 
+    model_name_CL, model_name = model_combs[0] # for testing
+    nameTarget_fit, nameTarget = verif_combs[0] # for testing
     for model_name_CL, model_name in model_combs:
         for nameTarget_fit, nameTarget in verif_combs:
 
@@ -867,7 +881,9 @@ for fc_type in ['continuous', 0.33]:
                 else:
                     # benchmark is clim. probability
                     BSS = fc_utils.ErrorSkillScore(constant_bench=fc_type).BSS
-                    score_func_list = [BSS, fc_utils.metrics.roc_auc_score]
+                    score_func_list = [BSS, fc_utils.metrics.roc_auc_score,
+                                   fc_utils.binary_score(threshold=fc_type).accuracy,
+                                   fc_utils.binary_score(threshold=fc_type).precision]
 
                 metric_names = [s.__name__ for s in score_func_list]
                 verification_tuple = fc_utils.get_scores(prediction,
@@ -940,9 +956,9 @@ for fc_type in ['continuous', 0.33]:
                                                          function='quantile',
                                                          kwrgs={'q':fc_type}).values
                 else:
-                    _target_ts = _target_ts.mean(0, level=1)
-                    _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
-                    quantile = float(_target_ts.quantile(fc_type))
+                    __target_ts = _target_ts.mean(0, level=1)
+                    __target_ts = (__target_ts - __target_ts.mean()) / __target_ts.std()
+                    quantile = float(__target_ts.quantile(fc_type))
                 if fc_type >= 0.5:
                     _target_ts = (_target_ts > quantile).astype(int)
                 elif fc_type < .5:
@@ -969,7 +985,9 @@ for fc_type in ['continuous', 0.33]:
             else:
                 # benchmark is clim. probability
                 BSS = fc_utils.ErrorSkillScore(constant_bench=fc_type).BSS
-                score_func_list = [BSS, fc_utils.metrics.roc_auc_score]
+                score_func_list = [BSS, fc_utils.metrics.roc_auc_score,
+                                   fc_utils.binary_score(threshold=fc_type).accuracy,
+                                   fc_utils.binary_score(threshold=fc_type).precision]
 
             df_cond = utils_paper3.cond_forecast_table(rg_list, score_func_list,
                                                        df_predictions,
@@ -1008,42 +1026,30 @@ for fc_type in ['continuous', 0.33]:
                              ['Ridge', 'RandomForestRegressor'],
                              ['RandomForestRegressor', 'RandomForestRegressor']]
     else:
-        metrics_plot = ['BSS', 'roc_auc_score']
+        metrics_plot = ['BSS', 'accuracy', 'precision'] # 'roc_auc_score',
         model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
                              ['LogisticRegression', 'RandomForestClassifier'],
                              ['RandomForestClassifier', 'RandomForestClassifier']]
 
 
+    condition = ['strong 50%', 'strong 30%']
+    df_forcings = []
+    rename_f = {'Pacific+SM':'Pac.+SM', 'only_Pacific':'Pac.'}
+    for i, rg in enumerate(rg_list):
+        df_forcings.append(pd.DataFrame(rg.df_forcing.mean(axis=1),
+                            columns=[f'{rg.fc_month} '+rename_f[regions[i]]]))
+    df_forcings = pd.concat(df_forcings, axis=1)
+    # standardize for easy visualization
+    df_forcings = rg.transform_df_data(df_forcings.merge(rg.df_splits,
+                                             left_index=True,
+                                             right_index=True),
+                      transformer=fc_utils.standardize_on_train)
+    df_forcings.columns.name = int(condition[0][-3:-1])
+
     fc_month_list = [rg.fc_month for rg in rg_list]
-    # fig = plt.figure(figsize=(12, 5))
-    fig, axes = plt.subplots(nrows=len(fc_month_list), ncols=2, figsize=(12,10),
-                             gridspec_kw={'width_ratios':[4,1]},
-                             sharex=True, sharey=True)
     print('Plotting timeseries')
+    model_name_CL, model_name = model_combs_plot[0]
     for model_name_CL, model_name in model_combs_plot:
-        # for i, (nameTarget_fit, nameTarget) in enumerate(verif_combs):
-
-        # load df_scores
-        # nameTarget_fit = 'Target*Signal'
-        # nameTarget = 'Target'
-        # df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
-        #             f'{nameTarget_fit}_{nameTarget}_{n_boot}_CF.h5'
-        # filepath_dfs = os.path.join(filepath_df_datas, df_file)
-        # d_dfscores = functions_pp.load_hdf5(filepath_dfs)
-
-        # nameTarget_fit = 'Target*Signal'
-        # nameTarget = 'Target'
-        # df_file = f'scores_cont_CL{model_name_CL}_{model_name}_'\
-        #             f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5'
-        # filepath_dfs = os.path.join(filepath_df_datas, df_file)
-        # d_dfscores_T = functions_pp.load_hdf5(filepath_dfs)
-
-
-        # f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
-        #                                             f'{nameTarget_fit}.h5'
-        # filepath_dfs = os.path.join(filepath_df_datas, f_name)
-        # d_dfpreds = functions_pp.load_hdf5(filepath_dfs)
-
         print(model_name_CL, model_name)
         if 'RandomForest' in model_name:
             name = 'RF'
@@ -1056,52 +1062,59 @@ for fc_type in ['continuous', 0.33]:
 
         target_options = [['Target', 'Target | PPS'],
                           ['Target (fitPPS)', 'Target (fitPPS) | PPS']]
-        condition = 'strong 50%'
+
         print('Plotting skill scores')
         for i, target_opt in enumerate(target_options):
-            fig, axes = plt.subplots(nrows=len(fc_month_list), ncols=2, figsize=(12,10),
-                             gridspec_kw={'width_ratios':[4,1]},
-                             sharex=True, sharey=True)
+
+            fig, axes = plt.subplots(nrows=len(fc_month_list)*2, ncols=2,
+                                     figsize=(12,17),
+                                     gridspec_kw={'width_ratios':[3.4,1],
+                                          'height_ratios':[3,1] * len(fc_month_list)},
+                             sharex=True, sharey=False)
             out = utils_paper3.load_scores(target_opt, model_name_CL, model_name,
                                        n_boot, filepath_df_datas,
                                        condition=condition)
 
             df_scores, df_boots, df_preds = out
             for m, fc_month in enumerate(fc_month_list):
-                axs = axes[m]
+                axs = axes[m*2:m*2+2]
                 ax = axs[0]
                 df_test_m = [d[fc_month] for d in df_scores]
+                df_boots_list = [d[fc_month] for d in df_boots]
                 df_test  = df_preds[0][['Target', fc_month]]
                 df_test = functions_pp.get_df_test(df_test,
                                            df_splits=rg_list[m].df_splits)
-                if fc_type != 'continuous':
+                if fc_type != 'continuous' and any(['(fitPPS)' in t for t in target_opt]):
                     if fc_type >= 0.5:
                         df_test[['Target']] = (df_test[['Target']] > \
-                                   df_test[['Target']].quantile(fc_type)).astype(int)
+                                    df_test[['Target']].quantile(fc_type)).astype(int)
                     elif fc_type < .5:
                         df_test[['Target']] = (df_test[['Target']] < \
-                                   df_test[['Target']].quantile(fc_type)).astype(int)
+                                    df_test[['Target']].quantile(fc_type)).astype(int)
 
-                utils_paper3.plot_forecast_ts(df_test_m, df_test,
-                                              target_ts=df_test[['Target']],
+                fig = utils_paper3.plot_forecast_ts(df_test_m, df_test,
+                                              df_forcings=df_forcings,
+                                              df_boots_list=df_boots_list,
                                               fig_ax=(fig, axs),
                                               fs=11,
                                               metrics_plot=metrics_plot,
                                               name_model=f'CL-{name_CL} -> {name}')
-                if fc_type == 'continuous':
-                    ax.set_ylim(-3,3)
-                    ax.set_yticks(np.arange(-3,3.1,1))
-                else:
-                    ax.set_ylim(-0.1,1.1)
-                    ax.set_yticks(np.arange(0,1.01,.5))
-                ax.margins(x=.02)
+                ax[0].margins(x=.02)
                 if m == 0:
-                    ax.legend(fontsize=10, loc='lower left')
-
-
-            fig.savefig(os.path.join(filepath_verif,
-                     f'timeseries_and_skill_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
-            plt.close()
+                    ax[0].legend(fontsize=10, loc='center left')
+                    ax1b = axs[1][1]
+                    q_th = int(condition[0][-3:-1])
+                    red_patch = mpatches.Patch(color='red', alpha=.3,
+                        label=f'S>{int((100-q_th/2))}th percentile')
+                    blue_patch = mpatches.Patch(color='blue', alpha=.3,
+                        label=f'S<{int((q_th/2))}th percentile')
+                    ax1b.legend(handles=[red_patch, blue_patch], loc='center',
+                                  bbox_to_anchor = (0,0,0.2,1), fontsize=10)
+            plt.subplots_adjust(hspace=.3)
+            break
+            # fig.savefig(os.path.join(filepath_verif,
+            #          f'timeseries_and_skill_{i}_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
+            # plt.close()
     #%% Continuous forecast: plotting skill scores
     # import utils_paper3
     if fc_type == 'continuous':
@@ -1116,11 +1129,7 @@ for fc_type in ['continuous', 0.33]:
                              ['RandomForestClassifier', 'RandomForestClassifier']]
 
 
-    # model_combs_plot = [['RandomForestRegressor', 'RandomForestRegressor']]
     fc_month_list = [rg.fc_month for rg in rg_list]
-    # fig = plt.figure(figsize=(12, 5))
-
-
     target_options = [['Target', 'Target (fitPPS)'],
                       ['Target', 'Target | PPS', 'Target (fitPPS) | PPS']]
     condition = 'strong 50%'
@@ -1164,15 +1173,7 @@ for fc_type in ['continuous', 0.33]:
         fig.savefig(os.path.join(filepath_verif,
                                  f'scores_vs_lags_{i}.pdf'), bbox_inches='tight')
         plt.close()
-    #%% Check RF tuning
-    try:
-        import scikit_model_analysis as sk_ana
-        model = models_lags['lag_0'][f'split_{0}']
-        f = sk_ana.ensemble_error_estimators(model2_tuple[1], kwrgs_model2)
-        f.savefig(os.path.join(filepath_verif,
-                               'RF_tuning.pdf'), bbox_inches='tight')
-    except:
-        pass
+
 
 #%% PDO versus trend line
 import climate_indices
