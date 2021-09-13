@@ -33,7 +33,7 @@ from time import sleep
 import itertools, os, re
 from matplotlib import gridspec
 from matplotlib.offsetbox import TextArea, VPacker, AnnotationBbox
-import matplotlib.patches as mpatches
+from matplotlib.lines import Line2D
 
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
@@ -71,16 +71,16 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 
 
 target_datasets = ['USDA_Soy_clusters__1']
-seeds = [1,2,3] # ,5]
+seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['timeseriessplit_30', 'ranstrat_20'] # ['ranstrat_20'] timeseriessplit_30
+methods = ['leave_1', 'timeseriessplit_20', 'ranstrat_20'] # ['ranstrat_20'] timeseriessplit_30
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 4
+i_default = 0
 
 
 def parseArguments():
@@ -257,11 +257,11 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     kwrgs_core_pp_time = {'start_end_year': TV_start_end_year}
     rg.pp_TV(name_ds=name_ds, detrend={'method':'linear'}, ext_annual_to_mon=False,
              kwrgs_core_pp_time=kwrgs_core_pp_time)
-    # if method.split('_')[0]=='leave':
-    #     rg.traintest(method, gap_prior=1, gap_after=1, seed=seed,
-    #                  subfoldername=subfoldername)
-    # else:
-    rg.traintest(method, seed=seed, subfoldername=subfoldername)
+    if method.split('_')[0]=='leave':
+        rg.traintest(method, gap_prior=1, gap_after=1, seed=seed,
+                      subfoldername=subfoldername)
+    else:
+        rg.traintest(method, seed=seed, subfoldername=subfoldername)
 
 
     #%%
@@ -541,12 +541,13 @@ rg = rg_list[0]
 # =============================================================================
 btoos = '' # if btoos=='_T': binary target out of sample.
 for fc_type in ['continuous', 0.33]:
+    #%% Continuous forecast: get Combined Lead time models
     filepath_df_datas = os.path.join(rg.path_outsub1, f'df_data_{str(fc_type)}{btoos}')
     os.makedirs(filepath_df_datas, exist_ok=True)
     filepath_verif = os.path.join(rg.path_outsub1, f'verif_{str(fc_type)}{btoos}')
     os.makedirs(filepath_verif, exist_ok=True)
 
-    #%% Continuous forecast: get Combined Lead time models
+
     if fc_type == 'continuous':
         from sklearn.linear_model import Ridge, LogisticRegression
         from stat_models_cont import ScikitModel
@@ -800,7 +801,7 @@ for fc_type in ['continuous', 0.33]:
                 rg.prediction_tuple = prediction_tuple
 
                 if 'RandomForest' in fcmodel.scikitmodel.__name__:
-                    #%% Check RF tuning
+                    #Check RF tuning
                     try:
                         import scikit_model_analysis as sk_ana
                         model = models_lags['lag_0'][f'split_{0}']
@@ -1019,7 +1020,7 @@ for fc_type in ['continuous', 0.33]:
         # rg.verification_tuple_c_o  = verification_tuple_c_o
 
     #%% Plotting Continuous forecast timeseries
-    # import utils_paper3
+    import utils_paper3
     if fc_type == 'continuous':
         metrics_plot = ['corrcoef', 'MAE', 'r2_score']
         model_combs_plot  = [['Ridge', 'Ridge'],
@@ -1034,10 +1035,11 @@ for fc_type in ['continuous', 0.33]:
 
     condition = ['strong 50%', 'strong 30%']
     df_forcings = []
-    rename_f = {'Pacific+SM':'Pac.+SM', 'only_Pacific':'Pac.'}
+    rename_f = {'Pacific+SM':'mean over standardized eastern Pacific + Soil Moisture timeseries',
+                'only_Pacific':'mean over standardized eastern Pacific timeseries'}
     for i, rg in enumerate(rg_list):
         df_forcings.append(pd.DataFrame(rg.df_forcing.mean(axis=1),
-                            columns=[f'{rg.fc_month} '+rename_f[regions[i]]]))
+                            columns=[f'{rg.fc_month} Signal (S): '+rename_f[regions[i]]]))
     df_forcings = pd.concat(df_forcings, axis=1)
     # standardize for easy visualization
     df_forcings = rg.transform_df_data(df_forcings.merge(rg.df_splits,
@@ -1054,11 +1056,11 @@ for fc_type in ['continuous', 0.33]:
         if 'RandomForest' in model_name:
             name = 'RF'
         elif model_name == 'Ridge' or model_name=='LogisticRegression':
-            name = 'Ridge' if fc_type =='continuous' else 'LR'
+            name = 'Ridge' if fc_type =='continuous' else 'Logist. Regr.'
         if 'RandomForest' in model_name_CL:
             name_CL = 'RF'
         elif model_name_CL == 'Ridge' or model_name=='LogisticRegression':
-            name_CL = 'Ridge' if fc_type =='continuous' else 'LR'
+            name_CL = 'Ridge' if fc_type =='continuous' else 'Logist. Regr.'
 
         target_options = [['Target', 'Target | PPS'],
                           ['Target (fitPPS)', 'Target (fitPPS) | PPS']]
@@ -1067,7 +1069,7 @@ for fc_type in ['continuous', 0.33]:
         for i, target_opt in enumerate(target_options):
 
             fig, axes = plt.subplots(nrows=len(fc_month_list)*2, ncols=2,
-                                     figsize=(12,17),
+                                     figsize=(17,19),
                                      gridspec_kw={'width_ratios':[3.4,1],
                                           'height_ratios':[3,1] * len(fc_month_list)},
                              sharex=True, sharey=False)
@@ -1092,7 +1094,7 @@ for fc_type in ['continuous', 0.33]:
                         df_test[['Target']] = (df_test[['Target']] < \
                                     df_test[['Target']].quantile(fc_type)).astype(int)
 
-                fig = utils_paper3.plot_forecast_ts(df_test_m, df_test,
+                utils_paper3.plot_forecast_ts(df_test_m, df_test,
                                               df_forcings=df_forcings,
                                               df_boots_list=df_boots_list,
                                               fig_ax=(fig, axs),
@@ -1101,20 +1103,31 @@ for fc_type in ['continuous', 0.33]:
                                               name_model=f'CL-{name_CL} -> {name}')
                 ax[0].margins(x=.02)
                 if m == 0:
-                    ax[0].legend(fontsize=10, loc='center left')
+                    ax[0].legend(fontsize=10, loc='upper left')
                     ax1b = axs[1][1]
-                    q_th = int(condition[0][-3:-1])
-                    red_patch = mpatches.Patch(color='red', alpha=.3,
-                        label=f'S>{int((100-q_th/2))}th percentile')
-                    blue_patch = mpatches.Patch(color='blue', alpha=.3,
-                        label=f'S<{int((q_th/2))}th percentile')
-                    ax1b.legend(handles=[red_patch, blue_patch], loc='center',
-                                  bbox_to_anchor = (0,0,0.2,1), fontsize=10)
-            plt.subplots_adjust(hspace=.3)
-            break
-            # fig.savefig(os.path.join(filepath_verif,
-            #          f'timeseries_and_skill_{i}_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
-            # plt.close()
+                    qs = [int(c[-3:-1]) for c in condition]
+                    sizes = [6, 10] ;
+                    colors = [['#e76f51', '#61a5c2'], ['#d00000', '#3f37c9']]
+                    handles = []
+                    for j, qth in enumerate(qs):
+                        handles.append(Line2D([0],[0], color='white', lw=0.1,
+                                              marker='o', markersize=sizes[j],
+                                              markerfacecolor=colors[j][0],
+                            label=f'S>{int((100-qth/2))}p'))
+                        handles.append(Line2D([0],[0], color='white', lw=0.1,
+                                              marker='o', markersize=sizes[j],
+                                              markerfacecolor=colors[j][1],
+                            label=f'S<{int((qth/2))}p'))
+
+                    ax1b.legend(handles=handles, loc='center', ncol=2,
+                                  bbox_to_anchor = (0,0,0.1,1), fontsize=12,
+                                  facecolor='white',
+                                  title='Top 50%          Top 30%')
+            plt.subplots_adjust(hspace=.4)
+
+            fig.savefig(os.path.join(filepath_verif,
+                      f'timeseries_and_skill_{i}_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
+            plt.close()
     #%% Continuous forecast: plotting skill scores
     # import utils_paper3
     if fc_type == 'continuous':
@@ -1132,7 +1145,6 @@ for fc_type in ['continuous', 0.33]:
     fc_month_list = [rg.fc_month for rg in rg_list]
     target_options = [['Target', 'Target (fitPPS)'],
                       ['Target', 'Target | PPS', 'Target (fitPPS) | PPS']]
-    condition = 'strong 50%'
     print('Plotting skill scores')
     for i, target_opt in enumerate(target_options):
         fig, axes = plt.subplots(nrows=len(model_combs_plot), ncols=len(metrics_plot),
@@ -1154,7 +1166,7 @@ for fc_type in ['continuous', 0.33]:
 
             out = utils_paper3.load_scores(target_opt, model_name_CL, model_name,
                                            n_boot, filepath_df_datas,
-                                           condition=condition)[:2]
+                                           condition='strong 50%')[:2]
             df_scores_list, df_boot_list = out
 
 

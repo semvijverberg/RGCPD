@@ -241,11 +241,11 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
     alpha = .1
     fontsize = fs
     if fig_ax is None and df_forcings is None:
-        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(12,4),
+        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(16,4),
                              gridspec_kw={'width_ratios':[3.5,1]},
                              sharex=True, sharey=True)
     if fig_ax is None and df_forcings is not None:
-        fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(12,4),
+        fig, axs = plt.subplots(nrows=2, ncols=2, figsize=(16,4),
                              gridspec_kw={'width_ratios':[3.5,1],
                                           'height_ratios':[3,1]},
                              sharex=True, sharey=False)
@@ -262,52 +262,53 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
 
 
     if df_forcings is not None and axs.size==4:
+        table_col = [d.index[0] for d in df_test_m][1:]
         col = [c for c in df_forcings.columns if df_test.columns[1] in c]
         # forc_name = col[0].split('\n')[-1]
         mean = df_forcings[col].mean(0,level=1)
         std = df_forcings[col].std(0,level=1) * 2
 
         # identify strong forcing dates
-        q_th = df_forcings.columns.name/100
-        low = float(mean.quantile(q_th/2))
-        high = float(mean.quantile(1-q_th/2))
+        qs = [int(t[-3:-1]) for t in table_col]
+        sizes = [30, 75] #; ls = ['-','-.']
+        colors = [['#e76f51', '#61a5c2'], ['#d00000', '#3f37c9']]
         markercolor = np.repeat(['black'], mean.size)
-        mean_np = mean.values.ravel()
-        for i, dp in enumerate(mean_np):
-            if dp > high:
-                markercolor[i] = 'red'
-            elif dp < low:
-                markercolor[i] = 'blue'
-        markersize = np.round((np.abs(mean_np)+3)**3,0)
+        markercolor = np.array(markercolor, dtype='object')
+        markersize = np.repeat(10, mean.size)
+        for i, q_th in enumerate(qs):
+            low = float(mean.quantile(q_th/200))
+            high = float(mean.quantile(1-q_th/200))
 
+            mean_np = mean.values.ravel()
+            for j, dp in enumerate(mean_np):
+                if dp > high:
+                    markercolor[j] = colors[i][0]
+                    markersize [j] = sizes[i]
+                elif dp < low:
+                    markercolor[j] = colors[i][1]
+                    markersize [j] = sizes[i]
+            # markersize = np.round((np.abs(mean_np)+3)**3,0)
+            markercolor_S = markercolor.copy()
+            markercolor_S[markercolor_S == 'black'] = 'black'
+            # ax0b.axhline(low, lw=0.5, c='grey', ls=ls[i])
+            # ax0b.axhline(high, lw=0.5, c='grey', ls=ls[i])
+            ax0b.axhline(0, lw=0.5, c='grey')
 
         ax0b.plot_date(df_test.index, mean.loc[df_test.index],
-                      ls='--', c='green', alpha=.7, lw=1,
+                      ls='--', c='black', alpha=.7, lw=1,
                       markeredgecolor='black',
-                      markerfacecolor='green',
-                      label=mean.columns[0]+' Signal', markersize=4)
+                      markerfacecolor='black', zorder=1,
+                      label=mean.columns[0]+' Signal', markersize=2,
+                      )
+
+        ax0b.scatter(df_test.index, mean.loc[df_test.index], ls='-',
+                    label=None, c=markercolor_S, s=markersize, zorder=2)
+
         ax0b.fill_between(df_test.index, (mean-std).values.ravel(),
-                          (mean+std).values.ravel(), fc='limegreen')
+                          (mean+std).values.ravel(), fc='black', alpha=0.5)
 
-        ax0b.axhline(low, lw=0.5, c='grey')
-        ax0b.axhline(high, lw=0.5, c='grey')
+        ax0b.set_title(col[0], fontsize=fs, y=0.95)
 
-        bound_low = np.repeat(-3.,mean.size) ; bound_low[mean_np > low] = low
-        bound_high = np.repeat(3.,mean.size) ; bound_high[mean_np < high] = high
-        ax0b.fill_between(df_test.index, np.repeat(low, mean.size),
-                          bound_low, fc='blue', alpha=.3)
-        ax0b.fill_between(df_test.index, np.repeat(high, mean.size),
-                          bound_high, fc='red', alpha=.3)
-        # bound_low = np.repeat(0.90,mean.size) ; bound_low[mean_np > low] = 1.0
-        # bound_high = np.repeat(0.1,mean.size) ; bound_high[mean_np < high] = 0.
-        # ax0u.fill_between(df_test.index, np.repeat(1., mean.size),
-        #                   bound_low, fc='blue', alpha=.3)
-        # ax0u.fill_between(df_test.index, np.repeat(0., mean.size),
-        #                   bound_high, fc='red', alpha=.3)
-        # ax0b.legend(loc='lower center', fontsize=fs-4,
-        #             bbox_to_anchor = (0,-0.06,0.4,1))
-        ax0b.set_title(col[0] + ' Signal', fontsize=fs-2, y=0.95)
-        table_col = [d.index[0] for d in df_test_m][1:]
         y_title = .99
     else:
         markercolor = 'black'
@@ -315,25 +316,30 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
         table_col = 'S>50%'
         y_title = .95
 
+    if np.isclose(df_test.iloc[:,0].mean().round(2), 0.33, atol=0.03):
+        label_obs = 'Low yield events'
+    elif np.isclose(df_test.iloc[:,0].mean().round(2), 0.66, atol=0.03):
+        label_obs = 'High yield events'
+    else:
+        label_obs = 'Observed'
+
     ax0u.plot_date(df_test.index, df_test.iloc[:,0], ls='-',
-                   label='Observed', c='black', marker=None)
+                   label=label_obs, c='black', marker='o',
+                   markersize=5)
     ax0u.scatter(df_test.index, df_test.iloc[:,0], ls='-',
-                   label=None, c=markercolor, s=markersize)
+                   label=None, c=markercolor, s=markersize, zorder=3)
     if name_model is None:
         name_model = 'Prediction'
 
     ax0u.plot_date(df_test.index, df_test.iloc[:,1], ls='-', c='orange',
-                  label=name_model)
+                  label=name_model, markersize=4)
 
-    # ax0.set_xticks()
-    # ax0.set_xticklabels(df_test.index.year,
-    # ax0.set_ylabel('Standardized Soy Yield', fontsize=fontsize)
     ax0u.tick_params(labelsize=fontsize)
 
 
     if type(df_test_m) is not list:
         df_test_m = [df_test_m]
-    order_verif = ['All'] + table_col
+    order_verif = ['All'] + ['Top '+t.split(' ')[1] for t in table_col]
     df_scores = []
     for i, df_test_skill in enumerate(df_test_m):
         r = {df_test_skill.index[0]:order_verif[i]}
@@ -341,17 +347,9 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
     df_scores = pd.concat(df_scores, axis=1)
     df_scores = df_scores.T.reset_index().pivot_table(index='index')
     df_scores = df_scores[order_verif]
-    # df_scores = df_scores.T.reset_index().pivot_table(index='index',
-                                                      # columns=0)[0]
 
-        # y_offset = 0
-        # if i == 1:
-        #     y_offset = 0.2
-        # df_scores = df_test_skill.loc[0][df_test_skill.columns[0][0]]
-        # Texts1 = [] ; Texts2 = [] ;
-        # textprops = dict(color='black', fontsize=fontsize, family='serif')
     rename_met = {'RMSE':'RMSE-SS', 'corrcoef':'Corr.', 'MAE':'MAE-SS',
-                  'BSS':'BSS', 'roc_auc_score':'ROC-AUC', 'r2_score':'$r^2$',
+                  'BSS':'BSS', 'roc_auc_score':'AUC', 'r2_score':'$r^2$',
                   'mean_absolute_percentage_error':'MAPE', 'AUC_SS':'AUC-SS',
                   'precision':'Precision', 'accuracy':'Accuracy'}
     if metrics_plot is None:
@@ -369,6 +367,7 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
         bootlow = bootlow.T.reset_index().pivot_table(index='index')
         boothigh = pd.concat(boothigh, axis=1)
         boothigh = boothigh.T.reset_index().pivot_table(index='index')
+        bootlow = bootlow[order_verif] ; boothigh = boothigh[order_verif]
         tbl = bootlow.loc[metrics_plot].values
         tbh = boothigh.loc[metrics_plot].values
 
@@ -398,15 +397,38 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
     if len(df_test_m) == 2:
         table.scale(0.9, 1.7)
     elif len(df_test_m) == 3:
-        table.scale(1.30, 1.9)
+        table.scale(1.1, 2.8)
+
+    # color text BSS
+    ct_BSS = {0.0:"90a955",0.4:"4f772d",0.6:"31572c",0.8:"132a13"}
+    ct_ACC = {65:"90a955",75:"4f772d",85:"31572c",95:"132a13"}
+    ct_Prec = {30:"90a955",50:"4f772d",70:"31572c",90:"132a13"}
+    combs_table = np.array(np.meshgrid(range(len(df_test_m)),
+                                        range(len(metrics_plot)))).T.reshape(-1,2)
+    for r,c in combs_table:
+        val = tsc[r,c]
+        if metrics_plot[r] == 'BSS':
+            colt = [c for v,c in ct_BSS.items() if np.isclose(val,v, atol=0.2)][0]
+        elif metrics_plot[r] == 'accuracy':
+            colt = [c for v,c in ct_ACC.items() if np.isclose(val,v, atol=5)][0]
+        elif metrics_plot[r] == 'precision':
+            colt = [c for v,c in ct_Prec.items() if np.isclose(val,v, atol=10)][0]
+        else:
+            colt = 'ee6055'
+
+        table[(r+1, c)].get_text().set_color('#'+colt)
+
+
+
     table.set_fontsize(fontsize+2)
-    ax0u.set_title(df_test.columns[1] + ' forecast', fontsize=fs, y=y_title)
+    ax0u.set_title(r"$\bf{"+df_test.columns[1] + '\ forecast'+"}$",
+                   fontsize=fs+1, y=y_title)
     ax1u.axis('off') ; ax1b.axis('off')
     ax1u.axis('tight') ; ax1b.axis('tight')
     ax1u.set_facecolor('white') ; ax1b.set_facecolor('white')
     if 'BSS' in metrics_plot:
         ax0u.set_ylim(-0.05,1.05)
-        ax0u.set_ylabel('Prob. Forecast', labelpad=3)
+        ax0u.set_ylabel('Prob. Forecast', labelpad=3, fontsize=fs)
     else:
         ax0u.axhline(y=0, color='black', lw=1)
         ax0u.set_ylim(-3.05,3.05)
@@ -414,8 +436,7 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
     if df_forcings is not None and axs.size==4:
         ax0b.set_ylim(-3.05,3.05)
         ax0b.set_yticks(np.arange(-3,3.1,3))
-        ax0b.set_yticklabels(np.arange(-3,3.1,3))
-        # ax0b.set_ylabel('Signal')
+        ax0b.set_yticklabels(np.arange(-3,3.1,3), fontsize=fs)
     #%%
     return
 

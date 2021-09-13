@@ -346,11 +346,12 @@ class binary_score:
 
     def precision(self, y_true, y_pred):
         y_pred_b = y_pred > self.threshold
-        return int(metrics.precision_score(y_true, y_pred_b)*100)
+        return round(metrics.precision_score(y_true, y_pred_b)*100,0)
 
     def accuracy(self, y_true, y_pred):
+        #  P(class=0) * P(prediction=0) + P(class=1) * P(prediction=1)
         y_pred_b = y_pred > self.threshold
-        return int(metrics.accuracy_score(y_true, y_pred_b)*100)
+        return round(metrics.accuracy_score(y_true, y_pred_b)*100,0)
 
 
 def AUC_SS(y_true, y_pred):
