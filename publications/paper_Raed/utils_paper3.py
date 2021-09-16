@@ -264,9 +264,14 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
     if df_forcings is not None and axs.size==4:
         table_col = [d.index[0] for d in df_test_m][1:]
         col = [c for c in df_forcings.columns if df_test.columns[1] in c]
-        # forc_name = col[0].split('\n')[-1]
+
+        dates_match = pd.MultiIndex.from_product([df_forcings.index.levels[0],
+                                                  df_test.index])
+        df_forcings = df_forcings.loc[dates_match]
         mean = df_forcings[col].mean(0,level=1)
         std = df_forcings[col].std(0,level=1) * 2
+
+
 
         # identify strong forcing dates
         qs = [int(t[-3:-1]) for t in table_col]
