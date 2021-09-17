@@ -1240,6 +1240,21 @@ ax.legend([f'{_model} Eastern Pacific', 'Eastern Pacific mean'])
 f.savefig(os.path.join(rg.path_outsub1, 'Pacific_model_vs_Pacific_mean'+rg.figext),
           bbox_inches='tight')
 #%%
+import utils_paper3
+for rg in rg_list:
+    # utils_paper3.plot_regions(rg, save=True, plot_parcorr=False)
+    utils_paper3.plot_regions(rg, save=True, plot_parcorr=True)
+
+
+
+
+
+
+
+
+
+
+
 
 # #%%
 # df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list, name_object='verification_tuple_c')

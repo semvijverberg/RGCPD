@@ -797,6 +797,13 @@ def plot_regions(rg, save, plot_parcorr=False):
             list_mon.append((k, corr_val, RB))
         CondDepKeys[mon] = list_mon
 
+    # get number of time precursor extracted training splits:
+    allkeys = [list(rg.df_data.loc[s].dropna(axis=1).columns[1:-2]) for s in range(rg.n_spl)]
+    allkeys = functions_pp.flatten(allkeys)
+    {k:allkeys.count(k) for k in allkeys}
+    rg._df_count = pd.Series({k:allkeys.count(k) for k in allkeys},
+                               dtype=object)
+
     for ip, precur in enumerate(rg.list_for_MI):
         # ip=0; precur = rg.list_for_MI[ip]
 
