@@ -14,25 +14,12 @@ if sys.platform == 'linux':
     n_cpu = 10
 else:
     n_cpu = 3
-# else:
-#     # Optionally set font to Computer Modern to avoid common missing font errors
-#     mpl.rc('font', family='serif', serif='cm10')
 
-#     mpl.rc('text', usetex=True)
-#     mpl.rcParams['text.latex.preamble'] = [r'\boldmath']
 import numpy as np
-from time import time
 import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
 import pandas as pd
-import xarray as xr
 from joblib import Parallel, delayed
-
-# import sklearn.linear_model as scikitlinear
 import argparse
-from time import sleep
-import itertools, os, re
-from matplotlib import gridspec
-from matplotlib.offsetbox import TextArea, VPacker, AnnotationBbox
 from matplotlib.lines import Line2D
 
 user_dir = os.path.expanduser('~')
@@ -71,9 +58,9 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 
 
 target_datasets = ['USDA_Soy_clusters__1']
-seeds = [1] # ,5]
+seeds = [2,3,4,5] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_1', 'timeseriessplit_20', 'ranstrat_20'] # ['ranstrat_20'] timeseriessplit_30
+methods = ['ranstrat_20'] # ['ranstrat_20'] timeseriessplit_30
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -261,7 +248,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     if method.split('_')[0]=='leave':
         subfoldername += 'gp_prior_1_after_1'
         rg.traintest(method, gap_prior=1, gap_after=1, seed=seed,
-                      subfoldername=subfoldername)
+                     subfoldername=subfoldername)
     else:
         rg.traintest(method, seed=seed, subfoldername=subfoldername)
 
