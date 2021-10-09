@@ -81,7 +81,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
 i_default = 1
-load = 'all'
+load = False
 save = True
 
 
@@ -219,14 +219,14 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                                 alpha=alpha_corr, FDR_control=True,
                                 kwrgs_func={},
-                                distance_eps=250, min_area_in_degrees2=3,
+                                distance_eps=250, min_area_in_degrees2=1,
                                 calc_ts=calc_ts, selbox=GlobalBox,
                                 lags=lags, group_split=True,
                                 use_coef_wghts=True),
                       BivariateMI(name='smi', func=class_BivariateMI.corr_map,
                                  alpha=alpha_corr, FDR_control=True,
                                  kwrgs_func={},
-                                 distance_eps=200, min_area_in_degrees2=3,
+                                 distance_eps=2000, min_area_in_degrees2=1,
                                  calc_ts='pattern cov', selbox=USBox,
                                  lags=SM_lags, use_coef_wghts=True)]
 
@@ -298,32 +298,35 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     # sst.distance_eps = 250 ; sst.min_area_in_degrees2 = 4
     if hasattr(sst, 'prec_labels')==False and 'sst' in use_vars:
         rg.cluster_list_MI('sst')
+        sst.group_small_cluster(distance_eps_sc=1500, eps_corr=0.4)
 
-        # check if west-Atlantic is a seperate region, otherwise split region 1
-        df_labels = find_precursors.labels_to_df(sst.prec_labels)
-        dlat = df_labels['latitude'] - 29
-        dlon = df_labels['longitude'] - 290
-        zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
-        if zz.query('latitude < 10 & longitude < 10').size==0:
-            print('Splitting region west-Atlantic')
-            largest_regions = df_labels['n_gridcells'].idxmax()
-            split = find_precursors.split_region_by_lonlat
-            sst.prec_labels, _ = split(sst.prec_labels.copy(), label=int(largest_regions),
-                                    kwrgs_mask_latlon={'upper_right': (263, 16)})
 
-        merge = find_precursors.merge_labels_within_lonlatbox
 
-        # # Ensure that what is in Atlantic is one precursor region
-        lonlatbox = [263, 300, 17, 40]
-        sst.prec_labels = merge(sst, lonlatbox)
-        # Indonesia_oceans = [110, 150, 0, 10]
-        # sst.prec_labels = merge(sst, Indonesia_oceans)
-        Japanese_sea = [100, 150, 30, 50]
-        sst.prec_labels = merge(sst, Japanese_sea)
-        Mediterrenean_sea = [0, 45, 30, 50]
-        sst.prec_labels = merge(sst, Mediterrenean_sea)
-        East_Tropical_Atlantic = [330, 20, -10, 10]
-        sst.prec_labels = merge(sst, East_Tropical_Atlantic)
+        # # check if west-Atlantic is a seperate region, otherwise split region 1
+        # df_labels = find_precursors.labels_to_df(sst.prec_labels)
+        # dlat = df_labels['latitude'] - 29
+        # dlon = df_labels['longitude'] - 290
+        # zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
+        # if zz.query('latitude < 10 & longitude < 10').size==0:
+        #     print('Splitting region west-Atlantic')
+        #     largest_regions = df_labels['n_gridcells'].idxmax()
+        #     split = find_precursors.split_region_by_lonlat
+        #     sst.prec_labels, _ = split(sst.prec_labels.copy(), label=int(largest_regions),
+        #                             kwrgs_mask_latlon={'upper_right': (263, 16)})
+
+        # merge = find_precursors.merge_labels_within_lonlatbox
+
+        # # # Ensure that what is in Atlantic is one precursor region
+        # lonlatbox = [263, 300, 17, 40]
+        # sst.prec_labels = merge(sst, lonlatbox)
+        # # Indonesia_oceans = [110, 150, 0, 10]
+        # # sst.prec_labels = merge(sst, Indonesia_oceans)
+        # Japanese_sea = [100, 150, 30, 50]
+        # sst.prec_labels = merge(sst, Japanese_sea)
+        # Mediterrenean_sea = [0, 45, 30, 50]
+        # sst.prec_labels = merge(sst, Mediterrenean_sea)
+        # East_Tropical_Atlantic = [330, 20, -10, 10]
+        # sst.prec_labels = merge(sst, East_Tropical_Atlantic)
 
 
 
@@ -346,10 +349,10 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         SM = rg.list_for_MI[1]
         rg.cluster_list_MI('smi')
 
-        lonlatbox = [220, 240, 25, 55] # eastern US
-        SM.prec_labels = merge(SM, lonlatbox)
-        lonlatbox = [270, 280, 25, 45] # mid-US
-        SM.prec_labels = merge(SM, lonlatbox)
+        # lonlatbox = [220, 240, 25, 55] # eastern US
+        # SM.prec_labels = merge(SM, lonlatbox)
+        # lonlatbox = [270, 280, 25, 45] # mid-US
+        # SM.prec_labels = merge(SM, lonlatbox)
     if 'smi' in use_vars:
         if loaded==False:
             SM.store_netcdf(rg.path_outsub1, load_SM, add_hash=False)
@@ -1241,15 +1244,21 @@ f.savefig(os.path.join(rg.path_outsub1, 'Pacific_model_vs_Pacific_mean'+rg.figex
           bbox_inches='tight')
 #%%
 import utils_paper3
-for rg in rg_list:
-    # utils_paper3.plot_regions(rg, save=True, plot_parcorr=False)
-    utils_paper3.plot_regions(rg, save=True, plot_parcorr=True)
+utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False)
+utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=True)
 
+#%%
+# import find_precursors
 
+# precur = rg_list[2].list_for_MI[0]
+# precur.group_lag = False
+# precur.min_area_in_degrees2 = 1
+# precur.distance_eps = 250
+# find_precursors.cluster_DBSCAN_regions(precur)
+# plot_maps.plot_labels(precur.prec_labels.mean(dim='split'), labelsintext=True)
 
-
-
-
+# labels_to_df(precur.prec_labels.median(dim=('split', 'lag')),
+                                   # return_mean_latlon=True)
 
 
 

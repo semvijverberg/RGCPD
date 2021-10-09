@@ -359,7 +359,68 @@ class BivariateMI:
         #%%
         return xrcorr, xrpvals
 
-    # def check_exception_time_mean_period(df_splits, precur_train)
+    def group_small_cluster(self, distance_eps_sc=1750, eps_corr=0.4,
+                            precur_aggr=None, kwrgs_load=None,
+                            min_gridcells_sc=1):
+
+        #%%
+        if hasattr(self, 'prec_labels_'):
+            self.prec_labels_ = self.prec_labels_.copy()
+        else:
+            print()
+            self.prec_labels_ = self.prec_labels.copy()
+
+        close = find_precursors.close_small_clusters
+        merge = close(self.prec_labels_,
+                      self.corr_xr.copy(), distance_eps_sc,
+                      min_gridcells_sc)
+        print('Near clusters', merge)
+
+        f_replace = find_precursors.view_or_replace_labels
+        if eps_corr is not None:
+            merge_upd = []
+            suggested_group = f_replace(self.prec_labels_,
+                                        regions=core_pp.flatten(merge))
+
+            self.prec_labels = suggested_group.copy()
+            self.get_prec_ts(precur_aggr, kwrgs_load)
+            df = pd.concat(self.ts_corr,
+                           keys=range(len(self.ts_corr))).mean(0,level=1)
+            for l in core_pp.flatten(merge):
+                cols = [c for c in df.columns if f'..{int(l)}..' in c]
+                df = df.rename({c:str(l) for c in cols}, axis=1)
+            # groupby lags
+            df_grlabs = df.groupby(by=df.columns, axis=1).mean()
+            df_grlabs.columns = df_grlabs.columns.astype(float)
+            for m in merge:
+                DBSCAN = find_precursors.cluster.DBSCAN
+                cl = DBSCAN(eps=eps_corr,
+                             min_samples=1,
+                             metric='correlation',
+                             n_jobs=1).fit(df_grlabs.loc[:,m].T)
+                for grl in np.unique(cl.labels_):
+                    _grl = np.array(m)[cl.labels_==grl]
+                    if _grl.size > 1:
+                        merge_upd.append(list(_grl))
+        print('Near clusters correlating', merge_upd)
+
+
+        keys = [min(cl) for cl in merge_upd]
+        [m.remove(keys[i]) for i,m in enumerate(merge_upd)]
+        relabeldict = {im:keys[merge_upd.index(m)] for m in merge_upd for im in m}
+
+
+        regions = list(relabeldict.keys())
+        replacement_labels = list(relabeldict.values())
+
+        all_regions = np.unique(self.prec_labels_.mean(dim='split'))
+        all_regions = all_regions[~np.isnan(all_regions)]
+        keepregions = [r for r in all_regions if r not in regions]
+        regions += keepregions  ; replacement_labels += keepregions
+        self.prec_labels = f_replace(self.prec_labels_.copy(), regions=regions,
+                                    replacement_labels=replacement_labels)
+        return
+
 
     def adjust_significance_threshold(self, alpha):
         self.alpha = alpha
@@ -1117,7 +1178,10 @@ def pp_calc_ts(precur, precur_aggr=None, kwrgs_load: dict=None,
     Pre-process for calculating timeseries of precursor regions or pattern.
     '''
     #%%
-    corr_xr         = precur.corr_xr
+    if hasattr(precur, 'corr_xr_'):
+        corr_xr         = precur.corr_xr_
+    else:
+        corr_xr         = precur.corr_xr
     prec_labels     = precur.prec_labels
 
     if lags is not None:
@@ -1333,8 +1397,8 @@ def calc_ts_wrapper(precur, precur_aggr=None, kwrgs_load: dict=None,
 
     Returns
     -------
-    ts_corr : TYPE
-        DESCRIPTION.
+    ts_corr : list
+        list of DataFrames.
 
     '''
     #%%
@@ -1369,7 +1433,7 @@ def calc_ts_wrapper(precur, precur_aggr=None, kwrgs_load: dict=None,
                                     lags: np.ndarray,
                                     use_coef_wghts: bool):
         '''
-        Wrapper to divide calculating a number of splits per core, instead of
+        Wrapper to divide calculating a 'list of splits' per core, instead of
         assigning each split to a seperate worker (high overhead).
         '''
         for s in splits:
@@ -1409,7 +1473,7 @@ def calc_ts_wrapper(precur, precur_aggr=None, kwrgs_load: dict=None,
         tsCorr = np.concatenate(tuple(ts_list), axis = 1)
         df_tscorr = pd.DataFrame(tsCorr,
                                  index=dates,
-                                columns=track_names)
+                                 columns=track_names)
         df_tscorr.name = str(s)
         if any(df_tscorr.isna().values.flatten()):
             print('Warnning: nans detected')

@@ -830,6 +830,7 @@ class RGCPD:
             fig_path = os.path.join(self.path_outsub1, 'RV_clusters')
             plt.savefig(fig_path+self.figext, bbox_inches='tight')
 
+
     def _get_sign_splits_masked(xr_in: xr.DataArray, min_detect=.5,
                                 mask: xr.DataArray=None):
 
@@ -848,7 +849,7 @@ class RGCPD:
     def quick_view_labels(self, var=None, mean=True, save=False,
                           kwrgs_plot: dict={}, min_detect_gc: float=.5,
                           append_str: str=None, region_labels=None,
-                          replacement_labels=None):
+                          replacement_labels=None, labelsintext=False):
         '''
         Parameters
         ----------
@@ -890,36 +891,13 @@ class RGCPD:
                 prec_labels, mask = RGCPD._get_sign_splits_masked(prec_labels,
                                                                  min_detect_gc)
                 prec_labels = prec_labels.where(mask)
-                cbar_vert = -0.1
             else:
                 prec_labels = prec_labels
-                if prec_labels.split.size == 1:
-                    cbar_vert = -0.1
-                else:
-                    cbar_vert = -0.025
+
             if all(np.isnan(prec_labels.values.flatten()))==False:
-                # colors of cmap are dived over min to max in n_steps.
-                # We need to make sure that the maximum value in all dimensions will be
-                # used for each plot (otherwise it assign inconsistent colors)
-                max_N_regs = min(20, int(prec_labels.max() + 0.5))
-                label_weak = np.nan_to_num(prec_labels.values) >=  max_N_regs
-                xrmask = None
-                prec_labels.values[label_weak] = max_N_regs
-                steps = max_N_regs+1
-                cmap = plt.cm.tab20
-                prec_labels.values = prec_labels.values-0.5
-                clevels = np.linspace(0, max_N_regs,steps)
+                plot_maps.plot_labels(prec_labels, kwrgs_plot=kwrgs_plot,
+                                      labelsintext=labelsintext)
 
-                kwrgs = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
-                              'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
-                              'subtitles' : None,
-                              'cticks_center':True,
-                              'cmap':cmap}
-                kwrgs.update(kwrgs_plot)
-
-                plot_maps.plot_corr_maps(prec_labels,
-                                 xrmask,
-                                 **kwrgs)
                 if save == True:
                     if replacement_labels is not None:
                         r = ''.join(np.array(replacement_labels, dtype=str))
@@ -970,7 +948,7 @@ class RGCPD:
                                                                xrmask)
             elif type(splits) is int:
                 xrvals, xrmask = xrvals.sel(split=splits), xrmask.sel(split=splits)
-            if mask_xr == False: xrmask = None
+            if mask_xr is False: xrmask = None
             fcg = plot_maps.plot_corr_maps(xrvals,
                                      mask_xr=xrmask, **kwrgs_plot)
             if save == True:
