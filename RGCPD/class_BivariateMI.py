@@ -383,6 +383,8 @@ class BivariateMI:
                                         regions=core_pp.flatten(merge))
 
             self.prec_labels = suggested_group.copy()
+            calc_ts_o = self.calc_ts
+            self.calc_ts = 'region mean'
             self.get_prec_ts(precur_aggr, kwrgs_load)
             df = pd.concat(self.ts_corr,
                            keys=range(len(self.ts_corr))).mean(0,level=1)
@@ -402,6 +404,8 @@ class BivariateMI:
                     _grl = np.array(m)[cl.labels_==grl]
                     if _grl.size > 1:
                         merge_upd.append(list(_grl))
+        # restore calc ts
+        self.calc_ts = calc_ts_o
         print('Near clusters correlating', merge_upd)
 
 

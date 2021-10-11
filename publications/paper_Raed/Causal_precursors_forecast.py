@@ -58,16 +58,16 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 
 
 target_datasets = ['USDA_Soy_clusters__1']
-seeds = [2,3,4,5] # ,5]
+seeds = [1,2,3,4,5] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['ranstrat_20'] # ['ranstrat_20'] timeseriessplit_30
+methods = ['timeseriessplit_20', 'leave_1', 'ranstrat_20'] # ['ranstrat_20'] timeseriessplit_30
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 1
+i_default = 2
 load = False
 save = True
 
@@ -206,14 +206,14 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                                 alpha=alpha_corr, FDR_control=True,
                                 kwrgs_func={},
-                                distance_eps=250, min_area_in_degrees2=1,
+                                distance_eps=250, min_area_in_degrees2=3,
                                 calc_ts=calc_ts, selbox=GlobalBox,
                                 lags=lags, group_split=True,
                                 use_coef_wghts=True),
                       BivariateMI(name='smi', func=class_BivariateMI.corr_map,
                                  alpha=alpha_corr, FDR_control=True,
                                  kwrgs_func={},
-                                 distance_eps=2000, min_area_in_degrees2=1,
+                                 distance_eps=250, min_area_in_degrees2=3,
                                  calc_ts='pattern cov', selbox=USBox,
                                  lags=SM_lags, use_coef_wghts=True)]
 
@@ -335,7 +335,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     if hasattr(SM, 'prec_labels')==False and 'smi' in use_vars:
         SM = rg.list_for_MI[1]
         rg.cluster_list_MI('smi')
-
+        SM.group_small_cluster(distance_eps_sc=1E4, eps_corr=1)
         # lonlatbox = [220, 240, 25, 55] # eastern US
         # SM.prec_labels = merge(SM, lonlatbox)
         # lonlatbox = [270, 280, 25, 45] # mid-US
