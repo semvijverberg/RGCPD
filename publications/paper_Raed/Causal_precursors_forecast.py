@@ -68,7 +68,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
 i_default = 2
-load = False
+load = 'all'
 save = True
 
 
