@@ -118,17 +118,18 @@ title = 'Hierarchical Aggl. Clustering'
 # r = np.meshgrid(xrclusteredall.n_clusters.astype(str).values)
 r = xrclusteredall.n_clusters.astype(str).values
 # subtitles = [f'n-clusters={r.flatten()[i]}, ' + f'random state={c.flatten()[i]}' for i in range(c.size)]
-subtitles = [f'n-clusters={r.flatten()[i]}, linkage=ward, metric=euclidian' for i in range(r.size)]
+subtitles = [f'n-clusters={r.flatten()[i]}, linkage=ward, metric=euclidean' for i in range(r.size)]
 fig = plot_maps.plot_labels(xrclusteredall,
                             kwrgs_plot={'wspace':.05, 'hspace':.17, 'cbar_vert':.045,
                                         'row_dim':'n_clusters', 'col_dim':'linkage',
                                         'zoomregion':selbox, 'cmap':cmp,
                                         'x_ticks':np.array([260,270,280]),
+                                        'y_ticks':np.array([32, 37, 42, 47]),
                                         'title':title,
                                         'title_fontdict':{'y':.93,
                                                           'fontsize': 18,
                                                           'fontweight':'bold'}})
-for i, ax in enumerate(fig.axes[:-1]):
+for i, ax in enumerate(fig.axes.flatten()):
     np.isnan(xr_States).plot.contour(ax=ax,
                                      transform=plot_maps.ccrs.PlateCarree(),
                                      linestyles=['solid'],
@@ -172,6 +173,7 @@ fig = plot_maps.plot_labels(xrclusteredall,
                                         'row_dim':'n_clusters',
                                         'zoomregion':selbox, 'cmap':cmp,
                                         'x_ticks':np.array([260,270,280]),
+                                        'y_ticks':np.array([32, 37, 42, 47]),
                                         'title':title,
                                         'title_fontdict':{'y':.93,
                                                           'fontsize': 18,
@@ -183,7 +185,7 @@ r = xrclusteredall.n_clusters.astype(str).values
 # subtitles = [f'n-clusters={r.flatten()[i]}, ' + f'random state={c.flatten()[i]}' for i in range(c.size)]
 subtitles = [f'n-clusters={r.flatten()[i]}, linkage=average, metric=correlation' for i in range(r.size)]
 
-for i, ax in enumerate(fig.axes[:-1]):
+for i, ax in enumerate(fig.axes.flatten()):
     np.isnan(xr_States).plot.contour(ax=ax,
                                      transform=plot_maps.ccrs.PlateCarree(),
                                      linestyles=['solid'],
@@ -226,18 +228,20 @@ title = 'K-means'
 # r = np.meshgrid(xrclusteredall.n_clusters.astype(str).values)
 r = xrclusteredall.n_clusters.astype(str).values
 # subtitles = [f'n-clusters={r.flatten()[i]}, ' + f'random state={c.flatten()[i]}' for i in range(c.size)]
-subtitles = [f'n-clusters={r.flatten()[i]}, metric=euclidian' for i in range(r.size)]
+subtitles = [f'n-clusters={r.flatten()[i]}, metric=euclidean' for i in range(r.size)]
+
 
 fig = plot_maps.plot_labels(xrclusteredall,
                             kwrgs_plot={'wspace':.05, 'hspace':.16, 'cbar_vert':.045,
                                         'row_dim':'n_clusters', 'col_dim':'random_state',
                                         'zoomregion':selbox, 'cmap':cmp,
                                         'x_ticks':np.array([260,270,280]),
+                                        'y_ticks':np.array([32, 37, 42, 47]),
                                         'title':title,
                                         'title_fontdict':{'y':.93,
                                                           'fontsize': 18,
                                                           'fontweight':'bold'}})
-for i, ax in enumerate(fig.axes[:-1]):
+for i, ax in enumerate(fig.axes.flatten()):
     np.isnan(xr_States).plot.contour(ax=ax,
                                      transform=plot_maps.ccrs.PlateCarree(),
                                      linestyles=['solid'],
@@ -258,11 +262,11 @@ f_name = 'clustering_KMeans_{}'.format(xrclusteredall.attrs['hash'])
 path_fig = os.path.join(path_outmain, f_name)
 plt.savefig(path_fig + '.pdf', bbox_inches='tight') # dpi auto 600
 
-
-
 f_name = 'clustering_KMeans_{}'.format(xrclusteredall.attrs['hash'])
 path_fig = os.path.join(path_outmain, f_name)
 plt.savefig(path_fig + '.jpeg', bbox_inches='tight') # dpi auto 600
+
+
 
 print(f'{round(time()-t0, 2)}')
 print(f'{round(time()-t0, 2)}')
@@ -297,7 +301,85 @@ plt.savefig(path_fig,
 print(f'{round(time()-t0, 2)}')
 
 
+#%% New idea 11-10-21, extrapolate values
 
+
+
+cmp = plot_maps.get_continuous_cmap(["fb5607", "3a86ff"],
+                          float_list=list(np.linspace(0,1,2)))
+subtitles = ['linkage=ward, metric=euclidean', 'Interpolated']
+title = 'Hierarchical Aggl. Clustering'
+linkage = 'ward' ; c =2
+xrclusteredint = xrclusteredall.sel(n_clusters=c)
+latint = xrclusteredint.interpolate_na(dim='latitude', limit=5)
+xrclustfinalint = latint.interpolate_na(dim='longitude', limit=5)
+
+
+kwrgs_NaN_handling={'missing_data_ts_to_nan':False,
+                    'extra_NaN_limit':False,
+                    'inter_method':False,
+                    'final_NaN_to_clim':False}
+years = list(range(1950, 2020))
+ds_raw = core_pp.import_ds_lazy(raw_filename, var='variable', selbox=selbox,
+                                kwrgs_NaN_handling=kwrgs_NaN_handling).rename({'z':'time'})
+ds_raw.name = 'Soy_Yield'
+ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
+ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
+
+ds_avail = (70 - np.isnan(ds_raw).sum(axis=0))
+ds_avail = ds_avail.where(ds_avail.values >=25)
+
+# title = 'Clusters Interpolated'
+xrclustfinalint = xrclustfinalint.where(~np.isnan(ds_avail))
+
+to_plot = xr.concat([xrclusteredall.sel(n_clusters=c), xrclustfinalint], dim='lag')
+to_plot['lag'] = ('lag', [0,1])
+
+
+fig = plot_maps.plot_labels(to_plot.drop('n_clusters'),
+                            kwrgs_plot={'wspace':.05, 'hspace':.16, 'cbar_vert':-.1,
+                                        'col_dim':'lag', #'row_dim':'lag',
+                                        'zoomregion':selbox, 'cmap':cmp,
+                                        'x_ticks':np.array([260,270,280]),
+                                        'y_ticks':np.array([32, 37, 42, 47]),
+                                        'title':title,
+                                        'title_fontdict':{'y':1.02,
+                                                          'fontsize': 18,
+                                                          'fontweight':'bold'}})
+for i, ax in enumerate(fig.axes.flatten()):
+    np.isnan(xr_States).plot.contour(ax=ax,
+                                     transform=plot_maps.ccrs.PlateCarree(),
+                                     linestyles=['solid'],
+                                     colors=['black'],
+                                     linewidths=2,
+                                     levels=[0,1],
+                                     add_colorbar=False)
+    ax.add_feature(cfeature.NaturalEarthFeature(
+        'cultural', 'admin_1_states_provinces_lines', '50m',
+        edgecolor='grey', lw=1, facecolor='none'))
+    ax.add_feature(cfeature.OCEAN)
+    ax.add_feature(cfeature.LAKES)
+    ax.add_feature(cfeature.COASTLINE)
+    ax.set_ylabel(None) ; ax.set_xlabel(None)
+    ax.set_title(subtitles[i], fontsize=14)
+
+f_name = 'clustering_interp_{}'.format(xrclusteredall.attrs['hash'])
+path_fig = os.path.join(path_outmain, f_name)
+plt.savefig(path_fig + '.pdf', bbox_inches='tight') # dpi auto 600
+
+f_name = 'clustering_interp_{}'.format(xrclusteredall.attrs['hash'])
+path_fig = os.path.join(path_outmain, f_name)
+plt.savefig(path_fig + '.jpeg', bbox_inches='tight') # dpi auto 600
+
+#%% Get timeseries interpolated method
+ds_std = (ds_raw - ds_raw.mean(dim='time')) / ds_raw.std(dim='time')
+ds = cl.spatial_mean_clusters(ds_std,
+                              xrclustfinalint)
+df = ds.ts.to_dataframe().pivot_table(index='time', columns='cluster')['ts']
+
+f_name = 'linkage_{}_nc{}'.format(linkage, int(c))
+filepath = os.path.join(path_outmain, f_name)
+cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_interp_'+xrclustfinalint.attrs['hash'])
 
 #%%
 
@@ -333,6 +415,55 @@ df = ds.ts.to_dataframe().pivot_table(index='time', columns='cluster')['ts']
 f_name = 'linkage_{}_nc{}'.format(linkage, int(c))
 filepath = os.path.join(path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
+
+#%% Figure 1 paper
+
+cmp = plot_maps.get_continuous_cmap(["fb5607", "ffbe0b"],
+                          float_list=list(np.linspace(0,1,2)))
+
+title = 'Hierarchical Aggl. Clustering'
+xrclustfinal = xrclusteredall[0]
+fig = plot_maps.plot_labels(xrclustfinal,
+                            kwrgs_plot={'wspace':.05, 'hspace':.15, 'cbar_vert':-.1,
+                                        'row_dim':'n_clusters',
+                                        'zoomregion':selbox, 'cmap':cmp,
+                                        'x_ticks':np.array([260,270,280]),
+                                        'title':title,
+                                        'title_fontdict':{'y':1.05,
+                                                          'fontsize': 18,
+                                                          'fontweight':'bold'}})
+
+
+# r = np.meshgrid(xrclusteredall.n_clusters.astype(str).values)
+r = xrclustfinal.n_clusters.astype(str).values
+# subtitles = [f'n-clusters={r.flatten()[i]}, ' + f'random state={c.flatten()[i]}' for i in range(c.size)]
+subtitles = [f'n-clusters={r.flatten()[i]}, linkage=ward, metric=euclidean' for i in range(r.size)]
+
+for i, ax in enumerate(fig.axes.flatten()):
+    np.isnan(xr_States).plot.contour(ax=ax,
+                                     transform=plot_maps.ccrs.PlateCarree(),
+                                     linestyles=['solid'],
+                                     colors=['black'],
+                                     linewidths=2,
+                                     levels=[0,1],
+                                     add_colorbar=False)
+    ax.add_feature(cfeature.NaturalEarthFeature(
+        'cultural', 'admin_1_states_provinces_lines', '50m',
+        edgecolor='grey', lw=1, facecolor='none'))
+    ax.add_feature(cfeature.OCEAN)
+    ax.add_feature(cfeature.LAKES)
+    ax.add_feature(cfeature.COASTLINE)
+    ax.set_ylabel(None) ; ax.set_xlabel(None)
+    ax.set_title(subtitles[i], fontsize=12)
+
+f_name = 'final_Hierchical_correlation_{}'.format(xrclustfinal.attrs['hash'])
+path_fig = os.path.join(path_outmain, f_name)
+plt.savefig(path_fig + '.pdf', bbox_inches='tight') # dpi auto 600
+
+plt.savefig(path_fig + '.jpeg', bbox_inches='tight') # dpi auto 600
+
+
+
 
 #%% Soy bean USDA
 

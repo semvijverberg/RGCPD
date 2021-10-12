@@ -106,7 +106,9 @@ def read_csv_Raed(path):
     orig.index.name = 'time'
     return orig.drop('Year', 1)
 
-if method.lower()[:-3] == 'timeseriessplit' and seed > 1:
+noseed = np.logical_or(method.lower()[:-3] == 'timeseriessplit',
+                       method.split('_')[0] == 'leave')
+if noseed and seed > 1:
     print('stop run')
     sys.exit()
 
@@ -136,6 +138,7 @@ elif target_dataset == 'USDA_Soy_csv_midwest':
     TVpath = read_csv_Raed(path)
 elif target_dataset.split('__')[0] == 'USDA_Soy_clusters':
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_0d570.nc')
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_interp_be34d.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'USDA_Maize':
     # USDA dataset 1950 - 2019
