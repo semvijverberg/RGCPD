@@ -138,7 +138,7 @@ elif target_dataset == 'USDA_Soy_csv_midwest':
     TVpath = read_csv_Raed(path)
 elif target_dataset.split('__')[0] == 'USDA_Soy_clusters':
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_0d570.nc')
-    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_interp_be34d.nc')
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_interp_ff5d6.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'USDA_Maize':
     # USDA dataset 1950 - 2019
@@ -289,9 +289,6 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     if hasattr(sst, 'prec_labels')==False and 'sst' in use_vars:
         rg.cluster_list_MI('sst')
         sst.group_small_cluster(distance_eps_sc=1500, eps_corr=0.4)
-
-
-
         # # check if west-Atlantic is a seperate region, otherwise split region 1
         # df_labels = find_precursors.labels_to_df(sst.prec_labels)
         # dlat = df_labels['latitude'] - 29
@@ -317,9 +314,6 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         # sst.prec_labels = merge(sst, Mediterrenean_sea)
         # East_Tropical_Atlantic = [330, 20, -10, 10]
         # sst.prec_labels = merge(sst, East_Tropical_Atlantic)
-
-
-
     if 'sst' in use_vars:
         if loaded==False:
             sst.store_netcdf(rg.path_outsub1, load_sst, add_hash=False)
@@ -351,8 +345,6 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         rg.quick_view_labels('smi', min_detect_gc=.5, save=save,
                               append_str=periodnames[-1])
         plt.close()
-
-
     #%% Calculate spatial mean timeseries of precursor regions
     filepath_df_output = os.path.join(rg.path_outsub1,
                                       f'df_output_{periodnames[-1]}.h5')

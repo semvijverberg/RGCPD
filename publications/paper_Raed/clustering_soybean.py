@@ -310,9 +310,10 @@ cmp = plot_maps.get_continuous_cmap(["fb5607", "3a86ff"],
 subtitles = ['linkage=ward, metric=euclidean', 'Interpolated']
 title = 'Hierarchical Aggl. Clustering'
 linkage = 'ward' ; c =2
+attrs = xrclusteredall.attrs
 xrclusteredint = xrclusteredall.sel(n_clusters=c)
 latint = xrclusteredint.interpolate_na(dim='latitude', limit=5)
-xrclustfinalint = latint.interpolate_na(dim='longitude', limit=5)
+xrclustfinalint = latint.interpolate_na(dim='longitude', limit=10)
 
 
 kwrgs_NaN_handling={'missing_data_ts_to_nan':False,
@@ -329,8 +330,12 @@ ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
 ds_avail = (70 - np.isnan(ds_raw).sum(axis=0))
 ds_avail = ds_avail.where(ds_avail.values >=25)
 
+
 # title = 'Clusters Interpolated'
 xrclustfinalint = xrclustfinalint.where(~np.isnan(ds_avail))
+# round to integer label
+xrclustfinalint = np.round(xrclustfinalint+0.49)
+xrclustfinalint.attrs = attrs
 
 to_plot = xr.concat([xrclusteredall.sel(n_clusters=c), xrclustfinalint], dim='lag')
 to_plot['lag'] = ('lag', [0,1])
@@ -372,6 +377,8 @@ path_fig = os.path.join(path_outmain, f_name)
 plt.savefig(path_fig + '.jpeg', bbox_inches='tight') # dpi auto 600
 
 #%% Get timeseries interpolated method
+
+
 ds_std = (ds_raw - ds_raw.mean(dim='time')) / ds_raw.std(dim='time')
 ds = cl.spatial_mean_clusters(ds_std,
                               xrclustfinalint)
