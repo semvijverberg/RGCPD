@@ -170,7 +170,7 @@ n_boot = 2000
 append_pathsub = f'/{method}/s{seed}'
 
 append_main = target_dataset
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'forecast')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_no_csm')
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
     path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
 elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
@@ -379,6 +379,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
 
 
         regress_autocorr_SM = False
+        regress_SM_same_mon = False
         unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
         # select the causal regions from analysys in Causal Inferred Precursors
         print('Start Causal Inference')
@@ -390,6 +391,8 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                 keys = [mon+ '..'+k]
                 if regress_autocorr_SM and 'sm' in k:
                     z_keys = [z for z in rg.df_data.columns[1:-2] if keys[0] not in z]
+                if regress_SM_same_mon:
+                    z_keys = [k for k in z_keys if f'{mon}..0..smi' not in k]
 
 
                 if keys[0] not in rg.df_data.columns:
