@@ -11,7 +11,7 @@ import os, inspect, sys
 import matplotlib as mpl
 if sys.platform == 'linux':
     mpl.use('Agg')
-    n_cpu = 10
+    n_cpu = 8
 else:
     n_cpu = 3
 
@@ -60,14 +60,14 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['ranstrat_20', 'timeseriessplit_20', 'leave_1'] # ['ranstrat_20'] timeseriessplit_30
+methods = ['ranstrat_20']#, 'timeseriessplit_20', 'leave_1'] # ['ranstrat_20'] timeseriessplit_30
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 1
+i_default = 0
 load = 'all'
 save = True
 
@@ -498,9 +498,9 @@ if __name__ == '__main__':
 
     use_vars_july = ['sst', 'smi']
     use_vars_june = ['sst', 'smi']
-    use_vars_may = ['sst', 'smi']
-    use_vars_april = ['sst', 'smi']
-    use_vars_march = ['sst', 'smi']
+    use_vars_may = ['sst']
+    use_vars_april = ['sst']
+    use_vars_march = ['sst']
 
 
     # Run in Parallel
@@ -685,7 +685,7 @@ for fc_type in ['continuous', 0.33]:
             print('loading CL models failed, skipping this model')
             continue
 
-        for nameTarget in ['Target', 'Target*Signal']:
+        for nameTarget in ['Target']:
             for i, rg in enumerate(rg_list):
                 # get CL model of that month
                 rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
@@ -794,11 +794,12 @@ for fc_type in ['continuous', 0.33]:
                     #Check RF tuning
                     try:
                         import scikit_model_analysis as sk_ana
-                        model = models_lags['lag_0'][f'split_{0}']
+                        model = models_lags['lag_0']['split_0']
                         f = sk_ana.ensemble_error_estimators(fcmodel, kwrgs_model)
                         f.savefig(os.path.join(filepath_verif,
                                                f'RF_tuning_{rg.fc_month}.pdf'), bbox_inches='tight')
                     except:
+                        print('RF tuning plot failed')
                         pass
 
             # store output predictions of each month per model
@@ -808,8 +809,7 @@ for fc_type in ['continuous', 0.33]:
             functions_pp.store_hdf_df(d_df_preds, filepath_dfs)
 
     #%% Continuous forecast: Verification
-    verif_combs = [['Target', 'Target'],
-                   ['Target*Signal', 'Target']]
+    verif_combs = [['Target', 'Target']]
 
     model_name_CL, model_name = model_combs[0] # for testing
     nameTarget_fit, nameTarget = verif_combs[0] # for testing
@@ -916,7 +916,7 @@ for fc_type in ['continuous', 0.33]:
                                             name_object='df_data')
 
         nameTarget = 'Target'
-        for nameTarget_fit in ['Target', 'Target*Signal']:
+        for nameTarget_fit in ['Target']:
 
             f_name = f'predictions_cont_CL{model_name_CL}_{model_name}_'\
                                                         f'{nameTarget_fit}.h5'
@@ -1052,8 +1052,7 @@ for fc_type in ['continuous', 0.33]:
         elif model_name_CL == 'Ridge' or model_name=='LogisticRegression':
             name_CL = 'Ridge' if fc_type =='continuous' else 'Logist. Regr.'
 
-        target_options = [['Target', 'Target | PPS'],
-                          ['Target (fitPPS)', 'Target (fitPPS) | PPS']]
+        target_options = [['Target', 'Target | PPS']]
 
         print('Plotting skill scores')
         for i, target_opt in enumerate(target_options):
@@ -1133,8 +1132,7 @@ for fc_type in ['continuous', 0.33]:
 
 
     fc_month_list = [rg.fc_month for rg in rg_list]
-    target_options = [['Target', 'Target (fitPPS)'],
-                      ['Target', 'Target | PPS', 'Target (fitPPS) | PPS']]
+    target_options = [['Target', 'Target | PPS']]
     print('Plotting skill scores')
     for i, target_opt in enumerate(target_options):
         fig, axes = plt.subplots(nrows=len(model_combs_plot), ncols=len(metrics_plot),
