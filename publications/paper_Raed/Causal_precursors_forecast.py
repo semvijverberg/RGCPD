@@ -391,7 +391,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                 keys = [mon+ '..'+k]
                 if regress_autocorr_SM and 'sm' in k:
                     z_keys = [z for z in rg.df_data.columns[1:-2] if keys[0] not in z]
-                if regress_SM_same_mon:
+                if regress_SM_same_mon==False:
                     z_keys = [k for k in z_keys if f'{mon}..0..smi' not in k]
 
 
