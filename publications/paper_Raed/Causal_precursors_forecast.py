@@ -138,7 +138,7 @@ elif target_dataset == 'USDA_Soy_csv_midwest':
     TVpath = read_csv_Raed(path)
 elif target_dataset.split('__')[0] == 'USDA_Soy_clusters':
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_0d570.nc')
-    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_interp_ff5d6.nc')
+    # TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_interp_ff5d6.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'USDA_Maize':
     # USDA dataset 1950 - 2019
@@ -498,9 +498,9 @@ if __name__ == '__main__':
 
     use_vars_july = ['sst', 'smi']
     use_vars_june = ['sst', 'smi']
-    use_vars_may = ['sst']
-    use_vars_april = ['sst']
-    use_vars_march = ['sst']
+    use_vars_may = ['sst', 'smi']
+    use_vars_april = ['sst', 'smi']
+    use_vars_march = ['sst', 'smi']
 
 
     # Run in Parallel
