@@ -842,7 +842,7 @@ def lineplot_cond_fc(filepath_dfs, metrics: list=None, composites=[30],
             ax.legend(fontsize=fs-5)
 
 
-def plot_regions(rg_list, save, plot_parcorr=False):
+def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5):
     #%%
     # labels plot
     dirpath = os.path.join(rg_list[0].path_outsub1, 'causal_maps')
@@ -858,7 +858,7 @@ def plot_regions(rg_list, save, plot_parcorr=False):
 
 
 
-    def get_map_rg(rg, ip, ir=0, textinmap=[]):
+    def get_map_rg(rg, ip, ir=0, textinmap=[], min_detect=.5):
 
         month_d = {'AS':'Aug-Sep mean', 'ON':'Oct-Nov mean', 'DJ':'Dec-Jan mean',
                    'FM':'Feb-Mar mean', 'AM':'Apr-May mean', 'JJ':'July-June mean',
@@ -928,6 +928,7 @@ def plot_regions(rg_list, save, plot_parcorr=False):
         rg._df_count = pd.Series({k:allkeys.count(k) for k in allkeys},
                                    dtype=object)
 
+
         precur = rg.list_for_MI[ip]
 
         CDlabels = precur.prec_labels.copy()
@@ -970,7 +971,8 @@ def plot_regions(rg_list, save, plot_parcorr=False):
             df_labelloc = find_precursors.labels_to_df(CDlabels[:,i])
             # Conditionally independent
 
-
+            # minimal number of times region needs to be detected
+            min_d = int(rg.n_spl * min_detect)
             if len(indkeys) != 0:
                 temp = []
                 for q, k in enumerate(indkeys):
@@ -981,12 +983,15 @@ def plot_regions(rg_list, save, plot_parcorr=False):
                         lat, lon = df_labelloc.loc[l].iloc[:2].values.round(1)
                     if lon > 180: lon-360
                     count = rg._df_count[k]
+                    if count < min_d:
+                        continue
                     text = f'{count}'
                     temp.append([lon,max(-12,min(54,lat)),
                                      text, {'fontsize':8,
                                             'bbox':dict(facecolor='pink', alpha=0.1)}])
                 textinmap.append([(i,ir), temp])
             # get text on robustness per month:
+
             if len(CDkeys) != 0:
                 temp = []
                 for q, k in enumerate(CDkeys):
@@ -998,12 +1003,16 @@ def plot_regions(rg_list, save, plot_parcorr=False):
                     if lon > 180: lon-360
                     if precur.calc_ts != 'pattern cov':
                         count = rg._df_count[k]
+                        if count < min_d:
+                            continue
                         text = f'{int(RB[q])}/{count}'
                         temp.append([lon-12,min(54,lat+7),
                                      text, {'fontsize':15,
                                             'bbox':dict(facecolor='white', alpha=0.2)}])
                     elif precur.calc_ts == 'pattern cov' and q == 0:
                         count = rg._df_count[f'{month}..0..{precur.name}_sp']
+                        if count < min_d:
+                            continue
                         text = f'{int(RB[0])}/{count}'
                         lon = float(CDlabels[:,i].longitude.mean())
                         lat = float(CDlabels[:,i].latitude.mean())
@@ -1018,11 +1027,11 @@ def plot_regions(rg_list, save, plot_parcorr=False):
 
         lags = rg.list_for_MI[0].corr_xr.lag
         subtitles = np.array([month_d[l] for l in lags.values], dtype='object')
-
+        subtitles = [f'Lag {abs(l)}: '+ subtitles[i] for l,i in enumerate(range(1,5))]
 
         return CDlabels, MCIstr, textinmap, subtitles, kwrgs_plot
 
-    min_detect = 0.1
+
     lagsize = rg_list[0].list_for_MI[0].prec_labels.lag.size
     for ip in range(2):
         if ip == 0:
@@ -1038,7 +1047,8 @@ def plot_regions(rg_list, save, plot_parcorr=False):
                 out = get_map_rg(rg,
                                  ip,
                                  ir,
-                                 textinmap)
+                                 textinmap,
+                                 min_detect)
                 CDlabels, MCIstr, textinmap, subtitles, kwrgs_plot = out
 
 
@@ -1048,7 +1058,7 @@ def plot_regions(rg_list, save, plot_parcorr=False):
                 MCIstr, mask_xr = rg.__class__._get_sign_splits_masked(MCIstr,
                                                                        min_detect)
                 CDlabels, mask_xr = rg.__class__._get_sign_splits_masked(CDlabels,
-                                                                         .1)
+                                                                         min_detect)
 
                 MCIstr['lag'] = ('lag', range(CDlabels.lag.size))
                 mask_xr['lag'] = ('lag', range(CDlabels.lag.size))
@@ -1077,7 +1087,8 @@ def plot_regions(rg_list, save, plot_parcorr=False):
                     plt.savefig(os.path.join(dirpath,
                                           f'{precur.name}_eps{precur.distance_eps}'
                                           f'minarea{precur.min_area_in_degrees2}_'
-                                          f'aCI{alpha_CI}_labels_{i}'+rg.figext),
+                                          f'aCI{alpha_CI}_labels_{i}_{min_detect}'\
+                                          +rg.figext),
                                   bbox_inches='tight')
 
             # MCI values plot

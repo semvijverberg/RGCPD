@@ -501,6 +501,10 @@ rg = rg_list[0]
 # =============================================================================
 # Forecasts
 # =============================================================================
+if sys.platform == 'linux':
+    mpl.use('Agg')
+    n_cpu = 10
+
 btoos = '' # if btoos=='_T': binary target out of sample.
 for fc_type in [0.33, 'continuous']:
     #%% Continuous forecast: get Combined Lead time models
@@ -530,7 +534,8 @@ for fc_type in [0.33, 'continuous']:
                       'oob_score':True,
                       'random_state':0,
                       'min_impurity_decrease':0,
-                      'max_samples':[0.4,.6],
+                      'max_samples':[0.4,.7],
+                      'max_features':[0.4,0.8],
                       'kfold':5,
                       'n_jobs':n_cpu}
         model2_tuple = (ScikitModel(RandomForestRegressor, verbosity=0),
@@ -550,14 +555,15 @@ for fc_type in [0.33, 'continuous']:
 
 
         from sklearn.ensemble import RandomForestClassifier
-        kwrgs_model2={'n_estimators':450,
+        kwrgs_model2={'n_estimators':300,
                       'max_depth':[2,4,6],
                       'scoringCV':scoringCV,
                       # 'criterion':'mse',
                       'oob_score':True,
                       'random_state':0,
                       'min_impurity_decrease':0,
-                      'max_samples':[2,4,9],
+                      'max_features':[0.4,0.8],
+                      'max_samples':[0.4, 0.7],
                       'kfold':10,
                       'n_jobs':n_cpu}
         model2_tuple = (ScikitModel(RandomForestClassifier, verbosity=0),
@@ -1203,8 +1209,8 @@ f.savefig(os.path.join(rg.path_outsub1, 'Pacific_model_vs_Pacific_mean'+rg.figex
           bbox_inches='tight')
 #%%
 import utils_paper3
-utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False)
-utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=True)
+utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.5)
+utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=True, min_detect=.5)
 
 #%%
 # import find_precursors
