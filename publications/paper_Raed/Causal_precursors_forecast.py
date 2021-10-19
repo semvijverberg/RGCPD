@@ -508,11 +508,10 @@ for fc_type in [0.33, 'continuous']:
     os.makedirs(filepath_df_datas, exist_ok=True)
     filepath_verif = os.path.join(rg.path_outsub1, f'verif_{str(fc_type)}{btoos}')
     os.makedirs(filepath_verif, exist_ok=True)
-
+    from sklearn.linear_model import Ridge, LogisticRegression
+    from stat_models_cont import ScikitModel
 
     if fc_type == 'continuous':
-        from sklearn.linear_model import Ridge, LogisticRegression
-        from stat_models_cont import ScikitModel
         scoringCV = 'neg_mean_squared_error'
         kwrgs_model1 = {'scoringCV':scoringCV,
                         'alpha':list(np.concatenate([np.logspace(-4,0, 5),
