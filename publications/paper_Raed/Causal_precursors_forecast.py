@@ -11,7 +11,7 @@ import os, inspect, sys
 import matplotlib as mpl
 if sys.platform == 'linux':
     mpl.use('Agg')
-    n_cpu = 8
+    n_cpu = 5
 else:
     n_cpu = 3
 
@@ -530,7 +530,7 @@ rg = rg_list[0]
 # Forecasts
 # =============================================================================
 btoos = '' # if btoos=='_T': binary target out of sample.
-for fc_type in ['continuous', 0.33]:
+for fc_type in [0.33, 'continuous']:
     #%% Continuous forecast: get Combined Lead time models
     filepath_df_datas = os.path.join(rg.path_outsub1, f'df_data_{str(fc_type)}{btoos}')
     os.makedirs(filepath_df_datas, exist_ok=True)
