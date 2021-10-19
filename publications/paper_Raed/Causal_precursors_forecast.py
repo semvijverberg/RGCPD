@@ -60,7 +60,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['ranstrat_20']#, 'timeseriessplit_20', 'leave_1'] # ['ranstrat_20'] timeseriessplit_30
+methods = ['timeseriessplit_20', 'leave_1'] # ['ranstrat_20'] timeseriessplit_30
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -543,22 +543,22 @@ for fc_type in [0.33, 'continuous']:
                         'random_state':seed,
                         'penalty':'l2',
                         'solver':'lbfgs',
-                        'kfold':5,
+                        'kfold':10,
                         'max_iter':200}
         model1_tuple = (ScikitModel(LogisticRegression, verbosity=0),
                         kwrgs_model1)
 
 
         from sklearn.ensemble import RandomForestClassifier
-        kwrgs_model2={'n_estimators':[450],
-                      'max_depth':[3,6],
+        kwrgs_model2={'n_estimators':450,
+                      'max_depth':[2,4,6],
                       'scoringCV':scoringCV,
                       # 'criterion':'mse',
                       'oob_score':True,
                       'random_state':0,
                       'min_impurity_decrease':0,
-                      'max_samples':[0.4,.6],
-                      'kfold':5,
+                      'max_samples':[2,4,9],
+                      'kfold':10,
                       'n_jobs':n_cpu}
         model2_tuple = (ScikitModel(RandomForestClassifier, verbosity=0),
                         kwrgs_model2)
@@ -626,6 +626,8 @@ for fc_type in [0.33, 'continuous']:
 
             rg.df_CL_data = df_data
             df_data_CL[f'{rg.fc_month}_df_data'] = df_data
+
+
         # store df_pred_tuple
         functions_pp.store_hdf_df(df_data_CL, filepath_dfs)
 
@@ -766,7 +768,10 @@ for fc_type in [0.33, 'continuous']:
                     try:
                         import scikit_model_analysis as sk_ana
                         model = models_lags['lag_0']['split_0']
-                        f = sk_ana.ensemble_error_estimators(model.best_estimator_, kwrgs_model)
+                        f = sk_ana.ensemble_error_estimators(model.best_estimator_,
+                                                             kwrgs_model,
+                                                             min_estimators=1,
+                                                             steps=10)
                         f.savefig(os.path.join(filepath_verif,
                                                f'RF_tuning_{rg.fc_month}.pdf'), bbox_inches='tight')
                     except:
