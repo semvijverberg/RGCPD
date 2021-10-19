@@ -170,7 +170,7 @@ n_boot = 2000
 append_pathsub = f'/{method}/s{seed}'
 
 append_main = target_dataset
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_no_csm_summersm')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_no_csm_no_int')
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
     path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
 elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
@@ -460,40 +460,6 @@ if __name__ == '__main__':
                             [f'{sy_p1}-02-01', f'{sy_p1}-03-01'] # MA
                             ])
     periodnames_march = ['AS', 'ON', 'DJ', 'FM']
-    # # =============================================================================
-    # # 3 * bimonthly
-    # # =============================================================================
-    # lags_july = np.array([#['1950-12-01', '1951-01-01'],# DJ
-    #                       ['1950-02-01', '1950-03-01'],# FM
-    #                       ['1950-04-01', '1950-05-01'],# AM
-    #                       ['1950-06-01', '1950-07-01'] # JJ
-    #                       ])
-    # periodnames_july = ['March', 'May', 'July']
-
-
-    # lags_june = np.array([#['1950-11-01', '1950-12-01'],# FM
-    #                       ['1950-01-01', '1950-02-01'],# FM
-    #                       ['1950-03-01', '1950-04-01'],# AM
-    #                       ['1950-05-01', '1950-06-01'] # JJ
-    #                       ])
-    # periodnames_june = ['Feb', 'April', 'June']
-
-
-    # lags_may = np.array([#['1950-10-01', '1950-11-01'],# ON
-    #                       ['1950-12-01', '1951-01-01'],# DJ
-    #                       ['1951-02-01', '1951-03-01'],# FM
-    #                       ['1951-04-01', '1951-05-01'] # AM
-    #                       ])
-    # periodnames_may = ['Jan', 'Mar', 'May']
-
-
-    # lags_april = np.array([#['1950-09-01', '1950-10-01'],# SO
-    #                         ['1950-11-01', '1950-12-01'],# ND
-    #                         ['1951-01-01', '1951-02-01'],# JF
-    #                         ['1951-03-01', '1951-04-01'] # MA
-    #                         ])
-    # periodnames_april = ['Dec', 'Feb', 'April']
-
 
 
     use_vars_july = ['sst', 'smi']
@@ -524,7 +490,13 @@ rg = rg_list[0]
 
 
 
+# =============================================================================
+#
+# =============================================================================
 
+# =============================================================================
+#
+# =============================================================================
 
 # =============================================================================
 # Forecasts
@@ -795,7 +767,7 @@ for fc_type in [0.33, 'continuous']:
                     try:
                         import scikit_model_analysis as sk_ana
                         model = models_lags['lag_0']['split_0']
-                        f = sk_ana.ensemble_error_estimators(fcmodel, kwrgs_model)
+                        f = sk_ana.ensemble_error_estimators(model.best_estimator_, kwrgs_model)
                         f.savefig(os.path.join(filepath_verif,
                                                f'RF_tuning_{rg.fc_month}.pdf'), bbox_inches='tight')
                     except:
