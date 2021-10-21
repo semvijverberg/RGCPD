@@ -136,7 +136,7 @@ path_out_main = os.path.join(main_dir,
                              f'adaptRW{adapt_t2mvsRW}/')
 tfreq         = 15
 min_detect_gc = 0.9
-method        = False #'RepeatedKFold_10_7' ;
+method        = 'RepeatedKFold_10_7' ;
 use_sign_pattern_z500 = True
 
 TVpathRW = os.path.join(data_dir, f'{west_east}RW_{period}_s{seed}_{method}')
