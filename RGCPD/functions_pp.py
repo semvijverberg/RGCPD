@@ -765,7 +765,7 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
             #                dates_aggr[0] < pd.to_datetime(f'{startyear}-03-01')])
             # cross-year, one yr with dates both prior and after 03-01 in a lpyr
 
-            # single check for leap_year
+            # single check for leap_year, if leap2yr==True: adjust for leapday
             if any(dates_aggr.is_leap_year):
                 _lpyr = dates_aggr[dates_aggr.is_leap_year][0].year
                 leap2yr = all([any(dates_aggr < pd.to_datetime(f'{_lpyr}-03-01')),
@@ -774,10 +774,11 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
                 leap2yr  = False
 
 
-            if leap2yr:
+            if leap2yr or tfreq == 1:
                 start_yr = pd.date_range(start=sd,
                                      end=dates_aggr[-1])
             else:
+                # not 100% sure why +1 day when no adjustment for leapyr needed
                 start_yr = pd.date_range(start=sd + pd.Timedelta(f'{1}d'),
                                      end=dates_aggr[-1])
             start_yr = core_pp.remove_leapdays(start_yr)
