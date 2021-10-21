@@ -57,11 +57,10 @@ import wrapper_PCMCI as wPCMCI
 import functions_pp, plot_maps, find_precursors, core_pp
 
 periods = ['summer_center', 'spring_center', 'winter_center']
+periods = ['spring_center', 'winter_center']
 
-# periods = ['winter_center']
 
-# periods = ['summer_shiftleft']
-remove_PDO = True
+remove_PDO = False
 if remove_PDO:
     targets = ['east']
 else:
@@ -110,45 +109,31 @@ elif west_east =='west':
     z500_green_bb = (145,325,20,62) # bounding box for western RW
 
 
-path_out_main = os.path.join(main_dir, f'publications/NPJ_2021/output/{west_east}_fb/')
+
+
+
 if period == 'summer_center':
     start_end_TVdate = ('06-01', '08-31')
-    start_end_TVdatet2mvsRW = start_end_TVdate
-elif period == 'summer_shiftleft':
-    start_end_TVdate = ('05-25', '08-24')
-    start_end_TVdatet2mvsRW = start_end_TVdate
-elif period == 'summer_shiftright':
-    start_end_TVdate = ('06-08', '09-06')
-    start_end_TVdatet2mvsRW = start_end_TVdate
 elif period == 'spring_center':
     start_end_TVdate = ('02-01', '05-31')
-    start_end_TVdatet2mvsRW = ('06-01', '08-31') # always focus on RW in summer
-elif period == 'spring_shiftleft':
-    start_end_TVdate = ('01-25', '05-24')
-    start_end_TVdatet2mvsRW = ('05-25', '08-24')
-elif period == 'spring_shiftright':
-    start_end_TVdate = ('02-08', '06-06')
-    start_end_TVdatet2mvsRW = ('06-08', '09-06')
 elif period == 'winter_center':
     start_end_TVdate = ('12-01', '02-28')
-    start_end_TVdatet2mvsRW = ('06-01', '08-31') # always focus on RW in summer
-elif period == 'winter_shiftleft':
-    start_end_TVdate = ('11-25', '02-24')
-    start_end_TVdatet2mvsRW = ('05-25', '08-24')
-elif period == 'winter_shiftright':
-    start_end_TVdate = ('12-08', '03-07')
-    start_end_TVdatet2mvsRW = ('06-08', '09-06')
+
+adapt_t2mvsRW = False
+if adapt_t2mvsRW:
+    start_end_TVdatet2mvsRW = ('06-01', '08-31')
+else:
+    start_end_TVdatet2mvsRW = start_end_TVdate
 
 if period.split('_') == 'winter':
     start_end_date = None
 else:
     start_end_date = ('01-01', '12-31')
 
-# =============================================================================
-# CHANGE SED
-# =============================================================================
-# start_end_date = ('03-01', start_end_TVdatet2mvsRW[-1])
 
+path_out_main = os.path.join(main_dir,
+                             f'publications/NPJ_2021/output/{west_east}_fb_'\
+                             f'adaptRW{adapt_t2mvsRW}/')
 tfreq         = 15
 min_detect_gc = 0.9
 method        = False #'RepeatedKFold_10_7' ;

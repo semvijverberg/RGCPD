@@ -1188,6 +1188,9 @@ def pp_calc_ts(precur, precur_aggr=None, kwrgs_load: dict=None,
         corr_xr         = precur.corr_xr
     prec_labels     = precur.prec_labels
 
+    if kwrgs_load is None:
+        kwrgs_load = precur.kwrgs_load
+
     if lags is not None:
         lags        = np.array(lags) # ensure lag is np.ndarray
         corr_xr     = corr_xr.sel(lag=lags).copy()
@@ -1295,7 +1298,7 @@ def single_split_calc_spatcov(precur, precur_arr: np.ndarray, corr: np.ndarray,
             ts_list[il] = nants
             pass
         else:
-            xrts = find_precursors.calc_spatcov(precur_arr.values, pattern,
+            xrts = find_precursors.calc_spatcov(precur_arr, pattern,
                                                 area_wght=a_wghts)
             ts_list[il] = xrts[:,None]
         track_names.append(f'{lag}..0..{precur.name}' + '_sp')
