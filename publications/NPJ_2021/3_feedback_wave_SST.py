@@ -152,7 +152,7 @@ name_or_cluster_label = 'z500'
 name_ds = f'0..0..{name_or_cluster_label}_sp'
 
 save = True
-force_rerun = True
+force_rerun = False
 
 #%% Circulation vs temperature
 
@@ -313,7 +313,7 @@ fig = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
 ds = core_pp.import_ds_lazy(TVpathtemp)
 xrclustered = find_precursors.view_or_replace_labels(ds['xrclustered'],
                                                      cluster_label)
-fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
+fig.axes[0,0].contour(xrclustered.longitude, xrclustered.latitude,
            np.isnan(xrclustered), transform=ccrs.PlateCarree(),
            levels=[0, 2], linewidths=2, linestyles=['solid'], colors=['white'])
 filename = os.path.join(rg.path_outsub1,
