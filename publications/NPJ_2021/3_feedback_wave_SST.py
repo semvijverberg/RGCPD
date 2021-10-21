@@ -158,7 +158,7 @@ force_rerun = False
 
 
 
-nonexists = [os.path.exists(TVpathRW + f'_tf{tfreq}.h5')==False for f in freqs]
+nonexists = [os.path.exists(TVpathRW + f'_tf{tfreq}_ad{adapt_t2mvsRW}.h5')==False for f in freqs]
 
 if any(nonexists) or force_rerun:
 
@@ -205,7 +205,7 @@ if any(nonexists) or force_rerun:
         # print(f'End time: {int(time() - start_time)}')
 
 
-        rg1.store_df(filename=TVpathRW + f'_tf{f}')
+        rg1.store_df(filename=TVpathRW + f'_tf{f}_ad{adapt_t2mvsRW}')
 
 
     # Optionally set font to Computer Modern to avoid common missing font errors
@@ -435,6 +435,7 @@ for f in freqs[:]:
         tau_max = 2 ; n_cpu = 1
     elif f >= 60:
         tau_max = 1 ; n_cpu = 1
+
     # if f == 30: # exception because code thinks 30-day are monthly mean data
     #     rg.list_import_ts = [('RW', TVpathRW+'_tf1.h5')]
     # else:
