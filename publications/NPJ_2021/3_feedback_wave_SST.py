@@ -236,7 +236,7 @@ if any(nonexists) or force_rerun:
 #%% RW timeseries vs SST and RW timeseries vs RW
 # =============================================================================
 
-list_of_name_path = [(name_or_cluster_label, TVpathRW+'_tf1.h5'),
+list_of_name_path = [(name_or_cluster_label, TVpathRW+'_tf1_ad{adapt_t2mvsRW}.h5'),
                       ('z500', os.path.join(path_raw, 'z500_1979-2020_1_12_daily_2.5deg.nc')),
                       ('N-Pac. SST', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
                       # ('Trop. Pac. SST', os.path.join(path_raw, 'sst_1979-2018_1_12_daily_1.0deg.nc'))]
@@ -252,7 +252,7 @@ list_for_MI   = [BivariateMI(name='z500', func=class_BivariateMI.corr_map,
                               distance_eps=500, min_area_in_degrees2=5,
                               calc_ts='pattern cov', selbox=(130,260,-10,90),
                               lags=np.array([0]))]
-list_import_ts = [(['0..0..z500_sp'], TVpathRW+f'_tf{tfreq}.h5')]
+list_import_ts = [(['0..0..z500_sp'], TVpathRW+f'_tf{tfreq}_ad{adapt_t2mvsRW}.h5')]
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
@@ -439,7 +439,7 @@ for f in freqs[:]:
     # if f == 30: # exception because code thinks 30-day are monthly mean data
     #     rg.list_import_ts = [('RW', TVpathRW+'_tf1.h5')]
     # else:
-    rg.list_import_ts = [('0..0..z500_sp', TVpathRW+f'_tf{f}.h5')]
+    rg.list_import_ts = [('0..0..z500_sp', TVpathRW+f'_tf{f}_ad{adapt_t2mvsRW}.h5')]
     if remove_PDO:
         rg.list_import_ts += [(f'PDO{lowpass}rm',
                                os.path.join(data_dir,'df_PDOs_daily.h5'))]
