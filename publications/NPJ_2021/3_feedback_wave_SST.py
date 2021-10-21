@@ -308,27 +308,28 @@ z500 = rg.list_for_MI[0]
 xrvals, xrmask = RGCPD._get_sign_splits_masked(z500.corr_xr,
                                                min_detect_gc,
                                                z500.corr_xr['mask'])
-fig = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
+g = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
 
 ds = core_pp.import_ds_lazy(TVpathtemp)
 xrclustered = find_precursors.view_or_replace_labels(ds['xrclustered'],
                                                      cluster_label)
-fig.axes[0,0].contour(xrclustered.longitude, xrclustered.latitude,
+g.axes[0,0].contour(xrclustered.longitude, xrclustered.latitude,
            np.isnan(xrclustered), transform=ccrs.PlateCarree(),
            levels=[0, 2], linewidths=2, linestyles=['solid'], colors=['white'])
 filename = os.path.join(rg.path_outsub1,
                         'z500vsRW_'+''.join(map(str, z500_green_bb)))
-fig.savefig(filename+'.pdf', bbox_inches='tight')
-fig.savefig(filename+'.jpg', dpi=300, bbox_inches='tight')
+g.fig.savefig(filename+'.pdf', bbox_inches='tight')
+g.fig.savefig(filename+'.jpg', dpi=300, bbox_inches='tight')
+
 #%% Plot corr map versus z500
-precur = rg.list_for_MI[0]
-subtitles = np.array([[f'$corr(z500_t,\ RW^{west_east[0].capitalize()}_t)$']])
-kwrgs_plot.update({'size':5, 'cbar_vert':.19, 'subtitles':subtitles,
-                    'zoomregion':(-180,360,10,80),
-                    'drawbox':['all', z500_green_bb]})
-rg.plot_maps_corr(var='z500', save=save, min_detect_gc=min_detect_gc,
-                  append_str=''.join(map(str, z500_green_bb)),
-                  kwrgs_plot=kwrgs_plot)
+# precur = rg.list_for_MI[0]
+# subtitles = np.array([[f'$corr(z500_t,\ RW^{west_east[0].capitalize()}_t)$']])
+# kwrgs_plot.update({'size':5, 'cbar_vert':.19, 'subtitles':subtitles,
+#                     'zoomregion':(-180,360,10,80),
+#                     'drawbox':['all', z500_green_bb]})
+# rg.plot_maps_corr(var='z500', save=save, min_detect_gc=min_detect_gc,
+#                   append_str=''.join(map(str, z500_green_bb)),
+#                   kwrgs_plot=kwrgs_plot)
 
 
 
