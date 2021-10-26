@@ -407,24 +407,27 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
 
     # color text BSS
     shadesgr = ["90a955","4f772d","31572c","132a13"]
-    ct_BSS = {0.0:"90a955",0.25:"4f772d",0.5:"31572c",0.75:"132a13"}
+    lin = np.round(np.linspace(0,1,5),2) ; sBSS = (lin[1]-lin[0])/2
+    ct_BSS = {lin[i]+sBSS:shadesgr[i] for i in range(4)}
     base_ACC = 100 * (0.66*0.66) + (0.33 * 0.33)
-    lin = np.round(np.linspace(base_ACC, 100, 5), 1)
-    ct_ACC = {lin[i]:shadesgr[i] for i in range(4)}
-    lin = np.round(np.linspace(33, 100, 5), 1)
-    ct_Prec  = {lin[i]:shadesgr[i] for i in range(4)}
+    lin = np.round(np.linspace(base_ACC, 100, 5), 1) ; sACC = (lin[1]-lin[0])/2
+    ct_ACC = {lin[i]+sACC:shadesgr[i] for i in range(4)}
+    lin = np.round(np.linspace(33, 100, 5), 1) ; sPrec = (lin[1]-lin[0])/2
+    ct_Prec  = {lin[i]+sPrec:shadesgr[i] for i in range(4)}
     combs_table = np.array(np.meshgrid(range(len(df_test_m)),
                                         range(len(metrics_plot)))).T.reshape(-1,2)
     for r,c in combs_table:
         val = tsc[r,c]
         if metrics_plot[r] == 'BSS':
-            colt = [c for v,c in ct_BSS.items() if np.isclose(val,v, atol=0.2)][0]
+            colt = [c for v,c in ct_BSS.items() if np.isclose(val,v, atol=sBSS)]
         elif metrics_plot[r] == 'accuracy':
-            colt = [c for v,c in ct_ACC.items() if np.isclose(val,v, atol=5)][0]
+            colt = [c for v,c in ct_ACC.items() if np.isclose(val,v, atol=sACC)]
         elif metrics_plot[r] == 'precision':
-            colt = [c for v,c in ct_Prec.items() if np.isclose(val,v, atol=10)][0]
+            colt = [c for v,c in ct_Prec.items() if np.isclose(val,v, atol=sPrec)]
+        if len(colt)==0:
+            colt = "ae2012" # no positive skill: color red
         else:
-            colt = 'ee6055'
+            colt = colt[0]
 
         table[(r+1, c)].get_text().set_color('#'+colt)
 

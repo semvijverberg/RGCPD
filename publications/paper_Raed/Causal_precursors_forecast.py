@@ -639,7 +639,7 @@ for fc_type in [0.33, 'continuous']:
 
 
 
-    #%% Continuous forecast: Make prediction
+    #%% Make prediction
     if fc_type == 'continuous':
         model_combs = [['Ridge', 'Ridge'],
                        ['Ridge', 'RandomForestRegressor'],
@@ -874,7 +874,7 @@ for fc_type in [0.33, 'continuous']:
 
             functions_pp.store_hdf_df(d_dfs, filepath_dfs)
 
-    #%% Continuous forecast: Conditional forecast verification
+    #%% Conditional forecast verification
     # import utils_paper3
 
     for model_name_CL, model_name in model_combs:
@@ -991,7 +991,7 @@ for fc_type in [0.33, 'continuous']:
         #                                          rng_seed=seed)
         # rg.verification_tuple_c_o  = verification_tuple_c_o
 
-    #%% Plotting Continuous forecast timeseries
+    #%% Plotting forecast timeseries
     import utils_paper3
     if fc_type == 'continuous':
         metrics_plot = ['corrcoef', 'MAE', 'r2_score']
@@ -1099,7 +1099,7 @@ for fc_type in [0.33, 'continuous']:
             fig.savefig(os.path.join(filepath_verif,
                       f'timeseries_and_skill_{i}_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
             plt.close()
-    #%% Continuous forecast: plotting skill scores
+    #%% plotting skill scores as function of lead-time
     # import utils_paper3
     if fc_type == 'continuous':
         metrics_plot = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
