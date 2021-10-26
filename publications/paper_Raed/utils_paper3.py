@@ -406,9 +406,13 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
         table.scale(1.1, 2.8)
 
     # color text BSS
-    ct_BSS = {0.0:"90a955",0.4:"4f772d",0.6:"31572c",0.8:"132a13"}
-    ct_ACC = {65:"90a955",75:"4f772d",85:"31572c",95:"132a13"}
-    ct_Prec = {30:"90a955",50:"4f772d",70:"31572c",90:"132a13"}
+    shadesgr = ["90a955","4f772d","31572c","132a13"]
+    ct_BSS = {0.0:"90a955",0.25:"4f772d",0.5:"31572c",0.75:"132a13"}
+    base_ACC = 100 * (0.66*0.66) + (0.33 * 0.33)
+    lin = np.round(np.linspace(base_ACC, 100, 5), 1)
+    ct_ACC = {lin[i]:shadesgr[i] for i in range(4)}
+    lin = np.round(np.linspace(33, 100, 5), 1)
+    ct_Prec  = {lin[i]:shadesgr[i] for i in range(4)}
     combs_table = np.array(np.meshgrid(range(len(df_test_m)),
                                         range(len(metrics_plot)))).T.reshape(-1,2)
     for r,c in combs_table:

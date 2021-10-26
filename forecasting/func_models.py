@@ -459,6 +459,7 @@ def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=N
                             left_index=True,
                             right_index=True)
 
+
     # score on train and per test split
     if score_func_list is None:
         score_func_list = [metrics.mean_squared_error, corrcoef]
@@ -473,15 +474,18 @@ def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=N
                             columns=[f.__name__ for f in score_func_list])
         for s in splits:
             sp = pred.loc[s]
+            not_constant = True
+            if np.unique(sp.iloc[:,0]).size == 1:
+                not_constant = False
             trainRV = np.logical_and(sp['TrainIsTrue']==1, sp['RV_mask']==True)
             testRV  = np.logical_and(sp['TrainIsTrue']==0, sp['RV_mask']==True)
             for f in score_func_list:
                 name = f.__name__
-                if (~trainRV).all()==False: # training data exists
+                if (~trainRV).all()==False and not_constant: # training data exists
                     train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].loc[:,col])
                 else:
                     train_score  = np.nan
-                if score_per_test and testRV.any():
+                if score_per_test and testRV.any() and not_constant:
                     test_score = f(sp[testRV].iloc[:,0], sp[testRV].loc[:,col])
                 else:
                     test_score = np.nan
@@ -501,26 +505,35 @@ def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=N
         for c, col in enumerate(columns):
             df_test = pd.DataFrame(np.zeros( (1,len(score_func_list))),
                                     columns=[f.__name__ for f in score_func_list])
-
             for f in score_func_list:
                 name = f.__name__
                 y_true = pred_test.iloc[:,0]
                 y_pred = pred_test.loc[:,col]
-                df_test[name] = f(y_true, y_pred)
+                if np.unique(y_true).size >= 2:
+                    df_test[name] = f(y_true, y_pred)
+                else:
+                    if c == 0:
+                        print('Warning: y_true is constant. Returning NaN.')
+                    df_test[name] = np.nan
             df_tests[c]  = df_test
         df_tests = pd.concat(df_tests, keys=columns, axis=1)
 
 
     # Bootstrapping with replacement
     df_boots = np.zeros( (columns.size), dtype=object)
-    if pred_test.size != 0 : # ensure test data is available
+    if pred_test.size != 0: # ensure test data is available
         for c, col in enumerate(columns):
             old_index = range(0,len(y_true),1)
             n_bl = blocksize
             chunks = [old_index[n_bl*i:n_bl*(i+1)] for i in range(int(len(old_index)/n_bl))]
-            score_list = _bootstrap(pred_test.iloc[:,[0,c+1]], n_boot, chunks,
-                                    score_func_list,
-                                    rng_seed=rng_seed)
+            if np.unique(y_true).size > 1 or n_boot==0:
+                score_list = _bootstrap(pred_test.iloc[:,[0,c+1]], n_boot,
+                                        chunks, score_func_list,
+                                        rng_seed=rng_seed)
+            else:
+                score_list  = np.repeat(np.nan,
+                                        n_boot*len(score_func_list)).reshape(n_boot, -1)
+
             df_boot = pd.DataFrame(score_list,
                                    columns=[f.__name__ for f in score_func_list])
             df_boots[c] = df_boot
