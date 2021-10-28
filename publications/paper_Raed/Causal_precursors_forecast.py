@@ -60,7 +60,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25'] # ['ranstrat_20'] timeseriessplit_30
+methods = ['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25'] # ['ranstrat_20'] timeseriessplit_30
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -508,7 +508,8 @@ if sys.platform == 'linux':
 btoos = '' # if btoos=='_T': binary target out of sample.
 for fc_type in [0.33, 'continuous']:
     #%% Continuous forecast: get Combined Lead time models
-    filepath_df_datas = os.path.join(rg.path_outsub1, f'df_data_{str(fc_type)}{btoos}')
+    pathsub_df = f'df_data_{str(fc_type)}{btoos}'
+    filepath_df_datas = os.path.join(rg.path_outsub1, pathsub_df)
     os.makedirs(filepath_df_datas, exist_ok=True)
     filepath_verif = os.path.join(rg.path_outsub1, f'verif_{str(fc_type)}{btoos}')
     os.makedirs(filepath_verif, exist_ok=True)
@@ -1157,6 +1158,7 @@ for fc_type in [0.33, 'continuous']:
         plt.close()
 
 
+
 #%% PDO versus trend line
 import climate_indices
 _df_PDO, PDO_patterns = climate_indices.PDO(rg.list_for_MI[0].filepath,
@@ -1212,7 +1214,182 @@ import utils_paper3
 utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.5)
 utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=True, min_detect=.5)
 
-#%%
+
+# collecting different train-test splits to plot scores vs lead-time
+for fc_type in [0.33, 'continuous']:
+    #%% Continuous forecast: get Combined Lead time models
+    pathsub_df = f'df_data_{str(fc_type)}{btoos}'
+    filepath_df_datas = os.path.join(rg.path_outsub1, pathsub_df)
+    os.makedirs(filepath_df_datas, exist_ok=True)
+    filepath_verif = os.path.join(rg.path_outsub1, f'verif_{str(fc_type)}{btoos}')
+    import re
+
+    if 'timeseries' not in method:
+        path = '/'.join(rg.path_outsub1.split('/')[:-1])
+        hash_str = 's\d'
+    else:
+        path = '/'.join(rg.path_outsub1.split('/')[:-2])
+        hash_str = 'timeseriessplit_\d\d'
+
+
+
+    cs = ["#a4110f","#f7911d","#fffc33","#9bcd37","#1790c4"]
+    f_names = []
+    for root, dirs, files in os.walk(path):
+        for _dir in dirs:
+            if re.match(f'{hash_str}', _dir):
+                print(f'Found file {_dir}')
+                f_names.append(os.path.join(root,_dir))
+
+    if fc_type == 'continuous':
+        metrics_plot = ['corrcoef', 'MAE', 'r2_score']
+        model_combs_plot  = [['Ridge', 'Ridge'],
+                             # ['Ridge', 'RandomForestRegressor'],
+                             ['RandomForestRegressor', 'RandomForestRegressor']]
+    else:
+        metrics_plot = ['BSS', 'accuracy', 'precision'] # 'roc_auc_score',
+        model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
+                             # ['LogisticRegression', 'RandomForestClassifier'],
+                             ['RandomForestClassifier', 'RandomForestClassifier']]
+
+
+
+    f_names = sorted(f_names)
+    collectdict = {}
+    for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
+
+        for f_name in f_names:
+            if 'timeseries' in method:
+                _path_df_datas = os.path.join(f_name, f's1/{pathsub_df}')
+            else:
+                _path_df_datas = os.path.join(f_name, pathsub_df)
+            for _target in ['Target', 'Target | PPS']:
+                try:
+                    out = utils_paper3.load_scores([_target], model_name_CL,
+                                                   model_name,
+                                                   n_boot, _path_df_datas,
+                                                   condition='strong 50%')[:2]
+                    df_scores_list, df_boot_list = out
+                    collectdict[f_name.split('/')[-1]+str(j)+model_name+_target] = out
+                except:
+                    # print(f_name)
+                    # f_names.remove(f_name)
+                    df_scores_list, df_boot_list = None, None
+                    continue
+
+    collectdict = dict(sorted(collectdict.items()))
+    cvnames = [f.split('/')[-1] for f in f_names]
+    if 'timeseries' not in method:
+        cvrename = [f.replace('s', '20-fold seed ') for f in cvnames]
+        loc = 'best'
+    else:
+        cvrename = [f.replace('timeseriessplit_', 'one-step-ahead ') for f in cvnames]
+        loc = 'lower left'
+    cvrename = cvrename[::-1]
+    cvrename = [c +' [Top 50%, all]' for c in cvrename]
+
+    #%% Plot
+
+    f, axes = plt.subplots(len(metrics_plot),2, figsize=(12,8),
+                           sharey=True)
+    cols = [model_combs_plot[0][0], model_combs_plot[1][0]]
+    rows = metrics_plot
+    cs = ['#EE6666', '#3388BB', '#88BB44', '#9988DD', '#EECC55',
+          '#FFBBBB']
+    rename_met = {'RMSE':'RMSE-SS', 'corrcoef':'Corr.', 'MAE':'MAE-SS',
+                  'BSS':'BSS', 'roc_auc_score':'AUC', 'r2_score':'$r^2$',
+                  'mean_absolute_percentage_error':'MAPE', 'AUC_SS':'AUC-SS',
+                  'precision':'Precision', 'accuracy':'Accuracy'}
+
+    order_labels = [k for k in collectdict.keys() if 'Logist' in k or 'Ridge' in k]
+    labels_track = [] ; cvcount = 0 ; lines = {}
+    for i, (key, item) in enumerate(collectdict.items()):
+        idxcol = [i for i in range(len(cols)) if cols[i] in key][0]
+        axrows = axes[:,idxcol]
+
+        idxcv = [i for i in range(len(cvnames)) if cvnames[i] in key][0]
+        label = cvrename[idxcv]
+        color = cs[idxcv]
+        if label in labels_track:
+            label = None
+        else:
+            labels_track.append(label)
+
+        ls = 'dotted' if 'PPS' in key else '-'
+        df_sc= item[0][0] ;
+        for idxrow, _metric in enumerate(metrics_plot):
+            # columns.levels auto-sorts order of labels, to avoid:
+            steps = df_sc.columns.levels[1].size
+            months = [t[0] for t in df_sc.columns][::steps]
+            ax = axrows[idxrow]
+            l = ax.plot(months, df_sc.reorder_levels((1,0), axis=1).iloc[0][_metric].T,
+                    # label=label,
+                    color=color,
+                    linestyle=ls)
+
+            if idxcol == 0:
+                lines[key] = l
+
+
+            if _metric in ['corrcoef', 'BSS']:
+                bench = 0 ; ax.set_ylim(-.1,1)
+                ax.set_yticks(np.arange(0,1.01,0.2))
+            elif _metric == 'roc_auc_score':
+                bench = 0.5 ; ax.set_ylim(0,1)
+            elif _metric == 'accuracy':
+                bench = 100*(0.33**2) + (0.66**2)
+                ax.set_ylim(bench-10,100)
+            elif _metric == 'precision':
+                bench = 33 ; ax.set_ylim(bench-10,100)
+            else:
+                bench = 0 ; ax.set_ylim(-.1,1.)
+                ax.set_yticks(np.arange(0,1.01,0.2))
+            # if idxrow == 1 and label is not None:
+                # ax.legend(lines, loc='lower left', fontsize=10)
+            ax.axhline(bench, color='black', alpha=0.5)
+            if idxrow == 0:
+                ax.set_title(cols[idxcol])
+            if idxcol == 0:
+                ax.set_ylabel(rename_met[_metric])
+
+    # Legend stuff
+    lines = [lines[ol] for ol in order_labels[::-1]]
+    linesu = []
+    for i, l in enumerate(lines):
+        if i%2 == 0:
+            l1 = lines[i][0]
+            if len(lines) != i+1:
+                l2 = lines[i+1][0]
+                linesu.append((l1, l2))
+            else:
+                linesu.append(l1)
+    from matplotlib.legend_handler import HandlerTuple
+    axes[1,0].legend(linesu,
+                     cvrename,
+                     loc=loc,
+                     handler_map={tuple: HandlerTuple(ndivide=2)},
+                     handlelength=4,
+                     fontsize=10)
+    f.subplots_adjust(wspace=0.1)
+    #%%
+    if save:
+        f.savefig(os.path.join(filepath_verif, 'different_cvs.jpg'),
+                           bbox_inches='tight')
+        f.savefig(os.path.join(filepath_verif, 'different_cvs.pdf'),
+                           bbox_inches='tight')
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
