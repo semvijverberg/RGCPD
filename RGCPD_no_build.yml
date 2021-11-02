@@ -19,7 +19,6 @@ dependencies:
   - matplotlib-base
   - nbconvert
   - nbformat
-  - netcdf-fortran
   - netcdf4
   - numpy
   - pandas
@@ -33,12 +32,14 @@ dependencies:
 #  - spyder # <- optional Spyder IDE
   - statsmodels
   - xarray
+  - properscoring
 #  - joblib # <- optional for parallel computing
 #  - esmf # <- optional packages for regridding
 #  - xesmf # <- optional packages for regridding
   - pip:
-    - properscoring
     - tigramite
 prefix: /Users/semvijverberg/miniconda3/envs/RGCPD
 # conda env create -f RGCPD_no_build.yml
 # to install spyder later: conda install -c conda-forge spyder=4
+# If working on a Windows, you need to have installed the visual c++ build tools
+# https://visualstudio.microsoft.com/visual-cpp-build-tools/

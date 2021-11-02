@@ -417,7 +417,7 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
     combs_table = np.array(np.meshgrid(range(len(df_test_m)),
                                         range(len(metrics_plot)))).T.reshape(-1,2)
     for r,c in combs_table:
-        val = tsc[r,c]
+        val = tsc[r,c] ; colt = []
         if metrics_plot[r] == 'BSS':
             colt = [c for v,c in ct_BSS.items() if np.isclose(val,v, atol=sBSS)]
         elif metrics_plot[r] == 'accuracy':
