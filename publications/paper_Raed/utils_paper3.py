@@ -863,51 +863,51 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5):
 
     alpha_CI = 0.05
 
-
-
     def get_map_rg(rg, ip, ir=0, textinmap=[], min_detect=.5):
 
-        month_d = {'AS':'Aug-Sep mean', 'ON':'Oct-Nov mean', 'DJ':'Dec-Jan mean',
-                   'FM':'Feb-Mar mean', 'AM':'Apr-May mean', 'JJ':'July-June mean',
-                   'SO':'Sep-Oct mean', 'ND':'Nov-Dec mean', 'JF':'Jan-Feb mean',
-                   'MA':'Mar-Apr mean', 'MJ':'May-June mean'}
+        month_d = {'AS':'Aug-Sep mean', 'JJ':'July-June mean',
+                   'MJ':'May-June mean', 'AM':'Apr-May mean',
+                   'MA':'Mar-Apr mean', 'FM':'Feb-Mar mean',
+                   'JF':'Jan-Feb mean', 'DJ':'Dec-Jan mean',
+                   'ND':'Nov-Dec mean', 'ON':'Oct-Nov mean',
+                   'SO':'Sep-Oct mean'}
 
         kwrgs_plotcorr_sst = {'row_dim':'lag', 'col_dim':'split','aspect':4,
-                              'hspace':.35, 'wspace':0., 'size':2, 'cbar_vert':0.05,
+                              'hspace':.37, 'wspace':0., 'size':2, 'cbar_vert':0.05,
                               'map_proj':plot_maps.ccrs.PlateCarree(central_longitude=220),
                               'y_ticks':False, 'x_ticks':False, #np.arange(-10,61,20), #'x_ticks':np.arange(130, 280, 25),
                               'title':'',
-                              'subtitle_fontdict':{'fontsize':25},
-                              'clevels':np.arange(-.8,.9,.1),
-                              'clabels':np.arange(-.8,.9,.4),
-                              'cbar_tick_dict':{'labelsize':25},
+                              'subtitle_fontdict':{'fontsize':20},
+                              # 'clevels':np.arange(-.6,.7,.1),
+                              # 'clabels':np.arange(-.6,.7,.2),
+                               'cbar_tick_dict':{'labelsize':18},
                               'units':units,
                               'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
 
         kwrgs_plotlabels_sst = kwrgs_plotcorr_sst.copy()
-        kwrgs_plotlabels_sst.pop('clevels'); kwrgs_plotlabels_sst.pop('clabels')
-        kwrgs_plotlabels_sst.pop('cbar_tick_dict')
+        # kwrgs_plotlabels_sst.pop('clevels'); kwrgs_plotlabels_sst.pop('clabels')
+        # kwrgs_plotlabels_sst.pop('cbar_tick_dict')
         kwrgs_plotlabels_sst['units'] = 'DBSCAN clusters'
         kwrgs_plotlabels_sst['cbar_vert'] = 0.06
 
 
         kwrgs_plotcorr_SM = {'row_dim':'lag', 'col_dim':'split','aspect':2,
-                             'hspace':0.3, 'wspace':-0.5, 'size':3, 'cbar_vert':0.04,
+                             'hspace':0.25, 'wspace':-0.5, 'size':3, 'cbar_vert':0.04,
                               'map_proj':plot_maps.ccrs.PlateCarree(central_longitude=220),
                                # 'y_ticks':np.arange(25,56,10), 'x_ticks':np.arange(230, 295, 15),
                                'y_ticks':False, 'x_ticks':False,
                                'title':'',
-                               'subtitle_fontdict':{'fontsize':30},
-                               'clevels':np.arange(-.8,.9,.1),
-                               'clabels':np.arange(-.8,.9,.4),
-                               'cbar_tick_dict':{'labelsize':25},
+                               'subtitle_fontdict':{'fontsize':15},
+                               # 'clevels':np.arange(-.6,.7,.1),
+                               # 'clabels':np.arange(-.6,.7,.4),
+                                'cbar_tick_dict':{'labelsize':20},
                                'units':units,
                                'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
 
 
         kwrgs_plotlabels_SM = kwrgs_plotcorr_SM.copy()
-        kwrgs_plotlabels_SM.pop('clevels'); kwrgs_plotlabels_SM.pop('clabels')
-        kwrgs_plotlabels_SM.pop('cbar_tick_dict')
+        # kwrgs_plotlabels_SM.pop('clevels'); kwrgs_plotlabels_SM.pop('clabels')
+        # kwrgs_plotlabels_SM.pop('cbar_tick_dict')
         kwrgs_plotlabels_SM['units'] = 'DBSCAN clusters'
         kwrgs_plotlabels_SM['cbar_vert'] = 0.05
 
@@ -1032,14 +1032,20 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5):
         elif ip == 1:
             kwrgs_plot = kwrgs_plotlabels_SM.copy()
 
+
         lags = rg.list_for_MI[0].corr_xr.lag
         subtitles = np.array([month_d[l] for l in lags.values], dtype='object')
-        subtitles = [f'Lag {abs(l)}: '+ subtitles[i] for l,i in enumerate(range(1,5))]
+
+        subtitles = [subtitles[i-1]+f' ({leadtime+i}-month lag)' for i in range(1,5)]
+        # reorder first lag first
+        CDlabels = CDlabels.sel(lag=periodnames[::-1])
+        MCIstr = MCIstr.sel(lag=periodnames[::-1])
 
         return CDlabels, MCIstr, textinmap, subtitles, kwrgs_plot
 
 
     lagsize = rg_list[0].list_for_MI[0].prec_labels.lag.size
+    intmon_d = {'August': 2, 'July':3, 'June':4,'May':5, 'April':6}
     for ip in range(2):
         if ip == 0:
             rg_subs = [rg_list[:3], rg_list[3:]]
@@ -1051,6 +1057,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5):
             list_l = [] ; list_v = [] ; list_m = [] ; textinmap = []
             subs = np.zeros((lagsize,len(rg_sub)), dtype='object')
             for ir, rg in enumerate(rg_sub):
+                leadtime = intmon_d[rg.fc_month]
                 out = get_map_rg(rg,
                                  ip,
                                  ir,
@@ -1058,8 +1065,9 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5):
                                  min_detect)
                 CDlabels, MCIstr, textinmap, subtitles, kwrgs_plot = out
 
-
-                subtitles[0] = f'{rg.fc_month} Forecast\n' + subtitles[0]
+                fcmontitle = f'{rg.fc_month}\ Forecast'
+                subtitles[0] = r'$\bf{'+fcmontitle+'}$' \
+                                f'\n{leadtime}-month lead-time\n' + subtitles[0]
                 subs[:,ir] = subtitles
 
                 MCIstr, mask_xr = rg.__class__._get_sign_splits_masked(MCIstr,
@@ -1099,8 +1107,13 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5):
                                   bbox_inches='tight')
 
             # MCI values plot
-            kwrgs_plot.update({'clevels':np.arange(-0.8, 0.9, .1),
-                                'textinmap':textinmap,
+            if plot_parcorr:
+                kwrgs_plot.update({'clevels':np.arange(-0.8, 0.9, .1),
+                                   'clabels':np.arange(-.8,.9,.2)})
+            else:
+                kwrgs_plot.update({'clevels':np.arange(-0.6, 0.7, .1),
+                                   'clabels':np.arange(-.6,.7,.2)})
+            kwrgs_plot.update({'textinmap':textinmap,
                                 'units':units})
             fg = plot_maps.plot_corr_maps(MCIstr,
                                           mask_xr=mask_xr,

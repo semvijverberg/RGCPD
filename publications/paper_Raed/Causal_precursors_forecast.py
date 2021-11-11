@@ -1216,7 +1216,11 @@ utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=True, min_detect=.5)
 
 
 # collecting different train-test splits to plot scores vs lead-time
-for fc_type in [0.33, 'continuous']:
+plot_combs = [[0.33, '50%'],
+              ['continuous', '50%'],
+              [0.33, '30%'],
+              ['continuous', '30%']]
+for fc_type, condition in plot_combs:
     #%% Continuous forecast: get Combined Lead time models
     pathsub_df = f'df_data_{str(fc_type)}{btoos}'
     filepath_df_datas = os.path.join(rg.path_outsub1, pathsub_df)
@@ -1268,7 +1272,7 @@ for fc_type in [0.33, 'continuous']:
                     out = utils_paper3.load_scores([_target], model_name_CL,
                                                    model_name,
                                                    n_boot, _path_df_datas,
-                                                   condition='strong 50%')[:2]
+                                                   condition=f'strong {condition}')[:2]
                     df_scores_list, df_boot_list = out
                     collectdict[f_name.split('/')[-1]+str(j)+model_name+_target] = out
                 except:
@@ -1286,12 +1290,12 @@ for fc_type in [0.33, 'continuous']:
         cvrename = [f.replace('timeseriessplit_', 'one-step-ahead ') for f in cvnames]
         loc = 'lower left'
     cvrename = cvrename[::-1]
-    cvrename = [c +' [Top 50%, all]' for c in cvrename]
+    cvrename = [c +f' [Top {condition}, all]' for c in cvrename]
 
     #%% Plot
 
     f, axes = plt.subplots(len(metrics_plot),2, figsize=(12,8),
-                           sharey=True)
+                            sharey=False)
     cols = [model_combs_plot[0][0], model_combs_plot[1][0]]
     rows = metrics_plot
     cs = ['#EE6666', '#3388BB', '#88BB44', '#9988DD', '#EECC55',
@@ -1323,29 +1327,27 @@ for fc_type in [0.33, 'continuous']:
             months = [t[0] for t in df_sc.columns][::steps]
             ax = axrows[idxrow]
             l = ax.plot(months, df_sc.reorder_levels((1,0), axis=1).iloc[0][_metric].T,
-                    # label=label,
-                    color=color,
-                    linestyle=ls)
+                        color=color,
+                        linestyle=ls)
 
             if idxcol == 0:
                 lines[key] = l
 
-
-            if _metric in ['corrcoef', 'BSS']:
+            if _metric in ['BSS']:
                 bench = 0 ; ax.set_ylim(-.1,1)
                 ax.set_yticks(np.arange(0,1.01,0.2))
             elif _metric == 'roc_auc_score':
                 bench = 0.5 ; ax.set_ylim(0,1)
             elif _metric == 'accuracy':
-                bench = 100*(0.33**2) + (0.66**2)
+                bench = 100*((0.33**2) + (0.66**2))
                 ax.set_ylim(bench-10,100)
+                ax.set_yticks(np.arange(60,101,10))
             elif _metric == 'precision':
                 bench = 33 ; ax.set_ylim(bench-10,100)
-            else:
+                ax.set_yticks(np.arange(35,101,15))
+            elif _metric in ['corrcoef', 'MAE', 'r2_score']:
                 bench = 0 ; ax.set_ylim(-.1,1.)
                 ax.set_yticks(np.arange(0,1.01,0.2))
-            # if idxrow == 1 and label is not None:
-                # ax.legend(lines, loc='lower left', fontsize=10)
             ax.axhline(bench, color='black', alpha=0.5)
             if idxrow == 0:
                 ax.set_title(cols[idxcol])
@@ -1365,17 +1367,17 @@ for fc_type in [0.33, 'continuous']:
                 linesu.append(l1)
     from matplotlib.legend_handler import HandlerTuple
     axes[1,0].legend(linesu,
-                     cvrename,
-                     loc=loc,
-                     handler_map={tuple: HandlerTuple(ndivide=2)},
-                     handlelength=4,
-                     fontsize=10)
-    f.subplots_adjust(wspace=0.1)
+                      cvrename,
+                      loc=loc,
+                      handler_map={tuple: HandlerTuple(ndivide=2)},
+                      handlelength=4,
+                      fontsize=10)
+    f.subplots_adjust(wspace=0.15)
     #%%
     if save:
-        f.savefig(os.path.join(filepath_verif, 'different_cvs.jpg'),
+        f.savefig(os.path.join(filepath_verif, f'different_cvs_{condition[:2]}.jpg'),
                            bbox_inches='tight')
-        f.savefig(os.path.join(filepath_verif, 'different_cvs.pdf'),
+        f.savefig(os.path.join(filepath_verif, f'different_cvs_{condition[:2]}.pdf'),
                            bbox_inches='tight')
 
 
