@@ -1008,8 +1008,8 @@ for fc_type in [0.33, 'continuous']:
 
     condition = ['strong 50%', 'strong 30%']
     df_forcings = []
-    rename_f = {'Pacific+SM':'mean over standardized eastern Pacific + Soil Moisture timeseries',
-                'only_Pacific':'mean over standardized eastern Pacific timeseries'}
+    rename_f = {'Pacific+SM':'mean over standardized horseshoe Pacific + Soil Moisture timeseries',
+                'only_Pacific':'mean over standardized horseshoe Pacific timeseries'}
     for i, rg in enumerate(rg_list):
         df_forcings.append(pd.DataFrame(rg.df_forcing.mean(axis=1),
                             columns=[f'{rg.fc_month} Signal (S): '+rename_f[regions[i]]]))
