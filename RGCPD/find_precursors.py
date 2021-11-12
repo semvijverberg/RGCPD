@@ -697,7 +697,8 @@ def labels_to_df(prec_labels, corr_xr=None, return_mean_latlon=True):
                 latlon = np.array([list(l) for l in latlon])
 
                 if latlon.size != 0:
-                    data[i][:2] = latlon.mean(0) # mean coords
+                    data[i][:2] = np.median(latlon,axis=0)
+                    # data[i][:2] = latlon.mean(0) # mean coords
                     data[i][2] = latlon.shape[0] # size
             else:
                 columns_crds = []

@@ -892,7 +892,8 @@ def get_continuous_cmap(hex_list, float_list=None):
     return cmp
 
 def show_field_point(field, i=None, lat=None, lon=None):
-    ''' Lon in degrees west (give negative values when west)'''
+    ''' Lon in degrees west (give negative values when west),
+     i refers to index i of the coordinates.'''
     lats = list(field.latitude.values)
     lons = list(field.longitude.values)
     coords = [[la,lo] for la in lats for lo in lons]
@@ -910,12 +911,13 @@ def show_field_point(field, i=None, lat=None, lon=None):
                                                     method='nearest')
         lat = float(fieldpoint.latitude.values)
         lonW = float(fieldpoint.longitude.values)
-        latlon = [lat,lonW] ; i = coords.index(latlon)
+        latlon = [[lat,lonW]] ; i = coords.index(latlon)
         print(f'nearest latitude : {lat}, nearest longitude {((lonW+ 180) % 360) - 180}'
               f', index {i}')
     else:
         print('both i and lat are not None')
-    fieldstep = field[0].drop_vars('time')
+    if len(field.shape) == 3:
+        fieldstep = field[0].drop_vars(field.dims[0])
     _locs = [[np.array([ll]), {}] for ll in latlon]
     scatter = [['all', _locs]]
     print('kwrgs_plot[\'scatter\']=', scatter)

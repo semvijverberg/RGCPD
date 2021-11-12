@@ -849,7 +849,19 @@ def lineplot_cond_fc(filepath_dfs, metrics: list=None, composites=[30],
             ax.legend(fontsize=fs-5)
 
 
-def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5):
+def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
+                 selection='all'):
+    '''
+
+
+    Parameters
+    ----------
+    min_detect : TYPE, optional
+        DESCRIPTION. The default is 0.5.
+    selection : TYPE, optional
+        'all', 'CD' or 'ind'. The default is 'all'.
+
+    '''
     #%%
     # labels plot
     dirpath = os.path.join(rg_list[0].path_outsub1, 'causal_maps')
@@ -966,20 +978,31 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5):
                     region_labels = np.array(region_labels, dtype=int)
                     MCIv = np.repeat(MCIv, len(region_labels))
                     CDkeys = [CDkeys[0].replace('..0..', f'..{r}..') for r in region_labels]
-            # line below only keep (at least once) significant regions
-            # CDlabels[:,i] = f(CDlabels[:,i].copy(), region_labels)
-            if plot_parcorr:
-                MCIstr[:,i]   = f(CDlabels[:,i].copy(), region_labels,
-                                  replacement_labels=MCIv)
-            else:
-                MCIstr[:,i]   = CDcorr[:,i].copy()
 
+            # minimal number of times region needs to be detected
+            min_d = int(rg.n_spl * min_detect)
+            indkeys = [k for k in indkeys if rg._df_count[k] > min_d]
+            if selection == 'CD':
+                indkeys = []
+                selregions = f(CDlabels[:,i].copy(), region_labels)
+            elif selection == 'ind':
+                CDkeys = []
+                selregions = f(CDlabels[:,i].copy(),
+                               [int(k.split('..')[1]) for k in indkeys])
+            else:
+                selregions = CDlabels[:,i].copy()
+
+
+            if plot_parcorr:
+                MCIstr[:,i]   = f(selregions.copy(), region_labels,
+                                  replacement_labels=MCIv)
+
+            MCIstr[:,i]   = CDcorr[:,i].where(~np.isnan(selregions))
             # all keys
             df_labelloc = find_precursors.labels_to_df(CDlabels[:,i])
             # Conditionally independent
 
-            # minimal number of times region needs to be detected
-            min_d = int(rg.n_spl * min_detect)
+
             if len(indkeys) != 0:
                 temp = []
                 for q, k in enumerate(indkeys):
@@ -990,13 +1013,12 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5):
                         lat, lon = df_labelloc.loc[l].iloc[:2].values.round(1)
                     if lon > 180: lon-360
                     count = rg._df_count[k]
-                    if count < min_d:
-                        continue
                     text = f'{count}'
                     temp.append([lon,max(-12,min(54,lat)),
                                      text, {'fontsize':8,
                                             'bbox':dict(facecolor='pink', alpha=0.1)}])
-                textinmap.append([(i,ir), temp])
+                # for reordering first lag first: 3-i
+                textinmap.append([(3-i,ir), temp])
             # get text on robustness per month:
 
             if len(CDkeys) != 0:
@@ -1025,7 +1047,8 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5):
                         lat = float(CDlabels[:,i].latitude.mean())
                         temp.append([lon,lat, text, {'fontsize':15,
                                                'bbox':dict(facecolor='white', alpha=0.2)}])
-                textinmap.append([(i,ir), temp])
+                # for reordering first lag first: 3-i
+                textinmap.append([(3-i,ir), temp])
 
         if ip == 0:
             kwrgs_plot = kwrgs_plotlabels_sst.copy()
@@ -1036,21 +1059,24 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5):
         lags = rg.list_for_MI[0].corr_xr.lag
         subtitles = np.array([month_d[l] for l in lags.values], dtype='object')[::-1]
 
-        subtitles = [subtitles[i-1]+f' ({leadtime+i}-month lag)' for i in range(1,5)]
+        subtitles = [subtitles[i-1]+f' ({leadtime+i*2}-month lag)' for i in range(1,5)]
         # reorder first lag first
         CDlabels = CDlabels.sel(lag=periodnames[::-1])
         MCIstr = MCIstr.sel(lag=periodnames[::-1])
-
+        textinmap = textinmap[::-1]
         return CDlabels, MCIstr, textinmap, subtitles, kwrgs_plot
 
 
     lagsize = rg_list[0].list_for_MI[0].prec_labels.lag.size
     intmon_d = {'August': 2, 'July':3, 'June':4,'May':5, 'April':6}
-    for ip in range(2):
+    for ip in range(1):
         if ip == 0:
             rg_subs = [rg_list[:3], rg_list[3:]]
         else:
             rg_subs = [rg_list]
+
+        if ip == 1 and selection =='ind':
+            continue
 
         for i, rg_sub in enumerate(rg_subs):
             precur = rg_sub[0].list_for_MI[ip]
@@ -1070,10 +1096,13 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5):
                                 f'\n{leadtime}-month lead-time\n' + subtitles[0]
                 subs[:,ir] = subtitles
 
-                MCIstr, mask_xr = rg.__class__._get_sign_splits_masked(MCIstr,
-                                                                       min_detect)
-                CDlabels, mask_xr = rg.__class__._get_sign_splits_masked(CDlabels,
-                                                                         min_detect)
+                get_mask = rg.__class__._get_sign_splits_masked
+                CDlabels, mask_xr = get_mask(CDlabels,
+                                             min_detect)
+                MCIstr, mask_xr = get_mask(MCIstr,
+                                           min_detect)
+                                           # mask=np.isnan(MCIstr))
+
 
                 MCIstr['lag'] = ('lag', range(CDlabels.lag.size))
                 mask_xr['lag'] = ('lag', range(CDlabels.lag.size))
@@ -1123,7 +1152,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5):
                 fg.fig.savefig(os.path.join(dirpath,
                               f'{precur.name}_eps{precur.distance_eps}'
                               f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_MCI_'
-                              f'_parcorr{plot_parcorr}_{i}'+rg.figext),
+                              f'_parcorr{plot_parcorr}_{i}_{selection}'+rg.figext),
                             bbox_inches='tight')
 
 

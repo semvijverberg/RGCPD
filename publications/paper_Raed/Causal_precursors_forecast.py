@@ -60,14 +60,14 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1,2,3,4] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25'] # ['ranstrat_20'] timeseriessplit_30
+methods = ['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1'] # ['ranstrat_20'] timeseriessplit_30
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 1
+i_default = -4
 load = 'all'
 save = True
 
@@ -170,7 +170,7 @@ n_boot = 2000
 append_pathsub = f'/{method}/s{seed}'
 
 append_main = target_dataset
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_no_csm_no_int')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_2ndcorr_2000')
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
     path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
 elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
@@ -288,7 +288,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     # sst.distance_eps = 250 ; sst.min_area_in_degrees2 = 4
     if hasattr(sst, 'prec_labels')==False and 'sst' in use_vars:
         rg.cluster_list_MI('sst')
-        sst.group_small_cluster(distance_eps_sc=1500, eps_corr=0.4)
+        sst.group_small_cluster(distance_eps_sc=2000, eps_corr=0.4)
         # # check if west-Atlantic is a seperate region, otherwise split region 1
         # df_labels = find_precursors.labels_to_df(sst.prec_labels)
         # dlat = df_labels['latitude'] - 29
@@ -1211,8 +1211,13 @@ f.savefig(os.path.join(rg.path_outsub1, 'Pacific_model_vs_Pacific_mean'+rg.figex
           bbox_inches='tight')
 #%%
 import utils_paper3
-utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.5)
-utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=True, min_detect=.5)
+utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
+                          selection='CD')
+utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
+                          selection='ind')
+
+utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
+                          selection='all')
 
 
 # collecting different train-test splits to plot scores vs lead-time
