@@ -582,6 +582,11 @@ for fc_type in fc_types:
         model2_tuple = (ScikitModel(RandomForestClassifier, verbosity=0),
                         kwrgs_model2)
 
+    if fc_type == 'continuous':
+        model_combs = model_combs_cont
+    else:
+        model_combs = model_combs_bina
+
     # target timeseries, standardize using training data
     target_ts = rg.transform_df_data(rg.df_data.iloc[:,[0]].merge(rg.df_splits,
                                                       left_index=True,
@@ -603,6 +608,10 @@ for fc_type in fc_types:
         elif fc_type < .5:
             target_ts = (target_ts < quantile).astype(int)
 
+    if np.unique(core_pp.flatten(model_combs)).size == 2:
+        CL_models = [model1_tuple, model2_tuple]
+    else:
+        CL_models = [model1_tuple]
 
     for fcmodel, kwrgs_model in [model1_tuple, model2_tuple]:
         kwrgs_model_CL = kwrgs_model.copy() ;
@@ -653,10 +662,7 @@ for fc_type in fc_types:
 
 
     #%% Make prediction
-    if fc_type == 'continuous':
-        model_combs = model_combs_cont
-    else:
-        model_combs = model_combs_bina
+
 
     model_name_CL, model_name = model_combs[0]
     for model_name_CL, model_name in model_combs:
