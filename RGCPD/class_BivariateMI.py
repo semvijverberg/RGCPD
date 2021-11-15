@@ -1284,7 +1284,7 @@ def single_split_calc_spatcov(precur, precur_arr: np.ndarray, corr: np.ndarray,
 
         # if lag represents aggregation period:
         if precur.period_means_array == True:
-            precur_arr = precur.precur_arr.sel(lag=il)
+            precur_arr = precur.precur_arr.sel(lag=il).values
 
         pattern = np.copy(corr[il]) # copy to fix ValueError: assignment destination is read-only
         mask = labels[il]

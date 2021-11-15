@@ -68,7 +68,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
 i_default = -4
-load = 'all'
+load = False
 save = True
 
 
@@ -506,7 +506,19 @@ if sys.platform == 'linux':
     n_cpu = 10
 
 btoos = '' # if btoos=='_T': binary target out of sample.
-for fc_type in [0.33, 'continuous']:
+fc_types = [0.33, 'continuous']
+fc_types = [0.33]
+
+model_combs_cont = [['Ridge', 'Ridge'],
+                    ['Ridge', 'RandomForestRegressor'],
+                    ['RandomForestRegressor', 'RandomForestRegressor']]
+model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
+                    ['LogisticRegression', 'RandomForestClassifier'],
+                    ['RandomForestClassifier', 'RandomForestClassifier']]
+
+model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
+
+for fc_type in fc_types:
     #%% Continuous forecast: get Combined Lead time models
     pathsub_df = f'df_data_{str(fc_type)}{btoos}'
     filepath_df_datas = os.path.join(rg.path_outsub1, pathsub_df)
@@ -642,13 +654,9 @@ for fc_type in [0.33, 'continuous']:
 
     #%% Make prediction
     if fc_type == 'continuous':
-        model_combs = [['Ridge', 'Ridge'],
-                       ['Ridge', 'RandomForestRegressor'],
-                       ['RandomForestRegressor', 'RandomForestRegressor']]
+        model_combs = model_combs_cont
     else:
-        model_combs = [['LogisticRegression', 'LogisticRegression'],
-                       ['LogisticRegression', 'RandomForestClassifier'],
-                       ['RandomForestClassifier', 'RandomForestClassifier']]
+        model_combs = model_combs_bina
 
     model_name_CL, model_name = model_combs[0]
     for model_name_CL, model_name in model_combs:
@@ -999,12 +1007,13 @@ for fc_type in [0.33, 'continuous']:
         model_combs_plot  = [['Ridge', 'Ridge'],
                              ['Ridge', 'RandomForestRegressor'],
                              ['RandomForestRegressor', 'RandomForestRegressor']]
+        model_combs_plot = [c for c in model_combs_plot if c in model_combs_cont]
     else:
         metrics_plot = ['BSS', 'accuracy', 'precision'] # 'roc_auc_score',
         model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
                              ['LogisticRegression', 'RandomForestClassifier'],
                              ['RandomForestClassifier', 'RandomForestClassifier']]
-
+        model_combs_plot = [c for c in model_combs_plot if c in model_combs_bina]
 
     condition = ['strong 50%', 'strong 30%']
     df_forcings = []
@@ -1107,11 +1116,13 @@ for fc_type in [0.33, 'continuous']:
         model_combs_plot  = [['Ridge', 'Ridge'],
                              ['Ridge', 'RandomForestRegressor'],
                              ['RandomForestRegressor', 'RandomForestRegressor']]
+        model_combs_plot = [c for c in model_combs_plot if c in model_combs_cont]
     else:
         metrics_plot = ['BSS', 'roc_auc_score']
         model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
                              ['LogisticRegression', 'RandomForestClassifier'],
                              ['RandomForestClassifier', 'RandomForestClassifier']]
+        model_combs_plot = [c for c in model_combs_plot if c in model_combs_bina]
 
 
     fc_month_list = [rg.fc_month for rg in rg_list]
@@ -1225,6 +1236,8 @@ plot_combs = [[0.33, '50%'],
               ['continuous', '50%'],
               [0.33, '30%'],
               ['continuous', '30%']]
+plot_combs = [p for p in plot_combs if p[0] in fc_types]
+
 for fc_type, condition in plot_combs:
     #%% Continuous forecast: get Combined Lead time models
     pathsub_df = f'df_data_{str(fc_type)}{btoos}'
