@@ -613,7 +613,7 @@ for fc_type in fc_types:
     else:
         CL_models = [model1_tuple]
 
-    for fcmodel, kwrgs_model in [model1_tuple, model2_tuple]:
+    for fcmodel, kwrgs_model in CL_models:
         kwrgs_model_CL = kwrgs_model.copy() ;
         # kwrgs_model_CL.update({'alpha':kwrgs_model['alpha'][::3]})
         model_name_CL = fcmodel.scikitmodel.__name__
