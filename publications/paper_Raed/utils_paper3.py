@@ -1059,7 +1059,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
         lags = rg.list_for_MI[0].corr_xr.lag
         subtitles = np.array([month_d[l] for l in lags.values], dtype='object')[::-1]
 
-        subtitles = [subtitles[i-1]+f' ({leadtime+i*2}-month lag)' for i in range(1,5)]
+        subtitles = [subtitles[i-1]+f' ({leadtime+i*2-1}-month lag)' for i in range(1,5)]
         # reorder first lag first
         CDlabels = CDlabels.sel(lag=periodnames[::-1])
         MCIstr = MCIstr.sel(lag=periodnames[::-1])
