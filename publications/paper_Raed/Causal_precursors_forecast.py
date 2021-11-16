@@ -279,7 +279,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     if 'timeseries' in method:
         detrend = False
     else:
-        detrend = {'method':'linear'}
+        detrend = False
 
     rg.pp_TV(name_ds=name_ds, detrend=detrend, ext_annual_to_mon=False,
              kwrgs_core_pp_time=kwrgs_core_pp_time)
