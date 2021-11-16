@@ -50,6 +50,8 @@ import plot_maps, core_pp
 import wrapper_PCMCI
 import utils_paper3
 from stat_models import plot_importances
+from stat_models_cont import ScikitModel
+from sklearn.linear_model import LinearRegression
 
 All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'MARYLAND', 'MINNESOTA', 'MISSOURI', 'NEW JERSEY', 'NEW YORK',
@@ -67,7 +69,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = -4
+i_default = -8
 load = 'all'
 save = True
 
@@ -170,7 +172,7 @@ n_boot = 2000
 append_pathsub = f'/{method}/s{seed}'
 
 append_main = target_dataset
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_2ndcorr_2000')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_oosT')
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
     path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
 elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
@@ -189,6 +191,33 @@ list_of_name_path = [(cluster_label, TVpath),
                       # ('z500', os.path.join(path_raw, 'z500_1950-2019_1_12_monthly_1.0deg.nc')),
                        ('smi', os.path.join(path_raw, 'SM_ownspi_gamma_2_1950-2019_1_12_monthly_1.0deg.nc'))]
 
+
+def oos_lindetrend(df_fullts, df_splits):
+    fcmodel = ScikitModel(LinearRegression)
+
+    preds = []
+    for s in df_splits.index.levels[0]:
+        fit_masks = df_splits.loc[s].iloc[:,-2:]
+        x_time = pd.DataFrame(df_fullts.index.year,
+                              index=df_fullts.index,
+                              columns=['time'])
+        x_time = x_time.merge(fit_masks, left_index=True,right_index=True)
+
+        pred, model = fcmodel.fit_wrapper({'ts':df_fullts},
+                                          x_time)
+        preds.append(pred)
+    preds = pd.concat(preds, keys=df_splits.index.levels[0])
+
+    old = pd.concat([df_fullts]*df_splits.index.levels[0].size,
+                          keys=df_splits.index.levels[0])
+
+    fig, ax = plt.subplots(2)
+    for s in df_splits.index.levels[0]:
+        ax[0].plot(old.loc[s], color='black')
+        ax[0].plot(preds.loc[s])
+        ax[1].plot(old.loc[s] - preds.loc[s].values)
+
+    return old - preds.values
 
 #%% run RGPD
 
@@ -246,14 +275,22 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         TV_start_end_year = (start_end_year[0], 2019)
 
     kwrgs_core_pp_time = {'start_end_year': TV_start_end_year}
-    rg.pp_TV(name_ds=name_ds, detrend={'method':'linear'}, ext_annual_to_mon=False,
+    if 'timeseries' in method:
+        detrend = False
+    else:
+        detrend = {'method':'linear'}
+    rg.pp_TV(name_ds=name_ds, detrend=detrend, ext_annual_to_mon=False,
              kwrgs_core_pp_time=kwrgs_core_pp_time)
+
     if method.split('_')[0]=='leave':
         subfoldername += 'gp_prior_1_after_1'
         rg.traintest(method, gap_prior=1, gap_after=1, seed=seed,
                      subfoldername=subfoldername)
     else:
         rg.traintest(method, seed=seed, subfoldername=subfoldername)
+
+    if 'timeseries' in method:
+        rg.df_fullts = oos_lindetrend(rg.df_fullts, rg.df_splits)
 
 
     #%%
@@ -526,7 +563,6 @@ for fc_type in fc_types:
     filepath_verif = os.path.join(rg.path_outsub1, f'verif_{str(fc_type)}{btoos}')
     os.makedirs(filepath_verif, exist_ok=True)
     from sklearn.linear_model import Ridge, LogisticRegression
-    from stat_models_cont import ScikitModel
 
     if fc_type == 'continuous':
         scoringCV = 'neg_mean_squared_error'
@@ -805,7 +841,7 @@ for fc_type in fc_types:
             d_df_preds={'df_predictions':df_predictions, 'df_weights':df_w_save}
             functions_pp.store_hdf_df(d_df_preds, filepath_dfs)
 
-    #%% Continuous forecast: Verification
+    #%% Forecast Verification
     verif_combs = [['Target', 'Target']]
 
     model_name_CL, model_name = model_combs[0] # for testing
@@ -873,6 +909,7 @@ for fc_type in fc_types:
                                    fc_utils.binary_score(threshold=fc_type).accuracy,
                                    fc_utils.binary_score(threshold=fc_type).precision]
 
+
                 metric_names = [s.__name__ for s in score_func_list]
                 verification_tuple = fc_utils.get_scores(prediction,
                                                          rg.df_data.iloc[:,-2:],
@@ -884,7 +921,7 @@ for fc_type in fc_types:
                 rg.verification_tuple = verification_tuple
 
             df_scores, df_boot, df_tests = utils_paper3.df_scores_for_plot(rg_list,
-                                                               'verification_tuple')
+                                                                'verification_tuple')
             d_dfs={'df_scores':df_scores, 'df_boot':df_boot, 'df_tests':df_tests}
 
             functions_pp.store_hdf_df(d_dfs, filepath_dfs)

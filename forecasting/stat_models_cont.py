@@ -108,7 +108,7 @@ class ScikitModel:
         self.scikitmodel = scikitmodel
         self.verbosity = verbosity
 
-    def fit_wrapper(self, y_ts, df_norm, keys=None, kwrgs_model=None):
+    def fit_wrapper(self, y_ts, df_norm, keys=None, kwrgs_model={}):
         '''
         X contains all precursor data, incl train and test
         X_train, y_train are split up by TrainIsTrue
@@ -126,10 +126,9 @@ class ScikitModel:
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         # warnings.filterwarnings("ignore", category=FutureWarning)
 
-        if kwrgs_model == None:
-            # use Bram settings
-            kwrgs_model = { 'fit_intercept':True,
-                            'alphas':(.01, .1, 1.0, 10.0)}
+        # if kwrgs_model == None:
+        #     kwrgs_model = { 'fit_intercept':True,
+        #                     'alphas':(.01, .1, 1.0, 10.0)}
 
 
         # find parameters for gridsearch optimization

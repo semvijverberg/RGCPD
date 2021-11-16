@@ -299,7 +299,9 @@ class ErrorSkillScore:
         elif type(constant_bench) in [np.ndarray, pd.Series, pd.DataFrame]:
             self.benchmark = np.array(constant_bench, dtype=float)
         else:
-            print('give float or ndarray, pd.Series or pd.DataFrame')
+            print('benchmark is set to False')
+            self.benchmark = False
+
         self.squared = squared
         # if type(self.benchmark) is not None:
 
