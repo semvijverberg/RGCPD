@@ -291,8 +291,8 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     else:
         rg.traintest(method, seed=seed, subfoldername=subfoldername)
 
-    if 'timeseries' in method:
-        rg.df_fullts = oos_lindetrend(rg.df_fullts, rg.df_splits)
+    # if 'timeseries' in method:
+    #     rg.df_fullts = oos_lindetrend(rg.df_fullts, rg.df_splits)
 
 
     #%%
