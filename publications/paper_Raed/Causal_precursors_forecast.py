@@ -1136,9 +1136,10 @@ for fc_type in fc_types:
     print('Plotting skill scores')
     for i, target_opt in enumerate(target_options):
         fig, axes = plt.subplots(nrows=len(model_combs_plot), ncols=len(metrics_plot),
-                     figsize=(17,10),
+                     figsize=(17,3.33*len(model_combs_plot)),
                       # gridspec_kw={'width_ratios':[4,1]},
                       sharex=True, sharey=False)
+        if len(model_combs_plot) == 1: axes = axes.reshape(1, 2)
         for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
 
 
