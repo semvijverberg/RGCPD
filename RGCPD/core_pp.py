@@ -784,8 +784,8 @@ def NaN_handling(data, inter_method: str='spline', order=2, inter_NaN_limit: flo
     return data
 
 
-def detrend_wrapper(data, kwrgs_detrend: dict=None, return_trend: bool=False,
-            plot: bool=True):
+def detrend_wrapper(data, kwrgs_detrend: dict=None,
+                    return_trend: bool=False, plot: bool=True):
     '''
     Wrapper supporting linear and loess detrending on xr.DataArray, pd.DataFrame
     & np.ndarray. Note, linear detrending is way faster then loess detrending.
@@ -893,14 +893,17 @@ def detrend_wrapper(data, kwrgs_detrend: dict=None, return_trend: bool=False,
         data = pd.DataFrame(data, index=index, columns=columns)
         if return_trend:
             trend_ts = pd.DataFrame(trend_ts, index=index, columns=columns)
+        if plot and method=='linear':
+            data = data - trend_ts
     elif to_DA:
         data = xr.DataArray(data, coords=coords, dims=dims, attrs=attrs, name=name)
         if return_trend:
             trend_ts = xr.DataArray(trend_ts, coords=coords, dims=dims, attrs=attrs,
                                 name=name)
         if plot and method=='linear':
-            _check_trend_plot(data, detrended.reshape(orig_shape))
-            data = xr.DataArray(detrended.reshape(orig_shape), coords=coords, dims=dims, attrs=attrs, name=name)
+            # _check_trend_plot(data, detrended.reshape(orig_shape))
+            data = xr.DataArray(detrended.reshape(orig_shape), coords=coords,
+                                dims=dims, attrs=attrs, name=name)
     else: # numpy array
         data = detrended.reshape(orig_shape)
 
@@ -1363,4 +1366,40 @@ def ensmean(outfile, weights=list, name=None, *args):
     mask =  (('latitude', 'longitude'), (ds_mean.values[0] != -9999) )
     ds_mean.coords['mask'] = mask
     ds_mean.to_netcdf(outfile, mode='w', encoding=encoding)
+
+def detrend_oos_3d(ds, min_length=None):
+    #%%
+    from scipy import stats
+
+    if min_length is not None:
+        ds_avail = (70 - np.isnan(ds).sum(axis=0))
+        ds   = ds.where(ds_avail.values >= min_length)
+
+    newdata = np.zeros_like(ds)
+    newdata[:] = np.nan
+    # locs = np.argwhere(np.moveaxis(~np.isnan(ds).values, 0, -1))
+    xy = np.argwhere((~np.isnan(ds)).any(axis=0).values)
+    for i, (x, y) in enumerate(xy):
+
+            # break
+        ts = ds[:,x,y]
+        timesteps = np.arange(ts.size)
+        not_nan_ind = ~np.isnan(ts)
+        m, b, r_val, p_val, std_err = stats.linregress(timesteps[not_nan_ind],
+                                                       ts[not_nan_ind])
+        trend = (m*timesteps + b)
+        detrend_ts = ts - trend
+        newdata[:,x,y] = detrend_ts
+        if (i) % 200 == 0 and i != 0 or i+1 == xy.shape[0]:
+            progress = int(100*(i+1)/xy.shape[0])
+            print(f"\rProgress {progress}%", end="")
+            f, ax = plt.subplots(1)
+            ax.plot(ts)  ; ax.plot(trend)
+    newdata = xr.DataArray(newdata, coords=ds.coords, dims=ds.dims)
+    return newdata
+
+
+
+
+
 

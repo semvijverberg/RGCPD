@@ -388,7 +388,37 @@ f_name = 'linkage_{}_nc{}'.format(linkage, int(c))
 filepath = os.path.join(path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_interp_'+xrclustfinalint.attrs['hash'])
 
-#%%
+#%% get timeseries with per gridcell detrending
+
+kwrgs_NaN_handling={'missing_data_ts_to_nan':False,
+                    'extra_NaN_limit':False,
+                    'inter_method':False,
+                    'final_NaN_to_clim':False}
+years = list(range(1950, 2020))
+ds_raw = core_pp.import_ds_lazy(raw_filename, var='variable', selbox=selbox,
+                                kwrgs_NaN_handling=kwrgs_NaN_handling).rename({'z':'time'})
+ds_raw.name = 'Soy_Yield'
+ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
+ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
+
+ds_detr = core_pp.detrend_oos_3d(ds_raw, min_length=30)
+
+ds_std = (ds_detr - ds_detr.mean(dim='time')) / ds_detr.std(dim='time')
+linkage = 'ward' ; c =2
+xrclustered = xrclusteredall.sel(n_clusters=c)
+
+
+
+ds = cl.spatial_mean_clusters(ds_std,
+                              xrclustered)
+dfnew = ds.ts.to_dataframe().pivot_table(index='time', columns='cluster')['ts']
+
+f_name = 'linkage_{}_nc{}'.format(linkage, int(c))
+filepath = os.path.join(path_outmain, f_name)
+cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
+
+
+#%% get timeseries
 
 kwrgs_NaN_handling={'missing_data_ts_to_nan':40,
                     'extra_NaN_limit':False,
@@ -411,7 +441,7 @@ ds_std = (ds_raw - ds_raw.mean(dim='time')) / ds_raw.std(dim='time')
 
 
 linkage = 'ward' ; c =2
-xrclustered = xrclusteredall.sel(linkage=linkage, n_clusters=c)
+xrclustered = xrclusteredall.sel(n_clusters=c)
 
 
 
@@ -422,6 +452,11 @@ df = ds.ts.to_dataframe().pivot_table(index='time', columns='cluster')['ts']
 f_name = 'linkage_{}_nc{}'.format(linkage, int(c))
 filepath = os.path.join(path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
+
+#%% consequence of linear detrending prior to standardizing
+
+f, ax = plt.subplots(1) ; _df = detrend_wrapper(df[[1]]) ;
+ax.plot(_df) ; ax.plot(dfnew[[1]], color='red')
 
 #%% Figure 1 paper
 

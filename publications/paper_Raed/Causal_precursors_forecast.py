@@ -140,6 +140,7 @@ elif target_dataset == 'USDA_Soy_csv_midwest':
     TVpath = read_csv_Raed(path)
 elif target_dataset.split('__')[0] == 'USDA_Soy_clusters':
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_0d570.nc')
+    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
     # TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_interp_ff5d6.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'USDA_Maize':
@@ -273,12 +274,13 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         TV_start_end_year = (start_end_year[0]+1, 2019)
     else:
         TV_start_end_year = (start_end_year[0], 2019)
-
     kwrgs_core_pp_time = {'start_end_year': TV_start_end_year}
+
     if 'timeseries' in method:
         detrend = False
     else:
         detrend = {'method':'linear'}
+
     rg.pp_TV(name_ds=name_ds, detrend=detrend, ext_annual_to_mon=False,
              kwrgs_core_pp_time=kwrgs_core_pp_time)
 
