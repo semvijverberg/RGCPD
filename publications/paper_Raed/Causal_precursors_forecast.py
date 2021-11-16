@@ -544,7 +544,7 @@ if sys.platform == 'linux':
     mpl.use('Agg')
     n_cpu = 10
 
-btoos = '_T' # if btoos=='_T': binary target out of sample.
+btoos = '' # if btoos=='_T': binary target out of sample.
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
 
