@@ -1158,5 +1158,90 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
 
     #%%
 
+def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
+                   standardize=True, path=None):
+    #%%
+    from scipy import stats
+
+    if min_length is not None:
+        ds_avail = (70 - np.isnan(ds).sum(axis=0))
+        ds   = ds.where(ds_avail.values >= min_length)
+
+    if df_splits is None:
+        splits = np.array([0])
+    else:
+        splits = df_splits.index.levels[0]
+        # ensure same time-axis
+        ds = ds.sel(time=df_splits.index.levels[1])
+
+    xy = np.argwhere((~np.isnan(ds)).any(axis=0).values)
+    n_plots = 40 ; icount = int(xy.shape[0] / n_plots)
+
+    f1, ax1 = plt.subplots(figsize=(5,4)) ;
+    f2, axes = plt.subplots(nrows=int(n_plots / 5), ncols=5, sharex=True) ;
+    axes = axes.ravel()
+    splits_newdata = []
+    for s in splits:
+        newdata = np.zeros_like(ds)
+        newdata[:] = np.nan
+        for i, (x, y) in enumerate(xy):
+
+            ts = ds[:,x,y]
+            timesteps = ts.time.dt.year.values
+            # mask NaN
+            mask = ~np.isnan(ts)
+            if df_splits is not None:
+                trainmask = df_splits.loc[s]['TrainIsTrue']==1
+                mask = np.logical_and(mask.values, trainmask.values)
+                if mask[mask].size < min_length:
+                    tonan = np.zeros_like(ts) ; tonan[:] = np.nan
+                    newdata[:,x,y] = tonan
+
+
+            m, b, r_val, p_val, std_err = stats.linregress(timesteps[mask],
+                                                           ts[mask])
+            trend = (m*timesteps + b)
+            detrend_ts = ts - trend
+            if standardize:
+                detrend_ts = (detrend_ts - detrend_ts[mask].mean()) / \
+                                detrend_ts[mask].std()
+            if mask[mask].size >= min_length:
+                newdata[:,x,y] = detrend_ts
+            if i % icount == 0 : #or i+1 == xy.shape[0] and s==0:
+                progress = int(100*(i+1)/xy.shape[0])
+                print(f"\rProgress {progress}%", end="")
+                idx = int(i/icount)
+                if idx < axes.size:
+                    if s == splits[-1]:
+                        axes[idx].plot(timesteps, ts, lw=1) # only plot raw for first split
+                    axes[idx].plot(timesteps, trend, lw=0.5, c='black', alpha=.5)
+                    axes[idx].tick_params(labelsize=7)
+                    ax1.plot(timesteps, detrend_ts, lw=0.5)
+                    ax1.tick_params(labelsize=12)
+                    # if mask[mask].size < min_length and s==splits[-1]:
+                    #     axes[idx].text(0.2,0.5, 'Too short',
+                    #                    horizontalalignment='center',
+                    #                    verticalalignment='center',
+                    #                    transform=axes[idx].transAxes)
+
+
+        newdata = xr.DataArray(newdata, coords=ds.coords, dims=ds.dims)
+        splits_newdata.append(newdata)
+
+    f2.subplots_adjust(wspace=.35)
+
+    if path is not None:
+        f1.savefig(os.path.join(path,'standardized.jpg'), dpi=250,
+                   bbox_inches='tight')
+        f2.savefig(os.path.join(path,'detrend_plot.jpg'), dpi=250,
+                   bbox_inches='tight')
+
+
+    splits_newdata = xr.concat(splits_newdata, dim='split')
+    splits_newdata['split'] = ('split', splits)
+    if splits.size==1:
+        splits_newdata = splits_newdata.squeeze().drop('split')
+    #%%
+    return splits_newdata
 
 

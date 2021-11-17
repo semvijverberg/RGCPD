@@ -1367,36 +1367,7 @@ def ensmean(outfile, weights=list, name=None, *args):
     ds_mean.coords['mask'] = mask
     ds_mean.to_netcdf(outfile, mode='w', encoding=encoding)
 
-def detrend_oos_3d(ds, min_length=None):
-    #%%
-    from scipy import stats
 
-    if min_length is not None:
-        ds_avail = (70 - np.isnan(ds).sum(axis=0))
-        ds   = ds.where(ds_avail.values >= min_length)
-
-    newdata = np.zeros_like(ds)
-    newdata[:] = np.nan
-    # locs = np.argwhere(np.moveaxis(~np.isnan(ds).values, 0, -1))
-    xy = np.argwhere((~np.isnan(ds)).any(axis=0).values)
-    for i, (x, y) in enumerate(xy):
-
-            # break
-        ts = ds[:,x,y]
-        timesteps = np.arange(ts.size)
-        not_nan_ind = ~np.isnan(ts)
-        m, b, r_val, p_val, std_err = stats.linregress(timesteps[not_nan_ind],
-                                                       ts[not_nan_ind])
-        trend = (m*timesteps + b)
-        detrend_ts = ts - trend
-        newdata[:,x,y] = detrend_ts
-        if (i) % 200 == 0 and i != 0 or i+1 == xy.shape[0]:
-            progress = int(100*(i+1)/xy.shape[0])
-            print(f"\rProgress {progress}%", end="")
-            f, ax = plt.subplots(1)
-            ax.plot(ts)  ; ax.plot(trend)
-    newdata = xr.DataArray(newdata, coords=ds.coords, dims=ds.dims)
-    return newdata
 
 
 

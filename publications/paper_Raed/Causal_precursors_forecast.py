@@ -122,6 +122,13 @@ def read_csv_State(path, State: str=None, col='obs_yield'):
         State = orig.columns
     return orig[State]
 
+# path to raw Soy Yield dataset
+if sys.platform == 'linux':
+    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/'
+else:
+    root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
+raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
+
 if target_dataset == 'GDHY_Soy':
     # GDHY dataset 1980 - 2015
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/q50_nc4_dendo_707fb.nc')
@@ -141,7 +148,7 @@ elif target_dataset == 'USDA_Soy_csv_midwest':
 elif target_dataset.split('__')[0] == 'USDA_Soy_clusters':
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_0d570.nc')
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
-    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_detrgc_int_c88c0.nc')
+    # TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_detrgc_int_c88c0.nc')
     # TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_interp_ff5d6.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'USDA_Maize':
@@ -174,7 +181,7 @@ n_boot = 2000
 append_pathsub = f'/{method}/s{seed}'
 
 append_main = target_dataset
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_int')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_oos')
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
     path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
 elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
@@ -194,7 +201,7 @@ list_of_name_path = [(cluster_label, TVpath),
                        ('smi', os.path.join(path_raw, 'SM_ownspi_gamma_2_1950-2019_1_12_monthly_1.0deg.nc'))]
 
 
-def oos_lindetrend(df_fullts, df_splits):
+def df_oos_lindetrend(df_fullts, df_splits):
     fcmodel = ScikitModel(LinearRegression)
 
     preds = []
@@ -220,6 +227,32 @@ def oos_lindetrend(df_fullts, df_splits):
         ax[1].plot(old.loc[s] - preds.loc[s].values)
 
     return old - preds.values
+
+
+def ds_oos_lindetrend(dsclust, df_splits, path):
+
+    kwrgs_NaN_handling={'missing_data_ts_to_nan':False,
+                        'extra_NaN_limit':False,
+                        'inter_method':False,
+                        'final_NaN_to_clim':False}
+    years = list(range(1950, 2020))
+    selbox = [253,290,28,52]
+    ds_raw = core_pp.import_ds_lazy(raw_filename, var='variable', selbox=selbox,
+                                    kwrgs_NaN_handling=kwrgs_NaN_handling).rename({'z':'time'})
+    ds_raw.name = 'Soy_Yield'
+    ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
+    ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
+
+    label = int(target_dataset.split('__')[-1])
+    clusmask = dsclust['xrclustered'] == label
+    ds_raw = ds_raw.where(clusmask)
+    path = os.path.join(path, 'detrend') ; os.makedirs(path, exist_ok=True)
+    ds_out = utils_paper3.detrend_oos_3d(ds_raw, min_length=30,
+                                         df_splits=df_splits,
+                                         standardize=True,
+                                         path=path)
+    df = ds_out.mean(dim=('latitude', 'longitude')).to_dataframe('1ts')
+    return df
 
 #%% run RGPD
 
@@ -277,12 +310,9 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         TV_start_end_year = (start_end_year[0], 2019)
     kwrgs_core_pp_time = {'start_end_year': TV_start_end_year}
 
-    if 'timeseries' in method:
-        detrend = False
-    else:
-        detrend = False
 
-    rg.pp_TV(name_ds=name_ds, detrend=detrend, ext_annual_to_mon=False,
+    # detrending done prior in clustering_soybean
+    rg.pp_TV(name_ds=name_ds, detrend=False, ext_annual_to_mon=False,
              kwrgs_core_pp_time=kwrgs_core_pp_time)
 
     if method.split('_')[0]=='leave':
@@ -291,6 +321,28 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                      subfoldername=subfoldername)
     else:
         rg.traintest(method, seed=seed, subfoldername=subfoldername)
+
+
+    if 'timeseries' in method:
+        df_splits = rg.df_splits
+    else:
+        df_splits = None
+
+    dsclust = rg.get_clust()
+    dfnew = ds_oos_lindetrend(dsclust, df_splits, rg.path_outsub1)
+
+    if 'timeseries' in method:
+        # plot difference
+        df_test = functions_pp.get_df_test(dfnew, df_splits=rg.df_splits)
+        f, ax = plt.subplots(1)
+        ax.plot(rg.df_fullts.loc[df_test.index], label='detrend all data')
+        ax.plot(df_test, label='detrend one-step-ahead')
+        ax.legend()
+
+
+    rg.df_fullts = dfnew
+
+
 
     # if 'timeseries' in method:
     #     rg.df_fullts = oos_lindetrend(rg.df_fullts, rg.df_splits)
@@ -545,7 +597,11 @@ if sys.platform == 'linux':
     mpl.use('Agg')
     n_cpu = 10
 
-btoos = '' # if btoos=='_T': binary target out of sample.
+if 'timeseries' in method:
+    btoos = '_T' # if btoos=='_T': binary target out of sample.
+else:
+    btoos = ''
+
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
 
