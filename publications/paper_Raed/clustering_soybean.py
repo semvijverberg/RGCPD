@@ -408,7 +408,7 @@ linkage = 'ward' ; c =2
 
 xrclustered = xrclusteredall.sel(n_clusters=c)
 
-# xrclustered = xrclustfinalint
+xrclustered = xrclustfinalint
 
 
 
@@ -458,7 +458,7 @@ cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['h
 
 #%% consequence of linear detrending prior to standardizing
 
-f, ax = plt.subplots(1) ; _df = core_pp.detrend_wrapper(df[[1]]) ;
+f, ax = plt.subplots(1) ; _df = core_pp.detrend_wrapper(df[[1]],plot=False) ;
 ax.plot(_df) ; ax.plot(dfnew[[1]], color='red')
 
 #%% Figure 1 paper
