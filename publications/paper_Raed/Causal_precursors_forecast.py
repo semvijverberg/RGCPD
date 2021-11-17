@@ -546,7 +546,7 @@ if sys.platform == 'linux':
 
 btoos = '' # if btoos=='_T': binary target out of sample.
 fc_types = [0.33, 'continuous']
-fc_types = [0.33]
+fc_types = [0.5]
 
 model_combs_cont = [['Ridge', 'Ridge'],
                     ['Ridge', 'RandomForestRegressor'],

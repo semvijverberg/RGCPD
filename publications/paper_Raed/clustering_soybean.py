@@ -328,7 +328,7 @@ ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
 ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
 
 ds_avail = (70 - np.isnan(ds_raw).sum(axis=0))
-ds_avail = ds_avail.where(ds_avail.values >=25)
+ds_avail = ds_avail.where(ds_avail.values >=30)
 
 
 # title = 'Clusters Interpolated'
@@ -405,7 +405,10 @@ ds_detr = core_pp.detrend_oos_3d(ds_raw, min_length=30)
 
 ds_std = (ds_detr - ds_detr.mean(dim='time')) / ds_detr.std(dim='time')
 linkage = 'ward' ; c =2
+
 xrclustered = xrclusteredall.sel(n_clusters=c)
+
+# xrclustered = xrclustfinalint
 
 
 
@@ -455,7 +458,7 @@ cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['h
 
 #%% consequence of linear detrending prior to standardizing
 
-f, ax = plt.subplots(1) ; _df = detrend_wrapper(df[[1]]) ;
+f, ax = plt.subplots(1) ; _df = core_pp.detrend_wrapper(df[[1]]) ;
 ax.plot(_df) ; ax.plot(dfnew[[1]], color='red')
 
 #%% Figure 1 paper
