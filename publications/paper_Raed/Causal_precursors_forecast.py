@@ -181,7 +181,7 @@ n_boot = 2000
 append_pathsub = f'/{method}/s{seed}'
 
 append_main = target_dataset
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extralag')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_oos')
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
     path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
 elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
@@ -583,12 +583,19 @@ if __name__ == '__main__':
 
 
     # Run in Parallel
-    lag_list = [lags_july, lags_june, lags_may, lags_april, lags_march, lags_feb]
+    lag_list = [lags_july, lags_june, lags_may, lags_april, lags_march]
     periodnames_list = [periodnames_july, periodnames_june,
                         periodnames_may, periodnames_april,
-                        periodnames_march, periodnames_feb]
+                        periodnames_march]
     use_vars_list = [use_vars_july, use_vars_june,
-                     use_vars_may, use_vars_april, use_vars_march, use_vars_feb]
+                     use_vars_may, use_vars_april, use_vars_march]
+
+    extra_lag = False
+    if extra_lag:
+        lag_list += [lags_feb]
+        periodnames_list += [periodnames_feb]
+        use_vars_list += use_vars_feb
+
 
     futures = [] ; rg_list = []
     for lags, periodnames, use_vars in zip(lag_list, periodnames_list, use_vars_list):
@@ -1313,14 +1320,21 @@ filepath = os.path.join(rg.path_outsub1, 'PDO_pattern')
 fcg.fig.savefig(filepath + '.pdf', bbox_inches='tight')
 fcg.fig.savefig(filepath + '.png', bbox_inches='tight')
 
+
+if 'timeseries' in method:
+    df_fullts = functions_pp.get_df_test(rg.df_fullts,
+                                         df_splits=rg.df_splits)
+else:
+    df_fullts  = rg.df_fullts
+
 df_PDO = _df_PDO.loc[0][['PDO']]
 df_PDO = df_PDO.groupby(df_PDO.index.year).mean()
-df_PDO = df_PDO.iloc[-rg.df_fullts.size:] # lazy way of selecting years
-df_PDO.index = rg.df_fullts.index
+df_PDO = df_PDO.iloc[-rg.df_splits.index.levels[1].size:] # lazy way of selecting years
+df_PDO.index = rg.df_splits.index.levels[1]
 df_Pac = [c for c in rg.df_data.columns if '..1..sst' in c]
 df_Pac = functions_pp.get_df_test(rg.df_data[df_Pac], df_splits=rg.df_splits)
 df_Pacm = df_Pac.mean(axis=1) ; df_Pacm.name = 'east Pac.'
-df_PDO_T = rg.df_fullts.merge(df_PDO, left_index=True, right_index=True)
+df_PDO_T = df_fullts.merge(df_PDO, left_index=True, right_index=True)
 df_PDO_T_P = df_PDO_T.merge(df_Pacm, left_index=True, right_index=True)
 df_PDO_T_P = (df_PDO_T_P - df_PDO_T_P.mean(0)) / df_PDO_T_P.std(0)
 #%%
