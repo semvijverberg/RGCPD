@@ -329,19 +329,28 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         df_splits = None
 
     dsclust = rg.get_clust()
-    path = os.path.join(rg.path_outsub1, 'detrend') ; os.makedirs(path, exist_ok=True)
-    dfnew = ds_oos_lindetrend(dsclust, df_splits, path)
-    dfnew = dfnew.loc[rg.df_splits.index.levels[1]]
+    path = os.path.join(rg.path_outsub1, 'detrend') ;
+    os.makedirs(path, exist_ok=True)
+    if os.path.exists(os.path.join(path, 'target_ts.h5')) and load=='all':
+        dfnew = functions_pp.load_hdf5(os.path.join(path,
+                                                    'target_ts.h5'))['df_data']
+    else:
+        dfnew = ds_oos_lindetrend(dsclust, df_splits, path)
+        dfnew = dfnew.loc[rg.df_splits.index.levels[1]]
 
-    if 'timeseries' in method:
-        # plot difference
-        df_test = functions_pp.get_df_test(dfnew, df_splits=rg.df_splits)
-        f, ax = plt.subplots(1)
-        ax.plot(rg.df_fullts.loc[df_test.index], label='detrend all data')
-        ax.plot(df_test, label='detrend one-step-ahead')
-        ax.legend()
-        f.savefig(os.path.join(path, 'compared_detrend.jpg'), dpi=250,
-                  bbox_inches='tight')
+
+        if 'timeseries' in method:
+            # plot difference
+            df_test = functions_pp.get_df_test(dfnew, df_splits=rg.df_splits)
+            f, ax = plt.subplots(1)
+            ax.plot(rg.df_fullts.loc[df_test.index], label='detrend all data')
+            ax.plot(df_test, label='detrend one-step-ahead')
+            ax.legend()
+            f.savefig(os.path.join(path, 'compared_detrend.jpg'), dpi=250,
+                      bbox_inches='tight')
+
+        functions_pp.store_hdf_df({'df_data':dfnew},
+                                  os.path.join(path, 'target_ts.h5'))
 
 
     rg.df_fullts = dfnew
@@ -627,6 +636,7 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 
 for fc_type in fc_types:
     #%% Continuous forecast: get Combined Lead time models
+
     pathsub_df = f'df_data_{str(fc_type)}{btoos}'
     filepath_df_datas = os.path.join(rg.path_outsub1, pathsub_df)
     os.makedirs(filepath_df_datas, exist_ok=True)
@@ -797,7 +807,7 @@ for fc_type in fc_types:
                 print('Prediction final model already stored, skipping this model')
                 continue
             # get forcing per fc_month
-            regions = ['Pacific+SM', 'Pacific+SM',
+            regions = ['Pacific+SM', 'Pacific+SM', 'only_Pacific',
                        'only_Pacific', 'only_Pacific', 'only_Pacific']
             utils_paper3.get_df_forcing_cond_fc(rg_list,
                                                 regions=regions,
@@ -1013,7 +1023,7 @@ for fc_type in fc_types:
             # get CL model of that month
             rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
         # get forcing per fc_month
-        regions = ['Pacific+SM', 'Pacific+SM',
+        regions = ['Pacific+SM', 'Pacific+SM', 'only_Pacific',
                    'only_Pacific', 'only_Pacific', 'only_Pacific']
         utils_paper3.get_df_forcing_cond_fc(rg_list,
                                             regions=regions,
