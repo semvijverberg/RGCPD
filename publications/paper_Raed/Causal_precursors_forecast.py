@@ -574,9 +574,9 @@ if __name__ == '__main__':
     lag_list = [lags_july, lags_june, lags_may, lags_april, lags_march, lags_feb]
     periodnames_list = [periodnames_july, periodnames_june,
                         periodnames_may, periodnames_april,
-                        periodnames_march, use_vars_feb]
+                        periodnames_march, periodnames_feb]
     use_vars_list = [use_vars_july, use_vars_june,
-                     use_vars_may, use_vars_april, use_vars_march]
+                     use_vars_may, use_vars_april, use_vars_march, use_vars_feb]
 
     futures = [] ; rg_list = []
     for lags, periodnames, use_vars in zip(lag_list, periodnames_list, use_vars_list):

@@ -1227,7 +1227,7 @@ def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
 
         newdata = xr.DataArray(newdata, coords=ds.coords, dims=ds.dims)
         splits_newdata.append(newdata)
-
+    print('\n')
     f2.subplots_adjust(wspace=.35)
 
     if path is not None:
