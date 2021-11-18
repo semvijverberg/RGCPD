@@ -246,7 +246,6 @@ def ds_oos_lindetrend(dsclust, df_splits, path):
     label = int(target_dataset.split('__')[-1])
     clusmask = dsclust['xrclustered'] == label
     ds_raw = ds_raw.where(clusmask)
-    path = os.path.join(path, 'detrend') ; os.makedirs(path, exist_ok=True)
     ds_out = utils_paper3.detrend_oos_3d(ds_raw, min_length=30,
                                          df_splits=df_splits,
                                          standardize=True,
@@ -329,7 +328,8 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         df_splits = None
 
     dsclust = rg.get_clust()
-    dfnew = ds_oos_lindetrend(dsclust, df_splits, rg.path_outsub1)
+    path = os.path.join(rg.path_outsub1, 'detrend') ; os.makedirs(path, exist_ok=True)
+    dfnew = ds_oos_lindetrend(dsclust, df_splits, path)
     dfnew = dfnew.loc[rg.df_splits.index.levels[1]]
 
     if 'timeseries' in method:
@@ -339,6 +339,8 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         ax.plot(rg.df_fullts.loc[df_test.index], label='detrend all data')
         ax.plot(df_test, label='detrend one-step-ahead')
         ax.legend()
+        f.savefig(os.path.join(path, 'compared_detrend.jpg'), dpi=250,
+                  bbox_inches='tight')
 
 
     rg.df_fullts = dfnew
@@ -415,8 +417,8 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         plt.close()
 
         # store forecast month
-        months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May', 'FM':'April',
-                  'SO':'hindcast'}
+        months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May',
+                  'FM':'April', 'JF':'March', 'SO':'December'}
         last_month = list(sst.corr_xr.lag.values)[-1]
         rg.fc_month = months[last_month]
     #%%
@@ -552,19 +554,27 @@ if __name__ == '__main__':
                             ])
     periodnames_march = ['AS', 'ON', 'DJ', 'FM']
 
+    lags_feb = np.array([[f'{sy}-07-01', f'{sy}-08-01'],# SO
+                         [f'{sy}-09-01', f'{sy}-10-01'],# ND
+                         [f'{sy}-11-01', f'{sy}-12-01'],# JF
+                         [f'{sy_p1}-01-01', f'{sy_p1}-02-01'] # MA
+                         ])
+    periodnames_feb = ['JA', 'SO', 'ND', 'JF']
+
 
     use_vars_july = ['sst', 'smi']
     use_vars_june = ['sst', 'smi']
     use_vars_may = ['sst', 'smi']
     use_vars_april = ['sst', 'smi']
     use_vars_march = ['sst', 'smi']
+    use_vars_feb = ['sst', 'smi']
 
 
     # Run in Parallel
-    lag_list = [lags_july, lags_june, lags_may, lags_april, lags_march]
+    lag_list = [lags_july, lags_june, lags_may, lags_april, lags_march, lags_feb]
     periodnames_list = [periodnames_july, periodnames_june,
                         periodnames_may, periodnames_april,
-                        periodnames_march]
+                        periodnames_march, use_vars_feb]
     use_vars_list = [use_vars_july, use_vars_june,
                      use_vars_may, use_vars_april, use_vars_march]
 
