@@ -69,7 +69,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     feature_sel)).T.reshape(-1,5)
-i_default = 0#-8
+i_default = 4
 load = 'all'
 save = True
 
@@ -336,10 +336,12 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                                                     'target_ts.h5'))['df_data']
     else:
         dfnew = ds_oos_lindetrend(dsclust, df_splits, path)
-        dfnew = dfnew.loc[rg.df_splits.index.levels[1]]
+        if 'timeseries' not in method:
+            dfnew = dfnew.loc[rg.df_splits.index.levels[1]]
 
 
         if 'timeseries' in method:
+            dfnew = dfnew.loc[df_splits.index]
             # plot difference
             df_test = functions_pp.get_df_test(dfnew, df_splits=rg.df_splits)
             f, ax = plt.subplots(1)
