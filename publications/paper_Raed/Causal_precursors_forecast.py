@@ -258,7 +258,8 @@ def ds_oos_lindetrend(dsclust, df_splits, path):
 
 def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     #%%
-    if int(lags[0][0].split('-')[-2]) > 7: # first month after july
+    _yrs = [int(l.split('-')[0]) for l in core_pp.flatten(lags)]
+    if np.unique(_yrs).size>1: # crossing year
         crossyr = True
     else:
         crossyr = False
@@ -582,6 +583,7 @@ if __name__ == '__main__':
     for lags, periodnames, use_vars in zip(lag_list, periodnames_list, use_vars_list):
         if load == False:
             futures.append(delayed(pipeline)(lags, periodnames, use_vars, load))
+
         else:
             rg_list.append(pipeline(lags, periodnames, use_vars, load))
 
