@@ -179,9 +179,10 @@ alpha_corr = .05
 alpha_CI = .05
 n_boot = 2000
 append_pathsub = f'/{method}/s{seed}'
+extra_lag = True
 
 append_main = target_dataset
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_oos')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
     path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
 elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
@@ -394,31 +395,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     if hasattr(sst, 'prec_labels')==False and 'sst' in use_vars:
         rg.cluster_list_MI('sst')
         sst.group_small_cluster(distance_eps_sc=2000, eps_corr=0.4)
-        # # check if west-Atlantic is a seperate region, otherwise split region 1
-        # df_labels = find_precursors.labels_to_df(sst.prec_labels)
-        # dlat = df_labels['latitude'] - 29
-        # dlon = df_labels['longitude'] - 290
-        # zz = pd.concat([dlat.abs(),dlon.abs()], axis=1)
-        # if zz.query('latitude < 10 & longitude < 10').size==0:
-        #     print('Splitting region west-Atlantic')
-        #     largest_regions = df_labels['n_gridcells'].idxmax()
-        #     split = find_precursors.split_region_by_lonlat
-        #     sst.prec_labels, _ = split(sst.prec_labels.copy(), label=int(largest_regions),
-        #                             kwrgs_mask_latlon={'upper_right': (263, 16)})
 
-        # merge = find_precursors.merge_labels_within_lonlatbox
-
-        # # # Ensure that what is in Atlantic is one precursor region
-        # lonlatbox = [263, 300, 17, 40]
-        # sst.prec_labels = merge(sst, lonlatbox)
-        # # Indonesia_oceans = [110, 150, 0, 10]
-        # # sst.prec_labels = merge(sst, Indonesia_oceans)
-        # Japanese_sea = [100, 150, 30, 50]
-        # sst.prec_labels = merge(sst, Japanese_sea)
-        # Mediterrenean_sea = [0, 45, 30, 50]
-        # sst.prec_labels = merge(sst, Mediterrenean_sea)
-        # East_Tropical_Atlantic = [330, 20, -10, 10]
-        # sst.prec_labels = merge(sst, East_Tropical_Atlantic)
     if 'sst' in use_vars:
         if loaded==False:
             sst.store_netcdf(rg.path_outsub1, load_sst, add_hash=False)
@@ -430,7 +407,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
 
         # store forecast month
         months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May',
-                  'FM':'April', 'JF':'March', 'SO':'December'}
+                  'FM':'April', 'JF':'March', 'SO':'December', 'DJ':'Februari'}
         last_month = list(sst.corr_xr.lag.values)[-1]
         rg.fc_month = months[last_month]
     #%%
@@ -573,6 +550,13 @@ if __name__ == '__main__':
                          ])
     periodnames_feb = ['JA', 'SO', 'ND', 'JF']
 
+    lags_jan = np.array([[f'{sy}-06-01', f'{sy}-07-01'],# SO
+                         [f'{sy}-08-01', f'{sy}-09-01'],# ND
+                         [f'{sy}-10-01', f'{sy}-11-01'],# JF
+                         [f'{sy}-12-01', f'{sy_p1}-01-01'] # MA
+                         ])
+    periodnames_jan = ['JJ', 'AS', 'ON', 'DJ']
+
 
     use_vars_july = ['sst', 'smi']
     use_vars_june = ['sst', 'smi']
@@ -580,6 +564,7 @@ if __name__ == '__main__':
     use_vars_april = ['sst', 'smi']
     use_vars_march = ['sst', 'smi']
     use_vars_feb = ['sst', 'smi']
+    use_vars_jan = ['sst', 'smi']
 
 
     # Run in Parallel
@@ -590,11 +575,11 @@ if __name__ == '__main__':
     use_vars_list = [use_vars_july, use_vars_june,
                      use_vars_may, use_vars_april, use_vars_march]
 
-    extra_lag = False
+
     if extra_lag:
-        lag_list += [lags_feb]
-        periodnames_list += [periodnames_feb]
-        use_vars_list += use_vars_feb
+        lag_list += [lags_feb, lags_jan]
+        periodnames_list += [periodnames_feb, periodnames_jan]
+        use_vars_list += [use_vars_feb, use_vars_jan]
 
 
     futures = [] ; rg_list = []
