@@ -358,11 +358,6 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
 
     rg.df_fullts = dfnew
 
-    # store forecast month
-    months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May',
-              'FM':'April', 'JF':'March', 'SO':'December', 'DJ':'February'}
-    last_month = list(sst.corr_xr.lag.values)[-1]
-    rg.fc_month = months[last_month]
 
     #%%
     sst = rg.list_for_MI[0]
@@ -425,6 +420,12 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         rg.quick_view_labels('smi', min_detect_gc=.5, save=save,
                               append_str=periodnames[-1])
         plt.close()
+
+    # store forecast month
+    months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May',
+              'FM':'April', 'JF':'March', 'SO':'December', 'DJ':'February'}
+    last_month = list(sst.corr_xr.lag.values)[-1]
+    rg.fc_month = months[last_month]
 
     #%% Calculate spatial mean timeseries of precursor regions
     filepath_df_output = os.path.join(rg.path_outsub1,
