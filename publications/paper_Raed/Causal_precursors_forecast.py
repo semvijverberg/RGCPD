@@ -616,6 +616,7 @@ if 'timeseries' in method:
 else:
     btoos = ''
 
+
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
 
@@ -627,6 +628,11 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
                     ['RandomForestClassifier', 'RandomForestClassifier']]
 
 model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
+
+# regions for forcing per fc_month
+regions_forcing = ['Pacific+SM', 'Pacific+SM', 'only_Pacific',
+                   'only_Pacific', 'only_Pacific', 'only_Pacific',
+                   'only_Pacific']
 
 for fc_type in fc_types:
     #%% Continuous forecast: get Combined Lead time models
@@ -800,11 +806,9 @@ for fc_type in fc_types:
             if os.path.exists(filepath_dfs):
                 print('Prediction final model already stored, skipping this model')
                 continue
-            # get forcing per fc_month
-            regions = ['Pacific+SM', 'Pacific+SM', 'only_Pacific',
-                       'only_Pacific', 'only_Pacific', 'only_Pacific']
+
             utils_paper3.get_df_forcing_cond_fc(rg_list,
-                                                regions=regions,
+                                                regions=regions_forcing,
                                                 name_object='df_data')
             # loop over forecast months (lags)
             for i, rg in enumerate(rg_list):
@@ -1017,10 +1021,8 @@ for fc_type in fc_types:
             # get CL model of that month
             rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
         # get forcing per fc_month
-        regions = ['Pacific+SM', 'Pacific+SM', 'only_Pacific',
-                   'only_Pacific', 'only_Pacific', 'only_Pacific']
         utils_paper3.get_df_forcing_cond_fc(rg_list,
-                                            regions=regions,
+                                            regions=regions_forcing,
                                             name_object='df_data')
 
         nameTarget = 'Target'
@@ -1138,7 +1140,7 @@ for fc_type in fc_types:
                 'only_Pacific':'mean over standardized horseshoe Pacific timeseries'}
     for i, rg in enumerate(rg_list):
         df_forcings.append(pd.DataFrame(rg.df_forcing.mean(axis=1),
-                            columns=[f'{rg.fc_month} Signal (S): '+rename_f[regions[i]]]))
+                            columns=[f'{rg.fc_month} Signal (S): '+rename_f[regions_forcing[i]]]))
     df_forcings = pd.concat(df_forcings, axis=1)
     # standardize for easy visualization
     df_forcings = rg.transform_df_data(df_forcings.merge(rg.df_splits,
