@@ -358,9 +358,11 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
 
     rg.df_fullts = dfnew
 
-    # if 'timeseries' in method:
-    #     rg.df_fullts = oos_lindetrend(rg.df_fullts, rg.df_splits)
-
+    # store forecast month
+    months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May',
+              'FM':'April', 'JF':'March', 'SO':'December', 'DJ':'February'}
+    last_month = list(sst.corr_xr.lag.values)[-1]
+    rg.fc_month = months[last_month]
 
     #%%
     sst = rg.list_for_MI[0]
@@ -405,11 +407,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                               append_str=periodnames[-1])
         plt.close()
 
-        # store forecast month
-        months = {'JJ':'August', 'MJ':'July', 'AM':'June', 'MA':'May',
-                  'FM':'April', 'JF':'March', 'SO':'December', 'DJ':'Februari'}
-        last_month = list(sst.corr_xr.lag.values)[-1]
-        rg.fc_month = months[last_month]
+
     #%%
     if hasattr(SM, 'prec_labels')==False and 'smi' in use_vars:
         SM = rg.list_for_MI[1]
@@ -427,6 +425,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         rg.quick_view_labels('smi', min_detect_gc=.5, save=save,
                               append_str=periodnames[-1])
         plt.close()
+
     #%% Calculate spatial mean timeseries of precursor regions
     filepath_df_output = os.path.join(rg.path_outsub1,
                                       f'df_output_{periodnames[-1]}.h5')
