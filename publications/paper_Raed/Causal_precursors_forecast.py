@@ -580,7 +580,9 @@ if __name__ == '__main__':
         lag_list += [lags_feb, lags_jan]
         periodnames_list += [periodnames_feb, periodnames_jan]
         use_vars_list += [use_vars_feb, use_vars_jan]
-
+        lag_list  = lag_list[::2] ;
+        periodnames_list = periodnames_list[::2]
+        use_vars_list = use_vars_list[::2]
 
     futures = [] ; rg_list = []
     for lags, periodnames, use_vars in zip(lag_list, periodnames_list, use_vars_list):
@@ -633,6 +635,8 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 regions_forcing = ['Pacific+SM', 'Pacific+SM', 'only_Pacific',
                    'only_Pacific', 'only_Pacific', 'only_Pacific',
                    'only_Pacific']
+if extra_lag:
+    regions_forcing = regions_forcing[::2]
 
 for fc_type in fc_types:
     #%% Continuous forecast: get Combined Lead time models
@@ -1352,7 +1356,7 @@ import utils_paper3
 utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
                            selection='CD')
 
-utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.99,
+utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.5,
                            selection='CD', min_cd = 0.5)
 
 # utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
