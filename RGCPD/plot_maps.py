@@ -46,7 +46,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    aspect=None, n_xticks=5, n_yticks=3, x_ticks: Union[bool, np.ndarray]=None,
                    y_ticks: Union[bool, np.ndarray]=None, add_cfeature: str=None,
                    scatter: np.ndarray=None, col_wrap: int=None,
-                   textinmap: list=None):
+                   textinmap: list=None, kwrgs_mask: dict={}):
 
     '''
     zoomregion = tuple(east_lon, west_lon, south_lat, north_lat)
@@ -181,17 +181,19 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             p_nans = int(100*plotdata.values[np.isnan(plotdata.values)].size / plotdata.size)
 
             if mask_xr is not None:
+                _kwrgs_mask = {'linestyles':['solid'],
+                              'colors':['black'],
+                              'linewidths':np.round(zonal_width/150, 1)+0.3}
+                _kwrgs_mask.update(kwrgs_mask)
                 # field not completely masked?
                 all_masked = (plotmask.values==False).all()
                 if all_masked == False:
                     if p_nans != 100:
                         plotmask.plot.contour(ax=g.axes[row,col],
                                               transform=ccrs.PlateCarree(),
-                                              linestyles=['solid'],
-                                              colors=['black'],
-                                              linewidths=np.round(zonal_width/150, 1)+0.3,
                                               levels=[float(vmin),float(vmax)],
-                                              add_colorbar=False)
+                                              add_colorbar=False,
+                                              **_kwrgs_mask)
         #                try:
         #                    im = plotdata.plot.contourf(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
         #                                        center=0,
@@ -340,7 +342,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                 g.axes[row,col].set_xlabel('')
 
             g.axes[row,col].coastlines(color='black', alpha=0.3,
-                                       facecolor='grey', linewidth=2)
+                                       linewidth=2, facecolor='white')
             # black outline subplot
             g.axes[row,col].spines['geo'].set_edgecolor('black')
 
@@ -348,10 +350,10 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             if corr_xr.name is not None:
                 if corr_xr.name[:3] == 'sst':
                     g.axes[row,col].add_feature(cfeature.LAND, facecolor='grey',
-                                                alpha=0.3, zorder=0)
+                                                alpha=0.1, zorder=0)
             if add_cfeature is not None:
                 g.axes[row,col].add_feature(cfeature.__dict__[add_cfeature],
-                                            facecolor='grey', alpha=0.3,
+                                            facecolor='white', alpha=0.1,
                                             zorder=4)
 
 

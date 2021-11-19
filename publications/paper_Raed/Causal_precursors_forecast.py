@@ -1350,13 +1350,19 @@ f.savefig(os.path.join(rg.path_outsub1, 'Pacific_model_vs_Pacific_mean'+rg.figex
 #%%
 import utils_paper3
 utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
-                          selection='CD')
-utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
-                          selection='ind')
+                           selection='CD')
 
-utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
-                          selection='all')
+utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.99,
+                           selection='CD', min_cd = 0.5)
 
+# utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
+#                           selection='ind')
+
+# utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
+#                           selection='all')
+
+
+#%%
 
 # collecting different train-test splits to plot scores vs lead-time
 plot_combs = [[0.33, '50%'],
@@ -1400,7 +1406,6 @@ for fc_type, condition in plot_combs:
         model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
                              # ['LogisticRegression', 'RandomForestClassifier'],
                              ['RandomForestClassifier', 'RandomForestClassifier']]
-
 
 
     f_names = sorted(f_names)

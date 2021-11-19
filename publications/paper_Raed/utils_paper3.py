@@ -850,7 +850,7 @@ def lineplot_cond_fc(filepath_dfs, metrics: list=None, composites=[30],
 
 
 def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
-                 selection='all'):
+                 selection='all', plot_textinmap=True, min_cd=None):
     '''
 
 
@@ -891,8 +891,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                               'y_ticks':False, 'x_ticks':False, #np.arange(-10,61,20), #'x_ticks':np.arange(130, 280, 25),
                               'title':'',
                               'subtitle_fontdict':{'fontsize':20},
-                              # 'clevels':np.arange(-.6,.7,.1),
-                              # 'clabels':np.arange(-.6,.7,.2),
+                              'kwrgs_mask':{'linewidths':1},
                                'cbar_tick_dict':{'labelsize':18},
                               'units':units,
                               'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
@@ -911,9 +910,8 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                                'y_ticks':False, 'x_ticks':False,
                                'title':'',
                                'subtitle_fontdict':{'fontsize':15},
-                               # 'clevels':np.arange(-.6,.7,.1),
-                               # 'clabels':np.arange(-.6,.7,.4),
-                                'cbar_tick_dict':{'labelsize':20},
+                               'kwrgs_mask':{'linewidths':1},
+                               'cbar_tick_dict':{'labelsize':20},
                                'units':units,
                                'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
 
@@ -967,11 +965,16 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
             CDkeys = [k[0] for k in CondDepKeys[month] if precur.name in k[0].split('..')[-1]]
             MCIv = [k[1] for k in CondDepKeys[month] if precur.name in k[0].split('..')[-1]]
             RB = [k[2] for k in CondDepKeys[month] if precur.name in k[0].split('..')[-1]]
-            region_labels = [int(l.split('..')[1]) for l in CDkeys if precur.name in l.split('..')[-1]]
+
             indkeys = [k for k in allkeys if precur.name in k.split('..')[-1]]
             indkeys = [k for k in indkeys if month in k]
             indkeys = list(dict.fromkeys(indkeys))
             indkeys = [k for k in indkeys if k not in CDkeys]
+            if min_cd is not None:
+                CDkeys = [CDkeys[i] for i, r in enumerate(RB) if r > int(min_cd*rg.n_spl)]
+                MCIv = [MCIv[i] for i, r in enumerate(RB) if r > int(min_cd*rg.n_spl)]
+                RB = [r for r in RB if r > int(min_cd*rg.n_spl)]
+            region_labels = [int(l.split('..')[1]) for l in CDkeys if precur.name in l.split('..')[-1]]
             f = find_precursors.view_or_replace_labels
             if len(CDkeys) != 0:
                 if region_labels[0] == 0: # pattern cov
@@ -1036,9 +1039,9 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                         if count < min_d:
                             continue
                         text = f'{int(RB[q])}/{count}'
-                        temp.append([lon-12,min(54,lat+7),
-                                     text, {'fontsize':15,
-                                            'bbox':dict(facecolor='white', alpha=0.2)}])
+                        temp.append([lon-12,min(52,lat+7),
+                                     text, {'fontsize':16}])
+                                            #'bbox':dict(facecolor='white', alpha=0.2)}])
                     elif precur.calc_ts == 'pattern cov' and q == 0:
                         count = rg._df_count[f'{month}..0..{precur.name}_sp']
                         if count < min_d:
@@ -1046,8 +1049,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                         text = f'{int(RB[0])}/{count}'
                         lon = float(CDlabels[:,i].longitude.mean())
                         lat = float(CDlabels[:,i].latitude.mean())
-                        temp.append([lon,lat, text, {'fontsize':15,
-                                               'bbox':dict(facecolor='white', alpha=0.2)}])
+                        temp.append([lon,lat, text, {'fontsize':15}])
                 # for reordering first lag first: 3-i
                 textinmap.append([(3-i,ir), temp])
 
@@ -1065,13 +1067,14 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
         CDlabels = CDlabels.sel(lag=periodnames[::-1])
         MCIstr = MCIstr.sel(lag=periodnames[::-1])
         textinmap = textinmap[::-1]
+
         return CDlabels, MCIstr, textinmap, subtitles, kwrgs_plot
 
 
     lagsize = rg_list[0].list_for_MI[0].prec_labels.lag.size
     intmon_d = {'August': 2, 'July':3, 'June':4,'May':5, 'April':6,
                 'March':7, 'February':8}
-    for ip in range(1):
+    for ip in range(0,2):
         if ip == 0:
             rg_subs = [rg_list[:3], rg_list[3:]]
         else:
@@ -1127,14 +1130,25 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
             # plot_maps.plot_labels(CDlabels, kwrgs_plot=kwrgs_plot)
 
             if plot_parcorr==False:
-                plot_maps.plot_labels(CDlabels,
+                fg = plot_maps.plot_labels(CDlabels,
                                       kwrgs_plot=kwrgs_plot)
+                if ip == 0:
+                    facecolorocean = 'white' ; facecolorland='#ede0d4'
+                else:
+                    facecolorocean = '#caf0f8' ; facecolorland='white'
+                for ax in fg.fig.axes[:-1]:
+                    ax.add_feature(plot_maps.cfeature.__dict__['LAND'],
+                                   facecolor=facecolorland,
+                                   zorder=0)
+                    ax.add_feature(plot_maps.cfeature.__dict__['OCEAN'],
+                                   facecolor=facecolorocean,
+                                   zorder=0)
                 if save:
                     plt.savefig(os.path.join(dirpath,
                                           f'{precur.name}_eps{precur.distance_eps}'
                                           f'minarea{precur.min_area_in_degrees2}_'
                                           f'aCI{alpha_CI}_labels_{i}_{min_detect}'\
-                                          +rg.figext),
+                                          f'min_cd{min_cd}'+rg.figext),
                                   bbox_inches='tight')
 
             # MCI values plot
@@ -1142,23 +1156,36 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                 kwrgs_plot.update({'clevels':np.arange(-0.8, 0.9, .1),
                                    'clabels':np.arange(-.8,.9,.2)})
             else:
-                kwrgs_plot.update({'clevels':np.arange(-0.6, 0.7, .1),
-                                   'clabels':np.arange(-.6,.7,.2)})
-            kwrgs_plot.update({'textinmap':textinmap,
-                                'units':units})
+                kwrgs_plot.update({'clevels':np.arange(-0.8, 0.9, .1),
+                                   'clabels':np.arange(-.8,.9,.2)})
+            kwrgs_plot.update({'units':units})
+            if plot_textinmap:
+                kwrgs_plot.update({'textinmap':textinmap})
             fg = plot_maps.plot_corr_maps(MCIstr,
                                           mask_xr=mask_xr,
                                           **kwrgs_plot)
+            if ip == 0:
+                facecolorocean = 'white' ; facecolorland='#ede0d4'
+            else:
+                facecolorocean = '#caf0f8' ; facecolorland='white'
+            for ax in fg.fig.axes[:-1]:
+                ax.add_feature(plot_maps.cfeature.__dict__['LAND'],
+                               facecolor=facecolorland,
+                               zorder=0)
+                ax.add_feature(plot_maps.cfeature.__dict__['OCEAN'],
+                               facecolor=facecolorocean,
+                               zorder=0)
     #%%
             if save:
                 fg.fig.savefig(os.path.join(dirpath,
                               f'{precur.name}_eps{precur.distance_eps}'
                               f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_MCI_'
-                              f'_parcorr{plot_parcorr}_{i}_{selection}'+rg.figext),
-                            bbox_inches='tight')
+                              f'_parcorr{plot_parcorr}_{i}_{selection}'
+                              f'min_cd{min_cd}'+rg.figext),
+                               bbox_inches='tight')
 
 
-    #%%
+
 
 def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
                    standardize=True, path=None):
