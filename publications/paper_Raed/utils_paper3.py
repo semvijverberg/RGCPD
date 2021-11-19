@@ -1069,7 +1069,8 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
 
 
     lagsize = rg_list[0].list_for_MI[0].prec_labels.lag.size
-    intmon_d = {'August': 2, 'July':3, 'June':4,'May':5, 'April':6, 'March':7}
+    intmon_d = {'August': 2, 'July':3, 'June':4,'May':5, 'April':6,
+                'March':7, 'February':8}
     for ip in range(1):
         if ip == 0:
             rg_subs = [rg_list[:3], rg_list[3:]]
