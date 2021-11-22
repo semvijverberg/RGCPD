@@ -1202,7 +1202,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                 fg.fig.savefig(os.path.join(dirpath,
                                 f'{precur.name}_eps{precur.distance_eps}'\
                               f'minarea{precur.min_area_in_degrees2}_{i}_'
-                              'aCI{alpha_CI}_{min_detect}_{selection}'
+                              f'aCI{alpha_CI}_{min_detect}_{selection}'
                               f'_min_cd{min_cd}_parcorr{plot_parcorr}'
                               f'text{plot_textinmap}'+rg.figext),
                                bbox_inches='tight')
