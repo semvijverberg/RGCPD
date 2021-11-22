@@ -1051,7 +1051,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                             continue
                         text = f'{int(RB[0])}/{count}'
                         lon = float(CDlabels[:,i].longitude.mean())
-                        lat = float(CDlabels[:,i].latitude.mean())
+                        lat = float(CDlabels[:,i].latitude.mean()+5)
                         temp.append([lon,lat, text, {'fontsize':15}])
                 # for reordering first lag first: 3-i
                 textinmap.append([(3-i,ir), temp])
@@ -1077,7 +1077,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
     lagsize = rg_list[0].list_for_MI[0].prec_labels.lag.size
     intmon_d = {'August': 2, 'July':3, 'June':4,'May':5, 'April':6,
                 'March':7, 'February':8}
-    for ip in range(0,2):
+    for ip in range(1,2):
         if ip == 0:
             rg_subs = [rg_list[:2], rg_list[2:]]
         else:
@@ -1183,14 +1183,15 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                                zorder=0)
 
                 if ip == 1:
-                    clusmask.where(clusmask).plot.pcolormesh(ax=ax,
-                                          transform=plot_maps.ccrs.PlateCarree(),
-                                          levels=[float(0), 2],
-                                          add_colorbar=False,
-                                          cmap='#ff006e',
-                                          alpha=.1,
-                                          zorder=1)
-                    ax.set_ylabel(None) ; ax.set_xlabel(None)
+                    cmp = plot_maps.get_continuous_cmap(["3c096c","5a189a","7b2cbf","9d4edd","c77dff","e0aaff"],
+                                    float_list=list(np.linspace(0,1,5)))
+                    ax.pcolormesh(clusmask.longitude, clusmask.latitude,
+                                  clusmask.where(clusmask).values,
+                                  vmin=0, vmax=1,
+                                  transform=plot_maps.ccrs.PlateCarree(),
+                                  zorder=100, alpha=.15, cmap=cmp,
+                                  rasterized=False)
+                                  # color=)
 
 
     #%%
