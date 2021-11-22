@@ -322,11 +322,12 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
         table_col = 'S>50%'
         y_title = .95
 
-    if np.isclose(df_test.iloc[:,0].mean().round(2), 0.33, atol=0.03):
+    # Tolerance since out-of-sample target definition != test sample base-rate
+    if np.isclose(df_test.iloc[:,0].mean().round(2), 0.33, atol=0.1):
         label_obs = 'Low yield events'
         ax0u.axhline(y=.33, linewidth=0.5, ls='dashed', color='black')
 
-    elif np.isclose(df_test.iloc[:,0].mean().round(2), 0.66, atol=0.03):
+    elif np.isclose(df_test.iloc[:,0].mean().round(2), 0.66, atol=0.1):
         label_obs = 'High yield events'
         ax0u.axhline(y=.33, linewidth=0.5, color='black')
     else:
