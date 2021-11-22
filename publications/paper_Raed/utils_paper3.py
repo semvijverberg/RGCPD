@@ -1154,8 +1154,9 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                     plt.savefig(os.path.join(dirpath,
                                     f'{precur.name}_eps{precur.distance_eps}'
                                     f'minarea{precur.min_area_in_degrees2}_'
-                                    f'aCI{alpha_CI}_labels_{i}_{min_detect}'\
-                                    f'_{selection}_min_cd{min_cd}'+rg.figext),
+                                    f'labels_{i}'
+                                    f'aCI{alpha_CI}_{min_detect}'\
+                                    f'_{selection}_min_cd{min_cd}' +rg.figext),
                                 bbox_inches='tight')
 
             # MCI values plot
@@ -1200,9 +1201,10 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
             if save:
                 fg.fig.savefig(os.path.join(dirpath,
                                 f'{precur.name}_eps{precur.distance_eps}'\
-                              f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_MCI_'\
-                              f'_parcorr{plot_parcorr}_{i}_{min_detect}_{selection}'
-                              f'_min_cd{min_cd}'+rg.figext),
+                              f'minarea{precur.min_area_in_degrees2}_{i}_'
+                              'aCI{alpha_CI}_{min_detect}_{selection}'
+                              f'_min_cd{min_cd}_parcorr{plot_parcorr}'
+                              f'text{plot_textinmap}'+rg.figext),
                                bbox_inches='tight')
 
 
