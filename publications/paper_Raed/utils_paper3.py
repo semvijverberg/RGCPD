@@ -324,8 +324,11 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
 
     if np.isclose(df_test.iloc[:,0].mean().round(2), 0.33, atol=0.03):
         label_obs = 'Low yield events'
+        ax0u.axhline(y=.33, linewidth=0.5, ls='dashed', color='black')
+
     elif np.isclose(df_test.iloc[:,0].mean().round(2), 0.66, atol=0.03):
         label_obs = 'High yield events'
+        ax0u.axhline(y=.33, linewidth=0.5, color='black')
     else:
         label_obs = 'Observed'
 
@@ -1076,9 +1079,12 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                 'March':7, 'February':8}
     for ip in range(0,2):
         if ip == 0:
-            rg_subs = [rg_list[:3], rg_list[3:]]
+            rg_subs = [rg_list[:2], rg_list[2:]]
         else:
             rg_subs = [rg_list]
+            ds = rg_list[0].get_clust()
+            clustnr = int(rg_list[0].df_fullts.columns[0].split('ts')[0])
+            clusmask = ds['xrclustered'] == clustnr
 
         if ip == 1 and selection =='ind':
             continue
@@ -1175,6 +1181,18 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                 ax.add_feature(plot_maps.cfeature.__dict__['OCEAN'],
                                facecolor=facecolorocean,
                                zorder=0)
+
+                if ip == 1:
+                    clusmask.where(clusmask).plot.pcolormesh(ax=ax,
+                                          transform=plot_maps.ccrs.PlateCarree(),
+                                          levels=[float(0), 2],
+                                          add_colorbar=False,
+                                          cmap='#ff006e',
+                                          alpha=.1,
+                                          zorder=1)
+                    ax.set_ylabel(None) ; ax.set_xlabel(None)
+
+
     #%%
             if save:
                 fg.fig.savefig(os.path.join(dirpath,

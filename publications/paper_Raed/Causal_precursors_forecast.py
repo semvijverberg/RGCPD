@@ -1173,13 +1173,13 @@ for fc_type in fc_types:
         for i, target_opt in enumerate(target_options):
 
             fig, axes = plt.subplots(nrows=len(fc_month_list)*2, ncols=2,
-                                     figsize=(17,19),
+                                     figsize=(17,len(fc_month_list)*3.5),
                                      gridspec_kw={'width_ratios':[3.4,1],
                                           'height_ratios':[3,1] * len(fc_month_list)},
                              sharex=True, sharey=False)
             out = utils_paper3.load_scores(target_opt, model_name_CL, model_name,
-                                       n_boot, filepath_df_datas,
-                                       condition=condition)
+                                           n_boot, filepath_df_datas,
+                                           condition=condition)
 
             df_scores, df_boots, df_preds = out
             for m, fc_month in enumerate(fc_month_list):
@@ -1207,6 +1207,9 @@ for fc_type in fc_types:
                                               name_model=f'CL-{name_CL} -> {name}')
                 ax[0].margins(x=.02)
                 if m == 0:
+                    axes[0][0].text(y=0.37, x=1, s='clim. prob.',
+                                    horizontalalignment='right',
+                                    transform=axes[0][0].transAxes)
                     ax[0].legend(fontsize=10, loc='upper left')
                     ax1b = axs[1][1]
                     qs = [int(c[-3:-1]) for c in condition]
@@ -1231,7 +1234,7 @@ for fc_type in fc_types:
 
             fig.savefig(os.path.join(filepath_verif,
                       f'timeseries_and_skill_{i}_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
-            plt.close()
+            # plt.close()
     #%% plotting skill scores as function of lead-time
     # import utils_paper3
     if fc_type == 'continuous':
@@ -1448,7 +1451,7 @@ for fc_type, condition in plot_combs:
 
     #%% Plot
 
-    f, axes = plt.subplots(len(metrics_plot),2, figsize=(12,8),
+    f, axes = plt.subplots(len(metrics_plot),2, figsize=(14,8),
                             sharey=False)
     cols = [model_combs_plot[0][0], model_combs_plot[1][0]]
     rows = metrics_plot
