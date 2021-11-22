@@ -1152,11 +1152,11 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                                    zorder=0)
                 if save:
                     plt.savefig(os.path.join(dirpath,
-                                          f'{precur.name}_eps{precur.distance_eps}'
-                                          f'minarea{precur.min_area_in_degrees2}_'
-                                          f'aCI{alpha_CI}_labels_{i}_{min_detect}'\
-                                          f'min_cd{min_cd}'+rg.figext),
-                                  bbox_inches='tight')
+                                    f'{precur.name}_eps{precur.distance_eps}'
+                                    f'minarea{precur.min_area_in_degrees2}_'
+                                    f'aCI{alpha_CI}_labels_{i}_{min_detect}'\
+                                    f'_{selection}_min_cd{min_cd}'+rg.figext),
+                                bbox_inches='tight')
 
             # MCI values plot
             if plot_parcorr:
@@ -1184,7 +1184,8 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                                zorder=0)
 
                 if ip == 1:
-                    cmp = plot_maps.get_continuous_cmap(["3c096c","5a189a","7b2cbf","9d4edd","c77dff","e0aaff"],
+                    cmp = ["3c096c","5a189a","7b2cbf","9d4edd","c77dff","e0aaff"]
+                    cmp = plot_maps.get_continuous_cmap(cmp,
                                     float_list=list(np.linspace(0,1,5)))
                     ax.pcolormesh(clusmask.longitude, clusmask.latitude,
                                   clusmask.where(clusmask).values,
@@ -1198,10 +1199,10 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
     #%%
             if save:
                 fg.fig.savefig(os.path.join(dirpath,
-                              f'{precur.name}_eps{precur.distance_eps}'
-                              f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_MCI_'
-                              f'_parcorr{plot_parcorr}_{i}_{selection}'
-                              f'min_cd{min_cd}'+rg.figext),
+                                f'{precur.name}_eps{precur.distance_eps}'\
+                              f'minarea{precur.min_area_in_degrees2}_aCI{alpha_CI}_MCI_'\
+                              f'_parcorr{plot_parcorr}_{i}_{min_detect}_{selection}'
+                              f'_min_cd{min_cd}'+rg.figext),
                                bbox_inches='tight')
 
 
