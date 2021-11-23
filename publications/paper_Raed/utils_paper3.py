@@ -1057,7 +1057,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                         lon = float(CDlabels[:,i].longitude.mean())
                         lat = float(CDlabels[:,i].latitude.mean()+5)
                         # temp.append([lon,lat, text, {'fontsize':15}])
-                        tempcd.append([lon-4,lat, f'{int(RB[q])}',
+                        tempcd.append([lon-5,lat, f'{int(RB[q])}',
                                       {'fontsize':17, 'color':'green'}])
                         temp.append([lon+3,lat, f'/{count}',
                                      {'fontsize':16, 'color':'blue'}])
@@ -1201,7 +1201,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                                   clusmask.where(clusmask).values,
                                   vmin=0, vmax=1,
                                   transform=plot_maps.ccrs.PlateCarree(),
-                                  zorder=100, alpha=.2, cmap=cmp,
+                                  zorder=100, alpha=.25, cmap=cmp,
                                   rasterized=False)
                                   # color=)
 
