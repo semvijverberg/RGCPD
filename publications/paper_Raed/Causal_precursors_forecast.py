@@ -1366,7 +1366,6 @@ utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.5,
                            selection='CD', min_cd = 0.5)
 
 
-
 utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
                            selection='CD', min_cd = 0.5, plot_textinmap=False)
 

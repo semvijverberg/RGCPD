@@ -1030,7 +1030,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
             # get text on robustness per month:
 
             if len(CDkeys) != 0:
-                temp = []
+                temp = [] ; tempcd = []
                 for q, k in enumerate(CDkeys):
                     l = int(k.split('..')[1])
                     if l == 0: # pattern cov
@@ -1042,19 +1042,28 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                         count = rg._df_count[k]
                         if count < min_d:
                             continue
-                        text = f'{int(RB[q])}/{count}'
-                        temp.append([lon-12,min(52,lat+7),
-                                     text, {'fontsize':16}])
-                                            #'bbox':dict(facecolor='white', alpha=0.2)}])
+                        tempcd.append([lon-15,min(50,lat+7), f'{int(RB[q])}',
+                                      {'fontsize':17, 'color':'green'}])
+                        temp.append([lon+4,min(50,lat+7), f'/{count}',
+                                      {'fontsize':16, 'color':'blue'}])
+                        # temp.append([lon-9,min(52,lat+7),
+                                      # f'/{count}', {'fontsize':16, 'color':'blue'}])
+
                     elif precur.calc_ts == 'pattern cov' and q == 0:
                         count = rg._df_count[f'{month}..0..{precur.name}_sp']
                         if count < min_d:
                             continue
-                        text = f'{int(RB[0])}/{count}'
+                        # text = f'{int(RB[0])}/{count}'
                         lon = float(CDlabels[:,i].longitude.mean())
                         lat = float(CDlabels[:,i].latitude.mean()+5)
-                        temp.append([lon,lat, text, {'fontsize':15}])
+                        # temp.append([lon,lat, text, {'fontsize':15}])
+                        tempcd.append([lon-3,lat, f'{int(RB[q])}',
+                                      {'fontsize':17, 'color':'green'}])
+                        temp.append([lon+3,lat, f'/{count}',
+                                     {'fontsize':16, 'color':'blue'}])
+
                 # for reordering first lag first: 3-i
+                textinmap.append([(3-i,ir), tempcd])
                 textinmap.append([(3-i,ir), temp])
 
         if ip == 0:
@@ -1078,7 +1087,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
     lagsize = rg_list[0].list_for_MI[0].prec_labels.lag.size
     intmon_d = {'August': 2, 'July':3, 'June':4,'May':5, 'April':6,
                 'March':7, 'February':8}
-    for ip in range(0,2):
+    for ip in range(1,2):
         if ip == 0:
             rg_subs = [rg_list[:2], rg_list[2:]]
         else:
@@ -1192,7 +1201,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                                   clusmask.where(clusmask).values,
                                   vmin=0, vmax=1,
                                   transform=plot_maps.ccrs.PlateCarree(),
-                                  zorder=100, alpha=.15, cmap=cmp,
+                                  zorder=100, alpha=.2, cmap=cmp,
                                   rasterized=False)
                                   # color=)
 
