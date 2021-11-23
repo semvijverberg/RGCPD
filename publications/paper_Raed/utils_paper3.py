@@ -1057,7 +1057,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                         lon = float(CDlabels[:,i].longitude.mean())
                         lat = float(CDlabels[:,i].latitude.mean()+5)
                         # temp.append([lon,lat, text, {'fontsize':15}])
-                        tempcd.append([lon-3,lat, f'{int(RB[q])}',
+                        tempcd.append([lon-4,lat, f'{int(RB[q])}',
                                       {'fontsize':17, 'color':'green'}])
                         temp.append([lon+3,lat, f'/{count}',
                                      {'fontsize':16, 'color':'blue'}])
