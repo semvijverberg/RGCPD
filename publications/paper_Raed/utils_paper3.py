@@ -1037,14 +1037,17 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                         lat, lon = df_labelloc.mean(0)[:2]
                     else:
                         lat, lon = df_labelloc.loc[l].iloc[:2].values.round(1)
-                    if lon > 180: lon-360
+                    if lon > 180: lon-360 ;
+                    if np.isclose(lon, 50, atol=20) and lon > 50:
+                        lon += 23 # for text at left boundary
+                    lon -= 20
                     if precur.calc_ts != 'pattern cov':
                         count = rg._df_count[k]
                         if count < min_d:
                             continue
-                        tempcd.append([lon-15,min(50,lat+7), f'{int(RB[q])}',
+                        tempcd.append([lon-10,min(50,lat+7), f'{int(RB[q])}',
                                       {'fontsize':17, 'color':'green'}])
-                        temp.append([lon+4,min(50,lat+7), f'/{count}',
+                        temp.append([lon+9,min(50,lat+7), f'/{count}',
                                       {'fontsize':16, 'color':'blue'}])
                         # temp.append([lon-9,min(52,lat+7),
                                       # f'/{count}', {'fontsize':16, 'color':'blue'}])
@@ -1087,7 +1090,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
     lagsize = rg_list[0].list_for_MI[0].prec_labels.lag.size
     intmon_d = {'August': 2, 'July':3, 'June':4,'May':5, 'April':6,
                 'March':7, 'February':8}
-    for ip in range(0,2):
+    for ip in range(0,1):
         if ip == 0:
             rg_subs = [rg_list[:2], rg_list[2:]]
         else:
