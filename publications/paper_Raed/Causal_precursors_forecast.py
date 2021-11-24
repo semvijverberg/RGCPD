@@ -626,10 +626,10 @@ model_combs_cont = [['Ridge', 'Ridge'],
                     ['Ridge', 'RandomForestRegressor'],
                     ['RandomForestRegressor', 'RandomForestRegressor']]
 model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
-                    ['LogisticRegression', 'RandomForestClassifier'],
+                    # ['LogisticRegression', 'RandomForestClassifier'],
                     ['RandomForestClassifier', 'RandomForestClassifier']]
 
-model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
+# model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 
 # regions for forcing per fc_month
 regions_forcing = ['Pacific+SM', 'Pacific+SM', 'only_Pacific',
