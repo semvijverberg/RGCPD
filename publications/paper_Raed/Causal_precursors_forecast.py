@@ -198,7 +198,7 @@ USBox = (225, 300, 20, 60)
 
 list_of_name_path = [(cluster_label, TVpath),
                        ('sst', os.path.join(path_raw, 'sst_1950-2019_1_12_monthly_1.0deg.nc')),
-                      # ('z500', os.path.join(path_raw, 'z500_1950-2019_1_12_monthly_1.0deg.nc')),
+                       ('z500', os.path.join(path_raw, 'z500_1950-2019_1_12_monthly_1.0deg.nc')),
                        ('smi', os.path.join(path_raw, 'SM_ownspi_gamma_2_1950-2019_1_12_monthly_1.0deg.nc'))]
 
 
@@ -302,9 +302,9 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     subfoldername += append_pathsub
 
 
-    rg.pp_precursors(detrend=[True, {'tp':False, 'smi':False}],
-                     anomaly=[True, {'tp':False, 'smi':False}],
-                     auto_detect_mask=[False, {'swvl1':True, 'swvl2':True}])
+    # detrend and anomaly (already done for smi)
+    rg.pp_precursors(detrend=[True, {'smi':False}],
+                     anomaly=[True, {'smi':False}])
     if crossyr:
         TV_start_end_year = (start_end_year[0]+1, 2019)
     else:
@@ -402,6 +402,23 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                               append_str=periodnames[-1])
         plt.close()
 
+
+
+    # #%% yield vs circulation plots
+    # z500 = BivariateMI(name='z500',
+    #                    filepath=rg.list_precur_pp[1][1],
+    #                    func=class_BivariateMI.corr_map,
+    #                    alpha=alpha_corr, FDR_control=True,
+    #                    kwrgs_func={},
+    #                    distance_eps=250, min_area_in_degrees2=3,
+    #                    calc_ts='pattern cov', selbox=GlobalBox,
+    #                    lags=lags, group_split=True,
+    #                    use_coef_wghts=True)
+
+    # z500.load_and_aggregate_precur(rg.kwrgs_load)
+    # xrcorr, xrpvals = z500.bivariateMI_map(z500.precur_arr, df_splits,
+    #                                       rg.df_fullts)
+    # plot_maps.plot_corr_maps(xrcorr, xrcorr['mask'])
 
     #%%
     if hasattr(SM, 'prec_labels')==False and 'smi' in use_vars:

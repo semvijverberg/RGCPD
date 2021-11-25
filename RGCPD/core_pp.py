@@ -1258,6 +1258,9 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
     else:
         startyr = start_end_year[0]
         endyr   = start_end_year[-1]
+
+    assert startyr >= dates.year[0], ('Start year is before the first year in'
+                                     ' the dataset/datetime array')
     # n_yrs = np.arange(startyr, endyr+1).size
     firstyr = get_oneyr(dates, startyr)
 

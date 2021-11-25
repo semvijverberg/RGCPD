@@ -35,8 +35,8 @@ except:
 
 class BivariateMI:
 
-    def __init__(self, name, func=None, kwrgs_func={}, alpha: float=0.05,
-                 FDR_control: bool=True, lags=np.array([1]),
+    def __init__(self, name, filepath: str=None,func=None, kwrgs_func={},
+                 alpha: float=0.05, FDR_control: bool=True, lags=np.array([1]),
                  lag_as_gap: bool=False, distance_eps: int=400,
                  min_area_in_degrees2=3, group_lag: bool=False,
                  group_split : bool=True, calc_ts='region mean',
@@ -50,6 +50,9 @@ class BivariateMI:
         ----------
         name : str
             Name that links to a filepath pointing to a Netcdf4 file.
+        filepath : str
+            Optionally give manual filepath to Netcdf4. Normally this is
+            automatically done by the RGCPD framework.
         func : function to apply to calculate the bivariate
             Mutual Informaiton (MI), optional
             The default is applying a correlation map.
@@ -122,7 +125,9 @@ class BivariateMI:
 
         self.alpha = alpha
         self.FDR_control = FDR_control
+
         #get_prec_ts & spatial_mean_regions
+        self.filepath = filepath
         self.calc_ts = calc_ts
         self.selbox = selbox
         self.use_sign_pattern = use_sign_pattern
@@ -130,13 +135,15 @@ class BivariateMI:
         self.lags = lags
         self.lag_as_gap = lag_as_gap
 
-        self.dailytomonths = dailytomonths
 
         # cluster_DBSCAN_regions
         self.distance_eps = distance_eps
         self.min_area_in_degrees2 = min_area_in_degrees2
         self.group_split = group_split
         self.group_lag = group_lag
+
+        # other parameters
+        self.dailytomonths = dailytomonths
         self.verbosity = verbosity
         self.n_cpu = n_cpu
         self.n_jobs_clust = n_jobs_clust

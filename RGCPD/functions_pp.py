@@ -111,7 +111,10 @@ def load_TV(list_of_name_path, name_ds='ts'):
                 fulltso = fulltso.squeeze()
         elif filename.split('.')[-1] == 'h5':
             dict_df = load_hdf5(filename)
-            df = dict_df[list(dict_df.keys())[0]]
+            try:
+                df = dict_df['df_data']
+            except:
+                df = dict_df[list(dict_df.keys())[0]]
             based_on_test = False
             if hasattr(df.index, 'levels'):
                 splits = df.index.levels[0]

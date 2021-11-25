@@ -86,7 +86,7 @@ def mask_sig_to_cluster(mask_and_data_s, wght_area, distance_eps, min_area_sampl
 
     mask_sig_1d = mask_and_data_s.mask.astype('bool').values == False
     data = mask_and_data_s.data
-    lons = mask_and_data_s.longitude.values #!!! Ensure west_east format
+    lons = mask_and_data_s.longitude.values #!!! Ensure west_east format?
     lats = mask_and_data_s.latitude.values
     n_lags = mask_and_data_s.lag.size
 
