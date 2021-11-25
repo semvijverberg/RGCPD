@@ -285,8 +285,8 @@ def pipeline(lags, periodnames, load=False):
 
     subtitles = np.array([month_d[l] for l in xr_merge.lag.values],
                          dtype='object')[::-1]
-    subtitles = np.array([[s + ' SM vs yield' for s in subtitles],
-                          [s + ' z500 vs SM' for s in subtitles]])
+    subtitles = np.array([[s + ' SM vs yield' for s in subtitles[::-1]],
+                          [s + ' z500 vs SM' for s in subtitles[::-1]]])
     # leadtime = intmon_d[rg.fc_month]
     # subtitles = [subtitles[i-1]+f' ({leadtime+i*2-1}-month lag)' for i in range(1,5)]
     kwrgs_plot = {'zoomregion':(170,310,15,80),
