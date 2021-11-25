@@ -597,9 +597,9 @@ if __name__ == '__main__':
         lag_list += [lags_feb, lags_jan]
         periodnames_list += [periodnames_feb, periodnames_jan]
         use_vars_list += [use_vars_feb, use_vars_jan]
-        lag_list  = lag_list[::2] ;
-        periodnames_list = periodnames_list[::2]
-        use_vars_list = use_vars_list[::2]
+        lag_list  = lag_list
+        periodnames_list = periodnames_list
+        use_vars_list = use_vars_list
 
     futures = [] ; rg_list = []
     for lags, periodnames, use_vars in zip(lag_list, periodnames_list, use_vars_list):
@@ -799,8 +799,6 @@ for fc_type in fc_types:
 
 
     #%% Make prediction
-
-
     model_name_CL, model_name = model_combs[0]
     for model_name_CL, model_name in model_combs:
         if model_name == 'Ridge' or model_name == 'LogisticRegression':
@@ -1170,7 +1168,8 @@ for fc_type in fc_types:
                       transformer=fc_utils.standardize_on_train)
     df_forcings.columns.name = int(condition[0][-3:-1])
 
-    fc_month_list = [rg.fc_month for rg in rg_list]
+    # plotting timeseries per 2 months
+    fc_month_list = [rg.fc_month for rg in rg_list][::2]
     print('Plotting timeseries')
     model_name_CL, model_name = model_combs_plot[0]
     for model_name_CL, model_name in model_combs_plot:
