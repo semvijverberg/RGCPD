@@ -125,7 +125,16 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05,
                                     left_index=True, right_index=True)
     return df_mean_SST, keys_dict_meansst
 
-
+def get_CD_df_data(rg, alpha_CI=.05, periodname=None):
+    df_pvals = rg.df_pvals.copy()
+    keys_dict = {s:[] for s in range(rg.n_spl)}
+    for s in range(rg.n_spl):
+        sign_s = df_pvals[s][df_pvals[s] <= alpha_CI].dropna(axis=0, how='all')
+        keys = sign_s.index
+        if periodname is not None:
+            keys = [k for k in keys if periodname in k]
+        keys_dict[s].append( keys )
+    return keys_dict
 
 #%% Functions for plotting continuous forecast
 def df_scores_for_plot(rg_list, name_object):

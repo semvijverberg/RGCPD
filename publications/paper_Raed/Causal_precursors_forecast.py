@@ -60,18 +60,27 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 
 
 target_datasets = ['USDA_Soy_clusters__1']
-seeds = [1,2,3,4] # ,5]
+seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1'] # ['ranstrat_20'] timeseriessplit_30
-feature_sel = [True]
+
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
-                                    methods,
-                                    feature_sel)).T.reshape(-1,5)
-i_default = -4
+                                    methods)).T.reshape(-1,4)
+i_default = 0
 load = 'all'
 save = True
+training_data = 'CL' # or 'all_CD' or 'onelag'
+fc_types = [0.33, 'continuous']
+fc_types = [0.33]
+
+model_combs_cont = [['Ridge', 'Ridge'],
+                    ['Ridge', 'RandomForestRegressor'],
+                    ['RandomForestRegressor', 'RandomForestRegressor']]
+model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
+                    # ['LogisticRegression', 'RandomForestClassifier'],
+                    # ['RandomForestClassifier', 'RandomForestClassifier']]
 
 
 def parseArguments():
@@ -636,32 +645,26 @@ else:
     btoos = ''
 
 
-fc_types = [0.33, 'continuous']
-fc_types = [0.33]
 
-model_combs_cont = [['Ridge', 'Ridge'],
-                    ['Ridge', 'RandomForestRegressor'],
-                    ['RandomForestRegressor', 'RandomForestRegressor']]
-model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
-                    # ['LogisticRegression', 'RandomForestClassifier'],
-                    ['RandomForestClassifier', 'RandomForestClassifier']]
-
-# model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 
 # regions for forcing per fc_month
 regions_forcing = ['Pacific+SM', 'Pacific+SM', 'only_Pacific',
                    'only_Pacific', 'only_Pacific', 'only_Pacific',
                    'only_Pacific']
 if extra_lag:
-    regions_forcing = regions_forcing[::2]
+    regions_forcing = regions_forcing
 
 for fc_type in fc_types:
-    #%% Continuous forecast: get Combined Lead time models
+    #%% forecast: get Combined Lead time models
 
     pathsub_df = f'df_data_{str(fc_type)}{btoos}'
+    pathsub_verif = f'verif_{str(fc_type)}{btoos}'
+    if training_data != 'CL':
+        pathsub_df  += '_'+training_data
+        pathsub_verif += '_'+training_data
     filepath_df_datas = os.path.join(rg.path_outsub1, pathsub_df)
     os.makedirs(filepath_df_datas, exist_ok=True)
-    filepath_verif = os.path.join(rg.path_outsub1, f'verif_{str(fc_type)}{btoos}')
+    filepath_verif = os.path.join(rg.path_outsub1, pathsub_verif)
     os.makedirs(filepath_verif, exist_ok=True)
     from sklearn.linear_model import Ridge, LogisticRegression
 
@@ -900,8 +903,25 @@ for fc_type in fc_types:
                     elif fc_type < .5:
                         _target_ts = (_target_ts < quantile).astype(int)
 
+                # use combined lead time model for (final) prediction
+                if training_data == 'CL':
+                    df_input = rg.df_CL_data
+                # use all RG-DR timeseries for (final) prediction
+                elif training_data == 'all':
+                    df_input = rg.df_data
+                # use all RG-DR timeseries that are C.D. for (final) prediction
+                elif training_data == 'all_CD':
+                    df_input = rg.df_data
+                    keys_dict = utils_paper3.get_CD_df_data(rg, alpha_CI)
+                # use only fist lag of RG-DR timeseries that are C.D.
+                elif training_data == 'onelag':
+                    df_input = rg.df_data
+                    firstlag = str(rg.list_for_MI[0].corr_xr.lag[0].values)
+                    keys_dict = utils_paper3.get_CD_df_data(rg, alpha_CI,
+                                                            firstlag)
 
-                prediction_tuple = rg.fit_df_data_ridge(df_data=rg.df_CL_data,
+
+                prediction_tuple = rg.fit_df_data_ridge(df_data=df_input,
                                                         keys=keys_dict,
                                                         target=_target_ts,
                                                         tau_min=0, tau_max=0,
@@ -1199,13 +1219,14 @@ for fc_type in fc_types:
 
             df_scores, df_boots, df_preds = out
             for m, fc_month in enumerate(fc_month_list):
+                rg = [rg for rg in rg_list if rg.fc_month == fc_month][0]
                 axs = axes[m*2:m*2+2]
                 ax = axs[0]
                 df_test_m = [d[fc_month] for d in df_scores]
                 df_boots_list = [d[fc_month] for d in df_boots]
                 df_test  = df_preds[0][['Target', fc_month]]
                 df_test = functions_pp.get_df_test(df_test,
-                                           df_splits=rg_list[m].df_splits)
+                                           df_splits=rg.df_splits)
                 if fc_type != 'continuous' and any(['(fitPPS)' in t for t in target_opt]):
                     if fc_type >= 0.5:
                         df_test[['Target']] = (df_test[['Target']] > \
