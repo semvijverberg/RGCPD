@@ -1250,7 +1250,9 @@ def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
     xy = np.argwhere((~np.isnan(ds)).any(axis=0).values)
     n_plots = 40 ; icount = int(xy.shape[0] / n_plots)
 
+    # standardize plot
     f1, ax1 = plt.subplots(figsize=(5,4)) ;
+    # detrend plots
     f2, axes = plt.subplots(nrows=int(n_plots / 5), ncols=5, sharex=True) ;
     axes = axes.ravel()
     splits_newdata = []

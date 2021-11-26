@@ -82,6 +82,9 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
                     # ['LogisticRegression', 'RandomForestClassifier'],
                     # ['RandomForestClassifier', 'RandomForestClassifier']]
 
+model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
+                    ['RandomForestClassifier', 'RandomForestClassifier']]
+
 
 def parseArguments():
     # Create argument parser
