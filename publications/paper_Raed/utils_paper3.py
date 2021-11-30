@@ -19,6 +19,7 @@ import xarray as xr
 from matplotlib import gridspec
 from matplotlib.offsetbox import TextArea, VPacker, AnnotationBbox
 import matplotlib.patches as mpatches
+from matplotlib.lines import Line2D
 
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
@@ -1289,9 +1290,15 @@ def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
                 if idx < axes.size:
                     if s == splits[-1]:
                         axes[idx].plot(timesteps, ts, lw=1) # only plot raw for first split
+                    if splits.size>1 and (s == 0 or s == splits[-1]):
+                        lw = .75 ; zorder = 5 ; alpha=.6
+                        color = 'blue' if s == 0 else 'red'
+                    else:
+                        lw = .25 ; zorder = 0 ; color='grey'; alpha=.2
                     axes[idx].plot(timesteps, trend, lw=0.5, c='black', alpha=.5)
                     axes[idx].tick_params(labelsize=7)
-                    ax1.plot(timesteps, detrend_ts, lw=0.5)
+                    ax1.plot(timesteps, detrend_ts, lw=lw, alpha=alpha,
+                             color=color, zorder=zorder)
                     ax1.tick_params(labelsize=12)
                     # if mask[mask].size < min_length and s==splits[-1]:
                     #     axes[idx].text(0.2,0.5, 'Too short',
@@ -1303,6 +1310,12 @@ def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
         newdata = xr.DataArray(newdata, coords=ds.coords, dims=ds.dims)
         splits_newdata.append(newdata)
     print('\n')
+    lines = [Line2D([0], [0], color='blue', lw=2),
+             Line2D([0], [0], color='red', lw=2)]
+    nfirst = (df_splits.loc[0]['TrainIsTrue']==1).sum()
+    nlast = (df_splits.loc[splits[-1]]['TrainIsTrue']==1).sum()
+    ax1.legend(lines, [f'First trainingset (n={nfirst})',
+                       f'Last trainingset (n={nlast})'], fontsize=12)
     f2.subplots_adjust(wspace=.35)
 
     if path is not None:

@@ -17,6 +17,7 @@ import xarray as xr
 import itertools
 import core_pp
 import datetime
+from scipy.optimize import curve_fit
 
 from dateutil.relativedelta import relativedelta as date_dt
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
@@ -389,6 +390,16 @@ def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0,
             df_trains.append(df_coltrain)
         df_train = pd.concat(df_trains, axis=1)
     return df_train
+
+def fit_quantile_form_gaussian(df, q, n_samples=200):
+    def Gauss(x, A, B):
+        y = A*np.exp(-1*B*x**2)
+        return y
+    parameters, covariance = curve_fit(Gauss,
+                                       np.linspace(-3,3, df.size),
+                                       df.values.squeeze())
+    gendata = Gauss(np.linspace(-3,3, 200), *parameters)
+    return np.quantile(gendata, q)
 
 def quickplot_df(df, df_splits=None):
     if type(df) is pd.Series:

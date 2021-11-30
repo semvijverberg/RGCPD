@@ -68,10 +68,10 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods)).T.reshape(-1,4)
-i_default = 0
+i_default = 3
 load = 'all'
 save = True
-training_data = 'CL' # or 'all_CD' or 'onelag'
+training_data = 'all_CD' # or 'all_CD' or 'onelag'
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
 
@@ -141,47 +141,17 @@ else:
     root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
 
-if target_dataset == 'GDHY_Soy':
-    # GDHY dataset 1980 - 2015
-    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/q50_nc4_dendo_707fb.nc')
-    cluster_label = 3
-    name_ds='ts'
-    # start_end_year = (1980, 2015)
-elif target_dataset == 'USDA_Soy':
-    # USDA dataset 1950 - 2019
-    TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/init_usda_soy_spatial_mean_ts.nc')
-    name_ds='Soy_Yield' ; cluster_label = ''
-elif target_dataset == 'USDA_Soy_always_data':
-    TVpath = os.path.join(main_dir, 'publications/paper_Raed/data/usda_soy_spatial_mean_ts_allways_data.nc')
-    name_ds='Soy_Yield' ; cluster_label = ''
-elif target_dataset == 'USDA_Soy_csv_midwest':
-    path = os.path.join(main_dir, 'publications/paper_Raed/data/ts_spatial_avg_midwest.csv')
-    TVpath = read_csv_Raed(path)
-elif target_dataset.split('__')[0] == 'USDA_Soy_clusters':
+if target_dataset.split('__')[0] == 'USDA_Soy_clusters':
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_0d570.nc')
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
     # TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_detrgc_int_c88c0.nc')
     # TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_interp_ff5d6.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
-elif target_dataset == 'USDA_Maize':
-    # USDA dataset 1950 - 2019
-    TVpath =  os.path.join(main_dir, 'publications/paper_Raed/data/usda_maize_spatial_mean_ts.nc')
-    name_ds='Maize_Yield' ; cluster_label = None
 elif target_dataset == 'Aggregate_States':
     path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
     States = ['KENTUCKY', 'TENNESSEE', 'MISSOURI', 'ILLINOIS', 'INDIANA']
     TVpath = read_csv_State(path, State=States, col='obs_yield').mean(1)
     TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=['KENTUCKYTENNESSEEMISSOURIILLINOISINDIANA'])
-    name_ds='Soy_Yield' ; cluster_label = ''
-elif target_dataset == 'All_State_average':
-    path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
-    TVpath = read_csv_State(path, State=None, col='obs_yield').mean(1)
-    TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=['All_State_average'])
-    name_ds='Soy_Yield' ; cluster_label = ''
-else:
-    path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
-    TVpath = read_csv_State(path, State=target_dataset, col='obs_yield')
-    TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=[TVpath.name])
     name_ds='Soy_Yield' ; cluster_label = ''
 
 
@@ -342,7 +312,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         df_splits = None
 
     dsclust = rg.get_clust()
-    path = os.path.join(rg.path_outsub1, 'detrend') ;
+    path = os.path.join(rg.path_outsub1, 'detrend')
     os.makedirs(path, exist_ok=True)
     if os.path.exists(os.path.join(path, 'target_ts.h5')) and load=='all':
         dfnew = functions_pp.load_hdf5(os.path.join(path,
@@ -644,6 +614,7 @@ if sys.platform == 'linux':
 
 if 'timeseries' in method:
     btoos = '_T' # if btoos=='_T': binary target out of sample.
+    # btoos = '_theor' # binary target based on gaussian quantile
 else:
     btoos = ''
 
@@ -735,13 +706,38 @@ for fc_type in fc_types:
                                                       left_index=True,
                                                       right_index=True),
                                      transformer=fc_utils.standardize_on_train)
+    # quantile has high sample bias, converges to -.44 when using 1E6 dp
+    theothreshold = np.quantile(np.random.normal(size=int(1E6)), .33)
     if fc_type != 'continuous':
         if btoos == '_T':
             quantile = functions_pp.get_df_train(target_ts,
                                                  df_splits=rg.df_splits,
                                                  s='extrapolate',
                                                  function='quantile',
-                                                 kwrgs={'q':fc_type}).values
+                                                 kwrgs={'q':fc_type})
+            oos_std = [] ; qs = []
+            for s in range(rg.n_spl):
+                _std = target_ts.loc[s][(rg.df_splits.loc[s]['TrainIsTrue']!=1).values].std()
+                oos_std.append(float(_std))
+            tsall = rg.df_fulltso['raw_target']
+            tsall = (tsall - tsall.mean()) / tsall.std()
+            f, ax = plt.subplots(2)
+            ax[1].plot(oos_std, label='oos std')
+            ax[0].plot(quantile.mean(axis=0, level=0),
+                       label='33th percentile based on training data')
+            ax[0].axhline(theothreshold, color='black', lw=1)
+            ax[0].text(-0.8, theothreshold+.01,
+                       'Theoretical threshold')
+            ax[1].set_xlabel('One-step-ahead training sets')
+            ax[0].set_ylabel('Emperical threshold')
+            ax[1].set_ylabel('std')
+            ax[0].legend(loc='upper right') ; ax[1].legend()
+            f.savefig(os.path.join(rg.path_outsub1, 'detrend',
+                                   'threshold_std'+rg.figext))
+            quantile = quantile.values
+        elif btoos == '_theor':
+            quantile = np.zeros_like(target_ts)
+            quantile[:] = theothreshold
         else:
             _target_ts = target_ts.mean(0, level=1)
             _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
@@ -896,6 +892,9 @@ for fc_type in fc_types:
                                                              s='extrapolate',
                                                              function='quantile',
                                                              kwrgs={'q':fc_type}).values
+                    elif btoos == '_theor':
+                        quantile = np.zeros_like(target_ts)
+                        quantile[:] = theothreshold
                     else:
                         # using all target data - mean over standardized-on-train
                         _target_ts = _target_ts.mean(0, level=1)
@@ -999,6 +998,9 @@ for fc_type in fc_types:
                                                              s='extrapolate',
                                                              function='quantile',
                                                              kwrgs={'q':fc_type}).values
+                    elif btoos == '_theor':
+                        quantile = np.zeros_like(target_ts)
+                        quantile[:] = theothreshold
                     else:
                         quantile = float(_target_ts.quantile(fc_type))
                     if fc_type >= 0.5:
@@ -1098,6 +1100,9 @@ for fc_type in fc_types:
                                                          s='extrapolate',
                                                          function='quantile',
                                                          kwrgs={'q':fc_type}).values
+                elif btoos == '_theor':
+                    quantile = np.zeros_like(target_ts)
+                    quantile[:] = theothreshold
                 else:
                     __target_ts = _target_ts.mean(0, level=1)
                     __target_ts = (__target_ts - __target_ts.mean()) / __target_ts.std()
