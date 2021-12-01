@@ -68,10 +68,10 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods)).T.reshape(-1,4)
-i_default = 0
+i_default = 1
 load = 'all'
 save = True
-training_data = 'onelag' # or 'all_CD' or 'onelag'
+training_data = 'all_CD' # or 'all_CD' or 'onelag'
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
 
@@ -82,8 +82,8 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
                     # ['LogisticRegression', 'RandomForestClassifier'],
                     # ['RandomForestClassifier', 'RandomForestClassifier']]
 
-# model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
-#                     ['RandomForestClassifier', 'RandomForestClassifier']]
+model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
+                    ['RandomForestClassifier', 'RandomForestClassifier']]
 
 
 def parseArguments():
