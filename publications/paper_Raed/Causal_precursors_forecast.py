@@ -1599,19 +1599,25 @@ for fc_type, condition in plot_combs:
 
 condition = 50
 models = ['LogisticRegression', 'RandomForestClassifier']
-training_datas = ['CL', 'all_CD', 'onelag']
+training_datas = ['onelag', 'all', 'all_CD', 'CL']
 skill_metrics = ['BSS']
+nicenames = {'onelag':'only lag 1',
+             'all': 'all RG-DR precursors',
+             'all_CD':'all C.D. precursors',
+             'CL':'CL predictions based on C.D. precursors',
+             'LogisticRegression': 'Regularized Logistic Regr.',
+             'RandomForestClassifier': 'Random Forest Classifier'}
 combinations = np.array(np.meshgrid(models,
                                     training_datas,
                                     skill_metrics)).T.reshape(-1,3)
 lead_times = ['August', 'June', 'April', 'February']
 csvfilename = os.path.join(rg.path_outsub1, 'overview_skill.csv')
-os.remove(csvfilename)
+if os.path.isfile(csvfilename): os.remove(csvfilename)
 
 f_names = []
 for model, training_data, metric in combinations:
-    dict_sum = {'model':model,
-                'training input':training_data,
+    dict_sum = {'model':nicenames[model],
+                'training input':nicenames[training_data],
                 'metric':metric}
 
     path = os.path.join(rg.path_outsub1,
@@ -1627,7 +1633,7 @@ for model, training_data, metric in combinations:
         continue
     df_scores = out[0][0][pd.MultiIndex.from_product([lead_times, skill_metrics])]
     dict_lt = {l:round(df_scores.iloc[0,i],2) for i,l in enumerate(lead_times)}
-
+    dict_lt['Mean'] = round(df_scores.values.mean(), 2)
 
     # use combined lead time model for (final) prediction
     if training_data == 'CL':
