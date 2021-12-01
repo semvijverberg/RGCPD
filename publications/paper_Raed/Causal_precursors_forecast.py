@@ -918,7 +918,7 @@ for fc_type in fc_types:
                 # use only fist lag of RG-DR timeseries that are C.D.
                 elif training_data == 'onelag':
                     df_input = rg.df_data
-                    firstlag = str(rg.list_for_MI[0].corr_xr.lag[0].values)
+                    firstlag = str(rg.list_for_MI[0].corr_xr.lag[-1].values)
                     keys_dict = utils_paper3.get_CD_df_data(rg, alpha_CI,
                                                             firstlag)
 
