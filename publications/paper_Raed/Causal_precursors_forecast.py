@@ -919,11 +919,11 @@ for fc_type in fc_types:
                 elif training_data == 'all_CD':
                     df_input = rg.df_data
                     keys_dict = utils_paper3.get_CD_df_data(rg, alpha_CI)
-                # use only fist lag of RG-DR timeseries that are C.D.
+                # use only fist lag of all RG-DR timeseries
                 elif training_data == 'onelag':
                     df_input = rg.df_data
                     firstlag = str(rg.list_for_MI[0].corr_xr.lag[-1].values)
-                    keys_dict = utils_paper3.get_CD_df_data(rg, alpha_CI,
+                    keys_dict = utils_paper3.get_CD_df_data(rg, 1,
                                                             firstlag)
 
 
@@ -1667,7 +1667,7 @@ for model, training_data, metric in combinations:
                                                     firstlag)
             n_features.append(np.mean([len(v) for v in keys_dict.values()]))
 
-    dict_sum.update({'n-features':n_features})
+    dict_sum.update({'n-features':[round(n, 1) for n in n_features]})
     dict_sum.update(dict_lt)
 
     # create .csv if it does not exists
