@@ -64,15 +64,16 @@ target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1'] # ['ranstrat_20'] timeseriessplit_30
-
+training_datas = ['onelag', 'all_CD', 'onelag', 'all']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
-                                    methods)).T.reshape(-1,4)
+                                    methods,
+                                    training_datas)).T.reshape(-1,5)
 i_default = 1
 load = 'all'
 save = True
-training_data = 'all' # or 'all_CD' or 'onelag' or 'all'
+# training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
 
@@ -106,6 +107,7 @@ if __name__ == '__main__':
     seed = int(out[1])
     start_end_year = (int(out[2][:4]), int(out[2][-4:]))
     method = out[3]
+    training_data = out[4]
     print(f'arg {args.intexper} {out}')
 else:
     out = combinations[i_default]
