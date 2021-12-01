@@ -71,7 +71,7 @@ combinations = np.array(np.meshgrid(target_datasets,
 i_default = 0
 load = 'all'
 save = True
-training_data = 'all_CD' # or 'all_CD' or 'onelag'
+training_data = 'onelag' # or 'all_CD' or 'onelag'
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
 
