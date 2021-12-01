@@ -134,7 +134,7 @@ def get_CD_df_data(rg, alpha_CI=.05, periodname=None):
         keys = sign_s.index
         if periodname is not None:
             keys = [k for k in keys if periodname in k]
-        keys_dict[s].append( keys )
+        keys_dict[s] +=  list(keys)
     return keys_dict
 
 #%% Functions for plotting continuous forecast
