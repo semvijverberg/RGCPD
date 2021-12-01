@@ -381,8 +381,9 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
             sst.store_netcdf(rg.path_outsub1, load_sst, add_hash=False)
         sst.prec_labels['lag'] = ('lag', periodnames)
         sst.corr_xr['lag'] = ('lag', periodnames)
-        rg.quick_view_labels('sst', min_detect_gc=.5, save=save,
-                              append_str=periodnames[-1])
+        if loaded == False:
+            rg.quick_view_labels('sst', min_detect_gc=.5, save=save,
+                                 append_str=periodnames[-1])
         plt.close()
 
 
@@ -417,8 +418,9 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
             SM.store_netcdf(rg.path_outsub1, load_SM, add_hash=False)
         SM.corr_xr['lag'] = ('lag', periodnames)
         SM.prec_labels['lag'] = ('lag', periodnames)
-        rg.quick_view_labels('smi', min_detect_gc=.5, save=save,
-                              append_str=periodnames[-1])
+        if loaded == False:
+            rg.quick_view_labels('smi', min_detect_gc=.5, save=save,
+                                 append_str=periodnames[-1])
         plt.close()
 
     # store forecast month
@@ -1625,7 +1627,7 @@ for model, training_data, metric in combinations:
         continue
     df_scores = out[0][0][pd.MultiIndex.from_product([lead_times, skill_metrics])]
     dict_lt = {l:round(df_scores.iloc[0,i],2) for i,l in enumerate(lead_times)}
-    dict_sum.update(dict_lt)
+
 
     # use combined lead time model for (final) prediction
     if training_data == 'CL':
@@ -1659,7 +1661,8 @@ for model, training_data, metric in combinations:
                                                     firstlag)
             n_features.append(np.mean([len(v) for v in keys_dict.values()]))
 
-
+    dict_sum.update({'n-features':n_features})
+    dict_sum.update(dict_lt)
 
     # create .csv if it does not exists
     if os.path.exists(csvfilename) == False:
