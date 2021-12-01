@@ -71,7 +71,7 @@ combinations = np.array(np.meshgrid(target_datasets,
 i_default = 1
 load = 'all'
 save = True
-training_data = 'all_CD' # or 'all_CD' or 'onelag'
+training_data = 'all' # or 'all_CD' or 'onelag' or 'all'
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
 
@@ -715,6 +715,7 @@ for fc_type in fc_types:
                                                  s='extrapolate',
                                                  function='quantile',
                                                  kwrgs={'q':fc_type})
+            # START figure intermezzo
             oos_std = [] ; qs = []
             for s in range(rg.n_spl):
                 _std = target_ts.loc[s][(rg.df_splits.loc[s]['TrainIsTrue']!=1).values].std()
@@ -734,7 +735,9 @@ for fc_type in fc_types:
             ax[0].legend(loc='upper right') ; ax[1].legend()
             f.savefig(os.path.join(rg.path_outsub1, 'detrend',
                                    'threshold_std'+rg.figext))
+            # END figure intermezzo
             quantile = quantile.values
+
         elif btoos == '_theor':
             quantile = np.zeros_like(target_ts)
             quantile[:] = theothreshold
@@ -746,6 +749,8 @@ for fc_type in fc_types:
             target_ts = (target_ts > quantile).astype(int)
         elif fc_type < .5:
             target_ts = (target_ts < quantile).astype(int)
+
+
 
     if np.unique(core_pp.flatten(model_combs)).size == 2:
         CL_models = [model1_tuple, model2_tuple]
@@ -837,15 +842,14 @@ for fc_type in fc_types:
                 keys_dict = {s:rg.df_CL_data.loc[s].dropna(axis=1).columns[:-2] \
                              for s in range(rg.n_spl)}
                 # get estimated signal from Pacific
-
-                # adapt target timeseries for fitting
+                # test (not used in the end):
+                # multiply signal times target to improve statistical learning
+                # adapted target timeseries for fitting called target_ts_signal
                 # mean over cols
                 # very rare exception that Pac is not causal @ alpha level
-
                 df_forcing = rg.df_forcing.mean(axis=1)
                 df_forcing = df_forcing.fillna(np.nanmean(
                                                 rg.df_forcing.values.ravel()))
-                # if fc_type == 'continuous':
                 df_forcing = pd.DataFrame(df_forcing, columns=[0])
 
                 df_forcing = rg.transform_df_data(df_forcing.merge(rg.df_splits,
@@ -853,9 +857,6 @@ for fc_type in fc_types:
                                                                right_index=True),
                                       transformer=fc_utils.standardize_on_train)
                 df_forcing = df_forcing[0]
-                # else:
-                #     halfmaxprob = df_forcing.max(axis=0, level=0)/2.
-                #     df_forcing  = df_forcing.subtract(halfmaxprob, axis=0, level=0)
 
 
                 # target timeseries, standardize using training data
@@ -873,7 +874,6 @@ for fc_type in fc_types:
                                               {rg.df_data.columns[0]:
                                                f'Target * {rg.fc_month} signal'},
                                               axis=1)
-                # if fc_type == 'continuous':
                 _t = rg.transform_df_data
                 target_ts_signal = _t(target_ts_signal.merge(rg.df_splits,
                                                              left_index=True,
@@ -1591,8 +1591,85 @@ for fc_type, condition in plot_combs:
 
 
 
+#%%
+# collecting different train-test splits to plot scores vs training_data
+condition = 50
+models = ['LogisticRegression', 'RandomForestClassifier']
+training_datas = ['CL', 'all_CD', 'onelag']
+skill_metrics = ['BSS']
+combinations = np.array(np.meshgrid(models,
+                                    training_datas,
+                                    skill_metrics)).T.reshape(-1,3)
+
+f_names = []
+for model, training_data, metric in combinations:
+    import re
+
+    path = os.path.join(rg.path_outsub1,
+                        f'df_data_{str(fc_type)}{btoos}')
+    if training_data != 'CL':
+        path  += '_'+training_data
+
+    out = utils_paper3.load_scores(['Target'], model_name_CL,
+                                   model_name,
+                                   n_boot, path,
+                                   condition=f'strong {condition}')[:2]
+    df_scores_list, df_boot_list = out
+
+    if training_data in ['_all_CD', '_onelag']:
+        'yp'
+    else:
+        df_data_CL = functions_pp.load_hdf5(filepath_dfs)
+
+    # if 'timeseries' not in method:
+    #     hash_str = model
+    # else:
+    #     hash_str =
+
+    # cs = ["#a4110f","#f7911d","#fffc33","#9bcd37","#1790c4"]
+
+    # for root, dirs, files in os.walk(path):
+    #     for _dir in dirs:
+    #         if re.match(f'{hash_str}', _dir):
+    #             print(f'Found file {_dir}')
+    #             f_names.append(os.path.join(root,_dir))
+
+#%%
+
+    if fc_type == 'continuous':
+        metrics_plot = ['corrcoef', 'MAE', 'r2_score']
+        model_combs_plot  = [['Ridge', 'Ridge'],
+                             # ['Ridge', 'RandomForestRegressor'],
+                             ['RandomForestRegressor', 'RandomForestRegressor']]
+    else:
+        metrics_plot = ['BSS', 'accuracy', 'precision'] # 'roc_auc_score',
+        model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
+                             # ['LogisticRegression', 'RandomForestClassifier'],
+                             ['RandomForestClassifier', 'RandomForestClassifier']]
 
 
+    f_names = sorted(f_names)
+    collectdict = {}
+    for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
+
+        for f_name in f_names:
+            if 'timeseries' in method:
+                _path_df_datas = os.path.join(f_name, f's1/{pathsub_df}')
+            else:
+                _path_df_datas = os.path.join(f_name, pathsub_df)
+            for _target in ['Target', 'Target | PPS']:
+                try:
+                    out = utils_paper3.load_scores([_target], model_name_CL,
+                                                   model_name,
+                                                   n_boot, _path_df_datas,
+                                                   condition=f'strong {condition}')[:2]
+                    df_scores_list, df_boot_list = out
+                    collectdict[f_name.split('/')[-1]+str(j)+model_name+_target] = out
+                except:
+                    # print(f_name)
+                    # f_names.remove(f_name)
+                    df_scores_list, df_boot_list = None, None
+                    continue
 
 
 
