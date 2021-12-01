@@ -1376,7 +1376,7 @@ def load_hdf5(path_data):
             attempt = 1
         except:
             time.sleep(1)
-        assert c!= 5, print('loading in hdf5 failed')
+        assert c!= 5, print(f'loading in hdf5 failed\n{path_data}')
     return dict_of_dfs
 
 def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,

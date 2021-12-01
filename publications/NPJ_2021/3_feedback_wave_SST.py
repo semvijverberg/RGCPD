@@ -543,7 +543,6 @@ for csvfilename, dic in [(csvfilenamerobust, dict_rb)]:
     # create .csv if it does not exists
     if os.path.exists(csvfilename) == False:
         with open(csvfilename, 'a', newline='') as csvfile:
-
             writer = csv.DictWriter(csvfile, list(dic.keys()))
             writer.writerows([{f:f for f in list(dic.keys())}])
 

@@ -21,6 +21,7 @@ import pandas as pd
 from joblib import Parallel, delayed
 import argparse
 from matplotlib.lines import Line2D
+import csv
 
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
@@ -911,6 +912,7 @@ for fc_type in fc_types:
                 # use all RG-DR timeseries for (final) prediction
                 elif training_data == 'all':
                     df_input = rg.df_data
+                    keys_dict = {s:df_input.columns[1:-2] for s in range(rg.n_spl)}
                 # use all RG-DR timeseries that are C.D. for (final) prediction
                 elif training_data == 'all_CD':
                     df_input = rg.df_data
@@ -1591,8 +1593,8 @@ for fc_type, condition in plot_combs:
 
 
 
-#%%
-# collecting different train-test splits to plot scores vs training_data
+#%% collecting different train-test splits to plot scores vs training input
+
 condition = 50
 models = ['LogisticRegression', 'RandomForestClassifier']
 training_datas = ['CL', 'all_CD', 'onelag']
@@ -1600,77 +1602,77 @@ skill_metrics = ['BSS']
 combinations = np.array(np.meshgrid(models,
                                     training_datas,
                                     skill_metrics)).T.reshape(-1,3)
+lead_times = ['August', 'June', 'April', 'February']
+csvfilename = os.path.join(rg.path_outsub1, 'overview_skill.csv')
+os.remove(csvfilename)
 
 f_names = []
 for model, training_data, metric in combinations:
-    import re
+    dict_sum = {'model':model,
+                'training input':training_data,
+                'metric':metric}
 
     path = os.path.join(rg.path_outsub1,
                         f'df_data_{str(fc_type)}{btoos}')
     if training_data != 'CL':
         path  += '_'+training_data
-
-    out = utils_paper3.load_scores(['Target'], model_name_CL,
-                                   model_name,
+    try:
+        out = utils_paper3.load_scores(['Target'], model,
+                                   model,
                                    n_boot, path,
                                    condition=f'strong {condition}')[:2]
-    df_scores_list, df_boot_list = out
+    except:
+        continue
+    df_scores = out[0][0][pd.MultiIndex.from_product([lead_times, skill_metrics])]
+    dict_lt = {l:round(df_scores.iloc[0,i],2) for i,l in enumerate(lead_times)}
+    dict_sum.update(dict_lt)
 
-    if training_data in ['_all_CD', '_onelag']:
-        'yp'
-    else:
+    # use combined lead time model for (final) prediction
+    if training_data == 'CL':
+        filepath_dfs = os.path.join(path,
+                                    f'CL_models_cont{model}.h5')
         df_data_CL = functions_pp.load_hdf5(filepath_dfs)
+        df_data_CL = {m+'_df_data':df_data_CL[m+'_df_data'] for m in lead_times}
+        n_features = []
+        for key, item in df_data_CL.items():
+            total = (~(item.mean(level=0).isna())).sum().iloc[:-2].sum()
+            n_features.append(total/rg.n_spl)
 
-    # if 'timeseries' not in method:
-    #     hash_str = model
-    # else:
-    #     hash_str =
+    # use all RG-DR timeseries for (final) prediction
+    elif training_data == 'all':
+        n_features = []
+        for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
+            total = (~rg.df_data.iloc[:,1:-2].mean(0, level=0).isna()).sum().sum()
+            n_features.append(total/rg.n_spl)
+    # use all RG-DR timeseries that are C.D. for (final) prediction
+    elif training_data == 'all_CD':
+        n_features = []
+        for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
+            keys_dict = utils_paper3.get_CD_df_data(rg, alpha_CI)
+            n_features.append(np.mean([len(v) for v in keys_dict.values()]))
+    # use only fist lag of RG-DR timeseries that are C.D.
+    elif training_data == 'onelag':
+        n_features = []
+        for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
+            firstlag = str(rg.list_for_MI[0].corr_xr.lag[-1].values)
+            keys_dict = utils_paper3.get_CD_df_data(rg, alpha_CI,
+                                                    firstlag)
+            n_features.append(np.mean([len(v) for v in keys_dict.values()]))
 
-    # cs = ["#a4110f","#f7911d","#fffc33","#9bcd37","#1790c4"]
 
-    # for root, dirs, files in os.walk(path):
-    #     for _dir in dirs:
-    #         if re.match(f'{hash_str}', _dir):
-    #             print(f'Found file {_dir}')
-    #             f_names.append(os.path.join(root,_dir))
+
+    # create .csv if it does not exists
+    if os.path.exists(csvfilename) == False:
+        with open(csvfilename, 'a', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, list(dict_sum.keys()))
+            writer.writerows([{f:f for f in list(dict_sum.keys())}])
+
+    # write
+    with open(csvfilename, 'a', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, list(dict_sum.keys()))
+        writer.writerows([dict_sum])
 
 #%%
-
-    if fc_type == 'continuous':
-        metrics_plot = ['corrcoef', 'MAE', 'r2_score']
-        model_combs_plot  = [['Ridge', 'Ridge'],
-                             # ['Ridge', 'RandomForestRegressor'],
-                             ['RandomForestRegressor', 'RandomForestRegressor']]
-    else:
-        metrics_plot = ['BSS', 'accuracy', 'precision'] # 'roc_auc_score',
-        model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
-                             # ['LogisticRegression', 'RandomForestClassifier'],
-                             ['RandomForestClassifier', 'RandomForestClassifier']]
-
-
-    f_names = sorted(f_names)
-    collectdict = {}
-    for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
-
-        for f_name in f_names:
-            if 'timeseries' in method:
-                _path_df_datas = os.path.join(f_name, f's1/{pathsub_df}')
-            else:
-                _path_df_datas = os.path.join(f_name, pathsub_df)
-            for _target in ['Target', 'Target | PPS']:
-                try:
-                    out = utils_paper3.load_scores([_target], model_name_CL,
-                                                   model_name,
-                                                   n_boot, _path_df_datas,
-                                                   condition=f'strong {condition}')[:2]
-                    df_scores_list, df_boot_list = out
-                    collectdict[f_name.split('/')[-1]+str(j)+model_name+_target] = out
-                except:
-                    # print(f_name)
-                    # f_names.remove(f_name)
-                    df_scores_list, df_boot_list = None, None
-                    continue
-
 
 
 
