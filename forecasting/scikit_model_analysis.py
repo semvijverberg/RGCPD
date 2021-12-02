@@ -113,9 +113,10 @@ def GridSearch_summary_xlxs(models_lags, filename):
         for split_key in split_keys:
 
             gs = models_lags[lag_key][split_key]
+            paramcols = list(gs.param_grid.keys())
             dataparams = np.array(np.meshgrid(*list(gs.param_grid.values()))).\
-                            T.reshape(-1,2)
-            df_p = pd.DataFrame(dataparams, columns=list(gs.param_grid.keys()))
+                            T.reshape(-1,len(paramcols))
+            df_p = pd.DataFrame(dataparams, columns=paramcols)
             df_r = pd.DataFrame({**gs.cv_results_})
             metrics = list(gs.cv_results_.keys())
             metrics = [m for m in metrics if m not in ['params', 'param_max_depth']]
