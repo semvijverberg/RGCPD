@@ -107,7 +107,7 @@ def GridSearch_summary_xlxs(models_lags, filename):
     if filename.endswith('.csv'):
         filename = filename[:-4]
     first_order = ['mean_test_score', 'mean_train_score']
-    not_interesting = ['std_fit_time', 'mean_score_time']
+    not_interesting = ['std_fit_time', 'mean_score_time', 'std_score_time']
     for lag_key in lag_keys:
         dfs_lag = []
         for split_key in split_keys:

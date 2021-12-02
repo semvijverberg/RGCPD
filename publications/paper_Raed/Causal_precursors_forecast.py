@@ -652,7 +652,7 @@ for fc_type in fc_types:
         scoringCV = 'neg_mean_squared_error'
         kwrgs_model1 = {'scoringCV':scoringCV,
                         'alpha':list(np.concatenate([np.logspace(-4,0, 5),
-                                                  np.logspace(.5, 2, num=10)])), # large a, strong regul.
+                                                  np.logspace(.5, 2, num=10)])), # large alpha, strong regul.
                         'normalize':False,
                         'fit_intercept':False,
                         'kfold':5,
@@ -677,7 +677,8 @@ for fc_type in fc_types:
     else:
         scoringCV = 'neg_brier_score'
         kwrgs_model1 = {'scoringCV':scoringCV,
-                        'C':list([.1,.5,.8,1,1.2,4,7,10, 20]), # large a, strong regul.
+                        'C':list([1E-3, 1E-2, 5E-2, 1E-1,
+                                  .5,1,1.2,4,7,10,20]), # Smaller C, strong regul.
                         'random_state':seed,
                         'penalty':'l2',
                         'solver':'lbfgs',
