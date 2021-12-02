@@ -106,23 +106,25 @@ def GridSearch_summary_xlxs(models_lags, filename):
     split_keys = list(models_lags[lag_keys[0]].keys())
     if filename.endswith('.csv'):
         filename = filename[:-4]
-
+    first_order = ['mean_test_score', 'mean_train_score']
     not_interesting = ['std_fit_time', 'mean_score_time']
     for lag_key in lag_keys:
         dfs_lag = []
         for split_key in split_keys:
 
             gs = models_lags[lag_key][split_key]
-            df = pd.DataFrame({**gs.param_grid, **gs.cv_results_})
-            params = list(gs.param_grid.keys())
+            dataparams = np.array(np.meshgrid(*list(gs.param_grid.values()))).\
+                            T.reshape(-1,2)
+            df_p = pd.DataFrame(dataparams, columns=list(gs.param_grid.keys()))
+            df_r = pd.DataFrame({**gs.cv_results_})
             metrics = list(gs.cv_results_.keys())
             metrics = [m for m in metrics if m not in ['params', 'param_max_depth']]
             metrics = [m for m in metrics if m not in not_interesting]
-
-            dfs_lag.append(df[params+metrics])
+            metrics = first_order + [m for m in metrics if m not in first_order]
+            dfs_lag.append(pd.concat([df_p, df_r[metrics]], axis=1))
         dfs = pd.concat(dfs_lag, keys=split_keys)
         df_mean = pd.concat([dfs.mean(0, level=1)], keys=['mean'])
-        df_std = pd.DataFrame(gs.param_grid).merge(dfs[metrics].std(0, level=1),
+        df_std = df_p.merge(dfs[metrics].std(0, level=1),
                                 left_index=True, right_index=True)
         df_std = pd.concat([df_std],
                           keys=['std'])
