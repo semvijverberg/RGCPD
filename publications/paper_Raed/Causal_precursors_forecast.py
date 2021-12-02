@@ -65,7 +65,7 @@ target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1'] # ['ranstrat_20'] timeseriessplit_30
-training_datas = ['onelag', 'all_CD', 'onelag', 'all']
+training_datas = ['CL', 'onelag', 'all_CD', 'onelag', 'all']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
@@ -690,7 +690,7 @@ for fc_type in fc_types:
 
         from sklearn.ensemble import RandomForestClassifier
         kwrgs_model2={'n_estimators':300,
-                      'max_depth':[2, 5, 8],
+                      'max_depth':[2, 5, 8, 15],
                       'scoringCV':scoringCV,
                       # 'criterion':'mse',
                       'oob_score':True,
