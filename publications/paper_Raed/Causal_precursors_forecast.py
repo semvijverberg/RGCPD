@@ -946,14 +946,14 @@ for fc_type in fc_types:
                 prediction_tuple = (prediction, weights, models_lags)
                 rg.prediction_tuple = prediction_tuple
 
-                if 'RandomForest' in fcmodel.scikitmodel.__name__:
-                    #Check RF tuning
-                    try:
-                        # store GridSearch results
-                        filename = os.path.join(filepath_verif,
-                                                f'gs_{model_name}_{rg.fc_month}')
-                        sk_ana.GridSearch_summary_xlxs(models_lags, filename)
+                # store GridSearch results
+                filename = os.path.join(filepath_verif,
+                                        f'gs_{model_name}_{rg.fc_month}')
+                sk_ana.GridSearch_summary_xlxs(models_lags, filename)
 
+                if 'RandomForest' in fcmodel.scikitmodel.__name__:
+                    # visualize RF tuning
+                    try:
                         model = models_lags['lag_0']['split_0']
                         f = sk_ana.ensemble_error_estimators(model.best_estimator_,
                                                              kwrgs_model,
@@ -961,8 +961,6 @@ for fc_type in fc_types:
                                                              steps=10)
                         f.savefig(os.path.join(filepath_verif,
                                                f'RF_tuning_{rg.fc_month}.pdf'), bbox_inches='tight')
-
-
                     except:
                         print('RF tuning plot failed')
                         pass
