@@ -689,7 +689,7 @@ for fc_type in fc_types:
 
         from sklearn.ensemble import RandomForestClassifier
         kwrgs_model2={'n_estimators':300,
-                      'max_depth':[2,4,6],
+                      'max_depth':[2, 5, 8],
                       'scoringCV':scoringCV,
                       # 'criterion':'mse',
                       'oob_score':True,
