@@ -52,6 +52,7 @@ import wrapper_PCMCI
 import utils_paper3
 from stat_models import plot_importances
 from stat_models_cont import ScikitModel
+import scikit_model_analysis as sk_ana
 from sklearn.linear_model import LinearRegression
 
 All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
@@ -660,7 +661,7 @@ for fc_type in fc_types:
                         kwrgs_model1)
 
         from sklearn.ensemble import RandomForestRegressor
-        kwrgs_model2={'n_estimators':[450],
+        kwrgs_model2={'n_estimators':[300],
                       'max_depth':[3,6],
                       'scoringCV':'neg_mean_squared_error',
                       'oob_score':True,
@@ -948,7 +949,11 @@ for fc_type in fc_types:
                 if 'RandomForest' in fcmodel.scikitmodel.__name__:
                     #Check RF tuning
                     try:
-                        import scikit_model_analysis as sk_ana
+                        # store GridSearch results
+                        filename = os.path.join(filepath_verif,
+                                                f'gs_{model_name}_{rg.fc_month}')
+                        sk_ana.GridSearch_summary_xlxs(models_lags, filename)
+
                         model = models_lags['lag_0']['split_0']
                         f = sk_ana.ensemble_error_estimators(model.best_estimator_,
                                                              kwrgs_model,
@@ -956,6 +961,8 @@ for fc_type in fc_types:
                                                              steps=10)
                         f.savefig(os.path.join(filepath_verif,
                                                f'RF_tuning_{rg.fc_month}.pdf'), bbox_inches='tight')
+
+
                     except:
                         print('RF tuning plot failed')
                         pass
@@ -1603,7 +1610,7 @@ condition = 50
 models = ['LogisticRegression', 'RandomForestClassifier']
 training_datas = ['onelag', 'all', 'all_CD', 'CL']
 skill_metrics = ['BSS']
-nicenames = {'onelag':'only lag 1',
+nicenames = {'onelag':'only lag 1 RG-DR precursors',
              'all': 'all RG-DR precursors',
              'all_CD':'all C.D. precursors',
              'CL':'CL predictions based on C.D. precursors',

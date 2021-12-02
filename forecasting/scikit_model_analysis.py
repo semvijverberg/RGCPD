@@ -7,9 +7,10 @@ Created on Thu Sep  2 10:12:11 2021
 """
 import numpy as np
 import matplotlib.pyplot as plt
-
+import pandas as pd
+from pandas import ExcelWriter
 import func_models as fc_utils
-
+from typing import Union
 
 nice_colors = ['#EE6666', '#3388BB', '#9988DD', '#EECC55',
                 '#88BB44', '#FFBBBB']
@@ -22,6 +23,11 @@ def ensemble_error_estimators(model, kwrgs_model: dict,
                                      min_estimators=15,
                                      max_estimators=200,
                                      steps=5):
+    '''
+    Takes in best_estimator_ that has already been fitted.
+    best_estimator_ instance should contain df_norm (i.e., DataFrame with
+    x_fit and x_fit masks).
+    '''
     #%%
     from collections import OrderedDict
 
@@ -77,3 +83,62 @@ def ensemble_error_estimators(model, kwrgs_model: dict,
     plt.legend(bbox_to_anchor=(1.0, .5), fontsize=10)
     plt.show()
     return f
+
+def GridSearch_summary_xlxs(models_lags, filename):
+    '''
+
+    Parameters
+    ----------
+    models_lags : TYPE
+        DESCRIPTION.
+    filename : TYPE
+        DESCRIPTION.
+    engine : .xlsx or .csv, optional
+        DESCRIPTION. The default is '.csv'.
+
+    Returns
+    -------
+    None.
+
+    '''
+    #%%
+    lag_keys = list(models_lags.keys())
+    split_keys = list(models_lags[lag_keys[0]].keys())
+    if filename.endswith('.csv'):
+        filename = filename[:-4]
+
+    not_interesting = ['std_fit_time', 'mean_score_time']
+    for lag_key in lag_keys:
+        dfs_lag = []
+        for split_key in split_keys:
+
+            gs = models_lags[lag_key][split_key]
+            df = pd.DataFrame({**gs.param_grid, **gs.cv_results_})
+            params = list(gs.param_grid.keys())
+            metrics = list(gs.cv_results_.keys())
+            metrics = [m for m in metrics if m not in ['params', 'param_max_depth']]
+            metrics = [m for m in metrics if m not in not_interesting]
+
+            dfs_lag.append(df[params+metrics])
+        dfs = pd.concat(dfs_lag, keys=split_keys)
+        df_mean = pd.concat([dfs.mean(0, level=1)], keys=['mean'])
+        df_std = pd.DataFrame(gs.param_grid).merge(dfs[metrics].std(0, level=1),
+                                left_index=True, right_index=True)
+        df_std = pd.concat([df_std],
+                          keys=['std'])
+        df = pd.concat([df_mean, df_std, dfs])
+        subfilename = filename + f'_{lag_key}'
+        df.to_csv(subfilename + '.csv')
+
+    # if engine == '.csv':
+    #     writer = ExcelWriter(filename + engine)
+    #     folds = [f[0] for f in df.index[::df.index.levels[1].size]]
+    #     for fold in folds:
+    #         sheet_name = 'l{}_s{}'.format(lag_key.split('_')[-1],
+    #                                    split_key.split('_')[-1])
+    #         df.loc[fold].to_excel(writer, sheet_name)
+    #     writer.save()
+
+
+
+
