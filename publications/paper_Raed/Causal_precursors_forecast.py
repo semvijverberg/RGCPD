@@ -65,7 +65,7 @@ target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1'] # ['ranstrat_20'] timeseriessplit_30
-training_datas = ['CL', 'onelag', 'all_CD', 'onelag', 'all']
+training_datas = ['all']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
