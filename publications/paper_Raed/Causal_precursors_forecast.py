@@ -392,20 +392,20 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
 
 
     # #%% yield vs circulation plots
-    # z500 = BivariateMI(name='z500',
-    #                    filepath=rg.list_precur_pp[1][1],
-    #                    func=class_BivariateMI.corr_map,
-    #                    alpha=alpha_corr, FDR_control=True,
-    #                    kwrgs_func={},
-    #                    distance_eps=250, min_area_in_degrees2=3,
-    #                    calc_ts='pattern cov', selbox=GlobalBox,
-    #                    lags=lags, group_split=True,
-    #                    use_coef_wghts=True)
+    z500 = BivariateMI(name='z500',
+                        filepath=rg.list_precur_pp[1][1],
+                        func=class_BivariateMI.corr_map,
+                        alpha=alpha_corr, FDR_control=True,
+                        kwrgs_func={},
+                        distance_eps=250, min_area_in_degrees2=3,
+                        calc_ts='pattern cov', selbox=GlobalBox,
+                        lags=lags, group_split=True,
+                        use_coef_wghts=True)
 
-    # z500.load_and_aggregate_precur(rg.kwrgs_load)
-    # xrcorr, xrpvals = z500.bivariateMI_map(z500.precur_arr, df_splits,
-    #                                       rg.df_fullts)
-    # plot_maps.plot_corr_maps(xrcorr, xrcorr['mask'])
+    z500.load_and_aggregate_precur(rg.kwrgs_load)
+    xrcorr, xrpvals = z500.bivariateMI_map(z500.precur_arr, df_splits,
+                                          rg.df_fullts)
+    plot_maps.plot_corr_maps(xrcorr, xrcorr['mask'])
 
     #%%
     if hasattr(SM, 'prec_labels')==False and 'smi' in use_vars:
@@ -957,7 +957,7 @@ for fc_type in fc_types:
                     try:
                         model = models_lags['lag_0']['split_0']
                         f = sk_ana.ensemble_error_estimators(model.best_estimator_,
-                                                             kwrgs_model,
+                                                             kwrgs_model.copy(),
                                                              min_estimators=1,
                                                              steps=10)
                         f.savefig(os.path.join(filepath_verif,

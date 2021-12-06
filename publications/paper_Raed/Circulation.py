@@ -193,7 +193,7 @@ def pipeline(lags, periodnames, load=False):
                                 alpha=alpha_corr, FDR_control=True,
                                 kwrgs_func={},
                                 distance_eps=250, min_area_in_degrees2=3,
-                                calc_ts='pattern cov', selbox=(155,320,10,80),
+                                calc_ts='pattern cov', selbox=(155,355,10,80),
                                 lags=lag, group_split=True,
                                 use_coef_wghts=True)]
 
@@ -289,7 +289,7 @@ def pipeline(lags, periodnames, load=False):
                           [s + ' z500 vs SM' for s in subtitles[::-1]]])
     # leadtime = intmon_d[rg.fc_month]
     # subtitles = [subtitles[i-1]+f' ({leadtime+i*2-1}-month lag)' for i in range(1,5)]
-    kwrgs_plot = {'zoomregion':(170,310,15,80),
+    kwrgs_plot = {'zoomregion':(170,355,15,80),
                   'hspace':-.1, 'cbar_vert':.05,
                   'subtitles':subtitles,
                   'clevels':np.arange(-0.8, 0.9, .1),
