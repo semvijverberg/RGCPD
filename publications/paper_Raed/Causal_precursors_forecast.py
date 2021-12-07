@@ -65,13 +65,13 @@ target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1'] # ['ranstrat_20'] timeseriessplit_30
-training_datas = ['all']
+training_datas = ['onelag', 'all', 'all_CD']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 1
+i_default = 3
 load = 'all'
 save = True
 # training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
@@ -391,21 +391,21 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
 
 
 
-    # #%% yield vs circulation plots
-    z500 = BivariateMI(name='z500',
-                        filepath=rg.list_precur_pp[1][1],
-                        func=class_BivariateMI.corr_map,
-                        alpha=alpha_corr, FDR_control=True,
-                        kwrgs_func={},
-                        distance_eps=250, min_area_in_degrees2=3,
-                        calc_ts='pattern cov', selbox=GlobalBox,
-                        lags=lags, group_split=True,
-                        use_coef_wghts=True)
+    # # #%% yield vs circulation plots
+    # z500 = BivariateMI(name='z500',
+    #                     filepath=rg.list_precur_pp[1][1],
+    #                     func=class_BivariateMI.corr_map,
+    #                     alpha=alpha_corr, FDR_control=True,
+    #                     kwrgs_func={},
+    #                     distance_eps=250, min_area_in_degrees2=3,
+    #                     calc_ts='pattern cov', selbox=GlobalBox,
+    #                     lags=lags, group_split=True,
+    #                     use_coef_wghts=True)
 
-    z500.load_and_aggregate_precur(rg.kwrgs_load)
-    xrcorr, xrpvals = z500.bivariateMI_map(z500.precur_arr, df_splits,
-                                          rg.df_fullts)
-    plot_maps.plot_corr_maps(xrcorr, xrcorr['mask'])
+    # z500.load_and_aggregate_precur(rg.kwrgs_load)
+    # xrcorr, xrpvals = z500.bivariateMI_map(z500.precur_arr, df_splits,
+    #                                       rg.df_fullts)
+    # plot_maps.plot_corr_maps(xrcorr, xrcorr['mask'])
 
     #%%
     if hasattr(SM, 'prec_labels')==False and 'smi' in use_vars:
@@ -1224,6 +1224,10 @@ for fc_type in fc_types:
             name_CL = 'Ridge' if fc_type =='continuous' else 'Logist. Regr.'
 
         target_options = [['Target', 'Target | PPS']]
+        if training_data == 'CL':
+            labelname = f'CL-{name_CL} -> {name}'
+        else:
+            labelname  = f'{name}'
 
         print('Plotting skill scores')
         for i, target_opt in enumerate(target_options):
