@@ -276,31 +276,43 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
         table_col = [d.index[0] for d in df_test_m][1:]
         col = [c for c in df_forcings.columns if df_test.columns[1] in c]
 
-        dates_match = pd.MultiIndex.from_product([df_forcings.index.levels[0],
-                                                  df_test.index])
-        df_forcings = df_forcings.loc[dates_match]
-        mean = df_forcings[col].mean(0,level=1)
-        std = df_forcings[col].std(0,level=1) * 2
 
-
+        # out-of-sample
+        df_splits = df_forcings.iloc[:,-2:].copy()
+        oos = functions_pp.get_df_test(df_forcings[col],
+                                       df_splits=df_splits)
 
         # identify strong forcing dates
         qs = [int(t[-3:-1]) for t in table_col]
         sizes = [30, 75] #; ls = ['-','-.']
         colors = [['#e76f51', '#61a5c2'], ['#d00000', '#3f37c9']]
-        markercolor = np.repeat(['black'], mean.size)
+        markercolor = np.repeat(['black'], oos.size)
         markercolor = np.array(markercolor, dtype='object')
-        markersize = np.repeat(10, mean.size)
+        markersize = np.repeat(10, oos.size)
         for i, q_th in enumerate(qs):
-            low = float(mean.quantile(q_th/200))
-            high = float(mean.quantile(1-q_th/200))
+            # low = float(oos.quantile(q_th/200))
+            # high = float(oos.quantile(1-q_th/200))
 
-            mean_np = mean.values.ravel()
-            for j, dp in enumerate(mean_np):
-                if dp > high:
+            # extrapolate quantile values based on training data
+            q_low = functions_pp.get_df_train(df_forcings[col],
+                                     df_splits=df_splits, s='extrapolate',
+                                     function='quantile', kwrgs={'q':q_th/200})
+            # Extract out-of-sample quantile values
+            q_low = functions_pp.get_df_test(q_low,
+                                             df_splits=df_splits).values.ravel()
+
+            q_high = functions_pp.get_df_train(df_forcings[col],
+                                     df_splits=df_splits, s='extrapolate',
+                                     function='quantile', kwrgs={'q':1-q_th/200})
+            q_high = functions_pp.get_df_test(q_high,
+                                              df_splits=df_splits).values.ravel()
+
+            oos_np = oos.values.ravel()
+            for j, dp in enumerate(oos_np):
+                if dp > q_high[j]:
                     markercolor[j] = colors[i][0]
                     markersize [j] = sizes[i]
-                elif dp < low:
+                elif dp < q_low[j]:
                     markercolor[j] = colors[i][1]
                     markersize [j] = sizes[i]
             # markersize = np.round((np.abs(mean_np)+3)**3,0)
@@ -310,16 +322,22 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
             # ax0b.axhline(high, lw=0.5, c='grey', ls=ls[i])
             ax0b.axhline(0, lw=0.5, c='grey')
 
-        ax0b.plot_date(df_test.index, mean.loc[df_test.index],
+        ax0b.plot_date(df_test.index, oos.loc[df_test.index],
                       ls='--', c='black', alpha=.7, lw=1,
                       markeredgecolor='black',
                       markerfacecolor='black', zorder=1,
-                      label=mean.columns[0]+' Signal', markersize=2,
+                      label=oos.columns[0]+' Signal', markersize=2,
                       )
 
-        ax0b.scatter(df_test.index, mean.loc[df_test.index], ls='-',
+        ax0b.scatter(df_test.index, oos.loc[df_test.index], ls='-',
                     label=None, c=markercolor_S, s=markersize, zorder=2)
 
+        # plot 2*std 'confidence interval around mean
+        dates_match = pd.MultiIndex.from_product([df_forcings.index.levels[0],
+                                                  df_test.index])
+        df_forcings_m = df_forcings.loc[dates_match]
+        mean = df_forcings_m[col].mean(0,level=1)
+        std = df_forcings_m[col].std(0,level=1) * 2
         ax0b.fill_between(df_test.index, (mean-std).values.ravel(),
                           (mean+std).values.ravel(), fc='black', alpha=0.5)
 

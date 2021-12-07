@@ -1179,6 +1179,7 @@ for fc_type in fc_types:
         # rg.verification_tuple_c_o  = verification_tuple_c_o
 
     #%% Plotting forecast timeseries
+
     import utils_paper3
     if fc_type == 'continuous':
         metrics_plot = ['corrcoef', 'MAE', 'r2_score']
@@ -1207,6 +1208,9 @@ for fc_type in fc_types:
                                              right_index=True),
                       transformer=fc_utils.standardize_on_train)
     df_forcings.columns.name = int(condition[0][-3:-1])
+    # add Train-test information
+    df_forcings = df_forcings.merge(rg.df_splits,
+                      left_index=True, right_index=True)
 
     # plotting timeseries per 2 months
     fc_month_list = [rg.fc_month for rg in rg_list][::2]
@@ -1265,7 +1269,7 @@ for fc_type in fc_types:
                                               fig_ax=(fig, axs),
                                               fs=11,
                                               metrics_plot=metrics_plot,
-                                              name_model=f'CL-{name_CL} -> {name}')
+                                              name_model=labelname)
                 ax[0].margins(x=.02)
                 if m == 0:
                     axes[0][0].text(y=0.37, x=1, s='clim. prob.',
