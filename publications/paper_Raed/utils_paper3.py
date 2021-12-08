@@ -248,7 +248,7 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
                      fig_ax=None, fs=12,
                      metrics_plot=None, name_model=None):
     #%%
-    fig_ax=None
+    # fig_ax=None
     alpha = .1
     fontsize = fs
     if fig_ax is None and df_forcings is None:
