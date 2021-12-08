@@ -248,7 +248,7 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
                      fig_ax=None, fs=12,
                      metrics_plot=None, name_model=None):
     #%%
-    # fig_ax=None
+    fig_ax=None
     alpha = .1
     fontsize = fs
     if fig_ax is None and df_forcings is None:
@@ -281,7 +281,6 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
         df_splits = df_forcings.iloc[:,-2:].copy()
         oos = functions_pp.get_df_test(df_forcings[col],
                                        df_splits=df_splits)
-        oos = (oos - oos.mean()) / oos.std()
 
         # identify strong forcing dates
         qs = [int(t[-3:-1]) for t in table_col]
@@ -323,14 +322,15 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
             # ax0b.axhline(high, lw=0.5, c='grey', ls=ls[i])
             ax0b.axhline(0, lw=0.5, c='grey')
 
-        ax0b.plot_date(df_test.index, oos.loc[df_test.index],
+        std_oos = (oos - oos.mean()) / oos.std()
+        ax0b.plot_date(df_test.index, std_oos.loc[df_test.index],
                       ls='--', c='black', alpha=.7, lw=1,
                       markeredgecolor='black',
                       markerfacecolor='black', zorder=1,
                       label=oos.columns[0]+' Signal', markersize=2,
                       )
 
-        ax0b.scatter(df_test.index, oos.loc[df_test.index], ls='-',
+        ax0b.scatter(df_test.index, std_oos.loc[df_test.index], ls='-',
                     label=None, c=markercolor_S, s=markersize, zorder=2)
 
         # # plot 2*std 'confidence interval around mean
