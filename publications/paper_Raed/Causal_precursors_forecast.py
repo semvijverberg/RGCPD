@@ -22,6 +22,7 @@ from joblib import Parallel, delayed
 import argparse
 from matplotlib.lines import Line2D
 import csv
+import re
 
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
@@ -1453,10 +1454,12 @@ plot_combs = [p for p in plot_combs if p[0] in fc_types]
 for fc_type, condition in plot_combs:
     #%% Continuous forecast: get Combined Lead time models
     pathsub_df = f'df_data_{str(fc_type)}{btoos}'
+    pathsub_verif = f'verif_{str(fc_type)}{btoos}'
+    if training_data != 'CL':
+        pathsub_df  += '_'+training_data
+        pathsub_verif += '_'+training_data
     filepath_df_datas = os.path.join(rg.path_outsub1, pathsub_df)
-    os.makedirs(filepath_df_datas, exist_ok=True)
-    filepath_verif = os.path.join(rg.path_outsub1, f'verif_{str(fc_type)}{btoos}')
-    import re
+    filepath_verif = os.path.join(rg.path_outsub1, pathsub_verif)
 
     if 'timeseries' not in method:
         path = '/'.join(rg.path_outsub1.split('/')[:-1])
@@ -1615,7 +1618,7 @@ for fc_type, condition in plot_combs:
 
 condition = 50
 models = ['LogisticRegression', 'RandomForestClassifier']
-training_datas = ['onelag', 'all', 'all_CD', 'CL']
+training_datas = ['onelag', 'all', 'all_CD']
 skill_metrics = ['BSS']
 nicenames = {'onelag':'only lag 1 RG-DR precursors',
              'all': 'all RG-DR precursors',
