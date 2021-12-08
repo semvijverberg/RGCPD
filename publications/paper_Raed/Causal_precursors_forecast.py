@@ -1679,7 +1679,7 @@ for model, training_data, metric in combinations:
         n_features = []
         for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
             firstlag = str(rg.list_for_MI[0].corr_xr.lag[-1].values)
-            keys_dict = utils_paper3.get_CD_df_data(rg, alpha_CI,
+            keys_dict = utils_paper3.get_CD_df_data(rg, 1,
                                                     firstlag)
             n_features.append(np.mean([len(v) for v in keys_dict.values()]))
 
