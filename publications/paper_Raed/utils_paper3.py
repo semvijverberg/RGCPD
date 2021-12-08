@@ -281,6 +281,7 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
         df_splits = df_forcings.iloc[:,-2:].copy()
         oos = functions_pp.get_df_test(df_forcings[col],
                                        df_splits=df_splits)
+        oos = (oos - oos.mean()) / oos.std()
 
         # identify strong forcing dates
         qs = [int(t[-3:-1]) for t in table_col]
@@ -332,14 +333,16 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
         ax0b.scatter(df_test.index, oos.loc[df_test.index], ls='-',
                     label=None, c=markercolor_S, s=markersize, zorder=2)
 
-        # plot 2*std 'confidence interval around mean
-        dates_match = pd.MultiIndex.from_product([df_forcings.index.levels[0],
-                                                  df_test.index])
-        df_forcings_m = df_forcings.loc[dates_match]
-        mean = df_forcings_m[col].mean(0,level=1)
-        std = df_forcings_m[col].std(0,level=1) * 2
-        ax0b.fill_between(df_test.index, (mean-std).values.ravel(),
-                          (mean+std).values.ravel(), fc='black', alpha=0.5)
+        # # plot 2*std 'confidence interval around mean
+        # dates_match = pd.MultiIndex.from_product([df_forcings.index.levels[0],
+        #                                           df_test.index])
+        # df_forcings_m = df_forcings.loc[dates_match]
+        # mean = df_forcings_m[col].mean(0,level=1)
+        # mean = (mean - mean.mean()) / mean.std()
+        # std = df_forcings_m[col].std(0,level=1) * 2
+        # # std over train-splits
+        # ax0b.fill_between(df_test.index, (mean-std).values.ravel(),
+        #                   (mean+std).values.ravel(), fc='black', alpha=0.5)
 
         ax0b.set_title(col[0], fontsize=fs, y=0.95)
 

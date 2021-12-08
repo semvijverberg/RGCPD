@@ -71,7 +71,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 3
+i_default = -1
 load = 'all'
 save = True
 # training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
@@ -1221,17 +1221,17 @@ for fc_type in fc_types:
         if 'RandomForest' in model_name:
             name = 'RF'
         elif model_name == 'Ridge' or model_name=='LogisticRegression':
-            name = 'Ridge' if fc_type =='continuous' else 'Logist. Regr.'
+            name = 'Ridge' if fc_type =='continuous' else 'LR'
         if 'RandomForest' in model_name_CL:
             name_CL = 'RF'
         elif model_name_CL == 'Ridge' or model_name=='LogisticRegression':
-            name_CL = 'Ridge' if fc_type =='continuous' else 'Logist. Regr.'
+            name_CL = 'Ridge' if fc_type =='continuous' else 'LR'
 
         target_options = [['Target', 'Target | PPS']]
         if training_data == 'CL':
             labelname = f'CL-{name_CL} -> {name}'
         else:
-            labelname  = f'{name}'
+            labelname  = f'{name} forecast'
 
         print('Plotting skill scores')
         for i, target_opt in enumerate(target_options):
