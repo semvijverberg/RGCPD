@@ -146,6 +146,8 @@ for i, ax in enumerate(fig.axes.flatten()):
     ax.set_ylabel(None) ; ax.set_xlabel(None)
     ax.set_title(subtitles[i], fontsize=12)
 
+
+#%%
 f_name = 'clustering_Hierchical_ward_{}'.format(xrclusteredall.attrs['hash'])
 path_fig = os.path.join(path_outmain, f_name)
 plt.savefig(path_fig + '.pdf', bbox_inches='tight') # dpi auto 600

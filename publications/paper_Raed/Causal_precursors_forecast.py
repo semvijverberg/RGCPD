@@ -1701,16 +1701,65 @@ for model, training_data, metric in combinations:
         writer.writerows([dict_sum])
 
 #%%
+if 'timeseries' in method:
+    sys.exit()
+else:
+    pass
 
+model_name = 'RandomForestClassifier' #'LogisticRegression' # 'RandomForest'
+f_name = f'predictions_cont_CL{model_name}_{model_name}_Target.h5'
+for rg in rg_list:
+    print(rg.fc_month)
+    filepath_dfs = os.path.join(filepath_df_datas, f_name)
 
+    d_dfs = functions_pp.load_hdf5(filepath_dfs)
+    df_predictions = d_dfs['df_predictions']
 
+    prediction = df_predictions[['Target', rg.fc_month]].copy()
+    # prediction['Target'] = rg.df_data.iloc[:,0]
 
+    rolling_BSS = []
+    syrs = np.arange(1950, 2020, 5)
+    eyrs = list(np.arange(1980, 2019, 5)) + [2019]
+    for sy, ey in zip(syrs, eyrs):
+        print(sy, ey)
+        years = (sy, ey)
+        subpred = rg.get_subdates_df(prediction, years=years)
+        subdf_splits = rg.get_subdates_df(rg.df_data.iloc[:,-2:], years=years)
+        out = fc_utils.get_scores(subpred,
+                                  subdf_splits,
+                                  [fc_utils.metrics.roc_auc_score],
+                                  n_boot=0,
+                                  blocksize=1,
+                                  rng_seed=seed)[-2]
+        rolling_BSS.append(float(out.values))
+    f, ax = plt.subplots()
+    xticklabels = [f'{sy}-{ey}' for sy,ey in zip(syrs, eyrs)]
+    ax.plot(xticklabels, rolling_BSS)
+    ax.set_xticks(xticklabels[::2])
+    ax.set_xticklabels(xticklabels[::2], rotation=45)
+    ax.set_ylabel('AUC-ROC')
+    ax.set_xlabel('Time periods to calculate score')
+    ax.axhline(0.5, color='black')
+    ax.text(-.4,0.505, 'No skill')
+    ax.text(8.6,0.75, 'High skill')
+    ax.set_title('AUC-ROC score as function of time')
+    filepath_rollingmean = os.path.join(filepath_verif, 'rolling_mean_skill')
+    os.makedirs(filepath_rollingmean, exist_ok=True)
+    f.savefig(os.path.join(filepath_rollingmean,
+                           f'rolling_mean_score_{model_name}_{rg.fc_month}'+rg.figext))
+    plt.close()
+#%%
+cols = [c for c in rg.df_data.columns if '..1..sst' in c]
+df_sst = functions_pp.get_df_test(rg.df_data)[cols].mean(axis=1)
+cols = [c for c in rg_list[0].df_data.columns if 'JJ..0..smi' in c]
+df_smJA = functions_pp.get_df_test(rg_list[0].df_data)[cols].mean(axis=1)
+df_target_ts = functions_pp.get_df_test(rg.df_data)['USDA_Soy_clusters__1']
 
+df_sst.rolling(30, center=True).corr(df_target_ts).plot()
 
-
-
-
-
+df_smJA.rolling(30, center=True).corr(df_target_ts).plot()
+#%%
 # #%% plot
 # for rg in rg_list:
 #     models_lags = rg.prediction_tuple[-1]
