@@ -241,6 +241,7 @@ def ds_oos_lindetrend(dsclust, df_splits, path):
     df = ds_out.mean(dim=('latitude', 'longitude')).to_dataframe('1ts')
     return df
 
+
 #%% run RGPD
 
 
@@ -333,8 +334,8 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
             # plot difference
             df_test = functions_pp.get_df_test(dfnew, df_splits=rg.df_splits)
             f, ax = plt.subplots(1)
-            ax.plot(rg.df_fullts.loc[df_test.index], label='detrend all data')
-            ax.plot(df_test, label='detrend one-step-ahead')
+            ax.plot(rg.df_fullts.loc[df_test.index], label='Pre-process all data')
+            ax.plot(df_test, label='Pre-process one-step-ahead')
             ax.legend()
             f.savefig(os.path.join(path, 'compared_detrend.jpg'), dpi=250,
                       bbox_inches='tight')
@@ -1065,18 +1066,19 @@ for fc_type in fc_types:
     # import utils_paper3
 
     for model_name_CL, model_name in model_combs:
-        # load CL model to get df_forcing
-        filepath_dfs = os.path.join(filepath_df_datas,
-                                    f'CL_models_cont{model_name_CL}.h5')
-        try:
-            df_data_CL = functions_pp.load_hdf5(filepath_dfs)
-        except:
-            print('loading CL models failed, skipping this model')
-            continue
+        # # load CL model to get df_forcing
+        # filepath_dfs = os.path.join(filepath_df_datas,
+        #                             f'CL_models_cont{model_name_CL}.h5')
+        # try:
+        #     df_data_CL = functions_pp.load_hdf5(filepath_dfs)
+        # except:
+        #     print('loading CL models failed, skipping this model')
+        #     continue
 
-        for i, rg in enumerate(rg_list):
-            # get CL model of that month
-            rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
+        # for i, rg in enumerate(rg_list):
+        #     # get CL model of that month
+        #     rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
+
         # get forcing per fc_month
         utils_paper3.get_df_forcing_cond_fc(rg_list,
                                             regions=regions_forcing,
@@ -1759,6 +1761,14 @@ df_target_ts = functions_pp.get_df_test(rg.df_data)['USDA_Soy_clusters__1']
 df_sst.rolling(30, center=True).corr(df_target_ts).plot()
 
 df_smJA.rolling(30, center=True).corr(df_target_ts).plot()
+#%%
+df_target_test = functions_pp.get_df_test(target_ts, df_splits=rg.df_splits)
+yrs2 = np.arange(1975, 2013)
+yrs1 = [y for y in np.arange(1950, 2020) if y not in yrs2]
+df_yrs1 = df_target_test.loc[core_pp.get_oneyr(df_target_test, *yrs1)]
+df_yrs2 = df_target_test.loc[core_pp.get_oneyr(df_target_test, *yrs2)]
+df_yrs1.sum() / df_yrs1.size
+df_yrs2.sum() / df_yrs2.size
 #%%
 # #%% plot
 # for rg in rg_list:

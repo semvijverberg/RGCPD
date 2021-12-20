@@ -150,7 +150,7 @@ def sklearn_clustering(var_filename, mask=None,
                 xarray = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_l)
 
                 # becomes list
-                xrclustered[i,j], result = skclustering(xarray, npmask, dimension,
+                xrclustered[i,j], result = skclustering(xarray, npmask,
                                                    clustermethodkey=clustermethodkey,
                                                    kwrgs=kwrgs)
                 results.append(result)

@@ -110,7 +110,7 @@ xrclusteredall, results = cl.sklearn_clustering(var_filename, mask=~np.isnan(ano
                                                            'seldates':None,
                                                            'selbox':None},
                                                clustermethodkey='AgglomerativeClustering',
-                                               kwrgs_clust={'n_clusters':[2,3,4,5],
+                                               kwrgs_clust={'n_clusters':[2,4,6,8],
                                                             'affinity':'euclidean',
                                                             'linkage':'ward'})
 
@@ -166,7 +166,7 @@ xrclusteredall, results = cl.sklearn_clustering(var_filename, mask=~np.isnan(ano
                                                            'seldates':None,
                                                            'selbox':None},
                                                clustermethodkey='AgglomerativeClustering',
-                                               kwrgs_clust={'n_clusters':[2,3,4,5],
+                                               kwrgs_clust={'n_clusters':[2,4,6,8],
                                                             'affinity':'correlation',
                                                             'linkage':'average'})
 
@@ -204,6 +204,7 @@ for i, ax in enumerate(fig.axes.flatten()):
     ax.set_ylabel(None) ; ax.set_xlabel(None)
     ax.set_title(subtitles[i], fontsize=12)
 
+#%%
 f_name = 'clustering_Hierchical_correlation_{}'.format(xrclusteredall.attrs['hash'])
 path_fig = os.path.join(path_outmain, f_name)
 plt.savefig(path_fig + '.pdf', bbox_inches='tight') # dpi auto 600
@@ -222,7 +223,7 @@ xrclusteredall, results = cl.sklearn_clustering(var_filename, mask=np.mean(~np.i
                                                            'seldates':None,
                                                            'selbox':None},
                                                clustermethodkey='KMeans',
-                                               kwrgs_clust={'n_clusters':[2,3,4,5],
+                                               kwrgs_clust={'n_clusters':[2,4,6,8],
                                                             'random_state':0})
                                                             # 'linkage':'average'})
 
@@ -260,6 +261,7 @@ for i, ax in enumerate(fig.axes.flatten()):
     ax.set_ylabel(None) ; ax.set_xlabel(None)
     ax.set_title(subtitles[i], fontsize=12)
 
+#%%
 f_name = 'clustering_KMeans_{}'.format(xrclusteredall.attrs['hash'])
 path_fig = os.path.join(path_outmain, f_name)
 plt.savefig(path_fig + '.pdf', bbox_inches='tight') # dpi auto 600
@@ -303,7 +305,7 @@ plt.savefig(path_fig,
 print(f'{round(time()-t0, 2)}')
 
 
-#%% New idea 11-10-21, extrapolate values
+#%% New idea 11-10-21, extrapolate values (not used)
 
 
 
@@ -390,7 +392,7 @@ f_name = 'linkage_{}_nc{}'.format(linkage, int(c))
 filepath = os.path.join(path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_interp_'+xrclustfinalint.attrs['hash'])
 
-#%% get timeseries with per gridcell detrending
+#%% get timeseries with per gridcell detrending (Used)
 
 kwrgs_NaN_handling={'missing_data_ts_to_nan':False,
                     'extra_NaN_limit':False,
@@ -423,7 +425,7 @@ filepath = os.path.join(path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
 
-#%% get timeseries
+#%% get timeseries (no linear detrending before standardizing) - not neat
 
 kwrgs_NaN_handling={'missing_data_ts_to_nan':40,
                     'extra_NaN_limit':False,
@@ -512,6 +514,10 @@ plt.savefig(path_fig + '.jpeg', bbox_inches='tight') # dpi auto 600
 
 
 
+
+
+
+# Old stuff.
 #%% Soy bean USDA
 
 raw_filename = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/usda_soy.nc'

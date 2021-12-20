@@ -285,7 +285,7 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
         # identify strong forcing dates
         qs = [int(t[-3:-1]) for t in table_col]
         sizes = [30, 75] #; ls = ['-','-.']
-        colors = [['#e76f51', '#61a5c2'], ['#d00000', '#3f37c9']]
+        colors = [['#d00000', '#3f37c9'], ['#e76f51', '#61a5c2']]
         markercolor = np.repeat(['black'], oos.size)
         markercolor = np.array(markercolor, dtype='object')
         markersize = np.repeat(10, oos.size)
@@ -1310,14 +1310,16 @@ def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
                 idx = int(i/icount)
                 if idx < axes.size:
                     if s == splits[-1]:
-                        axes[idx].plot(timesteps, ts, lw=1) # only plot raw for first split
+                        axes[idx].plot(timesteps, ts, lw=0.75, color='black',
+                                       alpha=.65) # only plot raw for first split
                     if splits.size>1 and (s == 0 or s == splits[-1]):
                         lw = .75 ; zorder = 5 ; alpha=.6
                         color = 'blue' if s == 0 else 'red'
                     else:
                         lw = .25 ; zorder = 0 ; color='grey'; alpha=.2
                     if splits.size == 1: alpha=.6; color='red'
-                    axes[idx].plot(timesteps, trend, lw=0.5, c='black', alpha=.5)
+                    axes[idx].plot(timesteps, trend, lw=lw+.25, c=color,
+                                   alpha=alpha)
                     axes[idx].tick_params(labelsize=7)
                     ax1.plot(timesteps, detrend_ts, lw=lw, alpha=alpha,
                              color=color, zorder=zorder)
@@ -1332,17 +1334,21 @@ def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
         newdata = xr.DataArray(newdata, coords=ds.coords, dims=ds.dims)
         splits_newdata.append(newdata)
     print('\n')
+    mean = newdata.mean(dim=('latitude', 'longitude'))
+    ax1.plot(timesteps, mean, lw=2, alpha=alpha,
+                             color='black', zorder=zorder)
     if df_splits is not None:
         lines = [Line2D([0], [0], color='blue', lw=2),
-                 Line2D([0], [0], color='red', lw=2)]
+                 Line2D([0], [0], color='red', lw=2),
+                 Line2D([0], [0], color='black', lw=2)]
         nfirst = (df_splits.loc[0]['TrainIsTrue']==1).sum()
         nlast = (df_splits.loc[splits[-1]]['TrainIsTrue']==1).sum()
         ax1.legend(lines, [f'First trainingset (n={nfirst})',
-                           f'Last trainingset (n={nlast})'], fontsize=12)
+                           f'Last trainingset (n={nlast})',
+                           'Mean'], fontsize=12)
     else:
-        mean = newdata.mean(dim=('latitude', 'longitude'))
-        ax1.plot(timesteps, mean, lw=2, alpha=alpha,
-                             color='black', zorder=zorder)
+
+
         lines = [Line2D([0], [0], color=color, lw=lw),
                  Line2D([0], [0], color='black', lw=2)]
         ax1.legend(lines, ['Detrendend & standardized\ngridcell timeseries',
