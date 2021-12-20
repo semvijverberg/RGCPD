@@ -339,9 +339,9 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
             ax.legend()
             f.savefig(os.path.join(path, 'compared_detrend.jpg'), dpi=250,
                       bbox_inches='tight')
-
-        functions_pp.store_hdf_df({'df_data':dfnew},
-                                  os.path.join(path, 'target_ts.h5'))
+        if load != False: # crashed when done in parallel mode
+            functions_pp.store_hdf_df({'df_data':dfnew},
+                                      os.path.join(path, 'target_ts.h5'))
 
 
     rg.df_fullts = dfnew
