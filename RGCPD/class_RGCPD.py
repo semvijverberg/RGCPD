@@ -927,6 +927,7 @@ class RGCPD:
         if var is None:
             var = [p.name for p in self.list_for_MI]
         for precur_name in var:
+            print(f'Plotting {precur_name}')
             try:
                 pclass = [p for p in self.list_for_MI if p.name == precur_name][0]
             except IndexError as e:

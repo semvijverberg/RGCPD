@@ -65,7 +65,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_1']  #['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1']
+methods = ['leave_1', 'timeseriessplit_25']  #['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1']
 training_datas = ['all_CD'] # ['onelag', 'all', 'all_CD']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -73,7 +73,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
 i_default = -1
-load = False
+load = 'all'
 save = True
 # training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
 fc_types = [0.33, 'continuous']
@@ -169,7 +169,7 @@ append_pathsub = f'/{method}/s{seed}'
 extra_lag = True
 
 append_main = target_dataset
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_areaw')
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
     path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
 elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
@@ -238,6 +238,7 @@ def ds_oos_lindetrend(dsclust, df_splits, path):
                                          df_splits=df_splits,
                                          standardize=True,
                                          path=path)
+    ds_out = functions_pp.area_weighted(ds_out)
     df = ds_out.mean(dim=('latitude', 'longitude')).to_dataframe('1ts')
     return df
 
@@ -1425,23 +1426,21 @@ f.savefig(os.path.join(rg.path_outsub1, 'Pacific_model_vs_Pacific_mean'+rg.figex
 #%%
 import utils_paper3
 utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
-                           selection='CD')
+                            selection='CD')
+
 
 utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
                            selection='CD', min_cd = 0.5)
 
-# utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.5,
-#                            selection='CD', min_cd = 0.5)
 plt.close()
 
-# utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
-#                            selection='CD', min_cd = 0.5, plot_textinmap=False)
 
 utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
                           selection='ind')
 
-# utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
-#                           selection='all')
+
+utils_paper3.plot_regions(rg_list[:1], save=True, plot_parcorr=False, min_detect=.1,
+                          selection='all', plot_textinmap=False)
 plt.close()
 
 #%%

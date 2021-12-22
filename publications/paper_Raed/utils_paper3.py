@@ -921,7 +921,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                    'SO':'Sep-Oct mean'}
 
         kwrgs_plotcorr_sst = {'row_dim':'lag', 'col_dim':'split','aspect':4,
-                              'hspace':.37, 'wspace':0., 'size':2, 'cbar_vert':0.05,
+                              'hspace':.37, 'wspace':0., 'size':2, 'cbar_vert':0.07,
                               'map_proj':plot_maps.ccrs.PlateCarree(central_longitude=220),
                               'y_ticks':False, 'x_ticks':False, #np.arange(-10,61,20), #'x_ticks':np.arange(130, 280, 25),
                               'title':'',
@@ -935,11 +935,11 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
         # kwrgs_plotlabels_sst.pop('clevels'); kwrgs_plotlabels_sst.pop('clabels')
         # kwrgs_plotlabels_sst.pop('cbar_tick_dict')
         kwrgs_plotlabels_sst['units'] = 'DBSCAN clusters'
-        kwrgs_plotlabels_sst['cbar_vert'] = 0.06
+        # kwrgs_plotlabels_sst['cbar_vert'] = 0.08
 
 
         kwrgs_plotcorr_SM = {'row_dim':'lag', 'col_dim':'split','aspect':2,
-                             'hspace':0.25, 'wspace':-0.5, 'size':3, 'cbar_vert':0.04,
+                             'hspace':0.25, 'wspace':-0.5, 'size':3, 'cbar_vert':0.06,
                               'map_proj':plot_maps.ccrs.PlateCarree(central_longitude=220),
                                # 'y_ticks':np.arange(25,56,10), 'x_ticks':np.arange(230, 295, 15),
                                'y_ticks':False, 'x_ticks':False,
@@ -955,7 +955,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
         # kwrgs_plotlabels_SM.pop('clevels'); kwrgs_plotlabels_SM.pop('clabels')
         # kwrgs_plotlabels_SM.pop('cbar_tick_dict')
         kwrgs_plotlabels_SM['units'] = 'DBSCAN clusters'
-        kwrgs_plotlabels_SM['cbar_vert'] = 0.05
+        # kwrgs_plotlabels_SM['cbar_vert'] = 0.07
 
         # Get ConDepKeys
         df_pvals = rg.df_pvals.copy()
@@ -1121,8 +1121,8 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
     lagsize = rg_list[0].list_for_MI[0].prec_labels.lag.size
     intmon_d = {'August': 2, 'July':3, 'June':4,'May':5, 'April':6,
                 'March':7, 'February':8}
-    for ip in range(0,1):
-        if ip == 0:
+    for ip in range(0,2):
+        if ip == 0 and len(rg_list)>2:
             rg_subs = [rg_list[:2], rg_list[2:]]
         else:
             rg_subs = [rg_list]
@@ -1177,7 +1177,10 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
 
             kwrgs_plot['subtitles'] = subs
 
-            # plot_maps.plot_labels(CDlabels, kwrgs_plot=kwrgs_plot)
+            if len(rg_list) == 1 and ip ==1:
+                kwrgs_plot.update({'subtitle_fontdict':{'fontsize':28}})
+            elif len(rg_list) == 1 and ip ==0:
+                kwrgs_plot.update({'subtitle_fontdict':{'fontsize':24}})
 
             if plot_parcorr==False:
                 fg = plot_maps.plot_labels(CDlabels,
@@ -1203,12 +1206,13 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                                 bbox_inches='tight')
 
             # MCI values plot
-            if plot_parcorr:
+            if len(rg_list) >= 2:
                 kwrgs_plot.update({'clevels':np.arange(-0.8, 0.9, .1),
                                    'clabels':np.arange(-.8,.9,.2)})
             else:
                 kwrgs_plot.update({'clevels':np.arange(-0.8, 0.9, .1),
-                                   'clabels':np.arange(-.8,.9,.2)})
+                                   'clabels':np.arange(-.8,.9,.4)})
+
             kwrgs_plot.update({'units':units})
             if plot_textinmap:
                 kwrgs_plot.update({'textinmap':textinmap})
@@ -1227,7 +1231,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                                facecolor=facecolorocean,
                                zorder=0)
 
-                if ip == 1:
+                if ip == 1 and len(rg_list)>1: # not for schematic plots
                     cmp = ["3c096c","5a189a","7b2cbf","9d4edd","c77dff","e0aaff"]
                     cmp = plot_maps.get_continuous_cmap(cmp,
                                     float_list=list(np.linspace(0,1,5)))
