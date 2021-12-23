@@ -65,8 +65,8 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_1', 'timeseriessplit_25', 'timeseriessplit_20']  #['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1']
-training_datas = ['all_CD'] # ['onelag', 'all', 'all_CD']
+methods = ['leave_1', 'timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']  #['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1']
+training_datas = ['onelag', 'all', 'all_CD']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
@@ -690,7 +690,8 @@ for fc_type in fc_types:
                         'penalty':'l2',
                         'solver':'lbfgs',
                         'kfold':10,
-                        'max_iter':200}
+                        'max_iter':200,
+                        'n_jobs':n_cpu}
         model1_tuple = (ScikitModel(LogisticRegression, verbosity=0),
                         kwrgs_model1)
 
