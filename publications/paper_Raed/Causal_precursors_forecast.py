@@ -65,7 +65,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_1', 'timeseriessplit_25']  #['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1']
+methods = ['leave_1', 'timeseriessplit_25', 'timeseriessplit_20']  #['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1']
 training_datas = ['all_CD'] # ['onelag', 'all', 'all_CD']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -77,7 +77,7 @@ load = False
 save = True
 # training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
 fc_types = [0.33, 'continuous']
-fc_types = [0.66]
+fc_types = [0.33]
 
 model_combs_cont = [['Ridge', 'Ridge'],
                     ['Ridge', 'RandomForestRegressor'],

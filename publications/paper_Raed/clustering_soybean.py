@@ -570,4 +570,24 @@ cl.store_netcdf(ts_mask, filepath=
 ano = ds - ds.mean(dim='time')
 plot_maps.plot_corr_maps(ano.isel(time=range(0,40,5)), row_dim='time', cbar_vert=.09)
 
+#%% Years prior to 80s
 
+raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
+selbox = [253,290,28,52] ; years = list(range(1950, 1973))
+
+ds_raw = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
+ds_raw.name = 'Soy_Yield'
+ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
+ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
+plt.figure()
+ds_avail = (len(years) - np.isnan(ds_raw).sum(axis=0))
+ds_avail.plot()
+
+selbox = [253,290,28,52] ; years = list(range(1990, 2012))
+ds_raw = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
+ds_raw.name = 'Soy_Yield'
+ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
+ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
+plt.figure()
+ds_avail = (len(years) - np.isnan(ds_raw).sum(axis=0))
+ds_avail.plot()
