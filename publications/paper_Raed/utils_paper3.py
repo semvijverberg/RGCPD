@@ -1355,7 +1355,7 @@ def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
 
         lines = [Line2D([0], [0], color=color, lw=lw),
                  Line2D([0], [0], color='black', lw=2)]
-        ax1.legend(lines, ['Detrendend & standardized\ngridcell timeseries',
+        ax1.legend(lines, ['Detrended & standardized\ngridcell timeseries',
                            'Mean'], fontsize=10)
     f2.subplots_adjust(wspace=.35)
 

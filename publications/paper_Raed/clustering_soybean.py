@@ -590,4 +590,65 @@ ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
 ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
 plt.figure()
 ds_avail = (len(years) - np.isnan(ds_raw).sum(axis=0))
+ds_avail = ds_avail.where(ds_avail!=0)
 ds_avail.plot()
+
+#%%
+cluspath = os.path.join(path_outmain, 'linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
+dsclust = core_pp.import_ds_lazy(cluspath)
+clusmask = (dsclust['xrclustered'] == 1).astype(int)
+
+#%%
+title = '# of data points'
+
+
+plot_map = plot_maps.plot_corr_maps
+fg = plot_map(ds_avail, **{'wspace':.05, 'hspace':.16, 'cbar_vert':-.1,
+                            'row_dim':'n_clusters', 'col_dim':'random_state',
+                            'zoomregion':selbox, 'cmap':plt.cm.inferno_r,
+                            'x_ticks':np.array([260,270,280]),
+                            'y_ticks':np.array([32, 37, 42, 47]),
+                            'clevels':np.arange(0,len(years)),
+                            'title':title,
+                            'title_fontdict':{'y':.99,
+                                             'fontsize': 18,
+                                             'fontweight':'bold'}})
+
+
+facecolorocean = '#caf0f8' ; facecolorland='white'
+for ax in fg.fig.axes[:-1]:
+    ax.add_feature(plot_maps.cfeature.__dict__['LAND'],
+                   facecolor=facecolorland,
+                   zorder=0)
+    ax.add_feature(plot_maps.cfeature.__dict__['OCEAN'],
+                   facecolor=facecolorocean,
+                   zorder=0)
+
+    cmp = ["3c096c","5a189a","7b2cbf","9d4edd","c77dff","e0aaff"]
+    cmp = plot_maps.get_continuous_cmap(cmp,
+                    float_list=list(np.linspace(0,1,5)))
+    ax.contour(clusmask.longitude, clusmask.latitude,
+                  clusmask.where(clusmask).values,
+                  levels=[0,1.],
+                  transform=plot_maps.ccrs.PlateCarree(),
+                  zorder=100, **{'linestyles':['solid'],
+                                 'colors':['red'],
+                                 'linewidths':1})
+
+
+# for i, ax in enumerate(fig.axes.flatten()):
+#     np.isnan(xr_States).plot.contour(ax=ax,
+#                                      transform=plot_maps.ccrs.PlateCarree(),
+#                                      linestyles=['solid'],
+#                                      colors=['black'],
+#                                      linewidths=2,
+#                                      levels=[0,1],
+#                                      add_colorbar=False)
+#     ax.add_feature(cfeature.NaturalEarthFeature(
+#         'cultural', 'admin_1_states_provinces_lines', '50m',
+#         edgecolor='grey', lw=1, facecolor='none'))
+#     ax.add_feature(cfeature.OCEAN)
+#     ax.add_feature(cfeature.LAKES)
+#     ax.add_feature(cfeature.COASTLINE)
+#     ax.set_ylabel(None) ; ax.set_xlabel(None)
+#     ax.set_title(subtitles[i], fontsize=12)
