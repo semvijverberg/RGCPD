@@ -285,7 +285,7 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
         # identify strong forcing dates
         qs = [int(t[-3:-1]) for t in table_col]
         sizes = [30, 75] #; ls = ['-','-.']
-        colors = [['#d00000', '#3f37c9'], ['#e76f51', '#61a5c2']]
+        colors = [['#e76f51', '#61a5c2'][::-1], ['#d00000', '#3f37c9'][::-1]]
         markercolor = np.repeat(['black'], oos.size)
         markercolor = np.array(markercolor, dtype='object')
         markersize = np.repeat(10, oos.size)

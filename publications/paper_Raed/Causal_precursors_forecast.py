@@ -72,10 +72,9 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = -1
-load = False
+i_default = 0
+load = 'all'
 save = True
-# training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
 
@@ -88,6 +87,10 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 
 model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
                     ['RandomForestClassifier', 'RandomForestClassifier']]
+
+# path out main
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_areaw')
+# path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
 
 
 def parseArguments():
@@ -169,7 +172,8 @@ append_pathsub = f'/{method}/s{seed}'
 extra_lag = True
 
 append_main = target_dataset
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_areaw')
+
+
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
     path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
 elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
@@ -1301,8 +1305,8 @@ for fc_type in fc_types:
                                   title='Top 50%          Top 30%')
             plt.subplots_adjust(hspace=.4)
 
-            fig.savefig(os.path.join(filepath_verif,
-                      f'timeseries_and_skill_{i}_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
+            # fig.savefig(os.path.join(filepath_verif,
+                      # f'timeseries_and_skill_{i}_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
             # plt.close()
     #%% plotting skill scores as function of lead-time
     # import utils_paper3
