@@ -921,7 +921,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                    'SO':'Sep-Oct mean'}
 
         kwrgs_plotcorr_sst = {'row_dim':'lag', 'col_dim':'split','aspect':4,
-                              'hspace':.37, 'wspace':0., 'size':2, 'cbar_vert':0.07,
+                              'hspace':.37, 'wspace':0., 'size':2, 'cbar_vert':0.06,
                               'map_proj':plot_maps.ccrs.PlateCarree(central_longitude=220),
                               'y_ticks':False, 'x_ticks':False, #np.arange(-10,61,20), #'x_ticks':np.arange(130, 280, 25),
                               'title':'',
@@ -939,7 +939,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
 
 
         kwrgs_plotcorr_SM = {'row_dim':'lag', 'col_dim':'split','aspect':2,
-                             'hspace':0.25, 'wspace':-0.5, 'size':3, 'cbar_vert':0.06,
+                             'hspace':0.25, 'wspace':-0.5, 'size':3, 'cbar_vert':0.05,
                               'map_proj':plot_maps.ccrs.PlateCarree(central_longitude=220),
                                # 'y_ticks':np.arange(25,56,10), 'x_ticks':np.arange(230, 295, 15),
                                'y_ticks':False, 'x_ticks':False,

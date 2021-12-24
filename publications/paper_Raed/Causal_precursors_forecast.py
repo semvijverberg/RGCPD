@@ -65,14 +65,14 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_1', 'timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']  #['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1']
+methods = ['leave_1']#, 'timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']
 training_datas = ['all_CD', 'onelag', 'all']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 0
+i_default = 1
 load = 'all'
 save = True
 fc_types = [0.33, 'continuous']
@@ -618,7 +618,7 @@ rg = rg_list[0]
 # =============================================================================
 if sys.platform == 'linux':
     mpl.use('Agg')
-    n_cpu = 10
+    n_cpu = 25
 
 if 'timeseries' in method:
     btoos = '_T' # if btoos=='_T': binary target out of sample.
@@ -1423,19 +1423,23 @@ ax.axhline(color='black')
 ax.legend([f'{_model} Eastern Pacific', 'Eastern Pacific mean'])
 f.savefig(os.path.join(rg.path_outsub1, 'Pacific_model_vs_Pacific_mean'+rg.figext),
           bbox_inches='tight')
-#%%
+
+#%% Plot regions
+
 import utils_paper3
-utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
+utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
                             selection='CD')
 
+utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
+                            selection='all')
 
-utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
+utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
                            selection='CD', min_cd = 0.5)
 
 plt.close()
 
 
-utils_paper3.plot_regions(rg_list, save=True, plot_parcorr=False, min_detect=.1,
+utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
                           selection='ind')
 
 

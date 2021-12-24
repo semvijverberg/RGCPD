@@ -575,42 +575,40 @@ plot_maps.plot_corr_maps(ano.isel(time=range(0,40,5)), row_dim='time', cbar_vert
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
 selbox = [253,290,28,52] ; years = list(range(1950, 1973))
 
-ds_raw = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
-ds_raw.name = 'Soy_Yield'
-ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
-ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
-plt.figure()
-ds_avail = (len(years) - np.isnan(ds_raw).sum(axis=0))
-ds_avail.plot()
+ds_avail = []
+yrs_subsets = np.arange(1950,2020, 23)
+yrs_subsets = [[1950, 1972], [1973, 1995], [1996, 2019]]
 
-selbox = [253,290,28,52] ; years = list(range(1990, 2012))
-ds_raw = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
-ds_raw.name = 'Soy_Yield'
-ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
-ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
-plt.figure()
-ds_avail = (len(years) - np.isnan(ds_raw).sum(axis=0))
-ds_avail = ds_avail.where(ds_avail!=0)
-ds_avail.plot()
+for yrs in yrs_subsets:
+    years = list(range(yrs[0], yrs[1]))
+    ds_raw = core_pp.import_ds_lazy(raw_filename, selbox=selbox)['variable'].rename({'z':'time'})
+    ds_raw.name = 'Soy_Yield'
+    ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
+    ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
+    ds_avail.append((len(years) - np.isnan(ds_raw).sum(axis=0))/len(years))
 
+
+ds_avail = xr.concat(ds_avail, dim='time')
+ds_avail['time'] = ('time', [f'{y[0]}-{y[1]}' for y in yrs_subsets])
+ds_avail = ds_avail.where(ds_avail.mean(dim='time')!=0)
 #%%
 cluspath = os.path.join(path_outmain, 'linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
 dsclust = core_pp.import_ds_lazy(cluspath)
 clusmask = (dsclust['xrclustered'] == 1).astype(int)
 
+ds_avail = ds_avail.where(clusmask==1)
+
 #%%
-title = '# of data points'
-
-
+units = '% of datapoints (# dp / total # of years)'
 plot_map = plot_maps.plot_corr_maps
-fg = plot_map(ds_avail, **{'wspace':.05, 'hspace':.16, 'cbar_vert':-.1,
-                            'row_dim':'n_clusters', 'col_dim':'random_state',
+fg = plot_map(ds_avail, **{'wspace':.05, 'hspace':.16, 'cbar_vert':-.08,
+                           'col_dim':'time',
                             'zoomregion':selbox, 'cmap':plt.cm.inferno_r,
                             'x_ticks':np.array([260,270,280]),
                             'y_ticks':np.array([32, 37, 42, 47]),
-                            'clevels':np.arange(0,len(years)),
-                            'title':title,
-                            'title_fontdict':{'y':.99,
+                            'clevels':np.arange(0.,1, 0.05),
+                            'units':units,
+                            'title_fontdict':{'y':1.07,
                                              'fontsize': 18,
                                              'fontweight':'bold'}})
 
@@ -628,12 +626,15 @@ for ax in fg.fig.axes[:-1]:
     cmp = plot_maps.get_continuous_cmap(cmp,
                     float_list=list(np.linspace(0,1,5)))
     ax.contour(clusmask.longitude, clusmask.latitude,
-                  clusmask.where(clusmask).values,
-                  levels=[0,1.],
-                  transform=plot_maps.ccrs.PlateCarree(),
-                  zorder=100, **{'linestyles':['solid'],
-                                 'colors':['red'],
-                                 'linewidths':1})
+               clusmask.values,
+                levels=[0,.5, 1.],
+               transform=plot_maps.ccrs.PlateCarree(),
+               zorder=0, **{'linestyles':['solid'],
+                              'colors':['red'],
+                              'linewidths':5})
+f_name = 'datapoints_over_time.jpg'
+fg.fig.savefig(os.path.join(path_outmain, f_name), bbox_inches='tight', dpi=300)
+
 
 
 # for i, ax in enumerate(fig.axes.flatten()):
