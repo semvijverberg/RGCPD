@@ -823,18 +823,18 @@ for fc_type in fc_types:
         elif 'RandomForest' in model_name:
             fcmodel, kwrgs_model = model2_tuple
 
-        filepath_dfs = os.path.join(filepath_df_datas,
-                                    f'CL_models_cont{model_name_CL}.h5')
-        try:
-            df_data_CL = functions_pp.load_hdf5(filepath_dfs)
-        except:
-            print('loading CL models failed, skipping this model')
-            continue
+        # filepath_dfs = os.path.join(filepath_df_datas,
+        #                             f'CL_models_cont{model_name_CL}.h5')
+        # try:
+        #     df_data_CL = functions_pp.load_hdf5(filepath_dfs)
+        # except:
+        #     print('loading CL models failed, skipping this model')
+        #     continue
 
         for nameTarget in ['Target']:
-            for i, rg in enumerate(rg_list):
+            # for i, rg in enumerate(rg_list):
                 # get CL model of that month
-                rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
+                # rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
 
             filepath_dfs = os.path.join(filepath_df_datas,
                                         f'predictions_cont_CL{model_name_CL}_'\
@@ -849,8 +849,7 @@ for fc_type in fc_types:
             # loop over forecast months (lags)
             for i, rg in enumerate(rg_list):
                 print(model_name_CL, model_name, i)
-                keys_dict = {s:rg.df_CL_data.loc[s].dropna(axis=1).columns[:-2] \
-                             for s in range(rg.n_spl)}
+
                 # get estimated signal from Pacific
                 # test (not used in the end):
                 # multiply signal times target to improve statistical learning
@@ -918,6 +917,8 @@ for fc_type in fc_types:
                 # use combined lead time model for (final) prediction
                 if training_data == 'CL':
                     df_input = rg.df_CL_data
+                    keys_dict = {s:rg.df_CL_data.loc[s].dropna(axis=1).columns[:-2] \
+                                 for s in range(rg.n_spl)}
                 # use all RG-DR timeseries for (final) prediction
                 elif training_data == 'all':
                     df_input = rg.df_data
