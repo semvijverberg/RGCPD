@@ -66,7 +66,7 @@ target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['leave_1', 'timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']  #['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1']
-training_datas = ['onelag', 'all', 'all_CD']
+training_datas = ['all_CD', 'onelag', 'all']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
@@ -150,10 +150,7 @@ else:
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
 
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters':
-    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_0d570.nc')
     TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
-    # TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_detrgc_int_c88c0.nc')
-    # TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_interp_ff5d6.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'Aggregate_States':
     path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
@@ -164,13 +161,11 @@ elif target_dataset == 'Aggregate_States':
 
 
 
-calc_ts= 'region mean' # 'pattern cov'
 alpha_corr = .05
 alpha_CI = .05
 n_boot = 2000
 append_pathsub = f'/{method}/s{seed}'
 extra_lag = True
-
 append_main = target_dataset
 
 
@@ -268,7 +263,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                                 alpha=alpha_corr, FDR_control=True,
                                 kwrgs_func={},
                                 distance_eps=250, min_area_in_degrees2=3,
-                                calc_ts=calc_ts, selbox=GlobalBox,
+                                calc_ts='region mean', selbox=GlobalBox,
                                 lags=lags, group_split=True,
                                 use_coef_wghts=True),
                       BivariateMI(name='smi', func=class_BivariateMI.corr_map,
@@ -1306,9 +1301,9 @@ for fc_type in fc_types:
                                   title='Top 50%          Top 30%')
             plt.subplots_adjust(hspace=.4)
 
-            # fig.savefig(os.path.join(filepath_verif,
-                      # f'timeseries_and_skill_{i}_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
-            # plt.close()
+            fig.savefig(os.path.join(filepath_verif,
+                        f'timeseries_and_skill_{i}_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
+            plt.close()
     #%% plotting skill scores as function of lead-time
     # import utils_paper3
     if fc_type == 'continuous':
