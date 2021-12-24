@@ -637,7 +637,7 @@ if extra_lag:
     regions_forcing = regions_forcing
 
 for fc_type in fc_types:
-    #%% forecast: get Combined Lead time models
+
 
     pathsub_df = f'df_data_{str(fc_type)}{btoos}'
     pathsub_verif = f'verif_{str(fc_type)}{btoos}'
@@ -761,61 +761,61 @@ for fc_type in fc_types:
             target_ts = (target_ts < quantile).astype(int)
 
 
+    #%% forecast: get Combined Lead time models per precursor
+    # if np.unique(core_pp.flatten(model_combs)).size == 2:
+    #     CL_models = [model1_tuple, model2_tuple]
+    # else:
+    #     CL_models = [model1_tuple]
 
-    if np.unique(core_pp.flatten(model_combs)).size == 2:
-        CL_models = [model1_tuple, model2_tuple]
-    else:
-        CL_models = [model1_tuple]
-
-    for fcmodel, kwrgs_model in CL_models:
-        kwrgs_model_CL = kwrgs_model.copy() ;
-        # kwrgs_model_CL.update({'alpha':kwrgs_model['alpha'][::3]})
-        model_name_CL = fcmodel.scikitmodel.__name__
-        filepath_dfs = os.path.join(filepath_df_datas,
-                                    f'CL_models_cont{model_name_CL}.h5')
-        df_data_CL = {}
-        try:
-            df_data_CL = functions_pp.load_hdf5(filepath_dfs)
-            loaded = True
-        except:
-            loaded = False
-
-
-        for i, rg in enumerate(rg_list):
-            print(fc_type, model_name_CL, i)
-
-            if loaded:
-                rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
-                continue
-            else:
-                pass
-
-            mean_vars=['sst', 'smi']
-            # mean_vars=[]
-            for i, p in enumerate(rg.list_for_MI):
-                if p.name in mean_vars:
-                    if p.calc_ts == 'pattern cov':
-                        mean_vars[i] +='_sp'
-            df_data, keys_dict = utils_paper3.get_df_mean_SST(rg,
-                                                 mean_vars=mean_vars,
-                                                 alpha_CI=alpha_CI,
-                                                 n_strongest='all',
-                                                 weights=True,
-                                                 fcmodel=fcmodel,
-                                                 kwrgs_model=kwrgs_model_CL,
-                                                 target_ts=target_ts,
-                                                 labels=None)
-
-            rg.df_CL_data = df_data
-            df_data_CL[f'{rg.fc_month}_df_data'] = df_data
+    # for fcmodel, kwrgs_model in CL_models:
+    #     kwrgs_model_CL = kwrgs_model.copy() ;
+    #     # kwrgs_model_CL.update({'alpha':kwrgs_model['alpha'][::3]})
+    #     model_name_CL = fcmodel.scikitmodel.__name__
+    #     filepath_dfs = os.path.join(filepath_df_datas,
+    #                                 f'CL_models_cont{model_name_CL}.h5')
+    #     df_data_CL = {}
+    #     try:
+    #         df_data_CL = functions_pp.load_hdf5(filepath_dfs)
+    #         loaded = True
+    #     except:
+    #         loaded = False
 
 
-        # store df_pred_tuple
-        functions_pp.store_hdf_df(df_data_CL, filepath_dfs)
+    #     for i, rg in enumerate(rg_list):
+    #         print(fc_type, model_name_CL, i)
+
+    #         if loaded:
+    #             rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
+    #             continue
+    #         else:
+    #             pass
+
+    #         mean_vars=['sst', 'smi']
+    #         # mean_vars=[]
+    #         for i, p in enumerate(rg.list_for_MI):
+    #             if p.name in mean_vars:
+    #                 if p.calc_ts == 'pattern cov':
+    #                     mean_vars[i] +='_sp'
+    #         df_data, keys_dict = utils_paper3.get_df_mean_SST(rg,
+    #                                              mean_vars=mean_vars,
+    #                                              alpha_CI=alpha_CI,
+    #                                              n_strongest='all',
+    #                                              weights=True,
+    #                                              fcmodel=fcmodel,
+    #                                              kwrgs_model=kwrgs_model_CL,
+    #                                              target_ts=target_ts,
+    #                                              labels=None)
+
+    #         rg.df_CL_data = df_data
+    #         df_data_CL[f'{rg.fc_month}_df_data'] = df_data
+
+
+    #     # store df_pred_tuple
+    #     functions_pp.store_hdf_df(df_data_CL, filepath_dfs)
 
 
 
-    #%% Make prediction
+    #%% Make final prediction
     model_name_CL, model_name = model_combs[0]
     for model_name_CL, model_name in model_combs:
         if model_name == 'Ridge' or model_name == 'LogisticRegression':
