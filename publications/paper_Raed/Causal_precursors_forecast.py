@@ -1409,21 +1409,21 @@ ax.legend(['Target', 'PDO(-)', 'Eastern Pacific'])
 f.savefig(os.path.join(rg.path_outsub1, 'Target_vs_Pac_ts'+rg.figext),
           bbox_inches='tight')
 #%%
-_model = fcmodel.scikitmodel.__name__
-_month = 'May'
-filepath_dfs = os.path.join(filepath_df_datas,
-                            f'CL_models_cont{_model}.h5')
-df_data_CL = functions_pp.load_hdf5(filepath_dfs)
-CL_m = df_data_CL[_month + '_df_data']
-CL_Pac = CL_m[[c for c in CL_m.columns if '..1..sst' in c]]
-CL_Pac = functions_pp.get_df_train(CL_Pac, df_splits=rg.df_splits)
-CL_PacR_mean = CL_Pac.merge(df_Pacm, left_index=True, right_index=True)
-f, ax = plt.subplots(1, figsize=(12,8))
-CL_PacR_mean.plot(ax=ax, color=['blue', 'r'])
-ax.axhline(color='black')
-ax.legend([f'{_model} Eastern Pacific', 'Eastern Pacific mean'])
-f.savefig(os.path.join(rg.path_outsub1, 'Pacific_model_vs_Pacific_mean'+rg.figext),
-          bbox_inches='tight')
+# _model = fcmodel.scikitmodel.__name__
+# _month = 'May'
+# filepath_dfs = os.path.join(filepath_df_datas,
+#                             f'CL_models_cont{_model}.h5')
+# df_data_CL = functions_pp.load_hdf5(filepath_dfs)
+# CL_m = df_data_CL[_month + '_df_data']
+# CL_Pac = CL_m[[c for c in CL_m.columns if '..1..sst' in c]]
+# CL_Pac = functions_pp.get_df_train(CL_Pac, df_splits=rg.df_splits)
+# CL_PacR_mean = CL_Pac.merge(df_Pacm, left_index=True, right_index=True)
+# f, ax = plt.subplots(1, figsize=(12,8))
+# CL_PacR_mean.plot(ax=ax, color=['blue', 'r'])
+# ax.axhline(color='black')
+# ax.legend([f'{_model} Eastern Pacific', 'Eastern Pacific mean'])
+# f.savefig(os.path.join(rg.path_outsub1, 'Pacific_model_vs_Pacific_mean'+rg.figext),
+#           bbox_inches='tight')
 
 #%% Plot regions
 
