@@ -618,7 +618,7 @@ rg = rg_list[0]
 # =============================================================================
 if sys.platform == 'linux':
     mpl.use('Agg')
-    n_cpu = 25
+    n_cpu = 30
 
 if 'timeseries' in method:
     btoos = '_T' # if btoos=='_T': binary target out of sample.
