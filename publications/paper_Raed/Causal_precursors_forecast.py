@@ -282,7 +282,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                start_end_year=start_end_year,
                tfreq=None,
                path_outmain=path_out_main)
-    rg.figext = '.png'
+    rg.figext = '.jpeg'
 
 
     subfoldername = target_dataset
