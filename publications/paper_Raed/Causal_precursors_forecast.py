@@ -77,6 +77,7 @@ load = 'all'
 save = True
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
+plt.rcParams['savefig.dpi'] = 300
 
 model_combs_cont = [['Ridge', 'Ridge'],
                     ['Ridge', 'RandomForestRegressor'],
