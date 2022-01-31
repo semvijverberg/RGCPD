@@ -24,11 +24,11 @@ def init_pcmci(df_data, significance='analytic', mask_type='y',
     df_data : pandas DataFrame
         df_data is retrieved by running rg.get_ts_prec().
     significance : str, optional
-        DESCRIPTION. The default is 'analytic'.
+        The default is 'analytic'.
     mask_type : str, optional
-        DESCRIPTION. The default is 'y'.
+        The default is 'y'.
     verbosity : int, optional
-        DESCRIPTION. The default is 4.
+        The default is 4.
     selected_variables : list of integers, optional (default: None)
         Specify to estimate parents only for selected variables. If None is
         passed, parents are estimated for all variables.
@@ -214,7 +214,7 @@ def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level, FDR_cv='fdr_bh'
     splits = np.array(list(pcmci_dict.keys()))
 
     # collect p-vals accross cv folds
-    if FDR_cv is not None or FDR_cv is not False:
+    if FDR_cv is not None and FDR_cv is not False and splits.size>1:
         pq_matrix = []
         for s in range(splits.size):
             results = pcmci_results_dict[s]
@@ -626,7 +626,7 @@ def df_data_remove_z(df_data, z_keys=[str, list], lag_z : [int, list]=[0],
         lag_z = [lag_z]
 
     max_lag = max(lag_z);
-    dates = df_data.index.levels[1]
+    dates = df_data.loc[0].index
     df_z = df_data[z_keys]
     zlist = []
     if 0 in lag_z:
@@ -719,16 +719,24 @@ def df_data_Parcorr(df_data, z_keys=[str, list], keys: list=None, target: str=No
         keys = [k for k in df_data.columns if k not in discard]
     if target is None:
         target = df_data.columns[0]
+
     if keys == z_keys:
         n_zkeys = len(z_keys) - 1 # cannot regress out itself
     else:
         n_zkeys = len(z_keys)
+
+    if len(z_keys) == 1 and z_keys[0] in keys:
+        n_xkeys = len(keys) - 1
+    else:
+        n_xkeys = len(keys)
+
     splits = df_data.index.levels[0]
-    valnp = np.zeros(shape=(len(keys), n_zkeys, splits.size))
-    pvalnp = np.zeros(shape=(len(keys), n_zkeys, splits.size))
+    valnp = np.zeros(shape=(n_xkeys, n_zkeys, splits.size))
+    pvalnp = np.zeros(shape=(n_xkeys, n_zkeys, splits.size))
     index = []
     for ix, x_key in enumerate(keys):
         subz_keys = [k for k in z_keys if k != x_key]
+        # print(subz_keys)
         for iz, z in enumerate(subz_keys):
             index.append((x_key, z))
 
@@ -763,5 +771,8 @@ def df_data_Parcorr(df_data, z_keys=[str, list], keys: list=None, target: str=No
     pvals = pd.DataFrame(pvalnp.reshape(-1,splits.size), columns=splits,
                         index=MultiIndex)
     return vals, pvals
+
+#%%
+
 
 

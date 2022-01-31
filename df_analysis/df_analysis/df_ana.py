@@ -159,7 +159,8 @@ def autocorr_sm(ts, max_lag=None, alpha=0.01):
                                  fft=True)
     return ac, con_int
 
-def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=False, ax=None):
+def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=False, color='#EE6666',
+            ax=None):
     if ax is None:
         fig, ax = plt.subplots(constrained_layout=True)
 
@@ -207,14 +208,15 @@ def plot_ac(y=pd.Series, s='auto', title=None, AUC_cutoff=False, ax=None):
         fontdict={'fontsize':8})
 
     xlabels = [x * tfreq for x in range(s)]
+    ax.plot(xlabels,ac[:s], color=color)
     # con high
     high = [ min(1,h) for h in con_int[:,1][:s]]
-    ax.plot(xlabels, high, color='orange')
+    ax.plot(xlabels, high, color=color)
     # con low
-    ax.plot(xlabels, con_int[:,0][:s], color='orange')
+    ax.plot(xlabels, con_int[:,0][:s], color=color)
     # ac values
-    ax.plot(xlabels,ac[:s])
-    ax.scatter(xlabels,ac[:s])
+
+    ax.scatter(xlabels,ac[:s], color=color)
     ax.hlines(y=0, xmin=min(xlabels), xmax=max(xlabels))
 
 

@@ -35,8 +35,8 @@ except:
 
 class BivariateMI:
 
-    def __init__(self, name, func=None, kwrgs_func={}, alpha: float=0.05,
-                 FDR_control: bool=True, lags=np.array([1]),
+    def __init__(self, name, filepath: str=None,func=None, kwrgs_func={},
+                 alpha: float=0.05, FDR_control: bool=True, lags=np.array([1]),
                  lag_as_gap: bool=False, distance_eps: int=400,
                  min_area_in_degrees2=3, group_lag: bool=False,
                  group_split : bool=True, calc_ts='region mean',
@@ -50,6 +50,9 @@ class BivariateMI:
         ----------
         name : str
             Name that links to a filepath pointing to a Netcdf4 file.
+        filepath : str
+            Optionally give manual filepath to Netcdf4. Normally this is
+            automatically done by the RGCPD framework.
         func : function to apply to calculate the bivariate
             Mutual Informaiton (MI), optional
             The default is applying a correlation map.
@@ -122,7 +125,9 @@ class BivariateMI:
 
         self.alpha = alpha
         self.FDR_control = FDR_control
+
         #get_prec_ts & spatial_mean_regions
+        self.filepath = filepath
         self.calc_ts = calc_ts
         self.selbox = selbox
         self.use_sign_pattern = use_sign_pattern
@@ -130,13 +135,15 @@ class BivariateMI:
         self.lags = lags
         self.lag_as_gap = lag_as_gap
 
-        self.dailytomonths = dailytomonths
 
         # cluster_DBSCAN_regions
         self.distance_eps = distance_eps
         self.min_area_in_degrees2 = min_area_in_degrees2
         self.group_split = group_split
         self.group_lag = group_lag
+
+        # other parameters
+        self.dailytomonths = dailytomonths
         self.verbosity = verbosity
         self.n_cpu = n_cpu
         self.n_jobs_clust = n_jobs_clust
@@ -213,7 +220,7 @@ class BivariateMI:
         xrpvals = xrcorr.copy()
 
 
-        def MI_single_split(RV_ts, precur_train, s, alpha=.05, FDR_control=True):
+        def MI_single_split(df_RVfull, precur_train, s, alpha=.05, FDR_control=True):
 
 
             lat = precur_train.latitude.values
@@ -223,15 +230,28 @@ class BivariateMI:
             Corr_Coeff = np.ma.array(z, mask=z)
             pvals = np.ones((lat.size*lon.size,len(lags) ) )
 
+            RV_mask = df_splits.loc[s]['RV_mask']
+            TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values==True
+            RV_train_mask = np.logical_and(RV_mask, TrainIsTrue)
+            if hasattr(df_RVfull.index, 'levels'):
+                df_RVfull_s = df_RVfull.loc[s]
+            else:
+                df_RVfull_s = df_RVfull
+            RV_ts = df_RVfull_s[RV_train_mask.values]
             dates_RV = RV_ts.index
             for i, lag in enumerate(lags):
                 if type(lag) is np.int16 and self.lag_as_gap==False:
-                    # dates_lag = functions_pp.func_dates_min_lag(dates_RV, self._tfreq*lag)[1]
-                    m = apply_shift_lag(self.df_splits.loc[s], lag)
-                    dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
-                    corr_val, pval = self.func(precur_train.sel(time=dates_lag),
-                                               RV_ts.values.squeeze(),
-                                               **self.kwrgs_func)
+                    if self.func.__name__=='parcorr_map':
+                        corr_val, pval = self.func(precur_train, df_RVfull_s,
+                                                   self.df_splits.loc[s].copy(),
+                                                   lag=lag,
+                                                   **self.kwrgs_func)
+                    else:
+                        m = apply_shift_lag(self.df_splits.loc[s], lag)
+                        dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
+                        corr_val, pval = self.func(precur_train.sel(time=dates_lag),
+                                                   RV_ts.values.squeeze(),
+                                                   **self.kwrgs_func)
                 elif type(lag) == np.int16 and self.lag_as_gap==True:
                     # if only shift tfreq, then gap=0
                     datesdaily = RV_class.aggr_to_daily_dates(dates_RV, tfreq=self._tfreq)
@@ -296,12 +316,6 @@ class BivariateMI:
                 # Split train test methods ['random'k'fold', 'leave_'k'_out', ', 'no_train_test_split']
                 # =============================================================================
                 TrainIsTrue = df_splits.loc[s]['TrainIsTrue'].values==True
-                RV_train_mask = np.logical_and(RV_mask, TrainIsTrue)
-                if hasattr(df_RVfull.index, 'levels'):
-                    RV_ts = df_RVfull.loc[s][RV_train_mask.values]
-                else:
-                    RV_ts = df_RVfull[RV_train_mask.values]
-
                 if self.lag_as_gap: # no clue why selecting all datapoints, changed 26-01-2021
                     train_dates = df_splits.loc[s]['TrainIsTrue'][TrainIsTrue].index
                     precur_train = precur_arr.sel(time=train_dates)
@@ -311,7 +325,7 @@ class BivariateMI:
                 n = RV_ts.size ; r = int(100*n/RV_mask[RV_mask].size)
                 print(f"\rProgress traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
 
-                output[s] = MI_single_split(RV_ts, precur_train, s,
+                output[s] = MI_single_split(df_RVfull, precur_train, s,
                                             alpha=self.alpha,
                                             FDR_control=self.FDR_control)
             return output
@@ -352,7 +366,72 @@ class BivariateMI:
         #%%
         return xrcorr, xrpvals
 
-    # def check_exception_time_mean_period(df_splits, precur_train)
+    def group_small_cluster(self, distance_eps_sc=1750, eps_corr=0.4,
+                            precur_aggr=None, kwrgs_load=None,
+                            min_gridcells_sc=1):
+
+        #%%
+        if hasattr(self, 'prec_labels_'):
+            self.prec_labels_ = self.prec_labels_.copy()
+        else:
+            print()
+            self.prec_labels_ = self.prec_labels.copy()
+
+        close = find_precursors.close_small_clusters
+        merge = close(self.prec_labels_,
+                      self.corr_xr.copy(), distance_eps_sc,
+                      min_gridcells_sc)
+        print('Near clusters', merge)
+
+        f_replace = find_precursors.view_or_replace_labels
+        if eps_corr is not None:
+            merge_upd = []
+            suggested_group = f_replace(self.prec_labels_,
+                                        regions=core_pp.flatten(merge))
+
+            self.prec_labels = suggested_group.copy()
+            calc_ts_o = self.calc_ts
+            self.calc_ts = 'region mean'
+            self.get_prec_ts(precur_aggr, kwrgs_load)
+            df = pd.concat(self.ts_corr,
+                           keys=range(len(self.ts_corr))).mean(0,level=1)
+            for l in core_pp.flatten(merge):
+                cols = [c for c in df.columns if f'..{int(l)}..' in c]
+                df = df.rename({c:str(l) for c in cols}, axis=1)
+            # groupby lags
+            df_grlabs = df.groupby(by=df.columns, axis=1).mean()
+            df_grlabs.columns = df_grlabs.columns.astype(float)
+            for m in merge:
+                DBSCAN = find_precursors.cluster.DBSCAN
+                cl = DBSCAN(eps=eps_corr,
+                             min_samples=1,
+                             metric='correlation',
+                             n_jobs=1).fit(df_grlabs.loc[:,m].T)
+                for grl in np.unique(cl.labels_):
+                    _grl = np.array(m)[cl.labels_==grl]
+                    if _grl.size > 1:
+                        merge_upd.append(list(_grl))
+        # restore calc ts
+        self.calc_ts = calc_ts_o
+        print('Near clusters correlating', merge_upd)
+
+
+        keys = [min(cl) for cl in merge_upd]
+        [m.remove(keys[i]) for i,m in enumerate(merge_upd)]
+        relabeldict = {im:keys[merge_upd.index(m)] for m in merge_upd for im in m}
+
+
+        regions = list(relabeldict.keys())
+        replacement_labels = list(relabeldict.values())
+
+        all_regions = np.unique(self.prec_labels_.mean(dim='split'))
+        all_regions = all_regions[~np.isnan(all_regions)]
+        keepregions = [r for r in all_regions if r not in regions]
+        regions += keepregions  ; replacement_labels += keepregions
+        self.prec_labels = f_replace(self.prec_labels_.copy(), regions=regions,
+                                    replacement_labels=replacement_labels)
+        return
+
 
     def adjust_significance_threshold(self, alpha):
         self.alpha = alpha
@@ -380,11 +459,9 @@ class BivariateMI:
         # self = rg.list_for_MI[0] ; df_splits = rg.df_splits ; kwrgs_load = rg.kwrgs_load
         name = self.name
         filepath = self.filepath
-
-        # for name, filepath in list_precur_pp: # loop over all variables
-            # =============================================================================
-            # Unpack non-default arguments
-            # =============================================================================
+        # =============================================================================
+        # Unpack non-default arguments
+        # =============================================================================
         kwrgs = {'selbox':self.selbox, 'dailytomonths':self.dailytomonths}
         for key, value in kwrgs_load.items():
             if type(value) is list and name in value[1].keys():
@@ -418,7 +495,7 @@ class BivariateMI:
         kwrgs = self.kwrgs_load
         if hasattr(self, 'kwrgs_z') == False: # copy so info remains stored
             self.kwrgs_z = self.kwrgs_func.copy() # first time copy
-        if self.func.__name__ == 'parcorr_z':
+        if 'filepath' in self.kwrgs_z.keys():
             if type(self.kwrgs_z['filepath']) is str:
                 print('Loading and aggregating {}'.format(self.kwrgs_z['keys_ext']))
                 f = find_precursors.import_precur_ts
@@ -437,7 +514,7 @@ class BivariateMI:
                                                               right_index=True)).iloc[:,:1]
                 k = list(self.kwrgs_func.keys())
                 [self.kwrgs_func.pop(k) for k in k if k in ['filepath','keys_ext']]
-                self.kwrgs_func.update({'z':self.df_z}) # overwrite kwrgs_func
+                self.kwrgs_func.update({'df_z':self.df_z}) # overwrite kwrgs_func
                 k = [k for k in list(self.kwrgs_z.keys()) if k not in ['filepath','keys_ext']]
 
                 equal_dates = all(np.equal(self.df_z.index,
@@ -448,11 +525,11 @@ class BivariateMI:
                 self.df_z = self.kwrgs_z['filepath']
                 k = list(self.kwrgs_func.keys())
                 [self.kwrgs_func.pop(k) for k in k if k in ['filepath','keys_ext']]
-                self.kwrgs_func.update({'z':self.df_z}) # overwrite kwrgs_func
+                self.kwrgs_func.update({'df_z':self.df_z}) # overwrite kwrgs_func
         return
 
 
-    def get_prec_ts(self, precur_aggr=None, kwrgs_load=None): #, outdic_precur #TODO
+    def get_prec_ts(self, precur_aggr=None, kwrgs_load=None):
         # tsCorr is total time series (.shape[0]) and .shape[1] are the correlated regions
         # stacked on top of each other (from lag_min to lag_max)
 
@@ -522,18 +599,21 @@ class BivariateMI:
                     f_name = file
         if f_name is not None:
             filepath = os.path.join(path_hashfile, f_name)
-            self.ds = core_pp.import_ds_lazy(filepath)
-            self.corr_xr = self.ds['corr_xr']
+            self.corr_xr = core_pp.import_ds_lazy(filepath, var='corr_xr')
             self.alpha = self.corr_xr.attrs['alpha']
             self.FDR_control = bool(self.corr_xr.attrs['FDR_control'])
-            self.precur_arr = self.ds['precur_arr']
+            self.precur_arr = core_pp.import_ds_lazy(filepath,
+                                                      var='precur_arr')
             # self._tfreq = self.precur_arr.attrs['_tfreq']
-            if 'prec_labels' in self.ds.variables.keys():
-                self.prec_labels = self.ds['prec_labels']
+            try:
+                self.prec_labels = core_pp.import_ds_lazy(filepath,
+                                                          var='prec_labels')
                 self.distance_eps = self.prec_labels.attrs['distance_eps']
                 self.min_area_in_degrees2 = self.prec_labels.attrs['min_area_in_degrees2']
                 self.group_lag = bool(self.prec_labels.attrs['group_lag'])
                 self.group_split = bool(self.prec_labels.attrs['group_split'])
+            except:
+                print('prec_labels not found. Precursor regions not yet clustered')
             loaded = True
         else:
             print('No file that matches the hash_str or instance settings in '
@@ -601,10 +681,13 @@ def corr_map(field, ts):
 
     return corr_vals, pvals
 
-def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag_y=0, lag_x=0):
+def parcorr_map(field: xr.DataArray, ts: pd.DataFrame, df_splits_s, lag,
+                lag_y: Union[int,list]=None, lag_x: Union[int,list]=None,
+                df_z: pd.DataFrame=None, lag_z: Union[int,list]=None,
+                lagzxrelative=True):
+
     '''
     Only works for subseasonal data (more then 1 datapoint per year).
-    Lag must be >= 1. Warning!!! what about gap between years and shifting data
 
     Parameters
     ----------
@@ -612,12 +695,22 @@ def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag_y=0, lag_x=0):
         (time, lat, lon) field.
     ts : np.ndarray
         Target timeseries.
-    lag : int, optional
-        DESCRIPTION. The default is 1.
-    target : TYPE, optional
-        DESCRIPTION. The default is True.
-    precursor : TYPE, optional
-        DESCRIPTION. The default is True.
+    df_splits_s : pd.DataFrame
+        DF with TrainIsTrue and RV_mask to handle lag shifting
+    lag : int
+        lag used to select precursor dates. The default is 1.
+    lag_x : int or list, optional
+        lags of precursor lag to regress out, default is None.
+    lag_y : int or list, optional
+        lags w.r.t. target RV period to regress out, default is None.
+    df_z : pd.DataFrame, optional
+        1-d timeseries to regress out, default is None.
+    lag_z : int or list, optional
+        lags of precursor lag to regress out, default is None.
+    lagzxrelative : bool, optional
+        Whether to define lag_z and lag_x w.r.t. the lag of the precursor.
+        Default is True.
+
 
     Returns
     -------
@@ -625,48 +718,407 @@ def parcorr_map_time(field: xr.DataArray, ts: np.ndarray, lag_y=0, lag_x=0):
     pvals : np.ndarray
 
     '''
-    # field = precur_train.sel(time=dates_lag) ; ts = RV_ts.values.squeeze()
-
+    #%%
+    # field = precur_train; ts = df_RVfull_s ; df_splits_s=self.df_splits.loc[s]
+    # lagzxrelative=True; lag_y=None; lag_z=None ; lag_x=None
+    # df_z = self.kwrgs_func['df_z']
     if type(lag_y) is int:
         lag_y = [lag_y]
     if type(lag_x) is int:
         lag_x = [lag_x]
+    if type(lag_z) is int:
+        lag_z = [lag_z]
 
-    max_lag = max(max(lag_y), max(lag_x))
-    assert max_lag>0, 'lag_x or lag_y must be >= 1'
+    # get lagged precursor
+    m = apply_shift_lag(df_splits_s, lag)
+    dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
+    RV_mask = df_splits_s.sum(axis=1) == 2 # both train and RV dates of target
     # if more then one year is filled with NaNs -> no corr value calculated.
-    field, ts = check_NaNs(field, ts)
-    x = np.ma.zeros(field.shape[1])
+    field_lag, ts_target = check_NaNs(field.sel(time=dates_lag), ts.values.squeeze()[RV_mask])
+    x = np.ma.zeros(field_lag.shape[1])
     corr_vals = np.array(x)
     pvals = np.array(x)
 
-    fieldnans = np.array([np.isnan(field[:,i]).any() for i in range(x.size)])
+    fieldnans = np.array([np.isnan(field_lag[:,i]).any() for i in range(x.size)])
     nonans_gc = np.arange(0, fieldnans.size)[fieldnans==False]
 
+    # =============================================================================
+    # checking if data is not available at edges due to lag shifting
+    # =============================================================================
+    missing_edge_data = 0
+    if lag_y is not None:
+        m = apply_shift_lag(df_splits_s, max(lag_y))
+        m = np.logical_and(m['TrainIsTrue']==1, m['x_fit'])
+        missing_edge_data = max(ts_target.shape[0] - ts[m].values.shape[0],
+                                missing_edge_data)
+    if lag_x is not None:
+        _lag = max(lag_x) + lag if lagzxrelative else max(lag_x)
+        m = apply_shift_lag(df_splits_s, _lag)
+        dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
+        missing_edge_data = max(ts_target.shape[0] - dates_lag.size, missing_edge_data)
+    if lag_z is not None:
+        _lag = max(lag_z) + lag if lagzxrelative else max(lag_z)
+        m = apply_shift_lag(df_splits_s, _lag)
+        m = np.logical_and(m['TrainIsTrue']==1, m['x_fit'])
+        missing_edge_data = max(ts_target.shape[0] - df_z.loc[m[m].index].values.shape[0],
+                                missing_edge_data)
 
-    if max(lag_y) > 0:
-        zy = [np.expand_dims(ts[max_lag-l:-l], axis=1) for l in lag_y if l != 0]
+    # =============================================================================
+    # Get (lag shifted) zy
+    # =============================================================================
+    if lag_y is not None:
+        zy = []
+        for _lag in lag_y:
+            m = apply_shift_lag(df_splits_s, _lag)
+            m = np.logical_and(m['TrainIsTrue']==1, m['x_fit'])
+            missing_edge = ts_target.shape[0] - ts[m].values.shape[0]
+            zy.append(ts[m].values[missing_edge_data-missing_edge:])
         zy = np.concatenate(zy, axis=1)
+    else:
+        zy = None
 
-    y = np.expand_dims(ts[max_lag:], axis=1)
+    # =============================================================================
+    # Get (lag shifted) zz
+    # =============================================================================
+    if lag_z is not None:
+        zz = []
+        for _lag in lag_z:
+            _lag = _lag + lag if lagzxrelative else _lag
+            m = apply_shift_lag(df_splits_s, _lag)
+            m = np.logical_and(m['TrainIsTrue']==1, m['x_fit'])
+            missing_edge = ts_target.shape[0] - df_z.loc[m[m].index].values.shape[0]
+            zz.append(df_z.loc[m[m].index].values[missing_edge_data-missing_edge:])
+        zz = np.concatenate(zz, axis=1)
+    else:
+        zz = None
+
+    # =============================================================================
+    # Get (lag shifted) zx_field
+    # =============================================================================
+    if lag_x is not None:
+        # this workflow might a bit too memory intensive since copying precursor
+        # len(lag_x) times. But otherwise need to compute this in loop over gridcells.
+        zx_field = []
+        for _lag in lag_x:
+            _lag_ = _lag + lag if lagzxrelative else _lag
+            m = apply_shift_lag(df_splits_s, _lag_)
+            dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
+            missing_edge = missing_edge_data - (ts_target.shape[0]  - dates_lag.size)
+            _d = dates_lag[missing_edge:]
+            zx_field.append(field.sel(time=_d).values.reshape(_d.size,1,-1))
+        zx_field = np.concatenate(zx_field, axis=1)
+    else:
+        zx = None
+
+
+    y = np.expand_dims(ts_target[missing_edge_data:], axis=1)
+    # dict_ana = {}
     for i in nonans_gc:
         cond_ind_test = ParCorr()
-        if max(lag_x) > 0:
-            zx = [np.expand_dims(field[max_lag-l:-l, i], axis=1) for l in lag_x if l != 0]
-            zx = np.concatenate(zx, axis=1)
-        if max(lag_x) > 0 and max(lag_y) > 0: # both zy and zx defined
-            z = np.concatenate((zy,zx), axis=1)
-        elif max(lag_x) > 0 and max(lag_y) == 0: # only zx defined
-            z = zx
-        elif max(lag_x) == 0 and max(lag_y) > 0:
-            z = zy
-        field_i = np.expand_dims(field[max_lag:,i], axis=1)
-        a, b = cond_ind_test.run_test_raw(field_i, y, z)
+        if lag_x is not None:
+            zx = zx_field[:,:,i]
+        z = None
+        for _z in [zx, zy, zz]:
+            if _z is not None and z is None:
+                z = np.concatenate([_z], axis=1) # create first z
+            elif _z is not None and z is not None:
+                z = np.append(z, _z, axis=1) # append other z's
+        field_i = np.expand_dims(field_lag[missing_edge_data:,i], axis=1)
+        a, p = cond_ind_test.run_test_raw(field_i, y, z)
+        # acorr, pcorr = cond_ind_test.run_test_raw(field_i, y, z=None)
+        # if abs(a) - abs(acorr) > .15 and p < 0.01 and a < 0:
+        #     dict_ana[i] = [field_i, y, z]
+        #     #
+        #     print('corr increased due to regressing out z', a, acorr)
+        #     plot_maps.show_field_point(field, i=i)
+        #     break
+        #     field_i = core_pp.detrend_wrapper(field_i)
+        #     y       = core_pp.detrend_wrapper(y)
+        #     for zaxis in range(z.shape[1]):
+        #         z[:,zaxis] = core_pp.detrend_wrapper(z[:,zaxis])
+        #     avald, pvald = cond_ind_test.run_test_raw(field_i, y, z)
+
+
         corr_vals[i] = a
-        pvals[i] = b
+        pvals[i] = p
+
+    # i_gridcells = np.array(list(dict_ana.keys()))
+    # dict_ana1 = {i:dict_ana[i] for i in i_gridcells[i_gridcells<5000]}
+    # dict_ana2 = {i:dict_ana[i] for i in i_gridcells[i_gridcells>5000]}
+    # dic = dict_ana1
+    # if len(dic) != 0:
+    #     arr = np.array([np.concatenate(dic[i], axis=1) for n,i in enumerate(dic.keys())])
+
+    #     z_label='$x_{t-2}$'
+    #     # for n,i in enumerate(dic.keys()):
+    #     #     field_i = arr[n][:,0] ; y = arr[n][:,1] ; z = arr[n][:,2:]
+    #     #     check_parcorr_plots(field, field_i, y, z, i, dates_lag, z_label)
+    #     arr = arr.mean(0) # mean over timeseries
+    #     field_i = arr[:,0] ; y = arr[:,1] ; z = arr[:,2:]
+    #     m = apply_shift_lag(df_splits_s, 1)
+    #     dates_lag = m[np.logical_and(m['TrainIsTrue']==1, m['x_fit'])].index
+    #     dates_lag = dates_lag[missing_edge_data:]
+    #     check_parcorr_plots(field, field_i, y, z, 'red_mean', dates_lag, z_label)
     # restore original nans
     corr_vals[fieldnans] = np.nan
+    #%%
     return corr_vals, pvals
+
+#%% Tigramite check of parcorr, datapoint: i = 3455
+
+# df_x = pd.DataFrame(field.values.reshape(field.shape[0],-1)[:,i], index=pd.to_datetime(field.time.values),
+#                     columns=['x'])
+# df_y = df_RVfull_s[df_splits_s['TrainIsTrue']]
+# masks = df_splits_s[df_splits_s['TrainIsTrue']]
+# df_tig = pd.concat([df_y.merge(df_x, left_index=True,
+#                     right_index=True).merge(masks,
+#                                             left_index=True,right_index=True)], keys=[0])
+# rg.df_data = df_tig
+# kwrgs_tigr = {'tau_min':0, 'tau_max':1, 'max_conds_dim':10,
+#                   'pc_alpha':0.05, 'max_combinations':10, 'max_conds_px':1}
+# rg.precur_aggr = 2
+# rg.PCMCI_df_data(kwrgs_tigr=kwrgs_tigr)
+#%% Some timeseries plots
+def check_parcorr_plots(field, field_i, y, z, i, dates_lag, z_label='$x_{t-2}$'):
+    #%%
+    import matplotlib.pyplot as plt
+    fs = 20
+    # z = zx
+    # z_label = '$x_{t-2}$'
+    # z_label = '$x^{pattern}_{t-2}$'
+    # z = zz
+    array = np.vstack((field_i.T, y.T, z.T))
+    array = (array - np.mean(array, 1)[:,None]) / np.std(array, 1)[:,None]
+
+    # Plot x_t-1 and z
+    path_out = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper2_Sem/Third_submission/figures/parcorr_figs/gridcells'
+    path_df_z = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/NPJ_2021/data/df_SST_lag1.h5'
+
+    # plot corr(y,x) vs corr(y,res_x)
+
+    df_z = functions_pp.load_hdf5(path_df_z)['df_data'].mean(axis=0, level=1)
+    df_z = df_z.loc[dates_lag].values.squeeze()
+    res_x = ParCorr()._get_single_residuals(np.copy(array), target_var=0)
+    res_y = ParCorr()._get_single_residuals(np.copy(array), target_var=1)
+
+    df_z = ((df_z - df_z.mean()) / df_z.std()) * -1
+    res_x = (res_x - res_x.mean()) / res_x.std()
+    res_y = (res_y - res_y.mean()) / res_y.std()
+    xlag = ((array[0]-np.mean(array[0],0))/np.std(array[0],0)).squeeze()
+
+    corr_function_patt = ((array[1]-np.mean(array[1])) * (df_z - df_z.mean()))
+    corr_function_xlag = ((array[1]-np.mean(array[1])) * (xlag-xlag.mean()))
+    corr_function_resx = ((res_y-np.mean(res_y)) * (res_x - res_x.mean()))
+    diff = abs(corr_function_xlag  - corr_function_resx)
+    remove_idx = 6
+    idx_skip = np.argwhere(diff >= sorted(diff)[-remove_idx]).squeeze()
+    # index_argmin = np.arange(0,73)[diff<sorted(diff)[-remove_idx]]
+
+
+    f, axes = plt.subplots(5,1, figsize=(15,25))
+    # bbox_to_anchor=(0.5, 1.42)
+    ax1 = axes[0]
+    ax1.plot(corr_function_xlag, c='#0096c7', label=r'$(y_t-\overline{y_t})\cdot (x_{t-1}-\overline{x_{t-1}})$')
+    ax1.plot(corr_function_resx, c='purple',
+            label=r'$(res_y-\overline{res_y})\cdot (res_x-\overline{res_x})$')
+    ax1.legend(fontsize=fs, loc='lower left')#, bbox_to_anchor=bbox_to_anchor, loc='upper center')
+    # ax1.scatter(idx_skip, corr_function_resx[idx_skip], c='r')
+    corr_n = scipy.stats.pearsonr(array[1].squeeze(), array[0].squeeze())
+    corr_r = scipy.stats.pearsonr(res_y,res_x)
+    # corr_r_excl = scipy.stats.pearsonr(res_y[index_argmin],res_x[index_argmin])
+    ax1.set_ylim(corr_function_resx.min()-2,
+                max(corr_function_resx.max(), corr_function_xlag.max())+.5)
+    textstr = '$corr(y_t,x_{t-1})=$'+f'${round(corr_n[0],2)}\ ({round(corr_n[1],3)})$\n'
+    textstr += '$corr(res_y,res_x)=$'+f'${round(corr_r[0],2)}\ ({round(corr_r[1],3)})$'
+    # textstr += '$corr(res_y,res_x)=$'+f'{round(corr_r_excl,2)} (excl red datapoint)'
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    # place a text box in upper left in axes coords
+    ax1.text(0.98, 0.05, textstr, transform=ax1.transAxes, fontsize=fs,
+            verticalalignment='bottom',
+            horizontalalignment='right', bbox=props)
+
+
+    ax2 = axes[1]
+    # y_t and x_t-1
+    ax2.plot(array[1], c='red', label='$y_t$', alpha=.8, ls='--')
+    ax2.scatter(range(array[1].size), array[1],
+                color='red', alpha=.5) ;
+    ax2.plot(array[0], c='#0096c7', label='$[x_{t-1}]$') ;
+    ax2.scatter(range(array[0].size), array[0],
+                color='#0096c7', alpha=.8) ;
+    ax2.set_ylim(min(array[:2].ravel())-2,
+                max(array[:2].ravel())+.5)
+    ax2.legend(fontsize=fs, loc='lower left')#, bbox_to_anchor=bbox_to_anchor, loc='upper center')
+
+    # res_y and res_x
+    ax3 = axes[2]
+    ax3.plot(res_y, c='red', label='$res_y\ [y_{t} | $'+f'{z_label}$]$', alpha=.8, ls='--')
+    ax3.scatter(range(array[1].size), res_y,
+                color='red', alpha=.5) ;
+    ax3.plot(res_x, c = 'purple', label='$res_x\ [x_{t-1} | $'+f'{z_label}$]$')
+    ax3.scatter(range(array[0].size), res_x,
+                color='purple', alpha=.8) ;
+    ax3.set_ylim(min(min(res_y), min(res_x))-4,
+                 max(max(res_y), max(res_x))+.5)
+    ax3.legend(fontsize=fs, loc='lower left')#, bbox_to_anchor=bbox_to_anchor, loc='upper center')
+
+    # Gradient vs Residual x
+    ax4 = axes[3]
+    xlag = ((field_i - np.mean(field_i)) / np.std(field_i)).squeeze()
+    gradient = (xlag) - (((z-np.mean(z,0))/np.std(z,0)).squeeze())
+    gradient = (gradient - np.mean(gradient)) / np.std(gradient)
+    ax4.plot(gradient, c='orange', label='Gradient $[x_{t-1} - $'+'$x_{t-2}$'+'$]$')
+    ax4.plot(res_x, c='purple', label='Residual $[x_{t-1} | $'+'$x_{t-2}$'+'$]$') ;
+    ax4.set_ylim(min(min(xlag), min(gradient))-3,
+                 max(max(xlag), max(gradient))+.5)
+    ax4.legend(fontsize=fs, loc='lower left')#, bbox_to_anchor=bbox_to_anchor, loc='upper center')
+
+    ax5 = axes[4]
+    ax5.plot(corr_function_patt, c='green', alpha=.5,
+             label=r'$(y_t-\overline{y_t})\cdot (x^{pattern}_{t-1}-\overline{x^{pattern}_{t-1}})$')
+    ax5.plot(corr_function_xlag, c='#0096c7', label=r'$(y_t-\overline{y_t})\cdot (x_{t-1}-\overline{x_{t-1}})$')
+    ax5.legend(fontsize=fs, loc='lower left')#, bbox_to_anchor=bbox_to_anchor, loc='upper center')
+    corr_n = scipy.stats.pearsonr(array[1].squeeze(), array[0].squeeze())
+    corr_r = scipy.stats.pearsonr(array[1].squeeze(),df_z)
+    ax5.set_ylim(corr_function_resx.min()-1.5,
+                max(corr_function_resx.max(), corr_function_xlag.max())+.5)
+    textstr = '$corr(y_t,x_{t-1})=$'+f'${round(corr_n[0],2)}\ ({round(corr_n[1],3)})$\n'
+    textstr += '$corr(y_t,x^{pattern}_{t-1})=$'+f'${round(corr_r[0],2)}\ ({round(corr_r[1],3)})$'
+    # textstr += '$corr(res_y,res_x)=$'+f'{round(corr_r_excl,2)} (excl red datapoint)'
+    props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+    # place a text box in upper left in axes coords
+    ax5.text(0.98, 0.05, textstr, transform=ax5.transAxes, fontsize=fs,
+            verticalalignment='bottom',
+            horizontalalignment='right', bbox=props)
+
+
+    plt.subplots_adjust(hspace=.2) ;
+    if 'purple' in i:
+        plot_labels = ['A', 'B', 'C', 'D', 'E']
+    elif 'red' in i:
+        plot_labels = ['F', 'G', 'H', 'I', 'J']
+    for i_ax, ax in enumerate(axes):
+        ax.minorticks_on() ; ax.axhline(y=0, color='black')
+        ax.grid(b=True, which='minor', color='grey', linestyle='--')
+        [ax.axvline(x=x, c='grey', alpha=.8) for x in idx_skip]
+        ax.tick_params(labelsize=16)
+        ax.text(0.01, 0.96, plot_labels[i_ax], transform=ax.transAxes, fontsize=fs+4,
+        verticalalignment='top',
+        horizontalalignment='left', bbox={'facecolor':'white'})
+    f.savefig(path_out + f'/{i}_correlation_function_{z_label}.jpeg', bbox_inches='tight')
+    #%%
+    # plt.savefig(path_out + f'/{i}_residual_parcorr(xt-1_{z_label}).jpeg')
+
+
+    # Original y and residual y
+    plt.figure(figsize=(10,5))
+    plt.plot(array[1], label='Original $[y_t]$')
+    plt.plot(res_y, label='Residual $[y_{1} | $'+f'{z_label}$]$') ;
+    plt.legend(fontsize=fs, loc='upper center')
+    plt.savefig(path_out + f'/{i}_residual_parcorr(yt_{z_label}).jpeg')
+    dim, T = array.shape
+    xyz = np.array([0 for i in range(field_i.shape[-1])] +
+                   [1 for i in range(y.shape[-1])] +
+                   [2 for i in range(z.shape[-1])])
+    print('\n',scipy.stats.pearsonr(res_y,res_x)[0],
+            ParCorr().get_significance(scipy.stats.pearsonr(res_y,res_x)[0], array, xyz, T, dim))
+
+
+
+    # print('\n',scipy.stats.pearsonr(array[1].squeeze(),gradient))
+    # print('\n',scipy.stats.pearsonr(res_x,gradient))
+    # print('\n',scipy.stats.pearsonr(array[1].squeeze(),res_x))
+    # print('\n',scipy.stats.pearsonr(array[0].squeeze(),res_x))
+
+    # Relationship between x_t-1 and gradient
+    plt.figure(figsize=(10,5))
+    xlag = array[0]
+    gradient = xlag - ((z-np.mean(z,0))/np.std(z,0)).squeeze()
+    gradient = (gradient - np.mean(gradient) / np.std(gradient))
+    plt.style.use('bmh') ;
+    plt.plot(gradient, label='Gradient $[x_{t-1} - $'+'$x_{t-2}$'+'$]$')
+    plt.plot(xlag, label='Original $[x_{t-1}]$') ;
+    plt.legend(fontsize=fs)
+    plt.savefig(path_out + f'/{i}_xt-1_vs_gradient_{z_label}.jpeg')
+
+    plt.figure(figsize=(10,5)) ; plt.style.use('bmh')
+    plt.plot(array[0], label='$x_{t-1}$') ;
+    plt.plot(array[2], c='b', label=z_label) ;
+    plt.legend(fontsize=fs, loc='upper center')
+    plt.savefig(path_out + f'/{i}_timeseries_xt-1_{z_label}.jpeg')
+    #%%
+    return
+#%%
+
+
+#%%
+
+
+
+
+# #%% Relationship between x_t-1 and gradient
+# plt.figure(figsize=(10,5))
+# xlag = ((field_i - np.mean(field_i)) / np.std(field_i)).squeeze()
+# gradient = xlag - ((zx-np.mean(zx,0))/np.std(zx,0)).squeeze()
+# gradient = (gradient - np.mean(gradient) / np.std(gradient))
+# plt.style.use('bmh') ;
+# plt.plot(gradient, label='Gradient $[x_{t-1} - $'+'$x_{t-2}$'+'$]$')
+# plt.plot(xlag, label='Original $[x_{t-1}]$') ;
+# plt.legend(fontsize=fs)
+# plt.savefig(path_out + f'/xt-1_vs_gradient_{z_label}.jpeg')
+
+# #%% Residual with x_t-2 versus residual with x_t-2 pattern
+# array = np.vstack((field_i.T, y.T, zx.T))
+# array = (array - np.mean(array, 1)[:,None]) / np.std(array, 1)[:,None]
+# res_xx = ParCorr()._get_single_residuals(np.copy(array), target_var=0)
+# array = np.vstack((field_i.T, y.T, zz.T))
+# array = (array - np.mean(array, 1)[:,None]) / np.std(array, 1)[:,None]
+# res_xz = ParCorr()._get_single_residuals(np.copy(array), target_var=0)
+
+# plt.figure(figsize=(10,5))
+# plt.plot(res_xx, label='Residual $[x_{t-1} | x_{t-2}]$') ;
+# plt.plot(res_xz, label='Residual $[x_{t-1} | x^{pattern}_{t-2}]$')
+# plt.legend(fontsize=fs, loc='upper center')
+# plt.ylim(-2.5,3)
+# #%%
+# plt.figure(figsize=(10,5))
+# plt.plot(abs(array[1] - ((zz-np.mean(zz,0))/np.std(zz,0)).squeeze()), label='$y_t - x_{t-1} | x^{pattern}_{t-2}$')
+# plt.plot(abs(array[1] - ((zx-np.mean(zx,0))/np.std(zx,0)).squeeze()), label='$y_t - x_{t-1} | x_{t-2}$')
+# plt.legend(fontsize=fs, loc='upper center')
+# plt.ylim(0,4)
+# #%%
+# plt.figure(figsize=(10,5))
+# plt.plot(abs(array[1] - xlag), label='$y_t - x_{t-1}$')
+# plt.plot(abs(array[1] - ((zx-np.mean(zx,0))/np.std(zx,0)).squeeze()), label='$y_t - x_{t-1} | x_{t-2}$')
+# plt.legend(fontsize=fs, loc='upper center')
+# plt.ylim(0,4)
+
+# #%%
+
+
+# #%%
+# plt.figure(figsize=(10,5))
+# plt.plot(abs(array[1] - array[0]), label='$y_t - x_{t-1}$') ;
+# plt.plot(abs(array[1] - res_xx), label='$y_t - parcorr(x_{t-1} | x_{t-2})$') ;
+# plt.legend(fontsize=fs, loc='upper center')
+# plt.ylim(0,5)
+# # print('\n',scipy.stats.pearsonr(res_xx,res_xz))
+
+# #%% Plot x_t-2 and x^pattern_t-2
+# plt.figure(figsize=(10,5)) ; plt.style.use('bmh')
+# plt.plot(((zx-np.mean(zx,0))/np.std(zx,0)).squeeze(), label='$x_{t-2}$') ;
+# plt.plot(((zz-np.mean(zz,0))/np.std(zz,0)).squeeze(), c='b', label='$x^{pattern}_{t-2}$') ;
+# plt.legend(fontsize=fs, loc='upper center')
+# plt.savefig(path_out + '/timeseries_xt-2_xpattern_t-2.jpeg')
+# #%% autocorrelation plot
+# import df_ana
+# df = pd.DataFrame(field.values.reshape(field.shape[0],-1), index=pd.to_datetime(field.time.values)).iloc[:,i]
+# f, ax = plt.subplots(1) ;
+# df_ana.plot_ac(df_z, ax=ax, s = 6, color='#EE6666') ;
+# df_ana.plot_ac(df, ax=ax, s = 6, color='#3388BB') ;
+# ax.set_xticklabels(labels=np.arange(0, 12,2))
+# ax.set_xlabel('Months') ; ax.set_ylabel('Autocorrelation')
+#%%
 
 def parcorr_z(field: xr.DataArray, ts: np.ndarray, z: pd.DataFrame, lag_z: int=0):
     '''
@@ -737,8 +1189,14 @@ def pp_calc_ts(precur, precur_aggr=None, kwrgs_load: dict=None,
     Pre-process for calculating timeseries of precursor regions or pattern.
     '''
     #%%
-    corr_xr         = precur.corr_xr
+    if hasattr(precur, 'corr_xr_'):
+        corr_xr         = precur.corr_xr_
+    else:
+        corr_xr         = precur.corr_xr
     prec_labels     = precur.prec_labels
+
+    if kwrgs_load is None:
+        kwrgs_load = precur.kwrgs_load
 
     if lags is not None:
         lags        = np.array(lags) # ensure lag is np.ndarray
@@ -746,13 +1204,6 @@ def pp_calc_ts(precur, precur_aggr=None, kwrgs_load: dict=None,
         prec_labels = prec_labels.sel(lag=lags).copy()
     else:
         lags        = prec_labels.lag.values
-    dates           = pd.to_datetime(precur.precur_arr.time.values)
-    oneyr = functions_pp.get_oneyr(dates)
-    if oneyr.size == 1: # single val per year precursor
-        tfreq = 365
-    else:
-        tfreq = (oneyr[1] - oneyr[0]).days
-
 
     if precur_aggr is None and force_reload==False:
         precur_arr = precur.precur_arr
@@ -840,7 +1291,7 @@ def single_split_calc_spatcov(precur, precur_arr: np.ndarray, corr: np.ndarray,
 
         # if lag represents aggregation period:
         if precur.period_means_array == True:
-            precur_arr = precur.precur_arr.sel(lag=il)
+            precur_arr = precur.precur_arr.sel(lag=il).values
 
         pattern = np.copy(corr[il]) # copy to fix ValueError: assignment destination is read-only
         mask = labels[il]
@@ -960,8 +1411,8 @@ def calc_ts_wrapper(precur, precur_aggr=None, kwrgs_load: dict=None,
 
     Returns
     -------
-    ts_corr : TYPE
-        DESCRIPTION.
+    ts_corr : list
+        list of DataFrames.
 
     '''
     #%%
@@ -972,6 +1423,8 @@ def calc_ts_wrapper(precur, precur_aggr=None, kwrgs_load: dict=None,
                                                   force_reload, lags)
     lags        = prec_labels.lag.values
     use_coef_wghts  = precur.use_coef_wghts
+    if hasattr(precur, 'area_grid')==False:
+        precur.area_grid = find_precursors.get_area(precur_arr)
     a_wghts         = precur.area_grid / precur.area_grid.mean()
     splits          = corr_xr.split.values
     dates = pd.to_datetime(precur_arr.time.values)
@@ -994,7 +1447,7 @@ def calc_ts_wrapper(precur, precur_aggr=None, kwrgs_load: dict=None,
                                     lags: np.ndarray,
                                     use_coef_wghts: bool):
         '''
-        Wrapper to divide calculating a number of splits per core, instead of
+        Wrapper to divide calculating a 'list of splits' per core, instead of
         assigning each split to a seperate worker (high overhead).
         '''
         for s in splits:
@@ -1034,7 +1487,7 @@ def calc_ts_wrapper(precur, precur_aggr=None, kwrgs_load: dict=None,
         tsCorr = np.concatenate(tuple(ts_list), axis = 1)
         df_tscorr = pd.DataFrame(tsCorr,
                                  index=dates,
-                                columns=track_names)
+                                 columns=track_names)
         df_tscorr.name = str(s)
         if any(df_tscorr.isna().values.flatten()):
             print('Warnning: nans detected')

@@ -65,7 +65,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1', 'USDA_Soy_clusters__2']
 seeds = seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_1'] # ['ranstrat_20']
+methods = ['ranstrat_20'] # ['ranstrat_20']
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -796,6 +796,13 @@ def plot_regions(rg, save, plot_parcorr=False):
             RB = (df_pvals.loc[k]<alpha_CI).sum()
             list_mon.append((k, corr_val, RB))
         CondDepKeys[mon] = list_mon
+
+    # get number of time precursor extracted training splits:
+    allkeys = [list(rg.df_data.loc[s].dropna(axis=1).columns[1:-2]) for s in range(rg.n_spl)]
+    allkeys = functions_pp.flatten(allkeys)
+    {k:allkeys.count(k) for k in allkeys}
+    rg._df_count = pd.Series({k:allkeys.count(k) for k in allkeys},
+                               dtype=object)
 
     for ip, precur in enumerate(rg.list_for_MI):
         # ip=0; precur = rg.list_for_MI[ip]

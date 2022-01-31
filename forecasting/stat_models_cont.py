@@ -9,7 +9,7 @@ Created on Wed Oct  2 15:03:31 2019
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import RidgeCV
-from sklearn.model_selection import GridSearchCV
+import sklearn.model_selection as msel
 
 import func_models as utils
 
@@ -108,11 +108,13 @@ class ScikitModel:
         self.scikitmodel = scikitmodel
         self.verbosity = verbosity
 
-    def fit_wrapper(self, y_ts, df_norm, keys=None, kwrgs_model=None):
+    def fit_wrapper(self, y_ts, df_norm, keys=None, kwrgs_model={}):
         '''
         X contains all precursor data, incl train and test
         X_train, y_train are split up by TrainIsTrue
         Preciction is made for whole timeseries
+        if 'search_method' is given in kwrgs_model, it will specifify the
+        model selection method from scikit-learn. Default is GridSearchCV.
         '''
         #%%
 
@@ -126,17 +128,17 @@ class ScikitModel:
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         # warnings.filterwarnings("ignore", category=FutureWarning)
 
-        if kwrgs_model == None:
-            # use Bram settings
-            kwrgs_model = { 'fit_intercept':True,
-                            'alphas':(.01, .1, 1.0, 10.0)}
-
-
         # find parameters for gridsearch optimization
         kwrgs_gridsearch = {k:i for k, i in kwrgs_model.items() if type(i) == list}
         # only the constant parameters are kept
         kwrgs = kwrgs_model.copy()
         [kwrgs.pop(k) for k in kwrgs_gridsearch.keys()]
+
+        # extract some specified parameters if given
+        if 'search_method' in kwrgs.keys():
+            search_method = kwrgs.pop('search_method')
+        else:
+            search_method = 'GridSearchCV'
         if 'scoringCV' in kwrgs.keys():
             scoring = kwrgs.pop('scoringCV')
         else:
@@ -145,12 +147,12 @@ class ScikitModel:
             n_jobs = kwrgs.pop('n_jobs')
         else:
             n_jobs = None
+
         # Get training years
         x_fit_mask, y_fit_mask, x_pred_mask, y_pred_mask = utils.get_masks(df_norm)
 
         X = df_norm[keys]
         X = X.dropna(axis='columns') # drop only nan columns
-        # X = add_constant(X)
         X_train = X[x_fit_mask.values]
         X_pred  = X[x_pred_mask.values]
 
@@ -161,12 +163,6 @@ class ScikitModel:
         # y_ts dates may no longer align with x_fit  y_fit masks
         y_fit_mask = df_norm['TrainIsTrue'].loc[y_fit_mask.index].values==1
         y_train = RV_fit[y_fit_mask].squeeze()
-
-        # if y_pred_mask is not None:
-        #     y_dates = RV_fit[y_pred_mask.values].index
-        # else:
-        # y_dates = RV_fit.index
-
         X = X_train
 
         # # Create stratified random shuffle which keeps together years as blocks.
@@ -183,14 +179,16 @@ class ScikitModel:
             model = scikitmodel(**kwrgs)
 
         if len(kwrgs_gridsearch) != 0:
-            model = GridSearchCV(model,
+            gridsearch = msel.__dict__[search_method]
+            model = gridsearch(model,
                       param_grid=kwrgs_gridsearch,
                       scoring=scoring, cv=cv, refit=True,
                       return_train_score=True, verbose=self.verbosity,
                       n_jobs=n_jobs)
             model.fit(X_train, y_train.values.ravel())
             model.best_estimator_.X_pred = X_pred # add X_pred to model
-            model.df_norm = df_norm # add df_norm to model for easy reproduction
+            model.best_estimator_.df_norm = df_norm # add df_norm to model for easy reproduction
+            model.best_estimator_.target = RV_fit
             # if self.verbosity == 1:
             #     results = model.cv_results_
             #     scores = results['mean_test_score']
@@ -203,13 +201,17 @@ class ScikitModel:
             model.fit(X_train, y_train.values.ravel())
             model.X_pred = X_pred # add X_pred to model
             model.df_norm = df_norm # add df_norm to model for easy reproduction
+            model.target = RV_fit
 
         if np.unique(y_train).size < 5:
             y_pred = model.predict_proba(X_pred)[:,1] # prob. event prediction
         else:
             y_pred = model.predict(X_pred)
 
-        prediction = pd.DataFrame(y_pred, index=x_pred_mask[x_pred_mask].index,
+        # changed on 27-01-2022
+        # prediction = pd.DataFrame(y_pred, index=x_pred_mask[x_pred_mask].index,
+                                  # columns=[0])
+        prediction = pd.DataFrame(y_pred, index=RV_fit.index,
                                   columns=[0])
         #%%
         return prediction, model

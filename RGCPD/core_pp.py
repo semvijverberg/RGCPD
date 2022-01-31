@@ -35,10 +35,10 @@ def get_oneyr(dt_pdf_pds_xr, *args):
 
     for arg in args:
         year = arg
-        dates.append(pddatetime.where(pddatetime.year==year).dropna())
+        dates.append(pddatetime.where(pddatetime.year.values==year).dropna())
     dates = pd.to_datetime(flatten(dates))
     if len(dates) == 0:
-        dates = pddatetime.where(pddatetime.year==year).dropna()
+        dates = pddatetime.where(pddatetime.year.values==year).dropna()
     return dates
 
 
@@ -263,7 +263,7 @@ def ds_num2date(ds, loadleap=False):
         dates = [d.replace(day=1,hour=0) for d in pd.to_datetime(dates)]
     else:
         dates = pd.to_datetime(dates)
-        stepsyr = dates.where(dates.year == dates.year[0]).dropna(how='all')
+        stepsyr = get_oneyr(dates)
         test_if_fullyr = np.logical_and(dates[stepsyr.size-1].month == 12,
                                    dates[stepsyr.size-1].day == 31)
         assert test_if_fullyr, ('full is needed as raw data since rolling'
@@ -784,8 +784,8 @@ def NaN_handling(data, inter_method: str='spline', order=2, inter_NaN_limit: flo
     return data
 
 
-def detrend_wrapper(data, kwrgs_detrend: dict=None, return_trend: bool=False,
-            plot: bool=True):
+def detrend_wrapper(data, kwrgs_detrend: dict=None,
+                    return_trend: bool=False, plot: bool=True):
     '''
     Wrapper supporting linear and loess detrending on xr.DataArray, pd.DataFrame
     & np.ndarray. Note, linear detrending is way faster then loess detrending.
@@ -893,14 +893,19 @@ def detrend_wrapper(data, kwrgs_detrend: dict=None, return_trend: bool=False,
         data = pd.DataFrame(data, index=index, columns=columns)
         if return_trend:
             trend_ts = pd.DataFrame(trend_ts, index=index, columns=columns)
+        if plot and method=='linear':
+            data = data - trend_ts
     elif to_DA:
         data = xr.DataArray(data, coords=coords, dims=dims, attrs=attrs, name=name)
         if return_trend:
             trend_ts = xr.DataArray(trend_ts, coords=coords, dims=dims, attrs=attrs,
                                 name=name)
         if plot and method=='linear':
-            _check_trend_plot(data, detrended.reshape(orig_shape))
-            data = xr.DataArray(detrended.reshape(orig_shape), coords=coords, dims=dims, attrs=attrs, name=name)
+            # _check_trend_plot(data, detrended.reshape(orig_shape))
+            data = xr.DataArray(detrended.reshape(orig_shape), coords=coords,
+                                dims=dims, attrs=attrs, name=name)
+    else: # numpy array
+        data = detrended.reshape(orig_shape)
 
 
     if return_trend:
@@ -1242,6 +1247,9 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
 
     if start_end_date is None and start_end_year is None:
         return dates
+    elif start_end_date is None and start_end_year is not None:
+        selyears = np.arange(start_end_year[0],start_end_year[-1]+1)
+        return get_oneyr(dates, *selyears)
 
     if start_end_year is None:
         startyr = dates.year.min()
@@ -1250,6 +1258,9 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
     else:
         startyr = start_end_year[0]
         endyr   = start_end_year[-1]
+
+    assert startyr >= dates.year[0], ('Start year is before the first year in'
+                                     ' the dataset/datetime array')
     # n_yrs = np.arange(startyr, endyr+1).size
     firstyr = get_oneyr(dates, startyr)
 
@@ -1302,9 +1313,14 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
         while sstartdate < pd.to_datetime(str(startyr) + '-' + start_end_date[0]):
             daily_yr_fit -=1
             sstartdate = senddate - pd.Timedelta(int(tfreq * daily_yr_fit), 'd')
+        # leapday exception
 
         start_yr = remove_leapdays(pd.date_range(start=sstartdate, end=senddate,
                                     freq=pd.Timedelta(tfreq, unit='day')))
+        if sstartdate.is_leap_year and sstartdate.month<3 and senddate.month>=3:
+            start_yr = list(start_yr)
+            start_yr[0] = start_yr[0]- pd.Timedelta('1d')
+            start_yr = pd.to_datetime(start_yr)
 
     datessubset = make_dates(start_yr, np.arange(startyr, endyr+1))
     if tfreq == 1: # only check for daily data
@@ -1353,4 +1369,11 @@ def ensmean(outfile, weights=list, name=None, *args):
     mask =  (('latitude', 'longitude'), (ds_mean.values[0] != -9999) )
     ds_mean.coords['mask'] = mask
     ds_mean.to_netcdf(outfile, mode='w', encoding=encoding)
+
+
+
+
+
+
+
 

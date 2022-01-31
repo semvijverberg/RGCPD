@@ -3,6 +3,13 @@
 """
 Created on Thu Nov 26 12:44:42 2020
 
+Step for Appendix B to reproduce results of NPJ paper:
+"The role of the Pacific Decadal Oscillation and
+ocean-atmosphere interactions in driving US temperature variability"
+
+It loads the RW and temperature timeseries that are stored by step 2.
+This script generates and plot the results for Appendix B.
+
 @author: semvijverberg
 """
 import os, inspect, sys
@@ -16,7 +23,7 @@ main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-data_dir = os.path.join(main_dir,'publications/paper2/data')
+data_dir = os.path.join(main_dir,'publications/Vijverberg_Coumou_2022_NPJ/data')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -41,9 +48,9 @@ adapt_selbox = False
 TV = 'USCAnew'
 
 if west_east == 'east':
-    path_out_main = os.path.join(main_dir, 'publications/paper2/output/east/')
+    path_out_main = os.path.join(main_dir, 'publications/Vijverberg_Coumou_2022_NPJ/output/east/')
 elif west_east == 'west':
-    path_out_main = os.path.join(main_dir, 'publications/paper2/output/west/')
+    path_out_main = os.path.join(main_dir, 'publications/Vijverberg_Coumou_2022_NPJ/output/west/')
 
 if TV == 'init':
     TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
@@ -143,7 +150,7 @@ PNA = PNA.rename({'PNA':'PNAliu'},axis=1)
 # From Climate Explorer
 # https://climexp.knmi.nl/getindices.cgi?WMO=NCEPData/cpc_pna_daily&STATION=PNA&TYPE=i&id=someone@somewhere&NPERYEAR=366
 # on 20-07-2020
-PNA_cpc = core_pp.import_ds_lazy(main_dir+'/publications/paper2/data/icpc_pna_daily_1980-2020.nc',
+PNA_cpc = core_pp.import_ds_lazy(main_dir+'/publications/Vijverberg_Coumou_2022_NPJ/data/icpc_pna_daily_1980-2020.nc',
                                  start_end_year=(1979, 2020),
                                  seldates=start_end_TVdate).to_dataframe('PNAcpc')
 PNA_cpc.index.name = None
@@ -215,7 +222,7 @@ for west_east in ['west', 'east', 'combine']:
     rg.get_ts_prec(precur_aggr=1)
 
     # import RW timeseries
-    path_ext = os.path.join(main_dir,'publications/paper2/output/heatwave_circulation_v300_z500_SST/57db0USCA/z500_155-300-20-7357db0USCA.h5')
+    path_ext = os.path.join(main_dir,'publications/Vijverberg_Coumou_2022_NPJ/output/heatwave_circulation_v300_z500_SST/57db0USCA/z500_155-300-20-7357db0USCA.h5')
     df_ext = functions_pp.load_hdf5(path_ext)['df_data']
     df_ext = df_ext.mean(axis=0,level=1) ;
     df_ext.pop('TrainIsTrue') ; df_ext.pop('RV_mask')

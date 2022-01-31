@@ -50,12 +50,36 @@ def skclustering(time_space_3d, mask2d=None, clustermethodkey='AgglomerativeClus
     space_time_vec, output_space_time, indices_mask = create_vector(time_space_3d, mask2d)
 
     space_time_vec[np.isnan(space_time_vec)] = -32767.0 #replace nans
+    # if dimension == 'temporal':
+        # results = cluster_method.fit(space_time_vec.swapaxes(0,1))
+    # else
     results = cluster_method.fit(space_time_vec)
     labels = results.labels_ + 1
     xrclustered = labels_to_latlon(time_space_3d, labels, output_space_time, indices_mask, mask2d)
     return xrclustered.values, results
 
 def create_vector(time_space_3d, mask2d):
+    '''
+    Converts time, lat, lon xarray object to (space, time) numpy array for
+    clustering spatial points.
+
+    Parameters
+    ----------
+    time_space_3d : xr.DataArray oject
+
+    mask2d : np.ndarray
+        2-d spatial mask to exclude observations.
+
+    Returns
+    -------
+    space_time_vec : TYPE
+        DESCRIPTION.
+    output_space_time : TYPE
+        DESCRIPTION.
+    indices_mask : TYPE
+        DESCRIPTION.
+
+    '''
     time_space_3d = time_space_3d.where(mask2d == True)
     # create mask for to-be-clustered time_space_3d
     n_space = time_space_3d.longitude.size*time_space_3d.latitude.size
@@ -82,7 +106,9 @@ def adjust_kwrgs(kwrgs_o, new_coords, v1, v2):
         kwrgs_o[new_coords[1]] = v2
     return kwrgs_o
 
-def sklearn_clustering(var_filename, mask=None, kwrgs_load={},
+def sklearn_clustering(var_filename, mask=None,
+                       dimension='temporal',
+                       kwrgs_load={},
                            clustermethodkey='DBSCAN',
                            kwrgs_clust={'eps':600}):
 
@@ -123,13 +149,16 @@ def sklearn_clustering(var_filename, mask=None, kwrgs_load={},
                 print(f"\rclustering {new_coords[0]}: {v1}, {new_coords[1]}: {v2} ", end="")
                 xarray = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_l)
 
-
+                # becomes list
                 xrclustered[i,j], result = skclustering(xarray, npmask,
                                                    clustermethodkey=clustermethodkey,
                                                    kwrgs=kwrgs)
                 results.append(result)
+
         if 'fake' in new_coords:
             xrclustered = xrclustered.squeeze().drop('fake').copy()
+            # if ('n_clusters' is given and dimesion == 'temporal') or dimesion == 'spatial':
+            # fill xrclustered with output appended in list
     else:
         xrclustered, results = skclustering(xarray, npmask,
                                             clustermethodkey=clustermethodkey,

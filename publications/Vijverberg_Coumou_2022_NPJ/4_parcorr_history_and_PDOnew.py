@@ -3,6 +3,14 @@
 """
 Created on Tue Feb 18 15:03:30 2020
 
+Step 4 to reproduce results of NPJ paper:
+"The role of the Pacific Decadal Oscillation and
+ocean-atmosphere interactions in driving US temperature variability"
+
+It loads the RW and temperature timeseries that are stored by step 2.
+This script calculates and plots the (partial) correlation maps of
+Figure 3 and 4.
+
 @author: semvijverberg
 """
 
@@ -16,12 +24,12 @@ from time import sleep
 
 user_dir = os.path.expanduser('~')
 # curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-curr_dir = user_dir + '/surfdrive/Scripts/RGCPD/publications/NPJ_2021'
+curr_dir = user_dir + '/surfdrive/Scripts/RGCPD/publications/Vijverberg_Coumou_2022_NPJ'
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-path_data = os.path.join(main_dir, 'publications/NPJ_2021/data/')
+path_data = os.path.join(main_dir, 'publications/Vijverberg_Coumou_2022_NPJ/data/')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -33,20 +41,18 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
 from class_BivariateMI import corr_map
-from class_BivariateMI import parcorr_z
-from class_BivariateMI import parcorr_map_time
+from class_BivariateMI import parcorr_map
 import climate_indices, filters, functions_pp, core_pp, plot_maps
 from func_models import standardize_on_train
 import func_models as fc_utils
 
 
 
-expers = np.array(['parcorr', 'parcorrENSO',
-                   'parcorrtime_target', 'parcorrtime_precur', 'parcorrtime_both', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
+expers = np.array(['parcorr', 'parcorrENSO','parcorr_SSTlag1',
+                   'parcorrtime_target', 'parcorrtime_precur', 'corr']) # np.array(['fixed_corr', 'adapt_corr'])
 combinations = np.array(np.meshgrid(expers)).T.reshape(-1,1)
 
-i_default = 2
-
+i_default = 5
 def parseArguments():
     # Create argument parser
     parser = argparse.ArgumentParser()
@@ -69,7 +75,7 @@ else:
 
 # path to RW timeseries
 west_east = 'east'
-mainpath_df = os.path.join(main_dir, 'publications/NPJ_2021/output/heatwave_circulation_v300_z500_SST/57db0USCA/')
+mainpath_df = os.path.join(main_dir, 'publications/Vijverberg_Coumou_2022_NPJ/output/heatwave_circulation_v300_z500_SST/57db0USCA/')
 # # t2m
 # TVpath = 'z500_145-325-20-62USCA.h5'
 # # mx2t
@@ -79,22 +85,19 @@ TVpath = 'z500_155-300-20-7357db0USCA.h5'
 
 TVpath  = os.path.join(mainpath_df, TVpath)
 
-TVpath = os.path.join(path_data, 'eastRW_summer_center_s1.h5')
+TVpath = os.path.join(path_data, 'eastRW_summer_center_s1_RepeatedKFold_10_7_tf1.h5')
 
 period = 'summer'
 if period == 'spring':
     start_end_TVdate = ('03-01', '05-31')
-    tfreq = 60
     lags = np.array([0,1])
 elif period == 'summer':
     start_end_TVdate = ('06-01', '08-31')
-    # start_end_TVdate = ('05-01', '09-15')
-    tfreq = 60
-    lags = np.array([0, 1])
+    lags = np.array([0, 1, 2])
 
 
 
-path_out_main = os.path.join(main_dir, f'publications/NPJ_2021/output/{west_east}_parcorrmaps')
+path_out_main = os.path.join(main_dir, f'publications/Vijverberg_Coumou_2022_NPJ/output/{west_east}_parcorrmaps')
 if os.path.isdir(path_out_main) != True:
     os.makedirs(path_out_main)
 cluster_label = '' # 'z500'
@@ -105,6 +108,7 @@ name_ds = f'0..0..{name_or_cluster_label}_sp'
 start_end_date = ('1-1', start_end_TVdate[-1])
 filepath_df_PDOs = os.path.join(path_data, 'df_PDOs_monthly.h5')
 filepath_df_ENSO = os.path.join(path_data, 'df_ENSOs_monthly.h5')
+filepath_df_SSTlag1 = os.path.join(path_data, 'df_SST_lag1.h5')
 
 #%% Get PDO and apply low-pass filter
 if 'parcorr' == exper:
@@ -114,7 +118,7 @@ if 'parcorr' == exper:
 
         SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_jan_dec_monthly_1.0deg.nc'
 
-        if 'df_ENSO' not in globals():
+        if 'df_PDOs' not in globals():
             df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
                                                        None)
             PDO_plot_kwrgs = {'units':'[-]', 'cbar_vert':-.1,
@@ -236,7 +240,7 @@ def get_lagged_ts(df_data, lag, keys=None):
 lowpass = 0.5
 if 'parcorr' == exper:
     # lowpass = float(exper.split('__')[1])
-    func = parcorr_z
+    func = parcorr_map
     # z_filepath = os.path.join(path_data, 'PDO_ENSO34_ERA5_1979_2018.h5')
     z_filepath = filepath_df_PDOs
     keys_ext = [f'PDO{lowpass}rm']
@@ -308,47 +312,54 @@ if 'parcorr' == exper:
 
 
 #%%
-
-
+lowpass = 0.5
+func = parcorr_map
 if 'parcorr' == exper:
     # lags = np.array([1])
     # PDO1, df_lagmask1 = get_lagged_ts(rgPDO.df_data.copy() , lags[0], keys_ext)
     # years = functions_pp.get_oneyr(df_lagmask1.loc[0], *list(range(1980, 2020+1)))
     # df_z.index = df_lagmask1.loc[0].loc[years][df_lagmask1.loc[0]['x_pred'].loc[years]].index
     kwrgs_func = {'filepath':filepath_df_PDOs,
-                  'keys_ext':['PDO0.5rm'],
+                  'keys_ext':[f'PDO{lowpass}rm'],
                   'lag_z':[1]} # lag_z is defined wrt precursor dates
-    func = parcorr_z
 elif 'parcorrENSO' == exper:
-    # lags = np.array([1])
-    # PDO1, df_lagmask1 = get_lagged_ts(rgPDO.df_data.copy() , lags[0], keys_ext)
-    # years = functions_pp.get_oneyr(df_lagmask1.loc[0], *list(range(1980, 2020+1)))
-    # df_z.index = df_lagmask1.loc[0].loc[years][df_lagmask1.loc[0]['x_pred'].loc[years]].index
     kwrgs_func = {'filepath':filepath_df_ENSO,
-                  'keys_ext':['ENSO34'],
+                  'keys_ext':[f'ENSO{lowpass}rm'],
                   'lag_z':[1]} # lag_z is defined wrt precursor dates
-    func = parcorr_z
+elif 'parcorr_SSTlag1' == exper:
+    df_z = functions_pp.load_hdf5(filepath_df_SSTlag1)['df_data']
+    kwrgs_func = {'filepath':df_z.mean(axis=0, level=1),
+                  'lag_z':[1]} # lag_z is defined wrt precursor dates
+
 elif exper == 'corr':
-    func = corr_map
-    kwrgs_func = {} ;
+    kwrgs_func = {} ; func = corr_map
 elif 'parcorrtime' in exper:
     if exper.split('_')[1] == 'target':
-        kwrgs_func = {'lag_y':[1]}
+        kwrgs_func = {'lag_y':[2]}
     elif exper.split('_')[1] == 'precur':
         kwrgs_func = {'lag_x':[1]}
     elif exper.split('_')[1] == 'both':
         kwrgs_func = {'lag_y':[1], 'lag_x':[1]}
-    func = parcorr_map_time
+
+# kwrgs_func['lagzxrelative'] = False
+
+sst_dailytomonths = False
+if sst_dailytomonths:
+    list_of_name_path = [(name_or_cluster_label, TVpath),
+                         ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_daily_1.0deg.nc'))]
+else:
+    list_of_name_path = [(name_or_cluster_label, TVpath),
+                         ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_monthly_1.0deg.nc'))]
+
 
 list_for_MI   = [BivariateMI(name='sst', func=func,
                             alpha=.05, FDR_control=True,
                             kwrgs_func=kwrgs_func,
                             distance_eps=1000, min_area_in_degrees2=1,
                             calc_ts='pattern cov', selbox=(130,260,-10,60),
-                            lags=lags)]
+                            lags=lags, dailytomonths=sst_dailytomonths)]
 
-list_of_name_path = [(name_or_cluster_label, TVpath),
-                       ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_monthly_1.0deg.nc'))]
+
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
             list_for_MI=list_for_MI,
@@ -360,12 +371,13 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
             append_pathsub='_' + exper)
 
 
-rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=True,
+rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=False, # detrending already done on z500
          kwrgs_core_pp_time={'dailytomonths':True})
 
 rg.pp_precursors()
 
 rg.traintest('random_10')
+
 
 rg.calc_corr_maps()
 precur = rg.list_for_MI[0]
@@ -388,30 +400,39 @@ if 'parcorr' == exper and west_east == 'east':
     z_ts = '$\overline{PDO_{t-2}}$'
     title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
     subtitles = np.array([[title0],[title1]])
-    tscol = ''.join(precur.kwrgs_func['z'].columns)
-    kw = [k for k in precur.kwrgs_func.keys() if k != 'z']
+    tscol = ''.join(precur.kwrgs_func['df_z'].columns)
+    kw = [k for k in kwrgs_func.keys() if k != 'df_z']
+    val = ''.join([str(kwrgs_func[k]) for k in kw])
+    append_str='parcorrtime_{}_'.format(period) + ''.join(kw) + val
+    fontsize = 12
+if 'parcorr_SSTlag1' == exper and west_east == 'east':
+    z_ts = '$SST^{pattern}_{t-1}$'
+    # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+    title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+    z_ts = '$SST^{pattern}_{t-2}$'
+    title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+    subtitles = np.array([[title0],[title1]])
+    tscol = ''.join(precur.kwrgs_func['df_z'].columns)
+    kw = [k for k in kwrgs_func.keys() if k != 'df_z']
     val = ''.join([str(kwrgs_func[k]) for k in kw])
     append_str='parcorr_{}_{}_'.format(tscol, period) + ''.join(kw) + val
     fontsize = 14
-
 if 'parcorrENSO' == exper and west_east == 'east':
     z_ts = '$\overline{ENSO_{t-1}}$'
-    title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
-    # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+    # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+    title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
     z_ts = '$\overline{ENSO_{t-2}}$'
-    # title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
-    title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+    title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+    # title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
     subtitles = np.array([[title0],[title1]])
-    tscol = ''.join(precur.kwrgs_func['z'].columns)
-    kw = [k for k in precur.kwrgs_func.keys() if k != 'z']
+    tscol = ''.join(precur.kwrgs_func['df_z'].columns)
+    kw = [k for k in precur.kwrgs_func.keys() if k != 'df_z']
     val = ''.join([str(kwrgs_func[k]) for k in kw])
     append_str='parcorrENSO_{}_{}_'.format(tscol, period) + ''.join(kw) + val
     fontsize = 14
-
-
 elif exper == 'corr' and west_east == 'east':
-    title0 = '\ \n\ ' + r'$corr(SST_{t},\ $'+'$RW^E_t\ )$'
-    title1 = '\ \n\ ' + r'$corr(SST_{t-1},\ $'+'$RW^E_t\ )$'
+    title0 =  r'$corr(SST_{t},\ $'+'$RW^E_t\ )$'
+    title1 =  r'$corr(SST_{t-1},\ $'+'$RW^E_t\ )$'
     subtitles = np.array([[title0],[title1]])
     append_str='' ; fontsize = 14 ; hspace = .2
 elif 'parcorrtime' in exper and west_east == 'east':
@@ -426,11 +447,11 @@ elif 'parcorrtime' in exper and west_east == 'east':
     elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' not in list(kwrgs_func.keys()):
         # regress out past target variable
         z_ts = ', '.join([f'$RW^E_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
-        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
-        # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+        # title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        title0 = r'$parcorr(SST_{t},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
         z_ts = ', '.join([f'$RW^E_{{t-{l}}}$' for l in kwrgs_func['lag_y']])
-        # title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
-        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
+        title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $'+z_ts+')'
+        # title1 = r'$parcorr(SST_{t-1},\ $'+'$RW^E_t\ |\ $Z)'+'\nZ='+'('+z_ts+')'
         subtitles = np.array([[title0],[title1]])
     elif 'lag_y' in list(kwrgs_func.keys()) and 'lag_x' in list(kwrgs_func.keys()):
         # regress out past target variable
@@ -446,8 +467,8 @@ elif 'parcorrtime' in exper and west_east == 'east':
         subtitles = np.array([[title0],[title1]])
     # else:
     #     title = r'$parcorr(SST_{t-lag}, $'+'$RW^E_t\ |\ $'+r'$SST_{t-lag-1},$'+'$RW^E_{t-1})$'
-    kw = [k for k in kwrgs_func.keys() if k != 'z']
-    val = ''.join([str(kwrgs_func[k]) for k in kwrgs_func.keys()])
+    kw = [k for k in kwrgs_func.keys() if k != 'df_z']
+    val = ''.join([str(kwrgs_func[k]) for k in kw])
     append_str='parcorrtime_{}_'.format(period) + ''.join(kw) + val
     fontsize = 12
 
@@ -463,16 +484,19 @@ kwrgs_plot = {'row_dim':'lag', 'col_dim':'split',
               'subtitles':subtitles, 'subtitle_fontdict':{'fontsize':13},
               'title_fontdict':{'fontsize':fontsize, 'fontweight':'bold'}}
 #%%
+plotlags= [0,1]
 if sys.platform == 'linux':
     for min_detect_gc in [.5,.6,.7,.8,.9,1.]:
         rg.plot_maps_corr(var='sst', save=save,
                           kwrgs_plot=kwrgs_plot,
                           min_detect_gc=min_detect_gc,
+                          plotlags=plotlags,
                           append_str=append_str)
 else:
     rg.plot_maps_corr(var='sst', save=save,
                       kwrgs_plot=kwrgs_plot,
                       min_detect_gc=min_detect_gc,
+                      plotlags=plotlags,
                       append_str=append_str)
 
 #%% plot lag 1
@@ -483,6 +507,7 @@ else:
 #         title = r'$parcorr(SST_{t-1},\ RW^E_t\ |\ RW^E_{t-1})$'
 #     else:
 #         title = r'$parcorr(SST_{t-1},\ RW^E_t\ |\ SST_{t-2}, RW^E_{t-1})$'
+
 
 kwrgs_plot['subtitles'] = subtitles[[1]]
 kwrgs_plot['cbar_vert'] = -.1
@@ -496,27 +521,62 @@ if sys.platform == 'linux':
                           append_str=append_str+'Lag1')
 else:
     rg.plot_maps_corr(var='sst', plotlags=[1], save=save,
+                      splits='mean',
                       kwrgs_plot=kwrgs_plot,
                       min_detect_gc=min_detect_gc,
                       append_str=append_str+'Lag1')
+#%%
+if exper == 'parcorrtime_precur' or exper == 'parcorrtime_target':
+    kwrgs_plot['scatter']= [['all', [[np.array([[ 15.5, 204.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 16.5, 204.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 16.5, 205.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 16.5, 206.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 17.5, 204.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 17.5, 205.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 17.5, 206.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 18.5, 204.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 18.5, 205.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 19.5, 205.5]]), {'color':'red', 'edgecolors':"black"}],
+                                     [np.array([[ 45.5, 167.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 46.5, 170.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 46.5, 171.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 46.5, 172.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 46.5, 182.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 46.5, 183.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 173.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 174.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 175.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 176.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 177.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 178.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 47.5, 179.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 48.5, 177.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 50.5, 162.5]]), {'color':'purple', 'edgecolors':"black"}],
+                                     [np.array([[ 50.5, 163.5]]), {'color':'purple', 'edgecolors':"black"}]]]]
 
+
+    rg.plot_maps_corr(var='sst', plotlags=[1], save=save,
+                      splits=9,
+                      kwrgs_plot=kwrgs_plot,
+                      min_detect_gc=min_detect_gc,
+                      append_str=append_str+'Lag1_scatter')
 #%%
 import matplotlib as mpl
 mpl.rcParams.update(mpl.rcParamsDefault)
 #%% get Correlation between pattern and PDO
 
-rg.list_for_MI[0].calc_ts = 'pattern cov'
-rg.cluster_list_MI()
-rg.get_ts_prec()
+# rg.list_for_MI[0].calc_ts = 'pattern cov'
+# rg.cluster_list_MI()
+# rg.get_ts_prec()
 
-df_test = functions_pp.get_df_test(rg.df_data)
+# df_test = functions_pp.get_df_test(rg.df_data)
 
-df_PDO_and_SST = df_PDOs.merge(df_test, left_index=True, right_index=True)[['PDO', '1..0..sst_sp']]
+# df_PDO_and_SST = df_PDOs.merge(df_test, left_index=True, right_index=True)[['PDO', '1..0..sst_sp']]
 
 
-RV_mask = fc_utils.apply_shift_lag(rg.df_splits, 1)['x_pred'].loc[0]
-df_PDO_and_SST = df_PDO_and_SST[RV_mask.values]
-df_PDO_and_SST.corr()
+# RV_mask = fc_utils.apply_shift_lag(rg.df_splits, 1)['x_pred'].loc[0]
+# df_PDO_and_SST = df_PDO_and_SST[RV_mask.values]
+# df_PDO_and_SST.corr()
 
 # rg.cluster_list_MI() ; rg.get_ts_prec() ;
 # out = rg.fit_df_data_ridge()
@@ -528,7 +588,122 @@ df_PDO_and_SST.corr()
 # df = df.merge(PDO1.loc[s], left_index=True, right_index=True)
 # df = rg.TV.RV_ts.merge(df, left_index=True, right_index=True)
 
+#%% Make plot to show eastern RW is in phase, while western RW is not.
 
+# first get PDO
+SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_jan_dec_monthly_1.0deg.nc'
+df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath, None)
+neg_PDO = (-1*PDO_patterns[0]).drop_vars('split')
+
+PDO_plot_kwrgs = {'units':'[-]', 'cbar_vert':-.1,
+                  # 'zoomregion':(130,260,20,60),
+                  'map_proj':ccrs.PlateCarree(central_longitude=220),
+                  'y_ticks':np.array([25, 35, 45, 55, 65]),
+                  'x_ticks':np.arange(130, 280, 25),
+                  'clevels':np.arange(-.6,.61,.075),
+                  'clabels':np.arange(-.6,.61,.3),
+                  'subtitles':np.array([['PDO loading pattern']])}
+fig = plot_maps.plot_corr_maps(PDO_patterns[0], **PDO_plot_kwrgs)
+
+
+#%%
+list_of_name_path = [(name_or_cluster_label, TVpath),
+                         ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_monthly_1.0deg.nc'))]
+
+
+list_for_MI   = [BivariateMI(name='sst', func=corr_map,
+                            alpha=.05, FDR_control=True,
+                            distance_eps=1000, min_area_in_degrees2=1,
+                            calc_ts='pattern cov', selbox=(130,260,-10,60),
+                            lags=np.array([0,1]))]
+rg = RGCPD(list_of_name_path=list_of_name_path,
+            list_for_MI=list_for_MI,
+            start_end_TVdate=('05-01', '08-01'),
+            start_end_date=None,
+            start_end_year=(1980, 2020),
+            tfreq=2,
+            path_outmain=path_out_main,
+            append_pathsub='_' + exper)
+rg.pp_TV(name_ds=name_ds, detrend=False, anomaly=False, # detrending already done on z500
+         kwrgs_core_pp_time={'dailytomonths':True})
+rg.pp_precursors()
+rg.traintest('random_10')
+rg.calc_corr_maps()
+#%%
+from plot_maps import ccrs
+# Optionally set font to Computer Modern to avoid common missing font errors
+matplotlib.rc('font', family='serif', serif='cm10')
+
+matplotlib.rc('text', usetex=True)
+matplotlib.rcParams['text.latex.preamble'] = r'\boldmath'
+
+kwrgs_plot = PDO_plot_kwrgs.copy()
+kwrgs_plot['units'] = None ; kwrgs_plot['hspace'] = .05
+kwrgs_plot['subtitles'] = [[''], ['']]
+kwrgs_plot['row_dim'] = 'lag' ; kwrgs_plot['col_dim'] = 'split'
+kwrgs_plot['cbar_vert'] = -.015
+kwrgs_plot['zoomregion'] = (130, 250, 20, 60)
+g = rg.plot_maps_corr(min_detect_gc=.5, return_fig=True,
+                      mask_xr=False, kwrgs_plot=kwrgs_plot)
+for ax in g.axes.flatten():
+    neg_PDO.plot.contour(ax=ax, linewidths=3,
+                                      levels=[-0.7, -0.5, -0.35, 0., 0.35, 0.5, 0.7],
+                                      linestyles=['--', '--', '--', 'solid', '-', '-', '-'],
+                                      colors=['black', 'black', 'black', 'green', 'black', 'black', 'black'],
+                                      transform=ccrs.PlateCarree())
+    ax.set_xlabel(None) ; ax.set_ylabel(None)
+g.axes[0,0].set_title('$corr(SST_t, RW_t^E)$',
+                       fontdict={'fontsize' : 16},
+                      loc='center')
+g.axes[1,0].set_title('$corr(SST_{t-1}, RW_t^E)$',
+                       fontdict={'fontsize' : 16},
+                      loc='center')
+g.fig.savefig(os.path.join(rg.path_outsub1, 'east_2monthmean_corr_map_with_PDO.pdf'),
+              bbox_inches='tight')
+#%%
+TVpathwest = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/Vijverberg_Coumou_2022_NPJ/data/westRW_summer_center_s1_RepeatedKFold_10_7_tf1.h5'
+list_of_name_path = [(name_or_cluster_label, TVpathwest),
+                         ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_monthly_1.0deg.nc'))]
+
+
+list_for_MI   = [BivariateMI(name='sst', func=corr_map,
+                            alpha=.05, FDR_control=True,
+                            distance_eps=1000, min_area_in_degrees2=1,
+                            calc_ts='pattern cov', selbox=(130,260,-10,60),
+                            lags=np.array([0, 1]), dailytomonths=sst_dailytomonths)]
+rgw = RGCPD(list_of_name_path=list_of_name_path,
+            list_for_MI=list_for_MI,
+            start_end_TVdate=('05-01', '08-01'),
+            start_end_date=None,
+            start_end_year=(1980, 2020),
+            tfreq=2,
+            path_outmain=path_out_main,
+            append_pathsub='_' + exper)
+rgw.pp_TV(name_ds=name_ds, detrend=False, anomaly=False, # detrending already done on z500
+         kwrgs_core_pp_time={'dailytomonths':True})
+rgw.pp_precursors()
+rgw.traintest('random_10')
+rgw.calc_corr_maps()
+
+#%%
+from plot_maps import ccrs
+
+g = rgw.plot_maps_corr(min_detect_gc=.9, return_fig=True, kwrgs_plot=kwrgs_plot)
+for ax in g.axes.flatten():
+    neg_PDO.plot.contour(ax=ax, linewidths=3,
+                                      levels=[-0.7, -0.5, -0.35, 0., 0.35, 0.5, 0.7],
+                                      linestyles=['--', '--', '--', 'solid', '-', '-', '-'],
+                                      colors=['black', 'black', 'black', 'green', 'black', 'black', 'black'],
+                                      transform=ccrs.PlateCarree())
+    ax.set_xlabel(None) ; ax.set_ylabel(None)
+g.axes[0,0].set_title('$corr(SST_t, RW_t^W)$',
+                       fontdict={'fontsize' : 16},
+                      loc='center')
+g.axes[1,0].set_title('$corr(SST_{t-1}, RW_t^W)$',
+                       fontdict={'fontsize' : 16},
+                      loc='center')
+g.fig.savefig(os.path.join(rg.path_outsub1, 'west_2monthmean_corr_map_with_PDO.pdf'),
+              bbox_inches='tight')
 
 #%%
 # # remove PDO df

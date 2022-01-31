@@ -107,8 +107,9 @@ class RGCPD:
         list_for_EOFS : list, optional
             list of EOF classes, see docs EOF?
         list_import_ts : list, optional
-            Load in precursor 1-d timeseries in format:
-            [(name1, path_to_h5_file1), [(name2, path_to_h5_file2)]]
+            Load in precursor 1-d timeseries from hdf5 files in format:
+            [([columns], path_to_h5_file1), [([columns], path_to_h5_file2)]]
+            The .h5 files should contain a pd.DataFrame called df_data.
             precursor_ts can handle the RGCPD cross-validation format.
         start_end_TVdate : tuple, optional
             tuple of start- and enddate for target variable in
@@ -181,7 +182,7 @@ class RGCPD:
     def pp_precursors(self, loadleap=False, seldates=None,
                       selbox=None, format_lon='only_east',
                       auto_detect_mask=False, detrend: Union[bool,dict]=True,
-                      anomaly=True, apply_fft=False, encoding={}):
+                      anomaly=True, apply_fft=False, encoding={}, **kwrgs):
         '''
         Perform preprocessing on (time, lat, lon) gridded dataset
 
@@ -230,6 +231,7 @@ class RGCPD:
         # detrend=True; anomaly=True; auto_detect_mask=False
         self.kwrgs_load = dict(loadleap=loadleap, seldates=seldates,
                                selbox=selbox, format_lon=format_lon)
+        self.kwrgs_load.update(**kwrgs)
         self.kwrgs_pp = self.kwrgs_load.copy()
         self.kwrgs_pp.update(dict(detrend=detrend, anomaly=anomaly,
                                   auto_detect_mask=auto_detect_mask,
@@ -343,11 +345,12 @@ class RGCPD:
             kwrgs_events.
         (3) leave_{int}:
             Leave_n_out CV. Chronologically split train and test years.
-        (4) split_{int:
-            (should be updated) split dataset into single train and test set
+        (4) split_{int_or_float}:
+            splits dataset into single train and test set. if float: that % of
+            data is used for training. if int: that number of years are used.
         (5) timeseriessplit_{int}:
             Also known as one-step-ahead CV. Always uses training data of the
-            past.
+            past. The int determines the amount of one-step-aheads.
         (6) RepeatedKFold_{n_repeats}_{kfold}. Repeats K-Fold n times with
             different randomization in each repetition (test set is different
             each time).
@@ -432,7 +435,7 @@ class RGCPD:
             print(f'Retrieving {e_class.neofs} EOF(s) for {e_class.name}')
             e_class.plot_eofs(mean=mean, kwrgs=kwrgs)
 
-    def get_ts_prec(self, precur_aggr: int=None, keys_ext: list=None,
+    def get_ts_prec(self, precur_aggr: int=None,
                     start_end_TVdate: tuple=None):
         '''
         Aggregate target and precursors to binned means.
@@ -442,9 +445,6 @@ class RGCPD:
         precur_aggr : int, optional
             bin window size to calculate time mean bins. If None, self.tfreq
             value is choosen.
-        keys_ext : list, optional
-            list with column names to load and aggregate a subset of the
-            .h5 pandas dataframe. The default is None.
         start_end_TVdate : tuple, optional
             Allows to change the target start end period. Using format
             format ('mm-dd', 'mm-dd'). The default is None.
@@ -472,10 +472,10 @@ class RGCPD:
             # retrieving timeseries at different aggregation, TV and df_splits
             # need to redefined on new tfreq using the same arguments
             print(f'redefine target variable on {self.precur_aggr} day means')
-            f = functions_pp
-            fulltso, self.hash = f.load_TV(self.list_of_name_path,
+            _f = functions_pp
+            fulltso, self.hash = _f.load_TV(self.list_of_name_path,
                                            name_ds=self.name_TVds)
-            out = f.process_TV(fulltso, **kwrgs_pp_TV)
+            out = _f.process_TV(fulltso, **kwrgs_pp_TV)
             self.df_fullts, self.df_RV_ts, inf, self.traintestgroups = out
             # Re-define train-test split on new time-axis
             TV, df_splits = RV_and_traintest(self.df_fullts,
@@ -522,7 +522,7 @@ class RGCPD:
                                  df_splits.copy(),
                                  self.start_end_date,
                                  kwrgs_load['start_end_year'],
-                                 cols=keys_ext,
+                                 # cols=keys_ext,
                                  precur_aggr=self.precur_aggr,
                                  start_end_TVdate=kwrgs_load['start_end_TVdate'])
             # cross yr can lead to non-alignment of index. Adopting df_data index
@@ -555,9 +555,9 @@ class RGCPD:
         if df_data is None:
             df_data = self.df_data.copy()
         dates = df_data.loc[0].index
-        if type(years) is tuple or start_end_date is None:
+        if type(years) is tuple or start_end_date is not None:
             seldates = functions_pp.core_pp.get_subdates(dates, start_end_date,
-                                            years)
+                                                         years)
         elif type(years) in [np.ndarray, list]:
             seldates = functions_pp.get_oneyr(dates, years)
         return df_data.loc[pd.MultiIndex.from_product([range(self.n_spl), seldates])]
@@ -601,7 +601,7 @@ class RGCPD:
             keys = keys.copy()
             keys.append('TrainIsTrue') ; keys.append('RV_mask')
 
-        self.pcmci_dict = wPCMCI.init_pcmci(self.df_data[keys],
+        self.pcmci_dict = wPCMCI.init_pcmci(df_data[keys],
                                             verbosity=verbosity)
 
     def PCMCI_df_data(self, df_data: pd.DataFrame=None, keys: list=None,
@@ -831,11 +831,12 @@ class RGCPD:
             fig_path = os.path.join(self.path_outsub1, 'RV_clusters')
             plt.savefig(fig_path+self.figext, bbox_inches='tight')
 
+
     def _get_sign_splits_masked(xr_in: xr.DataArray, min_detect=.5,
                                 mask: xr.DataArray=None):
 
         n_splits = xr_in.split.size
-        min_d = round(n_splits * (1- min_detect),0)
+        min_d = max(1,round(n_splits * (1- min_detect),0))
         # 1 == non-significant, 0 == significant
         if mask is None:
             mask = np.isnan(xr_in) # NaN = True = 1 = non-sign
@@ -849,7 +850,7 @@ class RGCPD:
     def quick_view_labels(self, var=None, mean=True, save=False,
                           kwrgs_plot: dict={}, min_detect_gc: float=.5,
                           append_str: str=None, region_labels=None,
-                          replacement_labels=None):
+                          replacement_labels=None, labelsintext=False):
         '''
         Parameters
         ----------
@@ -891,36 +892,13 @@ class RGCPD:
                 prec_labels, mask = RGCPD._get_sign_splits_masked(prec_labels,
                                                                  min_detect_gc)
                 prec_labels = prec_labels.where(mask)
-                cbar_vert = -0.1
             else:
                 prec_labels = prec_labels
-                if prec_labels.split.size == 1:
-                    cbar_vert = -0.1
-                else:
-                    cbar_vert = -0.025
+
             if all(np.isnan(prec_labels.values.flatten()))==False:
-                # colors of cmap are dived over min to max in n_steps.
-                # We need to make sure that the maximum value in all dimensions will be
-                # used for each plot (otherwise it assign inconsistent colors)
-                max_N_regs = min(20, int(prec_labels.max() + 0.5))
-                label_weak = np.nan_to_num(prec_labels.values) >=  max_N_regs
-                xrmask = None
-                prec_labels.values[label_weak] = max_N_regs
-                steps = max_N_regs+1
-                cmap = plt.cm.tab20
-                prec_labels.values = prec_labels.values-0.5
-                clevels = np.linspace(0, max_N_regs,steps)
+                plot_maps.plot_labels(prec_labels, kwrgs_plot=kwrgs_plot,
+                                      labelsintext=labelsintext)
 
-                kwrgs = {'row_dim':'split', 'col_dim':'lag', 'hspace':-0.35,
-                              'size':3, 'cbar_vert':cbar_vert, 'clevels':clevels,
-                              'subtitles' : None,
-                              'cticks_center':True,
-                              'cmap':cmap}
-                kwrgs.update(kwrgs_plot)
-
-                plot_maps.plot_corr_maps(prec_labels,
-                                 xrmask,
-                                 **kwrgs)
                 if save == True:
                     if replacement_labels is not None:
                         r = ''.join(np.array(replacement_labels, dtype=str))
@@ -941,15 +919,16 @@ class RGCPD:
 
 
     def plot_maps_corr(self, var=None, plotlags: list=None, kwrgs_plot: dict={},
-                       mean: bool=True, min_detect_gc: float=.5,
+                       splits: str='mean', min_detect_gc: float=.5,
                        mask_xr=None, region_labels: Union[int,list]=None,
-                       save: bool=False, append_str: str=None):
+                       save: bool=False, append_str: str=None, return_fig=False):
 
         if type(var) is str:
             var = [var]
         if var is None:
             var = [p.name for p in self.list_for_MI]
         for precur_name in var:
+            print(f'Plotting {precur_name}')
             try:
                 pclass = [p for p in self.list_for_MI if p.name == precur_name][0]
             except IndexError as e:
@@ -959,18 +938,20 @@ class RGCPD:
             if region_labels is not None and mask_xr is None:
                 f = find_precursors.view_or_replace_labels
                 mask_xr = np.isnan(f(pclass.prec_labels.copy(), region_labels))
-            if mask_xr is not None:
+            if mask_xr is not None and mask_xr is not False:
                 xrmask = (pclass.corr_xr['mask'] + mask_xr).astype(bool)
-            else:
+            else: # auto mask from corr map
                 xrmask = pclass.corr_xr['mask']
             xrvals = pclass.corr_xr.sel(lag=plotlags)
             xrmask = xrmask.sel(lag=plotlags)
-            if mean:
+            if splits == 'mean':
                 xrvals, xrmask = RGCPD._get_sign_splits_masked(xrvals,
                                                                min_detect_gc,
                                                                xrmask)
-
-            plot_maps.plot_corr_maps(xrvals,
+            elif type(splits) is int:
+                xrvals, xrmask = xrvals.sel(split=splits), xrmask.sel(split=splits)
+            if mask_xr is False: xrmask = None
+            fcg = plot_maps.plot_corr_maps(xrvals,
                                      mask_xr=xrmask, **kwrgs_plot)
             if save == True:
                 if append_str is not None:
@@ -979,11 +960,13 @@ class RGCPD:
                 else:
                     f_name = '{}_a{}'.format(precur_name,
                                              pclass.alpha)
-                if mean:
+                if splits == 'mean':
                     f_name += f'_md{min_detect_gc}'
 
                 fig_path = os.path.join(self.path_outsub1, f_name)+self.figext
-                plt.savefig(fig_path, bbox_inches='tight')
+                fcg.fig.savefig(fig_path, bbox_inches='tight')
+            if return_fig:
+                return fcg
             # plt.close()
 
     def plot_maps_sum(self, var='all', figpath=None, paramsstr=None,
@@ -1160,7 +1143,9 @@ class RGCPD:
                 if type(target) is str:
                     target_ts = df_data.loc[s][[target]][RV_mask]
                 elif type(target) is pd.DataFrame:
-                    target_ts = target
+                    target_ts = target.copy()
+                    if hasattr(target.index, 'levels'):
+                        target_ts = target.loc[s]
 
                 shift_lag = fc_utils.apply_shift_lag
                 df_norm = df_trans.merge(shift_lag(fit_masks.copy(), lag),

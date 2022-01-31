@@ -294,47 +294,73 @@ class ErrorSkillScore:
         RMSE (Skill Score).
 
         '''
-        self.benchmark = constant_bench
+        if type(constant_bench) in [float, int, np.float_]:
+            self.benchmark = float(constant_bench)
+        elif type(constant_bench) in [np.ndarray, pd.Series, pd.DataFrame]:
+            self.benchmark = np.array(constant_bench, dtype=float)
+        else:
+            print('benchmark is set to False')
+            self.benchmark = False
+
         self.squared = squared
         # if type(self.benchmark) is not None:
 
-        # return metrics.mean_squared_error(y_true, y_pred, squared=root
+
     def RMSE(self, y_true, y_pred):
         self.RMSE_score = metrics.mean_squared_error(y_true, y_pred,
                                               squared=self.squared)
         if self.benchmark is False:
             return self.RMSE_score
-        elif type(self.benchmark) in [float, int, np.float_]:
+        elif type(self.benchmark) is float:
             b_ = np.zeros(y_true.size) ; b_[:] = self.benchmark
-            self.RMSE_bench = metrics.mean_squared_error(y_true,
-                                               b_,
-                                               squared=self.squared)
-            return (self.RMSE_bench - self.RMSE_score) / self.RMSE_bench
+        elif type(self.benchmark) is np.ndarray:
+            b_  = self.benchmark
+        self.RMSE_bench = metrics.mean_squared_error(y_true,
+                                           b_,
+                                           squared=self.squared)
+        return (self.RMSE_bench - self.RMSE_score) / self.RMSE_bench
 
     def MAE(self, y_true, y_pred):
         fc_score = metrics.mean_absolute_error(y_true, y_pred)
         if self.benchmark is False:
             return fc_score
-        elif type(self.benchmark) in [float, int]:
+        elif type(self.benchmark) is float:
             b_ = np.zeros(y_true.size) ; b_[:] = self.benchmark
-            self.MAE_bench = metrics.mean_absolute_error(y_true, b_)
-
-            return (self.MAE_bench - fc_score) / self.MAE_bench
+        elif type(self.benchmark) is np.ndarray:
+            b_  = self.benchmark
+        self.MAE_bench = metrics.mean_absolute_error(y_true, b_)
+        return (self.MAE_bench - fc_score) / self.MAE_bench
 
     def BSS(self, y_true, y_pred):
         self.brier_score = metrics.brier_score_loss(y_true, y_pred)
         if self.benchmark is False:
             return self.brier_score
-        elif type(self.benchmark) in [float, int]:
-            b_ = np.zeros(y_true.size) ; b_[:] = self.benchmark
-            self.BS_bench = metrics.brier_score_loss(y_true, b_)
-            return (self.BS_bench - self.brier_score) / self.BS_bench
+        elif type(self.benchmark) is float:
+            self.b_ = np.zeros(y_true.size) ; self.b_[:] = self.benchmark
+        elif type(self.benchmark) is np.ndarray:
+            self.b_  = self.benchmark
+        self.BS_bench = metrics.brier_score_loss(y_true, self.b_)
+        return (self.BS_bench - self.brier_score) / self.BS_bench
 
-    def AUC_SS(self, y_true, y_pred):
-        # from http://bibliotheek.knmi.nl/knmipubIR/IR2018-01.pdf eq. 1
-        self.auc_score = metrics.roc_auc_score(y_true, y_pred)
-        auc_bench = .5
-        return (self.auc_score - auc_bench) / (1-auc_bench)
+class binary_score:
+    def __init__(self, threshold: float=0.5):
+        self.threshold = threshold
+
+    def precision(self, y_true, y_pred):
+        y_pred_b = y_pred > self.threshold
+        return round(metrics.precision_score(y_true, y_pred_b)*100,0)
+
+    def accuracy(self, y_true, y_pred):
+        #  P(class=0) * P(prediction=0) + P(class=1) * P(prediction=1)
+        y_pred_b = y_pred > self.threshold
+        return round(metrics.accuracy_score(y_true, y_pred_b)*100,0)
+
+
+def AUC_SS(y_true, y_pred):
+    # from http://bibliotheek.knmi.nl/knmipubIR/IR2018-01.pdf eq. 1
+    auc_score = metrics.roc_auc_score(y_true, y_pred)
+    auc_bench = .5
+    return (auc_score - auc_bench) / (1-auc_bench)
 
 class CRPSS_vs_constant_bench:
     def __init__(self, constant_bench: float=False, return_mean=True,
@@ -435,6 +461,7 @@ def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=N
                             left_index=True,
                             right_index=True)
 
+
     # score on train and per test split
     if score_func_list is None:
         score_func_list = [metrics.mean_squared_error, corrcoef]
@@ -449,15 +476,18 @@ def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=N
                             columns=[f.__name__ for f in score_func_list])
         for s in splits:
             sp = pred.loc[s]
+            not_constant = True
+            if np.unique(sp.iloc[:,0]).size == 1:
+                not_constant = False
             trainRV = np.logical_and(sp['TrainIsTrue']==1, sp['RV_mask']==True)
             testRV  = np.logical_and(sp['TrainIsTrue']==0, sp['RV_mask']==True)
             for f in score_func_list:
                 name = f.__name__
-                if (~trainRV).all()==False: # training data exists
+                if (~trainRV).all()==False and not_constant: # training data exists
                     train_score = f(sp[trainRV].iloc[:,0], sp[trainRV].loc[:,col])
                 else:
                     train_score  = np.nan
-                if score_per_test and testRV.any():
+                if score_per_test and testRV.any() and not_constant:
                     test_score = f(sp[testRV].iloc[:,0], sp[testRV].loc[:,col])
                 else:
                     test_score = np.nan
@@ -477,26 +507,35 @@ def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=N
         for c, col in enumerate(columns):
             df_test = pd.DataFrame(np.zeros( (1,len(score_func_list))),
                                     columns=[f.__name__ for f in score_func_list])
-
             for f in score_func_list:
                 name = f.__name__
                 y_true = pred_test.iloc[:,0]
                 y_pred = pred_test.loc[:,col]
-                df_test[name] = f(y_true, y_pred)
+                if np.unique(y_true).size >= 2:
+                    df_test[name] = f(y_true, y_pred)
+                else:
+                    if c == 0:
+                        print('Warning: y_true is constant. Returning NaN.')
+                    df_test[name] = np.nan
             df_tests[c]  = df_test
         df_tests = pd.concat(df_tests, keys=columns, axis=1)
 
 
     # Bootstrapping with replacement
     df_boots = np.zeros( (columns.size), dtype=object)
-    if pred_test.size != 0 : # ensure test data is available
+    if pred_test.size != 0: # ensure test data is available
         for c, col in enumerate(columns):
             old_index = range(0,len(y_true),1)
             n_bl = blocksize
             chunks = [old_index[n_bl*i:n_bl*(i+1)] for i in range(int(len(old_index)/n_bl))]
-            score_list = _bootstrap(pred_test.iloc[:,[0,c+1]], n_boot, chunks,
-                                    score_func_list,
-                                    rng_seed=rng_seed)
+            if np.unique(y_true).size > 1 or n_boot==0:
+                score_list = _bootstrap(pred_test.iloc[:,[0,c+1]], n_boot,
+                                        chunks, score_func_list,
+                                        rng_seed=rng_seed)
+            else:
+                score_list  = np.repeat(np.nan,
+                                        n_boot*len(score_func_list)).reshape(n_boot, -1)
+
             df_boot = pd.DataFrame(score_list,
                                    columns=[f.__name__ for f in score_func_list])
             df_boots[c] = df_boot
@@ -512,18 +551,27 @@ def _bootstrap(pred_test, n_boot_sub, chunks, score_func_list, rng_seed: int=1):
     y_true = pred_test.iloc[:,0]
     y_pred = pred_test.iloc[:,1]
     score_l = []
-    rng = np.random.RandomState(rng_seed)
-    for i in range(n_boot_sub):
+    rng = np.random.RandomState(rng_seed) ; i = 0 ; r = 0
+    while i != n_boot_sub:
+        i += 1 # loop untill n_boot
         # bootstrap by sampling with replacement on the prediction indices
         ran_ind = rng.randint(0, len(chunks) - 1, len(chunks))
         ran_blok = [chunks[i] for i in ran_ind] # random selection of blocks
         indices = list(itertools.chain.from_iterable(ran_blok)) #blocks to list
 
         if len(np.unique(y_true[indices])) < 2:
+            i -= 1 ; r += 1 # resample and track # of resamples with r
             # We need at least one positive and one negative sample for ROC AUC
             # to be defined: reject the sample
             continue
-        score_l.append([f(y_true[indices], y_pred[indices]) for f in score_func_list])
+        if r <= 100:
+            score_l.append([f(y_true[indices],
+                              y_pred[indices]) for f in score_func_list])
+        else: # after 100 resamples, plug in NaNs
+            score_l.append([np.nan for i in range(len(score_func_list))])
+            if i == n_boot_sub:
+                print(f'Too many ({r}) resample attempts to get both negative '
+                      'and positive samples of truth, returning NaNs')
 
     return score_l
 
@@ -555,4 +603,5 @@ def SciKitModel_coeff(model, lag):
                         index=model.X_pred.columns,
                         columns=[lag])
     return df.rename_axis(name, axis=1)
+
 

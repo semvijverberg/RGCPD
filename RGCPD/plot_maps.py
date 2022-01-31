@@ -46,7 +46,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    aspect=None, n_xticks=5, n_yticks=3, x_ticks: Union[bool, np.ndarray]=None,
                    y_ticks: Union[bool, np.ndarray]=None, add_cfeature: str=None,
                    scatter: np.ndarray=None, col_wrap: int=None,
-                   textinmap: list=None):
+                   textinmap: list=None, kwrgs_mask: dict={}):
 
     '''
     zoomregion = tuple(east_lon, west_lon, south_lat, north_lat)
@@ -181,17 +181,19 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             p_nans = int(100*plotdata.values[np.isnan(plotdata.values)].size / plotdata.size)
 
             if mask_xr is not None:
+                _kwrgs_mask = {'linestyles':['solid'],
+                              'colors':['black'],
+                              'linewidths':np.round(zonal_width/150, 1)+0.3}
+                _kwrgs_mask.update(kwrgs_mask)
                 # field not completely masked?
                 all_masked = (plotmask.values==False).all()
                 if all_masked == False:
                     if p_nans != 100:
                         plotmask.plot.contour(ax=g.axes[row,col],
                                               transform=ccrs.PlateCarree(),
-                                              linestyles=['solid'],
-                                              colors=['black'],
-                                              linewidths=np.round(zonal_width/150, 1)+0.3,
                                               levels=[float(vmin),float(vmax)],
-                                              add_colorbar=False)
+                                              add_colorbar=False,
+                                              **_kwrgs_mask)
         #                try:
         #                    im = plotdata.plot.contourf(ax=g.axes[row,col], transform=ccrs.PlateCarree(),
         #                                        center=0,
@@ -250,14 +252,24 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                         row_text, col_text = list_t[0]
                     if type(list_t[1]) is not list:
                         list_t[1] = [list_t[1]]
-                    for t in list_t[1]: # loop if multiple textboxes per plot
-                        lontext, lattext, text, kwrgs = t # lon in degrees west-east
-                        kwrgs.update(dict(horizontalalignment='center',
-                                         transform=ccrs.Geodetic())) # standard settings
-                        g.axes[row_text,col_text].text(int(lontext), int(lattext),
+                    equaldict = any([l[-1]!=list_t[1][0][-1] for l in list_t[1]])
+                    if equaldict:
+                        xy = np.array([l[:2] for l in list_t[1]])
+                        text = np.array([l[2] for l in list_t[1]])
+                        kwrgs = list_t[1][0][-1] # equal kwrgs for each text
+                        g.axes[row_text,col_text].text(xy,
                                                        text, **kwrgs)
+                    else:
+                        # loop if multiple textboxes per plot, with varying kwrgs
+                        for t in list_t[1]:
+                            lontext, lattext, text, kwrgs = t # lon in degrees west-east
+                            kwrgs.update(dict(horizontalalignment='center',
+                                             transform=ccrs.Geodetic())) # standard settings
+                            g.axes[row_text,col_text].text(int(lontext),
+                                                           int(lattext),
+                                                           text, **kwrgs)
             # =============================================================================
-            # Add scatter points list([[ax_loc, list(np_array_xy, kwrgs)]])
+            # Add scatter points , e.g. [['all', [array([[ lat, lon]]), {}]]]
             # =============================================================================
             if scatter is not None:
                 for list_s in scatter:
@@ -266,12 +278,16 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                         row_text, col_text = row, col
                     else:
                         row_text, col_text = loc_ax
-                    np_array_xy = list_s[1][0] # lon, lat coords - shape=(points, 2)
-                    kwrgs_scatter = list_s[1][1]
-                    g.axes[row_text,col_text].scatter(x=np_array_xy[:,0],
-                                                      y=np_array_xy[:,1],
-                                                      transform=ccrs.PlateCarree(),
-                                                      **kwrgs_scatter)
+                    list_arr_kwrgs = list_s[1]
+                    if type(list_arr_kwrgs) is not list:
+                        list_arr_kwrgs = [list_arr_kwrgs]
+                    for list_s in list_arr_kwrgs:
+                        np_array_xy = list_s[0] # lon, lat coords - shape=(points, 2)
+                        kwrgs_scatter = list_s[1]
+                        g.axes[row_text,col_text].scatter(x=np_array_xy[:,1],
+                                                          y=np_array_xy[:,0],
+                                                          transform=ccrs.PlateCarree(),
+                                                          **kwrgs_scatter)
             # =============================================================================
             # Subtitles
             # =============================================================================
@@ -326,7 +342,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                 g.axes[row,col].set_xlabel('')
 
             g.axes[row,col].coastlines(color='black', alpha=0.3,
-                                       facecolor='grey', linewidth=2)
+                                       linewidth=2, facecolor='white')
             # black outline subplot
             g.axes[row,col].spines['geo'].set_edgecolor('black')
 
@@ -334,10 +350,10 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             if corr_xr.name is not None:
                 if corr_xr.name[:3] == 'sst':
                     g.axes[row,col].add_feature(cfeature.LAND, facecolor='grey',
-                                                alpha=0.3, zorder=0)
+                                                alpha=0.1, zorder=0)
             if add_cfeature is not None:
                 g.axes[row,col].add_feature(cfeature.__dict__[add_cfeature],
-                                            facecolor='grey', alpha=0.3,
+                                            facecolor='white', alpha=0.1,
                                             zorder=4)
 
 
@@ -391,7 +407,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
 
 
     #%%
-    return g.fig
+    return g
 
 def causal_reg_to_xarray(df_links, list_MI):
     #%%
@@ -676,7 +692,60 @@ def plot_corr_vars_splits(dict_ds, df_sum, figpath, paramsstr, RV_name,
     #%%
     return
 
-def _get_kwrgs_labels(prec_labels):
+def _get_kwrgs_labels(prec_labels, kwrgs_plot={}, labelsintext=True):
+
+    # default dims such that I can use dims to ensure position textinmap
+    if 'row_dim' not in kwrgs_plot.keys():
+        kwrgs_plot['row_dim'] = 'split'
+    if 'col_dim' not in kwrgs_plot.keys():
+        kwrgs_plot['col_dim'] = 'lag'
+
+    kwrgs_labels = {'size':3, 'cticks_center':True, 'units': None}
+    if labelsintext:
+        textinmap = []
+        min_lat = float(np.min(prec_labels.latitude))
+        max_lat = float(np.max(prec_labels.latitude))
+        spatdim = ['latitude', 'longitude', 'lat', 'lon', 'mask']
+        dims = [d for d in prec_labels.dims if d not in spatdim]
+        coords = [list(np.array(prec_labels[d], dtype=str)) for d in dims]
+        if len(coords) == 1:
+            coords.append(['fake'])
+        combs = np.array(np.meshgrid(coords[0], coords[1])).T.reshape(-1,2)
+
+        df_labelloc = labels_to_df(prec_labels.median(dim=tuple(dims)),
+                                   return_mean_latlon=True)
+
+        for i, (c1, c2) in enumerate(combs):
+            idx1 = coords[0].index(c1)
+            if c2 != 'fake':
+                idx2 = coords[1].index(c2)
+                labelsmap = prec_labels[idx1, idx2]
+            else:
+                idx2 = 0
+                labelsmap = prec_labels[idx1]
+
+            labels = np.unique(labelsmap)
+            labels = labels[~np.isnan(labels)]
+
+            if kwrgs_plot['col_dim'] == dims[0]:
+                rowdim = (idx2, idx1)
+            else:
+                rowdim = (idx1, idx2)
+
+            temp = []
+            for q, l in enumerate(labels):
+                if l == 0: # pattern cov
+                    lat, lon = df_labelloc.mean(0)[:2]
+                else:
+                    lat, lon = df_labelloc.loc[l].iloc[:2].values.round(1)
+                if lon > 180: lon-360
+                temp.append([lon,max(min_lat,min(max_lat,lat)),
+                             str(int(l)),
+                             {'fontsize':10}]),
+                              # 'bbox':dict(facecolor='pink', alpha=0.01)}])
+                textinmap.append([rowdim, temp])
+        kwrgs_labels['textinmap'] = textinmap
+
     if np.isnan(prec_labels.values).all() == False:
         max_N_regs = min(20, int(prec_labels.max() + 0.5))
     else:
@@ -685,27 +754,33 @@ def _get_kwrgs_labels(prec_labels):
 
     prec_labels.values[label_weak] = max_N_regs
     steps = max_N_regs+1
-    cmap = plt.cm.tab20
     prec_labels.values = prec_labels.values-0.5
     clevels = np.linspace(0, max_N_regs,steps)
 
+    if 'cmap' not in kwrgs_plot:
+        cmap = plt.cm.tab20
+    else:
+        cmap = kwrgs_plot['cmap']
 
-    kwrgs_labels = {'size':3, 'clevels':clevels,
-                  'cticks_center':True,
-                  'cmap':cmap,
-                  'units': None}
+    kwrgs_labels.update({'clevels':clevels,
+                         'cmap':cmap})
 
     if len(prec_labels.shape) == 2 or prec_labels.shape[0] == 1:
         kwrgs_labels['cbar_vert'] = -0.1
 
+    kwrgs_labels.update(kwrgs_plot)
+
     return kwrgs_labels
 
 def plot_labels(prec_labels,
-                kwrgs_plot={}):
+                kwrgs_plot={},
+                labelsintext=False):
+
     xrlabels = prec_labels.copy()
+    kwrgs_labels = _get_kwrgs_labels(xrlabels, kwrgs_plot, labelsintext)
     xrlabels.values = prec_labels.values - 0.5
-    kwrgs_labels = _get_kwrgs_labels(xrlabels)
-    kwrgs_labels.update(kwrgs_plot)
+
+
     return plot_corr_maps(xrlabels, **kwrgs_labels)
 
 def plot_corr_regions(ds, var, lag, filepath,
@@ -820,3 +895,52 @@ def get_continuous_cmap(hex_list, float_list=None):
         cdict[col] = col_list
     cmp = mcolors.LinearSegmentedColormap('my_cmp', segmentdata=cdict, N=256)
     return cmp
+
+def show_field_point(field, i=None, lat=None, lon=None):
+    ''' Lon in degrees west (give negative values when west),
+     i refers to index i of the coordinates.'''
+    lats = list(field.latitude.values)
+    lons = list(field.longitude.values)
+    coords = [[la,lo] for la in lats for lo in lons]
+    if i is not None and lat is None:
+        if type(i) is not list:
+            i = [i]
+
+        latlon = [coords[_i] for _i in i]
+
+        lon = [((ll[1] + 180) % 360) - 180 for ll in latlon]
+        print(f'latitude : {latlon[0]}, longitude {lon}')
+    if lat is not None and lon is not None and i is None:
+        fieldpoint = field.sel(latitude=lat,
+                              method='nearest').sel(longitude=(lon+ 360) % 360,
+                                                    method='nearest')
+        lat = float(fieldpoint.latitude.values)
+        lonW = float(fieldpoint.longitude.values)
+        latlon = [[lat,lonW]] ; i = coords.index(latlon)
+        print(f'nearest latitude : {lat}, nearest longitude {((lonW+ 180) % 360) - 180}'
+              f', index {i}')
+    else:
+        print('both i and lat are not None')
+    if len(field.shape) == 3:
+        fieldstep = field[0].drop_vars(field.dims[0])
+    _locs = [[np.array([ll]), {}] for ll in latlon]
+    scatter = [['all', _locs]]
+    print('kwrgs_plot[\'scatter\']=', scatter)
+    fieldstep.values[:,:] = 0
+    plot_corr_maps(fieldstep, scatter=scatter, n_yticks=5)
+
+def labels_to_df(prec_labels, return_mean_latlon=True):
+    dims = [d for d in prec_labels.dims if d not in ['latitude', 'longitude']]
+    df = prec_labels.mean(dim=tuple(dims)).to_dataframe().dropna()
+    if return_mean_latlon:
+        labels = np.unique(prec_labels)[~np.isnan(np.unique(prec_labels))]
+        mean_coords_area = np.zeros( (len(labels), 3))
+        for i,l in enumerate(labels):
+            latlon = np.array(df[(df==l).values].index)
+            latlon = np.array([list(l) for l in latlon])
+            if latlon.size != 0:
+                mean_coords_area[i][:2] = np.median(latlon, 0)
+                mean_coords_area[i][-1] = latlon.shape[0]
+        df = pd.DataFrame(mean_coords_area, index=labels,
+                     columns=['latitude', 'longitude', 'n_gridcells'])
+    return df

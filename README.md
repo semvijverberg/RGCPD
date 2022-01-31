@@ -6,11 +6,11 @@ Introduction
 RG-CPD is a framework to process 3-dimensional climate data, such that relationships based on correlation can be tested for conditional dependence, i.e. causality. These causal teleconnections can be used to forecast a target variable of interest.
 
 
-Causal inference frameworks have been proven valuable by going beyond defining a relationship based upon correlation. Autocorrelation, common drivers and indirect drivers are very common in the climate system, and they lead to spurious (significant) correlations. Tigramite has been successfully applied to 1 dimensional time series in climate science (Kretschmer et al. 2016 https://doi.org/10.1175/JCLI-D-15-0654.1), in order to filter out these spurious correlations using conditional indepence tests (Runge et al. 2017 http://arxiv.org/abs/1702.07007).
+Causal inference frameworks have been proven valuable by going beyond defining a relationship based upon correlation. Autocorrelation, common drivers and indirect drivers are very common in the climate system, and they lead to spurious (significant) correlations. Tigramite has been successfully applied to 1 dimensional time series in climate science ([Kretschmer et al. 2016](https://doi.org/10.1175/JCLI-D-15-0654.1)), in order to filter out these spurious correlations using conditional indepence tests ([Runge et al. 2017](http://arxiv.org/abs/1702.07007)).
 
-Within RG-CPD, the 1-d precursor time series are obtained by creating point-wise correlation maps and subsequently grouping adjacent significantly correlating gridcells together into precursor regions. These precursor regions are then converted into 1-d time series by taking a spatial mean (Kretschmer et al. 2017 https://doi.org/10.1002/2017GL074696).
+Within RG-CPD, the 1-d precursor time series are obtained by creating point-wise correlation maps and subsequently grouping adjacent significantly correlating gridcells together into precursor regions. These precursor regions are then converted into 1-d time series by taking a spatial mean ([Kretschmer et al. 2017](https://doi.org/10.1002/2017GL074696)).
 
-The final step is the same, where the 1-d time series are processed by Tigramite to extract the causal relationships. This requires thorough understanding of the method, see Runge et al. 2017 http://arxiv.org/abs/1702.07007). These 1d time series contain more information since they are spatially aggregated. The 1d time series of different precursor regions are subsequently tested for causality using the Tigramite package (https://github.com/jakobrunge/tigramite). One has to have good knowledge about the assumptions needed for causal inference, https://doi.org/10.1063/1.5025050.
+The final step is the same, where the 1-d time series are processed by Tigramite to extract the causal relationships. This requires thorough understanding of the method, see [Runge et al. 2017](http://arxiv.org/abs/1702.07007)). These 1d time series contain more information since they are spatially aggregated. The 1d time series of different precursor regions are subsequently tested for causality using the [Tigramite package](https://github.com/jakobrunge/tigramite). One has to have good knowledge about the assumptions needed for causal inference ([Runge et al., 2018](https://doi.org/10.1063/1.5025050)).
 
 # Features
 - basic pre-processing steps (removing climatology and linear detrending)
@@ -26,8 +26,28 @@ The final step is the same, where the 1-d time series are processed by Tigramite
 - flexible forecast verification metrics
 - (basic) plotting functions with Cartopy
 - ECMWF_retrieval with a download python wrapper to get data from the Climate Data Store ERA-5 dataset
-\
-Have a look at **subseasonal.ipynb** and **seasonal.ipynb** for an overview of the core functionality.
+
+
+Have a look at [subseasonal.ipynb](https://github.com/semvijverberg/RGCPD/blob/master/seasonal_mode.ipynb) and [seasonal.ipynb](https://github.com/semvijverberg/RGCPD/blob/master/subseasonal_mode.ipynb) for an overview of the core functionality.
+
+**************
+
+
+User Agreement
+----------------
+
+You commit to cite RG-CPD in your reports or publications if used:
+
+Dr. Marlene Kretschmer, who developed the method and used it for studying Polar Vortex dynamics. Please cite: 
+
+Kretschmer, M., Runge, J., & Coumou, D. (2017). Early prediction of extreme stratospheric polar vortex states based on causal precursors. Geophysical Research Letters, 44(16), 8592–8600. https://doi.org/10.1002/2017GL074696
+
+PhD. Sem Vijverberg, who expanded Kretschmer's original python code into a python code that can be applied in a versatile manner. 
+
+Vijverberg, S.P., Kretschmer, M. (2018). Python code for applying the Response Guided - Causal Precursor Detection scheme. https://doi.org/10.5281/zenodo.1486739
+
+Dr. Jakob Runge, who developed the causal inference python package Tigramite (https://github.com/jakobrunge/tigramite). Depending on what you implement from Tigramite, please cite accordingly.
+
 
 Installation
 ===========
@@ -75,26 +95,6 @@ GRIB_API library version : 2.7.0 \
     HDF5 library version : 1.10.2 \
     EXSE library version : 1.4.0 \
     FILE library version : 1.8.3 \
-
-
-
-**************
-
-
-User Agreement
-----------------
-
-You commit to cite RG-CPD in your reports or publications if used:
-
-Dr. Marlene Kretschmer, who developed the method and used it for studying Polar Vortex dynamics. Please cite: 
-
-Kretschmer, M., Runge, J., & Coumou, D. (2017). Early prediction of extreme stratospheric polar vortex states based on causal precursors. Geophysical Research Letters, 44(16), 8592–8600. https://doi.org/10.1002/2017GL074696
-
-PhD. Sem Vijverberg, who expanded Kretschmer's original python code into a python code that can be applied in a versatile manner. 
-
-Vijverberg, S.P., Kretschmer, M. (2018). Python code for applying the Response Guided - Causal Precursor Detection scheme. https://doi.org/10.5281/zenodo.1486739
-
-Dr. Jakob Runge, who developed the causal inference python package Tigramite (https://github.com/jakobrunge/tigramite). Depending on what you implement from Tigramite, please cite accordingly.
 
 
 License
