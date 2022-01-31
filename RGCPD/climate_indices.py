@@ -153,7 +153,8 @@ def PDO_single_split(s, ds_monthly, ds, df_splits):
         df = df_train
     return (df, PDO_pattern)
 
-def PDO(filepath, df_splits=None, n_jobs=1):
+def PDO(filepath
+        , df_splits=None, n_jobs=1):
     #%%
     '''
     PDO is calculated based upon all data points in the training years,
@@ -214,8 +215,8 @@ def PDO(filepath, df_splits=None, n_jobs=1):
     df_PDO = df_PDO.merge(df_splits, left_index=True, right_index=True)
     if splits.size > 1:
         # train test splits should not be equal
-        assert float((df_PDO.loc[1] - df_PDO.loc[0]).mean()) != 0, ('something '
-                'went wrong with train test splits')
+        assert float((df_PDO.loc[1]['PDO'] - df_PDO.loc[0]['PDO']).mean()) != 0, (
+                    'something went wrong with train test splits')
     #%%
     return df_PDO, PDO_patterns
 

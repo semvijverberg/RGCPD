@@ -24,7 +24,7 @@ main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-data_dir = os.path.join(main_dir,'publications/NPJ_2021/data')
+data_dir = os.path.join(main_dir,'publications/Vijverberg_Coumou_2022_NPJ/data')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -49,10 +49,10 @@ adapt_selbox = False
 TV = 'USCAnew'
 
 if west_east == 'east':
-    path_out_main = os.path.join(main_dir, 'publications/NPJ_2021/output/east/')
+    path_out_main = os.path.join(main_dir, 'publications/Vijverberg_Coumou_2022_NPJ/output/east/')
     z500_green_bb = (155,300,20,73) #: RW box
 elif west_east == 'west':
-    path_out_main = os.path.join(main_dir, 'publications/NPJ_2021/output/west/')
+    path_out_main = os.path.join(main_dir, 'publications/Vijverberg_Coumou_2022_NPJ/output/west/')
     z500_green_bb = (145,325,20,62) # bounding box for western RW
 
 if TV == 'init':

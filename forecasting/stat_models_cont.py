@@ -208,7 +208,10 @@ class ScikitModel:
         else:
             y_pred = model.predict(X_pred)
 
-        prediction = pd.DataFrame(y_pred, index=x_pred_mask[x_pred_mask].index,
+        # changed on 27-01-2022
+        # prediction = pd.DataFrame(y_pred, index=x_pred_mask[x_pred_mask].index,
+                                  # columns=[0])
+        prediction = pd.DataFrame(y_pred, index=RV_fit.index,
                                   columns=[0])
         #%%
         return prediction, model

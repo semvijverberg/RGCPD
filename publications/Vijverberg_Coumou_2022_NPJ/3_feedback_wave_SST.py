@@ -3,7 +3,6 @@
 """
 Created on Mon May 25 15:33:52 2020
 
-
 Step 3 to reproduce results of NPJ paper:
 "The role of the Pacific Decadal Oscillation and
 ocean-atmosphere interactions in driving US temperature variability"
@@ -14,6 +13,7 @@ SI-Figure 9 and 10.
 
 @author: semvijverberg
 """
+#%% Load packages and define paths
 
 import os, inspect, sys
 import matplotlib as mpl
@@ -35,12 +35,12 @@ from time import time
 
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-curr_dir = user_dir + '/surfdrive/Scripts/RGCPD/publications/NPJ_2021'
+curr_dir = user_dir + '/surfdrive/Scripts/RGCPD/publications/Vijverberg_Coumou_2022_NPJ'
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-data_dir = os.path.join(main_dir,'publications/NPJ_2021/data')
+data_dir = os.path.join(main_dir,'publications/Vijverberg_Coumou_2022_NPJ/data')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -55,6 +55,8 @@ from RGCPD import BivariateMI
 import class_BivariateMI
 import wrapper_PCMCI as wPCMCI
 import functions_pp, plot_maps, find_precursors, core_pp
+
+#%% Global parameter
 
 periods = ['summer_center', 'spring_center', 'winter_center']
 periods = ['spring_center', 'winter_center']
@@ -132,7 +134,7 @@ else:
 
 
 path_out_main = os.path.join(main_dir,
-                             f'publications/NPJ_2021/output/{west_east}_fb_'\
+                             f'publications/Vijverberg_Coumou_2022_NPJ/output/{west_east}_fb_'\
                              f'adaptRW{adapt_t2mvsRW}/')
 tfreq         = 15
 min_detect_gc = 0.9

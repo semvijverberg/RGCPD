@@ -182,7 +182,7 @@ class RGCPD:
     def pp_precursors(self, loadleap=False, seldates=None,
                       selbox=None, format_lon='only_east',
                       auto_detect_mask=False, detrend: Union[bool,dict]=True,
-                      anomaly=True, apply_fft=False, encoding={}):
+                      anomaly=True, apply_fft=False, encoding={}, **kwrgs):
         '''
         Perform preprocessing on (time, lat, lon) gridded dataset
 
@@ -231,6 +231,7 @@ class RGCPD:
         # detrend=True; anomaly=True; auto_detect_mask=False
         self.kwrgs_load = dict(loadleap=loadleap, seldates=seldates,
                                selbox=selbox, format_lon=format_lon)
+        self.kwrgs_load.update(**kwrgs)
         self.kwrgs_pp = self.kwrgs_load.copy()
         self.kwrgs_pp.update(dict(detrend=detrend, anomaly=anomaly,
                                   auto_detect_mask=auto_detect_mask,

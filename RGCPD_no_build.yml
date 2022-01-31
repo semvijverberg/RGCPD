@@ -40,6 +40,7 @@ dependencies:
     - tigramite
 prefix: /Users/semvijverberg/miniconda3/envs/RGCPD
 # conda env create -f RGCPD_no_build.yml
+# Tigramite also needs cython: pip install cython
 # to install spyder later: conda install -c conda-forge spyder=4
 # If working on a Windows, you need to have installed the visual c++ build tools
 # https://visualstudio.microsoft.com/visual-cpp-build-tools/

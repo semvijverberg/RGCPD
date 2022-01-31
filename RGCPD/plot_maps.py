@@ -754,10 +754,13 @@ def _get_kwrgs_labels(prec_labels, kwrgs_plot={}, labelsintext=True):
 
     prec_labels.values[label_weak] = max_N_regs
     steps = max_N_regs+1
-    cmap = plt.cm.tab20
     prec_labels.values = prec_labels.values-0.5
     clevels = np.linspace(0, max_N_regs,steps)
 
+    if 'cmap' not in kwrgs_plot:
+        cmap = plt.cm.tab20
+    else:
+        cmap = kwrgs_plot['cmap']
 
     kwrgs_labels.update({'clevels':clevels,
                          'cmap':cmap})

@@ -24,12 +24,12 @@ from time import sleep
 
 user_dir = os.path.expanduser('~')
 # curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-curr_dir = user_dir + '/surfdrive/Scripts/RGCPD/publications/NPJ_2021'
+curr_dir = user_dir + '/surfdrive/Scripts/RGCPD/publications/Vijverberg_Coumou_2022_NPJ'
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-path_data = os.path.join(main_dir, 'publications/NPJ_2021/data/')
+path_data = os.path.join(main_dir, 'publications/Vijverberg_Coumou_2022_NPJ/data/')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -75,7 +75,7 @@ else:
 
 # path to RW timeseries
 west_east = 'east'
-mainpath_df = os.path.join(main_dir, 'publications/NPJ_2021/output/heatwave_circulation_v300_z500_SST/57db0USCA/')
+mainpath_df = os.path.join(main_dir, 'publications/Vijverberg_Coumou_2022_NPJ/output/heatwave_circulation_v300_z500_SST/57db0USCA/')
 # # t2m
 # TVpath = 'z500_145-325-20-62USCA.h5'
 # # mx2t
@@ -97,7 +97,7 @@ elif period == 'summer':
 
 
 
-path_out_main = os.path.join(main_dir, f'publications/NPJ_2021/output/{west_east}_parcorrmaps')
+path_out_main = os.path.join(main_dir, f'publications/Vijverberg_Coumou_2022_NPJ/output/{west_east}_parcorrmaps')
 if os.path.isdir(path_out_main) != True:
     os.makedirs(path_out_main)
 cluster_label = '' # 'z500'
@@ -661,7 +661,7 @@ g.axes[1,0].set_title('$corr(SST_{t-1}, RW_t^E)$',
 g.fig.savefig(os.path.join(rg.path_outsub1, 'east_2monthmean_corr_map_with_PDO.pdf'),
               bbox_inches='tight')
 #%%
-TVpathwest = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/NPJ_2021/data/westRW_summer_center_s1_RepeatedKFold_10_7_tf1.h5'
+TVpathwest = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/Vijverberg_Coumou_2022_NPJ/data/westRW_summer_center_s1_RepeatedKFold_10_7_tf1.h5'
 list_of_name_path = [(name_or_cluster_label, TVpathwest),
                          ('sst', os.path.join(path_raw, 'sst_1979-2020_1_12_monthly_1.0deg.nc'))]
 

@@ -13,6 +13,7 @@ SI-Table 1.
 
 @author: semvijverberg
 """
+#%% Load packages and define paths
 
 from __future__ import division
 import os, inspect, sys
@@ -45,7 +46,7 @@ RGCPD_func = os.path.join(main_dir, 'RGCPD')
 assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-data_dir = os.path.join(main_dir,'publications/NPJ_2021/data')
+data_dir = os.path.join(main_dir,'publications/Vijverberg_Coumou_2022_NPJ/data')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -62,12 +63,8 @@ import func_models as fc_utils
 import functions_pp; import df_ana
 import plot_maps; import core_pp
 import wrapper_PCMCI as wPCMCI
+#%% Global parameter
 
-
-# targets = ['temp', 'RW']
-
-
-# if region == 'eastern':
 targets = ['easterntemp', 'westerntemp']
 targets = ['easterntemp']
 
@@ -141,10 +138,10 @@ method     = 'ranstrat_10' ;
 n_boot = 2000
 min_detect_gc = 0.9
 append_main = ''
-# name_csv = f'skill_scores_tf{tfreq}.csv'
 
 
-#%% run RGPD
+
+#%% run RGDR
 # start_end_TVdate = ('06-01', '08-31')
 start_end_date = ('1-1', start_end_TVdate[-1]) # focus on spring/summer. Important for regressing out influence of PDO (might vary seasonally)
 # =============================================================================
@@ -170,7 +167,7 @@ list_for_MI   = [BivariateMI(name='sst', func=class_BivariateMI.corr_map,
                             calc_ts=calc_ts, selbox=(130,260,-10,60),
                             lags=lags)]
 
-path_out_main = os.path.join(main_dir, f'publications/NPJ_2021/output/{target}{append_main}/')
+path_out_main = os.path.join(main_dir, f'publications/Vijverberg_Coumou_2022_NPJ/output/{target}{append_main}/')
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,

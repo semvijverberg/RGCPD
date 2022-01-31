@@ -3,7 +3,7 @@
 """
 Created on Thu May 28 15:26:32 2020
 
-Step 1 to reproduce results of NPJ paper:
+Step 1 to reproduce results of Vijverberg and Coumou, 2022, NPJ:
 "The role of the Pacific Decadal Oscillation and
 ocean-atmosphere interactions in driving US temperature variability"
 
@@ -12,21 +12,17 @@ calculates the T^E and T^W timeseries, which are used thoughout the analysis.
 It also create SI-Figure 1.
 
 The clustering output data is loaded by clusters_check.py and that script
-creates Figure 7.
+creates Figure 8.
 
 
 @author: semvijverberg
 """
 
-# # Clustering
-
-# In[1]:
-
+#%% Load packages and define paths
 
 import os, inspect, sys
 import numpy as np
 import matplotlib.pyplot as plt
-import xarray as xr
 user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-2])
@@ -48,18 +44,19 @@ else:
     root_data = '/Users/semvijverberg/surfdrive/ERA5'
 
 path_outmain = os.path.join(main_dir,
-                            'publications/NPJ_2021/circulation_US_HW/one-point-corr_maps_clusters')
+                            'publications/Vijverberg_Coumou_2022_NPJ/circulation_US_HW/one-point-corr_maps_clusters')
 
-domain = 'USCA'
-# In[2]:
+domain = 'USCA' # to select US and Canada domain via country mask.
+selbox = (225, 300, 25, 70) # selbox of data that is loaded.
+
+#%% initilize RGCPD class (only used for pre-processing pipeline)
 
 
-import functions_pp, find_precursors, core_pp
+import find_precursors, core_pp
 import clustering_spatial as cl
 import plot_maps
-import df_ana
 from RGCPD import RGCPD
-from RGCPD import BivariateMI ; import class_BivariateMI
+
 list_of_name_path = [('fake', None),
                      ('t2m', root_data + '/input_raw/mx2t_US_1979-2020_1_12_daily_0.25deg.nc')]
 rg = RGCPD(list_of_name_path=list_of_name_path,
@@ -67,17 +64,13 @@ rg = RGCPD(list_of_name_path=list_of_name_path,
 
 
 
-# In[3]:
+#%% Note, the pre-processing requires a substantial amount of working memory (~30Gb)
+# and may take ~30 minutes or so. Pre-processed data is stored and will be
+# automatically reloaded if it is found in new 'preprocessed' subdirectory.
 
 
 rg.pp_precursors(encoding={'dtype':'int32', 'scale_factor':1E-5})
-
-
-# In[ ]:
-
-
-rg.list_precur_pp
-selbox = (225, 300, 25, 70)
+# get pre-processed filename
 var_filename = rg.list_precur_pp[0][1]
 
 #%%
@@ -86,7 +79,7 @@ var_filename = rg.list_precur_pp[0][1]
 # ds.sel(time=core_pp.get_subdates(pd.to_datetime(ds.time.values), start_end_date=('06-01', '08-31'))).mean(dim='time').plot()
 
 
-#%%
+#%% Get the Country mask and mask high latitude (1500m) mx2t data
 import make_country_mask
 orography = os.path.join(user_dir, 'surfdrive/ERA5/input_raw/Orography.nc')
 
@@ -95,9 +88,8 @@ if domain == 'USCA':
     mask_US_CA = np.logical_or(xarray.values == Country.US, xarray.values==Country.CA)
 elif domain == 'US':
     mask_US_CA = xarray.values == Country.US
-# xr_mask =  xarray.where(mask_US_CA)
+
 xr_mask = xarray.where(make_country_mask.binary_erosion(mask_US_CA))
-# xr_mask =  xarray.where(make_country_mask.binary_erosion(np.nan_to_num(xr_mask)))
 xr_mask.values[~np.isnan(xr_mask)] = 1
 xr_mask = find_precursors.xrmask_by_latlon(xr_mask, upper_right=(270, 63))
 # mask small Western US Island

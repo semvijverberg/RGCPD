@@ -13,6 +13,7 @@ This script calculates and plots the results of Figure 1.
 
 @author: semvijverberg
 """
+#%% Load packages and define paths
 
 import os, inspect, sys
 import numpy as np
@@ -24,7 +25,7 @@ main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-data_dir = os.path.join(main_dir,'publications/NPJ_2021/data')
+data_dir = os.path.join(main_dir,'publications/Vijverberg_Coumou_2022_NPJ/data')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -39,6 +40,8 @@ from RGCPD import BivariateMI
 import class_BivariateMI
 import plot_maps, functions_pp, df_ana, find_precursors
 
+
+# TVpath is a netcdf file with (o.a.) the spatial mean timeseries of the clusters.
 west_east = 'west'
 TV = 'USCAnew'
 if TV == 'USCAnew':
@@ -74,10 +77,10 @@ if TV == 'USCAnew':
 
 
 path_out_main = os.path.join(main_dir,
-                             'publications/NPJ_2021/output/heatwave_circulation_v300_z500_SST/{}'.format(TVpath.split('_')[-1][:-3]))
+                             'publications/Vijverberg_Coumou_2022_NPJ/output/heatwave_circulation_v300_z500_SST/{}'.format(TVpath.split('_')[-1][:-3]))
 
 
-
+#%%
 
 
 name_ds='ts'
@@ -161,27 +164,23 @@ kwrgs_plot = {'row_dim':'lag', 'col_dim':'split', 'aspect':3.8, 'size':2.5,
               'clim':(-.6,.6), 'title':title, 'subtitles':subtitles,
               'title_fontdict':{'y':1.0, 'fontsize':18}}
 save = True
-# rg.plot_maps_corr(var='z500', save=save,
-#                   min_detect_gc=min_detect_gc,
-#                   kwrgs_plot=kwrgs_plot,
-#                   append_str=''.join(map(str, z500_green_bb))+TV+str(cluster_label))
 
 z500 = rg.list_for_MI[0]
 xrvals, xrmask = RGCPD._get_sign_splits_masked(z500.corr_xr,
                                                min_detect_gc,
                                                z500.corr_xr['mask'])
-fig = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
+fg = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
 
 ds = rg.get_clust()
 xrclustered = find_precursors.view_or_replace_labels(ds['xrclustered'],
                                                      cluster_label)
-fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
+fg.fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
            np.isnan(xrclustered), transform=ccrs.PlateCarree(),
            levels=[0, 2], linewidths=2, linestyles=['solid'], colors=['white'])
 filename = os.path.join(rg.path_outsub1, 'z500vsmx2t_'+
                         rg.hash+'_'+str(cluster_label))
 
-fig.savefig(filename + rg.figext, bbox_inches='tight')
+fg.fig.savefig(filename + rg.figext, bbox_inches='tight')
 
 #%% upon request of reviewer, using a smaller bounding box plot
 # kwrgs_plot.update({'drawbox':[(0,0), (155,300,20,73)]})
@@ -206,16 +205,16 @@ v200 = rg.list_for_MI[1]
 xrvals, xrmask = RGCPD._get_sign_splits_masked(v200.corr_xr,
                                                min_detect_gc,
                                                v200.corr_xr['mask'])
-fig = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
+fg = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
 
-fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
+fg.fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
                     np.isnan(xrclustered), transform=ccrs.PlateCarree(),
                     levels=[0, 2], linewidths=1, linestyles=['solid'],
                     colors=['white'])
 filename = os.path.join(rg.path_outsub1, 'v300vsmx2t_'+
                         rg.hash+'_'+str(cluster_label))
 
-fig.savefig(filename + rg.figext, bbox_inches='tight')
+fg.fig.savefig(filename + rg.figext, bbox_inches='tight')
 
 
 
@@ -223,16 +222,17 @@ kwrgs_plot['drawbox'] = None
 xrvals, xrmask = RGCPD._get_sign_splits_masked(v200.corr_xr,
                                                min_detect_gc,
                                                v200.corr_xr['mask'])
-fig = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
+fg = plot_maps.plot_corr_maps(xrvals, xrmask, **kwrgs_plot)
 
-fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
+
+fg.fig.axes[0].contour(xrclustered.longitude, xrclustered.latitude,
                     np.isnan(xrclustered), transform=ccrs.PlateCarree(),
                     levels=[0, 2], linewidths=2, linestyles=['solid'],
                     colors=['white'])
 filename = os.path.join(rg.path_outsub1, 'v300vsmx2t_nobox'+
                         rg.hash+'_'+str(cluster_label))
 
-fig.savefig(filename + rg.figext, bbox_inches='tight')
+fg.fig.savefig(filename + rg.figext, bbox_inches='tight')
 
 #%%
 import matplotlib as mpl

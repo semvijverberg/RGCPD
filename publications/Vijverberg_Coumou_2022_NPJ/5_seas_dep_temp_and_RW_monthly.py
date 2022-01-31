@@ -14,7 +14,7 @@ the predictions for the varying target months (shown in SI-Figure 12).
 
 @author: semvijverberg
 """
-
+#%% Load packages and define paths
 
 import os, inspect, sys
 import matplotlib as mpl
@@ -26,13 +26,12 @@ else:
 
     mpl.rc('text', usetex=True)
 import numpy as np
-from time import time
 import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
 import matplotlib
 import pandas as pd
 import xarray as xr
 import csv
-# import sklearn.linear_model as scikitlinear
+matplotlib.rcParams['text.latex.preamble'] = r'\boldmath'
 import argparse
 
 user_dir = os.path.expanduser('~')
@@ -42,7 +41,7 @@ RGCPD_func = os.path.join(main_dir, 'RGCPD')
 assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
 cluster_func = os.path.join(main_dir, 'clustering/')
 fc_dir = os.path.join(main_dir, 'forecasting')
-data_dir = os.path.join(main_dir,'publications/paper2/data')
+data_dir = os.path.join(main_dir,'publications/Vijverberg_Coumou_2022_NPJ/data')
 if cluster_func not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(RGCPD_func)
@@ -56,24 +55,14 @@ from RGCPD import RGCPD
 from RGCPD import BivariateMI
 import class_BivariateMI
 import func_models as fc_utils
-import functions_pp; import df_ana
-import plot_maps; import core_pp
+import functions_pp
+import plot_maps
 
-# Optionally set font to Computer Modern to avoid common missing font errors
-# matplotlib.rc('font', family='serif', serif='cm10')
+#%% Global parameter
 
-# matplotlib.rc('text', usetex=True)
-matplotlib.rcParams['text.latex.preamble'] = r'\boldmath'
-
-# target = 'temperature'
-
-# if region == 'eastern':
-#     targets = ['easterntemp', 'easternRW']
-#     targets = ['easterntemp']
-# elif region == 'western':
-#     targets = ['westerntemp', 'westernRW']
-
+# predict temperaure or RW variability
 targets = ['westerntemp', 'easterntemp']
+# targets = ['westRW', 'eastRW']
 
 
 expers = np.array(['adapt_corr']) # np.array(['fixed_corr', 'adapt_corr'])
@@ -81,7 +70,7 @@ remove_PDOyesno = np.array([0])
 seeds = np.array([1,2,3])
 combinations = np.array(np.meshgrid(targets, expers, seeds, remove_PDOyesno)).T.reshape(-1,4)
 
-i_default = 0
+i_default = 1
 
 
 
@@ -116,12 +105,8 @@ else:
     experiment = 'adapt_corr'
     remove_PDO = False
 
-mainpath_df = os.path.join(main_dir, 'publications/NPJ_2021/output/heatwave_circulation_v300_z500_SST/57db0USCA/')
+mainpath_df = os.path.join(main_dir, 'publications/Vijverberg_Coumou_2022_NPJ/output/heatwave_circulation_v300_z500_SST/57db0USCA/')
 calc_ts='region mean' # pattern cov
-# # t2m
-# TVpath = 'z500_145-325-20-62USCA.h5'
-# # mx2t
-# TVpath = 'z500_145-325-20-620a6f6USCA.h5'
 # mx2t 25N-70N
 TVpath = 'z500_155-300-20-7357db0USCA.h5'
 
@@ -130,7 +115,6 @@ TVpath  = os.path.join(mainpath_df, TVpath)
 
 
 if target[-4:] == 'temp':
-    # TVpath = user_dir + '/surfdrive/output_RGCPD/circulation_US_HW/tf15_nc3_dendo_0ff31.nc'
     alpha_corr = .05
 
     if target == 'westerntemp':
@@ -142,15 +126,12 @@ if target[-4:] == 'temp':
     name_ds=f'{cluster_label}'
 elif target[-2:] == 'RW':
     cluster_label = '' # 'z500'
-    name_ds = target[:4]
+    name_ds = target
     alpha_corr = .05
-    # if target == 'easternRW':
-    #     TVpath = os.path.join(data_dir, '2020-10-29_13hr_45min_east_RW.h5')
-    # elif target == 'westernRW':
-    #     TVpath = os.path.join(data_dir, '2020-10-29_10hr_58min_west_RW.h5')
+    corlags = np.array([1])
 
 precur_aggr = tfreq
-method     = 'ranstrat_10' ; # since we now have one-val-per year, stratification can/is not be used.
+method     = 'ranstrat_10'
 n_boot = 2000
 
 append_main = ''
@@ -174,7 +155,7 @@ if calc_ts == 'region mean':
 else:
     s = '_' + calc_ts.replace(' ', '')
 
-path_out_main = os.path.join(main_dir, f'publications/paper2/output/{target}{s}{append_main}/')
+path_out_main = os.path.join(main_dir, f'publications/Vijverberg_Coumou_2022_NPJ/output/{target}{s}{append_main}/')
 
 rg = RGCPD(list_of_name_path=list_of_name_path,
            list_for_MI=list_for_MI,
@@ -224,8 +205,6 @@ if experiment == 'fixed_corr':
                       append_str=append_str)
 
 
-
-# rg.get_ts_prec()
 #%% (Adaptive) forecasting
 
 
@@ -269,13 +248,14 @@ no_info_fc = []
 dm = {} # dictionairy months
 dmc = {} # dictionairy months clusters
 for month, start_end_TVdate in months.items():
-    month, start_end_TVdate = list(months.items())[1]
     if experiment == 'fixed_corr':
         # overwrite RV_mask
         rg.get_ts_prec(precur_aggr=precur_aggr,
                        start_end_TVdate=start_end_TVdate)
     elif experiment == 'adapt_corr':
         rg.start_end_TVdate = start_end_TVdate # adapt target period
+        # rg.kwrgs_load['start_end_TVdate'] = rg.start_end_TVdate
+        rg.kwrgs_datehandling['start_end_TVdate'] = rg.start_end_TVdate
         rg.pp_TV(name_ds=name_ds, anomaly=True, kwrgs_core_pp_time={'dailytomonths':True})
         subfoldername = '_'.join([target,rg.hash, experiment.split('_')[0],
                           str(precur_aggr), str(alpha_corr), method,
@@ -356,28 +336,7 @@ for month, start_end_TVdate in months.items():
                                                                  blocksize=blocksize,
                                                                  rng_seed=1)
         df_test_m = df_test_m['Prediction'] ; df_boot = df_boot['Prediction']
-        # # Benchmark prediction
 
-        # observed = pd.concat(n_splits*[target_ts], keys=range(n_splits))
-        # benchpred = observed.copy()
-        # benchpred[:] = np.zeros_like(observed) # fake pred
-        # benchpred = pd.concat([observed, benchpred], axis=1)
-
-        # bench_MSE = fc_utils.get_scores(benchpred,
-        #                                rg.df_data.iloc[:,-2:][rg.df_data.iloc[:,-1:].values].dropna(),
-        #                                score_func_list,
-        #                                n_boot = 0,
-        #                                blocksize=blocksize,
-        #                                rng_seed=1)[2]
-        # bench_MSE = float(bench_MSE.values)
-
-
-        # print(df_test_m)
-        # df_boot['mean_squared_error'] = (bench_MSE-df_boot['mean_squared_error'])/ \
-        #                                         bench_MSE
-
-        # df_test_m['mean_squared_error'] = (bench_MSE-df_test_m['mean_squared_error'])/ \
-        #                                         bench_MSE
         n_splits = rg.df_data.index.levels[0].size
         cvfitalpha = [models_lags[f'lag_{lag}'][f'split_{s}'].alpha_ for s in range(n_splits)]
         print('mean alpha {:.2f}'.format(np.mean(cvfitalpha)))
@@ -442,7 +401,6 @@ for i, (mon, met) in enumerate(monmet):
 
 
 fig, ax = plt.subplots(1,1, figsize=(10,8))
-# ax.set_facecolor('lightgrey')
 plt.style.use('seaborn')
 _yerr = np.array(yerr).reshape(df_scores.columns.size,len(monthkeys)*2,
                                order='F').reshape(df_scores.columns.size,2,len(monthkeys))
@@ -482,13 +440,6 @@ if target=='westerntemp':
               framealpha=.5)
     ax.add_artist(legend1)
 
-    # # manually define a new patch
-    # if len(no_info_fc) != 0:
-    #     patch = mpatches.Patch(color='red', label=r'$\alpha=$'+f' ${int(alphas[-1])}$')
-    #     legend2 = ax.legend(loc='upper left', handles=[patch],
-    #           fontsize=16, frameon=True, facecolor='grey',
-    #           framealpha=.5)
-    #     ax.add_artist(legend2)
 
 ax.set_ylim(-0.1, 1.0)
 plt.savefig(os.path.join(rg.path_outsub1,
@@ -508,6 +459,7 @@ for csvfilename, dic in [(csvfilename, dict_v)]:
     with open(csvfilename, 'a', newline='') as csvfile:
         writer = csv.DictWriter(csvfile, list(dic.keys()))
         writer.writerows([dic])
+
 #%%
 min_detect_gc = .9
 mpl.rcParams.update(mpl.rcParamsDefault)
@@ -536,11 +488,7 @@ if experiment == 'adapt_corr':
                                 precur.alpha) + '_' + \
                                 f'{experiment}_lag{corlags}_' + \
                                 f'tf{precur_aggr}_{method}_gc{min_detect_gc}'
-    # ncdf_filepath = os.path.join(rg.path_outsub1, f_name+'.nc')
-    # if os.path.isfile(ncdf_filepath): os.remove(ncdf_filepath)
-    # corr.to_netcdf(ncdf_filepath, mode='w')
-    # import_ds = core_pp.import_ds_lazy
-    # corr = import_ds(os.path.join(rg.path_outsub1, f_name+'.nc'))[precur.name]
+
     # Horizontal plot
     subtitles = np.array([['$t=$'+k+' mean' for k in monthkeys]])
     if corlags[0] == 0:
@@ -667,7 +615,54 @@ if experiment == 'adapt_corr':
     fig_path = os.path.join(rg.path_outsub1, f_name+'vert')+rg.figext
     plt.savefig(fig_path, bbox_inches='tight')
 
-#%%%
+#%%% Plot labels for July-August forecast
+
+cmp = plot_maps.get_continuous_cmap(["06d6a0", "6930c3"],
+                          float_list=list(np.linspace(0,1,2)))
+kwrgs_plot_l = {'map_proj':ccrs.PlateCarree(central_longitude=220),
+                'units':'DBSCAN labels', 'cmap':cmp, 'size':2,
+                'cbar_vert':-.15,
+                'cbar_tick_dict':{'labelsize':14},
+                'y_ticks':np.array([-10,10,30,50, 70]),
+                'x_ticks':np.arange(130, 280, 25),
+                'zoomregion':[110,250,0,60],
+                'subtitles':[['Precursor regions']]}
+g = plot_maps.plot_labels(labels.sel(months='July-Aug'),
+                            kwrgs_plot=kwrgs_plot_l)
+fig_path = os.path.join(rg.path_outsub1, 'Precursor_regions_julyaugust')+rg.figext
+g.fig.savefig(fig_path, bbox_inches='tight')
+#%% Plot corr map for July-August forecast
+kwrgs_plot_c = kwrgs_plot_l.copy()
+if 'cmap' in kwrgs_plot_c.keys(): kwrgs_plot_c.pop('cmap')
+kwrgs_plot_c.update({'cbar_vert':-.14, 'units':'[-] Corr. Coef.',
+                     'size':2,
+                   # 'subtitles':[['$t=$'+'July-Aug'+' mean']],
+                   'subtitles':[[r'$corr(SST_{MJ}, T^{E}_{JA})$']],
+                   'clevels':np.arange(-.6,.61,.075),
+                   'clabels':np.arange(-.6,.61,.3)})
+g = plot_maps.plot_corr_maps(corr.sel(months='July-Aug').where(~np.isnan(labels.sel(months='July-Aug'))),
+                               **kwrgs_plot_c)
+fig_path = os.path.join(rg.path_outsub1, 'Corr_map_julyaugust')+rg.figext
+g.fig.savefig(fig_path, bbox_inches='tight')
+
+#%% Plot PDO
+
+import climate_indices
+df_PDO, PDO_patterns = climate_indices.PDO(rg.list_precur_pp[0][1],None)
+PDO_patterns *= -1
+PDO_patterns.name = 'sst'
+#%%
+kwrgs_plot_p = kwrgs_plot_c.copy()
+# if 'cmap' in kwrgs_plot_p.keys(): kwrgs_plot_p.pop('cmap')
+kwrgs_plot_p.update({'units':'[-] EOF loading pattern',
+                     'zoomregion':(110,250,20,70),
+                     'subtitles':[['PDO pattern (negative phase)']]})
+g = plot_maps.plot_corr_maps(PDO_patterns[0], **kwrgs_plot_p)
+fig_path = os.path.join(rg.path_outsub1, 'PDO_pattern')+rg.figext
+g.fig.savefig(fig_path, bbox_inches='tight')
+
+
+#%%
 # df = df_test_b.stack().reset_index(level=1)
 # dfx = df.groupby(['level_1'])
 # axes = dfx.boxplot()
