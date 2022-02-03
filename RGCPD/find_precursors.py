@@ -716,7 +716,7 @@ def labels_to_df(prec_labels, corr_xr=None, return_mean_latlon=True):
 
     return df
 
-def df_data_prec_regs(list_MI, TV, df_splits): #, outdic_precur, df_splits, TV #TODO
+def df_data_prec_regs(list_MI, df_splits): #, outdic_precur, df_splits, TV #TODO
     '''
     Be aware: the amount of precursor vary over train test splits,
     each split will contain a column if a precursor was present in

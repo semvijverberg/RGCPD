@@ -505,7 +505,6 @@ class RGCPD:
                 any_MI_ts = (~np.equal(check_ts, 0)).any() # ts_corr.size != 0?
                 if any_MI_ts:
                     df_data_MI = find_precursors.df_data_prec_regs(self.list_for_MI,
-                                                                   TV,
                                                                    df_splits)
                     # cross yr can lead to non-alignment of index. Adopting df_data index
                     df_data_MI.index = self.df_data.index

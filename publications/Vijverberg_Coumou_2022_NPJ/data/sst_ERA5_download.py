@@ -61,12 +61,12 @@ if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 ex = dict(
      {'dataset'     :       dataset,
      'grid_res'     :       1.0,
-     'startyear'    :       1979, # download startyear
-     'endyear'      :       2020, # download endyear
+     'startyear'    :       2021, # download startyear
+     'endyear'      :       2021, # download endyear
      'months'       :       list(range(1,12+1)), #downoad months
      # for monthly means of daily means, choose 'moda' or 'mnth'
      # for daily means choose 'oper' or 'enda' (for accumulations)
-     'stream'       :       'oper',
+     'stream'       :       'moda',
      'time'         :       pd.date_range(start='00:00', end='23:00',
                                 freq=(pd.Timedelta(6, unit='h'))),
      'area'         :       'global', # [North, West, South, East]. Default: global

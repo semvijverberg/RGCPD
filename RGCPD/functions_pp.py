@@ -1814,9 +1814,22 @@ def match_coords_xarrays(wanted_coords_arr, *to_match):
                        latitude=np.arange(latmin, latmax+dlat,dlat),
                        method='nearest') for tomatch in to_match]
 
-def kornshell_with_input(args, cls):
-#    stopped working for cdo commands
-    '''some kornshell with input '''
+def kornshell_with_input(args):
+    '''
+    Executes system operators such as cdo within bash script.
+    Within the current working directory there should be a folder named
+    bash_scripts and within that folder must be an empty text file stored as .sh
+
+    Parameters
+    ----------
+    args : list with cdo commands.
+        For example: cdo selyear,2021 {infile} {outfile}.
+
+    Returns
+    -------
+    None.
+
+    '''
 #    args = [anom]
     import os
     import subprocess
@@ -1832,8 +1845,7 @@ def kornshell_with_input(args, cls):
         file.write("#!/bin/sh\n")
         file.write("echo bash script output\n")
         for cmd in range(len(args)):
-
-            print(args[cmd].replace(cls.base_path, 'base_path/')[:300])
+            print(args[cmd])
             file.write("${}\n".format(cmd+1))
     p = subprocess.Popen(bash_and_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)

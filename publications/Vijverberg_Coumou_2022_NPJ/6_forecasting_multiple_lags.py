@@ -53,7 +53,7 @@ import class_BivariateMI
 import func_models as fc_utils
 import functions_pp;
 import core_pp
-#%%
+#%% Global parameter
 
 
 targets = ['easterntemp']#, 'westerntemp']

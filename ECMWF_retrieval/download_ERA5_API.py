@@ -91,8 +91,10 @@ class Var_ECMWF_download():
         vclass.lvllist = ex['vars'][3][idx]
         if 'area' in ex.keys():
             vclass.area    = ex['area']
+            if vclass.area == 'global':
+                vclass.area    = [90, -180, -90, 180] # global
         else:
-            vclass.area    = 'global'
+            vclass.area    = [90, -180, -90, 180] # global
         vclass.stream = ex['stream']
         if vclass.stream == 'oper' or vclass.stream == 'enda':
             vclass.input_freq = 'daily'
