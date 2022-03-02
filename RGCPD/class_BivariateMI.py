@@ -572,10 +572,12 @@ class BivariateMI:
                                           self.min_area_in_degrees2)
 
             ds = xr.Dataset({'corr_xr':self.corr_xr,
+                             'pval_xr':self.pval_xr,
                              'prec_labels':self.prec_labels,
                              'precur_arr':self.precur_arr})
         else:
             ds = xr.Dataset({'corr_xr':self.corr_xr,
+                             'pval_xr':self.pval_xr,
                              'precur_arr':self.precur_arr})
         if add_hash:
             f_name += f'_{hash_str}'
