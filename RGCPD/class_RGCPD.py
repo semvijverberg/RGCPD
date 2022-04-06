@@ -5,10 +5,6 @@ Created on Tue Oct  1 15:13:58 2019
 @author: semvijverberg
 """
 import sys, os, inspect
-if 'win' in sys.platform and 'dar' not in sys.platform:
-    sep = '\\' # Windows folder seperator
-else:
-    sep = '/' # Mac/Linux folder seperator
 
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 

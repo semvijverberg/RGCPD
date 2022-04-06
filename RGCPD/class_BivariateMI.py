@@ -6,11 +6,6 @@ Created on Thu Dec  5 12:17:25 2019
 @author: semvijverberg
 """
 import sys, os, inspect
-if 'win' in sys.platform and 'dar' not in sys.platform:
-    sep = '\\' # Windows folder seperator
-else:
-    sep = '/' # Mac/Linux folder seperator
-
 from .forecasting import func_models as fc_utils
 import itertools, os, re
 import numpy as np

@@ -6,6 +6,8 @@ Created on Mon Jul  9 17:48:31 2018
 @author: semvijverberg
 """
 import sys, os, inspect
+
+# TODO can this be removed? sep is defined in both global and local scopes
 if 'win' in sys.platform and 'dar' not in sys.platform:
     sep = '\\' # Windows folder seperator
 else:
