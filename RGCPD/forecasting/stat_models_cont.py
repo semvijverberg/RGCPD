@@ -6,10 +6,10 @@ Created on Wed Oct  2 15:03:31 2019
 @author: semvijverberg
 """
 
-import pandas as pd
 import numpy as np
-from sklearn.linear_model import RidgeCV
+import pandas as pd
 import sklearn.model_selection as msel
+from sklearn.linear_model import RidgeCV
 
 from . import func_models as utils
 

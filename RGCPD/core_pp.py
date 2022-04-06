@@ -5,20 +5,23 @@ Created on Fri May 17 16:31:11 2019
 @author: semvijverberg
 """
 
-import numpy as np
-import scipy as sp
-import pandas as pd
-import matplotlib.pyplot as plt
-import xarray as xr
-from netCDF4 import num2date
-from dateutil.relativedelta import relativedelta as date_dt
 import itertools
-import scipy.signal.windows as spwin
 # from dateutil.relativedelta import relativedelta as date_dt
 from collections import Counter
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import scipy as sp
+import scipy.signal.windows as spwin
+import xarray as xr
+from dateutil.relativedelta import relativedelta as date_dt
+from netCDF4 import num2date
+
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 from typing import Union
+
 
 def get_oneyr(dt_pdf_pds_xr, *args):
     if type(dt_pdf_pds_xr) == pd.DatetimeIndex:

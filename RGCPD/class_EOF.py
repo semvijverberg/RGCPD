@@ -7,14 +7,15 @@ Created on Sun Feb  9 14:16:56 2020
 """
 
 import os
-import numpy as np
-import xarray as xr
-import pandas as pd
-import matplotlib.pyplot as plt
 from concurrent.futures import ProcessPoolExecutor
-from . import plot_maps
-from . import functions_pp
-from . import find_precursors
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import xarray as xr
+
+from . import find_precursors, functions_pp, plot_maps
+
 
 class EOF:
 

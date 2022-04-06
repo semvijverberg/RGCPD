@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
-import sys, os, inspect
+import inspect
+import os
+import sys
+
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
 subdates_dir = os.path.join(main_dir, 'RGCPD/')
@@ -9,28 +12,31 @@ if main_dir not in sys.path:
     sys.path.append(main_dir)
     sys.path.append(subdates_dir)
     sys.path.append(fc_dir)
-import pandas as pd
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+
 pd.options.plotting.matplotlib.register_converters = True # apply custom format as well to matplotlib
 plt.style.use('seaborn')
-import scipy as sp
-from scipy import stats
-import seaborn as sns
 import matplotlib as mpl
-from matplotlib import cycler
+import scipy as sp
+import seaborn as sns
 import xarray
+from matplotlib import cycler
+from scipy import stats
+
 try:
     import mtspec
 except:
     print('could not import mtspec')
-from typing import List, Tuple, Union
 import warnings
-import tables
+from typing import List, Tuple, Union
+
 import h5py
+import tables
+from core_pp import get_subdates
 # from forecasting import *
 from statsmodels.tsa import stattools
-from core_pp import get_subdates
 
 
 class DataFrameAnalysis:

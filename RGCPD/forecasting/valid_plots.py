@@ -6,23 +6,26 @@ Created on Sun Sep 29 20:15:50 2019
 @author: semvijverberg
 """
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+from itertools import chain, permutations, product
+
 #import matplotlib.patches as patches
 #from sklearn import metrics
 import functions_pp
-from sklearn.calibration import calibration_curve
-import sklearn.metrics as metrics
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
-from itertools import permutations, product, chain
+import sklearn.metrics as metrics
+from sklearn.calibration import calibration_curve
+
 flatten = lambda l: list(chain.from_iterable(l))
 
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib as mpl
-from matplotlib import cycler
 import matplotlib.ticker as ticker
+from matplotlib import cycler
 from matplotlib.lines import Line2D
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 nice_colors = ['#EE6666', '#3388BB', '#9988DD', '#EECC55',
                 '#88BB44', '#FFBBBB']
 colors_nice = cycler('color',
@@ -52,7 +55,7 @@ mpl.rcParams['figure.titlesize'] = 'medium'
 
 
 def get_scores_improvement(m_splits, fc, s, lag, metric=None):
-#    import stat_models
+import stat_models
     import warnings
     warnings.filterwarnings("ignore")
     m = m_splits[f'split_{s}']
@@ -201,8 +204,9 @@ def visual_analysis(fc, model=None, lag=None, split='all', col_wrap=5,
     prediction, y_true, train_score, test_score, m = get_pred_split(m_splits, fc, s, lag)
 
 
-    import matplotlib.dates as mdates
     import datetime
+
+    import matplotlib.dates as mdates
     prediction['year'] = prediction.index.year
     years = np.unique(prediction.index.year)[:]
     g = sns.FacetGrid(prediction, col='year', sharex=False,  sharey=True,
@@ -1104,6 +1108,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                             clim = RV_bin.values[RV_bin==1].size / RV_bin.size
                             if metric == 'Accuracy':
                                 import validation as valid
+
                                 # threshold upper 3/4 of above clim
                                 threshold = int(100 * (1 - 0.75*clim))
                                 f_ = valid.get_metrics_confusion_matrix

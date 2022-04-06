@@ -5,7 +5,10 @@ Created on Thu Jan 16 14:33:50 2020
 
 @author: semvijverberg
 """
-import os, inspect, sys
+import inspect
+import os
+import sys
+
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-1])
 cluster_func = os.path.join(main_dir, 'clustering/')
@@ -16,17 +19,18 @@ if cluster_func not in sys.path:
 if RGCPD_func not in sys.path:
     sys.path.append(RGCPD_func)
 
-import core_pp
-import clustering_spatial as cl
-import functions_pp
-from class_RV import aggr_to_daily_dates
-import func_fc
-import validation as valid
-import plot_maps
-
-import numpy as np
-from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
+
+import clustering_spatial as cl
+import core_pp
+import func_fc
+import functions_pp
+import numpy as np
+import plot_maps
+import validation as valid
+from class_RV import aggr_to_daily_dates
+
 max_cpu = multiprocessing.cpu_count()
 
 

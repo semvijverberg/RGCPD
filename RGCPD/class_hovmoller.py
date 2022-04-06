@@ -7,22 +7,23 @@ Created on Wed Jun 10 09:24:50 2020
 """
 
 import os
-import numpy as np
-import scipy
-# import xarray as xr
-import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import matplotlib.colors as mcolors
+from typing import List, Tuple, Union
+
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-from shapely.geometry.polygon import LinearRing
-# import metpy.calc as mpcalc
-import plot_maps
-import functions_pp
 import core_pp
 import find_precursors
-from typing import List, Tuple, Union
+import functions_pp
+import matplotlib.colors as mcolors
+import matplotlib.gridspec as gridspec
+import matplotlib.pyplot as plt
+import numpy as np
+# import xarray as xr
+import pandas as pd
+# import metpy.calc as mpcalc
+import plot_maps
+import scipy
+from shapely.geometry.polygon import LinearRing
 
 
 class Hovmoller:

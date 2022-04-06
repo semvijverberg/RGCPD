@@ -7,17 +7,18 @@ Created on Thu Dec  5 12:17:25 2019
 """
 
 import itertools
-import numpy as np
-import xarray as xr
-import pandas as pd
-from sklearn import cluster
 from math import radians as _r
-from sklearn.metrics.pairwise import haversine_distances
-from netCDF4 import num2date
+
+import numpy as np
+import pandas as pd
+import xarray as xr
 from joblib import Parallel, delayed
-from . import functions_pp
-from . import core_pp
-from . import plot_maps
+from netCDF4 import num2date
+from sklearn import cluster
+from sklearn.metrics.pairwise import haversine_distances
+
+from . import core_pp, functions_pp, plot_maps
+
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 from typing import List, Tuple, Union
 

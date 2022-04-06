@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
-import os, io, sys
-from tigramite import data_processing as pp
-from tigramite.pcmci import PCMCI
+import io
+import itertools
+import os
+import sys
+
 import matplotlib.pyplot as plt
-from statsmodels.sandbox.stats import multicomp
-from tigramite.independence_tests import ParCorr #, GPDC, CMIknn, CMIsymb
 import numpy as np
 import pandas as pd
-import itertools
 from joblib import Parallel, delayed
+from statsmodels.sandbox.stats import multicomp
+from tigramite import data_processing as pp
+from tigramite.independence_tests import ParCorr  # , GPDC, CMIknn, CMIsymb
+from tigramite.pcmci import PCMCI
+
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 
