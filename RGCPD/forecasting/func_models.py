@@ -19,7 +19,7 @@ flatten = lambda l: list(itertools.chain.from_iterable(l))
 from sklearn import metrics
 import properscoring as ps
 from sklearn import preprocessing
-import functions_pp
+from .. import functions_pp
 
 def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
                                 seed: int=1, groups=None):

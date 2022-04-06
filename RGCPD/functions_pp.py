@@ -15,7 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import xarray as xr
 import itertools
-import core_pp
+from . import core_pp
 import datetime
 from scipy.optimize import curve_fit
 

@@ -14,7 +14,7 @@ import matplotlib.dates as mdates
 flatten = lambda l: [item for sublist in l for item in sublist]
 from typing import List, Tuple, Union
 
-from functions_pp import time_mean_bins, get_oneyr
+from ...functions_pp import time_mean_bins, get_oneyr
 
 
 

@@ -15,9 +15,9 @@ from math import radians as _r
 from sklearn.metrics.pairwise import haversine_distances
 from netCDF4 import num2date
 from joblib import Parallel, delayed
-import functions_pp
-import core_pp
-import plot_maps
+from . import functions_pp
+from . import core_pp
+from . import plot_maps
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 from typing import List, Tuple, Union
 

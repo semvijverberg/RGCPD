@@ -12,9 +12,9 @@ import xarray as xr
 import pandas as pd
 import matplotlib.pyplot as plt
 from concurrent.futures import ProcessPoolExecutor
-import plot_maps
-import functions_pp
-import find_precursors
+from . import plot_maps
+from . import functions_pp
+from . import find_precursors
 
 class EOF:
 

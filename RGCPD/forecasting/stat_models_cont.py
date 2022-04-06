@@ -11,7 +11,7 @@ import numpy as np
 from sklearn.linear_model import RidgeCV
 import sklearn.model_selection as msel
 
-import func_models as utils
+from . import func_models as utils
 
 
 def ridgeCV(y_ts, df_norm, keys=None, kwrgs_model=None):

@@ -11,8 +11,8 @@ import pandas as pd
 import xarray as xr
 from typing import Tuple, Union
 
-import functions_pp
-import core_pp
+from . import functions_pp
+from . import core_pp
 
 
 class RV_class:

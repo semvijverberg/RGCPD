@@ -11,17 +11,17 @@ if 'win' in sys.platform and 'dar' not in sys.platform:
 else:
     sep = '/' # Mac/Linux folder seperator
 
-import func_models as fc_utils
+from .forecasting import func_models as fc_utils
 import itertools, os, re
 import numpy as np
 import xarray as xr
 import scipy
 import pandas as pd
 from statsmodels.sandbox.stats import multicomp
-import functions_pp, core_pp
-import find_precursors
-from func_models import apply_shift_lag
-from class_RV import RV_class
+from . import functions_pp, core_pp
+from . import find_precursors
+from .forecasting.func_models import apply_shift_lag
+from .class_RV import RV_class
 from typing import Union
 import uuid
 flatten = lambda l: list(itertools.chain.from_iterable(l))
