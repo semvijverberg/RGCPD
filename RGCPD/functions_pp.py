@@ -1317,7 +1317,10 @@ def regrid_xarray(xarray_in, to_grid_res, periodic=True):
         lon1_b = lons.max()
     to_grid = xe.util.grid_2d(lon0_b, lon1_b, to_grid_res, lat0_b, lat1_b, to_grid_res)
 #    to_grid = xe.util.grid_global(2.5, 2.5)
-    regridder = xe.Regridder(ds, to_grid, method, periodic=periodic, reuse_weights=True)
+    try:
+        regridder = xe.Regridder(ds, to_grid, method, periodic=periodic, reuse_weights=True)
+    except:
+        regridder = xe.Regridder(ds, to_grid, method, periodic=periodic, reuse_weights=False)
     try:
         xarray_out = regridder(ds)
     except:
@@ -1347,7 +1350,6 @@ def regrid_xarray(xarray_in, to_grid_res, periodic=True):
 
 def store_hdf_df(dict_of_dfs, file_path=None):
     import warnings
-
     import tables
     today = datetime.datetime.today().strftime("%d-%m-%y_%Hhr")
     if file_path is None:
@@ -1369,9 +1371,7 @@ def load_hdf5(path_data):
     '''
     Loading hdf5 can not be done simultaneously:
     '''
-    import time
-
-    import h5py
+    import h5py, time
     attempt = 'Fail'
     c = 0
     while attempt =='Fail':
@@ -1394,8 +1394,8 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
     # RV_ts = rg.df_RV_ts ; traintestgroups=rg.traintestgroups
     # test_yrs = None ; seed=1 ; gap_prior=None ; gap_after=None
 
-    import sklearn.model_selection as sk_ms
     from func_models import get_cv_accounting_for_years
+    import sklearn.model_selection as sk_ms
 
 
 
@@ -1823,10 +1823,23 @@ def match_coords_xarrays(wanted_coords_arr, *to_match):
                        latitude=np.arange(latmin, latmax+dlat,dlat),
                        method='nearest') for tomatch in to_match]
 
-def kornshell_with_input(args, cls):
-#    stopped working for cdo commands
-    '''some kornshell with input '''
-args = [anom]
+def kornshell_with_input(args):
+    '''
+    Executes system operators such as cdo within bash script.
+    Within the current working directory there should be a folder named
+    bash_scripts and within that folder must be an empty text file stored as .sh
+
+    Parameters
+    ----------
+    args : list with cdo commands.
+        For example: cdo selyear,2021 {infile} {outfile}.
+
+    Returns
+    -------
+    None.
+
+    '''
+#    args = [anom]
     import os
     import subprocess
     cwd = os.getcwd()
@@ -1841,8 +1854,7 @@ args = [anom]
         file.write("#!/bin/sh\n")
         file.write("echo bash script output\n")
         for cmd in range(len(args)):
-
-            print(args[cmd].replace(cls.base_path, 'base_path/')[:300])
+            print(args[cmd])
             file.write("${}\n".format(cmd+1))
     p = subprocess.Popen(bash_and_args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                          stderr=subprocess.STDOUT)

@@ -294,7 +294,7 @@ def get_selbox(ds, selbox, verbosity=0):
     if except_cross180_westeast:
         # convert selbox to degrees east
         selbox = np.array(selbox)
-        selbox[selbox < 0] += 360
+        selbox[:2][selbox[:2] < 0] += 360
         selbox = list(selbox)
 
     if ds.latitude[0] > ds.latitude[1]:

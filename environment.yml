@@ -1,8 +1,8 @@
 name: RGCPD
 channels:
   - conda-forge
-  - defaults
-  - bioconda
+
+
 dependencies:
   - cartopy
   - cftime
@@ -23,7 +23,7 @@ dependencies:
   - numpy
   - pandas
   - pip
-  - python=3.7.3
+  - python>=3.8, <3.9
 #  - pytest # <- optional for pytesting
   - scikit-learn
   - scipy
@@ -31,6 +31,7 @@ dependencies:
   - shapely
 #  - spyder # <- optional Spyder IDE
   - statsmodels
+  - pytables
   - xarray
   - properscoring
 #  - joblib # <- optional for parallel computing
@@ -39,8 +40,11 @@ dependencies:
   - pip:
     - tigramite
 prefix: /Users/semvijverberg/miniconda3/envs/RGCPD
-# conda env create -f RGCPD_no_build.yml
+# If mamba has not been installed in your conda base environment, then please run:
+# conda install mamba -n base -c conda-forge
+# mamba env create -f environment.yml
 # Tigramite also needs cython: pip install cython
-# to install spyder later: conda install -c conda-forge spyder=4
+# to install spyder later:
+# mamba install -c conda-forge spyder
 # If working on a Windows, you need to have installed the visual c++ build tools
 # https://visualstudio.microsoft.com/visual-cpp-build-tools/
