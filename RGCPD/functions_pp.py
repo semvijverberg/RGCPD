@@ -1825,7 +1825,7 @@ def match_coords_xarrays(wanted_coords_arr, *to_match):
 def kornshell_with_input(args, cls):
 #    stopped working for cdo commands
     '''some kornshell with input '''
-args = [anom]
+    args = [anom]
     import os
     import subprocess
     cwd = os.getcwd()
