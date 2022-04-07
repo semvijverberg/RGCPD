@@ -7,7 +7,7 @@ Created on Fri Aug 30 17:04:46 2019
 """
 import itertools
 
-import functions_pp
+from .. import functions_pp
 import numpy as np
 
 flatten = lambda l: list(itertools.chain.from_iterable(l))

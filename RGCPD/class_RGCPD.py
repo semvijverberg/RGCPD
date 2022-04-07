@@ -33,7 +33,7 @@ def get_timestr(formatstr='%Y-%m-%d_%Hhr_%Mmin'):
     return datetime.datetime.today().strftime(formatstr)
 
 try:
-    import wrapper_PCMCI as wPCMCI
+    from . import wrapper_PCMCI as wPCMCI
 except:
     # raise(ModuleNotFoundError)
     print('Not able to load in Tigramite modules, to enable causal inference '

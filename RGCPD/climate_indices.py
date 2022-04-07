@@ -9,13 +9,11 @@ import os
 from concurrent.futures import ProcessPoolExecutor
 from time import time
 
-import core_pp
-import find_precursors
-import functions_pp
 import numpy as np
 import pandas as pd
-import plot_maps
 import xarray as xr
+
+from . import core_pp, find_precursors, functions_pp, plot_maps
 
 
 # get indices

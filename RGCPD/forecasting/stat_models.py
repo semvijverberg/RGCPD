@@ -30,7 +30,7 @@ from matplotlib.lines import Line2D
 
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
-import func_models as utils
+from . import func_models as utils
 
 logit = ('logit', None)
 
@@ -603,8 +603,7 @@ def plot_twoway_partial_dependence(GBR_models_split_lags, lag_i=0, keys=None,
         if plot_pairs is not None, keys is overwritten.
 
     '''
-
-    import df_ana
+    from df_analysis.df_analysis import df_ana
 
     #%%
     GBR_models_split = GBR_models_split_lags[f'lag_{lag_i}']
@@ -802,4 +801,3 @@ def plot_regularization(models_splits_lags, lag_i=0):
         ax.set_xlabel('LogitRegr CV folds')
     g.fig.suptitle('Inverse Regularization strength (low is strong)', y=1.00)
     return g.fig
-

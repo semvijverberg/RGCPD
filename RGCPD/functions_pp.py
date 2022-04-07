@@ -1395,8 +1395,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
     # test_yrs = None ; seed=1 ; gap_prior=None ; gap_after=None
 
     import sklearn.model_selection as sk_ms
-    from func_models import get_cv_accounting_for_years
-
+    from .forecasting.func_models import get_cv_accounting_for_years
 
 
     if traintestgroups is not None:
@@ -1911,6 +1910,3 @@ def check_pp_done(name, infile, kwrgs_load: dict=None, verbosity=1):
 #    dates_fit_tfreq = dates
     #%%
     return outfile
-
-
-

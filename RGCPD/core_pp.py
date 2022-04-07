@@ -1133,7 +1133,7 @@ def deseasonalizefft_detrend_2D(ds, detrend: bool=True, anomaly: bool=True,
     xr.DataArray()
 
     '''
-    import df_ana
+    from .df_analysis.df_analysis import df_ana
 
     dates = pd.to_datetime(ds.time.values)
     if anomaly:
@@ -1372,11 +1372,3 @@ def ensmean(outfile, weights=list, name=None, *args):
     mask =  (('latitude', 'longitude'), (ds_mean.values[0] != -9999) )
     ds_mean.coords['mask'] = mask
     ds_mean.to_netcdf(outfile, mode='w', encoding=encoding)
-
-
-
-
-
-
-
-

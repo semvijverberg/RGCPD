@@ -467,7 +467,7 @@ def print_pc_alphas_summ_from_txt(filepath_txt=str, variable=str):
     return pc_alpha
 
 def store_ts(df_data, df_sum, dict_ds, filename): # outdic_precur, add_spatcov=True
-    import functions_pp
+    from . import functions_pp
 
     df_data_to_store = df_data
     df_sum_to_store = df_sum
@@ -777,6 +777,3 @@ def df_data_Parcorr(df_data, z_keys=[str, list], keys: list=None, target: str=No
     return vals, pvals
 
 #%%
-
-
-
