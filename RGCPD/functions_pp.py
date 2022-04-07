@@ -1394,7 +1394,7 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
     # RV_ts = rg.df_RV_ts ; traintestgroups=rg.traintestgroups
     # test_yrs = None ; seed=1 ; gap_prior=None ; gap_after=None
 
-    from func_models import get_cv_accounting_for_years
+    from .forecasting.func_models import get_cv_accounting_for_years
     import sklearn.model_selection as sk_ms
 
 
