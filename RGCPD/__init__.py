@@ -27,6 +27,7 @@ if fc_dir not in sys.path:
 
 
 from class_RGCPD import RGCPD
+RGCPD.main_dir = main_dir
 from class_EOF import EOF
 from class_BivariateMI import BivariateMI
 

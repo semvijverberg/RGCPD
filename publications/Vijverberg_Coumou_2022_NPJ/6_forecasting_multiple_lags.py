@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+m#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Thu Jul  2 09:59:06 2020
@@ -214,6 +214,7 @@ except:
     SST_pp_filepath = user_dir + '/surfdrive/ERA5/input_raw/preprocessed/sst_1979-2020_1jan_31dec_daily_1.0deg.nc'
 
     if 'df_PDOsplit' not in globals():
+        # get PDO timeseries, using the same training sample as for RGDR
         df_PDO, PDO_patterns = climate_indices.PDO(SST_pp_filepath,
                                                    rg.df_splits)
         # summerdates = core_pp.get_subdates(dates, start_end_TVdate)
@@ -391,7 +392,13 @@ SST3 = prediction_wrapper(df_prec, lags=np.array([0]),
                           keys=keys3,
                           match_lag=False, n_boot=n_boot)
 
-
+#%% For Marina Friedrich
+# dates = core_pp.get_subdates(rg.dates_TV, start_end_year=(1980,2020))
+# target_ts_temp = rg.TV.RV_ts.loc[dates]
+# raw_target = rg.df_fulltso[['raw_target']].loc[dates]
+# prec1 = functions_pp.get_df_test(df_prec)[['1..1..sst_1', '1..2..sst_1']]
+# _merge = pd.concat([raw_target, target_ts_temp, prec1], axis=1)
+# _merge = _merge.rename({'raw_target':'raw_target_cl4', 'RV4ts':'target_cl4', '1..1..sst_1':'sst_lag1_label1', '1..2..sst_1':'sst_lag1_label2'}, axis=1)
 #%%
 # =============================================================================
 # #%% forecasting PDO (different lags)

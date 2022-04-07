@@ -426,7 +426,7 @@ def causal_reg_to_xarray(df_links, list_MI):
     for s in splits:
         var_MI.update([i for i in df_c.loc[s].index if '..' in i])
 
-    df_c = df_c.loc[:,var_MI]
+    df_c = df_c.loc[:,list(var_MI)]
 
     # collect var en region labels
     var = pd.Series([i[1].split('..')[-1] for i in df_c.index],

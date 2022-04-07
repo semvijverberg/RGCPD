@@ -1311,7 +1311,10 @@ def regrid_xarray(xarray_in, to_grid_res, periodic=True):
         lon1_b = lons.max()
     to_grid = xe.util.grid_2d(lon0_b, lon1_b, to_grid_res, lat0_b, lat1_b, to_grid_res)
 #    to_grid = xe.util.grid_global(2.5, 2.5)
-    regridder = xe.Regridder(ds, to_grid, method, periodic=periodic, reuse_weights=True)
+    try:
+        regridder = xe.Regridder(ds, to_grid, method, periodic=periodic, reuse_weights=True)
+    except:
+        regridder = xe.Regridder(ds, to_grid, method, periodic=periodic, reuse_weights=False)
     try:
         xarray_out = regridder(ds)
     except:
