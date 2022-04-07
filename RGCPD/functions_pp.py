@@ -5,21 +5,27 @@ Created on Mon Jul  9 17:48:31 2018
 
 @author: semvijverberg
 """
-import sys, os, inspect
+import inspect
+import os
+import sys
+
+# TODO can this be removed? sep is defined in both global and local scopes
 if 'win' in sys.platform and 'dar' not in sys.platform:
     sep = '\\' # Windows folder seperator
 else:
     sep = '/' # Mac/Linux folder seperator
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import xarray as xr
-import itertools
-import core_pp
 import datetime
+import itertools
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import xarray as xr
+from dateutil.relativedelta import relativedelta as date_dt
 from scipy.optimize import curve_fit
 
-from dateutil.relativedelta import relativedelta as date_dt
+from . import core_pp
+
 flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
@@ -1341,6 +1347,7 @@ def regrid_xarray(xarray_in, to_grid_res, periodic=True):
 
 def store_hdf_df(dict_of_dfs, file_path=None):
     import warnings
+
     import tables
     today = datetime.datetime.today().strftime("%d-%m-%y_%Hhr")
     if file_path is None:
@@ -1362,7 +1369,9 @@ def load_hdf5(path_data):
     '''
     Loading hdf5 can not be done simultaneously:
     '''
-    import h5py, time
+    import time
+
+    import h5py
     attempt = 'Fail'
     c = 0
     while attempt =='Fail':
@@ -1385,8 +1394,8 @@ def cross_validation(RV_ts, traintestgroups=None, test_yrs=None, method=str,
     # RV_ts = rg.df_RV_ts ; traintestgroups=rg.traintestgroups
     # test_yrs = None ; seed=1 ; gap_prior=None ; gap_after=None
 
-    from func_models import get_cv_accounting_for_years
     import sklearn.model_selection as sk_ms
+    from func_models import get_cv_accounting_for_years
 
 
 
@@ -1817,7 +1826,7 @@ def match_coords_xarrays(wanted_coords_arr, *to_match):
 def kornshell_with_input(args, cls):
 #    stopped working for cdo commands
     '''some kornshell with input '''
-#    args = [anom]
+args = [anom]
     import os
     import subprocess
     cwd = os.getcwd()

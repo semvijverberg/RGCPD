@@ -7,20 +7,24 @@ Created on Thu Aug 22 13:53:03 2019
 """
 
 import sys
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib as mpl
-from sklearn import metrics
-import seaborn as sns
 from itertools import chain
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+from sklearn import metrics
+
 flatten = lambda l: list(chain.from_iterable(l))
-from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
+
 max_cpu = multiprocessing.cpu_count()
 
 
 from matplotlib import cycler
+
 nice_colors = ['#EE6666', '#3388BB', '#9988DD',
                  '#EECC55', '#88BB44', '#FFBBBB']
 colors_nice = cycler('color',

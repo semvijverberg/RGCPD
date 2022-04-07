@@ -2,19 +2,16 @@
 contains 3 classes:
 """
 
-import scipy as sp
-import numpy as np
-import mtspec
-import xarray as xr
-import scipy.stats as stats
 import matplotlib.pyplot as plt
-
+import mtspec
+import numpy as np
+import scipy as sp
+import scipy.stats as stats
+import xarray as xr
+from filters import chebychev, lowpass
+from statsmodels.stats.weightstats import DescrStatsW
 from statsmodels.tsa.arima_model import ARMA
 from statsmodels.tsa.arima_process import ArmaProcess
-from statsmodels.stats.weightstats import DescrStatsW
-
-
-from filters import lowpass, chebychev
 
 # from ba_analysis_dataarrays import AnalyzeDataArray
 

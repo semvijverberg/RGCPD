@@ -4,31 +4,29 @@
 Created on Tue Oct  1 15:13:58 2019
 @author: semvijverberg
 """
-import sys, os, inspect
-if 'win' in sys.platform and 'dar' not in sys.platform:
-    sep = '\\' # Windows folder seperator
-else:
-    sep = '/' # Mac/Linux folder seperator
+import inspect
+import os
+import sys
 
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 
+from typing import List, Tuple, Union
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import xarray as xr
-import functions_pp
-import plot_maps
-import find_precursors
-import core_pp
-from class_RV import RV_class
-from class_EOF import EOF
-from class_BivariateMI import BivariateMI
-from typing import List, Tuple, Union
-# from forecasting folder
-import func_models as fc_utils
-import stat_models_cont as sm
+
+from . import core_pp, find_precursors, functions_pp, plot_maps
+from .class_BivariateMI import BivariateMI
+from .class_EOF import EOF
+from .class_RV import RV_class
 # from df_analysis folder
-import df_ana
+from .df_analysis.df_analysis import df_ana
+# from forecasting folder
+from .forecasting import func_models as fc_utils
+from .forecasting import stat_models_cont as sm
+
 
 def get_timestr(formatstr='%Y-%m-%d_%Hhr_%Mmin'):
     import datetime

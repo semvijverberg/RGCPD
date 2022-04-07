@@ -6,20 +6,24 @@ Created on Fri Apr 17 09:05:28 2020
 @author: semvijverberg
 """
 
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import StratifiedKFold, PredefinedSplit
-from sklearn.linear_model import LogisticRegressionCV
-from sklearn.feature_selection import RFECV
-from typing import Union
 import multiprocessing
+from typing import Union
+
+import numpy as np
+import pandas as pd
+from sklearn.feature_selection import RFECV
+from sklearn.linear_model import LogisticRegressionCV
+from sklearn.model_selection import PredefinedSplit, StratifiedKFold
+
 max_cpu = multiprocessing.cpu_count()
 import itertools
+
 flatten = lambda l: list(itertools.chain.from_iterable(l))
-from sklearn import metrics
 import properscoring as ps
-from sklearn import preprocessing
-import functions_pp
+from sklearn import metrics, preprocessing
+
+from .. import functions_pp
+
 
 def get_cv_accounting_for_years(y_train=pd.DataFrame, kfold: int=5,
                                 seed: int=1, groups=None):

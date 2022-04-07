@@ -6,13 +6,13 @@ Created on Mon Jan  6 08:46:05 2020
 @author: semvijverberg
 """
 
+from typing import Tuple, Union
+
 import numpy as np
 import pandas as pd
 import xarray as xr
-from typing import Tuple, Union
 
-import functions_pp
-import core_pp
+from . import core_pp, functions_pp
 
 
 class RV_class:

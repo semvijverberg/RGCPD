@@ -6,23 +6,28 @@ Created on Sat Aug 24 20:01:23 2019
 @author: semvijverberg
 """
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import statsmodels.api as sm
-from statsmodels.api import add_constant
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
-from sklearn.model_selection import GridSearchCV, KFold, PredefinedSplit, StratifiedKFold
-from numpy.random import default_rng
-from sklearn.inspection import partial_dependence
-from concurrent.futures import ProcessPoolExecutor
-from sklearn.feature_selection import RFECV
-from sklearn.linear_model._ridge import RidgeCV
 import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import statsmodels.api as sm
+from numpy.random import default_rng
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.feature_selection import RFECV
+from sklearn.inspection import partial_dependence
+from sklearn.linear_model import LogisticRegression, LogisticRegressionCV
+from sklearn.linear_model._ridge import RidgeCV
+from sklearn.model_selection import (GridSearchCV, KFold, PredefinedSplit,
+                                     StratifiedKFold)
+from statsmodels.api import add_constant
+
 max_cpu = multiprocessing.cpu_count()
-from matplotlib.lines import Line2D
 import itertools
+
+from matplotlib.lines import Line2D
+
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 import func_models as utils
@@ -306,6 +311,7 @@ def find_nearest(array, value):
 # =============================================================================
 import seaborn as sns
 from matplotlib import cycler
+
 nice_colors = ['#EE6666', '#3388BB', '#9988DD',
                  '#EECC55', '#88BB44', '#FFBBBB']
 colors_nice = cycler('color',
@@ -599,6 +605,7 @@ def plot_twoway_partial_dependence(GBR_models_split_lags, lag_i=0, keys=None,
     '''
 
     import df_ana
+
     #%%
     GBR_models_split = GBR_models_split_lags[f'lag_{lag_i}']
 
