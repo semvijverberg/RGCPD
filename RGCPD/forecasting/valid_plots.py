@@ -1107,7 +1107,7 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
                             RV_bin = df_RV['RV_binary']
                             clim = RV_bin.values[RV_bin==1].size / RV_bin.size
                             if metric == 'Accuracy':
-                                import validation as valid
+                                from . import validation as valid
 
                                 # threshold upper 3/4 of above clim
                                 threshold = int(100 * (1 - 0.75*clim))

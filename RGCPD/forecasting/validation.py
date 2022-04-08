@@ -7,24 +7,20 @@ Created on Thu Aug 22 13:53:03 2019
 """
 
 import sys
-from itertools import chain
-
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-import seaborn as sns
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib as mpl
 from sklearn import metrics
-
+import seaborn as sns
+from itertools import chain
 flatten = lambda l: list(chain.from_iterable(l))
-import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
-
+import multiprocessing
 max_cpu = multiprocessing.cpu_count()
 
 
 from matplotlib import cycler
-
 nice_colors = ['#EE6666', '#3388BB', '#9988DD',
                  '#EECC55', '#88BB44', '#FFBBBB']
 colors_nice = cycler('color',
@@ -95,29 +91,29 @@ def get_metrics_sklearn(y_true, y_pred_all, y_pred_c, alpha=0.05, n_boot=5,
         if cont_pred:
             # AUC
             AUC_score, conf_lower, conf_upper, sorted_AUC = metrics_dict['AUC']
-            df_auc[[lag]] = (AUC_score, conf_lower, conf_upper)
+            df_auc[[lag]] = np.array([AUC_score, conf_lower, conf_upper]).reshape(-1,1)
             # AUC Precision-Recall
             AUCPR_score, ci_low_AUCPR, ci_high_AUCPR, sorted_AUCPRs = metrics_dict['AUCPR']
-            df_aucPR[[lag]] = (AUCPR_score, ci_low_AUCPR, ci_high_AUCPR)
+            df_aucPR[[lag]] = np.array([AUCPR_score, ci_low_AUCPR, ci_high_AUCPR]).reshape(-1,1)
             # Brier score
             brier_score, brier_clim, ci_low_brier, ci_high_brier, sorted_briers = metrics_dict['brier']
             BSS = (brier_clim - brier_score) / brier_clim
             BSS_low = (brier_clim - ci_high_brier) / brier_clim
             BSS_high = (brier_clim - ci_low_brier) / brier_clim
-            df_brier[[lag]] = (BSS, BSS_low, BSS_high,
-                            brier_score, ci_low_brier, ci_high_brier, brier_clim)
+            df_brier[[lag]] = np.array([BSS, BSS_low, BSS_high,
+                            brier_score, ci_low_brier, ci_high_brier, brier_clim]).reshape(-1,1)
         # HKSS
         KSS_score, ci_low_KSS, ci_high_KSS, sorted_KSSs = metrics_dict['KSS']
-        df_KSS[[lag]] = (KSS_score, ci_low_KSS, ci_high_KSS)
+        df_KSS[[lag]] = np.array([KSS_score, ci_low_KSS, ci_high_KSS]).reshape(-1,1)
         # Precision
         prec, ci_low_prec, ci_high_prec, sorted_precs = metrics_dict['prec']
-        df_prec[[lag]] = (prec, ci_low_prec, ci_high_prec)
+        df_prec[[lag]] = np.array([prec, ci_low_prec, ci_high_prec]).reshape(-1,1)
         # Accuracy
         acc, ci_low_acc, ci_high_acc, sorted_accs = metrics_dict['acc']
-        df_acc[[lag]] = (acc, ci_low_acc, ci_high_acc)
+        df_acc[[lag]] = np.array([acc, ci_low_acc, ci_high_acc]).reshape(-1,1)
         # EDI
         EDI, ci_low_EDI, ci_high_EDI, sorted_EDIs = metrics_dict['EDI']
-        df_EDI[[lag]] = EDI, ci_low_EDI, ci_high_EDI
+        df_EDI[[lag]] = np.array([EDI, ci_low_EDI, ci_high_EDI]).reshape(-1,1)
 
     if cont_pred:
         df_valid = pd.concat([df_brier, df_auc, df_aucPR, df_KSS, df_prec, df_acc, df_EDI],
@@ -287,8 +283,8 @@ def autocorr_sm(ts, max_lag=None, alpha=0.01):
     if max_lag == None:
         max_lag = ts.size
     ac, con_int = sm.tsa.stattools.acf(ts.values, nlags=max_lag-1,
-                                unbiased=True, alpha=0.01,
-                                 fft=True)
+                                       alpha=0.01, #unbiased=True, unbiased arg deprecated
+                                       fft=True)
     return ac, con_int
 
 def get_bstrap_size(ts, max_lag=200, n=1):

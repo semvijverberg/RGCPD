@@ -20,7 +20,7 @@ if RGCPD_func not in sys.path:
 
 from RGCPD.clustering import clustering_spatial as cl
 from RGCPD import RGCPD
-import plot_maps
+from RGCPD import plot_maps
 rg = RGCPD()
 
 rg.pp_precursors()

@@ -780,12 +780,11 @@ class RGCPD:
 
 
     def store_df_PCMCI(self):
-        import wrapper_PCMCI
         if self.tfreq != self.precur_aggr:
             path = self.path_outsub2 + f'_dtd{self.precur_aggr}'
         else:
             path = self.path_outsub2
-        wrapper_PCMCI.store_ts(self.df_data, self.df_links, self.dict_ds,
+        wPCMCI.store_ts(self.df_data, self.df_links, self.dict_ds,
                                path+'.h5')
         self.path_df_data = path+'.h5'
 
