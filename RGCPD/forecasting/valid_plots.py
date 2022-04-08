@@ -55,7 +55,7 @@ mpl.rcParams['figure.titlesize'] = 'medium'
 
 
 def get_scores_improvement(m_splits, fc, s, lag, metric=None):
-import stat_models
+    from . import stat_models
     import warnings
     warnings.filterwarnings("ignore")
     m = m_splits[f'split_{s}']
@@ -1161,5 +1161,3 @@ def valid_figures(dict_merge_all, line_dim='model', group_line_by=None,
     g.fig.subplots_adjust(wspace=wspace, hspace=hspace)
 
     return g.fig
-
-
