@@ -524,8 +524,8 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
         MCIvals_s   = np.zeros( splits.size , dtype=object)
         # qvals_s     = np.zeros( splits.size , dtype=object)
         for s in splits:
-            links_plot = np.zeros_like(parents_dict[s][2])
-            link_matrix_s = parents_dict[s][2]
+            links_plot = np.zeros_like(parents_dict[s][1])
+            link_matrix_s = parents_dict[s][1]
             val_plot = np.zeros_like(pcmci_results_dict[s]['val_matrix'], dtype=float)
             # qval_plot = np.ones_like(pcmci_results_dict[s]['q_matrix'], dtype=float)
             val_matrix_s = pcmci_results_dict[s]['val_matrix']

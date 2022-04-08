@@ -1,4 +1,4 @@
-name: RGCPD3
+name: RGCPD
 channels:
   - conda-forge
 
@@ -39,7 +39,7 @@ dependencies:
 #  - xesmf # <- optional packages for regridding
   - pip:
     - tigramite
-prefix: /Users/semvijverberg/miniconda3/envs/RGCPD3
+prefix: /Users/semvijverberg/miniconda3/envs/RGCPD
 # If mamba has not been installed in your conda base environment, then please run:
 # conda install mamba -n base -c conda-forge
 # mamba env create -f environment.yml
