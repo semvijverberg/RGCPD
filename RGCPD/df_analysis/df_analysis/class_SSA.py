@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 # From https://www.kaggle.com/jdarcy/introducing-ssa-for-time-series-decomposition/notebook#1.-A-Toy-Time-Series-
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 
 class SSA(object):

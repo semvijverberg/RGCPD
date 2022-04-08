@@ -6,15 +6,14 @@ Created on Thu Sep  5 09:25:11 2019
 @author: semvijverberg
 """
 import os
-import find_precursors
-from time import time
-import numpy as np
-import xarray as xr
-import pandas as pd
-import functions_pp
-import plot_maps
 from concurrent.futures import ProcessPoolExecutor
-import core_pp
+from time import time
+
+import numpy as np
+import pandas as pd
+import xarray as xr
+
+from . import core_pp, find_precursors, functions_pp, plot_maps
 
 
 # get indices

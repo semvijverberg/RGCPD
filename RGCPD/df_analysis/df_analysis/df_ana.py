@@ -4,22 +4,22 @@
 
 from __future__ import division
 
-import pandas as pd
-import numpy as np
+import matplotlib.dates as mdates
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import scipy as sp
 import seaborn as sns
-import matplotlib.dates as mdates
+
 # import mtspec
 flatten = lambda l: [item for sublist in l for item in sublist]
 from typing import List, Tuple, Union
 
-from functions_pp import time_mean_bins, get_oneyr
-
-
-
 import matplotlib as mpl
 from matplotlib import cycler
+
+from ...functions_pp import get_oneyr, time_mean_bins
+
 nice_colors = ['#EE6666', '#3388BB', '#9988DD',
                  '#EECC55', '#88BB44', '#FFBBBB']
 colors_nice = cycler('color',
@@ -584,6 +584,7 @@ def remove_leapdays(datetime_or_xr):
 
 def store_hdf_df(dict_of_dfs, file_path):
     import warnings
+
     import tables
 
     warnings.filterwarnings('ignore', category=tables.NaturalNameWarning)
@@ -594,7 +595,9 @@ def store_hdf_df(dict_of_dfs, file_path):
     return
 
 def load_hdf5(path_data):
-    import h5py, time
+    import time
+
+    import h5py
     attempt = 'Fail'
     c = 0
     while attempt =='Fail':

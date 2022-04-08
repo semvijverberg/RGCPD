@@ -5,12 +5,13 @@ Created on Thu Sep  2 10:12:11 2021
 
 @author: semvijverberg
 """
-import numpy as np
+from typing import Union
+
+from . import func_models as fc_utils
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from pandas import ExcelWriter
-import func_models as fc_utils
-from typing import Union
 
 nice_colors = ['#EE6666', '#3388BB', '#9988DD', '#EECC55',
                 '#88BB44', '#FFBBBB']

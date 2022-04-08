@@ -5,25 +5,22 @@ Created on Wed Jan 1 2020
 
 @author: semvijverberg
 """
-import inspect, os, sys
-curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-1])
-RGCPD_func = os.path.join(main_dir, 'RGCPD/')
-if RGCPD_func not in sys.path:
-    sys.path.append(RGCPD_func)
-import numpy as np
-import sklearn.cluster as cluster
-import core_pp
-import functions_pp
-import find_precursors
-import xarray as xr
-import plot_maps
+import inspect
+import os
+import sys
 import uuid
 from itertools import product
 
+import numpy as np
+import sklearn.cluster as cluster
+import xarray as xr
+
+from .. import core_pp, find_precursors, functions_pp, plot_maps
+
 try:
-    from joblib import Parallel, delayed
     import multiprocessing
+
+    from joblib import Parallel, delayed
     n_cpu = multiprocessing.cpu_count() - 1
 except:
     n_cpu = 1
@@ -538,5 +535,3 @@ def regrid_array(xr_or_filestr, to_grid, periodic=False):
         plot_maps.plot_labels(xr_regrid)
         plot_maps.plot_labels(xr_regrid.where(xr_regrid.values==3))
     return xr_regrid
-
-

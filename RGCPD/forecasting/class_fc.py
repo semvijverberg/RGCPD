@@ -5,42 +5,37 @@ Created on Thu Aug 22 12:54:45 2019
 
 @author: semvijverberg
 """
-import sys, os, inspect
+import datetime
+import multiprocessing
+import os
+import sys
+from concurrent.futures import ProcessPoolExecutor
+from itertools import chain
+
+import numpy as np
+import pandas as pd
+import xarray as xr
+
+flatten = lambda l: list(chain.from_iterable(l))
+from typing import List, Tuple, Union
+
+from .. import class_RV, core_pp, functions_pp
+from ..df_analysis.df_analysis import df_ana
+from . import exp_fc
+from . import func_models as util
+from . import stat_models
+from . import validation as valid
+
+# from RGCPD import RGCPD
+
 if 'win' in sys.platform and 'dar' not in sys.platform:
     sep = '\\' # Windows folder seperator
 else:
     sep = '/' # Mac/Linux folder seperator
 
-curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = sep.join(curr_dir.split(sep)[:-1])
-RGCPD_dir = os.path.join(main_dir, 'RGCPD')
-df_ana_path = os.path.join(main_dir, 'df_analysis', 'df_analysis')
-if df_ana_path not in sys.path:
-    sys.path.append(df_ana_path)
-    sys.path.append(RGCPD_dir)
-import pandas as pd
-import numpy as np
-import xarray as xr
-import datetime
-from concurrent.futures import ProcessPoolExecutor
-import multiprocessing
+
 max_cpu = multiprocessing.cpu_count()
 # print(f'{max_cpu} cpu\'s detected')
-from itertools import chain
-flatten = lambda l: list(chain.from_iterable(l))
-from typing import List, Tuple, Union
-
-import stat_models
-import class_RV
-import validation as valid
-import functions_pp
-import df_ana
-import exp_fc
-import core_pp
-import func_models as util
-# from RGCPD import RGCPD
-
-
 
 class fcev():
 
@@ -867,7 +862,7 @@ def prepare_data(y_ts, df_split, lag_i=int, dates_tobin=None,
     # Select features / variables
     # =============================================================================
     if keys is None:
-        keys = np.array([k for k in df_split.columns if k not in ['TrainIsTrue', 'RV_mask']], 
+        keys = np.array([k for k in df_split.columns if k not in ['TrainIsTrue', 'RV_mask']],
                         dtype='object')
 
     RV_name = df_split.columns[0]

@@ -5,19 +5,19 @@ Created on Wed Sep  4 12:08:45 2019
 
 @author: semvijverberg
 """
-import os
-
-import matplotlib.pyplot as plt
-import cartopy.feature as cfeature
 import itertools
-import numpy as np
-import xarray as xr
-import pandas as pd
+import os
+from typing import List, Tuple, Union
+
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
 # from matplotlib.colors import LinearSegmentedColormap, colors
 import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-import cartopy.crs as ccrs
-from typing import List, Tuple, Union
+import numpy as np
+import pandas as pd
+import xarray as xr
 
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
@@ -29,8 +29,8 @@ flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 
 def extend_longitude(data):
-    import xarray as xr
     import numpy as np
+    import xarray as xr
     plottable = xr.concat([data, data.sel(longitude=data.longitude[:1])], dim='longitude').to_dataset(name="ds")
     plottable["longitude"] = np.linspace(0,360, len(plottable.longitude))
     plottable = plottable.to_array(dim='ds').squeeze(dim='ds').drop_vars('ds')

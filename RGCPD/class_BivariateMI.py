@@ -5,25 +5,25 @@ Created on Thu Dec  5 12:17:25 2019
 
 @author: semvijverberg
 """
-import sys, os, inspect
-if 'win' in sys.platform and 'dar' not in sys.platform:
-    sep = '\\' # Windows folder seperator
-else:
-    sep = '/' # Mac/Linux folder seperator
-
-import func_models as fc_utils
-import itertools, os, re
-import numpy as np
-import xarray as xr
-import scipy
-import pandas as pd
-from statsmodels.sandbox.stats import multicomp
-import functions_pp, core_pp
-import find_precursors
-from func_models import apply_shift_lag
-from class_RV import RV_class
-from typing import Union
+import inspect
+import itertools
+import os
+import re
+import sys
 import uuid
+from typing import Union
+
+import numpy as np
+import pandas as pd
+import scipy
+import xarray as xr
+from statsmodels.sandbox.stats import multicomp
+
+from . import core_pp, find_precursors, functions_pp
+from .class_RV import RV_class
+from .forecasting import func_models as fc_utils
+from .forecasting.func_models import apply_shift_lag
+
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 from joblib import Parallel, delayed
 

@@ -5,9 +5,11 @@ Created on Fri Aug 30 17:04:46 2019
 
 @author: semvijverberg
 """
-import functions_pp
-import numpy as np
 import itertools
+
+from .. import functions_pp
+import numpy as np
+
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 

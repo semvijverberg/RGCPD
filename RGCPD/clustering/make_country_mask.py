@@ -8,20 +8,21 @@ Created on Mon Feb 17 11:26:17 2020
 
 
 
-import numpy as np
-
-from shapely import geometry
-import shapefile
-import cartopy.feature as cfeature
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
 # import xarray as xr
 import os
-import core_pp
-from enums import Country, Continents, US_States
 
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import core_pp
+import matplotlib.pyplot as plt
+import numpy as np
+import shapefile
 # use this to manually adapt the cluster a bit:
-from scipy.ndimage import binary_closing, binary_dilation, binary_erosion, binary_fill_holes, binary_opening
+from scipy.ndimage import (binary_closing, binary_dilation, binary_erosion,
+                           binary_fill_holes, binary_opening)
+from shapely import geometry
+
+from enums import Continents, Country, US_States
 
 DATA_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 

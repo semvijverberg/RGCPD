@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
-import os, io, sys
-from tigramite import data_processing as pp
-from tigramite.pcmci import PCMCI
+import io
+import itertools
+import os
+import sys
+
 import matplotlib.pyplot as plt
-from statsmodels.sandbox.stats import multicomp
-from tigramite.independence_tests import ParCorr #, GPDC, CMIknn, CMIsymb
 import numpy as np
 import pandas as pd
-import itertools
 from joblib import Parallel, delayed
+from statsmodels.sandbox.stats import multicomp
+from tigramite import data_processing as pp
+from tigramite.independence_tests import ParCorr  # , GPDC, CMIknn, CMIsymb
+from tigramite.pcmci import PCMCI
+
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 
@@ -462,7 +466,7 @@ def print_pc_alphas_summ_from_txt(filepath_txt=str, variable=str):
     return pc_alpha
 
 def store_ts(df_data, df_sum, dict_ds, filename): # outdic_precur, add_spatcov=True
-    import functions_pp
+    from . import functions_pp
 
     df_data_to_store = df_data
     df_sum_to_store = df_sum
@@ -772,6 +776,3 @@ def df_data_Parcorr(df_data, z_keys=[str, list], keys: list=None, target: str=No
     return vals, pvals
 
 #%%
-
-
-

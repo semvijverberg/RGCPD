@@ -18,7 +18,7 @@ if main_dir not in sys.path:
     sys.path.append(main_dir)
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
-import class_BivariateMI, functions_pp, core_pp
+from RGCPD import class_BivariateMI, functions_pp, core_pp
 import numpy as np
 import pandas as pd
 import shutil
@@ -206,8 +206,8 @@ rg = test(alpha=.2,
 
 rg = test_US_t2m_tigramite()
 # Forecasting pipeline 1
-import func_models as fc_utils
-from stat_models_cont import ScikitModel
+from RGCPD.forecasting import func_models as fc_utils
+from RGCPD.forecasting.stat_models_cont import ScikitModel
 from sklearn.linear_model import Ridge
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegressionCV
@@ -301,7 +301,7 @@ elif prediction == 'continuous':
 
 # Now we load in the data, including info on the causal links.
 try: # check if tigramite is installed
-    import wrapper_PCMCI as wPCMCI
+    from RGCPD import wrapper_PCMCI as wPCMCI
 except ImportError as e:
     print('Not able to load in Tigramite modules, to enable causal inference '
           'features, install Tigramite from '
@@ -311,8 +311,8 @@ except ImportError as e:
     shutil.rmtree(os.path.join(main_dir, 'data', 'preprocessed'))
     raise(e)
 
-from class_fc import fcev
-import valid_plots as dfplots
+from RGCPD.forecasting.class_fc import fcev
+import RGCPD.forecasting.valid_plots as dfplots
 
 if __name__ == '__main__':
 
@@ -329,7 +329,7 @@ if __name__ == '__main__':
          # pipeline(lags, periodnames)
          futures.append(delayed(test)(0.05, tfreq))
 
-    with Parallel(n_jobs=2, backend="loky", timeout=25) as loky:
+    with Parallel(n_jobs=2, backend="loky", timeout=120) as loky:
         out = loky(futures)
 
 

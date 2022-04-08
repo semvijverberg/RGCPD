@@ -1,9 +1,7 @@
-import numpy as np
-import xarray as xr
-import scipy.signal as signal
-
-
 import matplotlib.pyplot as plt
+import numpy as np
+import scipy.signal as signal
+import xarray as xr
 
 
 def lowpass(ts, period):
