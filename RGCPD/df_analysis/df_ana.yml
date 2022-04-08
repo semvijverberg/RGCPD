@@ -1,0 +1,34 @@
+name: df_ana
+channels:
+  - conda-forge
+  - defaults
+  - bioconda
+dependencies:
+  - cftime=1.0.3.4
+  - conda=4.7.12
+  - eofs=1.4.0
+  - h5py=2.10.0
+  - hdf4=4.2.13
+  - hdf5=1.10.5
+  - ipython=7.5.0
+  - jupyterlab=1.2.4
+  - matplotlib=2.2.3
+  - matplotlib-base=3.1.1
+  - mtspec=0.3.2
+  - nbconvert=5.6.0
+  - nbformat=4.4.0
+  - numpy=1.17.2
+  - pandas=0.25.1
+  - pip=19.1.1
+  - pytables=3.5.2
+  - python=3.7.3
+  - pyqt=5.9.2
+  - scikit-learn=0.21.3
+  - scipy=1.3.1
+  - seaborn=0.9.0
+  - spyder=3.3.6
+  - statsmodels=0.10.1
+  - qt=5.9.7
+  - xarray=0.13.0
+prefix: /Users/semvijverberg/miniconda3/envs/df_ana
+
