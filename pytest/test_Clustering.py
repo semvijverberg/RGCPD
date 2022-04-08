@@ -18,7 +18,7 @@ if RGCPD_func not in sys.path:
     sys.path.append(cluster_func)
     sys.path.append(main_dir)
 
-import clustering_spatial as cl
+from RGCPD.clustering import clustering_spatial as cl
 from RGCPD import RGCPD
 import plot_maps
 rg = RGCPD()

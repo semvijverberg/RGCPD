@@ -10,7 +10,7 @@ from itertools import chain, permutations, product
 
 #import matplotlib.patches as patches
 #from sklearn import metrics
-import functions_pp
+from .. import functions_pp
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
