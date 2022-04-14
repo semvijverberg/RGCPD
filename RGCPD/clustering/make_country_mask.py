@@ -13,7 +13,7 @@ import os
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
-import core_pp
+from .. import core_pp
 import matplotlib.pyplot as plt
 import numpy as np
 import shapefile
@@ -22,7 +22,7 @@ from scipy.ndimage import (binary_closing, binary_dilation, binary_erosion,
                            binary_fill_holes, binary_opening)
 from shapely import geometry
 
-from enums import Continents, Country, US_States
+from .enums import Continents, Country, US_States
 
 DATA_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 

@@ -17,9 +17,8 @@ else:
 
 
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-3])
-RGCPD_func = os.path.join(main_dir, 'RGCPD')
-os.chdir.path.append(main_dir)
+main_dir = os.path.join(curr_dir, '../../../')
+os.chdir(main_dir)
 
 from RGCPD import functions_pp, core_pp
 from RGCPD.clustering import clustering_spatial as cl
@@ -56,7 +55,7 @@ rg.list_precur_pp
 var_filename = rg.list_precur_pp[0][1]
 
 #%%
-import make_country_mask
+from RGCPD.clustering import make_country_mask
 
 # xarray, Country = make_country_mask.create_mask(var_filename, kwrgs_load={'selbox':selbox}, level='Countries')
 # mask_US = (xarray.values == Country.US)
