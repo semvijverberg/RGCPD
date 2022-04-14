@@ -7,7 +7,6 @@
 
 
 import os, inspect, sys
-import numpy as np
 user_dir = os.path.expanduser('~')
 if sys.platform == 'linux':
     import matplotlib as mpl
@@ -20,24 +19,22 @@ else:
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-3])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
-cluster_func = os.path.join(main_dir, 'clustering/')
-df_ana_func =  os.path.join(main_dir, 'df_analysis/df_analysis/')
-if cluster_func not in sys.path:
-    sys.path.append(main_dir)
-    sys.path.append(RGCPD_func)
-    sys.path.append(cluster_func)
-    sys.path.append(df_ana_func)
+os.chdir.path.append(main_dir)
+
+from RGCPD import functions_pp, core_pp
+from RGCPD.clustering import clustering_spatial as cl
+from RGCPD import plot_maps
+from RGCPD import RGCPD
+
+
 
 import matplotlib.pyplot as plt
 path_outmain = user_dir+'/surfdrive/output_RGCPD/easternUS'
 # In[2]:
 
 
-import functions_pp, core_pp
-import clustering_spatial as cl
-import plot_maps
-import df_ana
-from RGCPD import RGCPD
+
+
 list_of_name_path = [('fake', None),
                      ('mxt2', root_data + '/input_raw/mx2t_US_1979-2020_1_12_daily_0.25deg.nc')]
 rg = RGCPD(list_of_name_path=list_of_name_path,

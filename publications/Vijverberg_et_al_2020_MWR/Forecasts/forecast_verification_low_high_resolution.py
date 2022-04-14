@@ -5,32 +5,22 @@ Created on Thu Dec 17 11:59:19 2020
 
 @author: semvijverberg
 """
-import os, inspect, sys
+import os, inspect
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image
 from io import BytesIO
 user_dir = os.path.expanduser('~')
-curr_dir = '/Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/Sub-seasonal_statistical_forecasts_of_eastern_United_States_extreme_temperature_events/Forecasts' # script directory
+curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-3])
 data_dir = '/'.join(curr_dir.split('/')[:-1]) + '/data'
-RGCPD_dir = os.path.join(main_dir, 'RGCPD')
-fc_dir = os.path.join(main_dir, 'forecasting')
-df_ana_dir = os.path.join(main_dir, 'df_analysis/df_analysis/')
-if fc_dir not in sys.path:
-    sys.path.append(main_dir)
-    sys.path.append(RGCPD_dir)
-    sys.path.append(df_ana_dir)
-    sys.path.append(fc_dir)
+os.chdir(main_dir)
 
 
 
-import plot_maps
-import cartopy.crs as ccrs
 from RGCPD import RGCPD
-from RGCPD import BivariateMI
-import func_models as fc_utils
-import functions_pp
+from RGCPD.forecasting import func_models as fc_utils
+from RGCPD import functions_pp
 
 ERA_data = data_dir + '/CPPA_ERA5_14-05-20_08hr_lag_0_c378f.h5'
 RV = user_dir + '/surfdrive/output_RGCPD/easternUS/tf1_n_clusters5_q95_dendo_c378f.nc'
@@ -135,11 +125,11 @@ for i, m in enumerate(metrics_cols):
     labels = [str((l-1)*rg.tfreq) if l != 0 else 'No gap' for l in q1df_test.columns[1:]]
     # normal SST
     ax[i].plot(labels, q1df_test_m.reorder_levels((1,0), axis=1).loc[0][m].T,
-            label=f'forecast low resolution',
+            label='forecast low resolution',
             color=c2,
             linestyle='solid')
     ax[i].plot(labels, q2df_test_m.reorder_levels((1,0), axis=1).loc[0][m].T,
-            label=f'forecast high resolution',
+            label='forecast high resolution',
             color=c1,
             linestyle='solid')
     if m == 'roc_auc_score':

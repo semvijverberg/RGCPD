@@ -13,13 +13,7 @@ user_dir = os.path.expanduser('~')
 curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
 main_dir = '/'.join(curr_dir.split('/')[:-3])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
-cluster_func = os.path.join(main_dir, 'clustering/')
-df_ana_func =  os.path.join(main_dir, 'df_analysis/df_analysis/')
-if cluster_func not in sys.path:
-    sys.path.append(main_dir)
-    sys.path.append(RGCPD_func)
-    sys.path.append(cluster_func)
-    sys.path.append(df_ana_func)
+os.chdir(RGCPD_func)
 
 
 if sys.platform == 'linux':
@@ -28,14 +22,14 @@ if sys.platform == 'linux':
     root_data = '/scistor/ivm/data_catalogue/reanalysis/ERA5'
 else:
     root_data = '/Users/semvijverberg/surfdrive/ERA5'
-    
+
 path_outmain = user_dir+'/surfdrive/output_RGCPD/easternUS_EC/'
 
-import functions_pp, core_pp
-from find_precursors import xrmask_by_latlon
-import clustering_spatial as cl
-import plot_maps
-import df_ana
+from RGCPD import functions_pp, core_pp
+from RGCPD.find_precursors import xrmask_by_latlon
+from RGCPD.clustering import clustering_spatial as cl
+from RGCPD import plot_maps
+from RGCPD.df_analysis.df_analysis import df_ana
 from RGCPD import RGCPD
 # In[2]:
 
@@ -64,8 +58,8 @@ LSM = '/Users/semvijverberg/surfdrive/Data_EC/input_raw/mask_North_America_1.125
 #%%
 import make_country_mask
 selbox = (225, 300, 20, 70)
-xarray, Country = make_country_mask.create_mask(var_filename, 
-                                                kwrgs_load={'selbox':selbox}, 
+xarray, Country = make_country_mask.create_mask(var_filename,
+                                                kwrgs_load={'selbox':selbox},
                                                 level='Countries')
 mask_US = xarray.values == Country.US
 lsm = core_pp.import_ds_lazy(LSM, selbox=selbox)
@@ -155,63 +149,63 @@ print(f'{round(time()-t0, 2)}')
 #%%
 q_list = [75, 82.5, 90, 95]
 for q in q_list:
-    for c in n_clusters:    
+    for c in n_clusters:
         q = 95 ; c=5
         xrclust = xrclustered.sel(q=q, n_clusters=c)
         ds = cl.spatial_mean_clusters(var_filename,
                                   xrclust,
                                   selbox=selbox)
-        
-        ds[f'q{95}'] = cl.percentile_cluster(var_filename, 
-                                              xrclust, 
-                                              q=95, 
-                                              tailmean=False, 
+
+        ds[f'q{95}'] = cl.percentile_cluster(var_filename,
+                                              xrclust,
+                                              q=95,
+                                              tailmean=False,
                                               selbox=selbox)
 
         q_sp = 50
-        ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename, 
-                                              xrclust, 
-                                              q=q_sp, 
-                                              tailmean=True, 
-                                              selbox=selbox)        
+        ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename,
+                                              xrclust,
+                                              q=q_sp,
+                                              tailmean=True,
+                                              selbox=selbox)
 
         q_sp = 65
-        ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename, 
-                                              xrclust, 
-                                              q=q_sp, 
-                                              tailmean=True, 
+        ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename,
+                                              xrclust,
+                                              q=q_sp,
+                                              tailmean=True,
                                               selbox=selbox)
 
         q_sp = 75
-        ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename, 
-                                              xrclust, 
-                                              q=q_sp, 
-                                              tailmean=True, 
+        ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename,
+                                              xrclust,
+                                              q=q_sp,
+                                              tailmean=True,
                                               selbox=selbox)
         q_sp = 90
-        ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename, 
-                                              xrclust, 
-                                              q=q_sp, 
-                                              tailmean=True, 
+        ds[f'q{q_sp}tail'] = cl.percentile_cluster(var_filename,
+                                              xrclust,
+                                              q=q_sp,
+                                              tailmean=True,
                                               selbox=selbox)
 
 
 
         df_clust = functions_pp.xrts_to_df(ds['ts'])
-    
-        fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False, 
+
+        fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False,
                              colwrap=2, kwrgs={'AUC_cutoff':(14,30), 's':60})
         fig.suptitle('q: {}, n_clusters: {}'.format(q, c), x=.5, y=.97)
-        
+
         df_clust = functions_pp.xrts_to_df(ds[f'q{q}tail'])
-    
-        fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False, 
+
+        fig = df_ana.loop_df(df_clust, function=df_ana.plot_ac, sharex=False,
                              colwrap=2, kwrgs={'AUC_cutoff':(14,30),'s':60})
-        fig.suptitle('tfreq: {}, n_clusters: {}, q{}tail'.format(1, c, q), 
+        fig.suptitle('tfreq: {}, n_clusters: {}, q{}tail'.format(1, c, q),
                      x=.5, y=.97)
 #%%
 q = 95 ; c=5
-xrclust = xrclustered.sel(q=q, n_clusters=c)    
+xrclust = xrclustered.sel(q=q, n_clusters=c)
 ds = cl.spatial_mean_clusters(var_filename,
                          xrclust,
                          selbox=selbox)
@@ -242,7 +236,7 @@ merged_ts_std.iloc[0:365].plot()
 plt.figure()
 merged_ts.groupby(merged_ts_std.index.month).mean().plot()
 
-fig = df_ana.loop_df(merged_ts, function=df_ana.plot_ac, sharex=False, 
+fig = df_ana.loop_df(merged_ts, function=df_ana.plot_ac, sharex=False,
                              colwrap=2, kwrgs={'AUC_cutoff':(14,30), 's':60})
 
 
@@ -276,7 +270,7 @@ plt.figure()
 plt.figure()
 ((q_95['q95'] - q_95['F0']) - (q_90tail['q90tail'] - q_90tail['F0'])).plot()
 #%%
-fig = df_ana.loop_df(merged_ts, function=df_ana.plot_spectrum, sharey=False, sharex=False, 
+fig = df_ana.loop_df(merged_ts, function=df_ana.plot_spectrum, sharey=False, sharex=False,
                              colwrap=2, kwrgs={})
 
 # In[ ]:
