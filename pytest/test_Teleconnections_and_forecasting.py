@@ -55,7 +55,10 @@ def test_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
 
 
     curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-    main_dir = sep.join(curr_dir.split(sep)[:-1])
+    if curr_dir.split(sep)[-2] == 'RGCPD':
+        main_dir = sep.join(curr_dir.split(sep)[:-1])
+    else:
+        main_dir = curr_dir
     path_test = os.path.join(main_dir, 'data')
     path_target = os.path.join(path_test, 'tf5_nc5_dendo_80d77.nc')
 
@@ -115,7 +118,7 @@ def test_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
 
     rg.get_ts_prec()
     try:
-        import wrapper_PCMCI as wPCMCI
+        from RGCPD import wrapper_PCMCI as wPCMCI
         if rg.df_data.columns.size <= 3:
             print('Skipping causal inference step')
         else:

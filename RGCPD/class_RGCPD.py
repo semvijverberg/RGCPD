@@ -721,7 +721,7 @@ class RGCPD:
         if 'link_width' in kwrgs.keys():
             link_width = kwrgs.pop('link_width')
         else:
-            link_width = 1
+            link_width = np.ones_like(weights)
         if 'weights_squared' in kwrgs.keys():
             link_width = link_width+weights**kwrgs.pop('weights_squared')
         fig = plt.figure(figsize=figshape, facecolor='white')

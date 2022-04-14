@@ -158,7 +158,7 @@ def process_TV(fullts, tfreq, start_end_TVdate, start_end_date=None,
     # dailytomonths=False
 
 
-    # For some incredibly inexplicable reason, fullts was not pickle, even after
+    # For some incredibly inexplicable reason, fullts could not be pickled, even after
     # copy or deepcopying the object. So I recreate the object now:
     fullts = xr.DataArray(fullts.values, dims=fullts.dims, coords=fullts.coords,
                           name=fullts.name)
