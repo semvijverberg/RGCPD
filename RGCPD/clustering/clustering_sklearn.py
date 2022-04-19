@@ -34,15 +34,15 @@ except:
 
 def labels_to_latlon(time_space_3d : xr.DataArray, labels : np.ndarray, output_space_time : np.ndarray, indices_mask : np.ndarray, mask2d : np.ndarray):
     '''
-    Translates observations into clustering labels on a spatial mask 
-    
+    Translates observations into clustering labels on a spatial mask
+
     Parameters
     ----------
     time_space_3d : xarray.DataArray
         input xarray with observations to be clustered, must contain only one variable
-    
+
     labels : 1-d numpy.ndarray
-        clustering labels returned by sklearn.clustering algorithm 
+        clustering labels returned by sklearn.clustering algorithm
 
     output_space_time : 1-d numpy.ndarray
         1-d mask array, size is the number of spatial points (time_space_3d.longitude*time_space_3d.latitude)
@@ -64,7 +64,7 @@ def labels_to_latlon(time_space_3d : xr.DataArray, labels : np.ndarray, output_s
     # only choose those coordinate for which mask is 1
     output_space_time[indices_mask] = labels
     output_space_time = output_space_time.reshape((time_space_3d.latitude.size, time_space_3d.longitude.size)) # array with dim (#lat, #lon)
-    
+
     # add data to xarray
     xrspace.values = output_space_time
     xrspace = xrspace.where(mask2d==True)
@@ -96,13 +96,13 @@ def skclustering(time_space_3d: xr.DataArray, mask2d: Optional[np.ndarray] = Non
 
     Returns
     -------
-    xrclustered: xarray.DataArray with with additional coordinate 'cluster' attached to time for coordinates in mask 2d (temporal) 
+    xrclustered: xarray.DataArray with with additional coordinate 'cluster' attached to time for coordinates in mask 2d (temporal)
     xrclustered.values: xarray.DataArray with clustering labels as values for coordinates in mask 2d (spatial)
     results: sklearn.cluster objects
     '''
 
     # ensure that the number of clusters is an integer
-    if 'n_clusters' in kwrgs.keys():   
+    if 'n_clusters' in kwrgs.keys():
         assert isinstance(kwrgs['n_clusters'], int), 'Number of clusters is not an integer'
 
     algorithm = cluster.__dict__[clustermethodkey]
@@ -110,11 +110,11 @@ def skclustering(time_space_3d: xr.DataArray, mask2d: Optional[np.ndarray] = Non
     cluster_method = algorithm(**kwrgs)
     space_time_vec, output_space_time, indices_mask = create_vector(time_space_3d, mask2d)
     space_time_vec[np.isnan(space_time_vec)] = -32767.0 #replace nans
-    
+
     if dimension == 'temporal':
         results = cluster_method.fit(space_time_vec.swapaxes(0, 1))
         labels = results.labels_ + 1
-        
+
         # assigning cluster label to time dimension (now cluster dimension is attached to time)
         xrclustered = time_space_3d.assign_coords(cluster = ("time", labels))
         return xrclustered, results
@@ -129,33 +129,33 @@ def create_vector(time_space_3d : xr.DataArray, mask2d : Optional[np.ndarray]):
     Converts time, lat, lon xarray object to (space, time) numpy array for clustering spatial points.
     """
     time_space_3d = time_space_3d.where(mask2d == True)
-    
+
     # create mask for to-be-clustered time_space_3d
     n_space = time_space_3d.longitude.size*time_space_3d.latitude.size #
-    
-    # reshape 2d mask into 1d mask; 1d numpy array 
+
+    # reshape 2d mask into 1d mask; 1d numpy array
     mask_1d = np.reshape( mask2d, (1, n_space))
-    
+
     # create numpy array with each entry as a list; e.g. [[1], [2], [3]]
     mask_1d = np.swapaxes(mask_1d, 1,0 )
-    
+
     # Construct an array by repeating each element of mask_1d for each datetime of the data; e.g. [[1, 1, 1], [2, 2, 2], [3, 3, 3]]
     mask_space_time = np.array(np.tile(mask_1d, (1,time_space_3d.time.size)), dtype=int)
-    
+
     # track location of mask to store output; take only the first element of each entry; e.g. [1, 2, 3]
     output_space_time = np.array(mask_space_time[:,0].copy(), dtype=int)
-    
-    # find indices where mask has value 1 
+
+    # find indices where mask has value 1
     indices_mask = np.argwhere(mask_space_time[:,0] == 1)[:,0]
-    
+
     # convert all space_time_3d gridcells to time_space_2d_all
     # create numpy array with TV values with shape (time.size, longitude.size*latitude.size)
     time_space_2d_all = np.reshape( time_space_3d.values,
                                    (time_space_3d.time.size, n_space) )
-    
+
     # create numpy array with TV values with shape (longitude.size*latitude.size, time.size)
     space_time_2d_all = np.swapaxes(time_space_2d_all, 1,0)
-    
+
     # only keep the mask gridcells for clustering
     space_time_2d = space_time_2d_all[mask_space_time == 1]
     space_time_vec = space_time_2d.reshape( (indices_mask.size, time_space_3d.time.size)  ) # shape(# 1 in mask, time.size)
@@ -193,22 +193,22 @@ def sklearn_clustering(var_filename : str, mask : Optional[np.ndarray] = None, d
     clustermethodkey : str
         Is build upon sklean clustering. Techniques available are listed in sklearn.cluster.__dict__,
     	e.g. KMeans, or AgglomerativeClustering. See kwrgs_clust for algorithm parameters.
-    	
+
     kwrgs_clust : dict
         (algorithm dependent) dictionary of clustering parameters, the default is {'eps': 600}
 
     Returns
     -------
-    xr_temporal: list of temporally clustered xarray objects 
+    xr_temporal: list of temporally clustered xarray objects
     xrclustered: spatially clustered xaray object
-    results: list of sklearn.cluster objects 
+    results: list of sklearn.cluster objects
     """
 
-    if 'selbox' in kwrgs_load.keys():  
+    if 'selbox' in kwrgs_load.keys():
         assert isinstance(kwrgs_load['selbox'], list), 'selbox is not a list'
         assert len(kwrgs_load['selbox']) == 4, 'selbox list does not have shape [lon_min, lon_max, lat_min, lat_max]'
-    
-    
+
+
     # we can either give a mask for coordinates or just select a box with coordinates
     if 'selbox' in kwrgs_load.keys():
         if kwrgs_load['selbox'] is not None and mask is not None:
@@ -242,56 +242,56 @@ def sklearn_clustering(var_filename : str, mask : Optional[np.ndarray] = None, d
 
     if len(kwrgs_loop) >= 1:
         new_coords = []
-        
+
         if dimension == 'spatial':
             xrclustered = xarray[0].drop('time')
-        else: 
+        else:
             xrclustered = xarray
-        
+
         for k, list_v in kwrgs_loop.items(): # in alphabetical order
-            
+
             # new_coords contains keys from kwrgs_clust and kwrgs_load
             new_coords.append(k)
-            
+
             # in every iteration of the loop, we create a dictionary using key and value from kwrgs_clust and kwrgs_load
             dim_coords = {str(k):list_v}
-            
-            # expanding the xarray dataset by dim_coords dictionaries                                                       
-            xrclustered = xrclustered.expand_dims(dim_coords).copy()
-        
-        # create a list of coordinates/dimensions added in the for loop above (from kwrgs_clust and kwrgs_load)
-        new_coords = [d for d in xrclustered.dims if d not in ['latitude', 'longitude', 'time']] 
 
-        
+            # expanding the xarray dataset by dim_coords dictionaries
+            xrclustered = xrclustered.expand_dims(dim_coords).copy()
+
+        # create a list of coordinates/dimensions added in the for loop above (from kwrgs_clust and kwrgs_load)
+        new_coords = [d for d in xrclustered.dims if d not in ['latitude', 'longitude', 'time']]
+
+
         # to store sklearn objects
         results = []
-        
+
         # separating kwrgs into lists to loop over
         first_loop = kwrgs_loop[new_coords[0]]
         second_loop = kwrgs_loop[new_coords[1]]
-      
+
         if dimension == 'temporal':
             xr_temporal = np.empty([len(first_loop), len(second_loop)], dtype=object)
-    
+
         # if kwrgs_load is empty we can load in the xarray here -> it won't be changing
-        
+
         # loop over kwrgs_load and kwrgs_clust values
         for i, v1 in enumerate(first_loop):
             for j, v2 in enumerate(second_loop):
-                
+
                 # create dictionaries of all possible combinations of kwrgs_load and kwrgs_clust ??
                 kwrgs = adjust_kwrgs(kwrgs_clust.copy(), new_coords, v1, v2)
-                
+
                 # if we don't have any kwrgs_load we don't need it -> add an if statement for memory optimization
                 # and add the 5 lines below into the if statement
                 kwrgs_l = adjust_kwrgs(kwrgs_load.copy(), new_coords, v1, v2)
 
                 if 'tfreq' in kwrgs_l.keys():
                     assert isinstance(kwrgs_l['tfreq'], int), 'tfreq is not an integer'
-                
+
                 print(f"\rclustering {new_coords[0]}: {v1}, {new_coords[1]}: {v2} ", end="")
                 xarray = functions_pp.import_ds_timemeanbins(var_filename, **kwrgs_l)
-                
+
 
                 # updating xarray object and results - here change for supervised/unsupervised clustering
                 if dimension == 'spatial':
@@ -311,36 +311,36 @@ def sklearn_clustering(var_filename : str, mask : Optional[np.ndarray] = None, d
                     xr_temporal[i,j].attrs[new_coords[1]] = v2
                     if 'hash' not in xr_temporal[i,j].attrs.keys():
                         xr_temporal[i,j].attrs['hash']   = uuid.uuid4().hex[:5]
-                        
-                    
-                
-                results.append(result)
-        
-        if 'fake' in new_coords and dimension == 'spatial':
-            xrclustered = xrclustered.squeeze().drop('fake').copy() 
 
-    else:  
+
+
+                results.append(result)
+
+        if 'fake' in new_coords and dimension == 'spatial':
+            xrclustered = xrclustered.squeeze().drop('fake').copy()
+
+    else:
         xrclustered, results = skclustering(xarray, npmask,
                                             clustermethodkey=clustermethodkey,
                                             kwrgs=kwrgs_clust, dimension=dimension)
         return xrclustered, results
-        
+
     # storing arbitrary metadata for spatial clustering
     xrclustered.attrs['method'] = clustermethodkey
     xrclustered.attrs['kwrgs'] = str(kwrgs_clust)
     xrclustered.attrs['target'] = f'{xarray.name}'
     if 'hash' not in xrclustered.attrs.keys():
         xrclustered.attrs['hash']   = uuid.uuid4().hex[:5]
-    
+
     if dimension == 'temporal':
         return xr_temporal, results
-    # dimension == 'spatial'  
+    # dimension == 'spatial'
     else:
         return xrclustered, results
 
 
 def plot_params(xrclustered, figsize = (16, 11)):
-    """ 
+    """
     xrclustered: xarray.DataArray
         temporally clustered xarray.DataArray
     """
@@ -362,17 +362,17 @@ def dendogram_clustering(var_filename=str, mask=None, kwrgs_load={},
     ----------
     var_filename : str
         path to pre-processed Netcdf file.
-        
+
     mask : [xr.DataArray, path to netcdf file with mask, list or tuple], optional
         See get_spatial_ma?. The default is None.
-        
+
     kwrgs_load : dict
         See functions_pp.import_ds_timemeanbins? for parameters. The default is {}.
-        
+
     clustermethodkey : str, optional
         See cluster.cluster.__dict__ for all sklean cluster algorithms.
         The default is 'AgglomerativeClustering'.
-        
+
     kwrgs_clust : dict, optional
         Note that q is in percentiles, i.e. 50 refers to the median.
         The default is {'q':70, 'n_clusters':3}.
@@ -506,7 +506,7 @@ def get_spatial_ma(var_filename=str, mask=None, kwrgs_l_spatial: dict={}):
         lons = xarray.longitude.values
         lats = xarray.latitude.values
         mask = [min(lons), max(lons), min(lats), max(lats)]
-        print(f'no mask given, entire array of box {mask} will be clustered')
+        print(f'Loaded array with coordinates {mask}')
     if type(mask) is str:
         xrmask = core_pp.import_ds_lazy(mask, **kwrgs_l_spatial)
         if xrmask.attrs['is_DataArray'] == False:
