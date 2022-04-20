@@ -710,7 +710,7 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
         if closed_on_date is not None:
             _closed_on_date = adjhrsenddate.replace(adjhrsenddate[5:10], closed_on_date)
             dates_aggr =  pd.date_range(end=_closed_on_date, freq=_tfreq,
-                                        closed=closed,
+                                        inclusive=closed,
                                         periods=fit_bins)
             if 'm' in _tfreq:
                 # somehow month periods aligns on last date of month before
@@ -719,12 +719,12 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
             # Extend untill adjhrsenddate
             while dates_aggr[-1] + pd.Timedelta(_tfreq) < pd.to_datetime(adjhrsenddate):
                 dates_aggr = pd.date_range(start=dates_aggr[0], freq=_tfreq,
-                                           closed='left',
+                                           inclusive='left',
                                            periods=fit_bins)
                 fit_bins += 1
         else:
             dates_aggr =  pd.date_range(end=adjhrsenddate, freq=_tfreq,
-                                    closed=closed,
+                                    inclusive=closed,
                                     periods=fit_bins)
         # adjust startdate such the bins are closed and that the startdate
         # is not prior to the requisted adjhrsstartdate
@@ -734,13 +734,13 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
             if tfreq==1 and all(dates_aggr.year <= core_pp.get_oneyr(datetime).year[0]):
                 while dates_aggr[0] != pd.to_datetime(adjhrsstartdate):
                     dates_aggr =  pd.date_range(end=dates_aggr[-1], freq=_tfreq,
-                                                closed=closed,
+                                                inclusive=closed,
                                                 periods=fit_bins)
                     fit_bins -= 1
             else:
                 while dates_aggr[0] < pd.to_datetime(adjhrsstartdate):
                     dates_aggr =  pd.date_range(end=dates_aggr[-1], freq=_tfreq,
-                                                closed=closed,
+                                                inclusive=closed,
                                                 periods=fit_bins)
                     fit_bins -= 1
         elif 'm' in _tfreq:
@@ -750,13 +750,13 @@ def timeseries_tofit_bins(xr_or_dt, tfreq, start_end_date=None, start_end_year=N
             if tfreq==1 and all(dates_aggr.year <= core_pp.get_oneyr(datetime).year[0]):
                 while dates_aggr[0] != asd:
                     dates_aggr =  pd.date_range(end=dates_aggr[-1], freq=_tfreq,
-                                            closed=closed,
+                                            inclusive=closed,
                                             periods=fit_bins) + pd.Timedelta('1d')
                     fit_bins -= 1
             else:
                 while dates_aggr[0] - dm < asd: #< pd.Timedelta('3d'):
                     dates_aggr =  pd.date_range(end=dates_aggr[-1], freq=_tfreq,
-                                                closed=closed,
+                                                inclusive=closed,
                                                 periods=fit_bins) + pd.Timedelta('1d')
                     fit_bins -= 1
         # if crossyr == False and senddate[1] == '12-31':

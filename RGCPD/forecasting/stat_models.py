@@ -275,7 +275,7 @@ def logit(y_ts, df_norm, keys):
     # Therefore making new dataframe for X_train
     try:
         model_set = sm.Logit(y_train,
-                         pd.DataFrame(X_train.values, index=y_train.index), disp=0)
+                         pd.DataFrame(X_train.values, index=y_train.index))
     except:
         print(x_fit_mask)
         print(X_train)

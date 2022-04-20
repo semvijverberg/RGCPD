@@ -187,7 +187,7 @@ class fcev():
             if self.kwrgs_pp['add_autocorr']:
                 self.experiment += '+AR'
         columns = self.df_data.columns[self.df_data.dtypes!=bool]
-        self.df_precurset = self.df_data[columns].count(axis=0, level=1).iloc[0]
+        self.df_precurset = self.df_data[columns].groupby(axis=0, level=1).count().iloc[0]
 
         if n_cpu is None:
             self.n_cpu = max_cpu - 1
@@ -506,7 +506,7 @@ class fcev():
             lines.append(f'TV_aggr: \t {fc_i.TV_aggr}')
             lines.append(f'alpha \t : {fc_i.alpha}')
             lines.append(f'nboot: {fc_i.n_boot}')
-            lines.append(f'stat_models:')
+            lines.append('stat_models:')
             lines.append('\n'.join(str(m) for m in fc_i.stat_model_l))
             lines.append(f'fold: {fc_i.fold}')
             lines.append(f'fc threshold: {fc_i.threshold_pred}')

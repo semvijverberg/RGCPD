@@ -251,14 +251,14 @@ def get_links_pcmci(pcmci_dict, pcmci_results_dict, alpha_level, FDR_cv='fdr_bh'
             pq_matrix_s = results['q_matrix']
         else:
             pq_matrix_s = results['p_matrix']
-        
+
         link_matrix = pq_matrix_s < alpha_level
 
         # return_significant_links deprecated function in Tigramite
         # sig = pcmci.return_significant_links(pq_matrix_s,
         #                                      val_matrix=results['val_matrix'],
         #                                      alpha_level=alpha_level,
-        #                                      include_lagzero_links=True)        
+        #                                      include_lagzero_links=True)
 
         parents_dict[s] = pcmci.var_names, link_matrix
 
@@ -531,9 +531,10 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
             links_plot = np.zeros_like(parents_dict[s][1])
             link_matrix_s = parents_dict[s][1]
             val_plot = np.zeros_like(pcmci_results_dict[s]['val_matrix'], dtype=float)
-            # qval_plot = np.ones_like(pcmci_results_dict[s]['q_matrix'], dtype=float)
             val_matrix_s = pcmci_results_dict[s]['val_matrix']
+            # qval_plot = np.ones_like(pcmci_results_dict[s]['q_matrix'], dtype=float)
             # qval_matrix_s = pcmci_results_dict[s]['q_matrix']
+
             var_names = pcmci_dict[s].var_names
             if variable is not None:
                 idx = var_names.index(variable)
@@ -548,18 +549,24 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
             if len(var_names) == max(todef_order_index):
                 fullindex = index
                 fullvar_names = var_names
+
+            # links to df
             nplinks = links_plot.reshape(len(var_names)**2, -1)
             links_s[s] = pd.DataFrame(nplinks, index=index)
+            # val to df
             npMCIvals = val_plot.reshape(len(var_names)**2, -1)
             MCIvals_s[s] = pd.DataFrame(npMCIvals, index=index)
+            # qval to df
             # npqvals = qval_plot.reshape(len(var_names)**2, -1)
             # qvals_s[s] = pd.DataFrame(npqvals, index=index)
 
+        # get df_links and associated weights for width of arrows in graph
         df_links = pd.concat(links_s, keys=splits)
-        df_robustness = df_links.sum(axis=0, level=1)
+        df_robustness = df_links.groupby(axis=0, level=1).sum()
         df_robustness = df_robustness.reindex(index=fullindex)
         weights = df_robustness.values
         weights = weights.reshape(len(var_names), len(var_names), -1)
+        # enforce min_link_robustness, make df_links boolean again
         df_links = df_robustness >= min_link_robustness
 
         # ensure that missing links due to potential precursor step are not
@@ -568,17 +575,27 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
         mergeindex = pd.MultiIndex.from_tuples(df_links.index)
         df_link_matrix = df_links.reindex(index=mergeindex)
         # calculate mean MCI over train test splits
-        df_MCIvals = pd.concat(MCIvals_s, keys=splits).mean(axis=0, level=1)
+        df_MCIvals = pd.concat(MCIvals_s, keys=splits).groupby(axis=0, level=1).mean()
         # ensure that missing links due to potential precursor step are not
         # appended to pandas df (auto behavior)
         df_MCIvals = df_MCIvals.reindex(index=fullindex)
         df_MCIval_matrix = df_MCIvals.reindex(index=mergeindex)
-        # now we can safely reshape
+
+        # adapt to new Tigrimate version 4.2 plotting.
+        # link_matrix is replaced by a graph matrix with strings
+        graph_plot = np.zeros_like(df_link_matrix, dtype='<U3')
+        # instanteneous links
+        graph_plot[:,0][df_link_matrix.values[:,0]] = 'o-o'
+        # lagged links
+        for ilag in range(1,df_link_matrix.values.shape[1]):
+            graph_plot[:,ilag][df_link_matrix.values[:,ilag]] = '-->'
+
+        # after above dataframe operations: back to original numpy format
         links_plot = df_link_matrix.values.reshape(len(var_names), len(var_names), -1)
         val_plot = df_MCIval_matrix.values.reshape(len(var_names), len(var_names), -1)
-        # Commented error in val_plots, 02-11-2020
-        # val_plot = pcmci_results_dict[s]['val_matrix'] # was giving vals of split s
+        graph_plot = graph_plot.reshape(len(var_names), len(var_names), -1)
         var_names = fullvar_names
+
     elif type(s) is int:
         var_names = pcmci_dict[s].var_names
         weights = None
@@ -586,15 +603,22 @@ def get_traintest_links(pcmci_dict:dict, parents_dict:dict,
         links_plot = np.zeros_like(parents_dict[s][2])
         val_matrix_s = pcmci_results_dict[s]['val_matrix']
         val_plot = np.zeros_like(links_plot, dtype=float)
+        graph_matrix_s = pcmci_results_dict[s]['graph']
+        graph_plot = np.zeros_like(graph_matrix_s, dtype='<U3')
         if variable is not None:
             idx = pcmci_dict[s].var_names.index(variable)
             links_plot[:,idx] = link_matrix_s[:,idx]
             val_plot[:,idx] = val_matrix_s[:,idx]
+            graph_plot[:,idx] = graph_matrix_s[:,idx]
 
         else:
-            links_plot[:,:] = link_matrix_s[:,:]
+            links_plot = link_matrix_s
             val_plot = val_matrix_s
-    return links_plot, val_plot, weights, var_names
+            graph_plot = graph_matrix_s
+
+
+
+    return links_plot, graph_plot, val_plot, weights, var_names
 
 def df_data_remove_z(df_data, z_keys=[str, list], lag_z : [int, list]=[0],
                      keys=None, standardize: bool=True, plot: bool=True):

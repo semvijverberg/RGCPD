@@ -5,14 +5,17 @@
 
 # In[1]:
 
-import sys, os, inspect
+import sys, os
 if 'win' in sys.platform and 'dar' not in sys.platform:
     sep = '\\' # Windows folder seperator
 else:
     sep = '/' # Mac/Linux folder seperator
 
-curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = sep.join(curr_dir.split(sep)[:-1])
+curr_dir = os.getcwd()
+if curr_dir.split(sep)[-1] == 'pytest' or curr_dir.split(sep)[-2] == 'RGCPD':
+    main_dir = sep.join(curr_dir.split(sep)[:-1])
+else:
+    main_dir  = curr_dir
 print(main_dir)
 if main_dir not in sys.path:
     sys.path.append(main_dir)
@@ -39,6 +42,7 @@ def check_dates_RV(df_splits, traintestgroups, start_end_TVdate):
     assert ed >= endTVdate, 'Selected date not in RV window'
     print(startTVdate, endTVdate)
 
+#%%
 def test_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
                           start_end_TVdate=('07-01', '08-31'),
                           dailytomonths=False,
@@ -54,11 +58,11 @@ def test_US_t2m_tigramite(alpha=0.05, tfreq=10, method='TimeSeriesSplit_10',
 
 
 
-    curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-    if curr_dir.split(sep)[-2] == 'RGCPD':
+    curr_dir = os.getcwd()
+    if curr_dir.split(sep)[-1] == 'pytest' or curr_dir.split(sep)[-2] == 'RGCPD':
         main_dir = sep.join(curr_dir.split(sep)[:-1])
     else:
-        main_dir = curr_dir
+        main_dir  = curr_dir
     path_test = os.path.join(main_dir, 'data')
     path_target = os.path.join(path_test, 'tf5_nc5_dendo_80d77.nc')
 
@@ -329,13 +333,13 @@ if __name__ == '__main__':
     tfreq_list = [10, 20]
     futures = []
     for tfreq in tfreq_list:
-         # pipeline(lags, periodnames)
          futures.append(delayed(test)(0.05, tfreq))
 
     with Parallel(n_jobs=2, backend="loky", timeout=120) as loky:
         out = loky(futures)
 
-
+    rg = test(method='random_5')
+    path_df_data = rg.path_outsub2+'.h5'
 
     fc = fcev(path_data=path_df_data, n_cpu=1, causal=True)
     fc.get_TV(kwrgs_events=None)

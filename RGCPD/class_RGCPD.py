@@ -709,7 +709,7 @@ class RGCPD:
                                          variable=variable,
                                          s=s,
                                          min_link_robustness=min_link_robustness)
-        links_plot, val_plot, weights, var_names = out
+        links_plot, graph_plot, val_plot, weights, var_names = out
 
         if kwrgs is None:
             kwrgs = {'link_colorbar_label':'cross-MCI',
@@ -726,10 +726,10 @@ class RGCPD:
             link_width = link_width+weights**kwrgs.pop('weights_squared')
         fig = plt.figure(figsize=figshape, facecolor='white')
         ax = fig.add_subplot(111, facecolor='white')
-        fig, ax = tp.plot_graph(val_matrix=val_plot,
+        fig, ax = tp.plot_graph(graph=graph_plot,
+                                val_matrix=val_plot,
                                 var_names=var_names,
                                 link_width=link_width,
-                                link_matrix=links_plot,
                                 fig_ax=(fig, ax),
                                 **kwrgs)
         f_name = f'CEN_{variable}_s{s}'
