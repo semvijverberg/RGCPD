@@ -34,7 +34,7 @@ dependencies:
   - pytables
   - xarray
   - properscoring
-#  - joblib # <- optional for parallel computing
+  - joblib # <- for parallel computing
 #  - esmf # <- optional packages for regridding
 #  - xesmf # <- optional packages for regridding
   - pip:

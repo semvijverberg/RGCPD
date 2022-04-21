@@ -5,20 +5,18 @@ Created on Wed Jan 1 2020
 
 @author: semvijverberg
 """
-import inspect, os, sys
-from optparse import Option
-curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-main_dir = '/'.join(curr_dir.split('/')[:-1])
-RGCPD_func = os.path.join(main_dir, 'RGCPD/')
-if RGCPD_func not in sys.path:
-    sys.path.append(RGCPD_func)
+import os
+# from optparse import Option
+from .. import core_pp, functions_pp, find_precursors, plot_maps
+# curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
+# main_dir = '/'.join(curr_dir.split('/')[:-1])
+# RGCPD_func = os.path.join(main_dir, 'RGCPD/')
+# if RGCPD_func not in sys.path:
+#     sys.path.append(RGCPD_func)
 import numpy as np
 import sklearn.cluster as cluster
-import core_pp
-import functions_pp
-import find_precursors
+
 import xarray as xr
-import plot_maps
 import uuid
 from itertools import product
 from typing import Optional, Tuple, List, Dict # for nice documentation
@@ -71,7 +69,8 @@ def labels_to_latlon(time_space_3d : xr.DataArray, labels : np.ndarray, output_s
     return xrspace
 
 
-def skclustering(time_space_3d: xr.DataArray, mask2d: Optional[np.ndarray] = None, clustermethodkey: str = 'AgglomerativeClustering',
+def skclustering(time_space_3d: xr.DataArray, mask2d: Optional[np.ndarray] = None,
+                 clustermethodkey: str = 'AgglomerativeClustering',
                  kwrgs: Dict ={'n_clusters':4}, dimension: str = 'temporal'):
     '''
     Is build upon sklearn clustering. Algorithms available are listed in cluster.__dict__,
@@ -169,8 +168,10 @@ def adjust_kwrgs(kwrgs_o, new_coords, v1, v2):
         kwrgs_o[new_coords[1]] = v2
     return kwrgs_o
 
-def sklearn_clustering(var_filename : str, mask : Optional[np.ndarray] = None, dimension : str ='temporal',
-                       kwrgs_load : Dict = {}, clustermethodkey : str = 'DBSCAN', kwrgs_clust : str = {'eps':600}):
+def sklearn_clustering(var_filename : str, mask : Optional[np.ndarray] = None,
+                       dimension : str ='temporal', kwrgs_load : Dict = {},
+                       clustermethodkey : str = 'DBSCAN',
+                       kwrgs_clust : str = {'eps':600}):
 
     """
     Performs clustering for combinations of clustering parameters (kwrgs_clust) and parameters for variable loading (kwrgs_load)
@@ -206,15 +207,15 @@ def sklearn_clustering(var_filename : str, mask : Optional[np.ndarray] = None, d
 
     if 'selbox' in kwrgs_load.keys():
         assert isinstance(kwrgs_load['selbox'], list), 'selbox is not a list'
-        assert len(kwrgs_load['selbox']) == 4, 'selbox list does not have shape [lon_min, lon_max, lat_min, lat_max]'
+        assert len(kwrgs_load['selbox']) == 4, \
+        'selbox list does not have shape [lon_min, lon_max, lat_min, lat_max]'
 
 
     # we can either give a mask for coordinates or just select a box with coordinates
     if 'selbox' in kwrgs_load.keys():
         if kwrgs_load['selbox'] is not None and mask is not None:
-            print('Mask overwritten with selbox list. Both selbox and mask are given.'
-                    'Both adapt the domain over which to cluster')
-            mask = None
+            print('Both selbox and mask are given. selbox is retrieved from mask')
+            mask = core_pp.get_selbox(mask, selbox=kwrgs_load['selbox'])
 
     kwrgs_l_spatial = {} # kwrgs affecting spatial extent/format
     if 'format_lon' in kwrgs_load.keys():
@@ -222,9 +223,6 @@ def sklearn_clustering(var_filename : str, mask : Optional[np.ndarray] = None, d
 
     if 'selbox' in kwrgs_load.keys():
         kwrgs_l_spatial['selbox'] = kwrgs_load['selbox']
-
-    # here we import an .nc file and convert it into an xarray object
-    xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l_spatial)
 
     # here we create a numpy array mask for coordinates selected using mask (or selbox if selbox in kwrgs_load())
     npmask = get_spatial_ma(var_filename, mask, kwrgs_l_spatial=kwrgs_l_spatial)
@@ -244,10 +242,15 @@ def sklearn_clustering(var_filename : str, mask : Optional[np.ndarray] = None, d
         new_coords = []
 
         if dimension == 'spatial':
-            xrclustered = xarray[0].drop('time')
+            # selbox requires loading the data, hence this avoids loading all timesteps.
+            xarray = core_pp.import_ds_lazy(var_filename)[0]
+            if 'selbox' in kwrgs_l_spatial.keys():
+                xarray = core_pp.get_selbox(xarray, selbox=kwrgs_l_spatial['selbox'])
+            xrclustered = xarray.drop('time')
         else:
-            xrclustered = xarray
-
+            xrclustered = core_pp.import_ds_lazy(var_filename, **kwrgs_l_spatial)
+        assert xarray.shape == mask.shape, \
+                            'Warning, shape of mask and loaded data do not match'
         for k, list_v in kwrgs_loop.items(): # in alphabetical order
 
             # new_coords contains keys from kwrgs_clust and kwrgs_load
@@ -356,6 +359,7 @@ def dendogram_clustering(var_filename=str, mask=None, kwrgs_load={},
                          clustermethodkey='AgglomerativeClustering',
                          kwrgs_clust={'q':70, 'n_clusters':3}, n_cpu=None):
     '''
+    Spatial clustering based on co-occurrences of events.
 
 
     Parameters
@@ -386,21 +390,33 @@ def dendogram_clustering(var_filename=str, mask=None, kwrgs_load={},
     if n_cpu is None:
         n_cpu = multiprocessing.cpu_count() - 1
 
+    # we can either give a mask for coordinates or just select a box with coordinates
     if 'selbox' in kwrgs_load.keys():
-        if kwrgs_load['selbox'] is not None:
-            mask = kwrgs_load.pop('selbox')
-            print('mask overwritten because both selbox and mask are given.'
-                  'both adapt the domain over which to cluster')
+        if kwrgs_load['selbox'] is not None and mask is not None:
+            print('Both selbox and mask are given. selbox is retrieved from mask')
+            mask = core_pp.get_selbox(mask, selbox=kwrgs_load['selbox'])
+
     kwrgs_l_spatial = {} # kwrgs affecting spatial extent/format
     if 'format_lon' in kwrgs_load.keys():
         kwrgs_l_spatial['format_lon'] = kwrgs_load['format_lon']
 
-    xarray = core_pp.import_ds_lazy(var_filename, **kwrgs_l_spatial)
+    if 'selbox' in kwrgs_load.keys():
+        kwrgs_l_spatial['selbox'] = kwrgs_load['selbox']
+
+    # load array to know output format
+    xarray = core_pp.import_ds_lazy(var_filename)[0]
+    if 'selbox' in kwrgs_l_spatial.keys():
+        xarray = core_pp.get_selbox(xarray, selbox=kwrgs_l_spatial['selbox'])
+    xrclustered = xarray.drop('time')
     npmask = get_spatial_ma(var_filename, mask, kwrgs_l_spatial=kwrgs_l_spatial)
+    assert xarray.shape == mask.shape, \
+                        'Warning, shape of mask and loaded data do not match'
+
 
     kwrgs_loop = {k:i for k, i in kwrgs_clust.items() if type(i) == list}
     kwrgs_loop_load = {k:i for k, i in kwrgs_load.items() if type(i) == list}
     [kwrgs_loop.update({k:i}) for k, i in kwrgs_loop_load.items()]
+    if 'selbox' in kwrgs_loop.keys(): kwrgs_loop.pop('selbox')
     q = kwrgs_clust['q']
 
     if len(kwrgs_loop) == 1:
@@ -409,7 +425,6 @@ def dendogram_clustering(var_filename=str, mask=None, kwrgs_load={},
     if len(kwrgs_loop) >= 1:
 
         new_coords = []
-        xrclustered = xarray[0].drop('time')
         for k, list_v in kwrgs_loop.items(): # in alphabetical order
             new_coords.append(k)
             dim_coords = {str(k):list_v}
@@ -439,7 +454,7 @@ def dendogram_clustering(var_filename=str, mask=None, kwrgs_load={},
 
             xrclusteredij, result = skclustering(xarray, npmask,
                                                  clustermethodkey=clustermethodkey,
-                                                 kwrgs=kwrgs)
+                                                 kwrgs=kwrgs, dimension='spatial')
             return {f'{v1}..{v2}': (xrclusteredij, result)}
 
         if n_cpu > 1:
@@ -531,10 +546,12 @@ def get_spatial_ma(var_filename=str, mask=None, kwrgs_l_spatial: dict={}):
         npmasklat = np.meshgrid(lon_mask, lat_mask)[1]
         npmask = np.logical_and(npmasklon, npmasklat)
     elif type(mask) is type(xr.DataArray([0])):
+        # # match extend of mask to extend of input data (xarray)
         # lo_min = float(mask.longitude.min()); lo_max = float(mask.longitude.max())
         # la_min = float(mask.latitude.min()); la_max = float(mask.latitude.max())
         # selbox = (lo_min, lo_max, la_min, la_max)
-        # selregion = core_pp.import_ds_lazy(var_filename, selbox=selbox)
+        # xarray = core_pp.import_ds_lazy(var_filename)[0]
+        # xarray = core_pp.get_selbox(xarray, selbox=selbox)
         # selregion = selregion.where(mask)
         npmask = mask.values
     return npmask

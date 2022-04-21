@@ -52,10 +52,8 @@ selbox = (225, 300, 25, 70) # selbox of data that is loaded.
 #%% initilize RGCPD class (only used for pre-processing pipeline)
 
 
-import find_precursors, core_pp
-import clustering_spatial as cl
-import plot_maps
-from RGCPD import RGCPD
+from RGCPD import RGCPD, find_precursors, core_pp, plot_maps
+from RGCPD.clustering import clustering_sklearn as cl
 
 list_of_name_path = [('fake', None),
                      ('t2m', root_data + '/input_raw/mx2t_US_1979-2020_1_12_daily_0.25deg.nc')]
@@ -80,7 +78,7 @@ var_filename = rg.list_precur_pp[0][1]
 
 
 #%% Get the Country mask and mask high latitude (1500m) mx2t data
-import make_country_mask
+from RGCPD.clustering import make_country_mask
 orography = os.path.join(user_dir, 'surfdrive/ERA5/input_raw/Orography.nc')
 
 xarray, Country = make_country_mask.create_mask(var_filename, kwrgs_load={'selbox':selbox}, level='Countries')
@@ -112,15 +110,18 @@ plot_maps.plot_labels(xr_mask)
 # Clustering co-occurence of anomalies different tfreqs
 # =============================================================================
 q = 66
-tfreq = [5, 10, 15, 30]
-n_clusters = [4,5,6,7,8,9,10]
+tfreq = [10, 30] #[5, 10, 15, 30]
+n_clusters = [4, 5] # [4,5,6,7,8,9,10]
+selbox = (230, 300, 25, 60)
 from time import time
 t0 = time()
+from RGCPD.clustering import clustering_sklearn as cl
 xrclustered, results = cl.dendogram_clustering(var_filename, mask=xr_mask,
                                                 kwrgs_load={'tfreq':tfreq,
                                                             'seldates':('06-01', '08-31'),
+                                                            'start_end_year':(1979, 2000),
                                                             'start_end_date':('06-01', '08-31'),
-                                                            'selbox':selbox},
+                                                            'selbox':list(selbox)},
                                                 kwrgs_clust={'q':q,
                                                             'n_clusters':n_clusters,
                                                             'affinity':'jaccard',
@@ -138,6 +139,7 @@ path_fig = os.path.join(rg.path_outmain, f_name)
 plt.savefig(path_fig,
             bbox_inches='tight') # dpi auto 600
 print(f'{round(time()-t0, 2)}')
+
 #%%
 # =============================================================================
 # Clustering co-occurence of anomalies different quantiles
