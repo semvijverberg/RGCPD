@@ -1069,120 +1069,18 @@ class RGCPD:
         predict (DataFrame), weights (DataFrame), models_lags (dict).
 
         '''
-        # df_data=None;keys=None;target=None;tau_min=1;tau_max=1;transformer=None
-        # kwrgs_model={'scoring':'neg_mean_squared_error'};match_lag_region_to_lag_fc=False
         if df_data is None:
             df_data = self.df_data.copy()
-        lags = range(tau_min, tau_max+1)
-        splits = df_data.index.levels[0]
-
-        if 'TrainIsTrue' not in df_data.columns:
-            TrainIsTrue = pd.DataFrame(np.ones( (df_data.index.size), dtype=bool),
-                                       index=df_data.index, columns=['TrainIsTrue'])
-            df_data = df_data.merge(TrainIsTrue, left_index=True, right_index=True)
-
-        if 'RV_mask' not in df_data.columns:
-            RV_mask = pd.DataFrame(np.ones( (df_data.index.size), dtype=bool),
-                                   index=df_data.index, columns=['RV_mask'])
-            df_data = df_data.merge(RV_mask, left_index=True, right_index=True)
-
-        RV_mask = df_data.loc[0]['RV_mask'] # not changing
-        if target is None: # not changing
-            target_ts = df_data.loc[0].iloc[:,[0]][RV_mask]
-
-        if keys is None:
-            keys = [k for k in df_data.columns if k not in ['TrainIsTrue', 'RV_mask']]
-            # remove col with same name as target_ts
-            keys = [k for k in keys if k != self.TV.name]
-
-
-        models_lags = dict()
-        for il, lag in enumerate(lags):
-            preds = np.zeros( (splits.size), dtype=object)
-            wghts = np.zeros( (splits.size) , dtype=object)
-            models_splits_lags = dict()
-            for isp, s in enumerate(splits):
-                fit_masks = df_data.loc[s][['RV_mask', 'TrainIsTrue']]
-                TrainIsTrue = df_data.loc[s]['TrainIsTrue']
-
-                df_s = df_data.loc[s]
-                if type(keys) is dict:
-                    _ks = keys[s]
-                    _ks = [k for k in _ks if k in df_s.columns] # keys split
-                else:
-                    _ks = [k for k in keys if k in df_s.columns] # keys split
-
-                if match_lag_region_to_lag_fc:
-                    ks = [k for k in _ks if k.split('..')[0] == str(lag)]
-                    l = lag ; valid = len(ks) !=0 and ~df_s[ks].isna().values.all()
-                    while valid == False:
-                        ks = [k for k in _ks if k.split('..')[0] == str(l)]
-                        if len(ks) !=0 and ~df_s[ks].isna().values.all():
-                            valid = True
-                        else:
-                            l -= 1
-                        print(f"\rNot found lag {lag}, using lag {l}", end="")
-                        assert l > 0, 'ts @ lag not found or nans'
-                else:
-                    ks = _ks
-
-                if transformer is not None and transformer != False:
-                    df_trans = df_s[ks].apply(transformer,
-                                            args=[TrainIsTrue])
-                elif transformer == False:
-                    df_trans = df_s[ks] # no transformation
-                else: # transform to standard normal
-                    df_trans = df_s[ks].apply(fc_utils.standardize_on_train_and_RV,
-                                              args=[fit_masks, lag])
-                                            # result_type='broadcast')
-
-                if type(target) is str:
-                    target_ts = df_data.loc[s][[target]][RV_mask]
-                elif type(target) is pd.DataFrame:
-                    target_ts = target.copy()
-                    if hasattr(target.index, 'levels'):
-                        target_ts = target.loc[s]
-
-                shift_lag = fc_utils.apply_shift_lag
-                df_norm = df_trans.merge(shift_lag(fit_masks.copy(), lag),
-                                         left_index=True,
-                                         right_index=True)
-
-
-                if fcmodel is None:
-                    fcmodel = sm.ScikitModel()
-                pred, model = fcmodel.fit_wrapper({'ts':target_ts},
-                                                  df_norm, ks, kwrgs_model)
-
-                # if len(lags) > 1:
-                models_splits_lags[f'split_{s}'] = model
-
-
-                if il == 0:#  and isp == 0:
-                # add truth
-                    prediction = target_ts.copy()
-                    prediction = prediction.merge(pred.rename(columns={0:lag}),
-                                                  left_index=True,
-                                                  right_index=True)
-                else:
-                    prediction = pred.rename(columns={0:lag})
-
-                coeff = fc_utils.SciKitModel_coeff(model, lag)
-
-                preds[isp] = prediction
-                wghts[isp] = coeff
-            if il == 0:
-                predict = pd.concat(list(preds), keys=splits)
-                weights = pd.concat(list(wghts), keys=splits)
-            else:
-                predict = predict.merge(pd.concat(list(preds), keys=splits),
-                              left_index=True, right_index=True)
-                weights = weights.merge(pd.concat(list(wghts), keys=splits),
-                              left_index=True, right_index=True)
-            models_lags[f'lag_{lag}'] = models_splits_lags
-
-        return predict, weights, models_lags
-
+        out = sm.fit_df_data_sklearn(df_data=df_data,
+                                     keys=keys,
+                                     target=target,
+                                     tau_min=tau_min,
+                                     tau_max=tau_max,
+                                     match_lag_region_to_lag_fc=match_lag_region_to_lag_fc,
+                                     transformer=transformer,
+                                     fcmodel=fcmodel,
+                                     kwrgs_model=kwrgs_model)
+        predict, weights, models_lags = out
 
 
 def RV_and_traintest(df_fullts, df_RV_ts, traintestgroups, method=str, kwrgs_events=None,
