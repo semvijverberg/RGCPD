@@ -1,4 +1,4 @@
-name: RGCPD
+name: RGCPD4
 channels:
   - conda-forge
 
@@ -8,7 +8,7 @@ dependencies:
   - cftime
   - conda
   - cdsapi
-  - ecmwfapi
+  - ecmwf-api-client
   - eofs
   - h5py
   - hdf4
@@ -23,7 +23,7 @@ dependencies:
   - numpy
   - pandas
   - pip
-  - python>=3.8, <3.9
+  - python>=3.8, <=3.9
 #  - pytest # <- optional for pytesting
   - scikit-learn
   - scipy
@@ -39,7 +39,7 @@ dependencies:
 #  - xesmf # <- optional packages for regridding
   - pip:
     - tigramite
-prefix: /Users/semvijverberg/miniconda3/envs/RGCPD
+prefix: /Users/semvijverberg/miniconda3/envs/RGCPD4
 # If mamba has not been installed in your conda base environment, then please run:
 # conda install mamba -n base -c conda-forge
 # mamba env create -f environment.yml

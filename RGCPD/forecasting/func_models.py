@@ -445,7 +445,7 @@ def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=N
 
     '''
     #%%
-    if df_splits is None:
+    if df_splits is None and 'TrainIsTrue' not in prediction.columns:
         # assuming all is test data
         TrainIsTrue = np.zeros((prediction.index.size, 1))
         RV_mask  = np.ones((prediction.index.size, 1))
@@ -453,24 +453,33 @@ def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=N
                                    index=prediction.index,
                                    dtype=bool,
                                    columns=['TrainIsTrue', 'RV_mask'])
+    elif df_splits is None and 'TrainIsTrue' in prediction.columns:
+        # TrainIsTrue columns are part of prediction
+        df_splits = prediction[['TrainIsTrue', 'RV_mask']]
+
+
 
     # add empty multi-index to maintain same data format
-    if hasattr(df_splits .index, 'levels')==False:
+    if hasattr(df_splits.index, 'levels')==False:
         df_splits = pd.concat([df_splits], keys=[0])
 
     if hasattr(prediction.index, 'levels')==False:
         prediction = pd.concat([prediction], keys=[0])
 
-    pred = prediction.merge(df_splits,
-                            left_index=True,
-                            right_index=True)
+    columns = [c for c in prediction.columns[:] if c not in ['TrainIsTrue', 'RV_mask']]
+    if 'TrainIsTrue' not in prediction.columns:
+        pred = prediction.merge(df_splits,
+                                left_index=True,
+                                right_index=True)
+    else:
+        pred = prediction
 
 
     # score on train and per test split
     if score_func_list is None:
         score_func_list = [metrics.mean_squared_error, corrcoef]
     splits = pred.index.levels[0]
-    columns = prediction.columns[1:]
+    columns = np.array(columns[1:])
     df_trains = np.zeros( (columns.size), dtype=object)
     df_tests_s = np.zeros( (columns.size), dtype=object)
     for c, col in enumerate(columns):

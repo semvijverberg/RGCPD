@@ -37,8 +37,8 @@ if cluster_func not in sys.path:
     sys.path.append(cluster_func)
     sys.path.append(fc_dir)
 
-import func_models as fc_utils
-import functions_pp, find_precursors, plot_maps
+from RGCPD.forecasting import func_models as fc_utils
+from RGCPD import functions_pp, find_precursors, plot_maps
 
 nice_colors = ['#EE6666', '#3388BB', '#88BB44', '#9988DD', '#EECC55',
                 '#FFBBBB']
@@ -126,10 +126,11 @@ def get_df_mean_SST(rg, mean_vars=['sst'], alpha_CI=.05,
                                     left_index=True, right_index=True)
     return df_mean_SST, keys_dict_meansst
 
-def get_CD_df_data(rg, alpha_CI=.05, periodname=None):
-    df_pvals = rg.df_pvals.copy()
-    keys_dict = {s:[] for s in range(rg.n_spl)}
-    for s in range(rg.n_spl):
+def get_CD_df_data(df_pvals, alpha_CI=.05, periodname=None):
+
+    n_splits = df_pvals.columns.size
+    keys_dict = {s:[] for s in range(n_splits)}
+    for s in range(n_splits):
         sign_s = df_pvals[s][df_pvals[s] <= alpha_CI].dropna(axis=0, how='all')
         keys = sign_s.index
         if periodname is not None:
@@ -323,7 +324,7 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
             ax0b.axhline(0, lw=0.5, c='grey')
 
         std_oos = (oos - oos.mean()) / oos.std()
-        ax0b.plot_date(df_test.index, std_oos.loc[df_test.index],
+        ax0b.plot_date(df_test.index, std_oos.loc[df_test.index].values,
                       ls='--', c='black', alpha=.7, lw=1,
                       markeredgecolor='black',
                       markerfacecolor='black', zorder=1,
@@ -927,7 +928,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                               'title':'',
                               'subtitle_fontdict':{'fontsize':20},
                               'kwrgs_mask':{'linewidths':1},
-                               'cbar_tick_dict':{'labelsize':18},
+                               'cbar_tick_dict':{'labelsize':14},
                               'units':units,
                               'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
 
@@ -946,7 +947,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                                'title':'',
                                'subtitle_fontdict':{'fontsize':15},
                                'kwrgs_mask':{'linewidths':1},
-                               'cbar_tick_dict':{'labelsize':20},
+                               'cbar_tick_dict':{'labelsize':14},
                                'units':units,
                                'title_fontdict':{'fontsize':16, 'fontweight':'bold'}}
 
@@ -1184,7 +1185,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
 
             if plot_parcorr==False:
                 fg = plot_maps.plot_labels(CDlabels,
-                                      kwrgs_plot=kwrgs_plot)
+                                      kwrgs_plot=kwrgs_plot, labelsintext=True)
                 if ip == 0:
                     facecolorocean = 'white' ; facecolorland='#ede0d4'
                 else:
@@ -1208,7 +1209,8 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
             # MCI values plot
             if len(rg_list) >= 2:
                 kwrgs_plot.update({'clevels':np.arange(-0.8, 0.9, .1),
-                                   'clabels':np.arange(-.8,.9,.2)})
+                                   'clabels':np.arange(-.8,.9,.2),
+                                   'cbar_tick_dict':{'labelsize':18}})
             else:
                 kwrgs_plot.update({'clevels':np.arange(-0.8, 0.9, .1),
                                    'clabels':np.arange(-.8,.9,.4)})

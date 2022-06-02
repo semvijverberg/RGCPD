@@ -378,8 +378,9 @@ def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0,
             df = pd.DataFrame(df)
         df_trains = []
         for col in df.columns:
-            splits = df_splits.index.levels[0]
+            splits = TrainIsTrue.index.levels[0]
             l_dfs = [df[col].loc[s][TrainIsTrue.loc[s].values==1] for s in splits]
+
 
             if s == 'squeeze':
                 df_coltrain = pd.concat(l_dfs, axis=1)
@@ -390,7 +391,7 @@ def get_df_train(df, cols: list=None, df_splits: pd.DataFrame=None, s=0,
             elif s == 'extrapolate':
                 df_coltrain = [getattr(d, function)(**kwrgs) for d in l_dfs]
                 df_coltrain = np.repeat(np.array(df_coltrain).reshape(splits.size,1),
-                                        df_splits.index.levels[1].size, axis=0)
+                                        TrainIsTrue.loc[0].index.size, axis=0)
                 df_coltrain = pd.DataFrame(df_coltrain.reshape(-1,1), index=df.index,
                                            columns=[str(col)+'_'+function])
             df_trains.append(df_coltrain)

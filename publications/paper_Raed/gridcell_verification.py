@@ -23,6 +23,7 @@ import argparse
 from matplotlib.lines import Line2D
 import csv
 import re
+from sklearn.linear_model import LinearRegression
 
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
@@ -45,16 +46,15 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
-import class_BivariateMI
-import func_models as fc_utils
-import functions_pp, find_precursors
-import plot_maps, core_pp
-import wrapper_PCMCI
+from RGCPD import class_BivariateMI
+from RGCPD.forecasting import func_models as fc_utils
+from RGCPD import functions_pp, find_precursors, plot_maps, core_pp, wrapper_PCMCI
+from RGCPD.forecasting.stat_models import plot_importances
+from RGCPD.forecasting.stat_models_cont import ScikitModel
+from RGCPD.forecasting import scikit_model_analysis as sk_ana
+from RGCPD.forecasting import func_models as fc_utils
 import utils_paper3
-from stat_models import plot_importances
-from stat_models_cont import ScikitModel
-import scikit_model_analysis as sk_ana
-from sklearn.linear_model import LinearRegression
+
 
 All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'MARYLAND', 'MINNESOTA', 'MISSOURI', 'NEW JERSEY', 'NEW YORK',
@@ -260,7 +260,7 @@ filepath_verif = os.path.join(path_input_main, pathsub_verif)
 model_name = 'LogisticRegression' # 'RandomForestClassifier'
 fc_month = 'February'
 
-#%%
+#%% Get forecasts
 fc_months_periodnames = {'August': 'JJ', 'July': 'MJ', 'June': 'AM',
                          'May': 'MA','April': 'FM', 'March': 'JF',
                          'December': 'SO', 'February': 'DJ'}
@@ -269,7 +269,7 @@ filepath_df_output = os.path.join(path_input_main,
 
 df_output = functions_pp.load_hdf5(filepath_df_output)
 df_data  = df_output['df_data']
-df_splits = df_data.iloc[:,-2:]
+df_splits = df_data.iloc[:,-2:].copy()
 
 out = utils_paper3.load_scores(['Target'], model_name, model_name,
                                2000, filepath_df_datas,
@@ -280,4 +280,121 @@ df_scores, df_boots, df_preds = out
 df_test_m = [d[fc_month] for d in df_scores]
 df_boots_list = [d[fc_month] for d in df_boots]
 df_test  = df_preds[0][['Target', fc_month]]
-df_test = functions_pp.get_df_test(df_test, df_splits=df_splits)
+# df_test = functions_pp.get_df_test(df_test, df_splits=df_splits)
+
+#%% get pre-processed soy yield xarray
+
+target_aggr = 'USDA_Soy_clusters' # ['USDA_Soy_clusters', 'Aggregate_States']
+raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
+
+
+# if target_aggr == 'USDA_Soy_clusters':
+    # target_xarray_path = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
+    # target_xarray = core_pp.import_ds_lazy(target_xarray_path, var='xrclustered')
+# elif target_aggr == 'Aggregate_States':
+#     path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
+#     States = ['KENTUCKY', 'TENNESSEE', 'MISSOURI', 'ILLINOIS', 'INDIANA']
+#     TVpath = read_csv_State(path, State=States, col='obs_yield').mean(1)
+#     TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=['KENTUCKYTENNESSEEMISSOURIILLINOISINDIANA'])
+#     name_ds='Soy_Yield' ; cluster_label = ''
+    # target_xarray =
+
+output_detrended_gridded = os.path.join(path_input_main, 'spatial_verif')
+os.makedirs(output_detrended_gridded, exist_ok=True)
+output_detrended_gridded = os.path.join(output_detrended_gridded,
+                                        'detrended_oos_yield_gridded.nc')
+if os.path.exists(output_detrended_gridded) == False:
+
+    # load gridded raw soy yield data
+    kwrgs_NaN_handling={'missing_data_ts_to_nan':False,
+                        'extra_NaN_limit':False,
+                        'inter_method':False,
+                        'final_NaN_to_clim':False}
+    years = list(range(1950, 2020))
+    selbox = [253,290,28,52]
+    ds_raw = core_pp.import_ds_lazy(raw_filename, var='variable', selbox=selbox,
+                                    kwrgs_NaN_handling=kwrgs_NaN_handling).rename({'z':'time'})
+    ds_raw.name = 'Soy_Yield'
+    ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
+    ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
+
+
+    ds_out = utils_paper3.detrend_oos_3d(ds_raw, min_length=30,
+                                         df_splits=df_splits,
+                                         standardize=True)
+    ds_out.name = 'soy_pp'
+    ds_out.to_netcdf(path=output_detrended_gridded)
+else:
+    ds_out = core_pp.import_ds_lazy(output_detrended_gridded, var='soy_pp')
+
+#%%
+
+df_xr = ds_out.to_dataframe('ds_pp',
+                dim_order=['latitude', 'longitude', 'split', 'time']).dropna(axis=0)
+
+coords = np.unique(df_xr.reset_index(['latitude', 'longitude'])\
+                   [['latitude', 'longitude']].values, axis=0)
+
+#%%
+df_xr_list = list(df_xr.reset_index(['latitude', 'longitude'])[['latitude', 'longitude']].values)
+coords = list(set(map(tuple,df_xr_list)))
+
+
+if 'timeseries' in method:
+    btoos = '_T' # if btoos=='_T': binary target out of sample.
+    # btoos = '_theor' # binary target based on gaussian quantile
+else:
+    btoos = ''
+
+
+btoos = ''
+#%%
+score_func_list = [fc_utils.metrics.roc_auc_score]
+skill_dict = {}
+for i, latlon in enumerate(coords):
+    df_splits = df_data.iloc[:,-2:].copy()
+
+    obs = df_xr.loc[latlon]
+    obs.index
+    # avoid index conflict between forecast and df_splits
+    df_splits_match = df_splits.loc[obs.index]
+    df_splits_match.index = obs.index
+    df_merge = obs.merge(df_splits_match, left_index=True, right_index=True)
+
+
+    if btoos == '_T':
+        quantile = functions_pp.get_df_train(df_merge.iloc[:,[0]],
+                                             df_splits=df_merge.iloc[:,[1,2]],
+                                             s='extrapolate',
+                                             function='quantile',
+                                             kwrgs={'q':fc_type})
+        quantile = quantile.values
+    else:
+        _target_ts = df_merge.iloc[:,[0]].groupby(level=1).mean()
+        _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
+        quantile = float(_target_ts.quantile(fc_type))
+    if fc_type >= 0.5:
+        df_merge.iloc[:,[0]] = (df_merge.iloc[:,[0]] > quantile).astype(int)
+    elif fc_type < .5:
+        df_merge.iloc[:,[0]] = (df_merge.iloc[:,[0]] < quantile).astype(int)
+
+        # align obs and forecast
+
+        df_merge = df_merge.merge(df_test.iloc[:,[1]].loc[df_merge.index],
+                                  left_index=True, right_index=True)
+        df_merge = df_merge[df_merge.columns[[0,3,1,2]]]
+
+        score_func_list = [fc_utils.metrics.roc_auc_score]
+
+        out = fc_utils.get_scores(df_merge,
+                                  score_func_list = score_func_list)
+
+        df_trains, df_tests_s, df_tests, df_boots = out
+
+        skill_dict.update({latlon:df_tests.values.ravel()})
+
+df_skill = pd.DataFrame(skill_dict).T.rename({0:'AUC'}, axis=1)
+df_skill.index.set_names(['latitude', 'longitude'], inplace=True)
+xarray_skill = df_skill.to_xarray()
+
+xarray_skill['AUC'].plot(vmin=0.5, vmax=0.75)

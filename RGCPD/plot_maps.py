@@ -390,10 +390,9 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
         cbar = plt.colorbar(im, cbar_ax,
                             orientation='horizontal', extend='neither',
                             label=clabel)
-        cbar.set_ticks(clevels + 0.5)
-        cbar.set_ticklabels(np.array(clevels+1, dtype=int),
-                            update_ticks=True)
-        cbar.update_ticks()
+        cbar.set_ticks(clevels[:-1] + 0.5)
+        cbar.set_ticklabels(np.array(clevels[1:], dtype=int))
+        # cbar.update_ticks()
     cbar_ax.tick_params(**cbar_tick_dict)
 
     if title is not None:
@@ -692,7 +691,7 @@ def plot_corr_vars_splits(dict_ds, df_sum, figpath, paramsstr, RV_name,
     #%%
     return
 
-def _get_kwrgs_labels(prec_labels, kwrgs_plot={}, labelsintext=True):
+def _get_kwrgs_labels(prec_labels, kwrgs_plot={}, labelsintext=False):
 
     # default dims such that I can use dims to ensure position textinmap
     if 'row_dim' not in kwrgs_plot.keys():
@@ -777,10 +776,12 @@ def plot_labels(prec_labels,
                 labelsintext=False):
 
     xrlabels = prec_labels.copy()
+    # if 'cmap' not in kwrgs_plot.keys():
+    #     # default cmap is plt.cm.tab20, which does not have more than 20 colours
+    #     xrlabels = xrlabels.where(~(xrlabels.values>20))
+
     kwrgs_labels = _get_kwrgs_labels(xrlabels, kwrgs_plot, labelsintext)
     xrlabels.values = prec_labels.values - 0.5
-
-
     return plot_corr_maps(xrlabels, **kwrgs_labels)
 
 def plot_corr_regions(ds, var, lag, filepath,

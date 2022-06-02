@@ -23,6 +23,7 @@ import argparse
 from matplotlib.lines import Line2D
 import csv
 import re
+from sklearn.linear_model import LinearRegression
 
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
@@ -44,17 +45,12 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
 
 from RGCPD import RGCPD
-from RGCPD import BivariateMI
-import class_BivariateMI
-import func_models as fc_utils
-import functions_pp, find_precursors
-import plot_maps, core_pp
-import wrapper_PCMCI
+from RGCPD import BivariateMI, class_BivariateMI, functions_pp
+from RGCPD import plot_maps, core_pp, wrapper_PCMCI
+from RGCPD.forecasting import func_models as fc_utils
+from RGCPD.forecasting.stat_models_cont import ScikitModel
+from RGCPD.forecasting import scikit_model_analysis as sk_ana
 import utils_paper3
-from stat_models import plot_importances
-from stat_models_cont import ScikitModel
-import scikit_model_analysis as sk_ana
-from sklearn.linear_model import LinearRegression
 
 All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
               'MARYLAND', 'MINNESOTA', 'MISSOURI', 'NEW JERSEY', 'NEW YORK',
@@ -65,14 +61,14 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_1']#, 'timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']
+methods = ['timeseriessplit_25']#, 'leave_1', timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']
 training_datas = ['all_CD', 'onelag', 'all']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 1
+i_default = 0
 load = 'all'
 save = True
 fc_types = [0.33, 'continuous']
@@ -927,12 +923,12 @@ for fc_type in fc_types:
                 # use all RG-DR timeseries that are C.D. for (final) prediction
                 elif training_data == 'all_CD':
                     df_input = rg.df_data
-                    keys_dict = utils_paper3.get_CD_df_data(rg, alpha_CI)
+                    keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), alpha_CI)
                 # use only fist lag of all RG-DR timeseries
                 elif training_data == 'onelag':
                     df_input = rg.df_data
                     firstlag = str(rg.list_for_MI[0].corr_xr.lag[-1].values)
-                    keys_dict = utils_paper3.get_CD_df_data(rg, 1,
+                    keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), 1,
                                                             firstlag)
 
 
@@ -1220,6 +1216,7 @@ for fc_type in fc_types:
 
     # plotting timeseries per 2 months
     fc_month_list = [rg.fc_month for rg in rg_list][::2]
+
     print('Plotting timeseries')
     model_name_CL, model_name = model_combs_plot[0]
     for model_name_CL, model_name in model_combs_plot:
@@ -1447,7 +1444,17 @@ utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detec
 
 utils_paper3.plot_regions(rg_list[:1], save=True, plot_parcorr=False, min_detect=.1,
                           selection='all', plot_textinmap=False)
+
 plt.close()
+#%%
+
+utils_paper3.plot_regions(rg_list[-2:-1], save=False, plot_parcorr=False, min_detect=.1,
+                          selection='all', plot_textinmap=False)
+
+#%%
+
+utils_paper3.plot_regions(rg_list[-2:-1], save=True, plot_parcorr=False, min_detect=.1,
+                          selection='CD', plot_textinmap=False, min_cd = 0.3)
 
 #%%
 
@@ -1682,14 +1689,14 @@ for model, training_data, metric in combinations:
     elif training_data == 'all_CD':
         n_features = []
         for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
-            keys_dict = utils_paper3.get_CD_df_data(rg, alpha_CI)
+            keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), alpha_CI)
             n_features.append(np.mean([len(v) for v in keys_dict.values()]))
     # use only fist lag of RG-DR timeseries that are C.D.
     elif training_data == 'onelag':
         n_features = []
         for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
             firstlag = str(rg.list_for_MI[0].corr_xr.lag[-1].values)
-            keys_dict = utils_paper3.get_CD_df_data(rg, 1,
+            keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), 1,
                                                     firstlag)
             n_features.append(np.mean([len(v) for v in keys_dict.values()]))
 
