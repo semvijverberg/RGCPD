@@ -60,7 +60,7 @@ import utils_paper3
 target_datasets = ['States']
 seeds = [1] # ,5]
 models = ['LR', 'RF']
-methods = ['timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1'] # ['ranstrat_20'] timeseriessplit_30
+methods = ['timeseriessplit_25', 'leave_1'] # ['ranstrat_20'] timeseriessplit_30, 'timeseriessplit_20', 'timeseriessplit_30',
 training_datas = ['all', 'all_CD']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -71,8 +71,7 @@ i_default = -4
 load = 'all'
 save = True
 # training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
-fc_types = [0.33, 'continuous']
-fc_types = [0.33]
+
 
 model_combs_cont = [['Ridge', 'Ridge'],
                     ['Ridge', 'RandomForestRegressor'],
@@ -264,9 +263,9 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 
 scoringCV = 'neg_brier_score'
 kwrgs_model1 = {'scoringCV':scoringCV,
-                # 'C':list([1E-3, 1E-2, 5E-2, 1E-1,
-                          # .5,1,1.2,4,7,10,20]), # Smaller C, strong regul.
-                'C':list([1E-1,10,50]), # Small C set for test runs
+                'C':list([1E-3, 1E-2, 5E-2, 1E-1,
+                           .5,1,1.2,4,7,10,20]), # Smaller C, strong regul.
+                # 'C':list([1E-1,10,50]), # Small C set for test runs
                 'random_state':seed,
                 'penalty':'l2',
                 'solver':'lbfgs',
@@ -302,12 +301,12 @@ fc_type = .33
 btoos = '_T'
 q = .25 # quantile for subselection based on strong horseshoe state
 forecast_months = ['August', 'July', 'June', 'May',
-                   'April', 'March', 'December', 'February']
+                   'April', 'March', 'February']
 regions_forcing = ['Pacific+SM', 'Pacific+SM', 'only_Pacific',
                    'only_Pacific', 'only_Pacific', 'only_Pacific',
                    'only_Pacific']
 
-forecast_months = ['April', 'February']
+forecast_months = ['April', 'March', 'February']
 skill_summary = []
 skill_summary_cond = []
 for im, fc_month in enumerate(forecast_months):
@@ -388,6 +387,7 @@ for im, fc_month in enumerate(forecast_months):
                                                                fcmodel=fcmodel,
                                                                kwrgs_model=kwrgs_model)
         predict = predict.rename({0:fc_month}, axis=1)
+
         # calculate skill scores
         out_verification = fc_utils.get_scores(predict,
                                                df_splits,
