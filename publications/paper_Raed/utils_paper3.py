@@ -494,7 +494,7 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
 
 def get_df_forcing_cond_fc(rg_list, #target_ts, fcmodel, kwrgs_model, mean_vars=['sst', 'smi'],
                            regions=['only_Pacific'],
-                           name_object='df_CL_data'):
+                           name_object='df_data'):
     if len(regions) == 1:
         regions = regions * len(rg_list)
     for j, rg in enumerate(rg_list):
@@ -574,8 +574,6 @@ def cond_forecast_table(rg_list, score_func_list, df_predictions,
             df_test = functions_pp.get_df_test(prediction,
                                                df_splits=rg.df_splits)
 
-            # df_test_m = rg.verification_tuple[2]
-            # cond_df[i, j, 0] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
             for k, l in enumerate(range(0,4,2)):
                 q = quantiles[k]
                 # extrapolate quantile values based on training data

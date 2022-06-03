@@ -9,7 +9,7 @@ Created on Wed Oct  2 15:03:31 2019
 import numpy as np
 import pandas as pd
 import sklearn.model_selection as msel
-from sklearn.linear_model import RidgeCV
+import sklearn.linear_model as lm
 from typing import Union
 
 from . import func_models as utils
@@ -166,7 +166,7 @@ class ScikitModel:
 
     def __init__(self, scikitmodel=None, verbosity=1):
         if scikitmodel is None:
-            scikitmodel = RidgeCV
+            scikitmodel = lm.RidgeCV
         self.scikitmodel = scikitmodel
         self.verbosity = verbosity
 

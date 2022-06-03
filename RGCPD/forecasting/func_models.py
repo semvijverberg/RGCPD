@@ -559,6 +559,141 @@ def get_scores(prediction, df_splits: pd.DataFrame=None, score_func_list: list=N
 #%%
     return out
 
+def cond_fc_verif(df_predict: pd.DataFrame,
+                  df_forcing: pd.DataFrame,
+                  df_splits: pd.DataFrame,
+                  score_func_list: list=None,
+                  quantiles:list =[.25],
+                  n_boot: int=0):
+    ''' Calculate metrics on seperate time indices. Split in time indices is
+    determined by anomalous states of the df_forcing timeseries. The quantiles
+    determine 'how anomalous' the seperation is.
+
+    Parameters
+    ----------
+    df_predict : pd.DataFrame
+        Out of sample prediction with multi-index [split, time].
+    df_forcing : pd.DataFrame
+        Out of sample forcing timeseries with multi-index [split, time].
+        Calculates an equal weighted mean over columns to get 1-d timeseries
+    df_splits : pd.DataFrame
+        Train-test split masks with multi-index [split, time].
+    score_func_list : list, optional
+        list with scoring metrics. The default is None.
+    quantiles : list, optional
+        list with quantiles (q) to split the time indices.
+        e.g., when q=0.25, time indices will be split based on df_forcing
+        being below the 0.25q and above 0.75q, i.e. anomalous.
+        The default is [.25].
+    n_boot : int, optional
+        n times bootstrapping skill metrics.
+        The default is 0.
+
+    Returns
+    -------
+    pd.DataFrame, metric names are the index (rows) and columns are the strong
+    and weak quantile subsets. For example, [strong 50%, weak 50%] for q=.25.
+
+    '''
+    #%%
+    df_forctest = functions_pp.get_df_test(df_forcing.mean(axis=1),
+                                           df_splits=df_splits)
+
+    df_test = functions_pp.get_df_test(df_predict,
+                                       df_splits=df_splits)
+
+    metrics = [s.__name__ for s in score_func_list]
+    if n_boot > 0:
+        cond_df = np.zeros((len(metrics), len(quantiles)*2, n_boot))
+    else:
+        cond_df = np.zeros((len(metrics), len(quantiles)*2))
+    stepsize = 1 if len(quantiles)==1 else len(quantiles)*2
+    for i, met in enumerate(metrics):
+        for k, l in enumerate(range(0,stepsize,2)):
+            q = quantiles[k]
+
+            # =============================================================
+            # Strong forcing
+            # =============================================================
+            # extrapolate quantile values based on training data
+            q_low = functions_pp.get_df_train(df_forcing.mean(axis=1),
+                                     df_splits=df_splits, s='extrapolate',
+                                     function='quantile', kwrgs={'q':q})
+            # Extract out-of-sample quantile values
+            q_low = functions_pp.get_df_test(q_low,
+                                               df_splits=df_splits)
+
+            q_high = functions_pp.get_df_train(df_forcing.mean(axis=1),
+                                     df_splits=df_splits, s='extrapolate',
+                                     function='quantile', kwrgs={'q':1-q})
+            q_high = functions_pp.get_df_test(q_high,
+                                               df_splits=df_splits)
+
+            low = df_forctest < q_low.values.ravel()
+            high = df_forctest > q_high.values.ravel()
+            mask_anomalous = np.logical_or(low, high)
+            # anomalous Boundary forcing
+            condfc = df_test[mask_anomalous.values]
+            # condfc = condfc.rename({'causal':periodnames[i]}, axis=1)
+            cond_verif_tuple = get_scores(condfc,
+                                                   score_func_list=score_func_list,
+                                                   n_boot=n_boot,
+                                                   score_per_test=False,
+                                                   blocksize=1,
+                                                   rng_seed=1)
+
+            df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
+            cond_verif_tuple  = cond_verif_tuple
+            if n_boot == 0:
+                cond_df[i, l] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+            else:
+                cond_df[i, l, :] = df_boot[df_boot.columns[0][0]][met]
+            # =============================================================
+            # Weak forcing
+            # =============================================================
+            q_higher_low = functions_pp.get_df_train(df_forcing.mean(axis=1),
+                                     df_splits=df_splits, s='extrapolate',
+                                     function='quantile', kwrgs={'q':.5-q})
+            q_higher_low = functions_pp.get_df_test(q_higher_low,
+                                               df_splits=df_splits)
+
+
+            q_lower_high = functions_pp.get_df_train(df_forcing.mean(axis=1),
+                                     df_splits=df_splits, s='extrapolate',
+                                     function='quantile', kwrgs={'q':.5+q})
+            q_lower_high = functions_pp.get_df_test(q_lower_high,
+                                               df_splits=df_splits)
+
+            higher_low = df_forctest > q_higher_low.values.ravel()
+            lower_high = df_forctest < q_lower_high.values.ravel()
+
+            mask_anomalous = np.logical_and(higher_low, lower_high)
+
+            condfc = df_test[mask_anomalous.values]
+
+            cond_verif_tuple = get_scores(condfc,
+                                                   score_func_list=score_func_list,
+                                                   n_boot=n_boot,
+                                                   score_per_test=False,
+                                                   blocksize=1,
+                                                   rng_seed=1)
+            df_train_m, df_test_s_m, df_test_m, df_boot = cond_verif_tuple
+            if n_boot == 0:
+                cond_df[i, l+1] = df_test_m[df_test_m.columns[0][0]].loc[0][met]
+            else:
+                cond_df[i, l+1, :] = df_boot[df_boot.columns[0][0]][met]
+    columns = [[f'strong {int(q*200)}%', f'weak {int(q*200)}%'] for q in quantiles]
+    columns = functions_pp.flatten(columns)
+    if n_boot > 0:
+        columns = pd.MultiIndex.from_product([columns, list(range(n_boot))])
+
+    df_cond_fc = pd.DataFrame(cond_df.reshape((len(metrics), -1)),
+                              index=list(metrics),
+                              columns=columns)
+    #%%
+    return df_cond_fc
+
+
 def _bootstrap(pred_test, n_boot_sub, chunks, score_func_list, rng_seed: int=1):
 
     y_true = pred_test.iloc[:,0]
