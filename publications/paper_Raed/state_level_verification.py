@@ -67,7 +67,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     models,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = -4
+i_default = 0
 load = 'all'
 save = True
 # training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
@@ -140,6 +140,7 @@ alpha_corr = .05
 alpha_CI = .05
 n_boot = 2000
 append_pathsub = f'/{method}/s{seed}'
+if method == 'leave_1': append_pathsub += 'gp_prior_1_after_1'
 
 
 
@@ -297,14 +298,27 @@ elif model == 'RF':
     fcmodel, kwrgs_model = model2_tuple
 
 #%%
+
+
 fc_type = .33
 btoos = '_T'
 q = .25 # quantile for subselection based on strong horseshoe state
+
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'STATES')
+os.makedirs(path_out_main, exist_ok=True)
+path_save = os.path.join(path_out_main,
+                          f'{model}_{method}_{training_data}_{fc_type}')
+
+if os.path.exists(path_save+'.h5'):
+    d_dfs = functions_pp.load_hdf5(path_save+'.h5')
+    skill_summary = d_dfs['skill_summary']
+    skill_summary_cond = d_dfs['skill_summary_cond']
+
 forecast_months = ['August', 'July', 'June', 'May',
-                   'April', 'March', 'February']
+                    'April', 'March', 'February']
 regions_forcing = ['Pacific+SM', 'Pacific+SM', 'only_Pacific',
-                   'only_Pacific', 'only_Pacific', 'only_Pacific',
-                   'only_Pacific']
+                    'only_Pacific', 'only_Pacific', 'only_Pacific',
+                    'only_Pacific']
 
 forecast_months = ['April', 'March', 'February']
 skill_summary = []
@@ -347,10 +361,10 @@ for im, fc_month in enumerate(forecast_months):
         _target_ts = df_verif_pp.iloc[:,[0]].copy()
         if btoos == '_T': # OOS event threshold
             quantile = functions_pp.get_df_train(_target_ts,
-                                                 df_splits=df_splits,
-                                                 s='extrapolate',
-                                                 function='quantile',
-                                                 kwrgs={'q':fc_type})
+                                                  df_splits=df_splits,
+                                                  s='extrapolate',
+                                                  function='quantile',
+                                                  kwrgs={'q':fc_type})
             quantile = quantile.values
             target_ts = df_verif_pp.iloc[:,[0]].copy()
         else: # in sample event threshold
@@ -370,31 +384,31 @@ for im, fc_month in enumerate(forecast_months):
             RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).RMSE
             MAE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).MAE
             score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS,
-                               fc_utils.r2_score]
+                                fc_utils.r2_score]
         else:
             # benchmark is clim. probability
             BSS = fc_utils.ErrorSkillScore(constant_bench=fc_type).BSS
             score_func_list = [BSS, fc_utils.metrics.roc_auc_score,
-                           fc_utils.binary_score(threshold=fc_type).accuracy,
-                           fc_utils.binary_score(threshold=fc_type).precision]
+                            fc_utils.binary_score(threshold=fc_type).accuracy,
+                            fc_utils.binary_score(threshold=fc_type).precision]
         metric_names = [s.__name__ for s in score_func_list]
 
         # fit model
         predict, weights, models_lags = sm.fit_df_data_sklearn(df_data, keys=keys_dict,
-                                                               tau_min=0,
-                                                               tau_max=0,
-                                                               target=target_ts,
-                                                               fcmodel=fcmodel,
-                                                               kwrgs_model=kwrgs_model)
+                                                                tau_min=0,
+                                                                tau_max=0,
+                                                                target=target_ts,
+                                                                fcmodel=fcmodel,
+                                                                kwrgs_model=kwrgs_model)
         predict = predict.rename({0:fc_month}, axis=1)
 
         # calculate skill scores
         out_verification = fc_utils.get_scores(predict,
-                                               df_splits,
-                                               score_func_list,
-                                               n_boot=0,
-                                               blocksize=1,
-                                               rng_seed=1)
+                                                df_splits,
+                                                score_func_list,
+                                                n_boot=0,
+                                                blocksize=1,
+                                                rng_seed=1)
         df_train_m, df_test_s_m, df_test_m, df_boot = out_verification
         df_test_m = df_test_m.rename({0:STATE}, axis=0)
         skill_states.append(df_test_m)
@@ -418,13 +432,52 @@ for im, fc_month in enumerate(forecast_months):
 skill_summary = pd.concat(skill_summary, axis=1)
 skill_summary_cond = pd.concat(skill_summary_cond, axis=1)
 
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'STATES')
-os.makedirs(path_out_main, exist_ok=True)
-path_save = os.path.join(path_out_main,
-                         f'{model}_{method}_{training_data}_{fc_type}')
+
+
 functions_pp.store_hdf_df({'skill_summary':skill_summary,
                            'skill_summary_cond':skill_summary_cond},
                           path_save+'.h5')
 skill_summary.to_csv(path_save+'.csv')
 skill_summary_cond.to_csv(path_save+'_cond.csv')
+
+
+#%%
+from RGCPD.clustering import make_country_mask
+import itertools
+raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
+selbox = [253,290,28,52] ; years = list(range(1975, 2020))
+if sys.platform == 'linux':
+    import matplotlib as mpl
+    mpl.use('Agg')
+    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/'
+else:
+    root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
+raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
+da = core_pp.import_ds_lazy(raw_filename,
+                            **{'selbox':selbox,
+                               'var':'variable'}).isel(z=0).drop('z')
+
+
+xarray, df_codes = make_country_mask.create_mask(da,
+                                                  level='US_States')
+
+df_country = df_codes[df_codes['name'].str.contains(All_states[0], case=False)]
+
+def skill_to_state(skill_summary, df_codes, metric='BSS', month='April'):
+    _states = skill_summary_cond.index
+    vals = skill_summary_cond.loc[:,month][metric]
+    labels = []
+    for s in _states:
+        df_s = df_codes[df_codes['name'].str.match(s, case=False)]
+        labels.append(int(df_s['label']))
+    return list(labels), list(vals)
+
+months, metrics = skill_summary_cond.columns.levels
+
+xr_skill_sum = xarray.copy()
+for mo, me in itertools.product(months, metrics):
+    labels, vals = skill_to_state(skill_summary, df_codes, metric='BSS',
+                               month='April')
+    xrout = find_precursors.view_or_replace_labels(xarray, regions=labels,
+                                       replacement_labels=vals)
 
