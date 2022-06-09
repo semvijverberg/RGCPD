@@ -231,39 +231,44 @@ def create_mask(da, level='Continents', path=None):
         abbrev_class = Country
     elif level == 'US_States':
         abbrev_class = US_States
+
     if os.path.exists(mask_file+'.nc'):
-        return core_pp.import_ds_lazy(mask_file+'.nc'), abbrev_class
+        # maks already exists, loading netcdf
+        mask_xr = core_pp.import_ds_lazy(mask_file+'.nc')
+        df_names = pd.DataFrame([mask_xr.attrs['abbrev'], mask_xr.attrs['label']],
+                     index = ['abbrev', 'label']).T
+        if 'name' in mask_xr.attrs.keys():
+            df_names['name'] = mask_xr.attrs['name']
+    else:
+
+        # Load Coordinates and Normalize to ShapeFile Coordinates
+        coordinates = era_coordinate_grid(da)
+        coordinates[..., 0][coordinates[..., 0] > 180] -= 360
+
+        # Take Center of Grid Cell as Coordinate
+        coordinates[..., 0] += (coordinates[0, 1, 0] - coordinates[0, 0, 0]) / 2
+        coordinates[..., 1] += (coordinates[1, 0, 1] - coordinates[0, 0, 1]) / 2
 
 
-
-    # Load Coordinates and Normalize to ShapeFile Coordinates
-    coordinates = era_coordinate_grid(da)
-    coordinates[..., 0][coordinates[..., 0] > 180] -= 360
-
-    # Take Center of Grid Cell as Coordinate
-    coordinates[..., 0] += (coordinates[0, 1, 0] - coordinates[0, 0, 0]) / 2
-    coordinates[..., 1] += (coordinates[1, 0, 1] - coordinates[0, 0, 1]) / 2
-
-
-    # Create Mask
-    if level == 'Continents':
-        mask, df_names = Continent_mask(coordinates.reshape(-1, 2))
-    elif level == 'Countries':
-        mask, df_names = country_mask(coordinates.reshape(-1, 2))
-    elif level == 'US_States':
-        mask, df_names = US_State_mask(coordinates.reshape(-1, 2))
-    mask = mask.reshape(coordinates.shape[:2])
+        # Create Mask
+        if level == 'Continents':
+            mask, df_names = Continent_mask(coordinates.reshape(-1, 2))
+        elif level == 'Countries':
+            mask, df_names = country_mask(coordinates.reshape(-1, 2))
+        elif level == 'US_States':
+            mask, df_names = US_State_mask(coordinates.reshape(-1, 2))
+        mask = mask.reshape(coordinates.shape[:2])
 
 
-
-    # np.save(mask_file+'.npy', mask)
-
-    mask_xr.name = 'country_mask'
-    for index, row in df_names.iterrows():
-        mask_xr.attrs[row['name']] = row['label']
-    mask_xr.values = mask
-    mask_xr = mask_xr.astype(int)
-    mask_xr.to_netcdf(mask_file + '.nc', mode='w')
+        mask_xr.name = 'country_mask'
+        # for index, row in df_names.iterrows():
+        if 'name' in df_names.columns:
+            mask_xr.attrs['name'] = list(df_names['name'].values)
+        mask_xr.attrs['abbrev'] = list(df_names['abbrev'].values)
+        mask_xr.attrs['label'] = list(df_names['label'].values)
+        mask_xr.values = mask
+        mask_xr = mask_xr.astype(int)
+        mask_xr.to_netcdf(mask_file + '.nc', mode='w')
 
     return mask_xr, df_names
 

@@ -17,6 +17,7 @@ else:
 
 import numpy as np
 import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
+import cartopy.feature as cfeature
 import pandas as pd
 from joblib import Parallel, delayed
 import argparse
@@ -24,6 +25,7 @@ from matplotlib.lines import Line2D
 import csv
 import re
 from sklearn.linear_model import LinearRegression
+import xarray as xr
 
 
 user_dir = os.path.expanduser('~')
@@ -67,7 +69,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     models,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 0
+i_default = 1
 load = 'all'
 save = True
 # training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
@@ -302,7 +304,7 @@ elif model == 'RF':
 
 fc_type = .33
 btoos = '_T'
-q = .25 # quantile for subselection based on strong horseshoe state
+
 
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'STATES')
 os.makedirs(path_out_main, exist_ok=True)
@@ -312,138 +314,151 @@ path_save = os.path.join(path_out_main,
 if os.path.exists(path_save+'.h5'):
     d_dfs = functions_pp.load_hdf5(path_save+'.h5')
     skill_summary = d_dfs['skill_summary']
-    skill_summary_cond = d_dfs['skill_summary_cond']
+    skill_summary_cond_50 = d_dfs['skill_summary_cond_50']
+    skill_summary_cond_30 = d_dfs['skill_summary_cond_30']
+else:
 
-forecast_months = ['August', 'July', 'June', 'May',
-                    'April', 'March', 'February']
-regions_forcing = ['Pacific+SM', 'Pacific+SM', 'only_Pacific',
-                    'only_Pacific', 'only_Pacific', 'only_Pacific',
-                    'only_Pacific']
+    forecast_months = ['August', 'July', 'June', 'May',
+                        'April', 'March', 'February']
+    regions_forcing = ['Pacific+SM', 'Pacific+SM', 'only_Pacific',
+                        'only_Pacific', 'only_Pacific', 'only_Pacific',
+                        'only_Pacific']
 
-forecast_months = ['April', 'March', 'February']
-skill_summary = []
-skill_summary_cond = []
-for im, fc_month in enumerate(forecast_months):
-
-
-    filepath_df_output = os.path.join(path_input_main,
-                                      f'df_output_{fc_months_periodnames[fc_month]}.h5')
-
-    df_output = functions_pp.load_hdf5(filepath_df_output)
-    df_data  = df_output['df_data']
-    splits = df_data.index.levels[0]
-    if training_data == 'all':
-        df_input = df_data
-        keys_dict = {s:df_input.columns[1:-2] for s in range(splits.size)}
-    # use all RG-DR timeseries that are C.D. for (final) prediction
-    elif training_data == 'all_CD':
-        df_input = df_data
-        df_pvals = df_output['df_pvals'].copy()
-        keys_dict = utils_paper3.get_CD_df_data(df_pvals, alpha_CI)
-    df_splits = df_data.iloc[:,-2:].copy()
-    # get forcing
-    region_labels = [1,0] if fc_month == 'August' else [1]
-    # 1 = horseshoe Pacific region and 0 = SM pattern ts.
-    keys = [k for k in df_data.columns[1:-2] if int(k.split('..')[1]) in region_labels]
-    df_forcing = df_data[keys]
-
-    # load state level observed yield
-    dates_verif = df_splits.index.levels[1]
-    skill_states = []
-    skill_states_cond = []
-    for STATE in All_states[:]:
-        df_verif = read_csv_State(Soy_state_path, [STATE]).loc[dates_verif]
-        if float(np.isnan(df_verif).sum()) != 0:
-            continue
-        df_verif_pp = df_oos_lindetrend(df_verif, df_splits)
-
-        # Define poor yield events out or in sample
-        _target_ts = df_verif_pp.iloc[:,[0]].copy()
-        if btoos == '_T': # OOS event threshold
-            quantile = functions_pp.get_df_train(_target_ts,
-                                                  df_splits=df_splits,
-                                                  s='extrapolate',
-                                                  function='quantile',
-                                                  kwrgs={'q':fc_type})
-            quantile = quantile.values
-            target_ts = df_verif_pp.iloc[:,[0]].copy()
-        else: # in sample event threshold
-            _target_ts = _target_ts.groupby(level=1).mean()
-            _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
-            quantile = float(_target_ts.quantile(fc_type))
-        if fc_type >= 0.5:
-            target_ts = (_target_ts > quantile).astype(int)
-        elif fc_type < .5:
-            target_ts = (_target_ts < quantile).astype(int)
-        target_ts
-
-        # define skill scores
-        if fc_type == 'continuous':
-            # benchmark is climatological mean (after detrending)
-            bench = float(target_ts.mean())
-            RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).RMSE
-            MAE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).MAE
-            score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS,
-                                fc_utils.r2_score]
-        else:
-            # benchmark is clim. probability
-            BSS = fc_utils.ErrorSkillScore(constant_bench=fc_type).BSS
-            score_func_list = [BSS, fc_utils.metrics.roc_auc_score,
-                            fc_utils.binary_score(threshold=fc_type).accuracy,
-                            fc_utils.binary_score(threshold=fc_type).precision]
-        metric_names = [s.__name__ for s in score_func_list]
-
-        # fit model
-        predict, weights, models_lags = sm.fit_df_data_sklearn(df_data, keys=keys_dict,
-                                                                tau_min=0,
-                                                                tau_max=0,
-                                                                target=target_ts,
-                                                                fcmodel=fcmodel,
-                                                                kwrgs_model=kwrgs_model)
-        predict = predict.rename({0:fc_month}, axis=1)
-
-        # calculate skill scores
-        out_verification = fc_utils.get_scores(predict,
-                                                df_splits,
-                                                score_func_list,
-                                                n_boot=0,
-                                                blocksize=1,
-                                                rng_seed=1)
-        df_train_m, df_test_s_m, df_test_m, df_boot = out_verification
-        df_test_m = df_test_m.rename({0:STATE}, axis=0)
-        skill_states.append(df_test_m)
+    forecast_months = ['April', 'March', 'February']
+    skill_summary = []
+    skill_summary_cond_50 = []
+    skill_summary_cond_30 = []
+    for im, fc_month in enumerate(forecast_months):
 
 
-        # get skill during strong horseshoe state years
-        df_cond_fc = fc_utils.cond_fc_verif(df_predict = predict,
-                                            df_forcing = df_forcing,
-                                            df_splits = df_splits,
-                                            score_func_list=score_func_list,
-                                            quantiles=[q])
-        df_cond_fc = df_cond_fc.T.loc[[f'strong {int(2*q*100)}%']]
-        df_cond_fc.columns = df_test_m.columns
-        df_cond_fc = df_cond_fc.rename({f'strong {int(2*q*100)}%':STATE}, axis=0)
-        skill_states_cond.append(df_cond_fc)
+        filepath_df_output = os.path.join(path_input_main,
+                                          f'df_output_{fc_months_periodnames[fc_month]}.h5')
 
-    df_skill_test_states = pd.concat(skill_states, axis=0)
-    df_skill_test_states_cond = pd.concat(skill_states_cond, axis=0)
-    skill_summary.append(df_skill_test_states)
-    skill_summary_cond.append(df_skill_test_states_cond)
-skill_summary = pd.concat(skill_summary, axis=1)
-skill_summary_cond = pd.concat(skill_summary_cond, axis=1)
+        df_output = functions_pp.load_hdf5(filepath_df_output)
+        df_data  = df_output['df_data']
+        splits = df_data.index.levels[0]
+        if training_data == 'all':
+            df_input = df_data
+            keys_dict = {s:df_input.columns[1:-2] for s in range(splits.size)}
+        # use all RG-DR timeseries that are C.D. for (final) prediction
+        elif training_data == 'all_CD':
+            df_input = df_data
+            df_pvals = df_output['df_pvals'].copy()
+            keys_dict = utils_paper3.get_CD_df_data(df_pvals, alpha_CI)
+        df_splits = df_data.iloc[:,-2:].copy()
+        # get forcing
+        region_labels = [1,0] if fc_month == 'August' else [1]
+        # 1 = horseshoe Pacific region and 0 = SM pattern ts.
+        keys = [k for k in df_data.columns[1:-2] if int(k.split('..')[1]) in region_labels]
+        df_forcing = df_data[keys]
+
+        # load state level observed yield
+        dates_verif = df_splits.index.levels[1]
+        skill_states = []
+        skill_states_cond_50 = [] ;
+        skill_states_cond_30 = []
+        for STATE in All_states[:]:
+            df_verif = read_csv_State(Soy_state_path, [STATE]).loc[dates_verif]
+            if float(np.isnan(df_verif).sum()) != 0:
+                continue
+            df_verif_pp = df_oos_lindetrend(df_verif, df_splits)
+
+            # Define poor yield events out or in sample
+            _target_ts = df_verif_pp.iloc[:,[0]].copy()
+            if btoos == '_T': # OOS event threshold
+                quantile = functions_pp.get_df_train(_target_ts,
+                                                      df_splits=df_splits,
+                                                      s='extrapolate',
+                                                      function='quantile',
+                                                      kwrgs={'q':fc_type})
+                quantile = quantile.values
+                target_ts = df_verif_pp.iloc[:,[0]].copy()
+            else: # in sample event threshold
+                _target_ts = _target_ts.groupby(level=1).mean()
+                _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
+                quantile = float(_target_ts.quantile(fc_type))
+            if fc_type >= 0.5:
+                target_ts = (_target_ts > quantile).astype(int)
+            elif fc_type < .5:
+                target_ts = (_target_ts < quantile).astype(int)
+            target_ts
+
+            # define skill scores
+            if fc_type == 'continuous':
+                # benchmark is climatological mean (after detrending)
+                bench = float(target_ts.mean())
+                RMSE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).RMSE
+                MAE_SS = fc_utils.ErrorSkillScore(constant_bench=bench).MAE
+                score_func_list = [RMSE_SS, fc_utils.corrcoef, MAE_SS,
+                                    fc_utils.r2_score]
+            else:
+                # benchmark is clim. probability
+                BSS = fc_utils.ErrorSkillScore(constant_bench=fc_type).BSS
+                score_func_list = [BSS, fc_utils.metrics.roc_auc_score,
+                                fc_utils.binary_score(threshold=fc_type).accuracy,
+                                fc_utils.binary_score(threshold=fc_type).precision]
+            metric_names = [s.__name__ for s in score_func_list]
+
+            # fit model
+            predict, weights, models_lags = sm.fit_df_data_sklearn(df_data, keys=keys_dict,
+                                                                    tau_min=0,
+                                                                    tau_max=0,
+                                                                    target=target_ts,
+                                                                    fcmodel=fcmodel,
+                                                                    kwrgs_model=kwrgs_model)
+            predict = predict.rename({0:fc_month}, axis=1)
+
+            # calculate skill scores
+            out_verification = fc_utils.get_scores(predict,
+                                                    df_splits,
+                                                    score_func_list,
+                                                    n_boot=0,
+                                                    blocksize=1,
+                                                    rng_seed=1)
+            df_train_m, df_test_s_m, df_test_m, df_boot = out_verification
+            df_test_m = df_test_m.rename({0:STATE}, axis=0)
+            skill_states.append(df_test_m)
 
 
+            # get skill during strong horseshoe state years
+            df_cond_fc = fc_utils.cond_fc_verif(df_predict = predict,
+                                                df_forcing = df_forcing,
+                                                df_splits = df_splits,
+                                                score_func_list=score_func_list,
+                                                quantiles=[.25, .15])
+            # 50% strong boundary forcing subset
+            df_cond_fc_50 = df_cond_fc.T.loc[['strong 50%']]
+            df_cond_fc_50.columns = df_test_m.columns
+            df_cond_fc_50 = df_cond_fc_50.rename({'strong 50%':STATE}, axis=0)
+            skill_states_cond_50.append(df_cond_fc_50)
+            # 30% strong boundary forcing subset
+            df_cond_fc_30 = df_cond_fc.T.loc[['strong 30%']]
+            df_cond_fc_30.columns = df_test_m.columns
+            df_cond_fc_30 = df_cond_fc_30.rename({'strong 30%':STATE}, axis=0)
+            skill_states_cond_30.append(df_cond_fc_30)
 
-functions_pp.store_hdf_df({'skill_summary':skill_summary,
-                           'skill_summary_cond':skill_summary_cond},
-                          path_save+'.h5')
-skill_summary.to_csv(path_save+'.csv')
-skill_summary_cond.to_csv(path_save+'_cond.csv')
+        skill_summary.append(pd.concat(skill_states, axis=0))
+        skill_summary_cond_50.append(pd.concat(skill_states_cond_50, axis=0))
+        skill_summary_cond_30.append(pd.concat(skill_states_cond_30, axis=0))
+
+    skill_summary = pd.concat(skill_summary, axis=1)
+    skill_summary_cond_50 = pd.concat(skill_summary_cond_50, axis=1)
+    skill_summary_cond_30 = pd.concat(skill_summary_cond_30, axis=1)
+
+
+    #%%
+    functions_pp.store_hdf_df({'skill_summary':skill_summary,
+                               'skill_summary_cond_50':skill_summary_cond_50,
+                               'skill_summary_cond_30':skill_summary_cond_30},
+                              path_save+'.h5')
+    skill_summary.to_csv(path_save+'.csv')
+    skill_summary_cond_50.to_csv(path_save+'_cond_50.csv')
+    skill_summary_cond_30.to_csv(path_save+'_cond_30.csv')
 
 
 #%%
 from RGCPD.clustering import make_country_mask
-import itertools
+from itertools import product
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
 selbox = [253,290,28,52] ; years = list(range(1975, 2020))
 if sys.platform == 'linux':
@@ -456,28 +471,92 @@ raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
 da = core_pp.import_ds_lazy(raw_filename,
                             **{'selbox':selbox,
                                'var':'variable'}).isel(z=0).drop('z')
-
-
 xarray, df_codes = make_country_mask.create_mask(da,
-                                                  level='US_States')
+                                                 level='US_States')
 
-df_country = df_codes[df_codes['name'].str.contains(All_states[0], case=False)]
+#%%
+months, metrics = skill_summary.columns.levels
+xr_skill_sum = xarray.copy()
+xr_skill_sum.values = np.zeros_like(xarray)
+xr_skill_sum = core_pp.expand_dim(xr_skill_sum, metrics, 'metric')
+xr_skill_sum = core_pp.expand_dim(xr_skill_sum, months, 'month')
+subsets = ['all', '50%', '30%']
+xr_skill_sum = core_pp.expand_dim(xr_skill_sum, subsets, 'subset')
+xr_skill_sum.name = 'skill' ; xr_skill_sum.attrs = {}
 
-def skill_to_state(skill_summary, df_codes, metric='BSS', month='April'):
-    _states = skill_summary_cond.index
-    vals = skill_summary_cond.loc[:,month][metric]
+leaveoutstates = ['NORTH DAKOTA', 'MINNESOTA', 'WISCONSIN']
+selstates = [s for s in skill_summary.index if s not in leaveoutstates]
+
+def skill_to_state(skill_summary, df_codes, selstates: list=None, metric='BSS',
+                   month='April'):
+    if selstates is None:
+        selstates = skill_summary.index
+    vals = skill_summary.loc[:,month][metric]
     labels = []
-    for s in _states:
+    for s in selstates:
         df_s = df_codes[df_codes['name'].str.match(s, case=False)]
         labels.append(int(df_s['label']))
     return list(labels), list(vals)
 
-months, metrics = skill_summary_cond.columns.levels
 
-xr_skill_sum = xarray.copy()
-for mo, me in itertools.product(months, metrics):
-    labels, vals = skill_to_state(skill_summary, df_codes, metric='BSS',
-                               month='April')
-    xrout = find_precursors.view_or_replace_labels(xarray, regions=labels,
+def enumerated_product(*args):
+    yield from zip(product(*(range(len(x)) for x in args)), product(*args))
+
+np_skill_sum = np.zeros_like(xr_skill_sum, dtype=float)
+np_skill_sum[:] = np.nan
+for index, momesu in enumerated_product(months, metrics, subsets):
+    mo, me, su = momesu
+    i, j, k = index
+    if su == 'all':
+        _skill = skill_summary
+    elif su == '50%':
+        _skill = skill_summary_cond_50
+    elif su == '30%':
+            _skill = skill_summary_cond_30
+    labels, vals = skill_to_state(_skill, df_codes, selstates,
+                                  metric=me, month=mo)
+
+    replace_labels = find_precursors.view_or_replace_labels
+    xr_out = replace_labels(xarray.copy(),
+                                       regions=labels,
                                        replacement_labels=vals)
+    np_skill_sum[i,j,k] = xr_out.copy()
+
+xr_skill_sum.values = np_skill_sum
+xr_skill_sum = xr_skill_sum.where(xr_skill_sum.values!=0)
+
+
+#%%
+
+metric='roc_auc_score'
+#ee9b00, #ca6702, #bb3e03, #ae2012, #9b2226
+cmp = ["ade8f4","e9d8a6","ee9b00","bb3e03","ae2012","9b2226"]
+cmp = plot_maps.get_continuous_cmap(cmp,
+                float_list=list(np.linspace(0,1,6)))
+if metric == 'BSS':
+    clevels = np.arange(0, .51, .1)
+elif metric == 'roc_auc_score':
+    clevels = np.arange(.5, 1.01, .1)
+
+fg = plot_maps.plot_corr_maps(xr_skill_sum.sel(metric=metric),
+                              col_dim='metric', row_dim='month',
+                              hspace=.4, clevels=clevels,
+                              clabels=clevels,
+                              cmap=cmp,
+                              kwrgs_cbar = {'orientation':'horizontal', 'extend':'min'})
+
+
+facecolorocean = '#caf0f8' ; facecolorland='white'
+for ax in fg.fig.axes[:-1]:
+    ax.add_feature(cfeature.STATES, zorder=1, linewidth=.5, edgecolor='black')
+    ax.add_feature(plot_maps.cfeature.__dict__['LAND'],
+                   facecolor=facecolorland,
+                   zorder=0)
+    ax.add_feature(plot_maps.cfeature.__dict__['OCEAN'],
+                   facecolor=facecolorocean,
+                   zorder=0)
+cbar = fg.fig.axes[-1]
+
+
+
 

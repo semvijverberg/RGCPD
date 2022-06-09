@@ -1346,6 +1346,12 @@ def get_subdates(dates, start_end_date=None, start_end_year=None, lpyr=False,
     #%%
     return out
 
+def expand_dim(da, coords: list, name: str):
+    list_xr = [da.expand_dims(name, axis=0) for i in range(len(coords))]
+    da = xr.concat(list_xr, dim = name)
+    da[name] = (name, coords)
+    return da
+
 #%%
 def ensmean(outfile, weights=list, name=None, *args):
     outfile = '/Users/semvijverberg/surfdrive/ERA5/input_raw/sm12_1979-2018_1_12_daily_1.0deg.nc'

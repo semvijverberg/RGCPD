@@ -40,7 +40,9 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    col_dim='lag', clim='relaxed', hspace=-0.6, wspace=0.02,
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
                    clevels=None, clabels=None, cticks_center=None,
-                   cbar_tick_dict: dict={}, drawbox=None, title=None,
+                   cbar_tick_dict: dict={},
+                   kwrgs_cbar = {'orientation':'horizontal', 'extend':'neither'},
+                   drawbox=None, title=None,
                    title_fontdict: dict=None, subtitles: np.ndarray=None,
                    subtitle_fontdict: dict=None, zoomregion=None,
                    aspect=None, n_xticks=5, n_yticks=3, x_ticks: Union[bool, np.ndarray]=None,
@@ -59,6 +61,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     # drawbox=None; subtitles=None; title=None; lat_labels=True; zoomregion=None
     # aspect=None; n_xticks=5; n_yticks=3; title_fontdict=None; x_ticks=None;
     # y_ticks=None; add_cfeature=None; textinmap=None; scatter=None; col_wrap=None
+    # kwrgs_cbar = {'orientation':'horizontal', 'extend':'neither'}
 
     if map_proj is None:
         cen_lon = int(corr_xr.longitude.mean().values)
@@ -384,12 +387,10 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     if cticks_center is None:
         if clabels is None:
             clabels = clevels[::2]
-        plt.colorbar(im, cax=cbar_ax , orientation='horizontal', # norm=norm,
-                 label=clabel, ticks=clabels, extend='neither')
+        plt.colorbar(im, cax=cbar_ax ,
+                     label=clabel, ticks=clabels, **kwrgs_cbar)
     else:
-        cbar = plt.colorbar(im, cbar_ax,
-                            orientation='horizontal', extend='neither',
-                            label=clabel)
+        cbar = plt.colorbar(im, cbar_ax, label=clabel, **kwrgs_cbar)
         cbar.set_ticks(clevels[:-1] + 0.5)
         cbar.set_ticklabels(np.array(clevels[1:], dtype=int))
         # cbar.update_ticks()
