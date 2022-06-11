@@ -47,15 +47,9 @@ if cluster_func not in sys.path:
 path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
 
-from RGCPD import RGCPD
-from RGCPD import BivariateMI
-from RGCPD import class_BivariateMI
 from RGCPD.forecasting import func_models as fc_utils
-from RGCPD import functions_pp, find_precursors, plot_maps, core_pp, wrapper_PCMCI
-from RGCPD.forecasting.stat_models import plot_importances
+from RGCPD import functions_pp, find_precursors, plot_maps, core_pp
 import RGCPD.forecasting.stat_models_cont as sm
-from RGCPD.forecasting import scikit_model_analysis as sk_ana
-from RGCPD.forecasting import func_models as fc_utils
 import utils_paper3
 
 
@@ -69,7 +63,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     models,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 1
+i_default = -1
 load = 'all'
 save = True
 # training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
@@ -100,13 +94,13 @@ def parseArguments():
 
 if __name__ == '__main__':
     args = parseArguments()
-    out = combinations[args.intexper]
-    target_dataset = out[0]
-    seed = int(out[1])
-    model = out[2]
-    method = out[3]
-    training_data = out[4]
-    print(f'arg {args.intexper} {out}')
+    comb = combinations[args.intexper]
+    target_dataset = comb[0]
+    seed = int(comb[1])
+    model = comb[2]
+    method = comb[3]
+    training_data = comb[4]
+    print(f'arg {args.intexper} {comb}')
 else:
     out = combinations[i_default]
     target_dataset = out[0]
@@ -311,8 +305,8 @@ os.makedirs(path_out_main, exist_ok=True)
 path_save = os.path.join(path_out_main,
                           f'{model}_{method}_{training_data}_{fc_type}')
 
-if os.path.exists(path_save+'.h5'):
-    d_dfs = functions_pp.load_hdf5(path_save+'.h5')
+if os.path.exists(os.path.join(path_save,'summary.h5')):
+    d_dfs = functions_pp.load_hdf5(os.path.join(path_save,'summary.h5'))
     skill_summary = d_dfs['skill_summary']
     skill_summary_cond_50 = d_dfs['skill_summary_cond_50']
     skill_summary_cond_30 = d_dfs['skill_summary_cond_30']
@@ -447,13 +441,14 @@ else:
 
 
     #%%
+    os.makedirs(path_save, exist_ok=True)
     functions_pp.store_hdf_df({'skill_summary':skill_summary,
                                'skill_summary_cond_50':skill_summary_cond_50,
                                'skill_summary_cond_30':skill_summary_cond_30},
-                              path_save+'.h5')
-    skill_summary.to_csv(path_save+'.csv')
-    skill_summary_cond_50.to_csv(path_save+'_cond_50.csv')
-    skill_summary_cond_30.to_csv(path_save+'_cond_30.csv')
+                              os.path.join(path_save,'summary.h5'))
+    skill_summary.to_csv(os.path.join(path_save,'all_data.csv'))
+    skill_summary_cond_50.to_csv(os.path.join(path_save,'cond_50.csv'))
+    skill_summary_cond_30.to_csv(os.path.join(path_save,'cond_30.csv'))
 
 
 #%%
@@ -475,13 +470,19 @@ xarray, df_codes = make_country_mask.create_mask(da,
                                                  level='US_States')
 
 #%%
-months, metrics = skill_summary.columns.levels
+months = skill_summary.columns[::skill_summary.columns.levels[1].size]
+months = [m[0] for m in months]
+metrics = skill_summary.columns[::skill_summary.columns.levels[0].size]
+metrics = [m[1] for m in metrics]
+subsets = ['all', '50%', '30%']
 xr_skill_sum = xarray.copy()
 xr_skill_sum.values = np.zeros_like(xarray)
+xr_skill_sum = core_pp.expand_dim(xr_skill_sum, subsets, 'subset')
 xr_skill_sum = core_pp.expand_dim(xr_skill_sum, metrics, 'metric')
 xr_skill_sum = core_pp.expand_dim(xr_skill_sum, months, 'month')
-subsets = ['all', '50%', '30%']
-xr_skill_sum = core_pp.expand_dim(xr_skill_sum, subsets, 'subset')
+
+
+
 xr_skill_sum.name = 'skill' ; xr_skill_sum.attrs = {}
 
 leaveoutstates = ['NORTH DAKOTA', 'MINNESOTA', 'WISCONSIN']
@@ -529,6 +530,7 @@ xr_skill_sum = xr_skill_sum.where(xr_skill_sum.values!=0)
 #%%
 
 metric='roc_auc_score'
+metric='BSS'
 #ee9b00, #ca6702, #bb3e03, #ae2012, #9b2226
 cmp = ["ade8f4","e9d8a6","ee9b00","bb3e03","ae2012","9b2226"]
 cmp = plot_maps.get_continuous_cmap(cmp,
@@ -538,8 +540,8 @@ if metric == 'BSS':
 elif metric == 'roc_auc_score':
     clevels = np.arange(.5, 1.01, .1)
 
-fg = plot_maps.plot_corr_maps(xr_skill_sum.sel(metric=metric),
-                              col_dim='metric', row_dim='month',
+fg = plot_maps.plot_corr_maps(xr_skill_sum.sel(metric=metric).drop('metric'),
+                              col_dim='subset', row_dim='month',
                               hspace=.4, clevels=clevels,
                               clabels=clevels,
                               cmap=cmp,
