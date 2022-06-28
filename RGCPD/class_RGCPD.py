@@ -1081,6 +1081,7 @@ class RGCPD:
                                      fcmodel=fcmodel,
                                      kwrgs_model=kwrgs_model)
         predict, weights, models_lags = out
+        return predict, weights, models_lags
 
 
 def RV_and_traintest(df_fullts, df_RV_ts, traintestgroups, method=str, kwrgs_events=None,

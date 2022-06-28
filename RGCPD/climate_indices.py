@@ -152,8 +152,7 @@ def PDO_single_split(s, ds_monthly, ds, df_splits):
         df = df_train
     return (df, PDO_pattern)
 
-def PDO(filepath
-        , df_splits=None, n_jobs=1):
+def PDO(filepath, df_splits=None, n_jobs=1):
     #%%
     '''
     PDO is calculated based upon all data points in the training years,

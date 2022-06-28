@@ -63,7 +63,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     models,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = -1
+i_default = 4
 load = 'all'
 save = True
 # training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
@@ -126,8 +126,8 @@ else:
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
 
 
-
-Soy_state_path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
+data_dir_repo = os.path.join(main_dir, 'publications/paper_Raed/data')
+Soy_state_path =  os.path.join(data_dir_repo, 'masked_rf_gs_state_USDA.csv')
 
 
 
@@ -253,10 +253,18 @@ def read_csv_State(path, State: str=None, col='obs_yield'):
         State = orig.columns
     return orig[State]
 
-All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
-              'MARYLAND', 'MINNESOTA', 'MISSOURI', 'NEW JERSEY', 'NEW YORK',
-              'NORTH CAROLINA', 'NORTH DAKOTA', 'OHIO', 'PENNSYLVANIA',
-              'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
+# All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
+#               'MARYLAND', 'MINNESOTA', 'MISSOURI', 'NEW JERSEY', 'NEW YORK',
+#               'NORTH CAROLINA', 'NORTH DAKOTA', 'OHIO', 'PENNSYLVANIA',
+#               'SOUTH CAROLINA', 'TENNESSEE', 'VIRGINIA', 'WISCONSIN']
+
+All_states = ['ALABAMA', 'ARKANSAS', 'DELAWARE', 'FLORIDA', 'GEORGIA', 'ILLINOIS',
+              'INDIANA', 'IOWA', 'KANSAS', 'KENTUCKY', 'LOUISIANA', 'MARYLAND',
+              'MICHIGAN', 'MINNESOTA', 'MISSISSIPPI', 'MISSOURI', 'NEBRASKA',
+              'NEW JERSEY', 'NEW YORK', 'NORTH CAROLINA', 'NORTH DAKOTA', 'OHIO',
+              'OKLAHOMA', 'OTHER STATES', 'PENNSYLVANIA', 'SOUTH CAROLINA',
+              'SOUTH DAKOTA', 'TENNESSEE', 'TEXAS', 'VIRGINIA', 'WEST VIRGINIA',
+              'WISCONSIN']
 
 scoringCV = 'neg_brier_score'
 kwrgs_model1 = {'scoringCV':scoringCV,
@@ -311,6 +319,7 @@ if os.path.exists(os.path.join(path_save,'summary.h5')):
     skill_summary_cond_50 = d_dfs['skill_summary_cond_50']
     skill_summary_cond_30 = d_dfs['skill_summary_cond_30']
 else:
+    os.makedirs(path_save, exist_ok=True)
 
     forecast_months = ['August', 'July', 'June', 'May',
                         'April', 'March', 'February']
@@ -441,7 +450,7 @@ else:
 
 
     #%%
-    os.makedirs(path_save, exist_ok=True)
+
     functions_pp.store_hdf_df({'skill_summary':skill_summary,
                                'skill_summary_cond_50':skill_summary_cond_50,
                                'skill_summary_cond_30':skill_summary_cond_30},
@@ -485,7 +494,8 @@ xr_skill_sum = core_pp.expand_dim(xr_skill_sum, months, 'month')
 
 xr_skill_sum.name = 'skill' ; xr_skill_sum.attrs = {}
 
-leaveoutstates = ['NORTH DAKOTA', 'MINNESOTA', 'WISCONSIN']
+leaveoutstates = ['NORTH DAKOTA', 'MINNESOTA', 'WISCONSIN', 'NEW JERSEY']
+leaveoutstates=[]
 selstates = [s for s in skill_summary.index if s not in leaveoutstates]
 
 def skill_to_state(skill_summary, df_codes, selstates: list=None, metric='BSS',
@@ -493,6 +503,7 @@ def skill_to_state(skill_summary, df_codes, selstates: list=None, metric='BSS',
     if selstates is None:
         selstates = skill_summary.index
     vals = skill_summary.loc[:,month][metric]
+    vals = vals.loc[selstates].values # correct order
     labels = []
     for s in selstates:
         df_s = df_codes[df_codes['name'].str.match(s, case=False)]
@@ -516,49 +527,147 @@ for index, momesu in enumerated_product(months, metrics, subsets):
             _skill = skill_summary_cond_30
     labels, vals = skill_to_state(_skill, df_codes, selstates,
                                   metric=me, month=mo)
+    if me == 'roc_auc_score' or me == 'precision':
+        vals = list(np.array(vals) - 1E-6) # to ensure plotting auc_roc == 1
 
     replace_labels = find_precursors.view_or_replace_labels
     xr_out = replace_labels(xarray.copy(),
-                                       regions=labels,
-                                       replacement_labels=vals)
+                            regions=labels,
+                            replacement_labels=vals)
     np_skill_sum[i,j,k] = xr_out.copy()
 
 xr_skill_sum.values = np_skill_sum
 xr_skill_sum = xr_skill_sum.where(xr_skill_sum.values!=0)
+# xr_skill_sum = core_pp.get_selbox(xr_skill_sum, selbox=(262, 286, 25, 45))
 
+s = 'TENNESSEE'
+label = int(df_codes[df_codes['name'].str.match(s, case=False)]['label'])
+xr_skill_sum[0][0][0].where(xarray==label)
 
 #%%
+stat_states = 'BU'
+df_raed = pd.read_csv(os.path.join(data_dir_repo, 'us_soy_state_production_1950_2021.csv'))
+df_raed = df_raed[df_raed['Period'] == 'YEAR']
+df_raed = df_raed[df_raed['Data Item'] == f'SOYBEANS - PRODUCTION, MEASURED IN {stat_states}']
+df_raed = df_raed.pivot(index='Year', values='Value', columns='State')
+df_raed = pd.concat([c.str.replace(',', '') for (s,c) in df_raed.iteritems()], axis=1)
+df_raed = df_raed.loc[list(range(2019-4,2019+1))].astype(float) # recent 5 years
 
-metric='roc_auc_score'
-metric='BSS'
-#ee9b00, #ca6702, #bb3e03, #ae2012, #9b2226
-cmp = ["ade8f4","e9d8a6","ee9b00","bb3e03","ae2012","9b2226"]
+total = df_raed.sum()
+
+kwrgs_text = {'fontsize':9, 'color' : 'black',
+              'horizontalalignment' : 'center',
+              'verticalalignment' : 'bottom'}
+production = []
+with_arrows = ['NEW JERSEY', 'DELAWARE', 'MARYLAND']
+for s in [s for s in selstates if s not in with_arrows]:
+    p = int(100 * (total / total.sum()).loc[s])
+    label = int(df_codes[df_codes['name'].str.match(s, case=False)]['label'])
+    df_locs = find_precursors.labels_to_df(xarray)
+    lat = df_locs.loc[label].latitude
+    lon = df_locs.loc[label].longitude + .7
+    if s == 'INDIANA': lon += .3
+    if s == 'OHIO': lat -= .4
+    if s == 'KENTUCKY': lon += .2
+
+    production.append((lon, lat, f'{p}', kwrgs_text))
+# format textinmap = list([ax_loc, list(tuple(lon,lat,text,kwrgs))])
+textinmap = [[(0,0), production]]
+
+metric_rename = {'BSS'              : 'Brier Skill Score',
+                 'roc_auc_score'    : 'AUC-ROC',
+                 'precision'        : 'Precision',
+                 'accuracy'         : 'Accuracy'}
+subset_rename = {'all' : 'All data',
+                 '50%' : 'Top 50%\nStrong horseshoe\nPacific years',
+                 '30%' : 'Top 30%\nStrong horseshoe\nPacific years'}
+metric = 'roc_auc_score'
+# metric = 'BSS'
+metric = 'precision'
+metrics = ['BSS', 'roc_auc_score', 'precision']
+
+cmp = ["ade8f4","e9d8a6","ffba08","e36414","9d0208","370617"]
 cmp = plot_maps.get_continuous_cmap(cmp,
                 float_list=list(np.linspace(0,1,6)))
-if metric == 'BSS':
-    clevels = np.arange(0, .51, .1)
-elif metric == 'roc_auc_score':
-    clevels = np.arange(.5, 1.01, .1)
+for metric in metrics:
+    extend  = 'min'
+    if metric == 'BSS':
+        clevels = np.arange(0, .51, .1) ; extend = 'both'
+    elif metric == 'roc_auc_score':
+        clevels = np.arange(.5, 1.01, .1)
+    elif metric == 'precision':
+        clevels = np.array([33, 45, 60, 70, 85, 100])
 
-fg = plot_maps.plot_corr_maps(xr_skill_sum.sel(metric=metric).drop('metric'),
-                              col_dim='subset', row_dim='month',
-                              hspace=.4, clevels=clevels,
-                              clabels=clevels,
-                              cmap=cmp,
-                              kwrgs_cbar = {'orientation':'horizontal', 'extend':'min'})
+    fg = plot_maps.plot_corr_maps(xr_skill_sum.sel(metric=metric).drop('metric'),
+                                  col_dim='subset', row_dim='month',
+                                  hspace=-0.3, wspace=.1, clevels=clevels,
+                                  cbar_vert=.1, units=metric,
+                                  clabels=clevels,
+                                  cmap=cmp,
+                                  subtitles=False,
+                                  x_ticks=False,
+                                  y_ticks=False,
+                                  kwrgs_cbar = {'orientation':'horizontal', 'extend':extend},
+                                  cbar_tick_dict = {'labelsize'     : 18},
+                                  textinmap=textinmap)
 
+    # x_ticks=np.array([265,275,285]), y_ticks=np.array([32, 37, 42, 47]),
 
-facecolorocean = '#caf0f8' ; facecolorland='white'
-for ax in fg.fig.axes[:-1]:
-    ax.add_feature(cfeature.STATES, zorder=1, linewidth=.5, edgecolor='black')
-    ax.add_feature(plot_maps.cfeature.__dict__['LAND'],
-                   facecolor=facecolorland,
-                   zorder=0)
-    ax.add_feature(plot_maps.cfeature.__dict__['OCEAN'],
-                   facecolor=facecolorocean,
-                   zorder=0)
-cbar = fg.fig.axes[-1]
+    facecolorocean = '#caf0f8' ; facecolorland='white'
+    for ax in fg.fig.axes[:-1]:
+        ax.add_feature(cfeature.STATES, zorder=2, linewidth=.3, edgecolor='black')
+        ax.add_feature(plot_maps.cfeature.__dict__['LAND'],
+                       facecolor=facecolorland,
+                       zorder=0)
+        ax.add_feature(plot_maps.cfeature.__dict__['OCEAN'],
+                       facecolor=facecolorocean,
+                       zorder=0)
+    for i, ax in enumerate(fg.fig.axes[::len(subsets)][:-1]):
+        ax.set_ylabel(months[i], labelpad=-.2, fontdict={'fontsize':18,
+                                                         'fontweight':'bold'})
+    for i, ax in enumerate(fg.fig.axes[:len(months)]):
+        ax.set_title(subset_rename[subsets[i]], y=1.05,
+                     fontdict={'fontsize':18,'fontweight':'bold'})
 
+    for s in with_arrows:
+        p = int(100 * (total / total.sum()).loc[s])
+        label = int(df_codes[df_codes['name'].str.match(s, case=False)]['label'])
+        df_locs = find_precursors.labels_to_df(xarray)
+        lat = df_locs.loc[label].latitude
+        lon = df_locs.loc[label].longitude + .7
+        if s == 'NEW JERSEY':
+            xytext=(lon+3, lat-4.5) ; xy=(lon-.5, lat+.5)
+        elif s == 'DELAWARE':
+            xytext=(lon+3.5, lat-5) ; xy=(lon-.3, lat)
+        elif s == 'MARYLAND':
+            xytext=(lon+5, lat-7.5) ; xy=(lon+.3, lat-.8)
+        ax0 = fg.fig.axes[0]
+        transform = ccrs.PlateCarree()._as_mpl_transform(ax0)
+        ax0.annotate(f'{p}', xy=xy, xytext=xytext,
+                     xycoords=transform,
+                      arrowprops=dict(fc="black", edgecolor='black', alpha=.75,
+                                      width=2,
+                                      headwidth=6, headlength=8),
+                     **kwrgs_text)
+        s = 'numbers show % of total production 2015-2019'
+        ax0.text(256.5, 29.2, s, transform=ccrs.Geodetic(), fontsize=8.2,
+                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.5))
 
+    cbar = fg.fig.axes[-1]
+    cbar.set_xlabel(metric_rename[metric], **{'fontsize':18, 'fontweight':'bold'})
 
+    fig_path = os.path.join(path_save, f'{metric}_statelevel')
+    fg.fig.savefig(fig_path+'.jpg', bbox_inches='tight', dpi=200)
+    fg.fig.savefig(fig_path+'.pdf', bbox_inches='tight')
 
+#%% Consistent skillfull States
+predictable_states = ['MISSOURI', 'KENTUCKY', 'ALABAMA', 'TENNESSEE',
+                      'IOWA', 'INDIANA']
+
+percentage_bss = total[predictable_states].sum() / total.sum()
+print(f'Percentage good BSS: {percentage_bss}')
+
+potential_predictable_states = ['MISSOURI', 'KENTUCKY', 'ALABAMA', 'TENNESSEE',
+                                'IOWA', 'INDIANA', 'OHIO']
+precentage_auc = total[potential_predictable_states].sum() / total.sum()
+print(f'Percentage good AUG: {precentage_auc}')

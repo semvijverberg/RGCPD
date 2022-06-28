@@ -297,7 +297,11 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             if subtitles is not None:
                 if subtitle_fontdict is None:
                     subtitle_fontdict = dict({'fontsize' : 16})
-                g.axes[row,col].set_title(np.array(subtitles)[row,col],
+                if subtitles is not False:
+                    subtitle = np.array(subtitles)[row,col]
+                else:
+                    subtitle  = ''
+                g.axes[row,col].set_title(subtitle,
                                           fontdict=subtitle_fontdict,
                                           loc='center')
             # =============================================================================
@@ -387,7 +391,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     if cticks_center is None:
         if clabels is None:
             clabels = clevels[::2]
-        plt.colorbar(im, cax=cbar_ax ,
+        plt.colorbar(im, cax=cbar_ax,
                      label=clabel, ticks=clabels, **kwrgs_cbar)
     else:
         cbar = plt.colorbar(im, cbar_ax, label=clabel, **kwrgs_cbar)
