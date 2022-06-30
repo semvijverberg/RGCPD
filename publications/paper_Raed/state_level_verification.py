@@ -342,7 +342,7 @@ All_states = ['ALABAMA', 'ARKANSAS', 'DELAWARE', 'FLORIDA', 'GEORGIA', 'ILLINOIS
               'INDIANA', 'IOWA', 'KANSAS', 'KENTUCKY', 'LOUISIANA', 'MARYLAND',
               'MICHIGAN', 'MINNESOTA', 'MISSISSIPPI', 'MISSOURI', 'NEBRASKA',
               'NEW JERSEY', 'NEW YORK', 'NORTH CAROLINA', 'NORTH DAKOTA', 'OHIO',
-              'OKLAHOMA', 'OTHER STATES', 'PENNSYLVANIA', 'SOUTH CAROLINA',
+              'OKLAHOMA', 'PENNSYLVANIA', 'SOUTH CAROLINA',
               'SOUTH DAKOTA', 'TENNESSEE', 'TEXAS', 'VIRGINIA', 'WEST VIRGINIA',
               'WISCONSIN']
 
@@ -443,8 +443,10 @@ else:
             else:
                 df_verif = read_csv_State(Soy_state_path, [STATE]).loc[dates_verif]
                 df_verif_pp = df_oos_lindetrend(df_verif, df_splits)
-            if float(np.isnan(df_verif).sum()) != 0:
+            if float(np.isnan(df_verif_pp).sum()) != 0:
+                print('NaNs for ', STATE)
                 continue
+
 
 
             # Define poor yield events out or in sample
