@@ -31,18 +31,18 @@ import xarray as xr
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
                       'surfdrive/Scripts/RGCPD/publications/paper_Raed/'))
-# curr_dir = os.path.join(user_dir, 'surfdrive/Scripts/RGCPD/RGCPD/')
-# main_dir = '/'.join(curr_dir.split('/')[:-2])
-# RGCPD_func = os.path.join(main_dir, 'RGCPD')
-# assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
-# cluster_func = os.path.join(main_dir, 'clustering/')
-# fc_dir = os.path.join(main_dir, 'forecasting')
+curr_dir = os.path.join(user_dir, 'surfdrive/Scripts/RGCPD/RGCPD/')
+main_dir = '/'.join(curr_dir.split('/')[:-2])
+RGCPD_func = os.path.join(main_dir, 'RGCPD')
+assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
+cluster_func = os.path.join(main_dir, 'clustering/')
+fc_dir = os.path.join(main_dir, 'forecasting')
 
-# if cluster_func not in sys.path:
-#     sys.path.append(main_dir)
-#     sys.path.append(RGCPD_func)
-#     sys.path.append(cluster_func)
-#     sys.path.append(fc_dir)
+if cluster_func not in sys.path:
+    sys.path.append(main_dir)
+    sys.path.append(RGCPD_func)
+    sys.path.append(cluster_func)
+    sys.path.append(fc_dir)
 
 
 
