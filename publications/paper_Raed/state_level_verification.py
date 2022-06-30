@@ -31,27 +31,47 @@ import xarray as xr
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
                       'surfdrive/Scripts/RGCPD/publications/paper_Raed/'))
-curr_dir = os.path.join(user_dir, 'surfdrive/Scripts/RGCPD/RGCPD/')
-main_dir = '/'.join(curr_dir.split('/')[:-2])
-RGCPD_func = os.path.join(main_dir, 'RGCPD')
-assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
-cluster_func = os.path.join(main_dir, 'clustering/')
-fc_dir = os.path.join(main_dir, 'forecasting')
+# curr_dir = os.path.join(user_dir, 'surfdrive/Scripts/RGCPD/RGCPD/')
+# main_dir = '/'.join(curr_dir.split('/')[:-2])
+# RGCPD_func = os.path.join(main_dir, 'RGCPD')
+# assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
+# cluster_func = os.path.join(main_dir, 'clustering/')
+# fc_dir = os.path.join(main_dir, 'forecasting')
 
-if cluster_func not in sys.path:
-    sys.path.append(main_dir)
-    sys.path.append(RGCPD_func)
-    sys.path.append(cluster_func)
-    sys.path.append(fc_dir)
+# if cluster_func not in sys.path:
+#     sys.path.append(main_dir)
+#     sys.path.append(RGCPD_func)
+#     sys.path.append(cluster_func)
+#     sys.path.append(fc_dir)
 
-path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
+
+# path to raw Soy Yield dataset
+if sys.platform == 'linux':
+    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/'
+else:
+    root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
+raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
+
+
+data_dir_repo = './data'
+Soy_state_path =  os.path.join(data_dir_repo, 'masked_rf_gs_state_USDA.csv')
 
 from RGCPD.forecasting import func_models as fc_utils
 from RGCPD import functions_pp, find_precursors, plot_maps, core_pp
 import RGCPD.forecasting.stat_models_cont as sm
 import utils_paper3
 
+def parseArguments():
+    # Create argument parser
+    parser = argparse.ArgumentParser()
+
+    # Optional arguments
+    parser.add_argument("-i", "--intexper", help="intexper", type=int,
+                        default=i_default)
+    # Parse arguments
+    args = parser.parse_args()
+    return args
 
 target_datasets = ['States']
 seeds = [1] # ,5]
@@ -66,6 +86,7 @@ combinations = np.array(np.meshgrid(target_datasets,
 i_default = 4
 load = 'all'
 save = True
+use_gridded_data = True
 # training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
 
 
@@ -78,18 +99,6 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 
 model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
                     ['RandomForestClassifier', 'RandomForestClassifier']]
-
-
-def parseArguments():
-    # Create argument parser
-    parser = argparse.ArgumentParser()
-
-    # Optional arguments
-    parser.add_argument("-i", "--intexper", help="intexper", type=int,
-                        default=i_default)
-    # Parse arguments
-    args = parser.parse_args()
-    return args
 
 
 if __name__ == '__main__':
@@ -107,9 +116,6 @@ else:
     seed = int(out[1])
     model = out[2]
     method = out[3]
-
-
-
 noseed = np.logical_or(method.lower()[:-3] == 'timeseriessplit',
                        method.split('_')[0] == 'leave')
 if noseed and seed > 1:
@@ -118,16 +124,9 @@ if noseed and seed > 1:
 
 
 
-# path to raw Soy Yield dataset
-if sys.platform == 'linux':
-    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/'
-else:
-    root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
-raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
 
 
-data_dir_repo = os.path.join(main_dir, 'publications/paper_Raed/data')
-Soy_state_path =  os.path.join(data_dir_repo, 'masked_rf_gs_state_USDA.csv')
+# All_Soy_state_path = os.path.join(data_dir_repo, 'us_soy_state_production_1950_2021.csv')
 
 
 
@@ -135,14 +134,18 @@ calc_ts= 'region mean' # 'pattern cov'
 alpha_corr = .05
 alpha_CI = .05
 n_boot = 2000
+fc_type = .33
 append_pathsub = f'/{method}/s{seed}'
 if method == 'leave_1': append_pathsub += 'gp_prior_1_after_1'
 
 
 
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
-path_out_main = os.path.join(path_out_main, 'a9943')
-
+path_in_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
+path_in_main = os.path.join(path_in_main, 'a9943')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'STATES')
+os.makedirs(path_out_main, exist_ok=True)
+path_save = os.path.join(path_out_main,
+                          f'{model}_{method}_{training_data}_{fc_type}')
 PacificBox = (130,265,-10,60)
 GlobalBox  = (-180,360,-10,60)
 USBox = (225, 300, 20, 60)
@@ -187,13 +190,12 @@ def df_oos_lindetrend(df_fullts: pd.DataFrame,
 
 #%% get data associated with forecast (made in forecast.py)
 
-fc_type = 0.33
 if 'timeseries' in method:
     btoos = '_T' # if btoos=='_T': binary target out of sample.
 else:
     btoos = ''
 
-path_input_main = os.path.join(path_out_main, 'USDA_Soy_clusters__1' + append_pathsub)
+path_input_main = os.path.join(path_in_main, 'USDA_Soy_clusters__1' + append_pathsub)
 pathsub_df = f'df_data_{str(fc_type)}{btoos}'
 pathsub_verif = f'verif_{str(fc_type)}{btoos}'
 if training_data != 'CL':
@@ -236,6 +238,83 @@ df_boots_list = [d[fc_month] for d in df_boots]
 df_test  = df_preds[0][['Target', fc_month]]
 # df_test = functions_pp.get_df_test(df_test, df_splits=df_splits)
 
+#%% get State level mask
+from RGCPD.clustering import make_country_mask
+from itertools import product
+raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
+selbox = [253,290,28,52] ; years = list(range(1975, 2020))
+if sys.platform == 'linux':
+    import matplotlib as mpl
+    mpl.use('Agg')
+    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/'
+else:
+    root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
+raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
+da = core_pp.import_ds_lazy(raw_filename,
+                            **{'selbox':selbox,
+                               'var':'variable'}).isel(z=0).drop('z')
+xarray, df_codes = make_country_mask.create_mask(da,
+                                                 level='US_States')
+
+#%%
+raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
+#%% test comparing raw gridded versus raw csv
+kwrgs_NaN_handling={'missing_data_ts_to_nan':False,
+                    'extra_NaN_limit':False,
+                    'inter_method':False,
+                    'final_NaN_to_clim':False}
+years = list(range(1950, 2020))
+selbox = [253,290,28,52]
+ds_raw = core_pp.import_ds_lazy(raw_filename, var='variable', selbox=selbox,
+                                kwrgs_NaN_handling=kwrgs_NaN_handling).rename({'z':'time'})
+ds_raw.name = 'Soy_Yield'
+ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
+ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
+#%% Pre-process gridded yield dataset
+
+def ds_oos_lindetrend(df_splits, path):
+
+    kwrgs_NaN_handling={'missing_data_ts_to_nan':False,
+                        'extra_NaN_limit':False,
+                        'inter_method':False,
+                        'final_NaN_to_clim':False}
+    years = list(range(1950, 2020))
+    selbox = [253,290,28,52]
+    ds_raw = core_pp.import_ds_lazy(raw_filename, var='variable', selbox=selbox,
+                                    kwrgs_NaN_handling=kwrgs_NaN_handling).rename({'z':'time'})
+    ds_raw.name = 'Soy_Yield'
+    ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
+    ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
+
+    ds_out = utils_paper3.detrend_oos_3d(ds_raw, min_length=30,
+                                         df_splits=df_splits,
+                                         standardize=True,
+                                         path=path)
+    ds_out.name = 'Soy_Yield_pp'
+    return ds_out
+
+path_save_preprocess = os.path.join(path_in_main, f'detrend_{method}')
+os.makedirs(path_save_preprocess, exist_ok=True)
+filename_pp = os.path.join(path_save_preprocess,
+                           f'masked_rf_gs_state_USDA_{method}.nc')
+
+
+if os.path.exists(filename_pp) and load=='all':
+    ds = core_pp.import_ds_lazy(filename_pp)
+else:
+    if load == False and os.path.exists(filename_pp):
+        os.remove(filename_pp) # remove file and recreate
+    ds_yield_pp = ds_oos_lindetrend(df_splits, path_save_preprocess)
+    ds_yield_pp.to_dataset(name='Soy Yield').to_netcdf(filename_pp, mode='w')
+
+def gridded_yield_to_state(ds_yield_pp, xarray, df_codes, state):
+    df_s = df_codes[df_codes['name'].str.match(state, case=False)]
+    ds_state = ds_yield_pp.where(xarray.values == int(df_s['label']))
+    ds_state = functions_pp.area_weighted(ds_state)
+    ds_state = ds_state.mean(dim=('latitude', 'longitude'))
+    return ds_state.to_dataframe(state)
+
+
 #%% get pre-processed soy yield xarray
 
 def read_csv_Raed(path):
@@ -252,6 +331,7 @@ def read_csv_State(path, State: str=None, col='obs_yield'):
     if State is None:
         State = orig.columns
     return orig[State]
+
 
 # All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 #               'MARYLAND', 'MINNESOTA', 'MISSOURI', 'NEW JERSEY', 'NEW YORK',
@@ -308,10 +388,7 @@ fc_type = .33
 btoos = '_T'
 
 
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'STATES')
-os.makedirs(path_out_main, exist_ok=True)
-path_save = os.path.join(path_out_main,
-                          f'{model}_{method}_{training_data}_{fc_type}')
+
 
 if os.path.exists(os.path.join(path_save,'summary.h5')):
     d_dfs = functions_pp.load_hdf5(os.path.join(path_save,'summary.h5'))
@@ -361,10 +438,14 @@ else:
         skill_states_cond_50 = [] ;
         skill_states_cond_30 = []
         for STATE in All_states[:]:
-            df_verif = read_csv_State(Soy_state_path, [STATE]).loc[dates_verif]
+            if use_gridded_data:
+                df_verif_pp = gridded_yield_to_state(ds_yield_pp, xarray, df_codes, STATE)
+            else:
+                df_verif = read_csv_State(Soy_state_path, [STATE]).loc[dates_verif]
+                df_verif_pp = df_oos_lindetrend(df_verif, df_splits)
             if float(np.isnan(df_verif).sum()) != 0:
                 continue
-            df_verif_pp = df_oos_lindetrend(df_verif, df_splits)
+
 
             # Define poor yield events out or in sample
             _target_ts = df_verif_pp.iloc[:,[0]].copy()
@@ -410,7 +491,7 @@ else:
                                                                     fcmodel=fcmodel,
                                                                     kwrgs_model=kwrgs_model)
             predict = predict.rename({0:fc_month}, axis=1)
-
+            predict.index = df_splits.index
             # calculate skill scores
             out_verification = fc_utils.get_scores(predict,
                                                     df_splits,
@@ -460,23 +541,7 @@ else:
     skill_summary_cond_30.to_csv(os.path.join(path_save,'cond_30.csv'))
 
 
-#%%
-from RGCPD.clustering import make_country_mask
-from itertools import product
-raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
-selbox = [253,290,28,52] ; years = list(range(1975, 2020))
-if sys.platform == 'linux':
-    import matplotlib as mpl
-    mpl.use('Agg')
-    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/'
-else:
-    root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
-raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
-da = core_pp.import_ds_lazy(raw_filename,
-                            **{'selbox':selbox,
-                               'var':'variable'}).isel(z=0).drop('z')
-xarray, df_codes = make_country_mask.create_mask(da,
-                                                 level='US_States')
+
 
 #%%
 months = skill_summary.columns[::skill_summary.columns.levels[1].size]
@@ -671,3 +736,9 @@ potential_predictable_states = ['MISSOURI', 'KENTUCKY', 'ALABAMA', 'TENNESSEE',
                                 'IOWA', 'INDIANA', 'OHIO']
 precentage_auc = total[potential_predictable_states].sum() / total.sum()
 print(f'Percentage good AUG: {precentage_auc}')
+
+#%% Comparing gridded versus csv dataset
+# gridded: /Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/masked_rf_gs_county_grids.nc
+# csv: /Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/masked_rf_gs_state_USDA.csv
+
+
