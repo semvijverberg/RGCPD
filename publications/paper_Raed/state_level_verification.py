@@ -300,7 +300,7 @@ filename_pp = os.path.join(path_save_preprocess,
 
 
 if os.path.exists(filename_pp) and load=='all':
-    ds_yield_pp = core_pp.import_ds_lazy(filename_pp)
+    ds_yield_pp = core_pp.import_ds_lazy(filename_pp)['Soy Yield']
 else:
     if load == False and os.path.exists(filename_pp):
         os.remove(filename_pp) # remove file and recreate
