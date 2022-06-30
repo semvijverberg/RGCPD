@@ -300,7 +300,7 @@ filename_pp = os.path.join(path_save_preprocess,
 
 
 if os.path.exists(filename_pp) and load=='all':
-    ds = core_pp.import_ds_lazy(filename_pp)
+    ds_yield_pp = core_pp.import_ds_lazy(filename_pp)
 else:
     if load == False and os.path.exists(filename_pp):
         os.remove(filename_pp) # remove file and recreate
@@ -404,7 +404,7 @@ else:
                         'only_Pacific', 'only_Pacific', 'only_Pacific',
                         'only_Pacific']
 
-    forecast_months = ['April', 'March', 'February']
+    forecast_months = ['April']#, 'March', 'February']
     skill_summary = []
     skill_summary_cond_50 = []
     skill_summary_cond_30 = []
