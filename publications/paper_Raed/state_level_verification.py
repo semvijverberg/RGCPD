@@ -404,7 +404,7 @@ else:
                         'only_Pacific', 'only_Pacific', 'only_Pacific',
                         'only_Pacific']
 
-    forecast_months = ['April']#, 'March', 'February']
+    forecast_months = ['April', 'March', 'February']
     skill_summary = []
     skill_summary_cond_50 = []
     skill_summary_cond_30 = []
