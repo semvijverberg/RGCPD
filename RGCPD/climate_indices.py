@@ -128,8 +128,8 @@ def PDO_single_split(s, ds_monthly, ds, df_splits):
 
     splits = df_splits.index.levels[0]
     progress = 100 * (s+1) / splits.size
-    dates_train_origtime = df_splits.loc[s]['TrainIsTrue'][df_splits.loc[s]['TrainIsTrue']].index
-    dates_test_origtime  = df_splits.loc[s]['TrainIsTrue'][~df_splits.loc[s]['TrainIsTrue']].index
+    dates_train_origtime = df_splits.loc[s]['TrainIsTrue'][df_splits.loc[s]['TrainIsTrue']==1].index
+    dates_test_origtime  = df_splits.loc[s]['TrainIsTrue'][df_splits.loc[s]['TrainIsTrue']!=1].index
 
     n = dates_train_origtime.size ; r = int(100*n/df_splits.loc[s].index.size )
     print(f"\rProgress PDO traintest set {progress}%, trainsize=({n}dp, {r}%)", end="")
@@ -159,23 +159,26 @@ def PDO(filepath, df_splits=None, n_jobs=1):
     Subsequently, the PDO pattern is projection on the sst.sel(time=dates_train)
     to enable retrieving the PDO timeseries on a subset on the year.
     It is similarly also projected on the dates_test
-    From https://climatedataguide.ucar.edu/climate-data/pacific-decadal-oscillation-pdo-definition-and-indices
-    See http://www.cgd.ucar.edu/staff/cdeser/docs/deser.sstvariability.annrevmarsci10.pdf
+
+    Domain and period following:
+    https://agupubs.onlinelibrary.wiley.com/doi/epdf/10.1002/2013EF000165
 
     selbox has format of (lon_min, lon_max, lat_min, lat_max)
     '''
     t0 = time()
-#    old format selbox
-#    {'la_min':20, # select domain in degrees east
-#     'la_max':70,
-#     'lo_min':115,
-#     'lo_max':250},
-
-    kwrgs_pp = {'selbox' :  (115, 250, 20, 70),
+    kwrgs_pp = {'selbox' :  (110, 260, 20, 70),
                 'format_lon': 'only_east'}
 
     ds = core_pp.import_ds_lazy(filepath, **kwrgs_pp)
-    ds_monthly = ds.resample(time='M',restore_coord_dims=False).mean(dim='time', skipna=True)
+
+    # ds_monthly = core_pp.import_ds_lazy(filepath, **kwrgs_pp)
+    kwrgs_pp_eof_ds = kwrgs_pp
+    # EOF eigenvector based on Nov-March period and monthly mean data
+    kwrgs_pp_eof_ds.update({'seldates' : ('11-01', '03-31'),
+                            'dailytomonths': True})
+    ds_monthly = core_pp.import_ds_lazy(filepath, **kwrgs_pp_eof_ds)
+
+
     # ds_global = core_pp.import_ds_lazy(filepath)
     # ds.mean(dim=('latitude','longitude')) # global mean SST anomaly each timestep
 
@@ -203,7 +206,7 @@ def PDO(filepath, df_splits=None, n_jobs=1):
     list_PDO_ts = [r[0] for r in results]
 
     time_ = time() - t0
-    print(time_/60)
+    print('\n{:.1f} minutes'.format(time_/60))
 
     for s in splits:
         PDO_patterns[s] = results[s][1]

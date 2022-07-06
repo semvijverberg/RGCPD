@@ -45,13 +45,16 @@ class EOF:
                                                      dailytomonths=True,
                                                      start_end_date=self.start_end_date,
                                                      start_end_year=self.start_end_year)
-        else:
+        elif self.tfreq_EOF == 'daily':
             self.ds_EOF = functions_pp.import_ds_timemeanbins(self.filepath,
                                                           tfreq=self.tfreq_EOF,
                                                           selbox=self.selbox,
                                                           start_end_date=self.start_end_date,
                                                           start_end_year=self.start_end_year,
                                                           closed_on_date=self.start_end_date[-1])
+        else:
+            self.ds_EOF = self.filepath
+
         if self.name is None:
             if hasattr(self.ds_EOF, 'name'):
                 # take name of variable
@@ -126,11 +129,15 @@ class EOF:
             df_splits = df_splits
         splits = self.eofs['split'].values
         neofs  = self.eofs['eof'].values
-        ds = functions_pp.import_ds_timemeanbins(self.filepath,
+        if type(self.filepath) is str:
+            ds = functions_pp.import_ds_timemeanbins(self.filepath,
                                                 tfreq=tfreq_ts,
                                                 selbox=self.selbox,
                                                 start_end_date=self.start_end_date,
                                                 start_end_year=self.start_end_year)
+        elif type(self.filepath) is xr.DataArray:
+            ds = self.filepath
+
         df_data_s   = np.zeros( (splits.size) , dtype=object)
         dates = pd.to_datetime(ds['time'].values)
         for s in splits:
@@ -139,8 +146,8 @@ class EOF:
             for i, e in enumerate(neofs):
 
                 pattern = self.eofs.sel(split=s, eof=e)
-                data = find_precursors.calc_spatcov(ds, pattern)
-                dfs[e] = pd.Series(data.values,
+                data = find_precursors.calc_spatcov(ds.values, pattern.values)
+                dfs[e] = pd.Series(data,
                                    index=dates)
                 if i == neofs.size-1:
                     dfs = dfs.merge(df_splits.loc[s], left_index=True, right_index=True)

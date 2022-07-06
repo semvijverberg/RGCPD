@@ -365,14 +365,17 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
     else:
         label_obs = 'Observed'
 
-    ax0u.plot_date(df_test.index, df_test.iloc[:,0], ls='-',
-                   label=label_obs, c='black', marker='o',
-                   markersize=5)
-    ax0u.scatter(df_test.index, df_test.iloc[:,0], ls='-',
-                   label=None, c=markercolor, s=markersize, zorder=3)
+    # plot observed
+    ax0u.plot_date(df_test.index, df_test.iloc[:,0], ls='--',
+                   label=label_obs, c='black', #marker='o',
+                   markersize=5, zorder=1)
+    # ax0u.plot(df_test.index, df_test.iloc[:,0], ls='-')
+    # ax0u.scatter(df_test.index, df_test.iloc[:,0], ls='-',
+    #                label=None, c=markercolor, s=markersize, zorder=3)
     if name_model is None:
         name_model = 'Prediction'
 
+    # plot prediction
     ax0u.plot_date(df_test.index, df_test.iloc[:,1], ls='-', c='orange',
                   label=name_model, markersize=4)
 

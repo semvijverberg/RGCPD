@@ -126,8 +126,8 @@ def GridSearch_summary_xlxs(models_lags, filename):
             metrics = first_order + [m for m in metrics if m not in first_order]
             dfs_lag.append(pd.concat([df_p, df_r[metrics]], axis=1))
         dfs = pd.concat(dfs_lag, keys=split_keys)
-        df_mean = pd.concat([dfs.mean(0, level=1)], keys=['mean'])
-        df_std = df_p.merge(dfs[metrics].std(0, level=1),
+        df_mean = pd.concat([dfs.groupby(axis=0, level=1).mean()], keys=['mean'])
+        df_std = df_p.merge(dfs[metrics].groupby(axis=0, level=1).std(),
                                 left_index=True, right_index=True)
         df_std = pd.concat([df_std],
                           keys=['std'])

@@ -941,14 +941,13 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
 
     if type(xr_or_df) == types[-1]:
         return_df = True
-        xr_init = xr_or_df.to_xarray().to_array()
-        if len(xr_init.shape) > 2:
-            dims = xr_init.dims.items()
-            i_time = np.argmax([ z[1] for z in dims])
-            old_name = [ z[0] for z in dims][i_time]
+        # assumes multi-index of shape ('split', 'time') or 1-d index with 'time' dim
+        if isinstance(xr_or_df.index, pd.MultiIndex):
+            index = xr_or_df.index.set_names(['split', 'time'])
         else:
-            old_name = 'index'
-        xarray = xr_init.rename({old_name : 'time'}).squeeze()
+            index = xr_or_df.index.set_names(['time'])
+        xr_or_df.index = index
+        xarray = xr_or_df.to_xarray().to_array()
     else:
         return_df = False
         xarray = xr_or_df
@@ -973,23 +972,31 @@ def time_mean_periods(xr_or_df, start_end_periods=np.ndarray,
 
     xarray = xr.concat(xrgr, dim='lag')
     xarray['lag'] = ('lag', np.arange(start_end_periods.shape[0]))
-    xarray = xarray.transpose('time', 'lag', 'latitude', 'longitude', # ensure order dims
+    if return_df:
+        # use-case that df can have multi-index with split
+        dims_order = ['split', 'time', 'lag']
+        [dims_order.append(d) for d in xarray.dims if d not in dims_order]
+        if 'split' not in xarray.dims: dims_order.remove('split')
+        xarray = xarray.transpose(*dims_order,
+                      transpose_coords=True)
+    elif return_df == False:
+        xarray = xarray.transpose('time', 'lag', 'latitude', 'longitude', # ensure order dims
                               transpose_coords=True)
 
     if return_df:
-        if len(xr_init.shape) == 3:
-            iterables = [xarray.level_0.values, date_time]
-            index = pd.MultiIndex.from_product(iterables,
-                                              names=['split', 'time'])
-            xr_index = xarray.stack(index=['level_0', 'time'])
-            return_obj = pd.DataFrame(xr_index.values.T,
-                                      index=index,
-                                      columns=list(xr_init.coords['variable'].values))
-        elif len(xr_init.shape) == 2:
-            return_obj = pd.DataFrame(xarray.values,
-                                      index=time_index[1],
-                                      columns=list(xr_init.coords['variable'].values))
-            return_obj = return_obj.astype(xr_or_df.dtypes)
+        if isinstance(xr_or_df.index, pd.MultiIndex):
+            xr_index = xarray.stack(index=['split', 'time'])
+            varnames = list(xarray.coords['variable'].values)
+            columns = [] ; n_periods = int(start_end_periods.size/2)
+            for c, l in itertools.product(*[varnames, np.arange(n_periods)]):
+                columns.append(c + f'..{int(l)}')
+            return_obj = xarray.values.reshape(xr_index.index.size, -1, order='C')
+            return_obj = pd.DataFrame(return_obj,
+                                      index=xr_index.index.to_dataframe().index,
+                                      columns=columns)
+            orig_dtypes = pd.Series(np.repeat(xr_or_df.dtypes.values, n_periods),
+                                    index=columns)
+            return_obj = return_obj.astype(orig_dtypes)
     elif return_df == False:
         return_obj = xarray
     return return_obj

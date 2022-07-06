@@ -50,6 +50,8 @@ from RGCPD import plot_maps, core_pp, wrapper_PCMCI
 from RGCPD.forecasting import func_models as fc_utils
 from RGCPD.forecasting.stat_models_cont import ScikitModel
 from RGCPD.forecasting import scikit_model_analysis as sk_ana
+from RGCPD import climate_indices
+from RGCPD import class_EOF
 import utils_paper3
 
 All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
@@ -62,13 +64,13 @@ target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['timeseriessplit_25']#, 'leave_1', timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']
-training_datas = ['all_CD', 'onelag', 'all']
+training_datas = ['all_CD', 'onelag', 'all', 'climind']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 0
+i_default = 3
 load = 'all'
 save = True
 fc_types = [0.33, 'continuous']
@@ -82,8 +84,8 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
                     # ['LogisticRegression', 'RandomForestClassifier'],
                     # ['RandomForestClassifier', 'RandomForestClassifier']]
 
-model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
-                    ['RandomForestClassifier', 'RandomForestClassifier']]
+# model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
+#                     ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_areaw')
@@ -282,9 +284,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     rg.figext = '.png'
 
 
-    subfoldername = target_dataset
-                                            #list(np.array(start_end_year, str)))
-    subfoldername += append_pathsub
+    subfoldername = target_dataset + append_pathsub
 
 
     # detrend and anomaly (already done for smi)
@@ -442,6 +442,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     else:
         rg.get_ts_prec()
         rg.df_data = rg.df_data.rename({rg.df_data.columns[0]:target_dataset},axis=1)
+
         #%% Causal Inference
         def feature_selection_CondDep(df_data, keys, z_keys=None, alpha_CI=.05, x_lag=0, z_lag=0):
 
@@ -497,6 +498,49 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                       'df_pvals':rg.df_pvals,
                       'df_corr':rg.df_corr}
         functions_pp.store_hdf_df(df_output, filepath_df_output)
+
+    #%% Baseline model
+    filepath_df_climind = os.path.join(rg.path_outsub1,
+                                      f'df_climate_indices_{periodnames[-1]}.h5')
+    if load == 'all' and os.path.exists(filepath_df_climind):
+        rg.df_climind = functions_pp.load_hdf5(filepath_df_climind)['df_data']
+    else:
+        rgbm = RGCPD(list_of_name_path=list_of_name_path,
+                     start_end_TVdate=('10-01', '10-31'),
+                     start_end_date=None,
+                     start_end_year=start_end_year,
+                     tfreq=1,
+                     path_outmain=path_out_main)
+        rgbm.pp_TV(ext_annual_to_mon=True)
+        if method.split('_')[0]=='leave':
+            subfoldername += 'gp_prior_1_after_1'
+            rgbm.traintest(method, gap_prior=1, gap_after=1, seed=seed,
+                         subfoldername=subfoldername)
+        else:
+            rgbm.traintest(method, seed=seed, subfoldername=subfoldername)
+
+        rgbm.df_splits
+
+        sst_filepath = rg.list_precur_pp[0][1]
+        df_PDO, PDO_pattern = climate_indices.PDO(sst_filepath, df_splits=rgbm.df_splits)
+        # PDO_pattern[0].plot()
+        # get df_PDO to same time-axis
+        df_PDO_lags = functions_pp.time_mean_periods(df_PDO[['PDO']],
+                                                     start_end_periods=sst.lags)
+        df_ENSO = climate_indices.ENSO_34(sst_filepath, df_splits=rgbm.df_splits,
+                                          get_ENSO_states=False)
+        df_ESNO_lags = functions_pp.time_mean_periods(df_ENSO,
+                                                      start_end_periods=sst.lags)
+        df_climind = df_PDO_lags.merge(df_ESNO_lags, left_index=True, right_index=True)
+        df_climind.index = rg.df_splits.index
+        df_climind = df_climind.merge(rg.df_splits, left_index=True, right_index=True)
+        functions_pp.store_hdf_df({'df_data':df_climind}, filepath_df_climind)
+        rg.df_climind = df_climind
+
+    #%%
+
+
+
     #%%
     return rg
 
@@ -758,61 +802,7 @@ for fc_type in fc_types:
             target_ts = (target_ts < quantile).astype(int)
 
 
-    #%% forecast: get Combined Lead time models per precursor
-    # if np.unique(core_pp.flatten(model_combs)).size == 2:
-    #     CL_models = [model1_tuple, model2_tuple]
-    # else:
-    #     CL_models = [model1_tuple]
-
-    # for fcmodel, kwrgs_model in CL_models:
-    #     kwrgs_model_CL = kwrgs_model.copy() ;
-    #     # kwrgs_model_CL.update({'alpha':kwrgs_model['alpha'][::3]})
-    #     model_name_CL = fcmodel.scikitmodel.__name__
-    #     filepath_dfs = os.path.join(filepath_df_datas,
-    #                                 f'CL_models_cont{model_name_CL}.h5')
-    #     df_data_CL = {}
-    #     try:
-    #         df_data_CL = functions_pp.load_hdf5(filepath_dfs)
-    #         loaded = True
-    #     except:
-    #         loaded = False
-
-
-    #     for i, rg in enumerate(rg_list):
-    #         print(fc_type, model_name_CL, i)
-
-    #         if loaded:
-    #             rg.df_CL_data = df_data_CL[f'{rg.fc_month}_df_data']
-    #             continue
-    #         else:
-    #             pass
-
-    #         mean_vars=['sst', 'smi']
-    #         # mean_vars=[]
-    #         for i, p in enumerate(rg.list_for_MI):
-    #             if p.name in mean_vars:
-    #                 if p.calc_ts == 'pattern cov':
-    #                     mean_vars[i] +='_sp'
-    #         df_data, keys_dict = utils_paper3.get_df_mean_SST(rg,
-    #                                              mean_vars=mean_vars,
-    #                                              alpha_CI=alpha_CI,
-    #                                              n_strongest='all',
-    #                                              weights=True,
-    #                                              fcmodel=fcmodel,
-    #                                              kwrgs_model=kwrgs_model_CL,
-    #                                              target_ts=target_ts,
-    #                                              labels=None)
-
-    #         rg.df_CL_data = df_data
-    #         df_data_CL[f'{rg.fc_month}_df_data'] = df_data
-
-
-    #     # store df_pred_tuple
-    #     functions_pp.store_hdf_df(df_data_CL, filepath_dfs)
-
-
-
-    #%% Make final prediction
+    #%% Make prediction
     model_name_CL, model_name = model_combs[0]
     for model_name_CL, model_name in model_combs:
         if model_name == 'Ridge' or model_name == 'LogisticRegression':
@@ -820,13 +810,6 @@ for fc_type in fc_types:
         elif 'RandomForest' in model_name:
             fcmodel, kwrgs_model = model2_tuple
 
-        # filepath_dfs = os.path.join(filepath_df_datas,
-        #                             f'CL_models_cont{model_name_CL}.h5')
-        # try:
-        #     df_data_CL = functions_pp.load_hdf5(filepath_dfs)
-        # except:
-        #     print('loading CL models failed, skipping this model')
-        #     continue
 
         for nameTarget in ['Target']:
             # for i, rg in enumerate(rg_list):
@@ -930,6 +913,10 @@ for fc_type in fc_types:
                     firstlag = str(rg.list_for_MI[0].corr_xr.lag[-1].values)
                     keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), 1,
                                                             firstlag)
+                elif training_data == 'climind':
+                    df_input = rg.df_climind
+                    firstlag = str(rg.list_for_MI[0].corr_xr.lag[-1].values)
+                    keys_dict = {s:list(df_input.columns[:-2]) for s in range(rg.n_spl)}
 
 
                 prediction_tuple = rg.fit_df_data_ridge(df_data=df_input,
@@ -1366,7 +1353,7 @@ for fc_type in fc_types:
 
 
 #%% PDO versus trend line
-import climate_indices
+from RGCPD import climate_indices
 _df_PDO, PDO_patterns = climate_indices.PDO(rg.list_for_MI[0].filepath,
                                            None)
 PDO_plot_kwrgs = {'units':'[-]', 'cbar_vert':-.1,
