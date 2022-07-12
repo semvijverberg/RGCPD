@@ -70,7 +70,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 3
+i_default = 0
 load = 'all'
 save = True
 fc_types = [0.33, 'continuous']
@@ -775,7 +775,7 @@ for fc_type in fc_types:
             tsall = (tsall - tsall.mean()) / tsall.std()
             f, ax = plt.subplots(2)
             ax[1].plot(oos_std, label='oos std')
-            ax[0].plot(quantile.mean(axis=0, level=0),
+            ax[0].plot(quantile.groupby(axis=0, level=0).mean(),
                        label='33th percentile based on training data')
             ax[0].axhline(theothreshold, color='black', lw=1)
             ax[0].text(-0.8, theothreshold+.01,

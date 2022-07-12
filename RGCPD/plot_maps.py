@@ -716,8 +716,7 @@ def _get_kwrgs_labels(prec_labels, kwrgs_plot={}, labelsintext=False):
             coords.append(['fake'])
         combs = np.array(np.meshgrid(coords[0], coords[1])).T.reshape(-1,2)
 
-        df_labelloc = labels_to_df(prec_labels.median(dim=tuple(dims)),
-                                   return_mean_latlon=True)
+
 
         for i, (c1, c2) in enumerate(combs):
             idx1 = coords[0].index(c1)
@@ -728,8 +727,12 @@ def _get_kwrgs_labels(prec_labels, kwrgs_plot={}, labelsintext=False):
                 idx2 = 0
                 labelsmap = prec_labels[idx1]
 
+            df_labelloc = labels_to_df(labelsmap,
+                                       return_mean_latlon=True)
+
             labels = np.unique(labelsmap)
             labels = labels[~np.isnan(labels)]
+
 
             if kwrgs_plot['col_dim'] == dims[0]:
                 rowdim = (idx2, idx1)
@@ -942,7 +945,7 @@ def labels_to_df(prec_labels, return_mean_latlon=True):
         labels = np.unique(prec_labels)[~np.isnan(np.unique(prec_labels))]
         mean_coords_area = np.zeros( (len(labels), 3))
         for i,l in enumerate(labels):
-            latlon = np.array(df[(df==l).values].index)
+            latlon = np.array(df[(df['prec_labels']==l).values].index)
             latlon = np.array([list(l) for l in latlon])
             if latlon.size != 0:
                 mean_coords_area[i][:2] = np.median(latlon, 0)

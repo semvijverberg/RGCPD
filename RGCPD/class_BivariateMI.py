@@ -391,7 +391,7 @@ class BivariateMI:
             self.calc_ts = 'region mean'
             self.get_prec_ts(precur_aggr, kwrgs_load)
             df = pd.concat(self.ts_corr,
-                           keys=range(len(self.ts_corr))).mean(0,level=1)
+                           keys=range(len(self.ts_corr))).groupby(0,level=1).mean()
             for l in core_pp.flatten(merge):
                 cols = [c for c in df.columns if f'..{int(l)}..' in c]
                 df = df.rename({c:str(l) for c in cols}, axis=1)
