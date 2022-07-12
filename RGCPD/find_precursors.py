@@ -119,7 +119,7 @@ def mask_sig_to_cluster(mask_and_data_s, wght_area, distance_eps, min_area_sampl
             # calculate distance between sign coords accross all lags to keep labels
             # more consistent when clustering
             distance = haversine_distances(sign_coords) * 6371000/1000 # multiply by Earth radius to get kilometers
-            dbresult = cluster.DBSCAN(eps=distance_eps, min_samples=min_area_samples,
+            dbresult = cluster.DBSCAN(eps=distance_eps, min_samples=int(min_area_samples),
                                       metric='precomputed', n_jobs=n_jobs).fit(distance,
                                       sample_weight=weights_core_samples)
             labels = dbresult.labels_ + 1

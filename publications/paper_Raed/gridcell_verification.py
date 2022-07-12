@@ -379,8 +379,9 @@ for i, latlon in enumerate(coords):
         df_merge.iloc[:,[0]] = (df_merge.iloc[:,[0]] < quantile).astype(int)
 
         # align obs and forecast
-
-        df_merge = df_merge.merge(df_test.iloc[:,[1]].loc[df_merge.index],
+        df_test_tmp = df_test.loc[df_merge.index]
+        df_test_tmp.index = df_merge.index
+        df_merge = df_merge.merge(df_test_tmp.iloc[:,[1]],
                                   left_index=True, right_index=True)
         df_merge = df_merge[df_merge.columns[[0,3,1,2]]]
 
