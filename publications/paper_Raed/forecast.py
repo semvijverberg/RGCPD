@@ -88,7 +88,7 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 #                     ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_areaw')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'minor_revision')
 # path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
 
 
@@ -235,8 +235,8 @@ def ds_oos_lindetrend(dsclust, df_splits, path):
     ds_out = utils_paper3.detrend_oos_3d(ds_raw, min_length=30,
                                          df_splits=df_splits,
                                          standardize=True,
-                                         path=path)
-    ds_out = functions_pp.area_weighted(ds_out)
+                                          path=path)
+    ds_out = functions_pp.area_weighted(ds_out) # no area weight
     df = ds_out.mean(dim=('latitude', 'longitude')).to_dataframe('1ts')
     return df
 
