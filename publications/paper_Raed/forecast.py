@@ -63,7 +63,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_1']#, 'leave_1', timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']
+methods = ['leave_1', 'timeseriessplit_25']#, 'leave_1', timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']
 training_datas = ['all_CD', 'onelag', 'all', 'climind']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -515,7 +515,6 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                      path_outmain=path_out_main)
         rgbm.pp_TV(ext_annual_to_mon=True)
         if method.split('_')[0]=='leave':
-            subfoldername += 'gp_prior_1_after_1'
             rgbm.traintest(method, gap_prior=1, gap_after=1, seed=seed,
                          subfoldername=subfoldername)
         else:
