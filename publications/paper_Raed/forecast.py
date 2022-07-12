@@ -63,7 +63,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['timeseriessplit_25']#, 'leave_1', timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']
+methods = ['leave_1']#, 'leave_1', timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']
 training_datas = ['all_CD', 'onelag', 'all', 'climind']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -1382,10 +1382,15 @@ df_PDO = df_PDO.iloc[-rg.df_splits.index.levels[1].size:] # lazy way of selectin
 df_PDO.index = rg.df_splits.index.levels[1]
 df_Pac = [c for c in rg.df_data.columns if '..1..sst' in c]
 df_Pac = functions_pp.get_df_test(rg.df_data[df_Pac], df_splits=rg.df_splits)
+df_PDOm = functions_pp.get_df_test(rg.df_climind[['PDO..0', 'PDO..1',
+                                                  'PDO..2', 'PDO..3']],
+                                   df_splits=rg.df_splits)
+df_Pac.merge(df_PDOm, left_index=True, right_index=True).corr()
 df_Pacm = df_Pac.mean(axis=1) ; df_Pacm.name = 'east Pac.'
 df_PDO_T = df_fullts.merge(df_PDO, left_index=True, right_index=True)
 df_PDO_T_P = df_PDO_T.merge(df_Pacm, left_index=True, right_index=True)
 df_PDO_T_P = (df_PDO_T_P - df_PDO_T_P.mean(0)) / df_PDO_T_P.std(0)
+
 #%%
 f, ax = plt.subplots(1, figsize=(12,8))
 df_PDO_T_P.plot(ax=ax, color=['black', 'grey', 'r'])
