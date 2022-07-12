@@ -127,7 +127,7 @@ def ENSO_34(filepath, df_splits=None, get_ENSO_states: bool=True):
 def PDO_single_split(s, ds_monthly, ds, df_splits):
 
     splits = df_splits.index.levels[0]
-    progress = 100 * (s+1) / splits.size
+    progress = int(100 * (s+1) / splits.size)
     dates_train_origtime = df_splits.loc[s]['TrainIsTrue'][df_splits.loc[s]['TrainIsTrue']==1].index
     dates_test_origtime  = df_splits.loc[s]['TrainIsTrue'][df_splits.loc[s]['TrainIsTrue']!=1].index
 

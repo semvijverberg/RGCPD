@@ -241,8 +241,10 @@ def ds_oos_lindetrend(dsclust, df_splits, path):
     return df
 
 
-#%% run RGPD
-
+#%%
+# =============================================================================
+# Response-Guided Dimensionality Reduction + Causal selection step
+# =============================================================================
 
 def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     #%%
@@ -519,8 +521,6 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         else:
             rgbm.traintest(method, seed=seed, subfoldername=subfoldername)
 
-        rgbm.df_splits
-
         sst_filepath = rg.list_precur_pp[0][1]
         df_PDO, PDO_pattern = climate_indices.PDO(sst_filepath, df_splits=rgbm.df_splits)
         # PDO_pattern[0].plot()
@@ -532,6 +532,8 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         df_ESNO_lags = functions_pp.time_mean_periods(df_ENSO,
                                                       start_end_periods=sst.lags)
         df_climind = df_PDO_lags.merge(df_ESNO_lags, left_index=True, right_index=True)
+        if crossyr and method.split('_')[0]=='leave':
+            df_climind = df_climind.loc[range(1,70)]
         df_climind.index = rg.df_splits.index
         df_climind = df_climind.merge(rg.df_splits, left_index=True, right_index=True)
         functions_pp.store_hdf_df({'df_data':df_climind}, filepath_df_climind)
