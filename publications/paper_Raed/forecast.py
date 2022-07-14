@@ -70,7 +70,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 1
+i_default = -1
 load = 'all'
 save = True
 fc_types = [0.33, 'continuous']
@@ -80,12 +80,11 @@ plt.rcParams['savefig.dpi'] = 300
 model_combs_cont = [['Ridge', 'Ridge'],
                     ['Ridge', 'RandomForestRegressor'],
                     ['RandomForestRegressor', 'RandomForestRegressor']]
-model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
-                    # ['LogisticRegression', 'RandomForestClassifier'],
-                    # ['RandomForestClassifier', 'RandomForestClassifier']]
+# model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 
-# model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
-#                     ['RandomForestClassifier', 'RandomForestClassifier']]
+
+model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
+                    ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_areaw')
@@ -382,6 +381,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
 
     if 'sst' in use_vars:
         if loaded==False:
+            os.remove(os.path.join(rg.path_outsub1, load_sst+'.nc'))
             sst.store_netcdf(rg.path_outsub1, load_sst, add_hash=False)
         sst.prec_labels['lag'] = ('lag', periodnames)
         sst.corr_xr['lag'] = ('lag', periodnames)
@@ -419,6 +419,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         # SM.prec_labels = merge(SM, lonlatbox)
     if 'smi' in use_vars:
         if loaded==False:
+            os.remove(os.path.join(rg.path_outsub1, load_SM+'.nc'))
             SM.store_netcdf(rg.path_outsub1, load_SM, add_hash=False)
         SM.corr_xr['lag'] = ('lag', periodnames)
         SM.prec_labels['lag'] = ('lag', periodnames)
@@ -548,7 +549,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     return rg
 
 
-# pipeline(lags=lags_july, periodnames=periodnames_july)
+# rg = pipeline(lags=lags_july, periodnames=periodnames_july)
 
 #%%
 
@@ -1353,6 +1354,92 @@ for fc_type in fc_types:
                                  f'scores_vs_lags_{i}.pdf'), bbox_inches='tight')
         plt.close()
 
+#%% collecting different train-test splits to plot scores vs training input
+# creating spreadsheet of BSS skill in overview.csv
+
+condition = 50
+models = ['LogisticRegression', 'RandomForestClassifier']
+training_datas = ['onelag', 'all', 'all_CD']
+skill_metrics = ['BSS']
+nicenames = {'onelag':'only lag 1 RG-DR precursors',
+             'all': 'all RG-DR precursors',
+             'all_CD':'all C.D. precursors',
+             'CL':'CL predictions based on C.D. precursors',
+             'LogisticRegression': 'Regularized Logistic Regr.',
+             'RandomForestClassifier': 'Random Forest Classifier'}
+combinations = np.array(np.meshgrid(models,
+                                    training_datas,
+                                    skill_metrics)).T.reshape(-1,3)
+lead_times = ['August', 'June', 'April', 'February']
+csvfilename = os.path.join(rg.path_outsub1, 'overview_skill.csv')
+if os.path.isfile(csvfilename): os.remove(csvfilename)
+
+f_names = []
+for model, training_data, metric in combinations:
+    dict_sum = {'model':nicenames[model],
+                'training input':nicenames[training_data],
+                'metric':metric}
+
+    path = os.path.join(rg.path_outsub1,
+                        f'df_data_{str(fc_type)}{btoos}')
+    if training_data != 'CL':
+        path  += '_'+training_data
+    try:
+        out = utils_paper3.load_scores(['Target'], model,
+                                   model,
+                                   n_boot, path,
+                                   condition=f'strong {condition}')[:2]
+    except:
+        continue
+    df_scores = out[0][0][pd.MultiIndex.from_product([lead_times, skill_metrics])]
+    dict_lt = {l:round(df_scores.iloc[0,i],2) for i,l in enumerate(lead_times)}
+    dict_lt['Mean'] = round(df_scores.values.mean(), 2)
+
+    # use combined lead time model for (final) prediction
+    if training_data == 'CL':
+        filepath_dfs = os.path.join(path,
+                                    f'CL_models_cont{model}.h5')
+        df_data_CL = functions_pp.load_hdf5(filepath_dfs)
+        df_data_CL = {m+'_df_data':df_data_CL[m+'_df_data'] for m in lead_times}
+        n_features = []
+        for key, item in df_data_CL.items():
+            total = (~(item.mean(level=0).isna())).sum().iloc[:-2].sum()
+            n_features.append(total/rg.n_spl)
+
+    # use all RG-DR timeseries for (final) prediction
+    elif training_data == 'all':
+        n_features = []
+        for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
+            total = (~rg.df_data.iloc[:,1:-2].groupby(axis=0, level=0).mean().isna()).sum().sum()
+            n_features.append(total/rg.n_spl)
+    # use all RG-DR timeseries that are C.D. for (final) prediction
+    elif training_data == 'all_CD':
+        n_features = []
+        for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
+            keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), alpha_CI)
+            n_features.append(np.mean([len(v) for v in keys_dict.values()]))
+    # use only fist lag of RG-DR timeseries that are C.D.
+    elif training_data == 'onelag':
+        n_features = []
+        for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
+            firstlag = str(rg.list_for_MI[0].corr_xr.lag[-1].values)
+            keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), 1,
+                                                    firstlag)
+            n_features.append(np.mean([len(v) for v in keys_dict.values()]))
+
+    dict_sum.update({'n-features':[round(n, 1) for n in n_features]})
+    dict_sum.update(dict_lt)
+
+    # create .csv if it does not exists
+    if os.path.exists(csvfilename) == False:
+        with open(csvfilename, 'a', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, list(dict_sum.keys()))
+            writer.writerows([{f:f for f in list(dict_sum.keys())}])
+
+    # write
+    with open(csvfilename, 'a', newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, list(dict_sum.keys()))
+        writer.writerows([dict_sum])
 
 
 #%% PDO versus trend line
@@ -1623,91 +1710,7 @@ for fc_type, condition in plot_combs:
 
 
 
-#%% collecting different train-test splits to plot scores vs training input
 
-condition = 50
-models = ['LogisticRegression', 'RandomForestClassifier']
-training_datas = ['onelag', 'all', 'all_CD']
-skill_metrics = ['BSS']
-nicenames = {'onelag':'only lag 1 RG-DR precursors',
-             'all': 'all RG-DR precursors',
-             'all_CD':'all C.D. precursors',
-             'CL':'CL predictions based on C.D. precursors',
-             'LogisticRegression': 'Regularized Logistic Regr.',
-             'RandomForestClassifier': 'Random Forest Classifier'}
-combinations = np.array(np.meshgrid(models,
-                                    training_datas,
-                                    skill_metrics)).T.reshape(-1,3)
-lead_times = ['August', 'June', 'April', 'February']
-csvfilename = os.path.join(rg.path_outsub1, 'overview_skill.csv')
-if os.path.isfile(csvfilename): os.remove(csvfilename)
-
-f_names = []
-for model, training_data, metric in combinations:
-    dict_sum = {'model':nicenames[model],
-                'training input':nicenames[training_data],
-                'metric':metric}
-
-    path = os.path.join(rg.path_outsub1,
-                        f'df_data_{str(fc_type)}{btoos}')
-    if training_data != 'CL':
-        path  += '_'+training_data
-    try:
-        out = utils_paper3.load_scores(['Target'], model,
-                                   model,
-                                   n_boot, path,
-                                   condition=f'strong {condition}')[:2]
-    except:
-        continue
-    df_scores = out[0][0][pd.MultiIndex.from_product([lead_times, skill_metrics])]
-    dict_lt = {l:round(df_scores.iloc[0,i],2) for i,l in enumerate(lead_times)}
-    dict_lt['Mean'] = round(df_scores.values.mean(), 2)
-
-    # use combined lead time model for (final) prediction
-    if training_data == 'CL':
-        filepath_dfs = os.path.join(path,
-                                    f'CL_models_cont{model}.h5')
-        df_data_CL = functions_pp.load_hdf5(filepath_dfs)
-        df_data_CL = {m+'_df_data':df_data_CL[m+'_df_data'] for m in lead_times}
-        n_features = []
-        for key, item in df_data_CL.items():
-            total = (~(item.mean(level=0).isna())).sum().iloc[:-2].sum()
-            n_features.append(total/rg.n_spl)
-
-    # use all RG-DR timeseries for (final) prediction
-    elif training_data == 'all':
-        n_features = []
-        for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
-            total = (~rg.df_data.iloc[:,1:-2].mean(0, level=0).isna()).sum().sum()
-            n_features.append(total/rg.n_spl)
-    # use all RG-DR timeseries that are C.D. for (final) prediction
-    elif training_data == 'all_CD':
-        n_features = []
-        for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
-            keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), alpha_CI)
-            n_features.append(np.mean([len(v) for v in keys_dict.values()]))
-    # use only fist lag of RG-DR timeseries that are C.D.
-    elif training_data == 'onelag':
-        n_features = []
-        for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
-            firstlag = str(rg.list_for_MI[0].corr_xr.lag[-1].values)
-            keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), 1,
-                                                    firstlag)
-            n_features.append(np.mean([len(v) for v in keys_dict.values()]))
-
-    dict_sum.update({'n-features':[round(n, 1) for n in n_features]})
-    dict_sum.update(dict_lt)
-
-    # create .csv if it does not exists
-    if os.path.exists(csvfilename) == False:
-        with open(csvfilename, 'a', newline='') as csvfile:
-            writer = csv.DictWriter(csvfile, list(dict_sum.keys()))
-            writer.writerows([{f:f for f in list(dict_sum.keys())}])
-
-    # write
-    with open(csvfilename, 'a', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, list(dict_sum.keys()))
-        writer.writerows([dict_sum])
 
 #%%
 if 'timeseries' in method:
