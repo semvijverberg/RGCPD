@@ -88,7 +88,7 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 #                     ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'minor_revision')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_areaw')
 # path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
 
 
@@ -473,7 +473,9 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         # select the causal regions from analysys in Causal Inferred Precursors
         print('Start Causal Inference')
         list_pvals = [] ; list_corr = []
-        for k in unique_keys:
+        for counter, k in enumerate(unique_keys):
+            progress = int(100 * (counter+1) / len(unique_keys))
+            print(f"\rProgress {progress}%", end="")
             z_keys = [z for z in rg.df_data.columns[1:-2] if k not in z]
 
             for mon in periodnames:
@@ -489,9 +491,9 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                 out = feature_selection_CondDep(rg.df_data.copy(), keys=keys,
                                                 z_keys=z_keys, alpha_CI=.05)
                 corr, pvals, keys_dict = out
-                list_pvals.append(pvals.max(axis=0, level=0))
-                list_corr.append(corr.mean(axis=0, level=0))
-
+                list_pvals.append(pvals.groupby(axis=0, level=0).max())
+                list_corr.append(corr.groupby(axis=0, level=0).mean())
+        print()
 
         rg.df_pvals = pd.concat(list_pvals,axis=0)
         rg.df_corr = pd.concat(list_corr,axis=0)
