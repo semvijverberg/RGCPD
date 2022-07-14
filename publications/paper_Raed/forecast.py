@@ -87,7 +87,7 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
                     ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'minor_revision')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_areaw')
 # path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
 
 
@@ -381,7 +381,8 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
 
     if 'sst' in use_vars:
         if loaded==False:
-            os.remove(os.path.join(rg.path_outsub1, load_sst+'.nc'))
+            if os.path.exist(os.path.join(rg.path_outsub1, load_sst+'.nc')):
+                os.remove(os.path.join(rg.path_outsub1, load_sst+'.nc'))
             sst.store_netcdf(rg.path_outsub1, load_sst, add_hash=False)
         sst.prec_labels['lag'] = ('lag', periodnames)
         sst.corr_xr['lag'] = ('lag', periodnames)
@@ -419,7 +420,8 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         # SM.prec_labels = merge(SM, lonlatbox)
     if 'smi' in use_vars:
         if loaded==False:
-            os.remove(os.path.join(rg.path_outsub1, load_SM+'.nc'))
+            if os.path.exist(os.path.join(rg.path_outsub1, load_SM+'.nc')):
+                os.remove(os.path.join(rg.path_outsub1, load_SM+'.nc'))
             SM.store_netcdf(rg.path_outsub1, load_SM, add_hash=False)
         SM.corr_xr['lag'] = ('lag', periodnames)
         SM.prec_labels['lag'] = ('lag', periodnames)
