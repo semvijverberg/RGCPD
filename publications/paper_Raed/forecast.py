@@ -87,7 +87,7 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
                     ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_areaw') # areaw
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'minor_revision') # fc_areaw
 # path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
 
 
@@ -1292,64 +1292,65 @@ for fc_type in fc_types:
                         f'timeseries_and_skill_{i}_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
             plt.close()
     #%% plotting skill scores as function of lead-time
+    # deprecated, only used for testing
     # import utils_paper3
-    if fc_type == 'continuous':
-        metrics_plot = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
-        model_combs_plot  = [['Ridge', 'Ridge'],
-                             ['Ridge', 'RandomForestRegressor'],
-                             ['RandomForestRegressor', 'RandomForestRegressor']]
-        model_combs_plot = [c for c in model_combs_plot if c in model_combs_cont]
-    else:
-        metrics_plot = ['BSS', 'roc_auc_score']
-        model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
-                             ['LogisticRegression', 'RandomForestClassifier'],
-                             ['RandomForestClassifier', 'RandomForestClassifier']]
-        model_combs_plot = [c for c in model_combs_plot if c in model_combs_bina]
+    # if fc_type == 'continuous':
+    #     metrics_plot = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
+    #     model_combs_plot  = [['Ridge', 'Ridge'],
+    #                          ['Ridge', 'RandomForestRegressor'],
+    #                          ['RandomForestRegressor', 'RandomForestRegressor']]
+    #     model_combs_plot = [c for c in model_combs_plot if c in model_combs_cont]
+    # else:
+    #     metrics_plot = ['BSS', 'roc_auc_score']
+    #     model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
+    #                          ['LogisticRegression', 'RandomForestClassifier'],
+    #                          ['RandomForestClassifier', 'RandomForestClassifier']]
+    #     model_combs_plot = [c for c in model_combs_plot if c in model_combs_bina]
 
 
-    fc_month_list = [rg.fc_month for rg in rg_list]
-    target_options = [['Target', 'Target | PPS']]
-    print('Plotting skill scores')
-    for i, target_opt in enumerate(target_options):
-        fig, axes = plt.subplots(nrows=len(model_combs_plot), ncols=len(metrics_plot),
-                     figsize=(17,3.33*len(model_combs_plot)),
-                      # gridspec_kw={'width_ratios':[4,1]},
-                      sharex=True, sharey=False)
-        if len(model_combs_plot) == 1: axes = axes.reshape(1, 2)
-        for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
+    # fc_month_list = [rg.fc_month for rg in rg_list]
+    # target_options = [['Target', 'Target | PPS']]
+    # print('Plotting skill scores')
+    # for i, target_opt in enumerate(target_options):
+    #     fig, axes = plt.subplots(nrows=len(model_combs_plot), ncols=len(metrics_plot),
+    #                  figsize=(17,3.33*len(model_combs_plot)),
+    #                   # gridspec_kw={'width_ratios':[4,1]},
+    #                   sharex=True, sharey=False)
+    #     if len(model_combs_plot) == 1: axes = axes.reshape(1, 2)
+    #     for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
 
 
-            print(model_name_CL, model_name, target_opt)
-            if 'RandomForest' in model_name:
-                name = 'RF'
-            elif model_name == 'Ridge' or model_name=='LogisticRegression':
-                name = 'Ridge' if fc_type =='continuous' else 'LR'
-            if 'RandomForest' in model_name_CL:
-                name_CL = 'RF'
-            elif model_name_CL == 'Ridge' or model_name=='LogisticRegression':
-                name_CL = 'Ridge' if fc_type =='continuous' else 'LR'
+    #         print(model_name_CL, model_name, target_opt)
+    #         if 'RandomForest' in model_name:
+    #             name = 'RF'
+    #         elif model_name == 'Ridge' or model_name=='LogisticRegression':
+    #             name = 'Ridge' if fc_type =='continuous' else 'LR'
+    #         if 'RandomForest' in model_name_CL:
+    #             name_CL = 'RF'
+    #         elif model_name_CL == 'Ridge' or model_name=='LogisticRegression':
+    #             name_CL = 'Ridge' if fc_type =='continuous' else 'LR'
 
-            out = utils_paper3.load_scores(target_opt, model_name_CL, model_name,
-                                           n_boot, filepath_df_datas,
-                                           condition='strong 50%')[:2]
-            df_scores_list, df_boot_list = out
+    #         out = utils_paper3.load_scores(target_opt, model_name_CL, model_name,
+    #                                        n_boot, filepath_df_datas,
+    #                                        condition='strong 50%')[:2]
+    #         df_scores_list, df_boot_list = out
 
 
-            fig = utils_paper3.plot_scores_wrapper(df_scores_list, df_boot_list,
-                                                 labels=target_opt,
-                                                 metrics_plot=metrics_plot,
-                                                 fig_ax = (fig, axes[j]))
-            axes[j,0].set_ylabel(f'{name_CL} -> {name}', fontsize=18)
-            # axes[j].set_xlabel('Forecast month', fontsize=18)
-            # title = f'Target fitted: {nameTarget_fit} with CL {model_name_CL} '\
-            #         f'model & final {name} model'
-            # fig.suptitle(title, y=.95, fontsize=18)
-            fig.subplots_adjust(wspace=.2)
-            fig.subplots_adjust(hspace=.3)
+    #         fig = utils_paper3.plot_scores_wrapper(df_scores_list, df_boot_list,
+    #                                              labels=target_opt,
+    #                                              metrics_plot=metrics_plot,
+    #                                              fig_ax = (fig, axes[j]))
+    #         axes[j,0].set_ylabel(f'{name_CL} -> {name}', fontsize=18)
+    #         # axes[j].set_xlabel('Forecast month', fontsize=18)
+    #         # title = f'Target fitted: {nameTarget_fit} with CL {model_name_CL} '\
+    #         #         f'model & final {name} model'
+    #         # fig.suptitle(title, y=.95, fontsize=18)
+    #         fig.subplots_adjust(wspace=.2)
+    #         fig.subplots_adjust(hspace=.3)
 
-        fig.savefig(os.path.join(filepath_verif,
-                                 f'scores_vs_lags_{i}.pdf'), bbox_inches='tight')
-        plt.close()
+    #     fig.savefig(os.path.join(filepath_verif,
+    #                              f'scores_vs_lags_{i}.pdf'), bbox_inches='tight')
+    #     plt.close()
 
 #%% collecting different train-test splits to plot scores vs training input
 # creating spreadsheet of BSS skill in overview.csv
@@ -1387,7 +1388,7 @@ for model, training_data, metric in combinations:
                                    n_boot, path,
                                    condition=f'strong {condition}')[:2]
     except:
-        print('path failed')
+        print('path for overview.csv failed')
         continue
     df_scores = out[0][0][pd.MultiIndex.from_product([lead_times, skill_metrics])]
     dict_lt = {l:round(df_scores.iloc[0,i],2) for i,l in enumerate(lead_times)}
