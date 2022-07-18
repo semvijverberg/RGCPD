@@ -420,7 +420,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         # SM.prec_labels = merge(SM, lonlatbox)
     if 'smi' in use_vars:
         if loaded==False:
-            if os.path.exist(os.path.join(rg.path_outsub1, load_SM+'.nc')):
+            if os.path.exists(os.path.join(rg.path_outsub1, load_SM+'.nc')):
                 os.remove(os.path.join(rg.path_outsub1, load_SM+'.nc'))
             SM.store_netcdf(rg.path_outsub1, load_SM, add_hash=False)
         SM.corr_xr['lag'] = ('lag', periodnames)
