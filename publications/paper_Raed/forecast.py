@@ -381,7 +381,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
 
     if 'sst' in use_vars:
         if loaded==False:
-            if os.path.exist(os.path.join(rg.path_outsub1, load_sst+'.nc')):
+            if os.path.exists(os.path.join(rg.path_outsub1, load_sst+'.nc')):
                 os.remove(os.path.join(rg.path_outsub1, load_sst+'.nc'))
             sst.store_netcdf(rg.path_outsub1, load_sst, add_hash=False)
         sst.prec_labels['lag'] = ('lag', periodnames)
@@ -470,8 +470,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
             return corr, pvals, keys_dict.copy()
 
 
-        regress_autocorr_SM = False
-        regress_SM_same_mon = False
+
         unique_keys = np.unique(['..'.join(k.split('..')[1:]) for k in rg.df_data.columns[1:-2]])
         # select the causal regions from analysys in Causal Inferred Precursors
         print('Start Causal Inference')
@@ -479,16 +478,12 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         for counter, k in enumerate(unique_keys):
             progress = int(100 * (counter+1) / len(unique_keys))
             print(f"\rProgress {progress}%", end="")
+            # exclude set of all features, excl. k and any lag shifted
+            # timeseries of k
             z_keys = [z for z in rg.df_data.columns[1:-2] if k not in z]
 
             for mon in periodnames:
                 keys = [mon+ '..'+k]
-                if regress_autocorr_SM and 'sm' in k:
-                    z_keys = [z for z in rg.df_data.columns[1:-2] if keys[0] not in z]
-                if regress_SM_same_mon==False:
-                    z_keys = [k for k in z_keys if f'{mon}..0..smi' not in k]
-
-
                 if keys[0] not in rg.df_data.columns:
                     continue
                 out = feature_selection_CondDep(rg.df_data.copy(), keys=keys,
