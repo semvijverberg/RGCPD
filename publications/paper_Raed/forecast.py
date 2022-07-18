@@ -1527,7 +1527,7 @@ for fc_type, condition in plot_combs:
     for root, dirs, files in os.walk(path):
         for _dir in dirs:
             if re.match(f'{hash_str}', _dir):
-                print(f'Found file {_dir}')
+                print(f'Found directory {_dir}')
                 f_names.append(os.path.join(root,_dir))
 
     if fc_type == 'continuous':
