@@ -87,7 +87,7 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
                     ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'minor_revision')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_areaw') # areaw
 # path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
 
 
@@ -1170,7 +1170,7 @@ for fc_type in fc_types:
 
     #%% Plotting forecast timeseries
 
-    import utils_paper3
+    # import utils_paper3
     if fc_type == 'continuous':
         metrics_plot = ['corrcoef', 'MAE', 'r2_score']
         model_combs_plot  = [['Ridge', 'Ridge'],
@@ -1356,12 +1356,12 @@ for fc_type in fc_types:
 
 condition = 50
 models = ['LogisticRegression', 'RandomForestClassifier']
-training_datas = ['onelag', 'all', 'all_CD']
+training_datas = ['onelag', 'all', 'all_CD', 'climind']
 skill_metrics = ['BSS']
 nicenames = {'onelag':'only lag 1 RG-DR precursors',
              'all': 'all RG-DR precursors',
              'all_CD':'all C.D. precursors',
-             'CL':'CL predictions based on C.D. precursors',
+             'climind':'Climate Indices (PDO+ENSO34)',
              'LogisticRegression': 'Regularized Logistic Regr.',
              'RandomForestClassifier': 'Random Forest Classifier'}
 combinations = np.array(np.meshgrid(models,
@@ -1379,32 +1379,22 @@ for model, training_data, metric in combinations:
 
     path = os.path.join(rg.path_outsub1,
                         f'df_data_{str(fc_type)}{btoos}')
-    if training_data != 'CL':
-        path  += '_'+training_data
+
+    path  += '_'+training_data
     try:
         out = utils_paper3.load_scores(['Target'], model,
                                    model,
                                    n_boot, path,
                                    condition=f'strong {condition}')[:2]
     except:
+        print('path failed')
         continue
     df_scores = out[0][0][pd.MultiIndex.from_product([lead_times, skill_metrics])]
     dict_lt = {l:round(df_scores.iloc[0,i],2) for i,l in enumerate(lead_times)}
     dict_lt['Mean'] = round(df_scores.values.mean(), 2)
 
-    # use combined lead time model for (final) prediction
-    if training_data == 'CL':
-        filepath_dfs = os.path.join(path,
-                                    f'CL_models_cont{model}.h5')
-        df_data_CL = functions_pp.load_hdf5(filepath_dfs)
-        df_data_CL = {m+'_df_data':df_data_CL[m+'_df_data'] for m in lead_times}
-        n_features = []
-        for key, item in df_data_CL.items():
-            total = (~(item.mean(level=0).isna())).sum().iloc[:-2].sum()
-            n_features.append(total/rg.n_spl)
-
     # use all RG-DR timeseries for (final) prediction
-    elif training_data == 'all':
+    if training_data == 'all':
         n_features = []
         for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
             total = (~rg.df_data.iloc[:,1:-2].groupby(axis=0, level=0).mean().isna()).sum().sum()
@@ -1502,38 +1492,7 @@ f.savefig(os.path.join(rg.path_outsub1, 'Target_vs_Pac_ts'+rg.figext),
 # f.savefig(os.path.join(rg.path_outsub1, 'Pacific_model_vs_Pacific_mean'+rg.figext),
 #           bbox_inches='tight')
 
-#%% Plot regions
 
-import utils_paper3
-utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
-                            selection='CD')
-
-utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
-                            selection='all')
-
-utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
-                           selection='CD', min_cd = 0.5)
-
-plt.close()
-
-
-utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
-                          selection='ind')
-
-
-utils_paper3.plot_regions(rg_list[:1], save=True, plot_parcorr=False, min_detect=.1,
-                          selection='all', plot_textinmap=False)
-
-plt.close()
-#%%
-
-utils_paper3.plot_regions(rg_list[-2:-1], save=False, plot_parcorr=False, min_detect=.1,
-                          selection='all', plot_textinmap=False)
-
-#%%
-
-utils_paper3.plot_regions(rg_list[-2:-1], save=True, plot_parcorr=False, min_detect=.1,
-                          selection='CD', plot_textinmap=False, min_cd = 0.3)
 
 #%%
 
@@ -1707,7 +1666,41 @@ for fc_type, condition in plot_combs:
 
 
 
+#%% Plot regions
+if training_data == 'climind':
+    sys.exit()
+else:
+    pass
+    # import utils_paper3
+    utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
+                                selection='CD')
 
+    utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
+                                selection='all')
+
+    utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
+                               selection='CD', min_cd = 0.5)
+
+    plt.close()
+
+
+    utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
+                              selection='ind')
+
+
+    utils_paper3.plot_regions(rg_list[:1], save=True, plot_parcorr=False, min_detect=.1,
+                              selection='all', plot_textinmap=False)
+
+    plt.close()
+
+
+    utils_paper3.plot_regions(rg_list[-2:-1], save=False, plot_parcorr=False, min_detect=.1,
+                              selection='all', plot_textinmap=False)
+
+
+
+    utils_paper3.plot_regions(rg_list[-2:-1], save=True, plot_parcorr=False, min_detect=.1,
+                              selection='CD', plot_textinmap=False, min_cd = 0.3)
 
 #%%
 if 'timeseries' in method:
@@ -1754,7 +1747,7 @@ for rg in rg_list:
     ax.text(8.6,0.75, 'High skill')
     ax.set_title('AUC-ROC score as function of time')
     filepath_rollingmean = os.path.join(filepath_verif, 'rolling_mean_skill')
-    os.makedirs(filepath_rollingmean, exist_ok=True)
+    os.makedirs(filepath_rollingmean, _ok=True)
     f.savefig(os.path.join(filepath_rollingmean,
                            f'rolling_mean_score_{model_name}_{rg.fc_month}'+rg.figext))
     plt.close()
