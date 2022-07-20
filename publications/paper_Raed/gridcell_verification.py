@@ -78,7 +78,7 @@ load = 'all'
 save = True
 # training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
 fc_types = [0.33, 'continuous']
-fc_types = [0.25]
+fc_types = [0.5]
 
 model_combs_cont = [['Ridge', 'Ridge'],
                     ['Ridge', 'RandomForestRegressor'],
