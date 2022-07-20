@@ -712,9 +712,10 @@ def NaN_handling(data, inter_method: str='spline', order=2, inter_NaN_limit: flo
         NaN_mask = np.isnan(data).sum(0) >= missing_data_ts_to_nan * orig_shape[0]
     elif type(missing_data_ts_to_nan) is int: # not allowed more then int NaNs
         NaN_mask = np.isnan(data).sum(0) >= missing_data_ts_to_nan
+    elif missing_data_ts_to_nan == True:
+        NaN_mask = np.isnan(data).any(axis=0) # mask if any NaN is present in ts
     else:
-        # NaN_mask = np.isnan(data).all(axis=0) # Only mask NaNs every timestep
-        NaN_mask = np.isnan(data).sum(axis=0) == orig_shape[0]
+        NaN_mask = np.isnan(data).all(axis=0) # mask when all datapoints are NaN
     data[:,NaN_mask] = np.nan
 
     # interpolating NaNs

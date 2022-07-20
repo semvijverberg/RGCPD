@@ -1311,6 +1311,8 @@ def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
                                 detrend_ts[mask].std()
             if mask[mask].size >= min_length:
                 newdata[:,x,y] = detrend_ts
+
+            # plotting
             if i % icount == 0 : #or i+1 == xy.shape[0] and s==0:
                 progress = int(100*(i+1)/xy.shape[0])
                 print(f"\rProgress {progress}%", end="")

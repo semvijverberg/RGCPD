@@ -17,6 +17,7 @@ else:
 
 import numpy as np
 import cartopy.crs as ccrs ; import matplotlib.pyplot as plt
+import cartopy.feature as cfeature
 import pandas as pd
 from joblib import Parallel, delayed
 import argparse
@@ -77,7 +78,7 @@ load = 'all'
 save = True
 # training_data = 'onelag' # or 'all_CD' or 'onelag' or 'all'
 fc_types = [0.33, 'continuous']
-fc_types = [0.33]
+fc_types = [0.25]
 
 model_combs_cont = [['Ridge', 'Ridge'],
                     ['Ridge', 'RandomForestRegressor'],
@@ -169,7 +170,7 @@ append_pathsub = f'/{method}/s{seed}'
 extra_lag = True
 
 append_main = target_dataset
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_areaw')
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
     path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
 elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
@@ -306,7 +307,7 @@ output_detrended_gridded = os.path.join(output_detrended_gridded,
 if os.path.exists(output_detrended_gridded) == False:
 
     # load gridded raw soy yield data
-    kwrgs_NaN_handling={'missing_data_ts_to_nan':False,
+    kwrgs_NaN_handling={'missing_data_ts_to_nan':True,
                         'extra_NaN_limit':False,
                         'inter_method':False,
                         'final_NaN_to_clim':False}
@@ -398,4 +399,41 @@ df_skill = pd.DataFrame(skill_dict).T.rename({0:'AUC'}, axis=1)
 df_skill.index.set_names(['latitude', 'longitude'], inplace=True)
 xarray_skill = df_skill.to_xarray()
 
-xarray_skill['AUC'].plot(vmin=0.5, vmax=0.75)
+xarray_skill['AUC'].plot()
+#%%
+
+cmp = ["ade8f4","e9d8a6","ffba08","e36414","9d0208","370617"]
+cmp = plot_maps.get_continuous_cmap(cmp,
+                float_list=list(np.linspace(0,1,6)))
+
+
+metric_rename = {'BSS'              : 'Brier Skill Score',
+                 'roc_auc_score'    : 'AUC-ROC',
+                 'precision'        : 'Precision',
+                 'accuracy'         : 'Accuracy'}
+metric = 'roc_auc_score'
+clevels = np.arange(.5, 1.01, .1)
+
+fg = plot_maps.plot_corr_maps(xarray_skill['AUC'],
+                              hspace=-0.3, wspace=.1, clevels=clevels,
+                              cbar_vert=-.1, units=metric_rename[metric],
+                              clabels=clevels,
+                              cmap=cmp,
+                              zoomregion=(253,290,28,52),
+                              subtitles=False,
+                              x_ticks=np.array([260,270,280]),
+                              y_ticks=np.array([32, 37, 42, 47]),
+                              kwrgs_cbar = {'orientation':'horizontal'},
+                              cbar_tick_dict = {'labelsize'     : 14})
+
+
+facecolorocean = '#caf0f8' ; facecolorland='white'
+for ax in fg.fig.axes[:-1]:
+    ax.add_feature(cfeature.STATES, zorder=2, linewidth=.3, edgecolor='black')
+    ax.add_feature(plot_maps.cfeature.__dict__['LAND'],
+                    facecolor=facecolorland,
+                    zorder=0)
+    ax.add_feature(plot_maps.cfeature.__dict__['OCEAN'],
+                    facecolor=facecolorocean,
+                    zorder=0)
+

@@ -338,7 +338,7 @@ class RGCPD:
         Options for method:
         (1) random_{int:
             Random k-fold CV, {int} determines the # of folds.
-        (2) ranstrat_{int} :
+        (2) ranstrat_{int}:
             Stratified k-fold, stratified based upon events, requires
             kwrgs_events.
         (3) leave_{int}:
