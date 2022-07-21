@@ -366,7 +366,7 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
         label_obs = 'Observed'
 
     # plot observed
-    ax0u.plot_date(df_test.index, df_test.iloc[:,0], ls='--',
+    ax0u.plot_date(df_test.index, df_test.iloc[:,0], ls='-',
                    label=label_obs, c='black', #marker='o',
                    markersize=5, zorder=1)
     # ax0u.plot(df_test.index, df_test.iloc[:,0], ls='-')
@@ -444,31 +444,31 @@ def plot_forecast_ts(df_test_m, df_test, df_forcings=None, df_boots_list=None,
     elif len(df_test_m) == 3:
         table.scale(1.1, 2.8)
 
-    # color text BSS
-    shadesgr = ["90a955","4f772d","31572c","132a13"]
-    lin = np.round(np.linspace(0,1,5),2) ; sBSS = (lin[1]-lin[0])/2
-    ct_BSS = {lin[i]+sBSS:shadesgr[i] for i in range(4)}
-    base_ACC = 100 * (0.66*0.66) + (0.33 * 0.33)
-    lin = np.round(np.linspace(base_ACC, 100, 5), 1) ; sACC = (lin[1]-lin[0])/2
-    ct_ACC = {lin[i]+sACC:shadesgr[i] for i in range(4)}
-    lin = np.round(np.linspace(33, 100, 5), 1) ; sPrec = (lin[1]-lin[0])/2
-    ct_Prec  = {lin[i]+sPrec:shadesgr[i] for i in range(4)}
-    combs_table = np.array(np.meshgrid(range(len(df_test_m)),
-                                        range(len(metrics_plot)))).T.reshape(-1,2)
-    for r,c in combs_table:
-        val = tsc[r,c] ; colt = []
-        if metrics_plot[r] == 'BSS':
-            colt = [c for v,c in ct_BSS.items() if np.isclose(val,v, atol=sBSS)]
-        elif metrics_plot[r] == 'accuracy':
-            colt = [c for v,c in ct_ACC.items() if np.isclose(val,v, atol=sACC)]
-        elif metrics_plot[r] == 'precision':
-            colt = [c for v,c in ct_Prec.items() if np.isclose(val,v, atol=sPrec)]
-        if len(colt)==0:
-            colt = "ae2012" # no positive skill: color red
-        else:
-            colt = colt[0]
+    # # color text table. skipped upon reviewers request
+    # shadesgr = ["90a955","4f772d","31572c","132a13"]
+    # lin = np.round(np.linspace(0,1,5),2) ; sBSS = (lin[1]-lin[0])/2
+    # ct_BSS = {lin[i]+sBSS:shadesgr[i] for i in range(4)}
+    # base_ACC = 100 * (0.66*0.66) + (0.33 * 0.33)
+    # lin = np.round(np.linspace(base_ACC, 100, 5), 1) ; sACC = (lin[1]-lin[0])/2
+    # ct_ACC = {lin[i]+sACC:shadesgr[i] for i in range(4)}
+    # lin = np.round(np.linspace(33, 100, 5), 1) ; sPrec = (lin[1]-lin[0])/2
+    # ct_Prec  = {lin[i]+sPrec:shadesgr[i] for i in range(4)}
+    # combs_table = np.array(np.meshgrid(range(len(df_test_m)),
+    #                                     range(len(metrics_plot)))).T.reshape(-1,2)
+    # for r,c in combs_table:
+    #     val = tsc[r,c] ; colt = []
+    #     if metrics_plot[r] == 'BSS':
+    #         colt = [c for v,c in ct_BSS.items() if np.isclose(val,v, atol=sBSS)]
+    #     elif metrics_plot[r] == 'accuracy':
+    #         colt = [c for v,c in ct_ACC.items() if np.isclose(val,v, atol=sACC)]
+    #     elif metrics_plot[r] == 'precision':
+    #         colt = [c for v,c in ct_Prec.items() if np.isclose(val,v, atol=sPrec)]
+    #     if len(colt)==0:
+    #         colt = "ae2012" # no positive skill: color red
+    #     else:
+    #         colt = colt[0]
 
-        table[(r+1, c)].get_text().set_color('#'+colt)
+    #     table[(r+1, c)].get_text().set_color('#'+colt)
 
 
 
@@ -914,8 +914,8 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
 
     def get_map_rg(rg, ip, ir=0, textinmap=[], min_detect=.5):
 
-        month_d = {'AS':'Aug-Sep mean', 'JJ':'July-June mean',
-                   'JA':'July-June mean','MJ':'May-June mean',
+        month_d = {'AS':'Aug-Sep mean', 'JJ':'June-July mean',
+                   'JA':'July-Aug mean','MJ':'May-June mean',
                    'AM':'Apr-May mean',
                    'MA':'Mar-Apr mean', 'FM':'Feb-Mar mean',
                    'JF':'Jan-Feb mean', 'DJ':'Dec-Jan mean',
@@ -1242,7 +1242,7 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                                   clusmask.where(clusmask).values,
                                   vmin=0, vmax=1,
                                   transform=plot_maps.ccrs.PlateCarree(),
-                                  zorder=100, alpha=.25, cmap=cmp,
+                                  zorder=100, alpha=.4, cmap=cmp,
                                   rasterized=False)
                                   # color=)
 
@@ -1280,7 +1280,7 @@ def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
     n_plots = 40 ; icount = int(xy.shape[0] / n_plots)
 
     # standardize plot
-    f1, ax1 = plt.subplots(figsize=(5,4)) ;
+    f1, ax1 = plt.subplots(figsize=(9,4)) ;
     # detrend plots
     f2, axes = plt.subplots(nrows=int(n_plots / 5), ncols=5, sharex=True) ;
     axes = axes.ravel()
@@ -1330,9 +1330,11 @@ def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
                     axes[idx].plot(timesteps, trend, lw=lw+.25, c=color,
                                    alpha=alpha)
                     axes[idx].tick_params(labelsize=7)
+                    axes[idx].set_ylim(1,4)
                     ax1.plot(timesteps, detrend_ts, lw=lw, alpha=alpha,
                              color=color, zorder=zorder)
                     ax1.tick_params(labelsize=12)
+
                     # if mask[mask].size < min_length and s==splits[-1]:
                     #     axes[idx].text(0.2,0.5, 'Too short',
                     #                    horizontalalignment='center',
@@ -1342,21 +1344,30 @@ def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
 
         newdata = xr.DataArray(newdata, coords=ds.coords, dims=ds.dims)
         splits_newdata.append(newdata)
+    axes[15].set_ylabel('Bushels/ha')
+    axes[-3].set_xlabel('Time [years]')
+    if df_splits is None:
+        axes[2].set_title(f'Detrending\nvisualized for {n_plots} spatially distributed gridcells', fontsize=14)
+    else:
+        axes[2].set_title(f'Out-of-sample detrending\nvisualized for {n_plots} spatially distributed gridcells', fontsize=14)
     print('\n')
     mean = newdata.mean(dim=('latitude', 'longitude'))
     ax1.plot(timesteps, mean, lw=2, alpha=alpha,
                              color='black', zorder=zorder)
+    ax1.set_ylabel('Standardized yield per gridcell [-]')
+    ax1.set_xlabel('Time [years]')
     if df_splits is not None:
         lines = [Line2D([0], [0], color='blue', lw=2),
                  Line2D([0], [0], color='red', lw=2),
                  Line2D([0], [0], color='black', lw=2)]
         nfirst = (df_splits.loc[0]['TrainIsTrue']==1).sum()
         nlast = (df_splits.loc[splits[-1]]['TrainIsTrue']==1).sum()
-        ax1.legend(lines, [f'First trainingset (n={nfirst})',
-                           f'Last trainingset (n={nlast})',
+        ax1.legend(lines, [f'First training dataset (n={nfirst})',
+                           f'Last training dataset (n={nlast})',
                            'Mean'], fontsize=12)
+        ax1.set_title(f'Out-of-sample standardization\nvisualized for {n_plots} spatially distributed gridcells')
     else:
-
+        ax1.set_title(f'Standardization\nvisualized for {n_plots} spatially distributed gridcells')
 
         lines = [Line2D([0], [0], color=color, lw=lw),
                  Line2D([0], [0], color='black', lw=2)]

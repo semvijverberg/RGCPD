@@ -51,7 +51,6 @@ from RGCPD.forecasting import func_models as fc_utils
 from RGCPD.forecasting.stat_models_cont import ScikitModel
 from RGCPD.forecasting import scikit_model_analysis as sk_ana
 from RGCPD import climate_indices
-from RGCPD import class_EOF
 import utils_paper3
 
 All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
@@ -70,7 +69,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = -1
+i_default = 0
 load = 'all'
 save = True
 fc_types = [0.33, 'continuous']
@@ -794,7 +793,7 @@ for fc_type in fc_types:
             quantile = np.zeros_like(target_ts)
             quantile[:] = theothreshold
         else:
-            _target_ts = target_ts.mean(0, level=1)
+            _target_ts = target_ts.groupby(axis=0, level=1).mean()
             _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
             quantile = float(_target_ts.quantile(fc_type))
         if fc_type >= 0.5:
@@ -887,7 +886,7 @@ for fc_type in fc_types:
                         quantile[:] = theothreshold
                     else:
                         # using all target data - mean over standardized-on-train
-                        _target_ts = _target_ts.mean(0, level=1)
+                        _target_ts = _target_ts.groupby(axis=0, level=1).mean()
                         _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
                         quantile = float(_target_ts.quantile(fc_type))
                     if fc_type >= 0.5:
@@ -1290,7 +1289,7 @@ for fc_type in fc_types:
 
             fig.savefig(os.path.join(filepath_verif,
                         f'timeseries_and_skill_{i}_{model_name_CL}_{model_name}.pdf'), bbox_inches='tight')
-            plt.close()
+            # plt.close()
     #%% plotting skill scores as function of lead-time
     # deprecated, only used for testing
     # import utils_paper3
@@ -1357,7 +1356,7 @@ for fc_type in fc_types:
 
 condition = 50
 models = ['LogisticRegression', 'RandomForestClassifier']
-training_datas = ['onelag', 'all', 'all_CD', 'climind']
+training_datas_overview = ['onelag', 'all', 'all_CD', 'climind']
 skill_metrics = ['BSS']
 nicenames = {'onelag':'only lag 1 RG-DR precursors',
              'all': 'all RG-DR precursors',
@@ -1366,22 +1365,22 @@ nicenames = {'onelag':'only lag 1 RG-DR precursors',
              'LogisticRegression': 'Regularized Logistic Regr.',
              'RandomForestClassifier': 'Random Forest Classifier'}
 combinations = np.array(np.meshgrid(models,
-                                    training_datas,
+                                    training_datas_overview,
                                     skill_metrics)).T.reshape(-1,3)
 lead_times = ['August', 'June', 'April', 'February']
 csvfilename = os.path.join(rg.path_outsub1, 'overview_skill.csv')
 if os.path.isfile(csvfilename): os.remove(csvfilename)
 
 f_names = []
-for model, training_data, metric in combinations:
+for model, training_data_overview, metric in combinations:
     dict_sum = {'model':nicenames[model],
-                'training input':nicenames[training_data],
+                'training input':nicenames[training_data_overview],
                 'metric':metric}
 
     path = os.path.join(rg.path_outsub1,
                         f'df_data_{str(fc_type)}{btoos}')
 
-    path  += '_'+training_data
+    path  += '_'+training_data_overview
     try:
         out = utils_paper3.load_scores(['Target'], model,
                                    model,
@@ -1395,19 +1394,19 @@ for model, training_data, metric in combinations:
     dict_lt['Mean'] = round(df_scores.values.mean(), 2)
 
     # use all RG-DR timeseries for (final) prediction
-    if training_data == 'all':
+    if training_data_overview == 'all':
         n_features = []
         for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
             total = (~rg.df_data.iloc[:,1:-2].groupby(axis=0, level=0).mean().isna()).sum().sum()
             n_features.append(total/rg.n_spl)
     # use all RG-DR timeseries that are C.D. for (final) prediction
-    elif training_data == 'all_CD':
+    elif training_data_overview == 'all_CD':
         n_features = []
         for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
             keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), alpha_CI)
             n_features.append(np.mean([len(v) for v in keys_dict.values()]))
     # use only fist lag of RG-DR timeseries that are C.D.
-    elif training_data == 'onelag':
+    elif training_data_overview == 'onelag':
         n_features = []
         for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
             firstlag = str(rg.list_for_MI[0].corr_xr.lag[-1].values)
@@ -1431,7 +1430,7 @@ for model, training_data, metric in combinations:
 
 
 #%% PDO versus trend line
-from RGCPD import climate_indices
+# from RGCPD import climate_indices
 _df_PDO, PDO_patterns = climate_indices.PDO(rg.list_for_MI[0].filepath,
                                            None)
 PDO_plot_kwrgs = {'units':'[-]', 'cbar_vert':-.1,
@@ -1672,36 +1671,37 @@ if training_data == 'climind':
     sys.exit()
 else:
     pass
-    # import utils_paper3
-    utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
-                                selection='CD')
+#%%
+import utils_paper3
+utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
+                            selection='CD')
 
-    utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
-                                selection='all')
+utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
+                            selection='all')
 
-    utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
-                               selection='CD', min_cd = 0.5)
+utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
+                           selection='CD', min_cd = 0.5)
 
-    plt.close()
-
-
-    utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
-                              selection='ind')
+plt.close()
 
 
-    utils_paper3.plot_regions(rg_list[:1], save=True, plot_parcorr=False, min_detect=.1,
-                              selection='all', plot_textinmap=False)
-
-    plt.close()
+utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detect=.1,
+                          selection='ind')
 
 
-    utils_paper3.plot_regions(rg_list[-2:-1], save=False, plot_parcorr=False, min_detect=.1,
-                              selection='all', plot_textinmap=False)
+utils_paper3.plot_regions(rg_list[:1], save=True, plot_parcorr=False, min_detect=.1,
+                          selection='all', plot_textinmap=False)
+
+plt.close()
+
+
+utils_paper3.plot_regions(rg_list[-2:-1], save=False, plot_parcorr=False, min_detect=.1,
+                          selection='all', plot_textinmap=False)
 
 
 
-    utils_paper3.plot_regions(rg_list[-2:-1], save=True, plot_parcorr=False, min_detect=.1,
-                              selection='CD', plot_textinmap=False, min_cd = 0.3)
+utils_paper3.plot_regions(rg_list[-2:-1], save=True, plot_parcorr=False, min_detect=.1,
+                          selection='CD', plot_textinmap=False, min_cd = 0.3)
 
 #%%
 if 'timeseries' in method:
