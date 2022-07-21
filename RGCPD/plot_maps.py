@@ -945,7 +945,7 @@ def labels_to_df(prec_labels, return_mean_latlon=True):
         labels = np.unique(prec_labels)[~np.isnan(np.unique(prec_labels))]
         mean_coords_area = np.zeros( (len(labels), 3))
         for i,l in enumerate(labels):
-            latlon = np.array(df[(df['prec_labels']==l).values].index)
+            latlon = np.array(df[(df.iloc[:,0]==l).values].index)
             latlon = np.array([list(l) for l in latlon])
             if latlon.size != 0:
                 mean_coords_area[i][:2] = np.median(latlon, 0)
