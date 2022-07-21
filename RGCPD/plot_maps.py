@@ -714,6 +714,8 @@ def _get_kwrgs_labels(prec_labels, kwrgs_plot={}, labelsintext=False):
         coords = [list(np.array(prec_labels[d], dtype=str)) for d in dims]
         if len(coords) == 1:
             coords.append(['fake'])
+        elif len(coords) == 0:
+            coords = ['fake', 'fake'] ; dims = ['fake']
         combs = np.array(np.meshgrid(coords[0], coords[1])).T.reshape(-1,2)
 
 
@@ -723,9 +725,12 @@ def _get_kwrgs_labels(prec_labels, kwrgs_plot={}, labelsintext=False):
             if c2 != 'fake':
                 idx2 = coords[1].index(c2)
                 labelsmap = prec_labels[idx1, idx2]
-            else:
+            elif c1 != 'fake' and c2 == 'fake':
                 idx2 = 0
                 labelsmap = prec_labels[idx1]
+            else:
+                idx1 = 0; idx2 = 0
+                labelsmap = prec_labels
 
             df_labelloc = labels_to_df(labelsmap,
                                        return_mean_latlon=True)
@@ -941,11 +946,12 @@ def show_field_point(field, i=None, lat=None, lon=None):
 def labels_to_df(prec_labels, return_mean_latlon=True):
     dims = [d for d in prec_labels.dims if d not in ['latitude', 'longitude']]
     df = prec_labels.mean(dim=tuple(dims)).to_dataframe().dropna()
+    label_coord = [c for c in df.columns if 'label' in c][0]
     if return_mean_latlon:
         labels = np.unique(prec_labels)[~np.isnan(np.unique(prec_labels))]
         mean_coords_area = np.zeros( (len(labels), 3))
         for i,l in enumerate(labels):
-            latlon = np.array(df[(df.iloc[:,0]==l).values].index)
+            latlon = np.array(df[(df[label_coord]==l).values].index)
             latlon = np.array([list(l) for l in latlon])
             if latlon.size != 0:
                 mean_coords_area[i][:2] = np.median(latlon, 0)

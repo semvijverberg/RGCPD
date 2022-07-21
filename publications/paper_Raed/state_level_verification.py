@@ -140,7 +140,7 @@ if method == 'leave_1': append_pathsub += 'gp_prior_1_after_1'
 
 
 
-path_in_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
+path_in_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_areaw')
 path_in_main = os.path.join(path_in_main, 'a9943')
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'STATES')
 os.makedirs(path_out_main, exist_ok=True)
@@ -656,7 +656,7 @@ metrics = ['BSS', 'roc_auc_score', 'precision']
 cmp = ["ade8f4","e9d8a6","ffba08","e36414","9d0208","370617"]
 cmp = plot_maps.get_continuous_cmap(cmp,
                 float_list=list(np.linspace(0,1,6)))
-for metric in metrics:
+for metric in metrics[:1]:
     extend  = 'min'
     if metric == 'BSS':
         clevels = np.arange(0, .51, .1) ; extend = 'both'
@@ -716,9 +716,9 @@ for metric in metrics:
                                       width=2,
                                       headwidth=6, headlength=8),
                      **kwrgs_text)
-        s = 'numbers show % of total production 2015-2019'
-        ax0.text(256.5, 29.2, s, transform=ccrs.Geodetic(), fontsize=8.2,
-                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.5))
+        s = 'numbers show %\nof total production'
+        ax0.text(254, 29.2, s, transform=ccrs.Geodetic(), fontsize=12,
+                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.3))
 
     cbar = fg.fig.axes[-1]
     cbar.set_xlabel(metric_rename[metric], **{'fontsize':18, 'fontweight':'bold'})
