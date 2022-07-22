@@ -73,7 +73,7 @@ i_default = 1
 load = 'all'
 save = True
 fc_types = [0.33, 'continuous']
-fc_types = [0.33]
+fc_types = [0.25, 0.5]
 plt.rcParams['savefig.dpi'] = 300
 
 model_combs_cont = [['Ridge', 'Ridge'],
