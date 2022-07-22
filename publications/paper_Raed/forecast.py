@@ -69,7 +69,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 0
+i_default = 1
 load = 'all'
 save = True
 fc_types = [0.33, 'continuous']
@@ -1689,19 +1689,19 @@ utils_paper3.plot_regions(rg_list[::2], save=True, plot_parcorr=False, min_detec
                           selection='ind')
 
 
-utils_paper3.plot_regions(rg_list[:1], save=True, plot_parcorr=False, min_detect=.1,
-                          selection='all', plot_textinmap=False)
+# utils_paper3.plot_regions(rg_list[:1], save=True, plot_parcorr=False, min_detect=.1,
+#                           selection='all', plot_textinmap=False)
 
 plt.close()
 
 
-utils_paper3.plot_regions(rg_list[-2:-1], save=False, plot_parcorr=False, min_detect=.1,
-                          selection='all', plot_textinmap=False)
+# utils_paper3.plot_regions(rg_list[-2:-1], save=False, plot_parcorr=False, min_detect=.1,
+#                           selection='all', plot_textinmap=False)
 
 
 
-utils_paper3.plot_regions(rg_list[-2:-1], save=True, plot_parcorr=False, min_detect=.1,
-                          selection='CD', plot_textinmap=False, min_cd = 0.3)
+# utils_paper3.plot_regions(rg_list[-2:-1], save=True, plot_parcorr=False, min_detect=.1,
+#                           selection='CD', plot_textinmap=False, min_cd = 0.3)
 
 #%%
 if 'timeseries' in method:

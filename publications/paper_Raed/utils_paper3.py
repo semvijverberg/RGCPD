@@ -1185,8 +1185,16 @@ def plot_regions(rg_list, save, plot_parcorr=False, min_detect=0.5,
                 kwrgs_plot.update({'subtitle_fontdict':{'fontsize':24}})
 
             if plot_parcorr==False:
+                if ip == 1: # for SM make all labels 1 (as they are treated as such)
+                    CDlabels.values[~np.isnan(CDlabels.values)] = 1.
+                    kwrgs_plot_labels = kwrgs_plot.copy()
+                    kwrgs_plot_labels['cmap'] = "#064789"
+                    labelsintext = False
+                else:
+                    kwrgs_plot_labels = kwrgs_plot.copy()
+                    labelsintext = True
                 fg = plot_maps.plot_labels(CDlabels,
-                                      kwrgs_plot=kwrgs_plot, labelsintext=True)
+                                      kwrgs_plot=kwrgs_plot_labels, labelsintext=labelsintext)
                 if ip == 0:
                     facecolorocean = 'white' ; facecolorland='#ede0d4'
                 else:
