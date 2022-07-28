@@ -44,8 +44,8 @@ path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
 from RGCPD import RGCPD
 from RGCPD import BivariateMI
-import class_BivariateMI
-import plot_maps
+from RGCPD import class_BivariateMI
+from RGCPD import plot_maps
 # import func_models as fc_utils
 # import functions_pp, find_precursors
 # import wrapper_PCMCI
@@ -63,7 +63,7 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['smi']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['ranstrat_20', 'timeseriessplit_20', 'timeseriessplit_30', 'timeseriessplit_25', 'leave_1'] # ['ranstrat_20'] timeseriessplit_30
+methods = ['leave_1'] # ['ranstrat_20'] timeseriessplit_30
 feature_sel = [True]
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
@@ -129,8 +129,7 @@ subfoldername += append_pathsub
 if method.split('_')[0]=='leave':
     subfoldername += 'gp_prior_1_after_1'
 
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3',
-                             'fc_extra2lags')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'minor_revision')
 pathoutfull = os.path.join(path_out_main, subfoldername)
 
 PacificBox = (130,265,-10,60)
@@ -275,8 +274,8 @@ def pipeline(lags, periodnames, load=False):
     xr_mask['var'] = ('var', ['SM', 'z500'])
     xr_mask = xr_mask.sel(lag=periodnames[::-1])
 
-    month_d = {'AS':'Aug-Sep mean', 'JJ':'July-June mean',
-               'JA':'July-June mean','MJ':'May-June mean',
+    month_d = {'AS':'Aug-Sep mean', 'JJ':'June-July mean',
+               'JA':'July-Aug mean','MJ':'May-June mean',
                'AM':'Apr-May mean',
                'MA':'Mar-Apr mean', 'FM':'Feb-Mar mean',
                'JF':'Jan-Feb mean', 'DJ':'Dec-Jan mean',
@@ -290,13 +289,17 @@ def pipeline(lags, periodnames, load=False):
     # leadtime = intmon_d[rg.fc_month]
     # subtitles = [subtitles[i-1]+f' ({leadtime+i*2-1}-month lag)' for i in range(1,5)]
     kwrgs_plot = {'zoomregion':(170,355,15,80),
-                  'hspace':-.1, 'cbar_vert':.05,
+                  'hspace':-.1, 'cbar_vert':.1,
                   'subtitles':subtitles,
+                  'subtitle_fontdict':{'fontsize':24},
                   'clevels':np.arange(-0.8, 0.9, .1),
                   'clabels':np.arange(-.8,.9,.2),
-                  'units':'Correlation',
-                  'y_ticks':np.arange(15,75,15),
-                  'x_ticks':np.arange(150, 310, 30)}
+                  'units':'Correlation [-]',
+                  'y_ticks':False, # np.arange(15,75,15),
+                  'x_ticks':False,
+                  'kwrgs_cbar' : {'orientation':'horizontal',
+                                  'extend':'neither'},
+                  'cbar_tick_dict':{'labelsize':30}}
     fg = plot_maps.plot_corr_maps(xr_merge, xr_mask,
                                   col_dim='lag', row_dim='var', **kwrgs_plot)
     facecolorocean = '#caf0f8' ; facecolorland='white'
@@ -310,7 +313,7 @@ def pipeline(lags, periodnames, load=False):
 
     fg.fig.savefig(os.path.join(path_circ,
                                 f'SM_vs_circ_{rg.fc_month}'+rg.figext),
-                   bbox_inches='tight')
+                    bbox_inches='tight')
 
     # #%%
     # if hasattr(sst, 'prec_labels')==False and 'sst' in use_vars:

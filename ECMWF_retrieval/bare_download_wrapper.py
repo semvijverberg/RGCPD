@@ -48,9 +48,9 @@ if os.path.isdir(path_raw) == False : os.makedirs(path_raw)
 
 ex = dict(
      {'dataset'     :       dataset,
-     'grid_res'     :       2.5,
-     'startyear'    :       1979, # download startyear
-     'endyear'      :       2020, # download endyear
+     'grid_res'     :       2.0,
+     'startyear'    :       1959, # download startyear
+     'endyear'      :       2021, # download endyear
      'months'       :       list(range(1,12+1)), #downoad months
      # for monthly means of daily means, choose 'moda' or 'mnth'
      # for daily means choose 'oper' or 'enda' (for accumulations)
@@ -80,10 +80,10 @@ elif ex['dataset'] == 'era5':
 # See https://confluence.ecmwf.int/display/CKB/How+to+download+ERA5
 
 ex['vars']     =   [
-                    ['v300'],              # ['name_var1','name_var2', ...]
-                    ['v_component_of_wind'],    # ECMWF param ids
-                    ['pl'],             # Levtypes ('sfc' or 'pl')
-                    [['400','300','200']], # Vertical levels
+                    ['sst'],              # ['name_var1','name_var2', ...]
+                    ['sea_surface_temperature'],    # ECMWF param ids
+                    ['sfc'],             # Levtypes ('sfc' or 'pl')
+                    [[0]], # Vertical levels
                     ]
 
 for idx in range(len(ex['vars'][0]))[:]:

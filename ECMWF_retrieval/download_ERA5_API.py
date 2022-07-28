@@ -106,7 +106,7 @@ class Var_ECMWF_download():
         vclass.months   = [str(yr) for yr in ex['months']]
         vclass.days     = [str(yr) for yr in np.arange(1, 31+1E-9, dtype=int)]
         mon_as_int = (type(vclass.months[0]) is int or vclass.months[0].isnumeric())
-        if mon_as_int and vclass.startyear < 1979:
+        if mon_as_int and vclass.startyear < 1958:
             # for back extension ERA5, months should be written as text
             vclass.months = [mondict[int(monnum)] for monnum in vclass.months]
 
