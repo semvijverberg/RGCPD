@@ -17,7 +17,7 @@ local_script_dir = os.path.join(local_base_path, "Scripts/RGCPD/ECMWF_retrieval"
 # cluster_base_path = "/p/projects/climber3/atm_data/"
 cluster_base_path = "/scistor/ivm/data_catalogue/reanalysis/"
 
-cluster_script_dir = "/scistor/ivm/svg460/Scripts/RGCPD/ECMWF_retrieval"
+cluster_script_dir = "/scistor/ivm/svg460/surfdrive/Scripts/RGCPD/ECMWF_retrieval"
 
 
 
