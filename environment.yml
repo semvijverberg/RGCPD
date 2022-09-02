@@ -7,8 +7,6 @@ dependencies:
   - cartopy
   - cftime
   - conda
-  - cdsapi
-  - ecmwfapi
   - eofs
   - h5py
   - hdf4

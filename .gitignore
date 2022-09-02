@@ -19,3 +19,6 @@ RGCPD/__pycache__/
 clustering/__pycache__/
 df_analysis/df_analysis/__pycache__/
 forecasting/__pycache__/
+data/3ts*
+data/preprocessed
+output_lorentz

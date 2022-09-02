@@ -26,7 +26,6 @@ from scipy.optimize import curve_fit
 
 from . import core_pp
 
-flatten = lambda l: list(set([item for sublist in l for item in sublist]))
 flatten = lambda l: list(itertools.chain.from_iterable(l))
 
 def get_oneyr(dt_pdf_pds_xr, *args):
@@ -582,9 +581,9 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
         bins = np.insert(bins, bins.size, x)
     label_bins = xr.DataArray(bins, [xarray.coords['time'][:]], name='time')
     label_dates = xr.DataArray(xarray.time.values, [xarray.coords['time'][:]], name='time')
-    xarray['bins'] = label_bins
-    xarray['time_dates'] = label_dates
-    xarray = xarray.set_index(time=['bins','time_dates'])
+    # xarray['bins'] = label_bins
+    # xarray['time_dates'] = label_dates
+    # xarray = xarray.set_index(time=['bins','time_dates'])
 
     half_step = tfreq/2.
     newidx = np.arange(half_step, dates_tobin.size, tfreq, dtype=int)
@@ -593,13 +592,11 @@ def time_mean_bins(xr_or_df, tfreq=int, start_end_date=None, start_end_year=None
     # suppres warning for nans in field
     import warnings
     warnings.simplefilter("ignore", category=RuntimeWarning)
-    group_bins = xarray.groupby('bins', restore_coord_dims=True).mean(dim='time',
+    xarray = xarray.groupby(label_bins, restore_coord_dims=True).mean(dim='time',
                                skipna=True,
                                keep_attrs=True)
 
-
-    group_bins['bins'] = newdate.values
-    xarray = group_bins.rename({'bins' : 'time'})
+    xarray['time'] = newdate.values
     dates = pd.to_datetime(newdate.values)
     traintestgroups = traintestgroups[::tfreq]
     traintestgroups.index = dates

@@ -40,7 +40,9 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
                    col_dim='lag', clim='relaxed', hspace=-0.6, wspace=0.02,
                    size=2.5, cbar_vert=-0.01, units='units', cmap=None,
                    clevels=None, clabels=None, cticks_center=None,
-                   cbar_tick_dict: dict={}, drawbox=None, title=None,
+                   cbar_tick_dict: dict={},
+                   kwrgs_cbar = {'orientation':'horizontal', 'extend':'neither'},
+                   drawbox=None, title=None,
                    title_fontdict: dict=None, subtitles: np.ndarray=None,
                    subtitle_fontdict: dict=None, zoomregion=None,
                    aspect=None, n_xticks=5, n_yticks=3, x_ticks: Union[bool, np.ndarray]=None,
@@ -59,6 +61,7 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     # drawbox=None; subtitles=None; title=None; lat_labels=True; zoomregion=None
     # aspect=None; n_xticks=5; n_yticks=3; title_fontdict=None; x_ticks=None;
     # y_ticks=None; add_cfeature=None; textinmap=None; scatter=None; col_wrap=None
+    # kwrgs_cbar = {'orientation':'horizontal', 'extend':'neither'}
 
     if map_proj is None:
         cen_lon = int(corr_xr.longitude.mean().values)
@@ -294,7 +297,11 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
             if subtitles is not None:
                 if subtitle_fontdict is None:
                     subtitle_fontdict = dict({'fontsize' : 16})
-                g.axes[row,col].set_title(np.array(subtitles)[row,col],
+                if subtitles is not False:
+                    subtitle = np.array(subtitles)[row,col]
+                else:
+                    subtitle  = ''
+                g.axes[row,col].set_title(subtitle,
                                           fontdict=subtitle_fontdict,
                                           loc='center')
             # =============================================================================
@@ -384,16 +391,13 @@ def plot_corr_maps(corr_xr, mask_xr=None, map_proj=None, row_dim='split',
     if cticks_center is None:
         if clabels is None:
             clabels = clevels[::2]
-        plt.colorbar(im, cax=cbar_ax , orientation='horizontal', # norm=norm,
-                 label=clabel, ticks=clabels, extend='neither')
+        plt.colorbar(im, cax=cbar_ax,
+                     label=clabel, ticks=clabels, **kwrgs_cbar)
     else:
-        cbar = plt.colorbar(im, cbar_ax,
-                            orientation='horizontal', extend='neither',
-                            label=clabel)
-        cbar.set_ticks(clevels + 0.5)
-        cbar.set_ticklabels(np.array(clevels+1, dtype=int),
-                            update_ticks=True)
-        cbar.update_ticks()
+        cbar = plt.colorbar(im, cbar_ax, label=clabel, **kwrgs_cbar)
+        cbar.set_ticks(clevels[:-1] + 0.5)
+        cbar.set_ticklabels(np.array(clevels[1:], dtype=int))
+        # cbar.update_ticks()
     cbar_ax.tick_params(**cbar_tick_dict)
 
     if title is not None:
@@ -692,7 +696,7 @@ def plot_corr_vars_splits(dict_ds, df_sum, figpath, paramsstr, RV_name,
     #%%
     return
 
-def _get_kwrgs_labels(prec_labels, kwrgs_plot={}, labelsintext=True):
+def _get_kwrgs_labels(prec_labels, kwrgs_plot={}, labelsintext=False):
 
     # default dims such that I can use dims to ensure position textinmap
     if 'row_dim' not in kwrgs_plot.keys():
@@ -710,22 +714,30 @@ def _get_kwrgs_labels(prec_labels, kwrgs_plot={}, labelsintext=True):
         coords = [list(np.array(prec_labels[d], dtype=str)) for d in dims]
         if len(coords) == 1:
             coords.append(['fake'])
+        elif len(coords) == 0:
+            coords = ['fake', 'fake'] ; dims = ['fake']
         combs = np.array(np.meshgrid(coords[0], coords[1])).T.reshape(-1,2)
 
-        df_labelloc = labels_to_df(prec_labels.median(dim=tuple(dims)),
-                                   return_mean_latlon=True)
+
 
         for i, (c1, c2) in enumerate(combs):
             idx1 = coords[0].index(c1)
             if c2 != 'fake':
                 idx2 = coords[1].index(c2)
                 labelsmap = prec_labels[idx1, idx2]
-            else:
+            elif c1 != 'fake' and c2 == 'fake':
                 idx2 = 0
                 labelsmap = prec_labels[idx1]
+            else:
+                idx1 = 0; idx2 = 0
+                labelsmap = prec_labels
+
+            df_labelloc = labels_to_df(labelsmap,
+                                       return_mean_latlon=True)
 
             labels = np.unique(labelsmap)
             labels = labels[~np.isnan(labels)]
+
 
             if kwrgs_plot['col_dim'] == dims[0]:
                 rowdim = (idx2, idx1)
@@ -777,10 +789,12 @@ def plot_labels(prec_labels,
                 labelsintext=False):
 
     xrlabels = prec_labels.copy()
+    # if 'cmap' not in kwrgs_plot.keys():
+    #     # default cmap is plt.cm.tab20, which does not have more than 20 colours
+    #     xrlabels = xrlabels.where(~(xrlabels.values>20))
+
     kwrgs_labels = _get_kwrgs_labels(xrlabels, kwrgs_plot, labelsintext)
     xrlabels.values = prec_labels.values - 0.5
-
-
     return plot_corr_maps(xrlabels, **kwrgs_labels)
 
 def plot_corr_regions(ds, var, lag, filepath,
@@ -932,11 +946,12 @@ def show_field_point(field, i=None, lat=None, lon=None):
 def labels_to_df(prec_labels, return_mean_latlon=True):
     dims = [d for d in prec_labels.dims if d not in ['latitude', 'longitude']]
     df = prec_labels.mean(dim=tuple(dims)).to_dataframe().dropna()
+    label_coord = [c for c in df.columns if 'label' in c][0]
     if return_mean_latlon:
         labels = np.unique(prec_labels)[~np.isnan(np.unique(prec_labels))]
         mean_coords_area = np.zeros( (len(labels), 3))
         for i,l in enumerate(labels):
-            latlon = np.array(df[(df==l).values].index)
+            latlon = np.array(df[(df[label_coord]==l).values].index)
             latlon = np.array([list(l) for l in latlon])
             if latlon.size != 0:
                 mean_coords_area[i][:2] = np.median(latlon, 0)
