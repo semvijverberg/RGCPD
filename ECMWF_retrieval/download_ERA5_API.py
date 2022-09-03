@@ -32,6 +32,11 @@ accumulated_vars = ['total_precipitation', 'potential_evaporation', 'Runoff']
 # v_component_of_wind
 # u_component_of_wind
 # geopotential
+# sea_surface_temperature
+# volumetric_soil_water_layer_1
+# 2m_temperature
+
+
 mondict  =  {1: 'January',
              2: 'February',
              3: 'March',

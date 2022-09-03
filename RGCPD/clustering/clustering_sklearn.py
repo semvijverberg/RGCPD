@@ -5,21 +5,19 @@ Created on Wed Jan 1 2020
 
 @author: semvijverberg
 """
-import os
-# from optparse import Option
+
+
 from .. import core_pp, functions_pp, find_precursors, plot_maps
-# curr_dir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentframe()))) # script directory
-# main_dir = '/'.join(curr_dir.split('/')[:-1])
-# RGCPD_func = os.path.join(main_dir, 'RGCPD/')
-# if RGCPD_func not in sys.path:
-#     sys.path.append(RGCPD_func)
+
+import os
+from typing import Optional, Tuple, List, Dict # for nice documentation
 import numpy as np
 import sklearn.cluster as cluster
-
+import matplotlib.pyplot as plt
 import xarray as xr
 import uuid
 from itertools import product
-from typing import Optional, Tuple, List, Dict # for nice documentation
+
 
 try:
     from joblib import Parallel, delayed
@@ -56,6 +54,11 @@ def labels_to_latlon(time_space_3d : xr.DataArray, labels : np.ndarray, output_s
     xrspace : xarray.DataArray
         xarray with clustering labels as values, spatial points that are now in the mask are asigned value NaN
     '''
+    # apply mask if given
+    if mask2d is None: # no mask will be applied, all values set to True.
+        mask2d = time_space_3d.isel(time=0).copy()
+        mask2d.values = np.ones_like(mask2d)
+
     # chooses all coordinates for the first datetime of the data
     xrspace = time_space_3d[0].copy()
 
@@ -123,10 +126,14 @@ def skclustering(time_space_3d: xr.DataArray, mask2d: Optional[np.ndarray] = Non
         xrclustered = labels_to_latlon(time_space_3d, labels, output_space_time, indices_mask, mask2d)
         return xrclustered.values, results
 
-def create_vector(time_space_3d : xr.DataArray, mask2d : Optional[np.ndarray]):
+def create_vector(time_space_3d : xr.DataArray, mask2d: Optional[np.ndarray] = None):
     """
     Converts time, lat, lon xarray object to (space, time) numpy array for clustering spatial points.
     """
+    if mask2d is None: # no mask will be applied, all values set to True.
+        mask2d = time_space_3d.isel(time=0).copy()
+        mask2d.values = np.ones_like(mask2d)
+
     time_space_3d = time_space_3d.where(mask2d == True)
 
     # create mask for to-be-clustered time_space_3d
@@ -205,6 +212,7 @@ def sklearn_clustering(var_filename : str, mask : Optional[np.ndarray] = None,
     results: list of sklearn.cluster objects
     """
 
+    #%%
     if 'selbox' in kwrgs_load.keys():
         assert isinstance(kwrgs_load['selbox'], list), 'selbox is not a list'
         assert len(kwrgs_load['selbox']) == 4, \
@@ -326,6 +334,7 @@ def sklearn_clustering(var_filename : str, mask : Optional[np.ndarray] = None,
         xrclustered, results = skclustering(xarray, npmask,
                                             clustermethodkey=clustermethodkey,
                                             kwrgs=kwrgs_clust, dimension=dimension)
+        #%%
         return xrclustered, results
 
     # storing arbitrary metadata for spatial clustering
@@ -337,7 +346,6 @@ def sklearn_clustering(var_filename : str, mask : Optional[np.ndarray] = None,
 
     if dimension == 'temporal':
         return xr_temporal, results
-    # dimension == 'spatial'
     else:
         return xrclustered, results
 
@@ -350,9 +358,9 @@ def plot_params(xrclustered, figsize = (16, 11)):
     levels = np.linspace(265, 310, 46)
     nclusters = xrclustered.attrs['n_clusters']
     fig, axs = plt.subplots(nclusters, figsize = figsize)
-    for cluster in range(nclusters):
-        xrclustered[np.where(xrclustered['time']['cluster'] == cluster+1)].mean('time').plot(ax = axs[cluster], levels = levels)
-        axs[cluster].set_title('cluster label = {}'.format(cluster+1))
+    for i, clust in enumerate(range(nclusters)):
+        xrclustered[np.where(xrclustered['time']['cluster'] == clust+1)].mean('time').plot(ax = axs[i], levels = levels)
+        axs[i].set_title('cluster label = {}'.format(clust+1))
     fig.suptitle('Patterns for tfreq = {}, n_clusters = {}'.format(xrclustered.attrs['tfreq'], nclusters), size = 20)
 
 def dendogram_clustering(var_filename=str, mask=None, kwrgs_load={},

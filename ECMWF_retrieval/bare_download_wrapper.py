@@ -80,10 +80,10 @@ elif ex['dataset'] == 'era5':
 # See https://confluence.ecmwf.int/display/CKB/How+to+download+ERA5
 
 ex['vars']     =   [
-                    ['sst'],              # ['name_var1','name_var2', ...]
-                    ['sea_surface_temperature'],    # ECMWF param ids
-                    ['sfc'],             # Levtypes ('sfc' or 'pl')
-                    [[0]], # Vertical levels
+                    ['z500'],              # ['name_var1','name_var2', ...]
+                    ['geopotential'],    # ECMWF param ids
+                    ['pl'],             # Levtypes ('sfc' or 'pl')
+                    [['500', '200']], # Vertical levels
                     ]
 
 for idx in range(len(ex['vars'][0]))[:]:

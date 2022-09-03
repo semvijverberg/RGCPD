@@ -6,7 +6,6 @@ Created on Fri Apr 17 09:05:28 2020
 @author: semvijverberg
 """
 
-import multiprocessing
 from typing import Union
 
 import numpy as np
@@ -15,7 +14,6 @@ from sklearn.feature_selection import RFECV
 from sklearn.linear_model import LogisticRegressionCV
 from sklearn.model_selection import PredefinedSplit, StratifiedKFold
 
-max_cpu = multiprocessing.cpu_count()
 import itertools
 
 flatten = lambda l: list(itertools.chain.from_iterable(l))
