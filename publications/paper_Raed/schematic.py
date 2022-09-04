@@ -399,14 +399,15 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     #                     alpha=alpha_corr, FDR_control=True,
     #                     kwrgs_func={},
     #                     distance_eps=250, min_area_in_degrees2=3,
-    #                     calc_ts='pattern cov', selbox=GlobalBox,
+    #                     calc_ts='pattern cov', selbox=(155,355,10,80),
     #                     lags=lags, group_split=True,
     #                     use_coef_wghts=True)
 
     # z500.load_and_aggregate_precur(rg.kwrgs_load)
     # xrcorr, xrpvals = z500.bivariateMI_map(z500.precur_arr, df_splits,
     #                                       rg.df_fullts)
-    # plot_maps.plot_corr_maps(xrcorr, xrcorr['mask'])
+    # xrcorr, mask = rg._get_sign_splits_masked(xr_in=xrcorr, min_detect=.1, mask=xrcorr['mask'])
+    # plot_maps.plot_corr_maps(xrcorr, mask, wspace=0.02, subtitles=[periodnames], y_ticks=False, x_ticks=False, **kwrgs_plot)
 
     #%%
     if hasattr(SM, 'prec_labels')==False and 'smi' in use_vars:

@@ -827,7 +827,7 @@ class RGCPD:
             fig_path = os.path.join(self.path_outsub1, 'RV_clusters')
             plt.savefig(fig_path+self.figext, bbox_inches='tight')
 
-
+    @staticmethod
     def _get_sign_splits_masked(xr_in: xr.DataArray, min_detect=.5,
                                 mask: xr.DataArray=None):
 
