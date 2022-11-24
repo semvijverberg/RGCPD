@@ -30,7 +30,7 @@ import xarray as xr
 
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
-                      'surfdrive/Scripts/RGCPD/publications/paper_Raed/'))
+                      'surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/'))
 curr_dir = os.path.join(user_dir, 'surfdrive/Scripts/RGCPD/RGCPD/')
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')
@@ -48,7 +48,7 @@ if cluster_func not in sys.path:
 
 # path to raw Soy Yield dataset
 if sys.platform == 'linux':
-    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/'
+    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/data/'
 else:
     root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
@@ -246,7 +246,7 @@ selbox = [253,290,28,52] ; years = list(range(1975, 2020))
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/'
+    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/data/'
 else:
     root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
@@ -737,10 +737,10 @@ print(f'Percentage good BSS: {percentage_bss}')
 potential_predictable_states = ['MISSOURI', 'KENTUCKY', 'ALABAMA', 'TENNESSEE',
                                 'IOWA', 'INDIANA', 'OHIO']
 precentage_auc = total[potential_predictable_states].sum() / total.sum()
-print(f'Percentage good AUG: {precentage_auc}')
+print(f'Percentage good AUC: {precentage_auc}')
 
 #%% Comparing gridded versus csv dataset
 # gridded: /Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/masked_rf_gs_county_grids.nc
-# csv: /Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/masked_rf_gs_state_USDA.csv
+# csv: /Users/semvijverberg/surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/data/masked_rf_gs_state_USDA.csv
 
 

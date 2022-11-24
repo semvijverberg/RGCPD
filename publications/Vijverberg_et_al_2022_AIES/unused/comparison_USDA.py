@@ -5,7 +5,7 @@ Created on Wed May 26 09:59:06 2021
 
 @author: semvijverberg
 """
-#%%
+#%% Only for internal use, we found an initial error and fixed it. deprecated.
 import os, sys
 import matplotlib.pyplot as plt
 import pandas as pd

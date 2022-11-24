@@ -25,7 +25,7 @@ import xarray as xr
 
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
-                      'surfdrive/Scripts/RGCPD/publications/paper_Raed/'))
+                      'surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/'))
 curr_dir = os.path.join(user_dir, 'surfdrive/Scripts/RGCPD/RGCPD/')
 main_dir = '/'.join(curr_dir.split('/')[:-2])
 RGCPD_func = os.path.join(main_dir, 'RGCPD')

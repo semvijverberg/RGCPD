@@ -27,19 +27,14 @@ from sklearn.linear_model import LinearRegression
 
 user_dir = os.path.expanduser('~')
 os.chdir(os.path.join(user_dir,
-                      'surfdrive/Scripts/RGCPD/publications/paper_Raed/'))
+                      'surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/'))
 curr_dir = os.path.join(user_dir, 'surfdrive/Scripts/RGCPD/RGCPD/')
 main_dir = '/'.join(curr_dir.split('/')[:-2])
-RGCPD_func = os.path.join(main_dir, 'RGCPD')
-assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
-cluster_func = os.path.join(main_dir, 'clustering/')
-fc_dir = os.path.join(main_dir, 'forecasting')
 
-if cluster_func not in sys.path:
+
+if main_dir not in sys.path:
     sys.path.append(main_dir)
-    sys.path.append(RGCPD_func)
-    sys.path.append(cluster_func)
-    sys.path.append(fc_dir)
+
 
 path_raw = user_dir + '/surfdrive/ERA5/input_raw'
 
@@ -141,16 +136,16 @@ def read_csv_State(path, State: str=None, col='obs_yield'):
 
 # path to raw Soy Yield dataset
 if sys.platform == 'linux':
-    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/'
+    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/data/'
 else:
     root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
 
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters':
-    TVpath = os.path.join(main_dir, 'publications/paper_Raed/clustering/linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
+    TVpath = os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/clustering/linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'Aggregate_States':
-    path =  os.path.join(main_dir, 'publications/paper_Raed/data/masked_rf_gs_state_USDA.csv')
+    path =  os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/data/masked_rf_gs_state_USDA.csv')
     States = ['KENTUCKY', 'TENNESSEE', 'MISSOURI', 'ILLINOIS', 'INDIANA']
     TVpath = read_csv_State(path, State=States, col='obs_yield').mean(1)
     TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=['KENTUCKYTENNESSEEMISSOURIILLINOISINDIANA'])
