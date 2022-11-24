@@ -203,6 +203,8 @@ def create_mask(da, level='Continents', path=None):
 
     if path is None:
         folder_file = get_download_path()
+    else:
+        folder_file = path
 
     mask_dir = os.path.join(folder_file, 'masks')
     if os.path.isdir(mask_dir) != True : os.makedirs(mask_dir)

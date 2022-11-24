@@ -27,14 +27,12 @@ if cluster_func not in sys.path:
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/data/'
-else:
-    root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
 
-path_outmain = user_dir+'/surfdrive/Scripts/RGCPD/publications/paper_Raed/clustering'
+root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/data/'
+path_outmain = user_dir+'/surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/clustering'
 
-import plot_maps, core_pp, functions_pp
-import clustering_spatial as cl
+from RGCPD import plot_maps, core_pp, functions_pp
+from RGCPD.clustering import clustering_spatial as cl
 
 #%% Soy bean GDHY
 apply_mask_nonans = True
@@ -89,10 +87,11 @@ ano.to_netcdf(var_filename)
 
 #%%
 
-import make_country_mask
+from RGCPD.clustering import make_country_mask
 import cartopy.feature as cfeature
 var_filename = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/masked_rf_gs_county_grids_pp.nc'
-xr_States, States = make_country_mask.create_mask(var_filename, kwrgs_load={}, level='US_States')
+da = core_pp.import_ds_lazy(var_filename)
+xr_States, States = make_country_mask.create_mask(da, level='US_States', path=path_outmain)
 xr_States = xr_States.where(xr_States.values != -1)
 
 #%% Get colormap
