@@ -65,14 +65,13 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
 i_default = 1
-load = False
+load = 'all'
 save = True
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
 plt.rcParams['savefig.dpi'] = 300
 
 model_combs_cont = [['Ridge', 'Ridge'],
-                    ['Ridge', 'RandomForestRegressor'],
                     ['RandomForestRegressor', 'RandomForestRegressor']]
 # model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 
