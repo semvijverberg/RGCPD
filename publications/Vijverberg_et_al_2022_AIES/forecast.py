@@ -11,7 +11,7 @@ import os, inspect, sys
 import matplotlib as mpl
 if sys.platform == 'linux':
     mpl.use('Agg')
-    n_cpu = 5
+    n_cpu = 8
 else:
     n_cpu = 3
 
@@ -65,7 +65,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
 i_default = 1
-load = 'maps'
+load = False
 save = True
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
