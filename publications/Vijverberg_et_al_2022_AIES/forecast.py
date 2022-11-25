@@ -81,7 +81,7 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 #                    ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'minor_revision') # fc_areaw
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'final_accepted') # fc_areaw
 # path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
 
 
@@ -145,8 +145,8 @@ if target_dataset.split('__')[0] == 'USDA_Soy_clusters':
     # plug in the path_stored_cluster (stored by running clustering_soybean.py)
     # TV refers to Target Variable
     # TVpath = path_stored_cluster
-    # TVpath = os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/clustering/linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
-    TVpath = os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/clustering/linkage_ward_nc2_dendo_4ad10.nc')
+    TVpath = os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/clustering/linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
+    # TVpath = os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/clustering/linkage_ward_nc2_dendo_4ad10.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'Aggregate_States':
     path =  os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/data/masked_rf_gs_state_USDA.csv')
