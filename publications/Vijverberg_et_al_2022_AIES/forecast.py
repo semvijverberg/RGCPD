@@ -65,7 +65,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
 i_default = 1
-load = 'all'
+load = 'maps'
 save = True
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
@@ -77,8 +77,8 @@ model_combs_cont = [['Ridge', 'Ridge'],
 # model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 
 
-model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
-                    ['RandomForestClassifier', 'RandomForestClassifier']]
+model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
+#                    ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'minor_revision') # fc_areaw
@@ -146,7 +146,7 @@ if target_dataset.split('__')[0] == 'USDA_Soy_clusters':
     # TV refers to Target Variable
     # TVpath = path_stored_cluster
     # TVpath = os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/clustering/linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
-    TVpath = os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/clustering/linkage_ward_nc2_dendo_interp_6086d.nc')
+    TVpath = os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/clustering/linkage_ward_nc2_dendo_4ad10.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'Aggregate_States':
     path =  os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/data/masked_rf_gs_state_USDA.csv')
@@ -444,6 +444,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         rg.df_corr  = df_output['df_corr']
     else:
         rg.get_ts_prec()
+        rg.df_data.iloc[:,[0]] = rg.df_fullts
         rg.df_data = rg.df_data.rename({rg.df_data.columns[0]:target_dataset},axis=1)
 
         #%% Causal Inference

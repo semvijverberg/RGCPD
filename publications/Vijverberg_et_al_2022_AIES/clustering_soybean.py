@@ -7,6 +7,7 @@ Created on Fri Jun  5 09:35:06 2020
 """
 
 import os, inspect, sys
+sys.path.remove('/Users/semvijverberg/surfdrive/Scripts/jannes_code/RGCPD')
 import numpy as np
 import xarray as xr
 import pandas as pd
