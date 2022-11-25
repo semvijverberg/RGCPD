@@ -14,7 +14,7 @@ The final step is the same, where the 1-d time series are processed by Tigramite
 
 This code has been used for my Phd (see publications), however, the coding and documentation quality is poor. 
 
-With the [AI4S2S](https://ai4s2s.readthedocs.io/en/latest/index.html) project, we are currently working on a (follow-up) Python Package with a complete redesign of the code (in collaboration with professional research software engineers). The goal of s2spy is to make the construction of ML-based pipelines much more efficient, transparent, and scalable to any HPC system and climate data platform. If you are interested in doing these types of analysis (RGCPD/ML) I strongly recommend building your pipeline with the [s2spy](https://github.com/AI4S2S/s2spy) software. 
+With the [AI4S2S](https://ai4s2s.readthedocs.io/en/latest/index.html) project, we are currently working on a (follow-up) Python Package with a complete redesign of the code (in collaboration with professional research software engineers). The goal of s2spy is to make the construction of ML-based pipelines much more efficient, transparent, and scalable to any HPC system and climate data platform. If you are interested in doing these types of analyses (RGCPD/ML) I strongly recommend building your pipeline with the [s2spy](https://github.com/AI4S2S/s2spy) software. 
 
 ----------------
 ## Features
