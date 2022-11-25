@@ -52,6 +52,12 @@ def fit_df_data_sklearn(df_data: pd.DataFrame=None,
     # df_data=None;keys=None;target=None;tau_min=1;tau_max=1;transformer=None
     # kwrgs_model={'scoring':'neg_mean_squared_error'};match_lag_region_to_lag_fc=False
 
+    if target is None:
+        target = df_data.iloc[:,[0]] # first column is target
+    else:
+        assert type(target) is pd.DataFrame or type(target) is str, ('dtype target'
+                                                 ' must be pd.DataFrame or string')
+
     lags = range(tau_min, tau_max+1)
     splits = df_data.index.levels[0]
 
@@ -65,14 +71,18 @@ def fit_df_data_sklearn(df_data: pd.DataFrame=None,
                                index=df_data.index, columns=['RV_mask'])
         df_data = df_data.merge(RV_mask, left_index=True, right_index=True)
 
-    RV_mask = df_data.loc[0]['RV_mask'] # not changing
-    if target is None: # not changing
-        target_ts = df_data.loc[0].iloc[:,[0]][RV_mask]
+
+    if type(target) is pd.DataFrame:
+        target_col = target.columns[0]
+    elif type(target) is str:
+        target_col = target
+
+
 
     if keys is None:
         keys = [k for k in df_data.columns if k not in ['TrainIsTrue', 'RV_mask']]
         # remove col with same name as target_ts
-        keys = [k for k in keys if k != target_ts.columns[0]]
+        keys = [k for k in keys if k != target_col]
 
 
     models_lags = dict()
@@ -116,7 +126,7 @@ def fit_df_data_sklearn(df_data: pd.DataFrame=None,
                                         # result_type='broadcast')
 
             if type(target) is str:
-                target_ts = df_data.loc[s][[target]][RV_mask]
+                target_ts = df_data.loc[s][[target_col]][RV_mask]
             elif type(target) is pd.DataFrame:
                 target_ts = target.copy()
                 if hasattr(target.index, 'levels'):
@@ -217,6 +227,12 @@ class ScikitModel:
         X = X.dropna(axis='columns') # drop only nan columns
         X_train = X[x_fit_mask.values]
         X_pred  = X[x_pred_mask.values]
+
+        #check if X_train contains any found precursor regions,
+        #if not fill one column called '0' with zeros for train and 0 for pred
+        if len(X_train.columns) == 0 and len(X_pred.columns) == 0:
+            X_train['0'] = 0
+            X_pred['0'] = 0
 
         RV_fit = y_ts['ts'].loc[y_fit_mask.index] # y_fit may be shortened
         # because X_test was used to predict y_train due to lag, hence train-test

@@ -321,9 +321,7 @@ subtitles = ['linkage=ward, metric=euclidean', 'Interpolated']
 title = 'Hierarchical Aggl. Clustering'
 linkage = 'ward' ; c =2
 attrs = xrclusteredall.attrs
-xrclusteredint = xrclusteredall.sel(n_clusters=c)
-latint = xrclusteredint.interpolate_na(dim='latitude', limit=5)
-xrclustfinalint = latint.interpolate_na(dim='longitude', limit=10)
+
 
 
 kwrgs_NaN_handling={'missing_data_ts_to_nan':False,
@@ -341,6 +339,9 @@ ds_avail = (70 - np.isnan(ds_raw).sum(axis=0))
 ds_avail = ds_avail.where(ds_avail.values >=30)
 
 
+xrclusteredint = xrclusteredall.sel(n_clusters=c)
+latint = xrclusteredint.interpolate_na(dim='latitude', limit=5)
+xrclustfinalint = latint.interpolate_na(dim='longitude', limit=10)
 # title = 'Clusters Interpolated'
 xrclustfinalint = xrclustfinalint.where(~np.isnan(ds_avail))
 # round to integer label
@@ -428,9 +429,6 @@ linkage = 'ward' ; c =2
 
 xrclustered = xrclusteredall.sel(n_clusters=c)
 
-xrclustered = xrclustfinalint
-
-
 
 ds = cl.spatial_mean_clusters(ds_std,
                               xrclustered)
@@ -439,7 +437,7 @@ dfnew = ds.ts.to_dataframe().pivot_table(index='time', columns='cluster')['ts']
 f_name = 'linkage_{}_nc{}'.format(linkage, int(c))
 filepath = os.path.join(path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
-
+path_stored_cluster = os.path.join(filepath +'_'+ 'dendo_'+xrclustered.attrs['hash'])
 
 #%% get timeseries (no linear detrending before standardizing) - not neat
 
@@ -536,20 +534,20 @@ plt.savefig(path_fig + '.jpeg', bbox_inches='tight') # dpi auto 600
 # Old stuff.
 #%% Soy bean USDA
 
-raw_filename = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/usda_soy.nc'
+# raw_filename = '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/usda_soy.nc'
 
-selbox = [250,290,28,50]
-ds = core_pp.import_ds_lazy(raw_filename, var='variable', selbox=selbox).rename({'z':'time'})
-ds.name = 'Soy_Yield'
+# selbox = [250,290,28,50]
+# ds = core_pp.import_ds_lazy(raw_filename, var='variable', selbox=selbox).rename({'z':'time'})
+# ds.name = 'Soy_Yield'
 
-ds['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds.time.values])
-ds.attrs['dataset'] = 'USDA'
-ds.attrs['planting_months'] = 'May/June'
-ds.attrs['harvest_months'] = 'October'
+# ds['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds.time.values])
+# ds.attrs['dataset'] = 'USDA'
+# ds.attrs['planting_months'] = 'May/June'
+# ds.attrs['harvest_months'] = 'October'
 
-ts = functions_pp.area_weighted(ds).mean(dim=('latitude', 'longitude')) # old, but silly to do area-weighted mean
-cl.store_netcdf(ts, filepath=
-                '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/usda_soy_spatial_mean_ts.nc')
+# ts = functions_pp.area_weighted(ds).mean(dim=('latitude', 'longitude')) # old, but silly to do area-weighted mean
+# cl.store_netcdf(ts, filepath=
+#                 '/Users/semvijverberg/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/usda_soy_spatial_mean_ts.nc')
 #%% Maize yield USDA (unused)
 
 # raw_filename = os.path.join('/Users/semvijverberg/surfdrive/VU_Amsterdam/GDHY_MIRCA2000_Soy/USDA/usda_maize.nc')
@@ -608,7 +606,8 @@ ds_avail = xr.concat(ds_avail, dim='time')
 ds_avail['time'] = ('time', [f'{y[0]}-{y[1]}' for y in yrs_subsets])
 ds_avail = ds_avail.where(ds_avail.mean(dim='time')!=0)
 #%%
-cluspath = os.path.join(path_outmain, 'linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
+# cluspath = os.path.join(path_outmain, 'linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
+cluspath = path_stored_cluster
 dsclust = core_pp.import_ds_lazy(cluspath)
 clusmask = (dsclust['xrclustered'] == 1).astype(int)
 

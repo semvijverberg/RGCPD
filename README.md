@@ -12,6 +12,8 @@ Within RG-CPD, the 1-d precursor time series are obtained by creating point-wise
 
 The final step is the same, where the 1-d time series are processed by Tigramite to extract the causal relationships. This requires thorough understanding of the method, see [Runge et al. 2017](http://arxiv.org/abs/1702.07007)). These 1d time series contain more information since they are spatially aggregated. The 1d time series of different precursor regions are subsequently tested for causality using the [Tigramite package](https://github.com/jakobrunge/tigramite). One has to have good knowledge about the assumptions needed for causal inference ([Runge et al., 2018](https://doi.org/10.1063/1.5025050)).
 
+This code has been used for my Phd (see publications), however, the coding and documentation quality is poor. With the AI4S2S project are currently working on 
+
 ----------------
 ## Features
 - basic pre-processing steps (removing climatology and linear detrending)
