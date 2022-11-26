@@ -635,7 +635,7 @@ if __name__ == '__main__':
         use_vars_list = use_vars_list
 
     futures = [] ; rg_list = []
-    for lags, periodnames, use_vars in zip(lag_list[:1], periodnames_list[:1], use_vars_list[:1]):
+    for lags, periodnames, use_vars in zip(lag_list[:], periodnames_list[:], use_vars_list[:]):
         if load == False:
             futures.append(delayed(pipeline)(lags, periodnames, use_vars, load))
 
