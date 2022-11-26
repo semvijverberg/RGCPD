@@ -8,6 +8,7 @@ Created on Thu Jul  2 09:59:06 2020
 
 
 import os, inspect, sys
+sys.path.remove('/Users/semvijverberg/surfdrive/Scripts/jannes_code/RGCPD')
 import matplotlib as mpl
 if sys.platform == 'linux':
     mpl.use('Agg')
@@ -80,7 +81,7 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 #                    ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'final_accepted') # fc_areaw
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'test') # fc_areaw
 # path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
 
 
@@ -295,7 +296,9 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     kwrgs_core_pp_time = {'start_end_year': TV_start_end_year}
 
 
-    # detrending done prior in clustering_soybean
+    # in-sample detrending done prior in clustering_soybean on gridcell level
+    # when out-of-sample preprocessing (ds_oos_lindetrend()), the timeseries
+    # will be overwritten.
     rg.pp_TV(name_ds=name_ds, detrend=False, ext_annual_to_mon=False,
              kwrgs_core_pp_time=kwrgs_core_pp_time)
 
@@ -443,7 +446,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         rg.df_corr  = df_output['df_corr']
     else:
         rg.get_ts_prec()
-        rg.df_data.iloc[:,[0]] = rg.df_fullts
+        # rg.df_data.iloc[:,[0]] = rg.df_fullts
         rg.df_data = rg.df_data.rename({rg.df_data.columns[0]:target_dataset},axis=1)
 
         #%% Causal Inference
@@ -632,7 +635,7 @@ if __name__ == '__main__':
         use_vars_list = use_vars_list
 
     futures = [] ; rg_list = []
-    for lags, periodnames, use_vars in zip(lag_list, periodnames_list, use_vars_list):
+    for lags, periodnames, use_vars in zip(lag_list[:1], periodnames_list[:1], use_vars_list[:1]):
         if load == False:
             futures.append(delayed(pipeline)(lags, periodnames, use_vars, load))
 
