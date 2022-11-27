@@ -8,7 +8,8 @@ Created on Thu Jul  2 09:59:06 2020
 
 
 import os, inspect, sys
-sys.path.remove('/Users/semvijverberg/surfdrive/Scripts/jannes_code/RGCPD')
+if '/Users/semvijverberg/surfdrive/Scripts/jannes_code/RGCPD' in sys.path:
+    sys.path.remove('/Users/semvijverberg/surfdrive/Scripts/jannes_code/RGCPD')
 import matplotlib as mpl
 if sys.platform == 'linux':
     mpl.use('Agg')
@@ -59,7 +60,7 @@ target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
 methods = ['timeseriessplit_20', 'timeseriessplit_25', 'timeseriessplit_30']#, 'leave_1', timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']
-training_datas = ['all_CD', 'onelag', 'all', 'climind']
+training_datas = ['all', 'all_CD', 'onelag', 'climind']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
