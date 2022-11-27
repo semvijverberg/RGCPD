@@ -822,7 +822,7 @@ for fc_type in fc_types:
             filepath_dfs = os.path.join(filepath_df_datas,
                                         f'predictions_cont_CL{model_name_CL}_'\
                                         f'{model_name}_{nameTarget}.h5')
-            if os.path.exists(filepath_dfs):
+            if os.path.exists(filepath_dfs) and load == 'all':
                 print('Prediction final model already stored, skipping this model')
                 continue
 
@@ -985,7 +985,7 @@ for fc_type in fc_types:
             filepath_dfs = os.path.join(filepath_df_datas,
                             f'scores_cont_CL{model_name_CL}_{model_name}_'\
                                 f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5')
-            if os.path.exists(filepath_dfs):
+            if os.path.exists(filepath_dfs) and load == 'all':
                 print('Verification of model vs. Targert already stored, skip')
                 continue
 
@@ -1090,7 +1090,7 @@ for fc_type in fc_types:
             filepath_dfs = os.path.join(filepath_df_datas,
                                              f'scores_cont_CL{model_name_CL}_{model_name}_'\
                                              f'{nameTarget_fit}_{nameTarget}_{n_boot}_CF.h5')
-            if os.path.exists(filepath_dfs):
+            if os.path.exists(filepath_dfs) and load == 'all':
                 print('Cond. Verif. of model vs. Target already stored, skip')
                 continue
             else:
