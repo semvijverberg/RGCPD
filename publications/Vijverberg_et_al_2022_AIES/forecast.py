@@ -67,7 +67,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
 i_default = 1
-load = 'all'
+load = False
 save = True
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
