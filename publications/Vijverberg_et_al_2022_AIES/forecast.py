@@ -66,7 +66,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 1
+i_default = 5
 
 def parseArguments():
     # Create argument parser
@@ -98,6 +98,7 @@ else:
 
 
 load = False
+load_models = False
 save = True
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
@@ -117,8 +118,8 @@ model_combs_cont = [['Ridge', 'Ridge'],
 # model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
 
 
-model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
-#                    ['RandomForestClassifier', 'RandomForestClassifier']]
+model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
+                    ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
 path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'test') # fc_areaw
@@ -833,7 +834,7 @@ for fc_type in fc_types:
             filepath_dfs = os.path.join(filepath_df_datas,
                                         f'predictions_cont_CL{model_name_CL}_'\
                                         f'{model_name}_{nameTarget}.h5')
-            if os.path.exists(filepath_dfs) and load == 'all':
+            if os.path.exists(filepath_dfs) and load_models == True:
                 print('Prediction final model already stored, skipping this model')
                 continue
 
@@ -998,7 +999,7 @@ for fc_type in fc_types:
             filepath_dfs = os.path.join(filepath_df_datas,
                             f'scores_cont_CL{model_name_CL}_{model_name}_'\
                                 f'{nameTarget_fit}_{nameTarget}_{n_boot}.h5')
-            if os.path.exists(filepath_dfs) and load == 'all':
+            if os.path.exists(filepath_dfs) and load_models == 'all':
                 print('Verification of model vs. Targert already stored, skip')
                 continue
 
@@ -1103,7 +1104,7 @@ for fc_type in fc_types:
             filepath_dfs = os.path.join(filepath_df_datas,
                                              f'scores_cont_CL{model_name_CL}_{model_name}_'\
                                              f'{nameTarget_fit}_{nameTarget}_{n_boot}_CF.h5')
-            if os.path.exists(filepath_dfs) and load == 'all':
+            if os.path.exists(filepath_dfs) and load_models == 'all':
                 print('Cond. Verif. of model vs. Target already stored, skip')
                 continue
             else:
