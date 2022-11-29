@@ -59,32 +59,14 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_1'] # '['timeseriessplit_20', 'timeseriessplit_25', 'timeseriessplit_30']#, 'leave_1', timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']
-training_datas = ['all', 'all_CD']#, 'onelag', 'climind']
+methods = ['leave_1', 'timeseriessplit_20', 'timeseriessplit_25', 'timeseriessplit_30']#, 'leave_1', timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']
+training_datas = ['all', 'all_CD', 'onelag', 'climind']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
 i_default = 1
-load = False
-save = True
-fc_types = [0.33, 'continuous']
-fc_types = [0.33]
-plt.rcParams['savefig.dpi'] = 300
-
-model_combs_cont = [['Ridge', 'Ridge'],
-                    ['RandomForestRegressor', 'RandomForestRegressor']]
-# model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
-
-
-model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
-#                    ['RandomForestClassifier', 'RandomForestClassifier']]
-
-# path out main
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'test') # fc_areaw
-# path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
-
 
 def parseArguments():
     # Create argument parser
@@ -113,6 +95,35 @@ else:
     seed = int(out[1])
     start_end_year = (int(out[2][:4]), int(out[2][-4:]))
     method = out[3]
+
+
+load = False
+save = True
+fc_types = [0.33, 'continuous']
+fc_types = [0.33]
+
+if 'timeseries' in method:
+    btoos = False # if btoos=='_T': binary target out of sample.
+    # btoos = '_theor' # binary target based on gaussian quantile
+    # btoos = False, Events are based on whole dataset (even though
+    # detrending and standardizing are done out of sample)
+else:
+    btoos = ''
+
+
+plt.rcParams['savefig.dpi'] = 300
+model_combs_cont = [['Ridge', 'Ridge'],
+                    ['RandomForestRegressor', 'RandomForestRegressor']]
+# model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
+
+
+model_combs_bina = [['LogisticRegression', 'LogisticRegression']]
+#                    ['RandomForestClassifier', 'RandomForestClassifier']]
+
+# path out main
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'test') # fc_areaw
+# path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
+
 
 def read_csv_Raed(path):
     orig = pd.read_csv(path)
@@ -234,7 +245,7 @@ def ds_oos_lindetrend(dsclust, df_splits, path):
                                          df_splits=df_splits,
                                          standardize=True,
                                           path=path)
-    ds_out = functions_pp.area_weighted(ds_out) # no area weight
+    ds_out = functions_pp.area_weighted(ds_out)
     df = ds_out.mean(dim=('latitude', 'longitude')).to_dataframe('1ts')
     return df
 
@@ -325,6 +336,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
     else:
         dfnew = ds_oos_lindetrend(dsclust, df_splits, path)
         if 'timeseries' not in method:
+            # out-of-sample detrending
             dfnew = dfnew.loc[rg.df_splits.index.levels[1]]
 
 
@@ -343,7 +355,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                                       os.path.join(path, 'target_ts.h5'))
 
 
-    rg.df_fullts = dfnew
+    rg.df_fullts = dfnew # rg.df_fullts is used when calculating corr maps
 
 
     #%%
@@ -447,7 +459,10 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         rg.df_corr  = df_output['df_corr']
     else:
         rg.get_ts_prec()
-        rg.df_data.iloc[:,[0]] = rg.df_fullts
+        if 'timeseries' in method:
+            # Overwrite the in-sample processed target variable
+            # First column of df_data is used as target in subsequent (causal and forecasting) analyses
+            rg.df_data.iloc[:,[0]] = rg.df_fullts
         rg.df_data = rg.df_data.rename({rg.df_data.columns[0]:target_dataset},axis=1)
 
         #%% Causal Inference
@@ -643,6 +658,7 @@ if __name__ == '__main__':
         else:
             rg_list.append(pipeline(lags, periodnames, use_vars, load))
 
+
     if load == False:
         rg_list = Parallel(n_jobs=n_cpu, backend='loky')(futures)
 rg = rg_list[0]
@@ -663,12 +679,6 @@ rg = rg_list[0]
 if sys.platform == 'linux':
     mpl.use('Agg')
     n_cpu = 30
-
-if 'timeseries' in method:
-    btoos = '_T' # if btoos=='_T': binary target out of sample.
-    # btoos = '_theor' # binary target based on gaussian quantile
-else:
-    btoos = ''
 
 
 
@@ -789,20 +799,21 @@ for fc_type in fc_types:
             ax[0].legend(loc='upper right') ; ax[1].legend()
             f.savefig(os.path.join(rg.path_outsub1, 'detrend',
                                    'threshold_std'+rg.figext))
-            # END figure intermezzo
-            quantile = quantile.values
+        #     # END figure intermezzo
+        #     quantile = quantile.values
 
-        elif btoos == '_theor':
-            quantile = np.zeros_like(target_ts)
-            quantile[:] = theothreshold
-        else:
-            _target_ts = target_ts.groupby(axis=0, level=1).mean()
-            _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
-            quantile = float(_target_ts.quantile(fc_type))
-        if fc_type >= 0.5:
-            target_ts = (target_ts > quantile).astype(int)
-        elif fc_type < .5:
-            target_ts = (target_ts < quantile).astype(int)
+        # elif btoos == '_theor':
+        #     quantile = np.zeros_like(target_ts)
+        #     quantile[:] = theothreshold
+        # else:
+        #     _target_ts = target_ts.groupby(axis=0, level=1).mean()
+        #     _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
+        #     quantile = float(_target_ts.quantile(fc_type))
+        # if fc_type >= 0.5:
+        #     target_ts = (target_ts > quantile).astype(int)
+        # elif fc_type < .5:
+        #     target_ts = (target_ts < quantile).astype(int)
+    target_ts = utils_paper3.get_events(target_ts, fc_type, btoos, rg.df_splits.copy())
 
 
     #%% Make prediction
@@ -857,45 +868,47 @@ for fc_type in fc_types:
                                                         left_index=True,
                                                         right_index=True),
                                      transformer=fc_utils.standardize_on_train)
-
                 target_ts = target_ts.rename({target_ts.columns[0]:'Target'},
                                              axis=1)
-                target_ts_signal = target_ts.multiply(df_forcing.abs(),
-                                                      axis=0)
-                target_ts_signal= target_ts_signal.rename(\
-                                              {rg.df_data.columns[0]:
-                                               f'Target * {rg.fc_month} signal'},
-                                              axis=1)
-                _t = rg.transform_df_data
-                target_ts_signal = _t(target_ts_signal.merge(rg.df_splits,
-                                                             left_index=True,
-                                                             right_index=True),
-                                      transformer=fc_utils.standardize_on_train)
-                if nameTarget == 'Target':
-                    _target_ts = target_ts
-                if nameTarget == 'Target*Signal':
-                    _target_ts = target_ts_signal
+                # target_ts_signal = target_ts.multiply(df_forcing.abs(),
+                #                                       axis=0)
+                # target_ts_signal= target_ts_signal.rename(\
+                #                               {rg.df_data.columns[0]:
+                #                                f'Target * {rg.fc_month} signal'},
+                #                               axis=1)
+                # _t = rg.transform_df_data
+                # target_ts_signal = _t(target_ts_signal.merge(rg.df_splits,
+                #                                              left_index=True,
+                #                                              right_index=True),
+                #                       transformer=fc_utils.standardize_on_train)
+                # if nameTarget == 'Target':
+                #     _target_ts = target_ts
+                # if nameTarget == 'Target*Signal':
+                #     _target_ts = target_ts_signal
                 if fc_type != 'continuous':
-                    if btoos == '_T':
-                        # quantile based on only training data, using the
-                        # standardized-on-train Target
-                        quantile = functions_pp.get_df_train(_target_ts,
-                                                             df_splits=rg.df_splits,
-                                                             s='extrapolate',
-                                                             function='quantile',
-                                                             kwrgs={'q':fc_type}).values
-                    elif btoos == '_theor':
-                        quantile = np.zeros_like(target_ts)
-                        quantile[:] = theothreshold
-                    else:
-                        # using all target data - mean over standardized-on-train
-                        _target_ts = _target_ts.groupby(axis=0, level=1).mean()
-                        _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
-                        quantile = float(_target_ts.quantile(fc_type))
-                    if fc_type >= 0.5:
-                        _target_ts = (_target_ts > quantile).astype(int)
-                    elif fc_type < .5:
-                        _target_ts = (_target_ts < quantile).astype(int)
+                    # if btoos == '_T':
+                    #     # quantile based on only training data, using the
+                    #     # standardized-on-train Target
+                    #     quantile = functions_pp.get_df_train(_target_ts,
+                    #                                          df_splits=rg.df_splits,
+                    #                                          s='extrapolate',
+                    #                                          function='quantile',
+                    #                                          kwrgs={'q':fc_type}).values
+                    # elif btoos == '_theor':
+                    #     quantile = np.zeros_like(target_ts)
+                    #     quantile[:] = theothreshold
+                    # else:
+                    #     # using all target data - mean over standardized-on-train
+                    #     _target_ts = _target_ts.groupby(axis=0, level=1).mean()
+                    #     _target_ts = (_target_ts - _target_ts.mean()) / _target_ts.std()
+                    #     quantile = float(_target_ts.quantile(fc_type))
+                    # if fc_type >= 0.5:
+                    #     _target_ts = (_target_ts > quantile).astype(int)
+                    # elif fc_type < .5:
+                    #     _target_ts = (_target_ts < quantile).astype(int)
+                    # target timeseries, standardize using training data
+
+                    _target_ts = utils_paper3.get_events(target_ts, fc_type, btoos, rg.df_splits.copy())
 
                 # use combined lead time model for (final) prediction
                 if training_data == 'CL':
@@ -991,27 +1004,27 @@ for fc_type in fc_types:
 
             for i, rg in enumerate(rg_list):
                 prediction = df_predictions[[nameTarget, rg.fc_month]].copy()
-                if nameTarget_fit == 'Target*Signal' and nameTarget == 'Target' \
-                                                and fc_type != 'continuous':
-                    # Unique case, Target is continuous -> convert to binary
-                    _target_ts = prediction[['Target']]
-                    if btoos == '_T':
-                        quantile = functions_pp.get_df_train(_target_ts,
-                                                             df_splits=rg.df_splits,
-                                                             s='extrapolate',
-                                                             function='quantile',
-                                                             kwrgs={'q':fc_type}).values
-                    elif btoos == '_theor':
-                        quantile = np.zeros_like(target_ts)
-                        quantile[:] = theothreshold
-                    else:
-                        quantile = float(_target_ts.quantile(fc_type))
-                    if fc_type >= 0.5:
-                        _target_ts = (_target_ts > quantile).astype(int)
-                    elif fc_type < .5:
-                        _target_ts = (_target_ts < quantile).astype(int)
+                # if nameTarget_fit == 'Target*Signal' and nameTarget == 'Target' \
+                #                                 and fc_type != 'continuous':
+                #     # Unique case, Target is continuous -> convert to binary
+                #     _target_ts = prediction[['Target']]
+                #     if btoos == '_T':
+                #         quantile = functions_pp.get_df_train(_target_ts,
+                #                                              df_splits=rg.df_splits,
+                #                                              s='extrapolate',
+                #                                              function='quantile',
+                #                                              kwrgs={'q':fc_type}).values
+                #     elif btoos == '_theor':
+                #         quantile = np.zeros_like(target_ts)
+                #         quantile[:] = theothreshold
+                #     else:
+                #         quantile = float(_target_ts.quantile(fc_type))
+                #     if fc_type >= 0.5:
+                #         _target_ts = (_target_ts > quantile).astype(int)
+                #     elif fc_type < .5:
+                #         _target_ts = (_target_ts < quantile).astype(int)
 
-                    prediction[[nameTarget]] = _target_ts
+                #     prediction[[nameTarget]] = _target_ts
 
                 # # Benchmark step 1: mean training sets extrapolated to test
                 # bench = functions_pp.get_df_train(prediction[nameTarget],
@@ -1295,64 +1308,64 @@ for fc_type in fc_types:
             # plt.close()
     #%% plotting skill scores as function of lead-time
     # deprecated, only used for testing
-    # import utils_paper3
-    # if fc_type == 'continuous':
-    #     metrics_plot = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
-    #     model_combs_plot  = [['Ridge', 'Ridge'],
-    #                          ['Ridge', 'RandomForestRegressor'],
-    #                          ['RandomForestRegressor', 'RandomForestRegressor']]
-    #     model_combs_plot = [c for c in model_combs_plot if c in model_combs_cont]
-    # else:
-    #     metrics_plot = ['BSS', 'roc_auc_score']
-    #     model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
-    #                          ['LogisticRegression', 'RandomForestClassifier'],
-    #                          ['RandomForestClassifier', 'RandomForestClassifier']]
-    #     model_combs_plot = [c for c in model_combs_plot if c in model_combs_bina]
+    import utils_paper3
+    if fc_type == 'continuous':
+        metrics_plot = ['corrcoef', 'MAE', 'RMSE', 'r2_score']
+        model_combs_plot  = [['Ridge', 'Ridge'],
+                              ['Ridge', 'RandomForestRegressor'],
+                              ['RandomForestRegressor', 'RandomForestRegressor']]
+        model_combs_plot = [c for c in model_combs_plot if c in model_combs_cont]
+    else:
+        metrics_plot = ['BSS', 'roc_auc_score']
+        model_combs_plot  = [['LogisticRegression', 'LogisticRegression'],
+                              ['LogisticRegression', 'RandomForestClassifier'],
+                              ['RandomForestClassifier', 'RandomForestClassifier']]
+        model_combs_plot = [c for c in model_combs_plot if c in model_combs_bina]
 
 
-    # fc_month_list = [rg.fc_month for rg in rg_list]
-    # target_options = [['Target', 'Target | PPS']]
-    # print('Plotting skill scores')
-    # for i, target_opt in enumerate(target_options):
-    #     fig, axes = plt.subplots(nrows=len(model_combs_plot), ncols=len(metrics_plot),
-    #                  figsize=(17,3.33*len(model_combs_plot)),
-    #                   # gridspec_kw={'width_ratios':[4,1]},
-    #                   sharex=True, sharey=False)
-    #     if len(model_combs_plot) == 1: axes = axes.reshape(1, 2)
-    #     for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
+    fc_month_list = [rg.fc_month for rg in rg_list]
+    target_options = [['Target', 'Target | PPS']]
+    print('Plotting skill scores')
+    for i, target_opt in enumerate(target_options):
+        fig, axes = plt.subplots(nrows=len(model_combs_plot), ncols=len(metrics_plot),
+                      figsize=(17,3.33*len(model_combs_plot)),
+                      # gridspec_kw={'width_ratios':[4,1]},
+                      sharex=True, sharey=False)
+        if len(model_combs_plot) == 1: axes = axes.reshape(1, 2)
+        for j, (model_name_CL, model_name) in enumerate(model_combs_plot):
 
 
-    #         print(model_name_CL, model_name, target_opt)
-    #         if 'RandomForest' in model_name:
-    #             name = 'RF'
-    #         elif model_name == 'Ridge' or model_name=='LogisticRegression':
-    #             name = 'Ridge' if fc_type =='continuous' else 'LR'
-    #         if 'RandomForest' in model_name_CL:
-    #             name_CL = 'RF'
-    #         elif model_name_CL == 'Ridge' or model_name=='LogisticRegression':
-    #             name_CL = 'Ridge' if fc_type =='continuous' else 'LR'
+            print(model_name_CL, model_name, target_opt)
+            if 'RandomForest' in model_name:
+                name = 'RF'
+            elif model_name == 'Ridge' or model_name=='LogisticRegression':
+                name = 'Ridge' if fc_type =='continuous' else 'LR'
+            if 'RandomForest' in model_name_CL:
+                name_CL = 'RF'
+            elif model_name_CL == 'Ridge' or model_name=='LogisticRegression':
+                name_CL = 'Ridge' if fc_type =='continuous' else 'LR'
 
-    #         out = utils_paper3.load_scores(target_opt, model_name_CL, model_name,
-    #                                        n_boot, filepath_df_datas,
-    #                                        condition='strong 50%')[:2]
-    #         df_scores_list, df_boot_list = out
+            out = utils_paper3.load_scores(target_opt, model_name_CL, model_name,
+                                            n_boot, filepath_df_datas,
+                                            condition='strong 50%')[:2]
+            df_scores_list, df_boot_list = out
 
 
-    #         fig = utils_paper3.plot_scores_wrapper(df_scores_list, df_boot_list,
-    #                                              labels=target_opt,
-    #                                              metrics_plot=metrics_plot,
-    #                                              fig_ax = (fig, axes[j]))
-    #         axes[j,0].set_ylabel(f'{name_CL} -> {name}', fontsize=18)
-    #         # axes[j].set_xlabel('Forecast month', fontsize=18)
-    #         # title = f'Target fitted: {nameTarget_fit} with CL {model_name_CL} '\
-    #         #         f'model & final {name} model'
-    #         # fig.suptitle(title, y=.95, fontsize=18)
-    #         fig.subplots_adjust(wspace=.2)
-    #         fig.subplots_adjust(hspace=.3)
+            fig = utils_paper3.plot_scores_wrapper(df_scores_list, df_boot_list,
+                                                  labels=target_opt,
+                                                  metrics_plot=metrics_plot,
+                                                  fig_ax = (fig, axes[j]))
+            axes[j,0].set_ylabel(f'{name_CL} -> {name}', fontsize=18)
+            # axes[j].set_xlabel('Forecast month', fontsize=18)
+            # title = f'Target fitted: {nameTarget_fit} with CL {model_name_CL} '\
+            #         f'model & final {name} model'
+            # fig.suptitle(title, y=.95, fontsize=18)
+            fig.subplots_adjust(wspace=.2)
+            fig.subplots_adjust(hspace=.3)
 
-    #     fig.savefig(os.path.join(filepath_verif,
-    #                              f'scores_vs_lags_{i}.pdf'), bbox_inches='tight')
-    #     plt.close()
+        # fig.savefig(os.path.join(filepath_verif,
+        #                           f'scores_vs_lags_{i}.pdf'), bbox_inches='tight')
+        # plt.close()
 
 #%% collecting different train-test splits to plot scores vs training input
 # creating spreadsheet of BSS skill in overview.csv
@@ -1773,7 +1786,148 @@ df_yrs1 = df_target_test.loc[core_pp.get_oneyr(df_target_test, *yrs1)]
 df_yrs2 = df_target_test.loc[core_pp.get_oneyr(df_target_test, *yrs2)]
 df_yrs1.sum() / df_yrs1.size
 df_yrs2.sum() / df_yrs2.size
+
 #%%
+if __name__ == 'main':
+    sys.exit()
+#%%
+
+# =============================================================================
+# # pre-processed timeseries (detrended and then standardized on gridcell level)
+# =============================================================================
+from matplotlib.lines import Line2D
+
+df_target1 = functions_pp.load_hdf5('/Users/semvijverberg/surfdrive/output_paper3/test/a9943/USDA_Soy_clusters__1/timeseriessplit_25/s1/df_output_JJ.h5')['df_data']
+df_target2 = functions_pp.load_hdf5('/Users/semvijverberg/surfdrive/output_paper3/fc_areaw/a9943/USDA_Soy_clusters__1/timeseriessplit_25/s1/df_output_MJ.h5')['df_data']
+splits = df_target1.index.levels[0]
+dates = df_target1.index.levels[1]
+fig, axes = plt.subplots(2,1,figsize=(20,8))
+ax1 = axes[0]
+ax1.set_title('Pre-processed timeseries (detrended and then standardized on gridcell level)')
+custom_lines = [Line2D([0], [0], color='blue', lw=4),
+                Line2D([0], [0], color='black', lw=4),
+                Line2D([0], [0], color='red', lw=4)]
+
+lines1 = ax1.plot(dates, df_target1.iloc[:,[0]].values.reshape(-1, splits.size, order='F'),
+              color='blue', alpha=.2, label='OSA-25')
+lines2 = ax1.plot(dates, df_target2.iloc[:,[0]].values.reshape(-1, splits.size, order='F'),
+        color='black', alpha=.2, label='in-sample')
+
+line_oos = ax1.plot(functions_pp.get_df_test(df_target1).iloc[:,0], color='red',
+                    label='one-step-ahead timeseries')
+ax1.legend(custom_lines,
+          [lines1[-1].get_label(), lines2[-1].get_label(), line_oos[0].get_label()])
+ax1.axhline(y=0)
+
+# =============================================================================
+# # pre-processed timeseries (detrended and then standardized on gridcell level)
+# =============================================================================
+
+
+df_target1 = functions_pp.load_hdf5('/Users/semvijverberg/surfdrive/output_paper3/test/a9943/USDA_Soy_clusters__1/timeseriessplit_25/s1/df_output_JJ.h5')['df_data']
+df_target2 = functions_pp.load_hdf5('/Users/semvijverberg/surfdrive/output_paper3/fc_areaw/a9943/USDA_Soy_clusters__1/timeseriessplit_25/s1/df_output_MJ.h5')['df_data']
+
+# target timeseries, standardize using training data
+target_ts_osa = rg.transform_df_data(df_target1.iloc[:,[0]].merge(rg.df_splits,
+                                                  left_index=True,
+                                                  right_index=True),
+                                  transformer=fc_utils.standardize_on_train)
+target_ts_LTO = rg.transform_df_data(df_target2.iloc[:,[0]].merge(rg.df_splits,
+                                                  left_index=True,
+                                                  right_index=True),
+                                  transformer=fc_utils.standardize_on_train)
+
+splits = target_ts_osa.index.levels[0]
+dates = target_ts_osa.index.levels[1]
+ax2 = axes[1]
+
+ax2.set_title('Standardizing before model training')
+custom_lines = [Line2D([0], [0], color='blue', lw=4),
+                Line2D([0], [0], color='black', lw=4),
+                Line2D([0], [0], color='red', lw=4)]
+
+lines1 = ax2.plot(dates, target_ts_osa.iloc[:,[0]].values.reshape(-1, splits.size, order='F'),
+              color='blue', alpha=.2, label='OSA-25')
+lines2 = ax2.plot(dates, target_ts_LTO.iloc[:,[0]].values.reshape(-1, splits.size, order='F'),
+        color='black', alpha=.2, label='in-sample')
+
+line_oos = ax2.plot(functions_pp.get_df_test(target_ts_osa, df_splits=rg.df_splits).iloc[:,0], color='red',
+                    label='one-step-ahead timeseries')
+ax2.legend(custom_lines,
+          [lines1[-1].get_label(), lines2[-1].get_label(), line_oos[0].get_label()])
+ax2.axhline(y=0)
+
+#%%
+# =============================================================================
+# Difference in binary timeseries
+# =============================================================================
+
+btoos = '_T'
+fig, axes = plt.subplots(25, 1, sharex=True, figsize=(10,5))
+_target_ts = utils_paper3.get_events(target_ts_osa, fc_type, btoos, df_target1.iloc[:,-2:])
+_target_ts_lto = utils_paper3.get_events(target_ts_LTO, fc_type, btoos, df_target1.iloc[:,-2:])
+diff = _target_ts  - _target_ts_lto
+diff[diff==0] = np.nan ; diff[diff==1] = 0.5
+for s in target_ts_osa.index.levels[0]:
+    axes[s].plot(_target_ts.loc[s], color='black', alpha=.5)
+    axes[s].scatter(dates, diff.loc[s], color='red', s=2)
+    axes[s].get_yaxis().set_visible(False)
+    axes[s].text(-8000,0.4, str(int(s)), fontsize=6, transform=axes[s].transData,
+                  horizontalalignment="left", verticalalignment='center')
+axes[0].set_title(f'CV folds (most recent fold below) {btoos}')
+
+
+#%%
+import seaborn as sns
+import matplotlib as mpl
+
+
+fig, axes = plt.subplots(2,2, figsize=(15,10))
+cmap = mpl.colors.ListedColormap(['green', 'yellow', 'orange', 'red', 'darkred'])
+sns.heatmap(rg.df_pvals.loc[[k for k in rg.df_pvals.index if '..1..sst' in k]],
+            ax=axes[0,0],
+            vmin=0, vmax=0.25, cmap=cmap) ; plt.yticks(rotation=0)
+axes[0,0].set_title('out-of-sample pre-processed timeseries pvals')
+
+# cmap = mpl.colors.ListedColormap(['green', 'yellow', 'orange', 'red', 'darkred'])
+sns.heatmap(rg.df_corr.loc[[k for k in rg.df_pvals.index if '..1..sst' in k]],
+            ax=axes[1,0],
+            vmin=0.3, vmax=0.6, cmap=plt.cm.Reds) ; plt.yticks(rotation=0)
+axes[1,0].set_title('out-of-sample pre-processed timeseries corr. coeff.')
+
+df_pvals = functions_pp.load_hdf5('/Users/semvijverberg/surfdrive/output_paper3/fc_areaw/a9943/USDA_Soy_clusters__1/timeseriessplit_25/s1/df_output_JJ.h5')['df_pvals'].copy()
+df_corr = functions_pp.load_hdf5('/Users/semvijverberg/surfdrive/output_paper3/fc_areaw/a9943/USDA_Soy_clusters__1/timeseriessplit_25/s1/df_output_JJ.h5')['df_corr'].copy()
+
+cmap = mpl.colors.ListedColormap(['green', 'yellow', 'orange', 'red', 'darkred'])
+sns.heatmap(df_pvals.loc[[k for k in rg.df_pvals.index if '..1..sst' in k]],
+            ax=axes[0,1],
+            vmin=0, vmax=0.25, cmap=cmap) ; plt.yticks(rotation=0)
+axes[0,1].set_title('in-sample pre-processed timeseries pvals')
+
+
+sns.heatmap(df_corr.loc[[k for k in rg.df_pvals.index if '..1..sst' in k]],
+            ax=axes[1,1],
+            vmin=0.3, vmax=0.6, cmap=plt.cm.Reds) ; plt.yticks(rotation=0)
+
+axes[1,1].set_title('in-sample pre-processed timeseries corr. coef.')
+
+
+
+# bounds = [1, 2, 4, 7, 8]
+# norm = mpl.colors.BoundaryNorm(bounds, cmap.N)
+# cb2 = mpl.colorbar.ColorbarBase(ax, cmap=cmap,
+#                                 norm=norm,
+#                                 boundaries=[0] + bounds + [13],
+#                                 extend='both',
+#                                 ticks=bounds,
+#                                 spacing='proportional',
+#                                 orientation='horizontal')
+# cb2.set_label('Discrete intervals, some other units')
+# fig.show()
+
+
+
+
 # #%% plot
 # for rg in rg_list:
 #     models_lags = rg.prediction_tuple[-1]

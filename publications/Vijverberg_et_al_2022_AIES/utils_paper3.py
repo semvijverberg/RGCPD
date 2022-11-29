@@ -1397,4 +1397,29 @@ def detrend_oos_3d(ds, min_length=None, df_splits: pd.DataFrame=None,
     #%%
     return splits_newdata
 
+def get_events(target_ts, fc_type, btoos, df_splits):
+
+    if btoos == '_T':
+        # quantile based on only training data, using the
+        # standardized-on-train Target
+        quantile = functions_pp.get_df_train(target_ts,
+                                             df_splits=df_splits,
+                                             s='extrapolate',
+                                             function='quantile',
+                                             kwrgs={'q':fc_type}).values
+    elif btoos == '_theor':
+        # quantile has high sample bias, converges to -.44 when using 1E6 dp
+        theothreshold = np.quantile(np.random.normal(size=int(1E6)), .33)
+        quantile = np.zeros_like(target_ts)
+        quantile[:] = theothreshold
+    else:
+        # using all target data - mean over standardized-on-train
+        quantile_per_fold = target_ts.groupby(level=0).quantile(fc_type).values
+        quantile = np.repeat(quantile_per_fold, target_ts.index.levels[1].size, axis=1)
+        quantile = quantile.reshape(quantile.size, 1)
+    if fc_type >= 0.5:
+        target_ts = (target_ts > quantile).astype(int)
+    elif fc_type < .5:
+        target_ts = (target_ts < quantile).astype(int)
+    return target_ts
 

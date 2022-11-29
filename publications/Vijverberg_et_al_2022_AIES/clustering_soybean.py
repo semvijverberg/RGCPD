@@ -39,8 +39,6 @@ import cartopy.feature as cfeature
 #%% Soy bean GDHY
 apply_mask_nonans = True
 detrend_via_spatial_mean = False
-missing_years = 1
-percen_years = missing_years / 70
 percen_years = 15
 
 
@@ -400,7 +398,7 @@ f_name = 'linkage_{}_nc{}'.format(linkage, int(c))
 filepath = os.path.join(path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_interp_'+xrclustfinalint.attrs['hash'])
 
-#%% get timeseries with per gridcell detrending (Used)
+#%% get timeseries with per gridcell detrending and standardizing (Used)
 # using Aggl Clustering with linkage ward, affinity euclidean
 
 xrclusteredall, results = cl.sklearn_clustering(var_filename, mask=~np.isnan(ano).all(axis=0),
@@ -423,15 +421,16 @@ ds_raw.name = 'Soy_Yield'
 ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
 ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
 
-ds_detr = utils_paper3.detrend_oos_3d(ds_raw, min_length=30)
+ds_detr = utils_paper3.detrend_oos_3d(ds_raw,
+                                      standardize=True,
+                                      min_length=30)
 
-ds_std = (ds_detr - ds_detr.mean(dim='time')) / ds_detr.std(dim='time')
 linkage = 'ward' ; c =2
 
 xrclustered = xrclusteredall.sel(n_clusters=c)
 
-
-ds = cl.spatial_mean_clusters(ds_std,
+# ds_detr = functions_pp.area_weighted(ds_detr) # no area weight
+ds = cl.spatial_mean_clusters(ds_detr,
                               xrclustered)
 dfnew = ds.ts.to_dataframe().pivot_table(index='time', columns='cluster')['ts']
 
@@ -440,45 +439,46 @@ filepath = os.path.join(path_outmain, f_name)
 cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 path_stored_cluster = os.path.join(filepath +'_'+ 'dendo_'+xrclustered.attrs['hash'])
 
-#%% get timeseries (no linear detrending before standardizing) - not neat
+#%% get timeseries (no linear detrending before standardizing)
+# not neat because standard deviation ('variability') will be dominated by steepness of trend
 
-kwrgs_NaN_handling={'missing_data_ts_to_nan':40,
-                    'extra_NaN_limit':False,
-                    'inter_method':False,
-                    'final_NaN_to_clim':False}
-years = list(range(1950, 2020))
-ds_raw = core_pp.import_ds_lazy(raw_filename, var='variable', selbox=selbox,
-                                kwrgs_NaN_handling=kwrgs_NaN_handling).rename({'z':'time'})
-ds_raw.name = 'Soy_Yield'
-ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
-ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
+# kwrgs_NaN_handling={'missing_data_ts_to_nan':40,
+#                     'extra_NaN_limit':False,
+#                     'inter_method':False,
+#                     'final_NaN_to_clim':False}
+# years = list(range(1950, 2020))
+# ds_raw = core_pp.import_ds_lazy(raw_filename, var='variable', selbox=selbox,
+#                                 kwrgs_NaN_handling=kwrgs_NaN_handling).rename({'z':'time'})
+# ds_raw.name = 'Soy_Yield'
+# ds_raw['time'] = pd.to_datetime([f'{y+1949}-01-01' for y in ds_raw.time.values])
+# ds_raw = ds_raw.sel(time=core_pp.get_oneyr(ds_raw, *years))
 
-ds_avail = (70 - np.isnan(ds_raw).sum(axis=0))
-ds_avail = ds_avail.where(ds_avail.values !=0)
-ds_avail.plot(vmin=30)
-ds_avail.min()
-
-
-ds_std = (ds_raw - ds_raw.mean(dim='time')) / ds_raw.std(dim='time')
+# ds_avail = (70 - np.isnan(ds_raw).sum(axis=0))
+# ds_avail = ds_avail.where(ds_avail.values !=0)
+# ds_avail.plot(vmin=30)
+# ds_avail.min()
 
 
-linkage = 'ward' ; c =2
-xrclustered = xrclusteredall.sel(n_clusters=c)
+# ds_std = (ds_raw - ds_raw.mean(dim='time')) / ds_raw.std(dim='time')
+
+
+# linkage = 'ward' ; c =2
+# xrclustered = xrclusteredall.sel(n_clusters=c)
 
 
 
-ds = cl.spatial_mean_clusters(ds_std,
-                              xrclustered)
-df = ds.ts.to_dataframe().pivot_table(index='time', columns='cluster')['ts']
+# ds = cl.spatial_mean_clusters(ds_std,
+#                               xrclustered)
+# df = ds.ts.to_dataframe().pivot_table(index='time', columns='cluster')['ts']
 
-f_name = 'linkage_{}_nc{}'.format(linkage, int(c))
-filepath = os.path.join(path_outmain, f_name)
-cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
+# f_name = 'linkage_{}_nc{}'.format(linkage, int(c))
+# filepath = os.path.join(path_outmain, f_name)
+# cl.store_netcdf(ds, filepath=filepath, append_hash='dendo_'+xrclustered.attrs['hash'])
 
-#%% consequence of linear detrending prior to standardizing
+# #%% consequence of linear detrending prior to standardizing
 
-f, ax = plt.subplots(1) ; _df = core_pp.detrend_wrapper(df[[1]],plot=False) ;
-ax.plot(_df) ; ax.plot(dfnew[[1]], color='red')
+# f, ax = plt.subplots(1) ; _df = core_pp.detrend_wrapper(df[[1]],plot=False) ;
+# ax.plot(_df) ; ax.plot(dfnew[[1]], color='red')
 
 #%% Figure 1 paper
 
