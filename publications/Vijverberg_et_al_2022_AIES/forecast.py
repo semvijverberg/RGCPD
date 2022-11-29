@@ -97,7 +97,7 @@ else:
     method = out[3]
 
 
-load = False
+load = 'all'
 load_models = False
 save = True
 fc_types = [0.33, 'continuous']
