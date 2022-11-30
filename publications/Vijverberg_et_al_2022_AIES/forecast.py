@@ -98,7 +98,7 @@ else:
 
 
 load = 'all'
-load_models = False
+load_models = True
 save = True
 fc_types = [0.33, 'continuous']
 fc_types = [0.33]
