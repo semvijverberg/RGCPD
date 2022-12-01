@@ -100,7 +100,7 @@ else:
 load = 'all'
 load_models = False
 save = True
-fc_types = [0.31, 0.35]
+fc_types = [0.25, 0.4]
 if 'timeseries' in method:
     btoos = False # if btoos=='_T': binary target out of sample.
     # btoos = '_theor' # binary target based on gaussian quantile
