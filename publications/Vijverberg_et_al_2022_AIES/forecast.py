@@ -102,7 +102,7 @@ load_models = False
 save = True
 fc_types = [0.25, 0.4]
 if 'timeseries' in method:
-    btoos = False # if btoos=='_T': binary target out of sample.
+    btoos = '_T' # if btoos=='_T': binary target out of sample.
     # btoos = '_theor' # binary target based on gaussian quantile
     # btoos = False, Events are based on whole dataset (even though
     # detrending and standardizing are done out of sample)
