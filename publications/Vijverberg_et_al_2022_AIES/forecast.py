@@ -100,7 +100,7 @@ else:
 load = 'all'
 load_models = False
 save = True
-fc_types = [0.25, 0.4]
+fc_types = [0.31, 0.33, 0.35]
 if 'timeseries' in method:
     btoos = '_T' # if btoos=='_T': binary target out of sample.
     # btoos = '_theor' # binary target based on gaussian quantile
@@ -120,7 +120,7 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
                     ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'test') # fc_areaw
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'test_no_areaw') # fc_areaw
 # path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
 
 
@@ -244,7 +244,7 @@ def ds_oos_lindetrend(dsclust, df_splits, path):
                                          df_splits=df_splits,
                                          standardize=True,
                                           path=path)
-    ds_out = functions_pp.area_weighted(ds_out)
+    # ds_out = functions_pp.area_weighted(ds_out)
     df = ds_out.mean(dim=('latitude', 'longitude')).to_dataframe('1ts')
     return df
 
