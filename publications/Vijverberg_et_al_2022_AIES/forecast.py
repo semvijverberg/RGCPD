@@ -98,7 +98,7 @@ else:
 
 
 load = 'all'
-load_models = False
+load_models = True
 save = True
 fc_types = [0.31, 0.33, 0.35]
 if 'timeseries' in method:
