@@ -66,7 +66,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 5
+i_default = 2
 
 def parseArguments():
     # Create argument parser
@@ -99,12 +99,14 @@ else:
 
 load = 'all'
 load_models = True
-out_of_sample_target = True
-out_of_sample_quantile = True
+out_of_sample_target = False # for detrending & standardizing
+out_of_sample_quantile = False # for calculation of event thresholds
 save = True
-fc_types = [0.31, 0.33, 0.35]
+fc_types = [0.33, 0.31, 0.35]
+# if out_of_sample quantile, then out_of_sample  target should also be true
 if out_of_sample_quantile and out_of_sample_target:
-    btoos = '_T' # if btoos=='_T': binary target out of sample.
+    btoos = '_T' # if btoos=='_T': binary target out of sample, i.e., quantile
+    # treshold is calculated based on training data.
     # btoos = '_theor' # binary target based on gaussian quantile
     # btoos = False, Events are based on whole dataset (even though
     # detrending and standardizing are done out of sample)
@@ -464,7 +466,10 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
 
         # Overwrite the in-sample processed target variable
         # First column of df_data is used as target in subsequent (causal and forecasting) analyses
-        rg.df_data.iloc[:,[0]] = rg.df_fullts
+        if out_of_sample_target:
+            rg.df_data.iloc[:,[0]] = rg.df_fullts
+        else:
+            rg.df_data.iloc[:,[0]] = pd.concat([rg.df_fullts]*rg.n_spl, keys=range(rg.n_spl))
         rg.df_data = rg.df_data.rename({rg.df_data.columns[0]:target_dataset},axis=1)
 
         #%% Causal Inference
