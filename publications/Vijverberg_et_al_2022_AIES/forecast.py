@@ -97,8 +97,8 @@ else:
     method = out[3]
 
 
-load = 'all'
-load_models = True
+load = False
+load_models = False
 save = True
 fc_types = [0.31, 0.33, 0.35]
 if 'timeseries' in method:
@@ -120,7 +120,7 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
                     ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'test_no_areaw') # fc_areaw
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'minor_revision_no_areaw') # fc_areaw
 # path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
 
 
@@ -458,10 +458,10 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         rg.df_corr  = df_output['df_corr']
     else:
         rg.get_ts_prec()
-        if 'timeseries' in method:
-            # Overwrite the in-sample processed target variable
-            # First column of df_data is used as target in subsequent (causal and forecasting) analyses
-            rg.df_data.iloc[:,[0]] = rg.df_fullts
+        # if 'timeseries' in method:
+        #     # Overwrite the in-sample processed target variable
+        #     # First column of df_data is used as target in subsequent (causal and forecasting) analyses
+        #     rg.df_data.iloc[:,[0]] = rg.df_fullts
         rg.df_data = rg.df_data.rename({rg.df_data.columns[0]:target_dataset},axis=1)
 
         #%% Causal Inference
