@@ -99,15 +99,18 @@ else:
 
 load = 'all'
 load_models = True
+out_of_sample_target = True
+out_of_sample_quantile = True
 save = True
 fc_types = [0.31, 0.33, 0.35]
-if 'timeseries' in method:
-    btoos = False # if btoos=='_T': binary target out of sample.
+if out_of_sample_quantile and out_of_sample_target:
+    btoos = '_T' # if btoos=='_T': binary target out of sample.
     # btoos = '_theor' # binary target based on gaussian quantile
     # btoos = False, Events are based on whole dataset (even though
     # detrending and standardizing are done out of sample)
 else:
-    btoos = ''
+    btoos = False
+
 
 
 plt.rcParams['savefig.dpi'] = 300
@@ -120,7 +123,7 @@ model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
                     ['RandomForestClassifier', 'RandomForestClassifier']]
 
 # path out main
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'test_no_areaw') # fc_areaw
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', f'test_no_areaw_oosT_{out_of_sample_target}') # fc_areaw
 # path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
 
 
@@ -321,7 +324,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         rg.traintest(method, seed=seed, subfoldername=subfoldername)
 
 
-    if 'timeseries' in method:
+    if out_of_sample_target:
         df_splits = rg.df_splits
     else:
         df_splits = None
@@ -334,12 +337,12 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                                                     'target_ts.h5'))['df_data']
     else:
         dfnew = ds_oos_lindetrend(dsclust, df_splits, path)
-        if 'timeseries' not in method:
-            # out-of-sample detrending
+        if out_of_sample_target == False:
+            # No out-of-sample detrending, skipping first year (1951) due to lags
             dfnew = dfnew.loc[rg.df_splits.index.levels[1]]
 
 
-        if 'timeseries' in method:
+        if out_of_sample_target:
             dfnew = dfnew.loc[df_splits.index]
             # plot difference
             df_test = functions_pp.get_df_test(dfnew, df_splits=rg.df_splits)
@@ -458,10 +461,10 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
         rg.df_corr  = df_output['df_corr']
     else:
         rg.get_ts_prec()
-        if 'timeseries' in method:
-            # Overwrite the in-sample processed target variable
-            # First column of df_data is used as target in subsequent (causal and forecasting) analyses
-            rg.df_data.iloc[:,[0]] = rg.df_fullts
+
+        # Overwrite the in-sample processed target variable
+        # First column of df_data is used as target in subsequent (causal and forecasting) analyses
+        rg.df_data.iloc[:,[0]] = rg.df_fullts
         rg.df_data = rg.df_data.rename({rg.df_data.columns[0]:target_dataset},axis=1)
 
         #%% Causal Inference
@@ -1462,7 +1465,7 @@ fcg.fig.savefig(filepath + '.pdf', bbox_inches='tight')
 fcg.fig.savefig(filepath + '.png', bbox_inches='tight')
 
 
-if 'timeseries' in method:
+if out_of_sample_target:
     df_fullts = functions_pp.get_df_test(rg.df_fullts,
                                          df_splits=rg.df_splits)
 else:
