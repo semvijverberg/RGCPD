@@ -97,8 +97,8 @@ else:
     method = out[3]
 
 
-load = False
-load_models = False
+load = 'all'
+load_models = True
 out_of_sample_target = False # for detrending & standardizing
 out_of_sample_quantile = False # for calculation of event thresholds
 save = True
