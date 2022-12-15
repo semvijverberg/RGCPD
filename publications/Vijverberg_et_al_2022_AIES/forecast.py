@@ -102,7 +102,7 @@ load_models = True
 out_of_sample_target = False # for detrending & standardizing
 out_of_sample_quantile = False # for calculation of event thresholds
 save = True
-fc_types = [0.33, 0.31, 0.35]
+fc_types = [0.33, 0.32, 0.31, 0.34, 0.35]
 # if out_of_sample quantile, then out_of_sample  target should also be true
 if out_of_sample_quantile and out_of_sample_target:
     btoos = '_T' # if btoos=='_T': binary target out of sample, i.e., quantile

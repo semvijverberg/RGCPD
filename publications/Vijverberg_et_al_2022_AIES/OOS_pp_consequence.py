@@ -34,22 +34,22 @@ if main_dir not in sys.path:
 import utils_paper3
 
 path_main = '/Users/semvijverberg/Desktop/cluster/surfdrive/output_paper3'
-standard_subfolder = 'a9943/USDA_Soy_clusters__1/timeseriessplit_30/s1'
-model_name = 'LogisticRegression'
-fc_month = 'April'
+standard_subfolder = 'a9943/USDA_Soy_clusters__1/timeseriessplit_25/s1'
+model_name = 'RandomForestClassifier'
+fc_month = 'March'
 
 
 fc_types = [0.31, 0.33, 0.35]
 fc_type = fc_types[0]
 
-path_no_OOS = f'test_no_areaw_oosT_False/{standard_subfolder}/df_data_fctpFalse_all'
-path_OOS_no_q = f'test_no_areaw_oosT_True/{standard_subfolder}/df_data_fctpFalse_all'
-path_OOS = f'test_no_areaw_oosT_True/{standard_subfolder}/df_data_fctp_T_all'
+path_no_OOS = f'test_no_areaw_oosT_False/{standard_subfolder}/df_data_fctpFalse_all_CD'
+path_OOS_no_q = f'test_no_areaw_oosT_True/{standard_subfolder}/df_data_fctpFalse_all_CD'
+path_OOS = f'test_no_areaw_oosT_True/{standard_subfolder}/df_data_fctp_T_all_CD'
 
 
 def plot_table(subtitle, path, ax):
 
-    df_scores = []
+    df_scores = [] ;
     for fc_type in fc_types:
         orig_fc_type = path.split('df_data_')[1][:4]
         path = path.replace(orig_fc_type, str(fc_type))
@@ -62,7 +62,7 @@ def plot_table(subtitle, path, ax):
         df_scores_ = [df_scores_[i] for i in [0,1]]
         df_test_m = [d[fc_month] for d in df_scores_]
         table_col = [d.index[0] for d in df_test_m][1:]
-        order_verif = [f'All (q={fc_type})'] + ['Top '+t.split(' ')[1] + f' (q={fc_type})' for t in table_col]
+        order_verif = [f'All\nq={fc_type}'] + ['Top '+t.split(' ')[1] + f'\nq={fc_type}' for t in table_col]
         for i, df_test_skill in enumerate(df_test_m):
             r = {df_test_skill.index[0]:order_verif[i]}
             df_scores.append( df_test_skill.rename(r, axis=0) )
@@ -102,16 +102,16 @@ def plot_table(subtitle, path, ax):
                       edges='closed')
     table.set_fontsize(30)
 
-    table.scale(1, 3)
+    table.scale(1, 4)
     ax.axis('off')
     ax.axis('tight')
     ax.set_facecolor('white')
     ax.set_title(subtitle, fontsize=16)
     return ax
 
-fig, ax = plt.subplots(3, 1, figsize=(10,7.2))
+fig, ax = plt.subplots(3, 1, figsize=(10,9))
 # plt.subplots_adjust(hspace=5)
 ax1 = plot_table('No OOS pre-processing', os.path.join(path_main, path_no_OOS), ax[0])
 ax2 = plot_table('OOS pre-processing, in-sample quantiles', os.path.join(path_main, path_OOS_no_q), ax[1])
 ax3 = plot_table('OOS pre-processing', os.path.join(path_main, path_OOS), ax[2])
-fig.suptitle(f'{fc_month}, quantile: {fc_type}', y=0.96, fontsize=22)
+fig.suptitle(f'{fc_month}', y=0.96, fontsize=22)
