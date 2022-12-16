@@ -99,8 +99,8 @@ else:
 
 load = 'all'
 load_models = True
-out_of_sample_target = True # for detrending & standardizing
-out_of_sample_quantile = True # for calculation of event thresholds
+out_of_sample_target = False # for detrending & standardizing
+out_of_sample_quantile = False # for calculation of event thresholds
 save = True
 fc_types = [0.33, 0.32, 0.31, 0.34, 0.35]
 # if out_of_sample quantile, then out_of_sample  target should also be true
