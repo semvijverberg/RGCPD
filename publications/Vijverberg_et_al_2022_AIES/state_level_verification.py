@@ -140,9 +140,9 @@ if method == 'leave_1': append_pathsub += 'gp_prior_1_after_1'
 
 
 
-path_in_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_areaw')
+path_in_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'test_no_areaw_oosT_True')
 path_in_main = os.path.join(path_in_main, 'a9943')
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'STATES')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'STATES_no_areaw')
 os.makedirs(path_out_main, exist_ok=True)
 path_save = os.path.join(path_out_main,
                           f'{model}_{method}_{training_data}_{fc_type}')
@@ -310,7 +310,7 @@ else:
 def gridded_yield_to_state(ds_yield_pp, xarray, df_codes, state):
     df_s = df_codes[df_codes['name'].str.match(state, case=False)]
     ds_state = ds_yield_pp.where(xarray.values == int(df_s['label']))
-    ds_state = functions_pp.area_weighted(ds_state)
+    # ds_state = functions_pp.area_weighted(ds_state)
     ds_state = ds_state.mean(dim=('latitude', 'longitude'))
     return ds_state.to_dataframe(state)
 

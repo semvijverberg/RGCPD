@@ -36,7 +36,7 @@ import utils_paper3
 path_main = '/Users/semvijverberg/Desktop/cluster/surfdrive/output_paper3'
 standard_subfolder = 'a9943/USDA_Soy_clusters__1/timeseriessplit_25/s1'
 model_names = ['RandomForestClassifier', 'LogisticRegression']
-model_name = model_names[0]
+
 fc_months = ['August', 'July', 'June', 'May', 'April', 'March', 'February']
 model_rename = {'LogisticRegression' : 'Logist. Regr.', 'RandomForestClassifier':'Random Forest'}
 
@@ -47,7 +47,7 @@ path_OOS_no_q = f'test_no_areaw_oosT_True/{standard_subfolder}/df_data_fctpFalse
 path_OOS = f'test_no_areaw_oosT_True/{standard_subfolder}/df_data_fctp_T_all_CD'
 
 
-def get_data(path, subset):
+def get_data(path, subset, model_name):
 
     metric = 'BSS'
     df_scores = [] ; df_boots = []
@@ -85,70 +85,70 @@ def get_data(path, subset):
 
     return df_scores_all
 
-    # metrics_plot = ['BSS', 'precision']
-    # tsc = df_scores.loc[metrics_plot].values
-    # tscs = np.zeros(tsc.shape, dtype=object)
-    # for i, m in enumerate(metrics_plot):
-    #     _sc_ = tsc[i]
-    #     if 'prec' in m or 'acc' in m:
-    #         sc_f = ['{:.0f}%'.format(round(s,0)) for s in _sc_.ravel()]
-    #         # if df_boots_list is not None:
-    #         #     for j, s in enumerate(zip(tbl[i], tbh[i])):
-    #         #         sc_f[j] = sc_f[j].replace('%', r'$_{{{:.0f}}}^{{{:.0f}}}$%'.format(*s))
-    #     else:
-    #         sc_f = ['{:.2f}'.format(round(s,2)) for s in tsc[i].ravel()]
-
-    #         # if df_boots_list is not None:
-    #         #     for j, s in enumerate(zip(tbl[i], tbh[i])):
-    #         #         sc_f[j] = sc_f[j] + r'$_{{{:.2f}}}^{{{:.2f}}}$'.format(*s)
-    #     tscs[i] = sc_f
 
 
-    # table = ax.table(cellText=tscs,
-    #                   cellLoc='center',
-    #                   rowLabels=[rename_met[m] for m in metrics_plot],
-    #                   colLabels=df_scores.columns, loc='center',
-    #                   edges='closed')
-    # table.set_fontsize(30)
-
-    # table.scale(1, 4)
-    # ax.axis('off')
-    # ax.axis('tight')
-    # ax.set_facecolor('white')
-    # ax.set_title(subtitle, fontsize=16)
-
-df_collect_all = [] ; df_collect_top = []
 paths = {'No OOS pre-processing'                    : os.path.join(path_main, path_no_OOS),
-         'OOS pre-processing, in-sample quantiles'  : os.path.join(path_main, path_OOS_no_q),
+          # 'OOS pre-processing, in-sample quantiles'  : os.path.join(path_main, path_OOS_no_q),
          'OOS pre-processing'                       : os.path.join(path_main, path_OOS)}
 
-for path in paths.values():
-    df_collect_all.append(get_data(path, 'All'))
-    df_collect_top.append(get_data(path, 'Top 30%'))
-#%%
-fig, axes = plt.subplots(2, 3, figsize=(14,6), sharey=True, sharex=True)
+model_out = {}
+for model_name in model_names:
 
+    df_collect_all = [] ; df_collect_top = []
+    for path in paths.values():
+        df_collect_all.append(get_data(path, 'All', model_name))
+        df_collect_top.append(get_data(path, 'Top 30%', model_name))
+    model_out[model_name] = (df_collect_all, df_collect_top)
+#%%
+model_name = model_names[0]
+df_collect_all, df_collect_top = model_out[model_name]
+
+fig, axes = plt.subplots(2, 2, figsize=(9,6), sharey=True, sharex=True)
+plt.rc('legend', fontsize=10)
 colors = ['#ef476f', '#ffd166', '#06d6a0', '#118ab2', '#073b4c'][:len(fc_types)] * len(fc_months)
 for i, df_scores in enumerate(df_collect_all):
 
     legend = True if i == len(df_collect_all)-1 else False
     df_scores.plot(y=fc_types, kind='bar', ax=axes[0,i], legend=legend, color=colors)
     axes[0,i].set_title(list(paths.keys())[i], fontsize=12)
-    axes[0,i].set_ylim(0,1)
+    axes[0,i].set_ylim(-.2,1)
+    axes[0,i].axhline(df_scores[0.33].mean(), xmax=1.2, color=colors[1], ls='dashed', lw=1)
     axes[0,i].set(xlabel=None)
-    if i==0: axes[0,i].set_ylabel('All datapoints', fontsize=12)
+    if i==0:
+        axes[0,i].set_ylabel('All datapoints', fontsize=12)
+    if i == 0 and model_names.index(model_name) == 1:
+        axes[0,i].annotate('Perfect skill', xy=(-.5, 1), xytext=(0.2, .9),
+                arrowprops=dict(arrowstyle="->", color='black'),
+                fontsize=9,
+                transform=axes[1,i].transAxes)
+        axes[0,i].annotate('Climatological skill', xy=(-.5, 0), xytext=(0.2, -.1),
+                arrowprops=dict(arrowstyle="->", color='black'),
+                fontsize=9,
+                transform=axes[1,i].transAxes)
+axes[0,1].annotate('drop in skill', xy=(-0.5, df_collect_all[1][0.33].mean()),
+                   xytext=(-.5, df_collect_all[0][0.33].mean()+.05),
+                   horizontalalignment="center",
+        arrowprops=dict(arrowstyle="->", color='black'),
+        fontsize=9, bbox = dict(boxstyle ="round", fc ="0.8"))
+
 
 for i, df_scores in enumerate(df_collect_top):
 
     df_scores.plot(y=fc_types, kind='bar', ax=axes[1,i], legend=False, color=colors)
-    # axes[1,i].set_title(list(paths.keys())[i], fontsize=12)
-    axes[1,i].set_ylim(0,1)
+    axes[1,i].axhline(df_scores[0.33].mean(), color=colors[1], ls='dashed', lw=1)
+    axes[1,i].set_ylim(-.2,1)
     axes[1,i].set(xlabel=None)
-    if i==0: axes[1,i].set_ylabel('Window of opportunity (Top 30%)', fontsize=12)
+    if i==0:
+        axes[1,i].set_ylabel('Window of opportunity (Top 30%)', fontsize=12)
+axes[1,1].annotate('drop in skill', xy=(-0.5, df_collect_top[1][0.33].mean()),
+                   xytext=(-.5, df_collect_top[0][0.33].mean()+.05),
+                   horizontalalignment="center",
+        arrowprops=dict(arrowstyle="->", color='black'),
+        fontsize=9, bbox = dict(boxstyle ="round", fc ="0.8"))
 
 plt.subplots_adjust(wspace=0.1, hspace=.1)
 fig.suptitle(f'Brier Skill Score {model_rename[model_name]}', y=0.965, fontsize=22)
-fig.savefig(os.path.join(path_main, 'test_no_areaw_oosT_True', standard_subfolder, 'OOS_sensitivity.pdf'),
+fig.savefig(os.path.join(path_main, 'test_no_areaw_oosT_True', standard_subfolder, f'OOS_sensitivity_{model_name}.pdf'),
             bbox_inches='tight')
 # ax1 = plot_table('No OOS pre-processing', os.path.join(path_main, path_no_OOS), ax[0])
 # ax2 = plot_table('OOS pre-processing, in-sample quantiles', os.path.join(path_main, path_OOS_no_q), ax[1])
