@@ -39,7 +39,7 @@ if main_dir not in sys.path:
 
 
 path_raw = user_dir + '/surfdrive/ERA5/input_raw'
-
+user_dir = '/Users/semvijverberg/Desktop/cluster/'
 
 from RGCPD import RGCPD
 from RGCPD import BivariateMI, class_BivariateMI, functions_pp
@@ -59,14 +59,14 @@ All_states = ['ALABAMA', 'DELAWARE', 'ILLINOIS', 'INDIANA', 'IOWA', 'KENTUCKY',
 target_datasets = ['USDA_Soy_clusters__1']
 seeds = [1] # ,5]
 yrs = ['1950, 2019'] # ['1950, 2019', '1960, 2019', '1950, 2009']
-methods = ['leave_1']#, 'timeseriessplit_20', 'timeseriessplit_25', 'timeseriessplit_30']#, 'leave_1', timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']
+methods = ['leave_1', 'timeseriessplit_20', 'timeseriessplit_25', 'timeseriessplit_30']#, 'leave_1', timeseriessplit_25', 'timeseriessplit_20', 'timeseriessplit_30']
 training_datas = ['all', 'all_CD', 'onelag', 'climind']
 combinations = np.array(np.meshgrid(target_datasets,
                                     seeds,
                                     yrs,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 2
+i_default = 0
 
 def parseArguments():
     # Create argument parser
@@ -99,8 +99,8 @@ else:
 
 load = 'all'
 load_models = True
-out_of_sample_target = False # for detrending & standardizing
-out_of_sample_quantile = False # for calculation of event thresholds
+out_of_sample_target = True # for detrending & standardizing
+out_of_sample_quantile = True # for calculation of event thresholds
 save = True
 fc_types = [0.33, 0.32, 0.31, 0.34, 0.35]
 # if out_of_sample quantile, then out_of_sample  target should also be true
@@ -124,9 +124,10 @@ model_combs_cont = [['Ridge', 'Ridge'],
 model_combs_bina = [['LogisticRegression', 'LogisticRegression'],
                     ['RandomForestClassifier', 'RandomForestClassifier']]
 
+
+
 # path out main
-path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', f'test_no_areaw_oosT_{out_of_sample_target}') # fc_areaw
-# path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', 'fc_extra2lags')
+path_out_main = os.path.join(user_dir, 'surfdrive', 'output_paper3', f'test_no_areaw_oosT_{out_of_sample_target}')
 
 
 def read_csv_Raed(path):
@@ -151,10 +152,7 @@ def read_csv_State(path, State: str=None, col='obs_yield'):
     return orig[State]
 
 # path to raw Soy Yield dataset
-if sys.platform == 'linux':
-    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/data/'
-else:
-    root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
+root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/data/'
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
 
 if target_dataset.split('__')[0] == 'USDA_Soy_clusters':
@@ -162,7 +160,6 @@ if target_dataset.split('__')[0] == 'USDA_Soy_clusters':
     # TV refers to Target Variable
     # TVpath = path_stored_cluster
     TVpath = os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/clustering/linkage_ward_nc2_dendo_lindetrendgc_a9943.nc')
-    # TVpath = os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/clustering/linkage_ward_nc2_dendo_4ad10.nc')
     cluster_label = int(target_dataset.split('__')[1]) ; name_ds = 'ts'
 elif target_dataset == 'Aggregate_States':
     path =  os.path.join(main_dir, 'publications/Vijverberg_et_al_2022_AIES/data/masked_rf_gs_state_USDA.csv')
@@ -171,7 +168,12 @@ elif target_dataset == 'Aggregate_States':
     TVpath = pd.DataFrame(TVpath.values, index=TVpath.index, columns=['KENTUCKYTENNESSEEMISSOURIILLINOISINDIANA'])
     name_ds='Soy_Yield' ; cluster_label = ''
 
-
+if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
+    path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
+elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
+    path_out_main = os.path.join(path_out_main, 'All_State_Average')
+elif target_dataset in All_states: # add cluster hash
+    path_out_main = os.path.join(path_out_main, 'States')
 
 alpha_corr = .05
 alpha_CI = .05
@@ -179,14 +181,6 @@ n_boot = 2000
 append_pathsub = f'/{method}/s{seed}'
 extra_lag = True
 append_main = target_dataset
-
-
-if target_dataset.split('__')[0] == 'USDA_Soy_clusters': # add cluster hash
-    path_out_main = os.path.join(path_out_main, TVpath.split('.')[0].split('_')[-1])
-elif target_dataset.split('__')[0] == 'All_State_average': # add cluster hash
-    path_out_main = os.path.join(path_out_main, 'All_State_Average')
-elif target_dataset in All_states: # add cluster hash
-    path_out_main = os.path.join(path_out_main, 'States')
 
 PacificBox = (130,265,-10,60)
 GlobalBox  = (-180,360,-10,60)
@@ -296,7 +290,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
                start_end_year=start_end_year,
                tfreq=None,
                path_outmain=path_out_main)
-    rg.figext = '.png'
+    rg.figext = '.jpg'
 
 
     subfoldername = target_dataset + append_pathsub
@@ -472,7 +466,7 @@ def pipeline(lags, periodnames, use_vars=['sst', 'smi'], load=False):
             rg.df_data.iloc[:,[0]] = pd.concat([rg.df_fullts]*rg.n_spl, keys=range(rg.n_spl))
         rg.df_data = rg.df_data.rename({rg.df_data.columns[0]:target_dataset},axis=1)
 
-        #%% Causal Inference
+        # Causal Inference
         def feature_selection_CondDep(df_data, keys, z_keys=None, alpha_CI=.05, x_lag=0, z_lag=0):
 
             # Feature selection Cond. Dependence
@@ -1374,82 +1368,83 @@ for fc_type in fc_types:
         #                           f'scores_vs_lags_{i}.pdf'), bbox_inches='tight')
         # plt.close()
 
-#%% collecting different train-test splits to plot scores vs training input
-# creating spreadsheet of BSS skill in overview.csv
+    #%% collecting different train-test splits to plot scores vs training input
+    # creating spreadsheet of BSS skill in overview.csv
 
-condition = 50
-models = ['LogisticRegression', 'RandomForestClassifier']
-training_datas_overview = ['onelag', 'all', 'all_CD', 'climind']
-skill_metrics = ['BSS']
-nicenames = {'onelag':'only lag 1 RG-DR precursors',
-             'all': 'all RG-DR precursors',
-             'all_CD':'all C.D. precursors',
-             'climind':'Climate Indices (PDO+ENSO34)',
-             'LogisticRegression': 'Regularized Logistic Regr.',
-             'RandomForestClassifier': 'Random Forest Classifier'}
-combinations = np.array(np.meshgrid(models,
-                                    training_datas_overview,
-                                    skill_metrics)).T.reshape(-1,3)
-lead_times = ['August', 'June', 'April', 'February']
-csvfilename = os.path.join(rg.path_outsub1, 'overview_skill.csv')
-if os.path.isfile(csvfilename): os.remove(csvfilename)
+    condition = 50
+    models = ['LogisticRegression', 'RandomForestClassifier']
+    training_datas_overview = ['onelag', 'all', 'all_CD', 'climind']
+    skill_metrics = ['BSS']
+    nicenames = {'onelag':'only lag 1 RG-DR precursors',
+                 'all': 'all RG-DR precursors',
+                 'all_CD':'all C.D. precursors',
+                 'climind':'Climate Indices (PDO+ENSO34)',
+                 'LogisticRegression': 'Regularized Logistic Regr.',
+                 'RandomForestClassifier': 'Random Forest Classifier'}
+    combinations = np.array(np.meshgrid(models,
+                                        training_datas_overview,
+                                        skill_metrics)).T.reshape(-1,3)
+    lead_times = ['August', 'June', 'April', 'February']
+    csvfilename = os.path.join(rg.path_outsub1, f'overview_skill_{fc_type}.csv')
+    if os.path.isfile(csvfilename): os.remove(csvfilename)
 
-f_names = []
-for model, training_data_overview, metric in combinations:
-    dict_sum = {'model':nicenames[model],
-                'training input':nicenames[training_data_overview],
-                'metric':metric}
+    f_names = []
+    for model, training_data_overview, metric in combinations:
+        dict_sum = {'model':nicenames[model],
+                    'training input':nicenames[training_data_overview],
+                    'metric':metric}
 
-    path = os.path.join(rg.path_outsub1,
-                        f'df_data_{str(fc_type)}{btoos}')
+        path = os.path.join(rg.path_outsub1,
+                            f'df_data_{str(fc_type)}{btoos}')
 
-    path  += '_'+training_data_overview
-    try:
-        out = utils_paper3.load_scores(['Target'], model,
-                                   model,
-                                   n_boot, path,
-                                   condition=f'strong {condition}')[:2]
-    except:
-        print('path for overview.csv failed')
-        continue
-    df_scores = out[0][0][pd.MultiIndex.from_product([lead_times, skill_metrics])]
-    dict_lt = {l:round(df_scores.iloc[0,i],2) for i,l in enumerate(lead_times)}
-    dict_lt['Mean'] = round(df_scores.values.mean(), 2)
+        path  += '_'+training_data_overview
+        try:
+            out = utils_paper3.load_scores(['Target'], model,
+                                       model,
+                                       n_boot, path,
+                                       condition=f'strong {condition}')[:2]
+        except:
+            print('path for overview.csv failed')
+            continue
+        df_scores = out[0][0][pd.MultiIndex.from_product([lead_times, skill_metrics])]
+        dict_lt = {l:round(df_scores.iloc[0,i],2) for i,l in enumerate(lead_times)}
+        dict_lt['Mean'] = round(df_scores.values.mean(), 2)
 
-    # use all RG-DR timeseries for (final) prediction
-    if training_data_overview == 'all':
-        n_features = []
-        for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
-            total = (~rg.df_data.iloc[:,1:-2].groupby(axis=0, level=0).mean().isna()).sum().sum()
-            n_features.append(total/rg.n_spl)
-    # use all RG-DR timeseries that are C.D. for (final) prediction
-    elif training_data_overview == 'all_CD':
-        n_features = []
-        for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
-            keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), alpha_CI)
-            n_features.append(np.mean([len(v) for v in keys_dict.values()]))
-    # use only fist lag of RG-DR timeseries that are C.D.
-    elif training_data_overview == 'onelag':
-        n_features = []
-        for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
-            firstlag = str(rg.list_for_MI[0].corr_xr.lag[-1].values)
-            keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), 1,
-                                                    firstlag)
-            n_features.append(np.mean([len(v) for v in keys_dict.values()]))
+        print(rg.path_outsub1)
+        # use all RG-DR timeseries for (final) prediction
+        if training_data_overview == 'all':
+            n_features = []
+            for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
+                total = (~rg.df_data.iloc[:,1:-2].groupby(axis=0, level=0).mean().isna()).sum().sum()
+                n_features.append(total/rg.n_spl)
+        # use all RG-DR timeseries that are C.D. for (final) prediction
+        elif training_data_overview == 'all_CD':
+            n_features = []
+            for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
+                keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), alpha_CI)
+                n_features.append(np.mean([len(v) for v in keys_dict.values()]))
+        # use only fist lag of RG-DR timeseries that are C.D.
+        elif training_data_overview == 'onelag':
+            n_features = []
+            for rg in [rg for rg in rg_list if rg.fc_month in lead_times]:
+                firstlag = str(rg.list_for_MI[0].corr_xr.lag[-1].values)
+                keys_dict = utils_paper3.get_CD_df_data(rg.df_pvals.copy(), 1,
+                                                        firstlag)
+                n_features.append(np.mean([len(v) for v in keys_dict.values()]))
 
-    dict_sum.update({'n-features':[round(n, 1) for n in n_features]})
-    dict_sum.update(dict_lt)
+        dict_sum.update({'n-features':[round(n, 1) for n in n_features]})
+        dict_sum.update(dict_lt)
 
-    # create .csv if it does not exists
-    if os.path.exists(csvfilename) == False:
+        # create .csv if it does not exists
+        if os.path.exists(csvfilename) == False:
+            with open(csvfilename, 'a', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, list(dict_sum.keys()))
+                writer.writerows([{f:f for f in list(dict_sum.keys())}])
+
+        # write
         with open(csvfilename, 'a', newline='') as csvfile:
             writer = csv.DictWriter(csvfile, list(dict_sum.keys()))
-            writer.writerows([{f:f for f in list(dict_sum.keys())}])
-
-    # write
-    with open(csvfilename, 'a', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, list(dict_sum.keys()))
-        writer.writerows([dict_sum])
+            writer.writerows([dict_sum])
 
 
 #%% PDO versus trend line
@@ -1498,23 +1493,6 @@ ax.axhline(color='black')
 ax.legend(['Target', 'PDO(-)', 'Eastern Pacific'])
 f.savefig(os.path.join(rg.path_outsub1, 'Target_vs_Pac_ts'+rg.figext),
           bbox_inches='tight')
-#%%
-# _model = fcmodel.scikitmodel.__name__
-# _month = 'May'
-# filepath_dfs = os.path.join(filepath_df_datas,
-#                             f'CL_models_cont{_model}.h5')
-# df_data_CL = functions_pp.load_hdf5(filepath_dfs)
-# CL_m = df_data_CL[_month + '_df_data']
-# CL_Pac = CL_m[[c for c in CL_m.columns if '..1..sst' in c]]
-# CL_Pac = functions_pp.get_df_train(CL_Pac, df_splits=rg.df_splits)
-# CL_PacR_mean = CL_Pac.merge(df_Pacm, left_index=True, right_index=True)
-# f, ax = plt.subplots(1, figsize=(12,8))
-# CL_PacR_mean.plot(ax=ax, color=['blue', 'r'])
-# ax.axhline(color='black')
-# ax.legend([f'{_model} Eastern Pacific', 'Eastern Pacific mean'])
-# f.savefig(os.path.join(rg.path_outsub1, 'Pacific_model_vs_Pacific_mean'+rg.figext),
-#           bbox_inches='tight')
-
 
 
 #%%

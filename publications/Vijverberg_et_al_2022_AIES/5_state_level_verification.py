@@ -13,6 +13,8 @@ if sys.platform == 'linux':
     mpl.use('Agg')
     n_cpu = 5
 else:
+    if '/Users/semvijverberg/surfdrive/Scripts/jannes_code/RGCPD' in sys.path:
+        sys.path.remove('/Users/semvijverberg/surfdrive/Scripts/jannes_code/RGCPD')
     n_cpu = 3
 
 import numpy as np
@@ -33,29 +35,19 @@ os.chdir(os.path.join(user_dir,
                       'surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/'))
 curr_dir = os.path.join(user_dir, 'surfdrive/Scripts/RGCPD/RGCPD/')
 main_dir = '/'.join(curr_dir.split('/')[:-2])
-RGCPD_func = os.path.join(main_dir, 'RGCPD')
-assert main_dir.split('/')[-1] == 'RGCPD', 'main dir is not RGCPD dir'
-cluster_func = os.path.join(main_dir, 'clustering/')
-fc_dir = os.path.join(main_dir, 'forecasting')
-
-if cluster_func not in sys.path:
+if main_dir not in sys.path:
     sys.path.append(main_dir)
-    sys.path.append(RGCPD_func)
-    sys.path.append(cluster_func)
-    sys.path.append(fc_dir)
 
-
+user_dir = '/Users/semvijverberg/Desktop/cluster/'
 
 # path to raw Soy Yield dataset
-if sys.platform == 'linux':
-    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/data/'
-else:
-    root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
+root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/data/'
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
 
 
 data_dir_repo = './data'
 Soy_state_path =  os.path.join(data_dir_repo, 'masked_rf_gs_state_USDA.csv')
+
 
 from RGCPD.forecasting import func_models as fc_utils
 from RGCPD import functions_pp, find_precursors, plot_maps, core_pp
@@ -83,7 +75,7 @@ combinations = np.array(np.meshgrid(target_datasets,
                                     models,
                                     methods,
                                     training_datas)).T.reshape(-1,5)
-i_default = 4
+i_default = 5
 load = 'all'
 save = True
 use_gridded_data = True
@@ -246,15 +238,15 @@ selbox = [253,290,28,52] ; years = list(range(1975, 2020))
 if sys.platform == 'linux':
     import matplotlib as mpl
     mpl.use('Agg')
-    root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/data/'
-else:
-    root_data = user_dir+'/Dropbox/VIDI_Coumou/Paper3_Sem/GDHY_MIRCA2000_Soy/USDA/'
+root_data = user_dir+'/surfdrive/Scripts/RGCPD/publications/Vijverberg_et_al_2022_AIES/data/'
+
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
 da = core_pp.import_ds_lazy(raw_filename,
                             **{'selbox':selbox,
                                'var':'variable'}).isel(z=0).drop('z')
 xarray, df_codes = make_country_mask.create_mask(da,
                                                  level='US_States')
+
 
 #%%
 raw_filename = os.path.join(root_data, 'masked_rf_gs_county_grids.nc')
